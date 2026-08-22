@@ -113,7 +113,11 @@ def construct_smooth(
     by_variable_info = ByVariableInfo(
         name=None if _by_state is None else _by_state.feature_name,
         is_constant=None if _by_state is None else _by_state.is_constant,
-        handling="runtime" if getattr(runtime, "by", None) is not None else "none",
+        handling=(
+            "none"
+            if getattr(runtime, "by", None) is None
+            else str(getattr(_by_state, "handling", "runtime"))
+        ),
     )
     side_condition_policy = default_side_condition_policy(
         term_type=str(getattr(runtime, "term_type", "smooth")),
@@ -227,6 +231,7 @@ def construct_smooth(
         coef_slice=slice(0, int(B.shape[1])),
         basis_train=np.asarray(B, dtype=np.float64),
         predict_fn=getattr(runtime, "transform_new", None),
+        derivative_fn=getattr(runtime, "derivative_matrix", None),
         predict_coefficient_map=(
             compose_coefficient_maps(tuple(coefficient_maps))
             if predict_coefficient_map_arr is None
@@ -253,6 +258,11 @@ def construct_smooth(
         penalty_specs=tuple(penalty_defs),
         constructor_metadata=constructor_metadata,
         metadata=dict(getattr(runtime, "metadata", {}) or {}),
+        positive_coefficient_mask=(
+            None
+            if getattr(runtime, "positive_coefficient_mask", None) is None
+            else np.asarray(runtime.positive_coefficient_mask, dtype=bool).copy()
+        ),
     )
 
     return ConstructedSmooth(

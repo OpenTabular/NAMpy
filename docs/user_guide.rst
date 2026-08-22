@@ -7,7 +7,9 @@ This guide provides comprehensive information on using NAMpy effectively.
    :maxdepth: 2
 
    user_guide/preprocessing
+   user_guide/pretab_compatibility
    user_guide/training
+   user_guide/shape_constrained_gams
    user_guide/custom_models
    user_guide/interpretability
 
@@ -31,12 +33,26 @@ Advanced Models
 ~~~~~~~~~~~~~~~
 
 **GPNAM (Gaussian Process NAM)**
-   Incorporates Gaussian processes for better uncertainty quantification.
-   Good for when you need probabilistic predictions.
+   Uses fixed random Fourier features to learn smooth additive RBF-kernel shape
+   functions with a convex regression objective. It is parameter-efficient and
+   interpretable, but does not itself provide GP posterior uncertainty.
+
+**IGANN**
+   Initializes additively with a sparse linear model and then boosts fixed
+   feature-wise ELM bases. It is useful when fast training, smooth shape
+   functions, and optional nonlinear feature selection are priorities.
+
+**SIAN**
+   Detects interactions with a reference MLP and Archipelago, then trains a
+   sparse additive model with selected interactions of configurable order.
 
 **NBM (Neural Basis Model)**
-   Uses basis functions for feature transformations. Effective for
-   capturing complex non-linear relationships.
+   Learns shared basis functions for unary or n-ary concept tuples. Dense and
+   sparse active-tuple execution are selected through configuration.
+
+**SPAM and NBM-SPAM**
+   SPAM learns low-rank polynomial effects. NBM-SPAM applies those polynomial
+   heads to learned unary NBM scores.
 
 **NATT (Neural Attentive Tabular Transformer)**
    Transformer-based architecture with attention mechanisms. Best for
@@ -81,7 +97,7 @@ For predicting continuous values:
    predictions = model.predict(X_test)
 
 Most models have a `*Regressor` variant (for example, `GPNAMRegressor`,
-`TreeNAMRegressor`, and `SNAMRegressor`).
+`IGANNRegressor`, `SIANRegressor`, `TreeNAMRegressor`, and `SNAMRegressor`).
 
 Classification
 ~~~~~~~~~~~~~~
@@ -101,7 +117,8 @@ For predicting categorical labels:
    # Probability estimates
    probabilities = model.predict_proba(X_test)
 
-Most models have a `*Classifier` variant (e.g., `GPNAMClassifier`, `NBMClassifier`).
+Most models have a `*Classifier` variant (e.g., `GPNAMClassifier`,
+`SIANClassifier`, and `NBMClassifier`).
 
 Distributional Regression (LSS)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -132,7 +149,7 @@ Available distribution families:
 * ``quantile`` - Quantile regression
 * ``robustnormal`` - Robust normal distribution
 
-Most models have an `*LSS` variant (for example, `GPNAMLSS`, `TreeNAMLSS`, and
+Most models have an `*LSS` variant (for example, `GPNAMLSS`, `SIANLSS`, and
 `SNAMLSS`). `QNAM` is distributional-only.
 
 Hyperparameter Configuration
@@ -157,8 +174,8 @@ All models share these common hyperparameters:
        dropout=0.5,                # Dropout rate
        
        # Preprocessing
-       numerical_preprocessing="ple",  # Preprocessing strategy
-       n_bins=50,                      # Number of bins for encoding
+       numerical_method="ple",  # Preprocessing strategy
+       output_dim=50,                      # Number of bins for encoding
    )
 
 Training Parameters
@@ -260,7 +277,7 @@ Performance Optimization
 
 1. **Use GPU** if available (automatic with PyTorch)
 2. **Batch your data** appropriately
-3. **Adjust n_bins** based on dataset size
+3. **Adjust output_dim** based on dataset size
 4. **Use appropriate preprocessing** for your feature types
 
 Next Steps

@@ -13,8 +13,12 @@ Regression Models
    :nosignatures:
 
    NAMRegressor
+   SIANRegressor
    GPNAMRegressor
+   IGANNRegressor
    NBMRegressor
+   NBMSPAMRegressor
+   SPAMRegressor
    NATTRegressor
    NAMformerRegressor
    LinRegRegressor
@@ -32,8 +36,12 @@ Classification Models
    :nosignatures:
 
    NAMClassifier
+   SIANClassifier
    GPNAMClassifier
+   IGANNClassifier
    NBMClassifier
+   NBMSPAMClassifier
+   SPAMClassifier
    NATTClassifier
    NAMformerClassifier
    LinRegClassifier
@@ -50,8 +58,12 @@ Distributional Regression Models (LSS)
    :nosignatures:
 
    NAMLSS
+   SIANLSS
    GPNAMLSS
+   IGANNLSS
    NBMLSS
+   NBMSPAMLSS
+   SPAMLSS
    NATTLSS
    NAMformerLSS
    LinRegLSS

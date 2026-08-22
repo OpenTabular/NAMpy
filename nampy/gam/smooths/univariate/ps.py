@@ -15,12 +15,16 @@ from ...penalties.algebra import penalty_rescale_factor, scale_penalty
 from ...splines.univariate.ps import (
     build_pspline_term_setup,
     predict_pspline_term,
+    pspline_predict_matrix,
 )
 from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
     _resolve_feature,
-    column_as_float,
+    by_values_from_new_data,
+    column_as_numeric_array,
+    linear_functional_basis,
+    linear_functional_by_state,
 )
 
 
@@ -99,16 +103,33 @@ class PSplineTerm1D(BaseSmoothTerm):
         self._basis_train = None
         self._penalties = None
         self._setup = None
+        self._linear_functional = False
 
     def fit(self, X, feature_names):
+        self._X_train = np.asarray(X, dtype=object).copy()
         idx, feature_name = _resolve_feature(self.feature, feature_names)
         self._feature_index = idx
         self._feature_name = feature_name
         self._set_resolved_features([feature_name])
 
-        xj = column_as_float(X, idx)
+        xj = column_as_numeric_array(X, idx)
 
         self._set_by_state(X, feature_names)
+        self._linear_functional = np.asarray(xj).ndim == 2
+        if self._linear_functional:
+            if self._by_state is None or np.asarray(self._by_state.values).ndim != 2:
+                raise ValueError(
+                    "P-spline linear-functional terms require matrix-valued by weights."
+                )
+            by_weights = np.asarray(self._by_state.values, dtype=np.float64)
+            if by_weights.shape != np.asarray(xj).shape:
+                raise ValueError(
+                    "Linear-functional feature locations and by weights must have equal shape."
+                )
+            x_setup_values = np.asarray(xj, dtype=np.float64).reshape(-1)
+            self._by_state = linear_functional_by_state(self._by_state)
+        else:
+            x_setup_values = np.asarray(xj, dtype=np.float64).reshape(-1)
 
         basis_order, penalty_order = self.m
         if basis_order < 0 or penalty_order < 0:
@@ -116,7 +137,11 @@ class PSplineTerm1D(BaseSmoothTerm):
 
         shared_X = self._linked_id_setup_matrix(feature_names)
         if shared_X is not None:
-            x_setup = column_as_float(shared_X, idx)
+            x_setup = column_as_numeric_array(shared_X, idx)
+            if np.asarray(x_setup).ndim != 1:
+                raise NotImplementedError(
+                    "Linked-id pooling is not available for linear-functional P-splines."
+                )
             self._setup = build_pspline_term_setup(
                 x_setup,
                 feature_index=idx,
@@ -132,15 +157,24 @@ class PSplineTerm1D(BaseSmoothTerm):
             )
         else:
             self._setup = build_pspline_term_setup(
-                xj,
+                x_setup_values,
                 feature_index=idx,
                 feature_name=feature_name,
                 bs_dim=self.k,
                 m=self.m,
                 knots=self.knots,
             )
-            setup_base = np.asarray(self._setup.basis_train, dtype=np.float64)
-            base = setup_base
+            point_base = np.asarray(self._setup.basis_train, dtype=np.float64)
+            if self._linear_functional:
+                base = linear_functional_basis(
+                    xj,
+                    by_weights,
+                    lambda values: predict_pspline_term(values, self._setup),
+                )
+                setup_base = np.asarray(base, dtype=np.float64)
+            else:
+                setup_base = point_base
+                base = setup_base
             main_penalty = scale_penalty(
                 base, np.asarray(self._setup.penalty, dtype=np.float64)
             )
@@ -248,9 +282,40 @@ class PSplineTerm1D(BaseSmoothTerm):
     def transform_new(self, X_new):
         self._require_fitted()
 
-        xj = column_as_float(X_new, self._feature_index)
+        xj = column_as_numeric_array(X_new, self._feature_index)
+        if self._linear_functional:
+            B = linear_functional_basis(
+                xj,
+                by_values_from_new_data(X_new, self._by_state),
+                lambda values: predict_pspline_term(values, self._setup),
+            )
+            if self.constraint_transform is not None:
+                B = B @ self.constraint_transform
+            return np.asarray(B, dtype=np.float64)
         B = predict_pspline_term(xj, self._setup)
         return self._apply_constraint_transform_and_by(B, X_new)
+
+    def derivative_matrix(self, X_new=None, order=1):
+        """Exact derivative design for scalar P-spline terms."""
+        self._require_fitted()
+        order = int(order)
+        degree = int(self._setup.basis_order) + 1
+        if order < 1 or order > degree:
+            raise ValueError(f"order must be between 1 and {degree}.")
+        if self._linear_functional:
+            raise NotImplementedError(
+                "Derivatives of linear-functional P-spline terms require an "
+                "explicit functional derivative and are not inferred."
+            )
+        source = self._X_train if X_new is None else X_new
+        xj = column_as_numeric_array(source, self._feature_index)
+        B = pspline_predict_matrix(
+            xj,
+            self._setup.knots,
+            basis_order=self._setup.basis_order,
+            deriv=order,
+        )
+        return self._apply_constraint_transform_and_by(B, source)
 
     def tensor_marginal_fit_matrices(
         self, *, centered=False, apply_np=False, x_train=None
@@ -286,7 +351,11 @@ class PSplineTerm1D(BaseSmoothTerm):
         if centered:
             B = np.asarray(self.transform_new(X_new), dtype=np.float64)
         else:
-            xj = column_as_float(X_new, self._feature_index)
+            xj = column_as_numeric_array(X_new, self._feature_index)
+            if xj.ndim != 1:
+                raise NotImplementedError(
+                    "Matrix-valued P-splines cannot be tensor marginals."
+                )
             B = np.asarray(predict_pspline_term(xj, self._setup), dtype=np.float64)
         if np_transform is not None:
             B = B @ np.asarray(np_transform, dtype=np.float64)

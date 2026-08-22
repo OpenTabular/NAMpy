@@ -88,11 +88,12 @@ def _strictly_additive_gaussian_identity(family: Any) -> bool:
     )
 
 
-def _use_exact_extended_negbin_terms(family: Any) -> bool:
+def _use_exact_extended_family_terms(family: Any) -> bool:
     return (
         str(getattr(family, "family_class", "")).lower() == "extended"
-        and str(getattr(family, "name", "")).lower() == "negbin"
-        and str(getattr(family, "link_name", "")).lower() == "log"
+        and str(getattr(family, "name", "")).lower()
+        in {"negbin", "betar", "ocat"}
+        and callable(getattr(family, "Dd", None))
     )
 
 
@@ -262,15 +263,15 @@ def irls_core(
         return mu_value, mu_eta_value, var_value
 
     def _working_response_terms(eta_curr, mu_curr):
-        if _use_exact_extended_negbin_terms(family):
-            mu_curr = np.clip(
-                np.asarray(mu_curr, dtype=np.float64), LOG_GUARD_MIN, None
-            )
+        if _use_exact_extended_family_terms(family):
+            mu_curr = np.asarray(mu_curr, dtype=np.float64)
             dd = family.Dd(y, mu_curr, family.getTheta(False), weights, level=0)
-            Deta = np.asarray(dd["Dmu"], dtype=np.float64) * mu_curr
-            Deta2 = (
-                np.asarray(dd["Dmu2"], dtype=np.float64) * (mu_curr**2)
-                + np.asarray(dd["Dmu"], dtype=np.float64) * mu_curr
+            eta_curr = np.asarray(eta_curr, dtype=np.float64)
+            ig1 = np.asarray(family.mu_eta(eta_curr), dtype=np.float64)
+            g2g = np.asarray(family.d2link(mu_curr), dtype=np.float64) * ig1**2
+            Deta = np.asarray(dd["Dmu"], dtype=np.float64) * ig1
+            Deta2 = np.asarray(dd["Dmu2"], dtype=np.float64) * ig1**2 - (
+                np.asarray(dd["Dmu"], dtype=np.float64) * g2g * ig1
             )
             w_curr = 0.5 * Deta2
             wz_curr = w_curr * (eta_curr - offset) - 0.5 * Deta
@@ -394,6 +395,8 @@ def irls_core(
             denom = max(w_sum - float(edf_curr), float(np.finfo(np.float64).eps))
             scale_curr = float(_weighted_deviance(mu_curr) / denom)
 
+        if not bool(getattr(family, "use_fletcher_scale_estimate", True)):
+            return scale_curr
         dvar = getattr(family, "dvar", None)
         if not callable(dvar):
             return scale_curr
@@ -515,7 +518,7 @@ def irls_core(
                 rhs_is_weighted=rhs_is_weighted,
             )
         except (np.linalg.LinAlgError, ValueError):
-            if _use_exact_extended_negbin_terms(family):
+            if _use_exact_extended_family_terms(family):
                 Deta2_full = np.asarray(work_terms["Deta2_full"], dtype=np.float64)
                 good_pos = np.isfinite(Deta2_full) & (Deta2_full > 0.0)
                 w_pos_full = np.zeros_like(Deta2_full, dtype=np.float64)
@@ -525,6 +528,10 @@ def irls_core(
                 X_pos = X[good_rhs, :]
                 W_pos = w_pos_full[good_rhs]
                 z_pos = np.asarray(wz_pos_full[good_rhs], dtype=np.float64)
+                # ``good_rhs`` is a full-observation mask, unlike the
+                # subset mask used by the ordinary noncanonical fallback.
+                # Keep the gradient arrays on that same full index space.
+                grad_good_full = np.asarray(good_rhs, dtype=bool)
                 rhs_is_weighted = True
             else:
                 use_fisher = bool(getattr(family, "canonical_link", False))
@@ -571,8 +578,11 @@ def irls_core(
                 break
             XtW = X_pos.T * W_pos
             XtWX = XtW @ X_pos
-            grad_good = np.zeros_like(good, dtype=bool)
-            grad_good[np.flatnonzero(good)[good_pos]] = True
+            if _use_exact_extended_family_terms(family):
+                grad_good = grad_good_full
+            else:
+                grad_good = np.zeros_like(good, dtype=bool)
+                grad_good[np.flatnonzero(good)[good_pos]] = True
             grad_w = np.asarray(W_pos, dtype=np.float64)
             grad_z = np.asarray(z_pos, dtype=np.float64)
             grad_rhs_is_weighted = rhs_is_weighted
@@ -738,45 +748,72 @@ def irls_core(
 
     eta = offset + X @ beta
     mu = family.inverse_link(eta)
-    mu_eta = np.asarray(family.mu_eta(eta), dtype=np.float64)
-    var = np.asarray(family.variance(mu), dtype=np.float64)
-    good = (
-        (weights > 0.0)
-        & np.isfinite(mu_eta)
-        & (mu_eta != 0.0)
-        & np.isfinite(var)
-        & (var > 0.0)
-    )
+    if _use_exact_extended_family_terms(family):
+        final_terms = _working_response_terms(eta, mu)
+        if final_terms is None:
+            raise RuntimeError("No valid exact extended-family PIRLS terms at solution.")
+        good = np.asarray(final_terms["good"], dtype=bool)
+        W_full = np.asarray(final_terms["w_full"], dtype=np.float64)
+        z_full = np.asarray(final_terms["z_full"], dtype=np.float64)
+        dd_final = family.Dd(
+            y, mu, family.getTheta(False), weights, level=0
+        )
+        ig1_final = np.asarray(family.mu_eta(eta), dtype=np.float64)
+        fisher_full = 0.5 * np.asarray(dd_final["EDmu2"], dtype=np.float64) * ig1_final**2
+        mu_eta = ig1_final
+        var = np.asarray(family.variance(mu), dtype=np.float64)
+        W_g = W_full[good]
+        z_g = z_full[good]
+        fisher_W_g = fisher_full[good]
+        y_g = y[good]
+        mu_g = mu[good]
+        eta_g = eta[good]
+        X_g = X[good, :]
+        weights_g = weights[good]
+        off_g = offset[good]
+        cov_W_g = fisher_W_g
+        cov_z_g = z_g
+    else:
+        mu_eta = np.asarray(family.mu_eta(eta), dtype=np.float64)
+        var = np.asarray(family.variance(mu), dtype=np.float64)
+        good = (
+            (weights > 0.0)
+            & np.isfinite(mu_eta)
+            & (mu_eta != 0.0)
+            & np.isfinite(var)
+            & (var > 0.0)
+        )
     if not np.any(good):
         raise RuntimeError("No informative observations at IRLS solution.")
 
-    mu_eta_g = mu_eta[good]
-    var_g = var[good]
-    y_g = y[good]
-    mu_g = mu[good]
-    eta_g = eta[good]
-    X_g = X[good, :]
-    weights_g = weights[good]
-    off_g = offset[good]
+    if not _use_exact_extended_family_terms(family):
+        mu_eta_g = mu_eta[good]
+        var_g = var[good]
+        y_g = y[good]
+        mu_g = mu[good]
+        eta_g = eta[good]
+        X_g = X[good, :]
+        weights_g = weights[good]
+        off_g = offset[good]
 
-    fisher_W_g = weights_g * (mu_eta_g**2) / var_g
-    use_fisher = bool(getattr(family, "canonical_link", False))
-    if not use_fisher and hasattr(family, "dvar") and hasattr(family, "d2link"):
-        dvar = np.asarray(family.dvar(mu_g), dtype=np.float64)
-        d2link = np.asarray(family.d2link(mu_g), dtype=np.float64)
-        alpha = 1.0 + (y_g - mu_g) * (dvar / var_g + d2link * mu_eta_g)
-        eps_alpha = np.finfo(np.float64).eps
-        zero = alpha == 0.0
-        if np.any(zero):
-            alpha = alpha.copy()
-            alpha[zero] = eps_alpha
-        W_g = fisher_W_g * alpha
-        z_g = (eta_g - off_g) + (y_g - mu_g) / (mu_eta_g * alpha)
-        if np.any(~np.isfinite(W_g)) or np.any(~np.isfinite(z_g)):
-            use_fisher = True
-    if use_fisher:
-        W_g = fisher_W_g
-        z_g = (eta_g - off_g) + (y_g - mu_g) / mu_eta_g
+        fisher_W_g = weights_g * (mu_eta_g**2) / var_g
+        use_fisher = bool(getattr(family, "canonical_link", False))
+        if not use_fisher and hasattr(family, "dvar") and hasattr(family, "d2link"):
+            dvar = np.asarray(family.dvar(mu_g), dtype=np.float64)
+            d2link = np.asarray(family.d2link(mu_g), dtype=np.float64)
+            alpha = 1.0 + (y_g - mu_g) * (dvar / var_g + d2link * mu_eta_g)
+            eps_alpha = np.finfo(np.float64).eps
+            zero = alpha == 0.0
+            if np.any(zero):
+                alpha = alpha.copy()
+                alpha[zero] = eps_alpha
+            W_g = fisher_W_g * alpha
+            z_g = (eta_g - off_g) + (y_g - mu_g) / (mu_eta_g * alpha)
+            if np.any(~np.isfinite(W_g)) or np.any(~np.isfinite(z_g)):
+                use_fisher = True
+        if use_fisher:
+            W_g = fisher_W_g
+            z_g = (eta_g - off_g) + (y_g - mu_g) / mu_eta_g
 
     W = np.zeros_like(y, dtype=np.float64)
     W[good] = W_g
@@ -788,8 +825,11 @@ def irls_core(
     # Mirror `mgcv/src/gdi.c::gdi1()`: the reported post-fit covariance / EDF
     # objects are built from the Fisher-weighted system (`wf`), even when the
     # PIRLS coefficient updates used full-Newton working weights (`w`).
-    cov_W_g = np.asarray(fisher_W_g, dtype=np.float64)
-    cov_z_g = np.asarray((eta_g - off_g) + (y_g - mu_g) / mu_eta_g, dtype=np.float64)
+    if not _use_exact_extended_family_terms(family):
+        cov_W_g = np.asarray(fisher_W_g, dtype=np.float64)
+        cov_z_g = np.asarray(
+            (eta_g - off_g) + (y_g - mu_g) / mu_eta_g, dtype=np.float64
+        )
 
     XtW = X_g.T * cov_W_g
     XtWX = XtW @ X_g
@@ -857,7 +897,13 @@ def irls_core(
     edf = trace_H
 
     scale = _estimate_gam_fit3_scale(mu, edf)
-    deviance = _weighted_deviance(mu)
+    raw_deviance = _weighted_deviance(mu)
+    postprocess_deviance = getattr(family, "postprocess_deviance", None)
+    deviance = (
+        float(postprocess_deviance(y, mu, weights=weights))
+        if callable(postprocess_deviance)
+        else raw_deviance
+    )
     rss = float(np.sum((y - mu) ** 2))
     penalty_quadratic = float(beta @ (S @ beta))
     loglik = _weighted_loglik(mu, scale)

@@ -1,11 +1,8 @@
-from ..neural.configs.spline_nam_config import DefaultSplineNAMConfig
-from ..neural.modules.spline_nam import SplineNAM
-from .regressor import NeuralRegressor
+"""Public estimator family generated from the SplineNAM declaration."""
 
+from ._registered import estimator_family
 
-class SplineNAMRegressor(NeuralRegressor):
-    def __init__(self, **kwargs):
-        kwargs.setdefault("numerical_preprocessing", "minmax")
-        kwargs.setdefault("categorical_preprocessing", "int")
-        kwargs.setdefault("n_knots", DefaultSplineNAMConfig.n_knots)
-        super().__init__(model=SplineNAM, config=DefaultSplineNAMConfig, **kwargs)
+_family = estimator_family("spline_nam", module_name=__name__)
+SplineNAMRegressor = _family.regressor
+
+__all__ = ["SplineNAMRegressor"]

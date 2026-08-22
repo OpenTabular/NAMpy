@@ -31,8 +31,8 @@ Here's a complete example of using NAMpy for regression:
 
    # Initialize model
    model = NAMRegressor(
-       numerical_preprocessing="standardization",
-       n_bins=50
+       numerical_method="standardization",
+       output_dim=50
    )
 
    # Train model
@@ -63,8 +63,8 @@ Classification works similarly:
 
    # Initialize model
    model = NAMClassifier(
-       numerical_preprocessing="ple",
-       n_bins=50
+       numerical_method="ple",
+       output_dim=50
    )
 
    # Train model
@@ -141,23 +141,24 @@ NAMpy provides several preprocessing strategies:
    from nampy.models import NAMRegressor
 
    # Standardization (default for most models)
-   model = NAMRegressor(numerical_preprocessing="standardization")
+   model = NAMRegressor(numerical_method="standardization")
 
-   # Normalization
-   model = NAMRegressor(numerical_preprocessing="normalization")
+   # Min-max scaling
+   model = NAMRegressor(numerical_method="minmax")
 
    # Piecewise Linear Encoding (PLE)
-   model = NAMRegressor(numerical_preprocessing="ple", n_bins=50)
+   model = NAMRegressor(numerical_method="ple", output_dim=50)
 
    # Binning
    model = NAMRegressor(
-       numerical_preprocessing="binning",
-       n_bins=50,
-       binning_strategy="quantile"
+       numerical_method="binning",
+       output_dim=50,
+       target_aware=False,
+       placement_strategy="quantile",
    )
 
-   # One-hot encoding
-   model = NAMRegressor(numerical_preprocessing="one_hot", n_bins=50)
+   # One-hot encode categorical inputs
+   model = NAMRegressor(categorical_method="one_hot")
 
 Model Configurations
 --------------------
@@ -208,7 +209,7 @@ NAMpy models are fully compatible with scikit-learn utilities:
    # Hyperparameter tuning (note: this can be slow with deep learning)
    param_grid = {
        'dropout': [0.1, 0.3, 0.5],
-       'n_bins': [25, 50, 100]
+       'output_dim': [25, 50, 100]
    }
    
    # Note: fit_params need to be passed separately for deep learning models

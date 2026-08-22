@@ -6,6 +6,7 @@ from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.utils import RegressorTags
 
 from ..contracts import AdditivePrediction
+from ..neural.objectives import RegressionObjective
 from ._base import NeuralEstimatorBase, TrainingPlan
 
 
@@ -63,39 +64,51 @@ class NeuralRegressor(NeuralEstimatorBase):
                     "Training and validation targets must have the same output width."
                 )
 
-        taskmodel_kwargs = {"num_classes": n_outputs, "task": "regression"}
-        if getattr(self, "_fit_loss_fct", None) is not None:
-            taskmodel_kwargs["loss_fct"] = self._fit_loss_fct
-
-        plan = TrainingPlan(
-            datamodule_regression=True,
-            taskmodel_kwargs=taskmodel_kwargs,
+        objective = RegressionObjective(
+            n_outputs, loss_fct=getattr(self, "_fit_loss_fct", None)
         )
+
+        plan = TrainingPlan(objective=objective)
         return y, y_val, plan
 
-    def predict(self, X):
-        return self._predict(X)["output"].squeeze(-1).cpu().numpy()
+    def predict(self, X, *, batch_size=None):
+        output = self._predict(X, batch_size=batch_size)["output"]
+        return self.model.objective.transform(output).squeeze(-1).cpu().numpy()
 
     def score(self, X, y, sample_weight=None):
         """Return the coefficient of determination R^2 of the prediction."""
         return float(r2_score(y, self.predict(X), sample_weight=sample_weight))
 
-    def predict_components(self, X) -> AdditivePrediction:
+    def predict_components(
+        self,
+        X,
+        *,
+        center: bool = False,
+        reference_X=None,
+        reference_weight=None,
+        batch_size=None,
+    ) -> AdditivePrediction:
         """Return per-term contributions as a backend-neutral result.
 
         The intercept reported as 0.0 means the constant is absorbed into
         the feature networks unless the architecture emits an explicit
         ``"intercept"`` entry.
         """
-        pred_dict = self._predict(X)
+        pred_dict = self._predict(X, batch_size=batch_size)
         link = pred_dict["output"].squeeze(-1).cpu().numpy()
         terms, intercept = self._split_output_components(pred_dict)
-        return AdditivePrediction(
+        prediction = AdditivePrediction(
             response=link,
             link=link,
             terms=terms,
             intercept=intercept,
             backend="neural",
+        )
+        return self._maybe_center_components(
+            prediction,
+            center=center,
+            reference_X=reference_X,
+            reference_weight=reference_weight,
         )
 
     def evaluate(self, X, y_true, metrics=None):

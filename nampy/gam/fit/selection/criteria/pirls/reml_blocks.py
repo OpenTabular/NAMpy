@@ -165,30 +165,6 @@ def _hat_matrix_trace_and_sp_derivatives(A_inv, XtWX, dA, d2A_mat, dXtWX, d2XtWX
     return trA, trA1, trA2
 
 
-def _deviance_coefficient_derivatives(model, y, eta, mu, weights, X):
-    family = model.family
-    mu1 = np.asarray(family.mu_eta(eta), dtype=np.float64)
-    V = np.asarray(family.variance(mu), dtype=np.float64)
-    V1 = np.asarray(family.dvar(mu), dtype=np.float64)
-    g2 = np.asarray(family.d2link(mu), dtype=np.float64)
-    mu2 = -g2 * (mu1**3)
-    weights = np.asarray(weights, dtype=np.float64)
-    resid = np.asarray(y, dtype=np.float64) - np.asarray(mu, dtype=np.float64)
-    # mgcv::gam.fit3 differentiates sum(dev.resids(y, mu, weights)), so the
-    # deviance chain must carry prior weights rather than IRLS/Newton weights.
-    v1 = -2.0 * weights * resid * mu1 / V
-    dev_grad = np.asarray(X, dtype=np.float64).T @ v1
-    p_eta2 = (
-        2.0 * weights * (mu1**2) / V
-        - 2.0 * weights * resid * mu2 / V
-        + 2.0 * weights * resid * (mu1**2) * V1 / (V**2)
-    )
-    dev_hess = np.asarray(X, dtype=np.float64).T @ (
-        p_eta2[:, None] * np.asarray(X, dtype=np.float64)
-    )
-    return dev_grad, dev_hess
-
-
 def _deviance_chained_to_smoothing(dev_grad, dev_hess, dbeta_cols, d2beta_mat):
     """Mirror ``gdi.c::gdi1``'s deviance derivative accumulation.
 
@@ -241,34 +217,3 @@ def _deviance_chained_to_smoothing(dev_grad, dev_hess, dbeta_cols, d2beta_mat):
             D2[k, m] += value
             D2[m, k] = D2[k, m]
     return D1, D2
-
-
-def _pearson_coefficient_derivatives(model, y, eta, mu, X, weights=None):
-    family = model.family
-    y = np.asarray(y, dtype=np.float64)
-    eta = np.asarray(eta, dtype=np.float64)
-    mu = np.asarray(mu, dtype=np.float64)
-    X = np.asarray(X, dtype=np.float64)
-    if weights is None:
-        weights = np.ones_like(y, dtype=np.float64)
-    else:
-        weights = np.asarray(weights, dtype=np.float64)
-    g1 = 1.0 / np.asarray(family.mu_eta(eta), dtype=np.float64)
-    V = np.asarray(family.variance(mu), dtype=np.float64)
-    V1 = np.asarray(family.dvar(mu), dtype=np.float64) / V
-    V2 = np.asarray(family.d2var(mu), dtype=np.float64) / V
-    g2 = np.asarray(family.d2link(mu), dtype=np.float64) / g1
-
-    resid = y - mu
-    xx = resid * weights / V
-    p_eta1 = -xx * (2.0 + resid * V1) / g1
-    p_eta2 = -p_eta1 * g2 / g1 + (
-        2.0 * weights / V
-        + 2.0 * xx * V1
-        - p_eta1 * V1 * g1
-        - xx * resid * (V2 - V1 * V1)
-    ) / (g1 * g1)
-    grad = X.T @ p_eta1
-    hess = X.T @ (p_eta2[:, None] * X)
-    pearson = float(np.sum(xx * resid))
-    return pearson, grad, hess

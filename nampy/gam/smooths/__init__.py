@@ -1,6 +1,7 @@
 from .categorical.fs import FSmoothInteractionTerm, SZSmoothInteractionTerm
 from .categorical.re import RandomEffectTerm
 from .registry import make_smooth_term, register_smooth
+from .shape.scop import ShapeConstrainedPSplineTerm
 from .smooth_base import (
     RUNTIME_TERM_INTERFACE_CHECKLIST,
     BaseSmoothTerm,
@@ -11,6 +12,8 @@ from .smooth_base import (
     column_as_float,
     column_as_object,
     columns_as_float_matrix,
+    linear_functional_basis,
+    linear_functional_by_state,
     resolve_by_state,
     sync_by_state_attributes,
 )
@@ -31,6 +34,9 @@ tp = ts = ThinPlateSplineTerm
 fs = FSmoothInteractionTerm
 sz = SZSmoothInteractionTerm
 re = RandomEffectTerm
+mpi = mpd = mdcv = mdcx = micv = micx = cv = cx = po = dpo = ipo = (
+    ShapeConstrainedPSplineTerm
+)
 
 __all__ = [
     "register_smooth",
@@ -43,6 +49,8 @@ __all__ = [
     "column_as_float",
     "column_as_object",
     "columns_as_float_matrix",
+    "linear_functional_basis",
+    "linear_functional_by_state",
     "resolve_by_state",
     "sync_by_state_attributes",
     "build_penalty_definition",
@@ -54,6 +62,7 @@ __all__ = [
     "FSmoothInteractionTerm",
     "SZSmoothInteractionTerm",
     "RandomEffectTerm",
+    "ShapeConstrainedPSplineTerm",
     "te",
     "ti",
     "cr",
@@ -65,4 +74,15 @@ __all__ = [
     "fs",
     "sz",
     "re",
+    "mpi",
+    "mpd",
+    "mdcv",
+    "mdcx",
+    "micv",
+    "micx",
+    "cv",
+    "cx",
+    "po",
+    "dpo",
+    "ipo",
 ]

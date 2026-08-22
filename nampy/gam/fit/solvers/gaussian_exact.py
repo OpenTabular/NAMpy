@@ -8,6 +8,7 @@ from ...model_state import (
     _n_smoothing_params,
     _penalty_blocks_seq,
 )
+from ..capabilities import observation_transform
 from ..penalized_system import (
     build_full_design,
     build_full_penalty_from_blocks,
@@ -159,6 +160,7 @@ def _gaussian_fit3_pls_current_eta(model, X, smoothing_params, z_work, w):
 
 def solve_gaussian_fit(model, y, smoothing_params, weights=None):
     y = model.family.validate_y(y)
+    y_original = np.asarray(y, dtype=np.float64).copy()
     n = int(y.shape[0])
     w = _prior_weights_vector(weights, n)
     fi = _fit_intercept(model)
@@ -166,6 +168,25 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
     penalty_blocks = tuple(_penalty_blocks_seq(model))
     n_coef = _n_coef(model)
     X = build_full_design(Z, fit_intercept=fi)
+    X_original = np.asarray(X, dtype=np.float64).copy()
+    offset_original = (
+        np.zeros(n, dtype=np.float64)
+        if model.offset_train_ is None
+        else np.asarray(model.offset_train_, dtype=np.float64).reshape(-1)
+    )
+    obs_transform = observation_transform(model)
+    transformed_observations = not obs_transform.is_identity
+    if transformed_observations:
+        if str(getattr(model.family, "link_name", "")).lower() != "identity":
+            raise NotImplementedError(
+                "Observation transforms in the exact Gaussian backend require "
+                "the identity link."
+            )
+        X, y, fit_offset = obs_transform.transform_system(
+            X_original, y_original, offset_original
+        )
+    else:
+        fit_offset = model.offset_train_
     S = build_full_penalty_from_blocks(
         penalty_blocks=penalty_blocks,
         smoothing_params=smoothing_params,
@@ -183,7 +204,7 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         y,
         model.family,
         S,
-        offset=model.offset_train_,
+        offset=fit_offset,
         weights=w,
         fit_intercept=fi,
         max_iter=1,
@@ -210,17 +231,40 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         w,
         return_hat_matrix=True,
     )
-    if model.offset_train_ is not None:
+    criterion_response = np.asarray(y, dtype=np.float64).copy()
+    criterion_eta = np.asarray(eta_fit, dtype=np.float64).copy()
+    criterion_mu = np.asarray(
+        model.family.inverse_link(criterion_eta), dtype=np.float64
+    )
+    criterion_residual = criterion_response - criterion_mu
+    criterion_rss = float(np.sum(w * criterion_residual**2))
+    criterion_deviance = float(
+        model.family.deviance(criterion_response, criterion_mu, weights=w)
+    )
+    if transformed_observations:
+        # Coefficients are estimated on the transformed rows, but all public
+        # fitted values and residual diagnostics live on the original rows.
+        eta_dev = np.asarray(X_original @ coef_full + offset_original, dtype=np.float64)
+        eta_fit = eta_dev.copy()
+    elif model.offset_train_ is not None:
         train_offset = np.asarray(model.offset_train_, dtype=np.float64).ravel()
         eta_dev = eta_dev + train_offset
         eta_fit = eta_fit + train_offset
     mu_dev = np.asarray(model.family.inverse_link(eta_dev), dtype=np.float64)
-    reported_deviance = float(model.family.deviance(y, mu_dev, weights=w))
+    reported_deviance = float(
+        model.family.deviance(y_original, mu_dev, weights=w)
+    )
+    if not transformed_observations:
+        # Preserve the identity-path gam.fit3 distinction between the
+        # current-SP deviance state and the later gdi1 coefficient overwrite.
+        criterion_deviance = reported_deviance
     eta = np.asarray(eta_fit, dtype=np.float64)
     mu = np.asarray(model.family.inverse_link(eta), dtype=np.float64)
     H_coef = np.asarray(H_coef, dtype=np.float64)
     trace_H = float(np.trace(H_coef))
-    scale = model.family.estimate_dispersion(y, eta, edf=trace_H, weights=w)
+    scale = model.family.estimate_dispersion(
+        y_original, eta, edf=trace_H, weights=w
+    )
     # mgcv/R/gam.fit3.r::gam.fit3.post.proc forms Vb from the `rV` returned by
     # this same gdi1 factorization, retaining its dropped-coordinate zero fill.
     Vp = np.asarray(scale * (gdi_rank_root @ gdi_rank_root.T), dtype=np.float64)
@@ -243,7 +287,7 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
     else:
         sol["intercept"] = 0.0
         sol["beta"] = coef_full.copy()
-    resid = y - eta
+    resid = y_original - eta
     wrss = float(np.sum(w * resid * resid))
     sol["rss"] = wrss
     sol["deviance"] = reported_deviance
@@ -251,8 +295,17 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
     sol["working_weights"] = w.copy()
     sol["fisher_weights"] = w.copy()
     sol["working_response"] = (
-        y.copy() if model.offset_train_ is None else (y - model.offset_train_).copy()
+        criterion_response.copy()
+        if transformed_observations
+        else (
+            y_original.copy()
+            if model.offset_train_ is None
+            else (y_original - model.offset_train_).copy()
+        )
     )
+    sol["criterion_response"] = criterion_response
+    sol["criterion_deviance"] = criterion_deviance
+    sol["criterion_rss"] = criterion_rss
     # The Gaussian exact solver operates on the fit matrix assembled by
     # gam.setup. If setup also built a distinct prediction matrix, mgcv applies
     # `G$P` after fitting (mgcv/R/mgcv.r) to move coefficients/covariances into
@@ -264,10 +317,14 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         np.sum(
             w
             * np.asarray(
-                model.family.loglik_obs(y, eta, scale=scale),
+                model.family.loglik_obs(y_original, eta, scale=scale),
                 dtype=np.float64,
             )
         )
+    )
+
+    model.ar1_standardized_residuals_ = (
+        obs_transform.apply(resid) if transformed_observations else None
     )
 
     return FitCoreSolution.from_dict(sol)

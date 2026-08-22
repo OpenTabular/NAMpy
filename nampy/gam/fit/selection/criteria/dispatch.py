@@ -24,17 +24,33 @@ from .ml_reml import (
     resolve_ml_reml_scoring_backend,
 )
 from .pirls import (
-    _current_joint_negbin_eval_state,
-    _is_joint_negbin_theta_model,
     criterion_gcv_pirls,
     criterion_gradient_gcv_ubre_pirls_exact,
     criterion_hessian_gcv_ubre_pirls_exact,
-    criterion_ml_reml_pirls_frozen_negbin,
     criterion_ubre_pirls,
 )
 from .pirls.derivatives import (
     criterion_gradient_ml_reml_pirls_exact,
     criterion_hessian_ml_reml_pirls_exact,
+)
+from .pirls.family_betar import (
+    criterion_ml_reml_pirls_frozen_betar,
+    is_joint_betar_theta_model,
+)
+from .pirls.family_negbin import (
+    criterion_ml_reml_pirls_frozen_negbin,
+    current_joint_negbin_eval_state,
+    is_joint_negbin_theta_model,
+)
+from .pirls.family_ocat import (
+    criterion_ml_reml_pirls_frozen_ocat,
+    is_joint_ocat_theta_model,
+)
+from .pirls.outer_strategies import get_joint_outer_handler
+from .shape import (
+    criterion_gradient_transformed,
+    criterion_value_transformed,
+    is_transformed_coefficient_model,
 )
 
 
@@ -63,6 +79,13 @@ def _normalize_criterion_method(model, method):
 
 def criterion_value(model, y, log_sp, method="gcv"):
     method = _normalize_criterion_method(model, method)
+    if is_transformed_coefficient_model(model) and method in {
+        "gcv",
+        "ubre",
+        "aic",
+        "ubreaic",
+    }:
+        return criterion_value_transformed(model, y, log_sp, method=method)
     if method == "gcv":
         if uses_closed_form_solver(model):
             return criterion_gcv_gaussian(model, y, log_sp)
@@ -70,12 +93,26 @@ def criterion_value(model, y, log_sp, method="gcv"):
     if method in {"ubre", "aic", "ubreaic"}:
         return criterion_ubre_pirls(model, y, log_sp)
     if method == "ml":
-        if _is_joint_negbin_theta_model(model):
+        if is_joint_negbin_theta_model(model):
             return criterion_ml_reml_pirls_frozen_negbin(model, y, log_sp, "ML")
+        if is_joint_betar_theta_model(model):
+            return criterion_ml_reml_pirls_frozen_betar(model, y, log_sp, "ML")
+        if is_joint_ocat_theta_model(model):
+            return criterion_ml_reml_pirls_frozen_ocat(model, y, log_sp, "ML")
+        handler = get_joint_outer_handler(model.family)
+        if handler is not None:
+            return handler.value(model, y, log_sp, "ML")
         return criterion_ml_reml(model, y, log_sp, "ml")
     if method in {"reml", "laml"}:
-        if _is_joint_negbin_theta_model(model):
+        if is_joint_negbin_theta_model(model):
             return criterion_ml_reml_pirls_frozen_negbin(model, y, log_sp, "REML")
+        if is_joint_betar_theta_model(model):
+            return criterion_ml_reml_pirls_frozen_betar(model, y, log_sp, "REML")
+        if is_joint_ocat_theta_model(model):
+            return criterion_ml_reml_pirls_frozen_ocat(model, y, log_sp, "REML")
+        handler = get_joint_outer_handler(model.family)
+        if handler is not None:
+            return handler.value(model, y, log_sp, "REML")
         return criterion_ml_reml(model, y, log_sp, method)
     raise ValueError(
         "method must be one of "
@@ -100,10 +137,10 @@ def criterion_gradient_numerical(
     baseline_state = _baseline_state
     if (
         baseline_state is None
-        and _is_joint_negbin_theta_model(model)
+        and is_joint_negbin_theta_model(model)
         and method in {"ml", "reml", "laml"}
     ):
-        baseline_state = _current_joint_negbin_eval_state(model)
+        baseline_state = current_joint_negbin_eval_state(model)
 
     def _value_at(x_eval):
         if baseline_state is not None:
@@ -157,9 +194,24 @@ def criterion_gradient(
     eps_rel=1e-4,
 ):
     method = _normalize_criterion_method(model, method)
+    if is_transformed_coefficient_model(model) and method in {
+        "gcv",
+        "ubre",
+        "aic",
+        "ubreaic",
+    }:
+        return criterion_gradient_transformed(model, y, log_sp, method=method)
     if method in {"gcv", "ubre", "aic", "ubreaic"}:
         return criterion_gradient_gcv_ubre_pirls_exact(model, y, log_sp, method)
     if method in {"ml", "reml", "laml"}:
+        handler = get_joint_outer_handler(model.family)
+        if handler is not None:
+            return handler.gradient(
+                model,
+                y,
+                log_sp,
+                "REML" if method in {"reml", "laml"} else "ML",
+            )
         backend = resolve_ml_reml_scoring_backend(model, method=method)
         if backend in {"gaussian_exact", "gaussian_dynamic"}:
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
@@ -224,10 +276,10 @@ def criterion_hessian_numerical(
     baseline_state = _baseline_state
     if (
         baseline_state is None
-        and _is_joint_negbin_theta_model(model)
+        and is_joint_negbin_theta_model(model)
         and method in {"ml", "reml", "laml"}
     ):
-        baseline_state = _current_joint_negbin_eval_state(model)
+        baseline_state = current_joint_negbin_eval_state(model)
 
     H = np.empty((n, n), dtype=np.float64)
     steps = np.maximum(float(eps_abs), float(eps_rel) * (1.0 + np.abs(x)))
@@ -292,6 +344,14 @@ def criterion_hessian(
     if method in {"gcv", "ubre", "aic", "ubreaic"}:
         return criterion_hessian_gcv_ubre_pirls_exact(model, y, log_sp, method)
     if method in {"ml", "reml", "laml"}:
+        handler = get_joint_outer_handler(model.family)
+        if handler is not None:
+            return handler.hessian(
+                model,
+                y,
+                log_sp,
+                "REML" if method in {"reml", "laml"} else "ML",
+            )
         backend = resolve_ml_reml_scoring_backend(model, method=method)
         if (
             backend == "pirls_laplace"
@@ -337,4 +397,3 @@ def criterion_hessian(
         eps_abs=eps_abs,
         eps_rel=eps_rel,
     )
-

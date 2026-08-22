@@ -33,7 +33,10 @@ from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
     _resolve_feature,
-    column_as_float,
+    by_values_from_new_data,
+    column_as_numeric_array,
+    linear_functional_basis,
+    linear_functional_by_state,
 )
 
 
@@ -102,6 +105,7 @@ class CubicSplineTerm(BaseSmoothTerm):
 
         self._cc_knots = None
         self._cc_bd = None
+        self._linear_functional = False
 
         if self.k < 3 and self.basis_name in {"cr", "cs"}:
             raise ValueError("k must be >= 3 for cubic regression spline terms.")
@@ -156,14 +160,28 @@ class CubicSplineTerm(BaseSmoothTerm):
         return symmetrize_matrix(S)
 
     def fit(self, X, feature_names):
+        self._X_train = np.asarray(X, dtype=object).copy()
         idx, feature_name = _resolve_feature(self.feature, feature_names)
         self._feature_index = idx
         self._feature_name = feature_name
         self._set_resolved_features([feature_name])
 
-        xj = column_as_float(X, idx)
+        x_values = column_as_numeric_array(X, idx)
+        self._linear_functional = np.asarray(x_values).ndim == 2
+        xj = np.asarray(x_values, dtype=np.float64).reshape(-1)
 
         self._set_by_state(X, feature_names)
+        if self._linear_functional:
+            if self._by_state is None or np.asarray(self._by_state.values).ndim != 2:
+                raise ValueError(
+                    "Cubic linear-functional terms require matrix-valued by weights."
+                )
+            by_weights = np.asarray(self._by_state.values, dtype=np.float64)
+            if by_weights.shape != np.asarray(x_values).shape:
+                raise ValueError(
+                    "Linear-functional feature locations and by weights must have equal shape."
+                )
+            self._by_state = linear_functional_by_state(self._by_state)
 
         self._pc_value = None
 
@@ -231,6 +249,22 @@ class CubicSplineTerm(BaseSmoothTerm):
             self._set_penalty_rescale_factors(
                 [penalty_rescale_factor(self._spline.raw_basis, S_for_scale)]
             )
+
+            if self._linear_functional:
+                raw_base = linear_functional_basis(
+                    x_values,
+                    by_weights,
+                    self._spline.transform_new_raw,
+                )
+                self._basis_train = np.asarray(raw_base, dtype=np.float64)
+                self._penalties = (
+                    []
+                    if self.fixed
+                    else [np.asarray(self._main_penalty(raw=True), dtype=np.float64)]
+                )
+                self._use_centered_basis = False
+                self._record_constraint_result(None, None, absorbed_by=None)
+                return self
 
             if self.pc is not None:
                 raw_base = (
@@ -377,7 +411,16 @@ class CubicSplineTerm(BaseSmoothTerm):
                 raise ValueError("number of supplied knots != k for a cc smooth")
 
         BD, _, D = cyclic_cubic_bd(k)
-        base = cyclic_cubic_predict_matrix(xj, k, BD)
+        point_base = cyclic_cubic_predict_matrix(xj, k, BD)
+        base = (
+            linear_functional_basis(
+                x_values,
+                by_weights,
+                lambda values: cyclic_cubic_predict_matrix(values, k, BD),
+            )
+            if self._linear_functional
+            else point_base
+        )
         setup_base = (
             cyclic_cubic_predict_matrix(setup_x, k, BD) if pooled_setup else base
         )
@@ -479,7 +522,25 @@ class CubicSplineTerm(BaseSmoothTerm):
     def transform_new(self, X_new):
         self._require_fitted()
 
-        xj = column_as_float(X_new, self._feature_index)
+        xj = column_as_numeric_array(X_new, self._feature_index)
+
+        if self._linear_functional:
+            weights = by_values_from_new_data(X_new, self._by_state)
+            if self.basis_name == "cc":
+                B = linear_functional_basis(
+                    xj,
+                    weights,
+                    lambda values: cyclic_cubic_predict_matrix(
+                        values, self._cc_knots, self._cc_bd
+                    ),
+                )
+            else:
+                B = linear_functional_basis(
+                    xj, weights, self._spline.transform_new_raw
+                )
+            if self.constraint_transform is not None:
+                B = B @ self.constraint_transform
+            return np.asarray(B, dtype=np.float64)
 
         if self.basis_name == "cc":
             B = cyclic_cubic_predict_matrix(xj, self._cc_knots, self._cc_bd)
@@ -547,7 +608,11 @@ class CubicSplineTerm(BaseSmoothTerm):
     ):
         basis_name = str(self.basis_name).lower()
         if basis_name == "cc" and self._cc_knots is not None:
-            xj = column_as_float(X_new, self._feature_index)
+            xj = column_as_numeric_array(X_new, self._feature_index)
+            if xj.ndim != 1:
+                raise NotImplementedError(
+                    "Matrix-valued cubic smooths cannot be tensor marginals."
+                )
             B = cyclic_cubic_predict_matrix(xj, self._cc_knots, self._cc_bd)
             if centered:
                 # mgcv::smooth.construct.tensor.smooth.spec uses
@@ -555,7 +620,11 @@ class CubicSplineTerm(BaseSmoothTerm):
                 # marginals, so prediction must emit constrained cc columns too.
                 B = self._apply_constraint_transform_and_by(B, X_new)
         elif basis_name in {"cr", "cs"} and self._spline is not None:
-            xj = column_as_float(X_new, self._feature_index)
+            xj = column_as_numeric_array(X_new, self._feature_index)
+            if xj.ndim != 1:
+                raise NotImplementedError(
+                    "Matrix-valued cubic smooths cannot be tensor marginals."
+                )
             if centered:
                 B = self._spline.transform_new_centered(xj)
                 XP = self._spline._np_transform_centered

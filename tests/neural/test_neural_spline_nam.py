@@ -6,9 +6,9 @@ import pytest
 import torch
 
 from nampy.models.spline_nam import SplineNAMRegressor
+from nampy.neural.architectures.components.splines import CubicSplineLayer
+from nampy.neural.architectures.spline_nam import SplineNAM
 from nampy.neural.configs.spline_nam_config import DefaultSplineNAMConfig
-from nampy.neural.modules.neural_splines import CubicSplineLayer
-from nampy.neural.modules.spline_nam import SplineNAM
 
 
 def test_cubic_spline_basis_handles_both_boundary_knots():
@@ -125,7 +125,7 @@ def test_spline_nam_regressor_fits_and_predicts_with_default_preprocessing(tmp_p
 
     assert fitted is model
     assert model.config.n_knots == 6
-    assert model.preprocessor.numerical_preprocessing == "minmax"
+    assert model.preprocessor.numerical_method == "minmax"
     assert predictions.shape == (len(data),)
     assert np.isfinite(predictions).all()
     assert terms["x:group"].shape == (len(data), 1)

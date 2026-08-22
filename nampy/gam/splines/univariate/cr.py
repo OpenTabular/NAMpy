@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.interpolate import BSpline
 from scipy.linalg import eigh as scipy_eigh
 
 from ...constraints.absorption import full_term_sum_to_zero_constraint
@@ -182,77 +181,6 @@ def cyclic_cubic_predict_matrix(x, knots, BD):
     return np.asarray(X, dtype=np.float64)
 
 
-def bspline_design_matrix(x, knots, degree, deriv=0, extrapolate=True):
-    """
-    Dense B-spline design matrix using scipy.interpolate.BSpline.
-    """
-    x = np.asarray(x, dtype=np.float64).ravel()
-    knots = np.asarray(knots, dtype=np.float64).ravel()
-
-    degree = int(degree)
-    deriv = int(deriv)
-
-    n_basis = knots.size - degree - 1
-    if n_basis <= 0:
-        raise ValueError("Invalid knot vector / degree combination.")
-
-    if deriv > degree:
-        return np.zeros((x.size, n_basis), dtype=np.float64)
-
-    X = np.empty((x.size, n_basis), dtype=np.float64)
-    for i in range(n_basis):
-        c = np.zeros(n_basis, dtype=np.float64)
-        c[i] = 1.0
-        spl = BSpline(knots, c, degree, extrapolate=extrapolate)
-        if deriv > 0:
-            spl = spl.derivative(deriv)
-        X[:, i] = spl(x)
-    return X
-
-
-def _compute_np_transform(X_raw, k, knots, F, x):
-    """
-    Compute the mgcv np=TRUE conditioning transform XP for raw (unscaled) marginals.
-
-    XP = V * D^{-1} * U^T  where U*D*V^T = SVD of the prediction matrix at k
-    equispaced points.  Applied as X_new = X_raw @ XP in te/ti constructions.
-    Returns None if the condition number is too poor.
-    """
-    x_eval = np.linspace(float(np.min(x)), float(np.max(x)), k).reshape(-1, 1)
-    X_eval = cr_spl_predict(x_eval, knots=knots, F=F)
-    try:
-        U, d, Vt = np.linalg.svd(X_eval, full_matrices=False)
-        if d.size == 0 or float(d[0]) <= 0.0:
-            return None
-        eps_crit = float(np.finfo(np.float64).eps) ** 0.66
-        if float(d[-1]) / float(d[0]) < eps_crit:
-            return None
-        return Vt.T @ np.diag(1.0 / d) @ U.T
-    except Exception:
-        return None
-
-
-def _compute_np_transform_centered(X_raw, center_mat, k, knots, F, x):
-    """
-    Conditioning transform for centered (constraint-absorbed) marginals in ti with mc=TRUE.
-
-    Uses PredictMat of the centered basis at k equispaced points.
-    """
-    x_eval = np.linspace(float(np.min(x)), float(np.max(x)), k).reshape(-1, 1)
-    X_eval_raw = cr_spl_predict(x_eval, knots=knots, F=F)
-    X_eval_c = X_eval_raw @ center_mat
-    try:
-        U, d, Vt = np.linalg.svd(X_eval_c, full_matrices=False)
-        if d.size == 0 or float(d[0]) <= 0.0:
-            return None
-        eps_crit = float(np.finfo(np.float64).eps) ** 0.66
-        if float(d[-1]) / float(d[0]) < eps_crit:
-            return None
-        return Vt.T @ np.diag(1.0 / d) @ U.T
-    except Exception:
-        return None
-
-
 class CubicSplines:
     """
     Cubic regression spline basis with both raw and constrained representations.
@@ -280,9 +208,6 @@ class CubicSplines:
         self.center_mat = center_mat
 
         self.knots = knots
-        self.gammas = None
-        self.deltas = None
-        self.x_plot = np.linspace(np.min(x), np.max(x), 1000).reshape(1000, 1)
         self.dim_basis = X_centered.shape[1]
         self.F = F
 
@@ -292,9 +217,6 @@ class CubicSplines:
         self._np_transform = None
         self._np_transform_centered = None
 
-    def uncenter(self):
-        self.uncentered_gammas = self.center_mat @ self.gammas
-
     def transform_new_raw(self, x_new):
         return cr_spl_predict(x_new, knots=self.knots, F=self.F)
 
@@ -303,28 +225,3 @@ class CubicSplines:
 
     def transform_new(self, x_new):
         return self.transform_new_raw(x_new)
-
-    def plot(
-        self,
-        ax=None,
-        intercept=0,
-        plot_analytical=False,
-        col="b",
-        alpha=1,
-        col_analytical="r",
-    ):
-        import matplotlib.pyplot as plt
-
-        basis = self.transform_new_raw(self.x_plot)
-        y_fitted = intercept + basis @ self.uncentered_gammas
-
-        if ax is None:
-            if plot_analytical:
-                y_plot = intercept + basis @ self.center_mat @ self.analytical_gammas
-                plt.plot(self.x_plot, y_plot, col_analytical)
-            plt.plot(self.x_plot, y_fitted, alpha=alpha)
-        else:
-            if plot_analytical:
-                y_plot = intercept + basis @ self.center_mat @ self.analytical_gammas
-                ax.plot(self.x_plot, y_plot, col_analytical)
-            ax.plot(self.x_plot, y_fitted, col, alpha=alpha)

@@ -35,6 +35,9 @@ class FitState:
     working_response: np.ndarray | None = None
     gdi1_eta: np.ndarray | None = None
     gdi1_mu: np.ndarray | None = None
+    criterion_response: np.ndarray | None = None
+    criterion_deviance: float | None = None
+    criterion_rss: float | None = None
     offset: np.ndarray | None = None
     log_det_XtWX_plus_penalty: float | None = None
     penalized_system_rank: int | None = None
@@ -127,6 +130,26 @@ class FitCoreSolution:
             cov_bayes_space=str(data.get("cov_bayes_space", "fit")),
             cov_freq_space=str(data.get("cov_freq_space", "fit")),
             cov_unconditional_space=str(data.get("cov_unconditional_space", "fit")),
+            coef_optimization=(
+                None
+                if data.get("coef_optimization", None) is None
+                else np.asarray(data["coef_optimization"], dtype=np.float64)
+            ),
+            cov_bayes_optimization=(
+                None
+                if data.get("cov_bayes_optimization", None) is None
+                else np.asarray(data["cov_bayes_optimization"], dtype=np.float64)
+            ),
+            cov_freq_optimization=(
+                None
+                if data.get("cov_freq_optimization", None) is None
+                else np.asarray(data["cov_freq_optimization"], dtype=np.float64)
+            ),
+            positive_coefficient_mask=(
+                None
+                if data.get("positive_coefficient_mask", None) is None
+                else np.asarray(data["positive_coefficient_mask"], dtype=bool)
+            ),
         )
         fit_state = FitState(
             X=(
@@ -184,6 +207,21 @@ class FitCoreSolution:
                 if data.get("gdi1_mu", None) is None
                 else np.asarray(data["gdi1_mu"], dtype=np.float64)
             ),
+            criterion_response=(
+                None
+                if data.get("criterion_response", None) is None
+                else np.asarray(data["criterion_response"], dtype=np.float64)
+            ),
+            criterion_deviance=(
+                None
+                if data.get("criterion_deviance", None) is None
+                else float(data["criterion_deviance"])
+            ),
+            criterion_rss=(
+                None
+                if data.get("criterion_rss", None) is None
+                else float(data["criterion_rss"])
+            ),
             offset=(
                 None
                 if data.get("offset", None) is None
@@ -210,14 +248,25 @@ class FitCoreSolution:
 
 
 def compute_edf_by_term(model, H_coef):
+    result = getattr(model, "gam_result_", None)
+    compiled = None if result is None else result.compiled_model
+    full_idx = (
+        None
+        if compiled is None
+        else np.asarray(compiled.coef_reduced_to_full_idx, dtype=int)
+    )
     offset0 = _coef_column_offset(model)
     edf = []
     for tb in _term_blocks_seq(model):
-        sl = slice(
-            offset0 + int(tb.coef_slice.start),
-            offset0 + int(tb.coef_slice.stop),
-        )
-        edf.append(float(np.trace(H_coef[sl, sl])))
+        if full_idx is not None and full_idx.size > 0:
+            idx = full_idx[tb.coef_slice]
+            edf.append(float(np.trace(H_coef[np.ix_(idx, idx)])))
+        else:
+            sl = slice(
+                offset0 + int(tb.coef_slice.start),
+                offset0 + int(tb.coef_slice.stop),
+            )
+            edf.append(float(np.trace(H_coef[sl, sl])))
     return np.asarray(edf, dtype=np.float64)
 
 
@@ -228,10 +277,6 @@ def assign_fit_solution(model, sol: FitCoreSolution):
     H_post = np.asarray(fit_result.H_coef, dtype=np.float64)
     trace_H_post = float(fit_result.trace_H)
     scale_post = float(fit_result.scale)
-    A_post = None
-    A_inv_post = None
-    XtWX_post = None
-    working_weights_post = None
     Vp_post = (
         None
         if fit_result.cov_bayes is None
@@ -242,30 +287,7 @@ def assign_fit_solution(model, sol: FitCoreSolution):
         if fit_result.cov_freq is None
         else np.asarray(fit_result.cov_freq, dtype=np.float64)
     )
-    fit_state = replace(
-        fit_state,
-        scale=float(scale_post),
-        A=(
-            fit_state.A
-            if A_post is None
-            else np.asarray(A_post, dtype=np.float64).copy()
-        ),
-        A_inv=(
-            fit_state.A_inv
-            if A_inv_post is None
-            else np.asarray(A_inv_post, dtype=np.float64).copy()
-        ),
-        XtWX=(
-            fit_state.XtWX
-            if XtWX_post is None
-            else np.asarray(XtWX_post, dtype=np.float64).copy()
-        ),
-        working_weights=(
-            fit_state.working_weights
-            if working_weights_post is None
-            else np.asarray(working_weights_post, dtype=np.float64).copy()
-        ),
-    )
+    fit_state = replace(fit_state, scale=float(scale_post))
     fit_result = replace(
         fit_result,
         trace_H=float(trace_H_post),
@@ -286,36 +308,15 @@ def assign_fit_solution(model, sol: FitCoreSolution):
     result = model.gam_result_
     if result is None:
         raise RuntimeError("Cannot assign a fit solution before design compilation.")
-    if (
-        getattr(model.family, "family_class", "") == "general"
-        and result.compiled_model.coef_reduced_to_full_idx is not None
-    ):
-        full_idx = np.asarray(
-            result.compiled_model.coef_reduced_to_full_idx, dtype=int
-        )
-        edf = []
-        for tb in _term_blocks_seq(model):
-            idx = full_idx[tb.coef_slice]
-            edf.append(float(np.trace(H_post[np.ix_(idx, idx)])))
-        edf_by_term = np.asarray(edf, dtype=np.float64)
-    else:
-        # Keep the EDF implied by the fitted coefficient-space hat matrix.
-        # mgcv has no single-smooth numerical-rank / trace(H)-nsdf substitute;
-        # parity-sensitive callers must see the actual post-fit result.
-        edf_by_term = np.asarray(
-            compute_edf_by_term(model, H_post), dtype=np.float64
-        )
+    # Keep the EDF implied by the fitted full coefficient-space hat matrix.
+    # ``coef_reduced_to_full_idx`` handles every predictor intercept uniformly.
+    edf_by_term = np.asarray(compute_edf_by_term(model, H_post), dtype=np.float64)
 
     sol = replace(sol, fit_result=replace(sol.fit_result, edf_by_term=edf_by_term))
 
     model.gam_result_ = result.with_fit_solution(
         sol,
     )
-
-    if bool(getattr(model, "_fitted", False)):
-        from .result_builders import sync_gam_result
-
-        sync_gam_result(model)
 
 
 __all__ = [

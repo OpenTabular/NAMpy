@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import fields, replace
+
 import numpy as np
 import pytest
 
@@ -109,6 +111,60 @@ def test_fit_result_public_schema_tracks_term_results_without_duplicate_owners()
         assert item["smoothing_indices"] == [int(v) for v in tb.smoothing_indices]
         assert item["smoothing_ids"] == list(tb.smoothing_ids)
         _assert_metadata_equal(item["metadata"], dict(tb.metadata or {}))
+
+
+def test_fit_result_is_a_fully_defensive_public_snapshot():
+    """Nested public result mutation must not alter fitted model state."""
+    data = _make_gaussian_data(seed=418, n=120)
+    gam = _fit_nampy_model(
+        data,
+        'y ~ x0 + s(x1, bs="cr", k=7)',
+        "gaussian",
+        "REML",
+    )
+    internal = gam.gam_result_.require_fit_summary()
+    internal.term_results[0].metadata["deep_copy_probe"] = {
+        "values": [1, np.asarray([2.0, 3.0])]
+    }
+    internal.metadata["deep_copy_probe"] = {"values": [4, 5]}
+    assert internal.side_condition_reports
+    internal.side_condition_reports[0]["deep_copy_probe"] = {"values": [6, 7]}
+    traced_core = replace(
+        internal.core,
+        inner_trace=[{"values": [8, np.asarray([9.0, 10.0])]}],
+    )
+    internal = replace(internal, core=traced_core)
+    gam.gam_result_ = replace(gam.gam_result_, fit_summary=internal)
+    prediction_before = gam.predict(data)
+
+    public = gam.fit_result(include_covariances=True)
+    for field in fields(public.core):
+        public_value = getattr(public.core, field.name)
+        internal_value = getattr(internal.core, field.name)
+        if isinstance(public_value, np.ndarray):
+            assert not np.shares_memory(public_value, internal_value)
+            public_value[...] = 0
+    public.smoothing_params[...] = 0
+    public.core.inner_trace[0]["values"][1][...] = 0
+    public.term_results[0].metadata["deep_copy_probe"]["values"][1][...] = 0
+    public.metadata["deep_copy_probe"]["values"].append(99)
+    public.side_condition_reports[0]["deep_copy_probe"]["values"].append(99)
+
+    np.testing.assert_array_equal(
+        internal.core.inner_trace[0]["values"][1],
+        np.asarray([9.0, 10.0]),
+    )
+    np.testing.assert_array_equal(
+        internal.term_results[0].metadata["deep_copy_probe"]["values"][1],
+        np.asarray([2.0, 3.0]),
+    )
+    assert internal.metadata["deep_copy_probe"]["values"] == [4, 5]
+    assert internal.side_condition_reports[0]["deep_copy_probe"]["values"] == [6, 7]
+    np.testing.assert_array_equal(gam.predict(data), prediction_before)
+
+    second = gam.fit_result(include_covariances=True)
+    np.testing.assert_array_equal(second.core.coef_full, internal.core.coef_full)
+    np.testing.assert_array_equal(second.smoothing_params, internal.smoothing_params)
 
 
 def test_optimizer_trace_schema_preserves_internal_joint_gamma_rows():

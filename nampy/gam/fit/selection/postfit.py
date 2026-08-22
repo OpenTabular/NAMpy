@@ -208,33 +208,6 @@ def _postfit_hessian(model, method: str, *, edge_correct: bool) -> np.ndarray | 
     return H
 
 
-def _joint_gaussian_outer_hessian(model, *, edge_correct: bool) -> np.ndarray | None:
-    result = getattr(model, "_optim_result", None)
-    if result is None or not bool(getattr(result, "joint_gaussian_reml_outer", False)):
-        return None
-
-    joint_x = getattr(result, "joint_x", None)
-    if joint_x is None:
-        return None
-    joint_x = np.asarray(joint_x, dtype=np.float64).ravel()
-    if joint_x.size == 0:
-        return None
-
-    outer_info = dict(getattr(result, "outer_info", {}) or {})
-    H = None
-    if edge_correct:
-        H = outer_info.get("hess1", None)
-    if H is None:
-        H = outer_info.get("hess", None)
-    if H is None:
-        return None
-
-    H = np.asarray(H, dtype=np.float64)
-    if H.shape != (joint_x.size, joint_x.size):
-        return None
-    return H
-
-
 def sp_vcov(model, edge_correct: bool = True, reg: float = 1e-3):
     _require_fitted(model)
 

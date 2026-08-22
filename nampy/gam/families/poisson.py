@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.special import gammaln
+from scipy.stats import poisson as poisson_distribution
 
 from .family_base import GLMFamily
 
@@ -83,6 +84,14 @@ class PoissonLogFamily(GLMFamily):
 
     def working_weight_second_derivative_eta(self, eta, y=None):
         return self.inverse_link(eta)
+
+    def quantile_residual_bounds(self, y, mu, *, weights=None, scale=1.0):
+        del weights, scale
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.asarray(mu, dtype=np.float64)
+        lower = poisson_distribution.cdf(y - 1.0, mu=mu)
+        upper = poisson_distribution.cdf(y, mu=mu)
+        return np.asarray(lower, dtype=np.float64), np.asarray(upper, dtype=np.float64)
 
 
 class PoissonIdentityFamily(PoissonLogFamily):

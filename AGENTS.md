@@ -98,13 +98,15 @@ Do not “improve” an algorithm just because a different Python implementation
 
 ### Neural backend
 
-- `nampy/neural/modules/<model>.py` — PyTorch `nn.Module` architectures and shared building blocks
-- `nampy/neural/task.py`, `nampy/neural/contracts.py` — Lightning task harness and output contract
+- `nampy/neural/architectures/<model>.py` — PyTorch `nn.Module` architectures; shared building blocks in `nampy/neural/architectures/components/`
+- `nampy/neural/objectives.py`, `nampy/neural/task.py` — objective semantics and Lightning harness
+- `nampy/neural/registry.py`, `nampy/neural/contracts.py` — architecture registry and output contract
 - `nampy/neural/data/` — PreTab-to-Torch data module/dataset
 - `nampy/neural/distributions/` — Torch LSS families and metrics
 - `nampy/neural/configs/<model>_config.py` — config dataclasses
-- `nampy/models/<model>.py` — sklearn-style wrappers (no sklearn mixins;
-  hand-written `score()`/`__sklearn_tags__`); `nampy/models/gam.py` — GAM adapters
+- `nampy/models/<model>.py` — registry-generated sklearn-style estimator families
+  (no sklearn mixins; hand-written `score()`/`__sklearn_tags__` live in shared
+  objective views); `nampy/models/gam.py` — GAM adapters
 
 ### Shared surfaces
 

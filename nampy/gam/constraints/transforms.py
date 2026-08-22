@@ -4,15 +4,6 @@ import numpy as np
 from scipy.linalg import qr as scipy_qr
 
 
-def orthogonal_residual(B, A):
-    B = np.asarray(B, dtype=np.float64)
-    if A is None or np.asarray(A).size == 0 or np.asarray(A).shape[1] == 0:
-        return B
-    A = np.asarray(A, dtype=np.float64)
-    coef, *_ = np.linalg.lstsq(A, B, rcond=None)
-    return B - A @ coef
-
-
 def dependent_column_indices(
     B,
     A=None,

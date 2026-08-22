@@ -1,38 +1,10 @@
-from ..neural.configs.linreg_config import DefaultLinRegConfig
-from ..neural.modules.linreg import LinReg
-from .classifier import NeuralClassifier
-from .lss import NeuralLSS
-from .regressor import NeuralRegressor
+"""Public estimator family generated from the neural linear declaration."""
 
+from ._registered import estimator_family
 
-class LinRegRegressor(NeuralRegressor):
-    """Linear-effects additive model regressor.
+_family = estimator_family("linreg", module_name=__name__)
+LinRegRegressor = _family.regressor
+LinRegClassifier = _family.classifier
+LinRegLSS = _family.lss
 
-    Hyperparameters: see :class:`nampy.neural.configs.DefaultLinRegConfig` plus
-    shared preprocessing options in :class:`NeuralEstimatorBase`.
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(model=LinReg, config=DefaultLinRegConfig, **kwargs)
-
-
-class LinRegClassifier(NeuralClassifier):
-    """Linear-effects additive model classifier.
-
-    Hyperparameters: see :class:`nampy.neural.configs.DefaultLinRegConfig` plus
-    shared preprocessing options in :class:`NeuralEstimatorBase`.
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(model=LinReg, config=DefaultLinRegConfig, **kwargs)
-
-
-class LinRegLSS(NeuralLSS):
-    """Linear-effects additive model for distributional regression.
-
-    Hyperparameters: see :class:`nampy.neural.configs.DefaultLinRegConfig` plus
-    shared preprocessing options in :class:`NeuralEstimatorBase`.
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(model=LinReg, config=DefaultLinRegConfig, **kwargs)
+__all__ = ["LinRegRegressor", "LinRegClassifier", "LinRegLSS"]

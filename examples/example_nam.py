@@ -48,9 +48,9 @@ def main():
     model = NAMRegressor(
         layer_sizes=(64, 32),
         dropout=0.05,
-        numerical_preprocessing="ple",
-        n_bins=50,
-        categorical_preprocessing="one_hot",
+        numerical_method="ple",
+        output_dim=50,
+        categorical_method="one_hot",
         cat_cutoff=0.05,
     )
 

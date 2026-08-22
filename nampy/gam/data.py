@@ -108,16 +108,6 @@ def knots_for_feature(model, feature_name, *, knots=None):
     return knots
 
 
-def knots_for_features(model, feature_names, *, knots=None):
-    knots = model.knots if knots is None else knots
-    if knots is None:
-        return None
-    if isinstance(knots, dict):
-        vals = [knots.get(str(f), None) for f in feature_names]
-        return None if all(v is None for v in vals) else vals
-    return knots
-
-
 def dataframe_to_feature_matrix(
     X_df: pd.DataFrame, *, allow_missing_non_numeric: bool = False
 ):

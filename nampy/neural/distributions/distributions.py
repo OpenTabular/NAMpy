@@ -111,9 +111,31 @@ class BaseDistribution(torch.nn.Module):
     # ------------------------------------------------------------------
 
     def compute_loss(
+        self,
+        predictions: torch.Tensor,
+        y_true: torch.Tensor,
+        reduction: str = "mean",
+    ) -> torch.Tensor:
+        """Return negative log loss with a shared, weight-compatible reduction."""
+        values = self.compute_loss_per_sample(predictions, y_true)
+        if values.ndim == 0:
+            raise ValueError(
+                f"{type(self).__name__}.compute_loss_per_sample() returned a scalar."
+            )
+        if reduction == "none":
+            return values
+        if reduction == "mean":
+            return values.mean()
+        if reduction == "sum":
+            return values.sum()
+        raise ValueError("reduction must be 'none', 'mean', or 'sum'.")
+
+    def compute_loss_per_sample(
         self, predictions: torch.Tensor, y_true: torch.Tensor
     ) -> torch.Tensor:
-        raise NotImplementedError("Subclasses must implement compute_loss().")
+        raise NotImplementedError(
+            "Subclasses must implement compute_loss_per_sample()."
+        )
 
     def evaluate_nll(self, y_true: TensorLike, y_pred: TensorLike):
         """
@@ -186,14 +208,14 @@ class NormalDistribution(BaseDistribution):
         self.mean_transform = mean_transform
         self.scale_transform = scale_transform
 
-    def compute_loss(self, predictions, y_true):
+    def compute_loss_per_sample(self, predictions, y_true):
         predictions = self._ensure_2d_predictions(predictions)
         y = self._squeeze_target_last_singleton(y_true).float()
         self._validate_batch_match(predictions, y)
 
         mean = self.get_transform(self.mean_transform)(predictions[:, 0])
         scale = self.get_transform(self.scale_transform)(predictions[:, 1])
-        return -dist.Normal(loc=mean, scale=scale).log_prob(y).mean()
+        return -dist.Normal(loc=mean, scale=scale).log_prob(y)
 
     def evaluate_nll(self, y_true, y_pred):
         metrics = super().evaluate_nll(y_true, y_pred)
@@ -228,7 +250,7 @@ class PoissonDistribution(BaseDistribution):
         super().__init__(name=name, param_names=["rate"], eps=eps)
         self.rate_transform = rate_transform
 
-    def compute_loss(self, predictions, y_true):
+    def compute_loss_per_sample(self, predictions, y_true):
         predictions = self._ensure_2d_predictions(predictions)
         y = self._squeeze_target_last_singleton(y_true).float()
         self._validate_batch_match(predictions, y)
@@ -237,7 +259,7 @@ class PoissonDistribution(BaseDistribution):
             raise ValueError("PoissonDistribution requires non-negative targets.")
 
         rate = self.get_transform(self.rate_transform)(predictions[:, 0])
-        return -dist.Poisson(rate=rate).log_prob(y).mean()
+        return -dist.Poisson(rate=rate).log_prob(y)
 
     def evaluate_nll(self, y_true, y_pred):
         metrics = super().evaluate_nll(y_true, y_pred)
@@ -280,7 +302,7 @@ class InverseGammaDistribution(BaseDistribution):
         self.shape_transform = shape_transform
         self.rate_transform = rate_transform
 
-    def compute_loss(self, predictions, y_true):
+    def compute_loss_per_sample(self, predictions, y_true):
         predictions = self._ensure_2d_predictions(predictions)
         y = self._squeeze_target_last_singleton(y_true).float()
         self._validate_batch_match(predictions, y)
@@ -292,7 +314,7 @@ class InverseGammaDistribution(BaseDistribution):
 
         shape = self.get_transform(self.shape_transform)(predictions[:, 0])
         rate = self.get_transform(self.rate_transform)(predictions[:, 1])
-        return -dist.InverseGamma(concentration=shape, rate=rate).log_prob(y).mean()
+        return -dist.InverseGamma(concentration=shape, rate=rate).log_prob(y)
 
     def predict_point(self, predictions, transformed: bool = False):
         """
@@ -322,7 +344,7 @@ class BetaDistribution(BaseDistribution):
         self.beta_transform = scale_transform
         self.target_eps = float(target_eps)
 
-    def compute_loss(self, predictions, y_true):
+    def compute_loss_per_sample(self, predictions, y_true):
         predictions = self._ensure_2d_predictions(predictions)
         y = self._squeeze_target_last_singleton(y_true).float()
         self._validate_batch_match(predictions, y)
@@ -330,7 +352,7 @@ class BetaDistribution(BaseDistribution):
         y = torch.clamp(y, min=self.target_eps, max=1.0 - self.target_eps)
         alpha = self.get_transform(self.alpha_transform)(predictions[:, 0])
         beta = self.get_transform(self.beta_transform)(predictions[:, 1])
-        return -dist.Beta(concentration1=alpha, concentration0=beta).log_prob(y).mean()
+        return -dist.Beta(concentration1=alpha, concentration0=beta).log_prob(y)
 
     def predict_point(self, predictions, transformed: bool = False):
         """Beta mean = alpha / (alpha + beta)."""
@@ -394,7 +416,7 @@ class DirichletDistribution(BaseDistribution):
         tfm = self.get_transform(self.concentration_transform)
         return tfm(predictions)
 
-    def compute_loss(self, predictions, y_true):
+    def compute_loss_per_sample(self, predictions, y_true):
         predictions = self._ensure_2d_predictions(predictions)
         self._check_dim(predictions)
 
@@ -421,7 +443,7 @@ class DirichletDistribution(BaseDistribution):
         y = y / torch.clamp(y.sum(dim=1, keepdim=True), min=self.target_eps)
 
         concentration = self.forward(predictions)
-        return -dist.Dirichlet(concentration=concentration).log_prob(y).mean()
+        return -dist.Dirichlet(concentration=concentration).log_prob(y)
 
     def predict_point(self, predictions, transformed: bool = False):
         """Dirichlet mean = alpha / sum(alpha)."""
@@ -444,7 +466,7 @@ class GammaDistribution(BaseDistribution):
         self.shape_transform = shape_transform
         self.rate_transform = rate_transform
 
-    def compute_loss(self, predictions, y_true):
+    def compute_loss_per_sample(self, predictions, y_true):
         predictions = self._ensure_2d_predictions(predictions)
         y = self._squeeze_target_last_singleton(y_true).float()
         self._validate_batch_match(predictions, y)
@@ -454,7 +476,7 @@ class GammaDistribution(BaseDistribution):
 
         shape = self.get_transform(self.shape_transform)(predictions[:, 0])
         rate = self.get_transform(self.rate_transform)(predictions[:, 1])
-        return -dist.Gamma(concentration=shape, rate=rate).log_prob(y).mean()
+        return -dist.Gamma(concentration=shape, rate=rate).log_prob(y)
 
     def predict_point(self, predictions, transformed: bool = False):
         """Gamma mean = shape / rate."""
@@ -481,7 +503,7 @@ class StudentTDistribution(BaseDistribution):
         self.scale_transform = scale_transform
         self.min_df = float(min_df)
 
-    def compute_loss(self, predictions, y_true):
+    def compute_loss_per_sample(self, predictions, y_true):
         predictions = self._ensure_2d_predictions(predictions)
         y = self._squeeze_target_last_singleton(y_true).float()
         self._validate_batch_match(predictions, y)
@@ -489,7 +511,7 @@ class StudentTDistribution(BaseDistribution):
         df = self.get_transform(self.df_transform)(predictions[:, 0]) + self.min_df
         loc = self.get_transform(self.loc_transform)(predictions[:, 1])
         scale = self.get_transform(self.scale_transform)(predictions[:, 2])
-        return -dist.StudentT(df=df, loc=loc, scale=scale).log_prob(y).mean()
+        return -dist.StudentT(df=df, loc=loc, scale=scale).log_prob(y)
 
     def evaluate_nll(self, y_true, y_pred):
         metrics = super().evaluate_nll(y_true, y_pred)
@@ -540,7 +562,7 @@ class NegativeBinomialDistribution(BaseDistribution):
         self.mean_transform = mean_transform
         self.dispersion_transform = dispersion_transform
 
-    def compute_loss(self, predictions, y_true):
+    def compute_loss_per_sample(self, predictions, y_true):
         predictions = self._ensure_2d_predictions(predictions)
         y = self._squeeze_target_last_singleton(y_true).float()
         self._validate_batch_match(predictions, y)
@@ -558,7 +580,7 @@ class NegativeBinomialDistribution(BaseDistribution):
         probs = torch.clamp(probs, min=self.eps, max=1.0 - self.eps)
 
         nb = dist.NegativeBinomial(total_count=total_count, probs=probs)
-        return -nb.log_prob(y).mean()
+        return -nb.log_prob(y)
 
     def predict_point(self, predictions, transformed: bool = False):
         """NB mean parameter."""
@@ -620,7 +642,7 @@ class CategoricalDistribution(BaseDistribution):
         probs = tfm(predictions)
         return torch.clamp(probs, min=self.eps, max=1.0 - self.eps)
 
-    def compute_loss(self, predictions, y_true):
+    def compute_loss_per_sample(self, predictions, y_true):
         predictions = self._ensure_2d_predictions(predictions)
         self._check_dim(predictions)
 
@@ -644,7 +666,7 @@ class CategoricalDistribution(BaseDistribution):
         y = y.long()
         self._validate_batch_match(predictions, y)
         probs = self.forward(predictions)
-        return -dist.Categorical(probs=probs).log_prob(y).mean()
+        return -dist.Categorical(probs=probs).log_prob(y)
 
     def predict_point(self, predictions, transformed: bool = False):
         probs = predictions if transformed else self.forward(predictions)
@@ -711,7 +733,7 @@ class Quantile(BaseDistribution):
         q_rest = q0 + torch.cumsum(inc, dim=1)
         return torch.cat([q0, q_rest], dim=1)
 
-    def compute_loss(self, predictions, y_true):
+    def compute_loss_per_sample(self, predictions, y_true):
         preds = self.forward(predictions)  # supports optional monotonic transform
         y = self._squeeze_target_last_singleton(y_true).float()
         self._validate_batch_match(preds, y)
@@ -723,7 +745,7 @@ class Quantile(BaseDistribution):
         )
         errors = y - preds
         loss = torch.maximum((q - 1.0) * errors, q * errors)
-        return loss.sum(dim=1).mean()
+        return loss.sum(dim=1)
 
     def predict_point(self, predictions, transformed: bool = False):
         preds = predictions if transformed else self.forward(predictions)
@@ -756,7 +778,7 @@ class RobustNormalDistribution(BaseDistribution):
         self.scale_transform = scale_transform
         self.rob = None if rob is None else float(rob)
 
-    def compute_loss(self, predictions, y_true):
+    def compute_loss_per_sample(self, predictions, y_true):
         predictions = self._ensure_2d_predictions(predictions)
         y = self._squeeze_target_last_singleton(y_true).float()
         self._validate_batch_match(predictions, y)
@@ -781,7 +803,7 @@ class RobustNormalDistribution(BaseDistribution):
             )
             log_likelihood = log_num - log_den
 
-        return -log_likelihood.mean()
+        return -log_likelihood
 
     def evaluate_nll(self, y_true, y_pred):
         metrics = super().evaluate_nll(y_true, y_pred)
@@ -855,7 +877,7 @@ class LogNormalDistribution(BaseDistribution):
         self.loc_transform = loc_transform
         self.scale_transform = scale_transform
 
-    def compute_loss(self, predictions, y_true):
+    def compute_loss_per_sample(self, predictions, y_true):
         predictions = self._ensure_2d_predictions(predictions)
         y = self._squeeze_target_last_singleton(y_true).float()
         self._validate_batch_match(predictions, y)
@@ -868,7 +890,7 @@ class LogNormalDistribution(BaseDistribution):
         loc = self.get_transform(self.loc_transform)(predictions[:, 0])
         scale = self.get_transform(self.scale_transform)(predictions[:, 1])
 
-        return -dist.LogNormal(loc=loc, scale=scale).log_prob(y).mean()
+        return -dist.LogNormal(loc=loc, scale=scale).log_prob(y)
 
     def predict_point(self, predictions, transformed: bool = False):
         params = predictions if transformed else self.forward(predictions)
@@ -903,7 +925,7 @@ class WeibullDistribution(BaseDistribution):
         self.scale_transform = scale_transform
         self.shape_transform = shape_transform
 
-    def compute_loss(self, predictions, y_true):
+    def compute_loss_per_sample(self, predictions, y_true):
         predictions = self._ensure_2d_predictions(predictions)
         y = self._squeeze_target_last_singleton(y_true).float()
         self._validate_batch_match(predictions, y)
@@ -914,7 +936,7 @@ class WeibullDistribution(BaseDistribution):
         scale = self.get_transform(self.scale_transform)(predictions[:, 0])
         shape = self.get_transform(self.shape_transform)(predictions[:, 1])
 
-        return -dist.Weibull(scale=scale, concentration=shape).log_prob(y).mean()
+        return -dist.Weibull(scale=scale, concentration=shape).log_prob(y)
 
     def predict_point(self, predictions, transformed: bool = False):
         params = predictions if transformed else self.forward(predictions)
@@ -952,7 +974,7 @@ class LogLogisticDistribution(BaseDistribution):
         self.scale_transform = scale_transform
         self.shape_transform = shape_transform
 
-    def compute_loss(self, predictions, y_true):
+    def compute_loss_per_sample(self, predictions, y_true):
         predictions = self._ensure_2d_predictions(predictions)
         y = self._squeeze_target_last_singleton(y_true).float()
         self._validate_batch_match(predictions, y)
@@ -977,7 +999,7 @@ class LogLogisticDistribution(BaseDistribution):
             - 2.0 * F.softplus(bz)
         )
 
-        return -log_pdf.mean()
+        return -log_pdf
 
     def predict_point(self, predictions, transformed: bool = False):
         params = predictions if transformed else self.forward(predictions)
@@ -1013,7 +1035,7 @@ class ZeroInflatedPoissonDistribution(BaseDistribution):
         self.zero_prob_transform = zero_prob_transform
         self.rate_transform = rate_transform
 
-    def compute_loss(self, predictions, y_true):
+    def compute_loss_per_sample(self, predictions, y_true):
         predictions = self._ensure_2d_predictions(predictions)
         y = self._squeeze_target_last_singleton(y_true).float()
         self._validate_batch_match(predictions, y)
@@ -1037,7 +1059,7 @@ class ZeroInflatedPoissonDistribution(BaseDistribution):
         log_prob_pos = torch.log1p(-zero_prob) + log_pois
 
         log_prob = torch.where(y == 0, log_prob_zero, log_prob_pos)
-        return -log_prob.mean()
+        return -log_prob
 
     def predict_point(self, predictions, transformed: bool = False):
         params = predictions if transformed else self.forward(predictions)
@@ -1076,7 +1098,7 @@ class ZeroInflatedNegativeBinomialDistribution(BaseDistribution):
         self.mean_transform = mean_transform
         self.dispersion_transform = dispersion_transform
 
-    def compute_loss(self, predictions, y_true):
+    def compute_loss_per_sample(self, predictions, y_true):
         predictions = self._ensure_2d_predictions(predictions)
         y = self._squeeze_target_last_singleton(y_true).float()
         self._validate_batch_match(predictions, y)
@@ -1103,7 +1125,7 @@ class ZeroInflatedNegativeBinomialDistribution(BaseDistribution):
         log_prob_pos = torch.log1p(-zero_prob) + log_nb
 
         log_prob = torch.where(y == 0, log_prob_zero, log_prob_pos)
-        return -log_prob.mean()
+        return -log_prob
 
     def predict_point(self, predictions, transformed: bool = False):
         params = predictions if transformed else self.forward(predictions)
@@ -1141,7 +1163,7 @@ class HurdlePoissonDistribution(BaseDistribution):
         self.zero_prob_transform = zero_prob_transform
         self.rate_transform = rate_transform
 
-    def compute_loss(self, predictions, y_true):
+    def compute_loss_per_sample(self, predictions, y_true):
         predictions = self._ensure_2d_predictions(predictions)
         y = self._squeeze_target_last_singleton(y_true).float()
         self._validate_batch_match(predictions, y)
@@ -1164,7 +1186,7 @@ class HurdlePoissonDistribution(BaseDistribution):
         log_prob_pos = torch.log1p(-zero_prob) + log_pois - log_trunc_norm
 
         log_prob = torch.where(y == 0, log_prob_zero, log_prob_pos)
-        return -log_prob.mean()
+        return -log_prob
 
     def predict_point(self, predictions, transformed: bool = False):
         params = predictions if transformed else self.forward(predictions)
@@ -1207,7 +1229,7 @@ class HurdleNegativeBinomialDistribution(BaseDistribution):
         self.mean_transform = mean_transform
         self.dispersion_transform = dispersion_transform
 
-    def compute_loss(self, predictions, y_true):
+    def compute_loss_per_sample(self, predictions, y_true):
         predictions = self._ensure_2d_predictions(predictions)
         y = self._squeeze_target_last_singleton(y_true).float()
         self._validate_batch_match(predictions, y)
@@ -1233,7 +1255,7 @@ class HurdleNegativeBinomialDistribution(BaseDistribution):
         log_prob_pos = torch.log1p(-zero_prob) + log_nb - log_trunc_norm
 
         log_prob = torch.where(y == 0, log_prob_zero, log_prob_pos)
-        return -log_prob.mean()
+        return -log_prob
 
     def predict_point(self, predictions, transformed: bool = False):
         params = predictions if transformed else self.forward(predictions)
@@ -1327,7 +1349,7 @@ class TweedieDistribution(BaseDistribution):
         lam = torch.clamp(lam, min=self.eps)
         return lam, a, b
 
-    def compute_loss(self, predictions, y_true):
+    def compute_loss_per_sample(self, predictions, y_true):
         predictions = self._ensure_2d_predictions(predictions)
         y = self._squeeze_target_last_singleton(y_true).float()
         self._validate_batch_match(predictions, y)
@@ -1383,7 +1405,7 @@ class TweedieDistribution(BaseDistribution):
             # f(y) = exp(-lambda - y/b) * (1/y) * sum_n term_n
             log_prob[pos_mask] = -lam_pos - y_pos / b_pos - torch.log(y_pos) + log_sum
 
-        return -log_prob.mean()
+        return -log_prob
 
     def predict_point(self, predictions, transformed: bool = False):
         params = predictions if transformed else self.forward(predictions)
@@ -1496,7 +1518,7 @@ class OrdinalCumulativeLogitDistribution(BaseDistribution):
         probs = probs / torch.clamp(probs.sum(dim=1, keepdim=True), min=self.eps)
         return probs
 
-    def compute_loss(self, predictions, y_true):
+    def compute_loss_per_sample(self, predictions, y_true):
         probs = self.forward(predictions)
 
         if not torch.is_tensor(y_true):
@@ -1525,7 +1547,7 @@ class OrdinalCumulativeLogitDistribution(BaseDistribution):
             )
 
         gathered = probs.gather(1, y.unsqueeze(1)).squeeze(1)
-        return -torch.log(torch.clamp(gathered, min=self.eps)).mean()
+        return -torch.log(torch.clamp(gathered, min=self.eps))
 
     def predict_point(self, predictions, transformed: bool = False):
         probs = predictions if transformed else self.forward(predictions)
@@ -1597,7 +1619,7 @@ class MultivariateNormalDiagDistribution(BaseDistribution):
 
         return torch.cat([loc, scale], dim=1)
 
-    def compute_loss(self, predictions, y_true):
+    def compute_loss_per_sample(self, predictions, y_true):
         predictions = self._ensure_2d_predictions(predictions)
         self._check_dim(predictions)
 
@@ -1623,7 +1645,7 @@ class MultivariateNormalDiagDistribution(BaseDistribution):
         scale = self.get_transform(self.scale_transform)(predictions[:, self._n_dim :])
 
         mvn = dist.Independent(dist.Normal(loc=loc, scale=scale), 1)
-        return -mvn.log_prob(y).mean()
+        return -mvn.log_prob(y)
 
     def predict_point(self, predictions, transformed: bool = False):
         params = predictions if transformed else self.forward(predictions)

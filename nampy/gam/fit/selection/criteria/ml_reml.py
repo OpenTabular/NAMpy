@@ -8,7 +8,6 @@ then evaluates the appropriate criterion value.
 
 import numpy as np
 
-from ....model_state import _term_blocks_seq
 from ...backends import GENERAL_FAMILY_BACKEND
 from ...capabilities import raise_ml_reml_backend_error
 from ...solvers.general_family.fixed_smoothing import (
@@ -20,14 +19,6 @@ from ..reparam import (
 )
 from .gaussian import criterion_ml_reml_exact, criterion_ml_reml_exact_dynamic
 from .pirls import criterion_ml_reml_pirls, criterion_ml_reml_pirls_dynamic
-
-
-def _model_has_random_effect_smooth(model) -> bool:
-    """``bs=\"re\"`` designs: col(1) ⊆ col(Z) breaks the Laplace ``Z'Z+\\lambda`` REML path."""
-    for tb in _term_blocks_seq(model):
-        if str(getattr(tb, "term_type", "")).lower() == "random_effect":
-            return True
-    return False
 
 
 def resolve_ml_reml_scoring_backend(model, method="reml"):

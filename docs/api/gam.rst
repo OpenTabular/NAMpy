@@ -30,6 +30,23 @@ High-level model
    model.summary()
    model.plot()
 
+Shape-constrained smooths
+-------------------------
+
+The same ``GAM`` class accepts the SCOP-spline basis codes ported from R's
+``scam`` package.  For example, ``bs="mpi"`` is monotone increasing and
+``bs="tecxcv"`` is a bivariate convex/concave surface.  See
+:doc:`../user_guide/shape_constrained_gams` for the complete basis list,
+automatic smoothing, derivatives, linear functionals, and AR(1) support.
+
+.. currentmodule:: nampy.gam.diagnostics
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   SmoothDerivativeResult
+
 Scikit-learn adapters
 ---------------------
 

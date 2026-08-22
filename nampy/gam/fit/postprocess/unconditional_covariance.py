@@ -430,15 +430,6 @@ def _fixed_sp_edf2_from_qr(
     return edf2
 
 
-def _gaussian_fixed_sp_edf2_from_qr(
-    model,
-    fit_result: FitResult,
-    fit_state: FitState,
-) -> np.ndarray | None:
-    """Backward-compatible alias for the generalized fixed-sp EDF2 path."""
-    return _fixed_sp_edf2_from_qr(model, fit_result, fit_state)
-
-
 def _pirls_exact_unconditional_postfit(
     model,
     sol,

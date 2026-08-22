@@ -3,7 +3,7 @@ Base Models
 
 Low-level PyTorch model implementations.
 
-.. currentmodule:: nampy.neural.modules
+.. currentmodule:: nampy.neural.architectures
 
 These are the underlying PyTorch models. Most users should use the high-level
 :mod:`nampy.models` instead, which provide a scikit-learn compatible interface.
@@ -26,8 +26,12 @@ Model Implementations
    :nosignatures:
 
    NAM
+   SIAN
    GPNAM
+   IGANN
    NBM
+   NBMSPAM
+   SPAM
    NATT
    NAMformer
    LinReg

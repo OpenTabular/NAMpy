@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Sequence
 
 
 @dataclass
@@ -10,6 +10,7 @@ class DefaultSplineNAMConfig:
     lr_factor: float = 0.1
     dropout: float = 0.1
     interaction_degree: Optional[int] = None
+    interactions: Optional[Sequence[tuple[str, ...]]] = None
     intercept: bool = True
     feature_dropout: float = 0.0
     smoothing: float = 0.0

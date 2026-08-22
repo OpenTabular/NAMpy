@@ -12,40 +12,27 @@ from ..model_state import (
     _intercept,
     _require_fitted,
     _term_blocks_seq,
+    _term_full_coefficient_indices,
 )
 from ..predict.linear_predictor_matrix import build_lpmatrix
 
 
 def _term_indices_for_concurvity(model, n_coef: int):
-    offset = _coef_column_offset(model)
-    compiled_model = _compiled_model(model)
-    reduced_to_full = (
-        None
-        if compiled_model is None
-        else getattr(compiled_model, "coef_reduced_to_full_idx", None)
-    )
-    reduced_to_full = (
-        None
-        if reduced_to_full is None
-        else np.asarray(reduced_to_full, dtype=int).ravel()
-    )
     blocks = []
     smooth_starts = []
 
     for tb in _term_blocks_seq(model):
         if str(getattr(tb, "term_type", "")) == "parametric":
             continue
-        if reduced_to_full is not None:
-            idx = reduced_to_full[
-                int(tb.coef_slice.start) : int(tb.coef_slice.stop)
-            ]
-        else:
+        if _compiled_model(model) is None:
+            offset = _coef_column_offset(model)
             idx = np.arange(
                 int(tb.coef_slice.start) + offset,
                 int(tb.coef_slice.stop) + offset,
                 dtype=int,
             )
-        idx = np.asarray(idx, dtype=int).ravel()
+        else:
+            idx = _term_full_coefficient_indices(model, tb)
         idx = idx[(idx >= 0) & (idx < int(n_coef))]
         if idx.size == 0:
             continue

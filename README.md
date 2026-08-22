@@ -1,420 +1,665 @@
-# NAMpy: Interpretable (Additive) Tabular Deep Learning
+# NAMpy
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/OpenTabular/NAMpy/main/docs/_static/logo.png" alt="NAMpy — Interpretable Additive Modeling" width="704">
+</p>
 
 [![Python 3.11 | 3.12](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
+[![Development status: Beta](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/OpenTabular/NAMpy)
 
-NAMpy provides interpretable additive neural models for tabular data, with support for **regression**, **classification**, and **distributional regression** tasks. Models implement scikit-learn's `BaseEstimator` interface, so they integrate with standard scikit-learn workflows for fitting, prediction, and evaluation.
+Interpretable additive modeling in Python, from classical generalized additive
+models to modern neural architectures.
 
-## Key Features
+NAMpy brings two complementary model families behind familiar estimator APIs:
 
-- **Scikit-learn Compatible**: Consistent API with sklearn estimators
-- **10+ Model Architectures**: NAM, GPNAM, NBM, NATT, NAMformer, and more
-- **Three Task Types**: Regression, classification, and distributional regression (LSS)
-- **Interpretable**: Additive structure supports feature-level interpretation
-- **PyTorch Backend**: Built on modern deep learning tooling
-- **Extensible**: Interfaces for custom model implementations
+- an experimental, strict behavioral port of R's [`mgcv`](https://cran.r-project.org/package=mgcv)
+  for statistical GAMs; and
+- a PyTorch/Lightning backend for neural additive, basis, spline, tree,
+  attention, interaction, and distributional models.
 
-Most models are available for `regression`, `classification` and distributional regression, denoted by `LSS`.
-`QNAMLSS` is distributional-only. TreeNAM, EnsembleTreeNAM, and SNAM provide
-regression, classification, and distributional-regression variants.
+The common idea is simple: retain a useful decomposition of a prediction into
+terms while choosing the modeling machinery appropriate for the problem.
 
-## Integrated Models:
+```text
+prediction = intercept + main effects + optional interactions + optional offset
+```
 
-1. NAM
-2. GPNAM
-3. NBM
-4. NATT
-5. NAMformer
-6. QNAM (QNAMLSS)
-7. Linear Regression (Neural)
-8. NodeGAM
-9. TreeNAM and EnsembleTreeNAM
-10. SNAM
-11. SplineNAM (Regressor)
+Both backends expose sklearn-style estimators, additive component predictions,
+term explanations, importance tables, plotting, and persistence. They do not,
+however, hide their different statistical semantics: GAM inference remains GAM
+inference, while neural training remains neural training.
+
+## Contents
+
+- [Why NAMpy?](#why-nampy)
+- [Installation](#installation)
+- [Quick start: statistical GAMs](#quick-start-statistical-gams)
+- [Quick start: neural additive models](#quick-start-neural-additive-models)
+- [One interpretation contract](#one-interpretation-contract)
+- [GAM backend](#gam-backend)
+- [Neural backend](#neural-backend)
+- [Preprocessing with PreTab](#preprocessing-with-pretab)
+- [Training and sklearn integration](#training-and-sklearn-integration)
+- [Distributional regression](#distributional-regression)
+- [Ensembling and persistence](#ensembling-and-persistence)
+- [Extending NAMpy](#extending-nampy)
+- [Project status and documentation](#project-status-and-documentation)
+- [Contributing and citation](#contributing-and-citation)
+
+
+
+## Why NAMpy?
+
+Additive models occupy a useful middle ground between simple linear models and
+unrestricted black boxes. A model can learn nonlinear effects and selected
+interactions while still answering questions such as:
+
+- Which terms contributed to this prediction?
+- What response shape did the model learn for a feature?
+- Which interactions matter most?
+- Does the sum of the reported terms reconstruct the link-scale prediction?
+
+NAMpy lets users answer those questions across two backends without pretending
+that every estimator is the same.
+
+
+|                  | Statistical GAM backend                                                      | Neural backend                                                                                                      |
+| ---------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Primary API      | `GAMRegressor`, `GAMClassifier`, low-level `GAM`                             | `NAMRegressor`, `NBMRegressor`, `NAMLSS`, and other registered families                                             |
+| Numerical engine | NumPy/SciPy ports of `mgcv` algorithms                                       | PyTorch and Lightning, plus architecture-native solvers where required                                              |
+| Main strengths   | Penalized smooths, smoothing selection, covariance and classical diagnostics | Large architecture catalog, flexible objectives, GPU training and distributional regression                         |
+| Formula support  | Yes                                                                          | No; use feature matrices or data frames                                                                             |
+| Preprocessing    | GAM-owned formula/model-frame semantics                                      | Pristine PreTab block contract                                                                                      |
+| Parity policy    | Strict `mgcv` behavior where supported                                       | Preserve reference architecture/training behavior where integrated; shared APIs and PreTab may intentionally differ |
+
+
+
 
 ## Installation
 
-### From PyPI (recommended)
+NAMpy supports Python 3.11 and 3.12. Install the extra for the backend you need:
 
 ```bash
-# Complete package: GAM and neural backends
+# Both backends and all optional model dependencies
 pip install "nampy[all]"
 
-# Or install only one backend's dependencies
+# Statistical GAM backend only
 pip install "nampy[gam]"
+
+# Neural backend only
 pip install "nampy[neural]"
+
+# Optional nonlinear best-subset selection for IGANN-Sparse
+pip install "nampy[igann-sparse]"
 ```
 
-### From Source
+The base package contains NumPy, pandas, scikit-learn, and joblib. The `gam`
+extra adds SciPy and Matplotlib. The `neural` extra adds PyTorch, Lightning,
+PreTab, TorchMetrics, SciPy, plotting, and distributional metrics. Ordinary
+IGANN does not require ABESS; only `IGANNRegressor(sparse=...)` does.
 
-Clone the repository and install in development mode:
+For development:
 
 ```bash
 git clone https://github.com/OpenTabular/NAMpy.git
 cd NAMpy
-pip install -e ".[all]"
+pip install -e ".[all,dev,docs]"
 ```
 
-### From GitHub
+NumPy is currently constrained to `<=1.26.4`; see
+`[pyproject.toml](pyproject.toml)` for the authoritative dependency versions.
 
-Install directly from a specific branch or tag:
+## Quick start: statistical GAMs
 
-```bash
-pip install "nampy[all] @ git+https://github.com/OpenTabular/NAMpy.git@main"
-```
-
-### Requirements
-
-- Python 3.11 or 3.12
-- scikit-learn
-- pandas
-- numpy
-
-The ``gam`` extra adds SciPy and Matplotlib. The ``neural`` extra adds the
-Torch, Lightning, PreTab, distributional-metric, and plotting dependencies.
-
-## Experimental `nampy.gam`
-
-The `nampy.gam` subpackage is an experimental, strict behavioral port of
-`mgcv`, not a loosely compatible GAM implementation. Its supported surface is
-broad but deliberately smaller than `mgcv`; unsupported inputs raise instead
-of selecting an approximate fallback.
-
-The stable package-level integration surface consists of `GAM`,
-`fit_model_core`, `solve_fit`, and `FitCoreSolution`, all exported from
-`nampy.gam`.
-
-Supported families and fitting routes:
-
-- ordinary families: `gaussian`, `binomial`, `poisson`, and `gamma`, including
-  the documented noncanonical links
-- negative binomial with fixed or estimated theta
-- the multi-predictor `gaulss` and `gammals` general families
-- fixed smoothing and automatic GCV/Cp, ML, REML, or general-family LAML where
-  the selected family/backend supports that criterion
-- `outer_newton`, `bfgs`, and `efs` ports; `optim` uses SciPy L-BFGS-B and has
-  explicitly guarded combinations where exact R endpoint behavior is not yet
-  available; `lbfgsb` is a NAMpy extension
-
-Supported smooths include `s(...)` with `cr`, `cs`, `cc`, `ps`, `tp`, `ts`,
-`re`, `fs`, and `sz`, plus `te(...)` and `ti(...)` over the supported numeric
-marginals. Prediction supports `link`, `response`, `terms`, `iterms`, and
-`lpmatrix`, standard errors, and ordinary-family `terms=` / `exclude=`
-filtering. For `iterms`, uncertainty includes the model-mean component as in
-`mgcv`; multi-predictor `terms=` / `exclude=` filters remain unsupported.
-
-Important intentional exclusions include `t2`, `gp`, `mrf`, adaptive and soap
-smooths, matrix covariates, `paraPen`, NCV/QNCV, many extended/general
-families, exact R parity for the `optim` backend, and R graphics-device state.
-`summary()` is a tested `summary.gam` port. `plot()` ports the `plot.gam` data
-phase and renders it with matplotlib; `gam_check()` returns diagnostic data
-without reproducing R's plots. See [the complete implemented
-surface](GAM_IMPLEMENTED.md) and [the guarded/unsupported
-surface](GAM_NOT_IMPLEMENTED.md) before relying on an advanced branch.
-
-## Quick Start
-
-### Fit a Model
-
-All NAMpy models implement sklearn `BaseEstimator` methods, including `.fit`. This enables standard tooling such as scikit-learn model selection and evaluation utilities.
+The sklearn-style adapters default to automatic REML smoothing selection, which
+is the usual high-level `mgcv::gam()` experience.
 
 ```python
-from nampy.models import NAMClassifier
+import numpy as np
+import pandas as pd
 
-# Initialize and fit your model
-model = NAMClassifier(
-    numerical_preprocessing="ple",
-    n_bins=50
+from nampy.models import GAMRegressor
+
+rng = np.random.default_rng(7)
+x = np.linspace(0.0, 1.0, 300)
+data = pd.DataFrame(
+    {
+        "x": x,
+        "group": rng.choice(["a", "b"], size=x.size),
+        "y": np.sin(2 * np.pi * x) + rng.normal(scale=0.15, size=x.size),
+    }
 )
 
-# X can be a DataFrame or any array-like that can be converted to a DataFrame.
-model.fit(X, y, max_epochs=150, lr=1e-04)
+gam = GAMRegressor(
+    formula="y ~ s(x, bs='cr', k=12) + group",
+    smoothing_method="reml",
+).fit(data)
+
+predictions = gam.predict(data)
+summary = gam.summary()
+
+components = gam.predict_components(data)
+components.validate_additive_reconstruction()
+importance = gam.term_importance(data)
 ```
 
-### Make Predictions
-
-Use the standard prediction methods:
+For array-based work, omit the formula:
 
 ```python
-# Simple predictions
-preds = model.predict(X)
-
-# Predict probabilities (for classification)
-preds = model.predict_proba(X)
+gam = GAMRegressor(k=10, basis="tp").fit(X_train, y_train)
+y_pred = gam.predict(X_test)
+y_se = gam.standard_errors(X_test)
 ```
 
-### Regression Example
+Binary classification uses the corresponding adapter:
 
 ```python
-from nampy.models import NAMRegressor
-from sklearn.datasets import make_regression
+from nampy.models import GAMClassifier
+
+classifier = GAMClassifier(formula="label ~ s(age) + income").fit(
+    frame, frame["label"]
+)
+probability = classifier.predict_proba(frame)[:, 1]
+label = classifier.predict(frame)
+```
+
+Use the lower-level `nampy.gam.GAM` when you need direct access to fixed
+smoothing parameters, prediction types, derivatives, covariance choices, or
+advanced diagnostics. Its defaults intentionally differ from the adapters:
+the raw class uses fixed smoothing unless automatic selection is requested.
+
+```python
+from nampy.gam import GAM
+
+raw_gam = GAM(
+    formula="y ~ s(x, bs='mpi', k=10)",
+    family="gaussian",
+    optimize_smoothing=True,
+    smoothing_method="gcv",
+    smoothing_optimizer="bfgs",
+).fit(data=data)
+
+derivative = raw_gam.derivative(smooth_number=1, deriv=1)
+```
+
+
+
+## Quick start: neural additive models
+
+Neural estimators separate constructor-time model/preprocessing configuration
+from fit-time training controls.
+
+```python
+from sklearn.datasets import load_diabetes
 from sklearn.model_selection import train_test_split
 
-# Generate sample data
-X, y = make_regression(n_samples=1000, n_features=10, noise=0.1)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+from nampy.models import NAMRegressor
 
-# Train model
-model = NAMRegressor(numerical_preprocessing="standardization")
-model.fit(X_train, y_train, max_epochs=100, lr=1e-3)
+X, y = load_diabetes(return_X_y=True, as_frame=True)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=7
+)
 
-# Evaluate
-score = model.score(X_test, y_test)
-print(f"R² Score: {score:.4f}")
+nam = NAMRegressor(
+    layer_sizes=[64, 32],
+    dropout=0.1,
+    numerical_method="minmax",
+)
+nam.fit(
+    X_train,
+    y_train,
+    max_epochs=100,
+    batch_size=128,
+    patience=12,
+    random_state=7,
+)
 
+y_pred = nam.predict(X_test)
+r2 = nam.score(X_test, y_test)
+
+components = nam.predict_components(X_test, center=True)
+components.validate_additive_reconstruction()
+importance = nam.term_importance(X_test)
+figures = nam.plot_terms(X_test)
 ```
 
-### Estimator Parameters, Cloning, and Multi-output Regression
-
-Neural estimators expose both architecture/config fields and preprocessing
-fields through scikit-learn's `get_params()` / `set_params()` contract. This
-allows `sklearn.base.clone`, pipelines, and parameter search to reconstruct an
-estimator without fitted state. Unknown constructor or `set_params` names raise
-instead of being silently ignored. If a config field and a preprocessing field
-share a name, use the `preprocessor__<name>` form to address the preprocessing
-value explicitly.
-
-The shared regression wrapper accepts targets shaped `(n_samples,)` or
-`(n_samples, n_outputs)` and preserves two-dimensional predictions for
-multi-output fits. This contract is exercised end to end for every public
-neural regressor.
-
-Fitted neural estimators can be persisted together with preprocessing state:
+Classification follows the same lifecycle:
 
 ```python
-path = model.save_model("nam_model.nampy")
-restored = NAMRegressor.load_model(path)
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split
+
+from nampy.models import NAMClassifier
+
+Xc, yc = load_breast_cancer(return_X_y=True, as_frame=True)
+Xc_train, Xc_test, yc_train, yc_test = train_test_split(
+    Xc, yc, test_size=0.2, stratify=yc, random_state=7
+)
+
+classifier = NAMClassifier().fit(
+    Xc_train, yc_train, max_epochs=100, class_weight="balanced"
+)
+labels = classifier.predict(Xc_test)
+probabilities = classifier.predict_proba(Xc_test)
+accuracy = classifier.score(Xc_test, yc_test)
 ```
 
-The format uses Python pickle internally. Only load estimator files from
-trusted sources, and recreate artifacts when Python or core dependency versions
-change.
+To add explicit interactions, pass logical source-feature names. Several
+architectures also accept an interaction degree that constructs the complete
+set for that order.
 
-### SplineNAM Preprocessing
-
-`SplineNAMRegressor` requires every transformed input feature to remain scalar.
-Its defaults are therefore `numerical_preprocessing="minmax"` and
-`categorical_preprocessing="int"`. Preprocessors that expand a feature into
-multiple columns, such as one-hot, binning, or PLE-style encodings, are not
-valid SplineNAM inputs. The model checks this requirement and raises a clear
-error rather than changing the architecture implicitly.
-
-## Distributional Regression with NAMLSS
-
-NAMpy provides distributional regression through the `NAMLSS` module, which models the full response distribution rather than only the mean. This is useful when variability, skewness, or kurtosis are as important as the central tendency. Most models in NAMpy are also available as distributional models.
-
-### Key Features of NAMLSS:
-
-- **Full Distribution Modeling**: Unlike traditional regression models that predict a single value (e.g., the mean), `NAMLSS` models the entire distribution of the response variable. This supports predictions of quantiles, variance, and higher moments.
-- **Customizable Distribution Types**: `NAMLSS` supports a variety of distribution families (e.g., Normal, Poisson, Gamma, Beta), making it suitable for response variables ranging from continuous to count data.
-- **Location, Scale, Shape Parameters**: The model predicts parameters corresponding to the location, scale, and shape of the distribution, providing direct access to distributional characteristics.
-- **Enhanced Predictive Uncertainty**: By modeling the full distribution, `NAMLSS` provides explicit predictive uncertainty estimates for downstream decisions.
+```python
+model = NAMRegressor(
+    interactions=(("age", "income"), ("debt", "assets")),
+)
+```
 
 
 
-### Available Distribution Classes:
+## One interpretation contract
 
-`NAMLSS` includes a range of distribution classes for statistical modeling needs. The available distribution classes include:
+`predict_components()` returns a backend-neutral `AdditivePrediction` object.
+Its important fields are:
 
-- `normal`: Normal Distribution for modeling continuous data with a symmetric distribution around the mean.
-- `poisson`: Poisson Distribution for modeling count data that for instance represent the number of events occurring within a fixed interval.
-- `gamma`: Gamma Distribution for modeling continuous data that is skewed and bounded at zero, often used for waiting times.
-- `beta`: Beta Distribution for modeling data that is bounded between 0 and 1, useful for proportions and percentages.
-- `dirichlet`: Dirichlet Distribution for modeling multivariate data where individual components are correlated, and the sum is constrained to 1.
-- `studentt`: Student's T-Distribution for modeling data with heavier tails than the normal distribution, useful when the sample size is small.
-- `negativebinom`: Negative Binomial Distribution for modeling count data with over-dispersion relative to the Poisson distribution.
-- `inversegamma`: Inverse Gamma Distribution, often used as a prior distribution in Bayesian inference for scale parameters.
-- `categorical`: Categorical Distribution for modeling categorical data with more than two categories.
-- `quantile`: Quantile regression for estimating conditional quantiles.
-- `robustnormal`: Robust Normal Distribution for heavy-tailed targets.
+- `response`: the prediction on the response scale;
+- `link`: the additive prediction before the inverse link or distributional
+parameter transform;
+- `terms`: an ordered mapping of term name to contribution;
+- `intercept`: the fitted intercept contribution;
+- `offset`: an optional link-scale offset; and
+- `backend`: either `"gam"` or `"neural"`.
 
-These distribution classes allow `NAMLSS` to model a wide variety of data types and distributions.
+For an ordinary scalar additive prediction, the central invariant is:
+
+```python
+components.link == (
+    components.intercept
+    + sum(components.terms.values())
+    + (0.0 if components.offset is None else components.offset)
+)
+```
+
+Use the built-in validator instead of writing that comparison yourself:
+
+```python
+components.validate_additive_reconstruction()
+```
+
+Both estimator backends provide explanation tables and importance summaries:
+
+```python
+table = model.explain_terms(X_test)
+importance = model.term_importance(X_test)
+interaction_importance = model.interaction_importance(X_test)
+```
+
+Neural models additionally provide `center_components()`, `plot_terms()`, and
+`plot_interactions()` for centered effects, one-dimensional curves,
+interaction heatmaps, and conditioned slices. GAM adapters provide `plot()`,
+which renders the ported `plot.gam` data phase through the same shared renderer.
+Centering changes the allocation between the intercept and terms, not the
+reconstructed prediction. For LSS models, additivity holds on the raw
+distribution-parameter/link scale rather than on the transformed parameter
+scale.
+
+## GAM backend
+
+`nampy.gam` is not a loosely inspired GAM implementation. For supported
+behavior, the vendored R and C sources of `mgcv` are treated as the behavioral
+specification. Control flow, penalty ordering, constraints, smoothing
+selection, and numerically significant factorization choices are ported as
+directly as practical and exercised by parity tests.
+
+### Supported surface
+
+The current implementation includes:
+
+- ordinary Gaussian, binomial, Poisson, and Gamma families, including their
+documented supported noncanonical links;
+- fixed or estimated negative-binomial theta, beta regression (`betar`),
+ordered categorical regression (`ocat`), Tweedie (`tw`), and the
+multi-predictor `gaulss` and `gammals` families on their supported routes;
+- fixed smoothing and automatic GCV/Cp, ML, REML, or general-family LAML where
+the selected family and fitting route support the criterion;
+- `outer_newton`, `bfgs`, and `efs` smoothing optimizers, plus guarded `optim`
+support and the NAMpy `lbfgsb` extension;
+- `s(...)` smooths with `cr`, `cs`, `cc`, `ps`, `tp`, `ts`, `re`, `fs`, and
+`sz` bases;
+- `te(...)` and `ti(...)` tensor products over supported numeric marginals;
+- SCAM-compatible shape-constrained smooths, including the supported
+univariate and bivariate SCOP-spline classes;
+- `link`, `response`, `terms`, `iterms`, and `lpmatrix` prediction modes;
+- pointwise standard errors, covariance matrices, derivatives, residuals,
+summaries, concurvity, basis-dimension checks, and diagnostic data; and
+- matplotlib rendering of the ported `plot.gam` data phase.
 
 
-### Getting Started with NAMLSS:
 
-To integrate distributional regression into your workflow with `NAMLSS`, initialize the model with the desired configuration, similar to other NAMpy models:
+### Deliberate boundaries
+
+Unsupported inputs raise explicit errors. Important current exclusions include
+`t2`, Gaussian-process, MRF, adaptive and soap smooths, `paraPen`, NCV/QNCV,
+many extended/general families, several matrix-covariate cases, complete R
+graphics-device behavior, and exact R endpoint behavior for every `optim`
+combination.
+
+Advanced users should consult:
+
+- [implemented GAM behavior](GAM_IMPLEMENTED.md);
+- [guarded and unsupported GAM behavior](GAM_NOT_IMPLEMENTED.md); and
+- [shape-constrained GAMs](docs/user_guide/shape_constrained_gams.rst).
+
+The stable package-level low-level surface is intentionally small:
+`GAM`, `fit_model_core`, `solve_fit`, and `FitCoreSolution`. Internal GAM
+modules are parity-sensitive implementation details.
+
+## Neural backend
+
+The neural backend uses a declarative architecture registry. Each architecture
+declares its forward module, configuration dataclass, supported objectives,
+preprocessing defaults, and optional native estimator lifecycle. The registry
+then generates consistent regressor, classifier, and LSS estimator families.
+
+### Model catalog
+
+
+| Architecture    | Public estimators                                                             | Main idea                                                                                                 |
+| --------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Linear          | `LinRegRegressor`, `LinRegClassifier`, `LinRegLSS`                            | A neural-objective-compatible linear baseline                                                             |
+| NAM             | `NAMRegressor`, `NAMClassifier`, `NAMLSS`                                     | Independent feature networks with optional explicit interactions                                          |
+| SIAN            | `SIANRegressor`, `SIANClassifier`, `SIANLSS`                                  | Archipelago-based sparse, arbitrary-order interaction discovery followed by additive fitting              |
+| SNAM            | `SNAMRegressor`, `SNAMClassifier`, `SNAMLSS`                                  | Sparse neural additive modeling                                                                           |
+| GPNAM           | `GPNAMRegressor`, `GPNAMClassifier`, `GPNAMLSS`                               | Fixed random Fourier feature shape functions; native conjugate-gradient regression or gradient objectives |
+| IGANN           | `IGANNRegressor`, `IGANNClassifier`, `IGANNLSS`                               | Linear initialization plus additive ELM boosting; native regression/binary fitting where supported        |
+| NBM             | `NBMRegressor`, `NBMClassifier`, `NBMLSS`                                     | Shared learned basis functions, including dense, sparse, Conv1D, einsum, and n-ary configurations         |
+| SPAM            | `SPAMRegressor`, `SPAMClassifier`, `SPAMLSS`                                  | Scalable low-rank polynomial additive effects and local term importance                                   |
+| NBM-SPAM        | `NBMSPAMRegressor`, `NBMSPAMClassifier`, `NBMSPAMLSS`                         | Neural basis concepts combined with polynomial interaction structure                                      |
+| NATT            | `NATTRegressor`, `NATTClassifier`, `NATTLSS`                                  | Attentive tabular modeling                                                                                |
+| NAMformer       | `NAMformerRegressor`, `NAMformerClassifier`, `NAMformerLSS`                   | Transformer-based additive tabular modeling                                                               |
+| TreeNAM         | `TreeNAMRegressor`, `TreeNAMClassifier`, `TreeNAMLSS`                         | Tree-inspired neural additive terms                                                                       |
+| EnsembleTreeNAM | `EnsembleTreeNAMRegressor`, `EnsembleTreeNAMClassifier`, `EnsembleTreeNAMLSS` | An integrated ensemble-tree NAM architecture                                                              |
+| NodeGAM         | `NodeGAMRegressor`, `NodeGAMClassifier`, `NodeGAMLSS`                         | Differentiable oblivious trees with optional masked reconstruction pretraining                            |
+| QNAM            | `QNAMLSS`                                                                     | Distributional-only quantile NAM                                                                          |
+| SplineNAM       | `SplineNAMRegressor`                                                          | Regression-only neural spline additive model                                                              |
+
+
+Most architectures support main effects, explicit interactions, and all three
+objectives. Exceptions are intentional: QNAM is distributional-only,
+SplineNAM is regression-only, and IGANN does not expose interaction terms.
+
+### Architecture-specific behavior
+
+Some models need more than a generic training loop:
+
+- **GPNAM regression** can use the released fixed-basis conjugate-gradient
+ridge solve. Classification and LSS use the common objective engine.
+- **IGANN regression and binary classification** can use the released
+sequential ELM optimizer. Multiclass and LSS are explicit NAMpy extensions
+trained over the fixed basis with the gradient engine.
+- **SIAN** can discover sparse higher-order interactions or accept an explicit
+interaction set that bypasses discovery.
+- **NBM** treats sparse as a configuration option—not a separate estimator
+class—and supports Conv1D and arbitrary-order interactions.
+- **SPAM and NBM-SPAM** are first-class registered architecture families, not
+aliases for NBM configurations.
+- **NodeGAM** is the architecture currently supporting masked reconstruction
+pretraining through the shared fit surface.
+
+Reference repositories vendored under `upstreams/` exist for implementation
+study and parity tests. They are development inputs, not runtime dependencies,
+and are excluded from package discovery.
+
+## Preprocessing with PreTab
+
+The neural backend delegates generic tabular preprocessing to
+[PreTab](https://github.com/OpenTabular/PreTab) and targets the public contract in
+pristine PreTab `1.0.0rc2` or newer:
+
+- `Preprocessor.fit(X, y)` and `transform(X)`;
+- dictionary outputs with `num_<feature>` and `cat_<feature>` blocks;
+- block metadata from `get_feature_info(verbose=False)`; and
+- constructor options supported by the installed `Preprocessor`, including
+numerical/categorical methods, per-feature preprocessing, scaling, output
+dimensions, degree, dtype, and random state.
+
+High-level estimators accept PreTab constructor arguments directly:
+
+```python
+model = NAMRegressor(
+    numerical_method="ple",
+    categorical_method="one-hot",
+    output_dim=32,
+)
+```
+
+If a preprocessing name collides with an architecture parameter, use the
+explicit prefix:
+
+```python
+from nampy.models import SplineNAMRegressor
+
+model = SplineNAMRegressor(
+    n_knots=8,
+    preprocessor__output_dim=32,
+)
+```
+
+Preprocessing is fitted on training rows only. NAM consumes one network per
+PreTab source-feature block, so a one-hot categorical feature remains one
+grouped categorical term. NBM, SPAM, and NBM-SPAM flatten multi-column blocks
+into scalar concepts inside their architectures. GAMs do not import or use
+PreTab.
+
+NAMpy intentionally does not carry a second generic preprocessing
+implementation. It therefore does not require experimental PreTab surfaces
+such as atomic output-column metadata, output ordering/granularity controls,
+post-encoding output ranges, generic representation parameter dictionaries,
+quantile-noise controls, or TF-IDF categoricals. This preserves compatibility
+with pristine PreTab but can differ from preprocessing in individual upstream
+model repositories.
+
+See [the PreTab compatibility contract](docs/user_guide/pretab_compatibility.rst)
+and [the preprocessing guide](docs/user_guide/preprocessing.rst) for the exact
+boundary.
+
+## Training and sklearn integration
+
+NAMpy estimators inherit scikit-learn's `BaseEstimator` parameter protocol and
+support `get_params`, `set_params`, cloning, pipelines, and model-selection
+tools. Their task-specific scoring conventions are:
+
+- regressors: R²;
+- classifiers: accuracy; and
+- LSS estimators: negative mean negative log-likelihood, so larger is better.
+
+Common neural fit controls include:
+
+```python
+model.fit(
+    X_train,
+    y_train,
+    X_val=X_validation,       # or let val_size create a split
+    y_val=y_validation,
+    max_epochs=200,
+    max_steps=-1,
+    batch_size=256,
+    patience=15,
+    lr=1e-3,
+    weight_decay=1e-5,
+    optimizer="adamw",
+    sample_weight=weights,
+    random_state=7,
+)
+```
+
+Additional fit options cover offsets for non-LSS objectives, class weighting,
+sampling strategies, learning-rate schedules, warm starts, recent-checkpoint
+averaging, explicit Lightning trainer arguments, and NodeGAM pretraining.
+Prediction methods accept an independent `batch_size` for bounded-memory
+inference.
+
+Architecture-native optimizers retain their own semantics. For example,
+IGANN's `n_estimators` is a boosting-stage limit rather than a Lightning epoch
+count. Inspect model-specific guides before transferring hyperparameters across
+architectures.
+
+## Distributional regression
+
+`*LSS` estimators learn every parameter of a conditional distribution instead
+of only its mean. The constructor chooses the family; `predict()` returns
+transformed, valid distribution parameters.
 
 ```python
 from nampy.models import NAMLSS
 
-# Configure the response distribution on the estimator so sklearn can clone it
-model = NAMLSS(family="normal")
-
-# Fit the model to your data
-model.fit(
-    X, 
-    y, 
-    max_epochs=150, 
-    lr=1e-04, 
-    patience=10,
+lss = NAMLSS(
+    family="normal",
+    distributional_kwargs={},
 )
+lss.fit(X_train, y_train, max_epochs=150, patience=15)
 
-# Predict distribution parameters
-dist_params = model.predict(X_test)
+parameters = lss.predict(X_test)
+negative_nll = lss.score(X_test, y_test)
+components = lss.predict_components(X_test)
+components.validate_additive_reconstruction()  # raw parameter/link scale
 ```
 
+Registered families are:
 
-## Implement Your Own Model
+- continuous: `normal`, `robustnormal`, `studentt`, `gamma`, `inversegamma`,
+`beta`, `lognormal`, `weibull`, `loglogistic`, and `tweedie`;
+- counts: `poisson`, `negativebinom`, `zip`, `zinb`, `hurdlepoisson`, and
+`hurdlenegativebinom`;
+- discrete/ordered: `categorical` and `ordinal`;
+- multivariate: `dirichlet` and `mvnormdiag`; and
+- quantile regression: `quantile`.
 
-NAMpy supports integration of custom models into the existing logic. Implement a PyTorch model and define its forward pass, but inherit from NAMpy's `BaseModel` rather than `nn.Module`. Each NAMpy model takes three main arguments: the number of classes (e.g., 1 for regression or 2 for binary classification), `cat_feature_info`, and `num_feature_info` for categorical and numerical feature information, respectively. These are passed as dictionaries, with variable names as the keys. Additionally, you can provide a config argument, which can either be a custom configuration or one of the provided default configs.
+Family-specific arguments such as class count, dimension, or quantile levels
+belong in `distributional_kwargs`. Where possible, output dimension is inferred
+from `y` during fitting.
 
-A key aspect of NAMpy is that the inputs to the forward passes are dictionaries of tensors. This supports models that treat different data types differently and directly maps feature/variable predictions to input features in additive models. 
+## Ensembling and persistence
 
-Example workflow for a custom model:
-
-
-1. First, define your config:
-Use a dataclass to specify hyperparameters and other settings for your model.
+`NeuralEnsemble` fits independently cloned regressors or classifiers, with
+optional bootstrapping and joblib parallelism:
 
 ```python
-from dataclasses import dataclass
+from nampy.models import NAMRegressor, NeuralEnsemble
 
-@dataclass
-class MyConfig:
-    lr: float = 1e-04
-    lr_patience: int = 10
-    weight_decay: float = 1e-06
-    lr_factor: float = 0.1
+ensemble = NeuralEnsemble(
+    NAMRegressor(layer_sizes=[64, 32]),
+    n_estimators=5,
+    bootstrap=True,
+    n_jobs=2,
+    random_state=7,
+).fit(X_train, y_train, max_epochs=100)
+
+mean_prediction = ensemble.predict(X_test)
+uncertainty = ensemble.predict_component_uncertainty(X_test)
 ```
 
-2. Second, define your model:
-Define your custom model as you would for an `nn.Module`. The main difference is that you will inherit from `BaseModel` and use the provided feature information to construct your layers. To integrate your model into the existing API, define the architecture and the forward pass. Note that the forward pass must return a dictionary with the key "output" for the final model prediction. This can be multi-dimensional, for example for classification or distributional regression. Beyond that, the dictionary can contain anything but often includes single feature/variable predictions for further processing or plotting.
+The uncertainty object contains between-member standard deviations for the
+response, link, intercept, and every additive term. LSS ensembling is not
+provided because distribution-family parameters require family-specific
+aggregation.
+
+Fitted GAM adapters and neural estimators have a versioned persistence API:
 
 ```python
-from nampy.neural.modules import BaseModel
-import torch
-import torch.nn as nn
-
-class MyCustomModel(BaseModel):
-    def __init__(
-        self,
-        cat_feature_info,
-        num_feature_info,
-        num_classes: int = 1,
-        config=None,
-        **kwargs,
-    ):
-        super().__init__(**kwargs)
-        self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
-
-        total_input_size = (
-            sum(int(info.get("dimension", 1)) for info in num_feature_info.values())
-            + sum(int(info.get("dimension", 1)) for info in cat_feature_info.values())
-        )
-        
-        # Define a simple MLP layer
-        self.mlp = nn.Sequential(
-            nn.Linear(total_input_size, 128),  # Adjust the hidden layer size as needed
-            nn.ReLU(),
-            nn.Linear(128, num_classes)
-        )
-
-
-    def forward(self, num_features: dict, cat_features: dict) -> dict:
-        """
-        Forward pass of the NAM model.
-
-        Parameters
-        ----------
-        num_features : dict
-            Dictionary of numerical features with feature names as keys.
-        cat_features : dict
-            Dictionary of categorical features with feature names as keys.
-
-        Returns
-        -------
-        dict
-            Dictionary containing the output tensor and the original feature values.
-        """
-        # Concatenate all numerical features into a single tensor
-        num_features_tensor = torch.cat([num_features[key] for key in num_features.keys()], dim=1)
-
-        # Concatenate all categorical features into a single tensor
-        cat_features_tensor = torch.cat([cat_features[key] for key in cat_features.keys()], dim=1)
-
-        # Concatenate all features into a single input tensor
-        input_tensor = torch.cat([num_features_tensor, cat_features_tensor], dim=1)
-
-        # Pass the concatenated tensor through the MLP
-        output = self.mlp(input_tensor)
-
-        # return a dictionary, with the key "output" for the final predictions
-        # This is used, for when the model (e.g. for plotting) also returns feature predictions
-        return {"output": output}
-
-
+path = model.save_model("model.pkl")
+restored = type(model).load_model(path)
 ```
 
-3. Leverage the NAMpy API:
-You can build a regression, classification or distributional regression model that can leverage all of NAMpy's built-in methods, by using the following:
+These artifacts use Python pickle. Load them only from trusted sources and
+recreate the training environment when long-term reproducibility matters.
 
-```python
-from nampy.models import NeuralRegressor
+## Extending NAMpy
 
-class MyRegressor(NeuralRegressor):
-    def __init__(self, **kwargs):
-        super().__init__(model=MyCustomModel, config=MyConfig, **kwargs)
+Neural architecture and objective semantics are intentionally separate. A new
+architecture normally consists of:
+
+1. a PyTorch `nn.Module` in `nampy/neural/architectures/`;
+2. a configuration dataclass in `nampy/neural/configs/`;
+3. a `NeuralArchitecture` registry declaration with explicit capabilities;
+4. generated estimator exports in `nampy/models/`; and
+5. focused tests for forward shapes, estimator contracts, preprocessing block
+  interpretation, additive reconstruction, and every advertised objective.
+
+Shared architecture components belong in
+`nampy/neural/architectures/components/`. Generic preprocessing belongs in
+PreTab; NAMpy should only interpret PreTab's output blocks in a
+model-specific way. GAM extensions follow a different rule: locate the exact
+upstream `mgcv` R/C routine, port its control flow, and add targeted parity
+tests rather than introducing a generic approximation.
+
+See [the custom model guide](docs/user_guide/custom_models.rst) and
+[architecture overview](docs/architecture.rst).
+
+## Project status and documentation
+
+NAMpy is under active development and is classified as beta. Before using an
+advanced model or fitting route in production, verify it with data and settings
+representative of the intended workload.
+
+Repository documentation:
+
+- [quick-start guide](docs/quickstart.rst)
+- [user guide](docs/user_guide.rst)
+- [model guide](docs/models/index.rst)
+- [API reference](docs/api/index.rst)
+- [examples](examples/)
+- [tutorial notebooks](docs/notebooks/)
+- [FAQ](docs/faq.rst)
+- [changelog](docs/changelog.rst)
+
+The source tree is organized around ownership boundaries:
+
+```text
+nampy/
+├── contracts.py                 # backend-neutral additive results
+├── explanations.py              # shared explanation tables
+├── plotting/                    # shared rendering
+├── gam/                         # mgcv-aligned statistical backend
+├── models/                      # public sklearn-style estimators
+└── neural/
+    ├── architectures/           # PyTorch forward architectures
+    ├── configs/                 # architecture configuration dataclasses
+    ├── data/                    # PreTab-to-Torch data layer
+    ├── distributions/           # LSS families and metrics
+    ├── objectives.py            # task/output/loss semantics
+    ├── registry.py              # architecture declarations
+    └── task.py                  # Lightning training harness
 ```
 
-4. Train and evaluate your model:
-You can now fit, evaluate, and predict with your custom model using the same APIs as other NAMpy models. For classification or distributional regression, inherit from `NeuralClassifier` or `NeuralLSS` respectively.
 
-```python
-regressor = MyRegressor(numerical_preprocessing="ple")
-regressor.fit(X_train, y_train, max_epochs=50)
-predictions = regressor.predict(X_test)
-```
 
-## Contributing
+## Contributing and citation
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on how to get started.
+Bug reports, parity cases, documentation improvements, and focused model
+contributions are welcome. Please read [the contributing guide](CONTRIBUTING.md)
+and open an issue before beginning a large architectural change.
 
-## Citation
+For GAM work, include the corresponding upstream `mgcv` function and the
+smallest parity test that demonstrates the behavior. For neural models, state
+which upstream implementation or paper defines the architecture and distinguish
+reference behavior from NAMpy extensions.
 
-If you use NAMpy in your research, please cite:
+If NAMpy supports your research, cite the software:
 
 ```bibtex
-@software{nampy2024,
-  title={NAMpy: Interpretable Tabular Deep Learning},
-  author={Thielmann, Anton},
-  year={2024},
-  url={https://github.com/OpenTabular/NAMpy}
+@software{nampy,
+  author  = {Ananyapam De and Anton Thielmann},
+  title   = {NAMpy: Interpretable Additive Modeling in Python},
+  url     = {https://github.com/OpenTabular/NAMpy},
+  version = {0.2.0},
+  date    = {2026-08-22}
 }
 ```
 
-## License
+NAMpy builds on ideas and reference implementations from `mgcv`, neural
+additive models, GPNAM, IGANN, NBM, SPAM, NBM-SPAM, SIAN, NodeGAM, TreeNAM,
+NAMformer, NATT, SNAM, and related interpretable tabular-modeling research.
+Those projects remain the primary references for their respective methods.
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Documentation
-
-Comprehensive documentation is available:
-
-- **Build Locally**: `make docs` (then open `docs/_build/html/index.html`)
-- **Read the Docs**: https://nampy.readthedocs.io (coming soon)
-- **GitHub Pages**: https://opentabular.github.io/NAMpy (coming soon)
-
-Documentation includes:
-- Installation guide
-- Quick start tutorial
-- Comprehensive user guide
-- API reference (auto-generated)
-- Model comparison guide
-- Examples and tutorials
-- FAQ
-
-## Links
-
-- **Documentation**: See `docs/` directory or build with `make docs`
-- **Source Code**: https://github.com/OpenTabular/NAMpy
-- **Issue Tracker**: https://github.com/OpenTabular/NAMpy/issues
-- **PyPI**: https://pypi.org/project/nampy/
-
-## Acknowledgments
-
-NAMpy builds upon research in neural additive models and interpretable machine learning. Special thanks to the open-source community and contributors.
-
----
-
-Made with ❤️ by the OpenTabular team
+NAMpy is released under the [MIT License](LICENSE).

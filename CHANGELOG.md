@@ -29,6 +29,30 @@ All notable changes are recorded here following
 - `save_model()` and `load_model()` persistence for neural estimators, including
   fitted preprocessing and model state.
 - PEP 561 `py.typed` marker and installed-wheel API smoke coverage.
+- Paper-aligned GPNAM random Fourier features, automatic per-feature
+  bandwidths, conjugate-gradient ridge fitting, and selected or all-pairs
+  GP-NA2M interactions. Fixed-basis diagnostics, reproducible initialization,
+  explicit interactions, and batched inference are shared neural contracts.
+- IGANN regression and binary classification with the released linear
+  initialization, feature-wise ELM boosting, validation truncation, optional
+  ABESS-backed IGANN-Sparse selection, additive components, basis metadata,
+  and native training history. Multiclass and IGANNLSS reuse the fixed ELM
+  architecture through the generic objective engine. ``NeuralEnsemble`` now
+  supports aligned bootstrap resampling for generic bagged additive estimators.
+- SIAN regression, classification, and distributional regression with
+  Archipelago interaction discovery over logical source-feature groups,
+  arbitrary-order heredity search, explicit-interaction bypass, the released
+  block-masked architecture and optional maximal-update residual network.
+  Generic interaction-selection contracts, active-parameter diagnostics,
+  lossless block/independent term conversion, and higher-order interaction
+  plots are shared across neural architectures.
+- SCAM-compatible shape-constrained GAMs: all 24 univariate and 17 bivariate
+  SCOP-spline classes, numeric-by and matrix-valued linear-functional terms,
+  local/positive/endpoint constraints, dual optimization and prediction
+  coefficient spaces, constrained Newton fitting, exact GCV/UBRE gradients
+  and BFGS smoothing selection, transformed covariance and inference,
+  derivatives, quantile residuals, and Gaussian-identity AR(1) sections with
+  standardized residuals.
 
 ### Changed
 
@@ -51,9 +75,9 @@ All notable changes are recorded here following
   term-contribution surface, now also implemented for LSS
   (multi-column, additive on the raw parameter scale).
 - **Breaking:** the torch backend moved under `nampy/neural/` —
-  `nampy.basemodels` → `nampy.neural.modules` (TaskModel:
+  `nampy.basemodels` → `nampy.neural.architectures` (TaskModel:
   `nampy.neural.training`), `nampy.data_utils` → `nampy.neural.data`,
-  `nampy.arch_utils` → `nampy.neural.layers` (shared) / `nampy.neural.modules`
+  `nampy.arch_utils` → `nampy.neural.layers` (shared) / `nampy.neural.architectures`
   (single-architecture), `nampy.configs` → `nampy.neural.configs`,
   `nampy.utils.distributions`/`distributional_metrics` →
   `nampy.neural.distributions`. No compatibility shims; public estimator

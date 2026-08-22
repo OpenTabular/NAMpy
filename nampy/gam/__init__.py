@@ -26,8 +26,8 @@ Layer map (data flows top to bottom)::
     diagnostics/, parity/     residual checks, mgcv comparison tools
     linalg/                   shared numerics (QR, eigen, rank, reindexing)
     model/                    the user-facing GAM facade
-    model_state.py            canonical fitted-state accessors and the
-                              transient FitWorkspace (model._ws)
+    model_state.py            canonical fitted-state accessors
+    workspace.py              per-fit transient FitWorkspace (model._ws)
 
 Fitted state lives on ``model.gam_result_`` (compiled model, core solution,
 fit summary); solver scratch lives on ``model._ws`` and is never pickled.

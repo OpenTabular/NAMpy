@@ -25,57 +25,20 @@ import numpy as np
 
 from ..fit.offsets import resolve_prediction_offset
 from ..model_state import (
-    _coef,
     _coef_column_offset,
     _coef_full,
     _require_fitted,
     _term_blocks_seq,
+    _term_full_coefficient_indices,
 )
 from ..term_labels import normalize_mgcv_term_label
 from .general import predict_general_values
 from .linear_predictor_matrix import _build_prediction_matrices
-
-
-def _parametric_formula_term(tb) -> str | None:
-    metadata = dict(getattr(tb, "metadata", {}) or {})
-    formula_term = metadata.get("formula_term", None)
-    return None if formula_term is None else str(formula_term)
-
-
-def _prediction_term_groups(model):
-    groups = []
-    for tb in _term_blocks_seq(model):
-        term_type = str(getattr(tb, "term_type", ""))
-        if term_type == "parametric":
-            formula_term = _parametric_formula_term(tb)
-            group_key = ("parametric", formula_term or str(getattr(tb, "label", "")))
-            if groups and groups[-1]["key"] == group_key:
-                groups[-1]["blocks"].append(tb)
-                continue
-            groups.append(
-                {
-                    "key": group_key,
-                    "label": formula_term or str(getattr(tb, "label", "")),
-                    "blocks": [tb],
-                    "term_type": term_type,
-                }
-            )
-            continue
-
-        groups.append(
-            {
-                "key": (
-                    "term",
-                    str(normalize_mgcv_term_label(getattr(tb, "label", ""))),
-                ),
-                "label": str(
-                    normalize_mgcv_term_label(getattr(tb, "label", ""))
-                ),
-                "blocks": [tb],
-                "term_type": term_type,
-            }
-        )
-    return groups
+from .terms import (
+    _group_standard_error_rows,
+    _group_term_contribution,
+    _prediction_term_groups,
+)
 
 
 def _coerce_prediction_term_filter(values, *, name):
@@ -128,8 +91,8 @@ def _filtered_prediction_matrix(model, Xp, groups, selected, *, terms, exclude):
         if keep:
             continue
         for tb in group["blocks"]:
-            sl = slice(offset0 + tb.coef_slice.start, offset0 + tb.coef_slice.stop)
-            Xp_filtered[:, sl] = 0.0
+            full_indices = _term_full_coefficient_indices(model, tb)
+            Xp_filtered[:, full_indices] = 0.0
     return Xp_filtered
 
 
@@ -177,51 +140,6 @@ def _prediction_parameterization_wider(tb) -> bool:
     )
 
 
-def _term_contribution(model, Z_new, tb):
-    beta = np.asarray(_coef(model), dtype=np.float64)
-    # mgcv/R/mgcv.r::predict.gam forms every smooth contribution directly
-    # from its PredictMat block and the corresponding coefficient block.
-    return Z_new[:, tb.coef_slice] @ beta[tb.coef_slice]
-
-
-def _term_standard_error_rows(model, Xp, tb, *, type="terms"):
-    offset0 = _coef_column_offset(model)
-    sl_full = slice(offset0 + tb.coef_slice.start, offset0 + tb.coef_slice.stop)
-    return np.asarray(Xp[:, sl_full], dtype=np.float64), sl_full
-
-
-def _group_term_contribution(model, Z_new, group):
-    contrib = np.zeros(Z_new.shape[0], dtype=np.float64)
-    for tb in group["blocks"]:
-        contrib = contrib + np.asarray(
-            _term_contribution(model, Z_new, tb), dtype=np.float64
-        )
-    return np.asarray(contrib, dtype=np.float64)
-
-
-def _group_standard_error_rows(model, Xp, group, *, type="terms"):
-    if len(group["blocks"]) == 1:
-        return _term_standard_error_rows(
-            model,
-            Xp,
-            group["blocks"][0],
-            type=type,
-        )
-
-    if group["term_type"] != "parametric":
-        raise NotImplementedError("Only parametric prediction groups may span blocks.")
-
-    offset0 = _coef_column_offset(model)
-    cols = []
-    for tb in group["blocks"]:
-        sl = slice(offset0 + tb.coef_slice.start, offset0 + tb.coef_slice.stop)
-        cols.extend(range(sl.start, sl.stop))
-    if len(cols) == 0:
-        return np.empty((Xp.shape[0], 0), dtype=np.float64), slice(0, 0)
-    Xi = np.asarray(Xp[:, np.asarray(cols, dtype=int)], dtype=np.float64)
-    return Xi, np.asarray(cols, dtype=int)
-
-
 def _term_has_absorbed_constraint(tb) -> bool:
     metadata = dict(getattr(tb, "constructor_metadata", {}) or {})
     n_constraints = metadata.get("n_constraints_absorbed", None)
@@ -250,10 +168,9 @@ def _group_iterm_standard_error_rows(model, Xp, group, cmX):
     X1 = np.broadcast_to(
         np.asarray(cmX, dtype=np.float64), Xp.shape
     ).copy()
-    offset0 = _coef_column_offset(model)
     for tb in group["blocks"]:
-        sl = slice(offset0 + tb.coef_slice.start, offset0 + tb.coef_slice.stop)
-        X1[:, sl] = Xp[:, sl]
+        full_indices = _term_full_coefficient_indices(model, tb)
+        X1[:, full_indices] = Xp[:, full_indices]
     return X1, None
 
 
@@ -388,6 +305,23 @@ def predict_values(
         raise ValueError(
             "type must be one of {'response', 'link', 'terms', 'iterms', 'lpmatrix'}"
         )
+
+    response_from_eta = getattr(model.family, "response_from_eta", None)
+    if callable(response_from_eta):
+        if return_se:
+            response_se_from_eta = getattr(
+                model.family, "response_se_from_eta", None
+            )
+            if not callable(response_se_from_eta):
+                raise NotImplementedError(
+                    f"Predictive standard errors are not implemented for "
+                    f"family={model.family.name!r}."
+                )
+            V = model._select_cov(cov)
+            var_eta = np.einsum("ij,jk,ik->i", Xp, V, Xp)
+            se_eta = np.sqrt(np.maximum(var_eta, 0.0))
+            return response_from_eta(eta), response_se_from_eta(eta, se_eta)
+        return response_from_eta(eta)
 
     if not return_se:
         return mu

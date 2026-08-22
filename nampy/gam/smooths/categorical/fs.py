@@ -221,16 +221,6 @@ def _fs_full_rank_base_error(base_bs: str) -> str:
     )
 
 
-def _kron_many(mats):
-    mats = [np.asarray(M, dtype=np.float64) for M in mats]
-    if len(mats) == 0:
-        return np.ones((1, 1), dtype=np.float64)
-    out = mats[0]
-    for M in mats[1:]:
-        out = np.kron(out, M)
-    return out
-
-
 def _sum_to_zero_contrast_transform(level_sizes, block_dim):
     """
     Exact mgcv::XZKr() contrast transform.

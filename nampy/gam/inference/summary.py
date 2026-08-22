@@ -30,6 +30,7 @@ from ..model_state import (
     _predictor_full_slices,
     _require_fitted,
     _term_blocks_seq,
+    _term_full_coefficient_indices,
 )
 from .anova import (
     _parametric_term_groups,
@@ -73,7 +74,7 @@ class GAMSummary:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __str__(self) -> str:
-        from ..diagnostics.summary import summary_lines_from_gam_summary
+        from ..diagnostics.summary_format import summary_lines_from_gam_summary
 
         return "\n".join(summary_lines_from_gam_summary(self))
 
@@ -112,14 +113,15 @@ def _parametric_coefficient_indices(model) -> tuple[list[int], list[str]]:
             indices.append(0)
             names.append("(Intercept)")
 
-    x_offset = int(_coef_column_offset(model))
     for group in _parametric_term_groups(model):
         for tb in group["blocks"]:
-            width = int(tb.coef_slice.stop - tb.coef_slice.start)
-            for j in range(width):
-                indices.append(int(tb.coef_slice.start + j + x_offset))
+            full_indices = _term_full_coefficient_indices(model, tb)
+            for j, full_index in enumerate(full_indices):
+                indices.append(int(full_index))
                 names.append(
-                    str(tb.label) if width == 1 else f"{tb.label}.{j}"
+                    str(tb.label)
+                    if full_indices.size == 1
+                    else f"{tb.label}.{j}"
                 )
     return indices, names
 

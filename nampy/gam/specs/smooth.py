@@ -51,6 +51,15 @@ class PSplineSmoothSpec(BaseSmoothSpec):
 
 
 @dataclass(frozen=True)
+class ShapeConstrainedSmoothSpec(BaseSmoothSpec):
+    """SCAM SCOP-spline specification for a named shape basis code."""
+
+    bs: str = "mpi"
+    m: Any = None
+    xt: Any = None
+
+
+@dataclass(frozen=True)
 class ThinPlateSmoothSpec(BaseSmoothSpec):
     bs: str = "tp"
     m: Any = None
@@ -112,6 +121,7 @@ SmoothSpec = Union[
     CyclicCubicRegressionSmoothSpec,
     CubicShrinkageSmoothSpec,
     PSplineSmoothSpec,
+    ShapeConstrainedSmoothSpec,
     ThinPlateSmoothSpec,
     ThinPlateShrinkageSmoothSpec,
     RandomEffectSmoothSpec,

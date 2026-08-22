@@ -281,7 +281,7 @@ def test_sp_vcov_returns_none_outside_ml_reml_family(monkeypatch):
     assert sp_vcov(model) is None
 
 
-def test_sp_vcov_uses_joint_gaussian_outer_hessian(monkeypatch):
+def test_sp_vcov_uses_stored_joint_gaussian_outer_hessian(monkeypatch):
     """
     Owner-contract coverage verifying that sp vcov uses joint gaussian outer hessian.
     """

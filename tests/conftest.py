@@ -1,3 +1,4 @@
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -7,6 +8,7 @@ import pandas as pd
 import pytest
 import torch
 
+from tests._paths import REPO_ROOT
 from tests._taxonomy_registry import (
     _DEFAULT_MARKS_BY_FILE,
     _FAMILY_MARK_NAMES,
@@ -17,6 +19,16 @@ from tests._taxonomy_registry import (
     _SMOOTH_MARK_NAMES,
     _STATUS_MARKS_BY_FILE,
 )
+
+_REFERENCE_MGCV_LIBRARY = REPO_ROOT / ".cache" / "mgcv-lib"
+if _REFERENCE_MGCV_LIBRARY.is_dir():
+    # All R subprocesses in the parity suite inherit this unless a caller
+    # explicitly selects another reference library.
+    os.environ.setdefault("MGCV_LIB_PATH", str(_REFERENCE_MGCV_LIBRARY))
+
+_REFERENCE_SCAM_LIBRARY = REPO_ROOT / ".cache" / "scam-lib"
+if _REFERENCE_SCAM_LIBRARY.is_dir():
+    os.environ.setdefault("SCAM_LIB_PATH", str(_REFERENCE_SCAM_LIBRARY))
 
 
 @pytest.fixture(autouse=True)

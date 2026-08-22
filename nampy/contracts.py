@@ -120,10 +120,45 @@ class AdditivePrediction:
 
     def validate_additive_reconstruction(self, *, rtol=1e-7, atol=1e-9) -> None:
         """Validate the link-scale additive decomposition for this result."""
-        expected = np.asarray(self.intercept, dtype=float)
+        link = np.asarray(self.link)
+
+        def aligned(value):
+            array = np.asarray(value, dtype=float)
+            if link.ndim == 1 and array.shape == (link.shape[0], 1):
+                return array[:, 0]
+            if link.ndim == 2 and array.shape == (link.shape[0],):
+                return array[:, None]
+            return array
+
+        expected = aligned(self.intercept)
         for term in self.terms.values():
-            expected = expected + np.asarray(term, dtype=float)
+            expected = expected + aligned(term)
         if self.offset is not None:
-            expected = expected + np.asarray(self.offset, dtype=float)
-        if not np.allclose(np.asarray(self.link), expected, rtol=rtol, atol=atol):
+            expected = expected + aligned(self.offset)
+        if not np.allclose(link, expected, rtol=rtol, atol=atol):
             raise ValueError("link is not reconstructed by intercept, terms, and offset.")
+
+
+@dataclass(frozen=True)
+class EnsembleAdditivePrediction:
+    """Mean additive prediction and between-estimator standard deviations."""
+
+    mean: AdditivePrediction
+    response_std: np.ndarray
+    link_std: np.ndarray
+    term_std: dict[str, np.ndarray]
+    intercept_std: float | np.ndarray
+    n_estimators: int
+
+    def __post_init__(self) -> None:
+        if self.n_estimators < 1:
+            raise ValueError("n_estimators must be positive.")
+        if np.asarray(self.response_std).shape != np.asarray(self.mean.response).shape:
+            raise ValueError("response_std must match the mean response shape.")
+        if np.asarray(self.link_std).shape != np.asarray(self.mean.link).shape:
+            raise ValueError("link_std must match the mean link shape.")
+        if set(self.term_std) != set(self.mean.terms):
+            raise ValueError("term_std must contain every mean contribution term.")
+        for name, values in self.term_std.items():
+            if np.asarray(values).shape != np.asarray(self.mean.terms[name]).shape:
+                raise ValueError(f"term_std for {name!r} has an incompatible shape.")

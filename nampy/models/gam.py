@@ -186,6 +186,27 @@ class _GAMAdapterBase(BaseEstimator):
             offset=None if offset_arr is None else np.asarray(offset_arr),
         )
 
+    def explain_terms(self, X=None, *, max_bins: int = 64, offset=None):
+        """Return a binned additive-term table shared with neural estimators."""
+        from ..explanations import explain_additive_prediction
+
+        if X is None:
+            raise ValueError("X is required to construct an explanation table.")
+        return explain_additive_prediction(
+            X, self.predict_components(X, offset=offset), max_bins=max_bins
+        )
+
+    def term_importance(self, X=None, *, offset=None):
+        """Return mean absolute link-scale contribution by additive term."""
+        from ..explanations import term_importance_table
+
+        return term_importance_table(self.predict_components(X, offset=offset))
+
+    def interaction_importance(self, X=None, *, offset=None):
+        """Return the interaction-only subset of :meth:`term_importance`."""
+        table = self.term_importance(X, offset=offset)
+        return table.loc[table["term_type"] == "interaction"].reset_index(drop=True)
+
     def _term_label_map(self) -> dict[str, str]:
         """Map opaque term ids to human-readable term labels when unique."""
         gam_result = getattr(self.gam_, "gam_result_", None)

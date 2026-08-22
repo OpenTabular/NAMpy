@@ -10,11 +10,15 @@ Configuration classes for nampy models.
    :nosignatures:
 
    DefaultNAMConfig
+   DefaultSIANConfig
    DefaultNBMConfig
+   DefaultNBMSPAMConfig
+   DefaultSPAMConfig
    DefaultNATTConfig
    DefaultNAMformerConfig
    DefaultLinRegConfig
    DefaultGPNAMConfig
+   DefaultIGANNConfig
    DefaultQNAMConfig
    DefaultSNAMConfig
    DefaultSplineNAMConfig

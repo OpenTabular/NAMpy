@@ -96,8 +96,8 @@ def main():
         tree_temperature=0.15,
         use_hard_routing_in_eval=True,
         feature_dropout=0.0,
-        numerical_preprocessing="standardization",
-        categorical_preprocessing="one_hot",
+        numerical_method="standardization",
+        categorical_method="one_hot",
         cat_cutoff=0.0,
     )
 

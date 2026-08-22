@@ -34,8 +34,9 @@ from ..model_state import (
     _require_fitted,
     _summary_R,
     _term_blocks_seq,
+    _term_full_coefficient_indices,
 )
-from ..predict.predictions import _prediction_term_groups
+from ..predict.terms import _prediction_term_groups
 from ..term_labels import normalize_mgcv_term_label
 
 
@@ -247,13 +248,6 @@ def _normalize_reference_term_label(label):
     return normalize_mgcv_term_label(label)
 
 
-def _residual_df_from_snapshot_state(core) -> float:
-    H = np.asarray(_H_coef(core), dtype=np.float64)
-    edf1 = 2.0 * np.diag(H) - np.sum(H * H.T, axis=1)
-    intercept_df = float(_coef_column_offset(core))
-    return float(core.n_samples_) - intercept_df - float(np.sum(edf1))
-
-
 def _build_parity_criterion_view(core, fit_dict):
     criterion_name = fit_dict.get("criterion_name", None)
     view = {
@@ -431,25 +425,28 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
             edf1_vec = 2.0 * np.diag(H) - np.sum(H * H.T, axis=1)
         except Exception:
             edf1_vec = None
-        x_off = _coef_column_offset(core)
         for tb in _term_blocks_seq(core):
             if str(getattr(tb, "term_type", "")) == "parametric":
                 continue
             smooth_blocks.append(tb)
-            sl = tb.coef_slice
-            # sl indexes coef_ (no intercept); Vp_, Vf_, H include the intercept column
-            x_sl = slice(sl.start + x_off, sl.stop + x_off)
+            full_idx = _term_full_coefficient_indices(core, tb)
             smooth_labels.append(_normalize_reference_term_label(tb.label))
             if _cov_bayes(core) is not None:
                 smooth_cov_bayes.append(
-                    np.asarray(_cov_bayes(core)[x_sl, x_sl], dtype=np.float64)
+                    np.asarray(
+                        _cov_bayes(core)[np.ix_(full_idx, full_idx)],
+                        dtype=np.float64,
+                    )
                 )
             if _cov_freq(core) is not None:
                 smooth_cov_freq.append(
-                    np.asarray(_cov_freq(core)[x_sl, x_sl], dtype=np.float64)
+                    np.asarray(
+                        _cov_freq(core)[np.ix_(full_idx, full_idx)],
+                        dtype=np.float64,
+                    )
                 )
             if edf1_vec is not None:
-                smooth_edf1_vals.append(float(np.sum(edf1_vec[x_sl])))
+                smooth_edf1_vals.append(float(np.sum(edf1_vec[full_idx])))
 
     diagnostics["smooth_cov_bayes"] = (
         None
@@ -502,12 +499,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
             ],
             "r_blocks": [
                 np.asarray(
-                    R_full[
-                        :,
-                        int(tb.coef_slice.start)
-                        + _coef_column_offset(core) : int(tb.coef_slice.stop)
-                        + _coef_column_offset(core),
-                    ],
+                    R_full[:, _term_full_coefficient_indices(core, tb)],
                     dtype=np.float64,
                 ).tolist()
                 for tb in smooth_blocks
@@ -544,39 +536,21 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
                     np.sum(
                         (
                             np.asarray(
-                                lpmatrix[
-                                    :,
-                                    int(tb.coef_slice.start)
-                                    + _coef_column_offset(core) : int(
-                                        tb.coef_slice.stop
-                                    )
-                                    + _coef_column_offset(core),
-                                ],
+                                lpmatrix[:, _term_full_coefficient_indices(core, tb)],
                                 dtype=np.float64,
                             )
                             @ np.asarray(
                                 _cov_bayes(core)[
-                                    int(tb.coef_slice.start)
-                                    + _coef_column_offset(core) : int(
-                                        tb.coef_slice.stop
+                                    np.ix_(
+                                        _term_full_coefficient_indices(core, tb),
+                                        _term_full_coefficient_indices(core, tb),
                                     )
-                                    + _coef_column_offset(core),
-                                    int(tb.coef_slice.start)
-                                    + _coef_column_offset(core) : int(
-                                        tb.coef_slice.stop
-                                    )
-                                    + _coef_column_offset(core),
                                 ],
                                 dtype=np.float64,
                             )
                         )
                         * np.asarray(
-                            lpmatrix[
-                                :,
-                                int(tb.coef_slice.start)
-                                + _coef_column_offset(core) : int(tb.coef_slice.stop)
-                                + _coef_column_offset(core),
-                            ],
+                            lpmatrix[:, _term_full_coefficient_indices(core, tb)],
                             dtype=np.float64,
                         ),
                         axis=1,

@@ -89,8 +89,8 @@ def main():
         bases_dropout=0.05,
         output_penalty=1e-4,
         nary=[1],
-        numerical_preprocessing="standardization",
-        categorical_preprocessing="one_hot",
+        numerical_method="standardization",
+        categorical_method="one_hot",
         cat_cutoff=0.0,
     )
 

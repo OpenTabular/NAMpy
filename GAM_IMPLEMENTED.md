@@ -1,7 +1,7 @@
 # GAM subsystem — implemented surface
 
-Snapshot date: 2026-08-18. This documents what `nampy/gam/` implements as a
-strict-parity port of R's `mgcv` (the vendored sources under `mgcv/` are the
+Snapshot date: 2026-08-21. This documents what `nampy/gam/` implements as a
+strict-parity port of R's `mgcv` (the vendored sources under `upstreams/mgcv/` are the
 specification). Everything listed here is expected to match `mgcv` to the
 tolerances used by the parity suite; the only excluded class of differences is
 BLAS/LAPACK eigenvector/basis orientation inside mathematically indeterminate
@@ -52,6 +52,51 @@ subspaces. Whatever is *not* listed here is documented in
   eigen-normalization → Kronecker → outer penalty rescale) and multi-feature
   `tp`/`ts` marginals.
 
+## Shape-constrained smooths (`scam` 1.2-22)
+
+- Univariate SCOP splines: `mpi`, `mpd`, `cx`, `cv`, `micx`, `micv`,
+  `mdcx`, `mdcv`, `po`, `ipo`, `dpo`, `cpop`, `miso`, `mifo`; numeric-by
+  forms `mpiBy`, `mpdBy`, `cxBy`, `cvBy`, `micxBy`, `micvBy`, `mdcxBy`, and
+  `mdcvBy`; locally constrained `lmpi` and `lipl` with `xt=list(xc=...)`.
+- All upstream bivariate classes: `tedmi`, `tedmd`, `temicx`, `temicv`,
+  `tedecx`, `tedecv`, `tecxcx`, `tecvcv`, `tecxcv`, `tescx`, `tescv`,
+  `tesmi1`, `tesmd1`, `tesmi2`, `tesmd2`, `tismi`, and `tismd`.
+- SCAM's exact constructor knot placement, basis/constraint transformations,
+  penalty ordering and scaling, centering, prediction matrices, and
+  positivity masks. Representation-sensitive boundary cases are checked by
+  the corresponding shape and penalty invariants.
+- A shared block-composable coefficient-transform contract owns optimization
+  and prediction coefficient spaces, derivatives through third order, and
+  per-block covariance transport. Generic maps use Jacobian transport while
+  SCAM terms declare the released `beta.t` scaling policy.
+  `positive_transform="exp"` mirrors the default;
+  `"softplus"` mirrors SCAM's `not.exp=TRUE` with configurable beta and
+  threshold.
+- Fixed-SP constrained Newton fitting for Gaussian, Poisson, binomial, and
+  Gamma ordinary families, including observed/Fisher Hessian branching,
+  step-halving, SCAM EDF, Bayesian/frequentist covariance in both coefficient
+  spaces, and rank-thresholded factorization.
+- Exact GCV/UBRE values and gradients and the `bfgs_gcv.ubre` log-SP optimizer,
+  including SCAM initialization, line search, convergence codes, and score
+  history. The ordinary `outer_newton` spelling is redirected to this BFGS
+  path for constrained models; unsupported criteria/optimizers fail loudly.
+- Linear functionals/signal regression through one shared matrix-valued
+  feature/`by` aggregation contract for ordinary `ps`/`cr`/`cs`/`cc` and the
+  eight SCAM `*By` bases.
+- `predict(..., return_se=True)` on link, response, and term scales;
+  `summary()` smooth/parametric inference; all SCAM residual types including
+  continuous/randomized quantile residuals; and
+  `derivative(smooth_number=, deriv=1|2)` with Bayesian uncertainty.
+- Gaussian-identity AR(1) fitting for both ordinary and constrained GAMs with
+  known `ar1_rho`, independent sections via boolean or formula-column
+  `ar_start`, SCAM's constrained post-fit covariance/scale convention, and
+  `ar1_standardized_residuals()`. GCV uses the same observation transform.
+- Fixed-smoothing transformed coefficients across multiple distributional
+  linear predictors through a chain-rule Newton kernel, with prediction- and
+  optimization-space coefficients/covariances retained separately.
+- Term-owned derivative matrices, including exact ordinary P-spline
+  derivatives at new data and SCAM-compatible constrained derivatives.
+
 ## Constraints and identifiability
 
 Sum-to-zero constraints, QR constraint absorption byte-matching base R's
@@ -73,8 +118,35 @@ term retention, and the per-term null-space penalties produced by model-level
   for ML/REML), `{"name": "negbin", "theta": ...}` is fixed-theta.
   Offsets, prior weights, and array (non-formula) construction are supported
   on the estimated-theta joint path.
+- Extended families: beta regression (`betar`) with fixed or jointly estimated
+  precision, ordered categorical regression (`ocat`) with fixed or jointly
+  estimated cut points, and Tweedie (`tw`) with fixed fitting plus joint
+  `[theta, log(sp), log(scale)]` ML/REML optimization on the documented outer
+  optimizers. Family objects are cloned per model and per fit so estimated
+  parameters cannot leak across models or refits.
 - General families: `gaulss`, `gammals` with the `gamlss.etamu` / `gamlss.gH`
   / `trind.generator` ports.
+
+## Fit lifecycle and result ownership
+
+- Every `fit()` runs in an isolated fit session with a fresh solver workspace,
+  fresh mutable family state, and constructor-configured smoothing starts.
+  Reusing a model therefore has the same endpoint as fitting a fresh model on
+  the same inputs, including PIRLS and general-family routes.
+- Fit publication is transactional: compilation, optimization, and result
+  construction occur on private state; a failed refit leaves the preceding
+  successful fitted model unchanged.
+- Compiled terms carry predictor identity and absolute full-coefficient
+  indices. Repeated labels in separate distributional predictors remain
+  distinct for term contributions and covariance extraction. The NAMpy-only
+  `predict_terms()` decomposition prefixes multi-predictor term keys with the
+  predictor name and reports intercepts/offsets by predictor.
+- `fit_result()` returns a defensive snapshot. Its coefficient, fitted-value,
+  covariance, EDF, trace, metadata, and side-condition structures do not alias
+  the canonical fitted artifact used by prediction and diagnostics.
+- Pickled GAM state is schema-versioned. Schema-0 models are migrated to the
+  current family/template and compiled-term coordinate ownership; unknown
+  future schemas fail explicitly instead of loading partially.
 
 ## Smoothing criteria
 
@@ -198,7 +270,8 @@ pattern).
   rank, Davies/`liu2`/`psum.chisq` chi-square mixtures, and the `reTest`
   branch for full-rank-penalty terms) and multi-model comparison with mgcv's
   guards.
-- Residuals: deviance, pearson, scaled.pearson, working, response.
+- Residuals: deviance, pearson, scaled.pearson, working, response, and SCAM
+  `rquantile`/`quantile` for constrained fits.
 - `concurvity` (full and pairwise, reproducing mgcv's parametric-block
   indexing quirk), `k_check` (with mgcv's deterministic subsample plan and
   tensor rescaling), `gam_check` (split into mgcv-comparable and

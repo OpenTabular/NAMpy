@@ -159,7 +159,7 @@ def predict_general_values(
             stacklevel=2,
         )
         pred_type = "terms"
-    from .predictions import (
+    from .terms import (
         _group_standard_error_rows,
         _group_term_contribution,
         _prediction_term_groups,

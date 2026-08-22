@@ -24,6 +24,23 @@ def compile_designs(model, X, feature_names):
         # knob either (mgcv/R/mgcv.r:1266 hard-codes its call-site tol).
         side_condition_tol=1e-10,
     )
+    from ..compiler.coefficient_transforms import (
+        configure_compiled_coefficient_transforms,
+    )
+
+    configure_compiled_coefficient_transforms(
+        compiled_model,
+        positive_map=str(getattr(model, "positive_transform", "exp")),
+        softplus_beta=float(getattr(model, "softplus_beta", 1.0)),
+        softplus_threshold=float(getattr(model, "softplus_threshold", 20.0)),
+    )
+    from ..observations import make_observation_transform
+
+    compiled_model.observation_transform = make_observation_transform(
+        size=int(np.asarray(compiled_model.design_matrix).shape[0]),
+        ar1_rho=float(getattr(model, "ar1_rho", 0.0)),
+        ar_start=getattr(model, "ar_start_", None),
+    )
     from ..results import GAMResult
 
     current = model.gam_result_ or GAMResult()

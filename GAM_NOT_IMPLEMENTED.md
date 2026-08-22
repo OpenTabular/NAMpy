@@ -1,6 +1,6 @@
 # GAM subsystem — not implemented / known deviations
 
-Snapshot date: 2026-08-18. Companion to [GAM_IMPLEMENTED.md](GAM_IMPLEMENTED.md).
+Snapshot date: 2026-08-21. Companion to [GAM_IMPLEMENTED.md](GAM_IMPLEMENTED.md).
 Policy: every unsupported surface must fail loudly (explicit
 `NotImplementedError`/`ValueError`), never silently approximate. Items marked
 **guarded** raise an explicit error today; items marked **absent** fail
@@ -16,9 +16,25 @@ through a generic guard (unknown basis/function/method).
 | Tensor marginals outside `cr/cs/cc/ps/tp/ts` | guarded |
 | `bs="fs"` with full-rank shrinkage base (`cs`/`ts`) | guarded (upstream mgcv rejects it too) |
 | Random-effect smooths with `id=` | guarded with mgcv's own message (`random effects don't work with ids.`) |
-| Matrix covariates / `by`-matrices (linear functional terms, signal regression, summation convention) | absent — the data path is DataFrame-column only |
+| Matrix covariates / `by`-matrices | implemented through the shared linear-functional contract for ordinary `ps`/`cr`/`cs`/`cc` and SCAM's eight univariate `*By` shape bases; absent for other smooth classes |
 | User-supplied constraint matrix `C` / `absorb.cons=FALSE` | absent (constructor kwargs are not plumbed) |
 | `paraPen=` parametric-term penalties | absent |
+
+## Shape-constrained (`scam`) boundaries
+
+| Surface | Status |
+| --- | --- |
+| Automatic ML/REML/LAML selection | guarded; SCAM's GCV/UBRE criteria are implemented |
+| Outer SP optimizers other than `bfgs_gcv.ubre` | guarded; no substitution with NAMpy's generic `optim`, EFS, or Newton paths |
+| Coefficient optimizer other than SCAM Newton | absent |
+| More than one linear predictor | fixed smoothing implemented through the generic transformed general-family kernel; automatic smoothing guarded pending transformed Laplace derivatives |
+| Bivariate `by` terms | guarded |
+| `select=True` null-space penalties on constrained terms | guarded; upstream SCAM does not expose this mgcv surface |
+| AR(1) on ordinary GAMs | fixed smoothing and GCV implemented for Gaussian identity models through the shared observation transform |
+| AR(1) ML/REML/LAML or non-Gaussian/non-identity models | guarded; correlated-likelihood determinant/derivative terms are not yet implemented |
+| Estimated AR(1) correlation | absent; `ar1_rho` is supplied, as in upstream SCAM |
+| Derivatives for matrix-valued linear functionals | guarded; scalar SCAM derivatives and scalar ordinary P-spline new-data derivatives are implemented |
+| SCAM `plot.scam`, `vis.scam`, `scam.check`, and `qq.scam` specializations | absent; shared GAM plotting/checking remains available where its term contract applies |
 
 ## Formula constructs
 
@@ -38,11 +54,12 @@ through a generic guard (unknown basis/function/method).
 ## Families absent entirely
 
 `quasi`, `quasipoisson`, `quasibinomial`, `inverse.gaussian`;
-extended families `tw`/`Tweedie`, `betar`, `scat`, `ocat`, `ziP`, `cnorm`,
+extended families `scat`, `ziP`, `cnorm`,
 `clog`, `cpois`, `bcg`; general families `multinom`, `ziplss`, `gevlss`,
 `twlss`, `gumbls`, `shash`; `cox.ph`/`cox.pht`, `mvn`, `gfam`.
-Only `gaulss` and `gammals` of mgcv's general families and `nb`/`negbin` of
-its extended families are ported.
+The implemented extended-family surface includes `nb`/`negbin`, `betar`,
+`ocat`, and `tw`; `gaulss` and `gammals` are the implemented general families.
+See [GAM_IMPLEMENTED.md](GAM_IMPLEMENTED.md) for their exact fitting routes.
 
 ## Criteria / optimizers
 
@@ -56,6 +73,7 @@ its extended families are ported.
 | `scale=` argument (known-scale Gaussian/Gamma UBRE/Cp workflow) | absent — UBRE/AIC is blocked whenever `known_scale is None` |
 | Parametric-only formulas with `optimize_smoothing=True` | guarded — the current smoothing-selection driver requires at least one smooth parameter; fixed fitting remains available |
 | `optim` exact parity | partial — SciPy L-BFGS-B stands in for R `stats::optim`; the negbin estimated-theta **ML + optim** combination is guarded until the exact R L-BFGS-B flat-boundary behavior is ported |
+| Tweedie (`tw`) joint ML/REML outer optimization | implemented for `outer_newton`, `bfgs`, and `optim` in mgcv's `[theta, log(sp), log(scale)]` order; `min_sp` and `efs` remain guarded |
 | LAML for GLM/extended families | absent (flag off); only general families accept it, folded into REML as upstream |
 
 ## General-family (`gam.fit5`) scope

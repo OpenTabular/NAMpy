@@ -36,6 +36,10 @@ class FitResult:
     cov_bayes_space: str = "fit"
     cov_freq_space: str = "fit"
     cov_unconditional_space: str = "fit"
+    coef_optimization: np.ndarray | None = None
+    cov_bayes_optimization: np.ndarray | None = None
+    cov_freq_optimization: np.ndarray | None = None
+    positive_coefficient_mask: np.ndarray | None = None
 
 
 __all__ = ["FitResult"]

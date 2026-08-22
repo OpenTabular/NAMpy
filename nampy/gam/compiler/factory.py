@@ -13,6 +13,8 @@ from ..smooths.categorical.fs import (
 from ..smooths.categorical.re import RandomEffectTerm
 from ..smooths.parametric import LinearTerm
 from ..smooths.registry import make_smooth_term
+from ..smooths.shape.bivariate import BivariateShapePSplineTerm
+from ..smooths.shape.scop import ShapeConstrainedPSplineTerm
 from ..smooths.univariate.cr import CubicSplineTerm
 from ..smooths.univariate.ps import PSplineTerm1D
 from ..specs import LinearPredictorSpec, PenaltyGroupSpec, TermSpec
@@ -23,6 +25,7 @@ from ..specs.smooth import (
     FactorSmoothInteractionSpec,
     PSplineSmoothSpec,
     RandomEffectSmoothSpec,
+    ShapeConstrainedSmoothSpec,
     SumToZeroFactorSmoothSpec,
     TensorInteractionSmoothSpec,
     TensorProductSmoothSpec,
@@ -30,17 +33,6 @@ from ..specs.smooth import (
     ThinPlateSmoothSpec,
     tensor_basis_list,
 )
-
-
-def _as_list_or_repeat(value: Any, n: int):
-    if isinstance(value, str):
-        return [value] * n
-    if isinstance(value, (list, tuple)):
-        out = list(value)
-        if len(out) != n:
-            raise ValueError(f"Expected length {n}, got {len(out)}.")
-        return out
-    return [value] * n
 
 
 def _tensor_feature_groups(features, d):
@@ -165,6 +157,42 @@ def instantiate_term(term_like: TermSpec | Any):
             fixed=smooth_spec.fx,
             constraint_mode=smooth_spec.constraint_mode,
             pc=smooth_spec.pc,
+            knots=smooth_spec.knots,
+            metadata=metadata,
+        )
+
+    if isinstance(smooth_spec, ShapeConstrainedSmoothSpec):
+        if len(features) == 2:
+            return BivariateShapePSplineTerm(
+                feature=features,
+                k=smooth_spec.k,
+                basis=str(smooth_spec.bs).lower(),
+                m=smooth_spec.m,
+                label=label,
+                term_id=term_like.term_id,
+                smoothing_id=smoothing_id,
+                by=by,
+                sp=smooth_spec.sp,
+                select=smooth_spec.select,
+                fixed=smooth_spec.fx,
+                knots=smooth_spec.knots,
+                metadata=metadata,
+            )
+        if len(features) != 1:
+            raise NotImplementedError("SCOP smooths support one or two features.")
+        return ShapeConstrainedPSplineTerm(
+            feature=features[0],
+            k=smooth_spec.k,
+            basis=str(smooth_spec.bs).lower(),
+            m=smooth_spec.m,
+            xt=smooth_spec.xt,
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            fixed=smooth_spec.fx,
             knots=smooth_spec.knots,
             metadata=metadata,
         )

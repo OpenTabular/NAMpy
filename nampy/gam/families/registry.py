@@ -1,3 +1,8 @@
+import copy
+
+import numpy as np
+
+from .betar import BetaRegressionFamily
 from .binomial import (
     BinomialCauchitFamily,
     BinomialCloglogFamily,
@@ -11,7 +16,9 @@ from .gamlss.gaulss import gaulss
 from .gamma import GammaIdentityFamily, GammaInverseFamily, GammaLogFamily
 from .gaussian import GaussianIdentityFamily, GaussianInverseFamily, GaussianLogFamily
 from .negbin import NegativeBinomialLogFamily
+from .ocat import OrderedCategoricalFamily
 from .poisson import PoissonIdentityFamily, PoissonLogFamily, PoissonSqrtFamily
+from .tweedie import TweedieTwFamily
 
 _BINOMIAL_LINK_MAP = {
     "logit": BinomialLogitFamily,
@@ -40,9 +47,36 @@ _GAMMA_LINK_MAP = {
 }
 
 
+def clone_gam_family(family: BaseFamily) -> BaseFamily:
+    """Return an independent family instance for one model or fit session.
+
+    Extended and general mgcv families carry mutable working parameters (for
+    example ``theta`` and ordered-category cut points).  Sharing one Python
+    family object across models would therefore also share fitted state, unlike
+    R's copy-on-modify family lists.
+    """
+    if not isinstance(family, BaseFamily):
+        raise TypeError(
+            f"Expected a BaseFamily instance, got {type(family).__name__}."
+        )
+    try:
+        cloned = copy.deepcopy(family)
+    except Exception as exc:  # pragma: no cover - custom family diagnostic
+        raise TypeError(
+            f"Family {family.__class__.__name__} cannot be cloned for an "
+            "independent GAM fit."
+        ) from exc
+    if cloned is family:  # defensive against a custom ``__deepcopy__``
+        raise TypeError(
+            f"Family {family.__class__.__name__} returned itself from deepcopy; "
+            "families used by GAM must support independent fit state."
+        )
+    return cloned
+
+
 def make_gam_family(family):
     if isinstance(family, BaseFamily):
-        return family
+        return clone_gam_family(family)
 
     if family is None:
         return GaussianIdentityFamily()
@@ -75,6 +109,25 @@ def make_gam_family(family):
                 theta=family.get("theta", 1.0),
                 estimate_theta=bool(family.get("estimate_theta", False)),
                 link=link or "log",
+            )
+        if name in {"tw", "tweedie"}:
+            return TweedieTwFamily(
+                theta=family.get("theta", None),
+                link=link or "log",
+                a=float(family.get("a", 1.01)),
+                b=float(family.get("b", 1.99)),
+            )
+        if name in {"betar", "beta", "beta_regression"}:
+            return BetaRegressionFamily(
+                theta=family.get("theta", None),
+                link=link or "logit",
+                eps=float(family.get("eps", np.finfo(np.float64).eps * 100.0)),
+            )
+        if name in {"ocat", "ordered_categorical", "ordered"}:
+            return OrderedCategoricalFamily(
+                theta=family.get("theta", None),
+                R=family.get("R", None),
+                link=link or "identity",
             )
         if name in {"binomial", "bernoulli", "logistic"}:
             resolved = link or "logit"
@@ -194,6 +247,33 @@ def make_gam_family(family):
                 theta=abs(theta) if theta < 0.0 else (1.0 if theta == 0.0 else theta),
                 estimate_theta=theta <= 0.0,
             )
+        if key in {"tw", "tweedie"}:
+            if isinstance(spec, dict):
+                return TweedieTwFamily(
+                    theta=spec.get("theta", None),
+                    link=str(spec.get("link", "log")).lower(),
+                    a=float(spec.get("a", 1.01)),
+                    b=float(spec.get("b", 1.99)),
+                )
+            return TweedieTwFamily(theta=float(spec))
+        if key in {"betar", "beta", "beta_regression"}:
+            if isinstance(spec, dict):
+                return BetaRegressionFamily(
+                    theta=spec.get("theta", None),
+                    link=str(spec.get("link", "logit")).lower(),
+                    eps=float(spec.get("eps", np.finfo(np.float64).eps * 100.0)),
+                )
+            return BetaRegressionFamily(theta=spec)
+        if key in {"ocat", "ordered_categorical", "ordered"}:
+            if isinstance(spec, dict):
+                return OrderedCategoricalFamily(
+                    theta=spec.get("theta", None),
+                    R=spec.get("R", None),
+                    link=str(spec.get("link", "identity")).lower(),
+                )
+            if np.isscalar(spec):
+                return OrderedCategoricalFamily(R=int(spec))
+            return OrderedCategoricalFamily(theta=spec)
         if key in {"negbin", "negativebinomial", "negative_binomial"}:
             if isinstance(spec, dict):
                 if "theta" not in spec:
@@ -219,11 +299,16 @@ def make_gam_family(family):
         raise ValueError("mgcv::negbin requires explicit theta.")
     if key in {"nb"}:
         return NegativeBinomialLogFamily(theta=1.0, estimate_theta=True)
+    if key in {"tw", "tweedie"}:
+        return TweedieTwFamily()
+    if key in {"betar", "beta", "beta_regression"}:
+        return BetaRegressionFamily()
     if key in {"gaulss"}:
         return gaulss()
     if key in {"gammals"}:
         return gammals()
     raise ValueError(
         f"Unknown GAM family {family!r}. "
-        "Valid options: gaussian, binomial, poisson, gamma, nb, negbin, gaulss, gammals."
+        "Valid options: gaussian, binomial, poisson, gamma, nb, negbin, tw, "
+        "betar, gaulss, gammals."
     )

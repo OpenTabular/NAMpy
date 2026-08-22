@@ -3,10 +3,6 @@ Interpretability
 
 One of NAMpy's key strengths is model interpretability, especially for additive models like NAM.
 
-.. note::
-   This feature is under active development. More comprehensive interpretability
-   tools and visualizations will be added in future releases.
-
 Understanding Additive Models
 ------------------------------
 
@@ -34,9 +30,10 @@ contributions:
    model = NAMRegressor()
    model.fit(X_train, y_train, max_epochs=100)
    
-   # Get feature-level predictions
-   # (Implementation depends on model internals)
-   # This is an area for future development
+   components = model.predict_components(X_test, center=True)
+   table = model.explain_terms(X_test)
+   importance = model.term_importance(X_test)
+   figures = model.plot_terms(X_test)
 
 Model Comparison
 ----------------
@@ -58,7 +55,7 @@ Compare interpretable vs. black-box models:
    * - GPNAM
      - High (feature-level)
      - Good
-     - With uncertainty
+     - Smooth, parameter-efficient effects
    * - TreeNAM
      - High (feature-level)
      - Good
@@ -72,16 +69,12 @@ Compare interpretable vs. black-box models:
      - Best
      - Pure performance
 
-Visualization (Future)
-----------------------
+Visualization
+-------------
 
-Future releases will include:
-
-* Feature importance plots
-* Shape functions for individual features
-* Partial dependence plots
-* Individual prediction explanations
-* Interactive visualization tools
+``plot_terms`` renders one-dimensional contribution curves, while
+``plot_interactions`` handles interaction heatmaps. ``explain_terms`` and
+``term_importance`` return reusable tables for custom plotting.
 
 Contributing
 ------------
@@ -95,4 +88,3 @@ For More Information
 * :doc:`../models/index` - Model comparison
 * :doc:`../examples/index` - Practical examples
 * GitHub: https://github.com/OpenTabular/NAMpy
-

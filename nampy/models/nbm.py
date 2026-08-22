@@ -1,39 +1,10 @@
-# models/nbm.py
-from ..neural.configs.nbm_config import DefaultNBMConfig
-from ..neural.modules.nbm import NBM
-from .classifier import NeuralClassifier
-from .lss import NeuralLSS
-from .regressor import NeuralRegressor
+"""Public estimator family generated from the NBM declaration."""
 
+from ._registered import estimator_family
 
-class NBMRegressor(NeuralRegressor):
-    """Neural Basis Model regressor.
+_family = estimator_family("nbm", module_name=__name__)
+NBMRegressor = _family.regressor
+NBMClassifier = _family.classifier
+NBMLSS = _family.lss
 
-    Hyperparameters: see :class:`nampy.neural.configs.DefaultNBMConfig` plus
-    shared preprocessing options in :class:`NeuralEstimatorBase`.
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(model=NBM, config=DefaultNBMConfig, **kwargs)
-
-
-class NBMClassifier(NeuralClassifier):
-    """Neural Basis Model classifier.
-
-    Hyperparameters: see :class:`nampy.neural.configs.DefaultNBMConfig` plus
-    shared preprocessing options in :class:`NeuralEstimatorBase`.
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(model=NBM, config=DefaultNBMConfig, **kwargs)
-
-
-class NBMLSS(NeuralLSS):
-    """Neural Basis Model for distributional regression.
-
-    Hyperparameters: see :class:`nampy.neural.configs.DefaultNBMConfig` plus
-    shared preprocessing options in :class:`NeuralEstimatorBase`.
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(model=NBM, config=DefaultNBMConfig, **kwargs)
+__all__ = ["NBMRegressor", "NBMClassifier", "NBMLSS"]

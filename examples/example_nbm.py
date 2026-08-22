@@ -73,7 +73,7 @@ def main():
     # NBM model
     #
     # Key settings for clean verification:
-    # - numerical_preprocessing="standardization" keeps each feature 1D
+    # - numerical_method="standardization" keeps each feature 1D
     # - nary=[1, 2] enables unary + pairwise terms
     # ------------------------------------------------------------------
     model = NBMRegressor(
@@ -84,7 +84,7 @@ def main():
         bases_dropout=0.05,
         output_penalty=1e-4,
         nary=[1, 2],  # unary + pairwise
-        numerical_preprocessing="standardization",
+        numerical_method="standardization",
         treat_all_integers_as_numerical=True,
     )
 

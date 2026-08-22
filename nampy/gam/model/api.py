@@ -20,8 +20,9 @@ from ..diagnostics import (
     plot_gam,
     print_summary,
     residuals_gam,
+    smooth_derivative,
 )
-from ..families import make_gam_family
+from ..families import clone_gam_family, make_gam_family
 from ..fit import fit_model_core, select_covariance_matrix
 from ..fit.offsets import coerce_offset_array
 from ..fit.result_builders import build_gam_result, copy_fit_result
@@ -51,8 +52,12 @@ from ..model_state import (
     _term_blocks_seq,
 )
 from ..predict import build_lpmatrix, predict_values
+from ..predict.general import general_family_prediction_offset
+from ..predict.terms import _prediction_term_groups
 from ..results.snapshots import build_snapshot
 from ..specs.modeling import make_predictor_specs, prepare_formula_inputs
+from .persistence import gam_pickle_state, restore_gam_pickle_state
+from .session import FitSession
 
 _GAM_HPARAM_KEYS = frozenset(
     {
@@ -77,6 +82,12 @@ _GAM_HPARAM_KEYS = frozenset(
         # Read from hparams outside the constructor:
         "apply_side_conditions",  # fit/design_setup.py
         "trace",  # fit/solvers/general_family/fixed_smoothing.py
+        "positive_transform",  # transformed-coefficient solver
+        "softplus_beta",  # transformed-coefficient solver
+        "softplus_threshold",  # transformed-coefficient solver
+        "start",  # transformed-coefficient solver
+        "ar1_rho",  # generic Gaussian-identity residual correlation
+        "ar_start",  # starts of independent AR1 sections
     }
 )
 
@@ -112,6 +123,12 @@ class GAM:
         self.max_irls_iter = int(self.hparams.get("max_irls_iter", 200))
         self.irls_tol = float(self.hparams.get("irls_tol", 1e-7))
         self.max_step_halving = int(self.hparams.get("max_step_halving", 25))
+        self.ar1_rho = float(self.hparams.get("ar1_rho", 0.0))
+        if not -1.0 < self.ar1_rho < 1.0:
+            raise ValueError("ar1_rho must be strictly between -1 and 1.")
+        self.ar_start = self.hparams.get("ar_start", None)
+        self.ar_start_ = None
+        self.ar1_standardized_residuals_ = None
         self.smoothing_params = self.hparams.get("smoothing_params", None)
         self.optimize_smoothing = bool(self.hparams.get("optimize_smoothing", False))
         self.smoothing_method = str(
@@ -127,8 +144,20 @@ class GAM:
         self.knots = self.hparams.get("knots", None)
         self.min_sp = self.hparams.get("min_sp", None)
         self.drop_intercept = self.hparams.get("drop_intercept", None)
+        self.positive_transform = str(
+            self.hparams.get("positive_transform", "exp")
+        ).lower()
+        if self.positive_transform not in {"exp", "softplus"}:
+            raise ValueError("positive_transform must be 'exp' or 'softplus'.")
+        self.softplus_beta = float(self.hparams.get("softplus_beta", 1.0))
+        self.softplus_threshold = float(
+            self.hparams.get("softplus_threshold", 20.0)
+        )
+        self.start = self.hparams.get("start", None)
 
-        self.family = make_gam_family(family)
+        resolved_family = make_gam_family(family)
+        self._family_template = clone_gam_family(resolved_family)
+        self.family = clone_gam_family(self._family_template)
 
         self._device = "cpu"
 
@@ -167,11 +196,10 @@ class GAM:
     # ------------------------------------------------------------------
 
     def __getstate__(self):
-        # The solver workspace (warm starts, evaluation caches) is transient:
-        # never pickle it, so saved models carry no stale cached kernel state.
-        state = dict(self.__dict__)
-        state.pop("_ws", None)
-        return state
+        return gam_pickle_state(self)
+
+    def __setstate__(self, state):
+        restore_gam_pickle_state(self, state)
 
     def save_model(self, path):
         destination = Path(path)
@@ -274,6 +302,38 @@ class GAM:
         knots=None,
         drop_intercept=None,
     ):
+        """Fit transactionally with fresh solver and mutable-family state."""
+        session = FitSession.begin(self)
+        session.working_model._fit_in_place(
+            X=X,
+            y=y,
+            optimize_smoothing=optimize_smoothing,
+            smoothing_method=smoothing_method,
+            data=data,
+            formula=formula,
+            offset=offset,
+            sample_weight=sample_weight,
+            min_sp=min_sp,
+            knots=knots,
+            drop_intercept=drop_intercept,
+        )
+        session.commit_to(self)
+        return self
+
+    def _fit_in_place(
+        self,
+        X=None,
+        y=None,
+        optimize_smoothing=None,
+        smoothing_method=None,
+        data=None,
+        formula=None,
+        offset=None,
+        sample_weight=None,
+        min_sp=None,
+        knots=None,
+        drop_intercept=None,
+    ):
         formula = self.formula if formula is None else formula
         knots = self.knots if knots is None else knots
         min_sp = self.min_sp if min_sp is None else min_sp
@@ -350,6 +410,23 @@ class GAM:
             raise ValueError(
                 "y must be supplied, or a formula with a response column must be provided."
             )
+
+        if self.ar_start is not None:
+            if isinstance(self.ar_start, str):
+                if formula is None or data is None or self.ar_start not in data.columns:
+                    raise ValueError(
+                        "ar_start as a column name requires formula data containing that column."
+                    )
+                ar_start = np.asarray(data[self.ar_start], dtype=bool).reshape(-1)
+            else:
+                ar_start = np.asarray(self.ar_start, dtype=bool).reshape(-1)
+            if ar_start.shape != (len(y_use),):
+                raise ValueError(
+                    f"ar_start must have shape ({len(y_use)},), got {ar_start.shape}."
+                )
+            self.ar_start_ = ar_start.copy()
+        else:
+            self.ar_start_ = None
 
         sw_use = None
         if sample_weight is not None:
@@ -514,12 +591,44 @@ class GAM:
             out["response"] = predict_values(
                 model=self, X=X_use, type="response", offset=offset_use
             )
-        for j, tb in enumerate(_term_blocks_seq(self)):
-            out[tb.term_id] = terms[:, j]
-        if self.fit_intercept:
-            out["intercept"] = np.array(_intercept(self), dtype=np.float64)
-        if offset_use is not None:
-            out["offset"] = np.asarray(offset_use, dtype=np.float64)
+        groups = _prediction_term_groups(self)
+        is_multi_predictor = len(_predictor_full_slices(self)) > 1
+        for index, group in enumerate(groups):
+            term = group["blocks"][0]
+            term_key = str(getattr(term, "term_id", "") or group["label"])
+            if is_multi_predictor:
+                term_key = f"{group['predictor_name']}:{term_key}"
+            out[term_key] = terms[:, index]
+
+        if is_multi_predictor:
+            compiled = self.gam_result_.require_compiled_model()
+            coef_full = np.asarray(_coef_full(self), dtype=np.float64)
+            intercepts = {}
+            for predictor, predictor_slice in zip(
+                compiled.predictors,
+                compiled.predictor_full_slices,
+                strict=True,
+            ):
+                if bool(predictor.prediction_has_intercept):
+                    intercepts[str(predictor.name)] = float(
+                        coef_full[int(predictor_slice.start)]
+                    )
+            if intercepts:
+                out["intercept"] = intercepts
+            offset_list = general_family_prediction_offset(self, X_use, offset_use)
+            if offset_list is not None:
+                out["offset"] = {
+                    str(predictor.name): np.asarray(offset_value, dtype=np.float64)
+                    for predictor, offset_value in zip(
+                        compiled.predictors, offset_list, strict=True
+                    )
+                    if offset_value is not None
+                }
+        else:
+            if self.fit_intercept:
+                out["intercept"] = np.array(_intercept(self), dtype=np.float64)
+            if offset_use is not None:
+                out["offset"] = np.asarray(offset_use, dtype=np.float64)
         return out
 
     def lpmatrix(self, X):
@@ -565,9 +674,39 @@ class GAM:
             self, dispersion=dispersion, freq=freq, re_test=re_test
         )
 
-    def residuals(self, type="deviance"):
+    def residuals(self, type="deviance", *, setseed=None):
 
-        return residuals_gam(self, type=type)
+        return residuals_gam(self, type=type, setseed=setseed)
+
+    def ar1_standardized_residuals(self):
+        """Return AR(1)-standardized response residuals.
+
+        The values are the response residuals after applying the same square
+        root correlation transform used by the fitted observation contract. They
+        are available only after fitting with non-zero ``ar1_rho``.
+        """
+
+        if not self._fitted:
+            raise RuntimeError("Model is not fitted.")
+        if self.ar1_rho == 0.0 or self.ar1_standardized_residuals_ is None:
+            raise RuntimeError(
+                "AR(1)-standardized residuals require a fit with non-zero ar1_rho."
+            )
+        return np.asarray(
+            self.ar1_standardized_residuals_, dtype=np.float64
+        ).copy()
+
+    def derivative(self, X=None, smooth_number=1, deriv=1):
+        """Return a term-owned univariate smooth derivative and Bayesian SE."""
+        X_use = None
+        if X is not None:
+            if self.formula_mode_:
+                X_use, _, _ = coerce_formula_predict_inputs(self, X)
+            else:
+                X_use, _ = coerce_X(self, X)
+        return smooth_derivative(
+            self, X=X_use, smooth_number=smooth_number, deriv=deriv
+        )
 
     def concurvity(self, full=True):
 

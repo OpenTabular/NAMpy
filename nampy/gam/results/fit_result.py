@@ -1,5 +1,6 @@
 """Stable fit-result structures consumed outside the fit subsystem."""
 
+import copy
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -36,7 +37,7 @@ class TermFitResult:
             "smoothing_values": [float(v) for v in self.smoothing_values],
             "deleted_columns": [int(i) for i in self.deleted_columns],
             "kept_columns": [int(i) for i in self.kept_columns],
-            "metadata": dict(self.metadata),
+            "metadata": copy.deepcopy(self.metadata),
         }
 
 
@@ -65,6 +66,22 @@ class GAMFitResult:
     @property
     def intercept(self) -> float:
         return self.core.intercept
+
+    @property
+    def coef_optimization(self) -> np.ndarray | None:
+        return self.core.coef_optimization
+
+    @property
+    def positive_coefficient_mask(self) -> np.ndarray | None:
+        return self.core.positive_coefficient_mask
+
+    @property
+    def eta(self) -> np.ndarray:
+        return self.core.eta
+
+    @property
+    def mu(self) -> np.ndarray:
+        return self.core.mu
 
     @property
     def edf_total(self) -> float:
@@ -97,6 +114,14 @@ class GAMFitResult:
     @property
     def cov_freq(self) -> np.ndarray | None:
         return self.core.cov_freq
+
+    @property
+    def cov_bayes_optimization(self) -> np.ndarray | None:
+        return self.core.cov_bayes_optimization
+
+    @property
+    def cov_freq_optimization(self) -> np.ndarray | None:
+        return self.core.cov_freq_optimization
 
     @property
     def cov_unconditional(self) -> np.ndarray | None:
@@ -137,11 +162,20 @@ class GAMFitResult:
             "side_condition_reports": (
                 None
                 if self.side_condition_reports is None
-                else list(self.side_condition_reports)
+                else copy.deepcopy(self.side_condition_reports)
             ),
             "term_results": [term.to_dict() for term in self.term_results],
-            "metadata": dict(self.metadata),
+            "metadata": copy.deepcopy(self.metadata),
         }
+
+        if self.coef_optimization is not None:
+            out["coef_optimization"] = np.asarray(
+                self.coef_optimization, dtype=np.float64
+            ).tolist()
+        if self.positive_coefficient_mask is not None:
+            out["positive_coefficient_mask"] = np.asarray(
+                self.positive_coefficient_mask, dtype=bool
+            ).tolist()
 
         if include_covariances:
             out["cov_bayes"] = (
@@ -160,6 +194,14 @@ class GAMFitResult:
                 else np.asarray(self.cov_unconditional, dtype=np.float64).tolist()
             )
             out["cov_unconditional_space"] = self.cov_unconditional_space
+            if self.cov_bayes_optimization is not None:
+                out["cov_bayes_optimization"] = np.asarray(
+                    self.cov_bayes_optimization, dtype=np.float64
+                ).tolist()
+            if self.cov_freq_optimization is not None:
+                out["cov_freq_optimization"] = np.asarray(
+                    self.cov_freq_optimization, dtype=np.float64
+                ).tolist()
 
         return out
 

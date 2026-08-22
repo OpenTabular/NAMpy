@@ -18,7 +18,6 @@ from ..linalg import (
 from ..linalg.qr import r_linpack_qr_no_pivot, r_linpack_qr_r
 from ..model_state import (
     _coef,
-    _coef_column_offset,
     _coef_full,
     _cov_bayes,
     _cov_unconditional,
@@ -33,6 +32,7 @@ from ..model_state import (
     _require_fitted,
     _summary_R,
     _term_blocks_seq,
+    _term_full_coefficient_indices,
 )
 from .chi_square_mixtures import psum_chisq
 
@@ -154,10 +154,7 @@ def _retest_like_stat(
     root_penalty = _mroot_psd(penalty)
     LRB = np.vstack([np.asarray(summary_R, dtype=np.float64), root_penalty.T])
 
-    offset = _coef_column_offset(model)
-    ind = np.arange(
-        offset + tb.coef_slice.start, offset + tb.coef_slice.stop, dtype=int
-    )
+    ind = _term_full_coefficient_indices(model, tb)
     keep = np.setdiff1d(np.arange(q, dtype=int), ind, assume_unique=True)
     perm = np.concatenate([keep, ind])
     LRB = np.asarray(LRB[:, perm], dtype=np.float64)
@@ -277,10 +274,8 @@ def _edf1_vector(model) -> np.ndarray:
 
 
 def _term_edf1(model, tb) -> float:
-    sl = tb.coef_slice
-    offset = _coef_column_offset(model)
     edf1 = _edf1_vector(model)
-    return float(np.sum(edf1[sl.start + offset : sl.stop + offset]))
+    return float(np.sum(edf1[_term_full_coefficient_indices(model, tb)]))
 
 
 def _approximate_residual_df(model) -> float:
@@ -524,15 +519,12 @@ def _term_table(
     param_rows: list[dict[str, object]] = []
     smooth_rows: list[dict[str, object]] = []
 
-    x_offset = _coef_column_offset(model)
     for group in _parametric_term_groups(model):
         beta_cols: list[int] = []
         full_cols: list[int] = []
         for tb in group["blocks"]:
             beta_cols.extend(range(tb.coef_slice.start, tb.coef_slice.stop))
-            full_cols.extend(
-                range(tb.coef_slice.start + x_offset, tb.coef_slice.stop + x_offset)
-            )
+            full_cols.extend(_term_full_coefficient_indices(model, tb).tolist())
 
         beta_idx = np.asarray(beta_cols, dtype=np.int64)
         full_idx = np.asarray(full_cols, dtype=np.int64)
@@ -573,14 +565,14 @@ def _term_table(
             continue
 
         sl = tb.coef_slice
-        x_sl = slice(sl.start + x_offset, sl.stop + x_offset)
+        full_idx = _term_full_coefficient_indices(model, tb)
         beta_i = beta[sl]
         edf_i = float(edf_by_term[i]) if i < edf_by_term.size else float(beta_i.size)
 
         cov_i = (
             None
             if V_smooth is None
-            else np.asarray(V_smooth[x_sl, x_sl], dtype=np.float64)
+            else np.asarray(V_smooth[np.ix_(full_idx, full_idx)], dtype=np.float64)
         )
         if cov_i is None:
             stat, ref_df, p_value = np.nan, max(edf_i, 1.0), np.nan
@@ -601,13 +593,11 @@ def _term_table(
             else:
                 stat, ref_df, p_value = res
         else:
-            x_start = int(x_sl.start)
-            x_stop = int(x_sl.stop)
             X_i = np.asarray(
                 (
-                    summary_R[:, x_start:x_stop]
+                    summary_R[:, full_idx]
                     if summary_R is not None
-                    else fit_state.X[:, x_start:x_stop]
+                    else fit_state.X[:, full_idx]
                 ),
                 dtype=np.float64,
             )

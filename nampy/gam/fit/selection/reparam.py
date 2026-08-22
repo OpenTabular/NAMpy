@@ -26,7 +26,6 @@ from ...linalg import (
     matrix_sqrt_psd,
     mgcv_mroot_chol,
     numerical_rank,
-    positive_semidefinite_root,
     symmetric_eigen_partition,
     symmetric_eigh,
     symmetric_eigvalsh,
@@ -156,15 +155,6 @@ def assign_exact_reparam_state(
     return state
 
 
-def ensure_penalty_reparameterization_state(model) -> ReparamState:
-    state = getattr(model, "reparam_state_", None)
-    if state is None:
-        state = model._build_penalty_reparameterized_system()
-    if state is None:
-        raise RuntimeError("Penalty reparameterization state is unavailable.")
-    return cast(ReparamState, state)
-
-
 def iter_sl_random_blocks(state: ReparamState):
     for sl_block in list(state.sl_blocks or []):
         if sl_block.repara:
@@ -184,24 +174,6 @@ def sl_group_indices(state: ReparamState) -> Dict[int, np.ndarray]:
         int(sp_idx): np.asarray(sorted(idxs), dtype=np.int64)
         for sp_idx, idxs in groups.items()
     }
-
-
-def sl_lambda_vector(state: ReparamState, sp: np.ndarray) -> np.ndarray:
-    if not state.sl_blocks:
-        return np.empty((0,), dtype=np.float64)
-    lam_parts = []
-    for sl_block in iter_sl_random_blocks(state):
-        if sl_block.smoothing_index is None or int(sl_block.blockSize) == 0:
-            continue
-        sp_val = float(sp[int(sl_block.smoothing_index)])
-        lam_parts.append(
-            np.full(
-                int(sl_block.blockSize),
-                sp_val * float(sl_block.lambda_scaling),
-                dtype=np.float64,
-            )
-        )
-    return np.concatenate(lam_parts) if lam_parts else np.empty((0,), dtype=np.float64)
 
 
 def reparameterize_smooth(B, P, tol=1e-10):
@@ -228,10 +200,6 @@ def reparameterize_smooth(B, P, tol=1e-10):
 def _matrix_sqrt_psd(M, tol=1e-12):
     del tol
     return matrix_sqrt_psd(M)
-
-
-def _positive_semidefinite_root(P, *, rank=None, tol=1e-10):
-    return positive_semidefinite_root(P, rank=rank, tol=tol)
 
 
 def _mroot_chol(P, *, rank=None):
@@ -651,37 +619,6 @@ def _grouped_penalties(model) -> list[_GroupedPenalty]:
     return out
 
 
-def _total_penalty_space(grouped_penalties, p, *, H=None):
-    if H is not None:
-        H = np.asarray(H, dtype=np.float64)
-        Hscale = float(np.sqrt(np.sum(H * H)))
-        if Hscale <= 0.0:
-            H = None
-    if H is None:
-        St = np.zeros((p, p), dtype=np.float64)
-    else:
-        if H.shape != (p, p):
-            raise ValueError("H has wrong dimension.")
-        St = H / float(np.sqrt(np.sum(H * H)))
-
-    for grp in grouped_penalties:
-        Sg = np.asarray(grp.matrix_full, dtype=np.float64)
-        frob = float(np.sqrt(np.sum(Sg * Sg)))
-        if frob > 0.0:
-            St += Sg / frob
-
-    evals, evecs = symmetric_eigh(St, descending=True)
-    scale = float(np.max(evals)) if evals.size else 0.0
-    pos_mask = evals > scale * (np.finfo(np.float64).eps ** 0.66)
-    Y = evecs[:, pos_mask]
-    Z = evecs[:, ~pos_mask]
-    if Y.shape[1] == 0:
-        E = np.empty((0, p), dtype=np.float64)
-    else:
-        E = np.sqrt(np.asarray(evals[pos_mask], dtype=np.float64))[:, np.newaxis] * Y.T
-    return Y, Z, E
-
-
 def gam_reparam(range_roots, lsp, deriv=2):
     """
     Python port of ``mgcv/R/gam.fit3.r::gam.reparam`` using canonical range roots.
@@ -973,10 +910,6 @@ def _penalty_log_smoothing_map(
         for root in list(setup.UrS[:n_pen]) + list(setup.UrS[n_pen:])
     ]
     return roots, np.asarray(lsp, dtype=np.float64), L_full
-
-
-def _static_penalty_space(model, *, tol=1e-10):
-    return _canonical_penalty_space(model, tol=tol)
 
 
 def _static_penalty_null_dim(model, *, tol=1e-10):

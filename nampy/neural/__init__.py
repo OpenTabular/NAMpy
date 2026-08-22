@@ -9,8 +9,11 @@ __all__ = [
     "configs",
     "data",
     "distributions",
-    "modules",
+    "architectures",
     "contracts",
+    "interaction_selection",
+    "objectives",
+    "registry",
     "task",
 ]
 

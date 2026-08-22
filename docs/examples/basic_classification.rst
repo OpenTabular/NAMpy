@@ -20,7 +20,7 @@ Classifiers expose both class labels and class probabilities.
        X, y, test_size=0.2, random_state=11, stratify=y
    )
 
-   model = SNAMClassifier(numerical_preprocessing="standardization")
+   model = SNAMClassifier(numerical_method="standardization")
    model.fit(X_train, y_train, max_epochs=20, batch_size=64)
 
    labels = model.predict(X_test)

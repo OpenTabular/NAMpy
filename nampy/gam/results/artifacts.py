@@ -30,6 +30,10 @@ class GAMResult:
         return replace(self, compiled_model=compiled_model)
 
     def with_fit_solution(self, fit_core_solution: FitCoreSolution, **kwargs):
+        # A summary is derived from one exact core solution.  Replacing the
+        # solution must invalidate it; the orchestration/public API rebuilds
+        # the summary after all post-processing is complete.
+        kwargs.setdefault("fit_summary", None)
         return replace(self, fit_core_solution=fit_core_solution, **kwargs)
 
     def require_compiled_model(self) -> CompiledModel:
