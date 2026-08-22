@@ -55,11 +55,11 @@ from nampy.gam.linalg.qr import mgcv_pqr_r
 from nampy.gam.model_state import (
     _design_matrix,
     _edf_by_term,
-    _fit_intercept,
     _fit_state,
     _n_coef,
     _penalty_blocks_seq,
 )
+from nampy.gam.observations import IdentityObservationTransform
 from nampy.gam.results import FitResult, GAMResult
 from nampy.gam.specs.build import build_formula_model
 from nampy.gam.splines.univariate.tp import construct_tprs_basis
@@ -627,6 +627,7 @@ def test_gdi_pk_setup_and_ift1_match_signed_weight_inverse_root(monkeypatch):
                 n_smoothing_params=1,
                 predictors=(),
                 design_matrix=X,
+                observation_transform=IdentityObservationTransform(X.shape[0]),
             ),
             fit_core_solution=None,
             fit_summary=None,
@@ -918,6 +919,7 @@ def test_assign_fit_solution_transforms_gaussian_unconditional_covariance(
                 predictor_full_slices=(),
                 n_coef=3,
                 n_smoothing_params=1,
+                coef_reduced_to_full_idx=np.arange(3, dtype=int),
             )
         ),
     )
@@ -1023,6 +1025,7 @@ def test_assign_fit_solution_transforms_pirls_unconditional_covariance_and_edf2(
                 predictor_full_slices=(),
                 n_coef=2,
                 n_smoothing_params=1,
+                coef_reduced_to_full_idx=np.arange(2, dtype=int),
             )
         ),
     )
@@ -1614,6 +1617,7 @@ def test_prediction_parameterization_respects_public_space_covariance_tags():
             compiled_model=SimpleNamespace(
                 metadata={"fit_to_prediction_parameterization_map": P},
                 compiled_terms=(),
+                coef_reduced_to_full_idx=np.arange(2, dtype=int),
             )
         ),
     )
@@ -2182,8 +2186,11 @@ def test_direct_exact_pirls_derivative_entrypoint_runs_on_canonical_reparam_stat
 def test_pirls_iterations_use_current_sp_canonical_reparameterization(monkeypatch):
     """Every gam.fit3 PIRLS step must use the current-SP ``T``, ``Sr``, and ``Eb``."""
     pirls_module = importlib.import_module("nampy.gam.fit.solvers.pirls")
+    reparam_module = importlib.import_module("nampy.gam.fit.selection.reparam")
     original_irls_core = pirls_module.irls_core
+    original_build_reparam = reparam_module.build_penalty_reparameterization_state
     seen = {"calls": 0}
+    expected = {}
 
     rng = np.random.default_rng(20260817)
     x = np.linspace(-1.0, 1.0, 120, dtype=np.float64)
@@ -2196,17 +2203,21 @@ def test_pirls_iterations_use_current_sp_canonical_reparameterization(monkeypatc
         smoothing_method="fixed",
     )
 
+    def _capture_build_reparam(model, X, smoothing_params, deriv=0):
+        canonical = original_build_reparam(
+            model,
+            X,
+            smoothing_params,
+            deriv=deriv,
+        )
+        expected["X_public"] = np.asarray(X, dtype=np.float64).copy()
+        expected["canonical"] = canonical
+        return canonical
+
     def _capture_irls_core(X, y, family, S, *args, **kwargs):
-        del y, family, args
-        X_public = build_full_design(
-            _design_matrix(gam), fit_intercept=_fit_intercept(gam)
-        )
-        canonical = build_penalty_reparameterization_state(
-            gam,
-            X_public,
-            np.asarray(gam.smoothing_params, dtype=np.float64),
-            deriv=0,
-        )
+        del args
+        X_public = expected["X_public"]
+        canonical = expected["canonical"]
         np.testing.assert_allclose(
             np.asarray(X, dtype=np.float64),
             X_public @ np.asarray(canonical.T, dtype=np.float64),
@@ -2233,8 +2244,13 @@ def test_pirls_iterations_use_current_sp_canonical_reparameterization(monkeypatc
         )
         assert "fisher_scoring_only" not in kwargs
         seen["calls"] += 1
-        return original_irls_core(X, gam.y_, gam.family, S, **kwargs)
+        return original_irls_core(X, y, family, S, **kwargs)
 
+    monkeypatch.setattr(
+        reparam_module,
+        "build_penalty_reparameterization_state",
+        _capture_build_reparam,
+    )
     monkeypatch.setattr(pirls_module, "irls_core", _capture_irls_core)
     gam.fit(data=data)
 
