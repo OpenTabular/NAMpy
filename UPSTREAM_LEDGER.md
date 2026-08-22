@@ -1,10 +1,11 @@
 # Upstream capability ledger
 
 The repositories listed below are local, reference-only clones described by
-[`upstreams/manifest.json`](upstreams/manifest.json). They are intentionally
-ignored by Git so the checkout does not redistribute unrelated source trees.
-The tracked `upstreams/mgcv` tree is the exception: it is the released R/C
-specification used by the classical GAM backend.
+[`scripts/reference_generation/upstreams.json`](scripts/reference_generation/upstreams.json).
+They are intentionally ignored by Git so the checkout does not redistribute
+unrelated source trees. The local `upstreams/mgcv` tree is the R/C specification
+used during classical GAM development; committed static fixtures are the normal
+test oracle.
 
 | Local clone | Capability to audit | Integration target | Status |
 | --- | --- | --- | --- |
@@ -58,10 +59,11 @@ python3 scripts/verify_upstreams.py
 ```
 
 The untracked research clones are temporary development references. They are
-used to audit behavior and run direct parity tests, but they are not runtime
-dependencies and are not shipped in the Python distribution. The intended
-end state is to remove these clones after the relevant behavior is represented
-by durable NAMpy tests, fixtures, provenance records, and citations.
+used to audit behavior and generate parity fixtures, but they are not runtime
+or normal-test dependencies and are not shipped in the Python distribution.
+The intended end state is to remove these clones after the relevant behavior
+is represented by durable NAMpy tests, fixtures, provenance records, and
+citations.
 
 ## NBM-SPAM adaptation references
 

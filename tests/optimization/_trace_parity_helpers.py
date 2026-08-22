@@ -15,6 +15,7 @@ from nampy.gam.model_state import _fit_workspace
 from nampy.gam.parity import build_optimizer_trace
 from tests._paths import PARITY_DIR, REPO_ROOT
 from tests.mgcv_parity_utils import _family_specs
+from tests.reference_fixtures import load_reference, reference_key, save_reference
 
 R_SCRIPT = shutil.which("Rscript")
 MGCV_TRACE_SCRIPT = PARITY_DIR / "mgcv_trace.R"
@@ -133,6 +134,19 @@ def _run_mgcv_trace(
     *,
     select: bool = False,
 ):
+    key = reference_key(
+        "optimizer_trace",
+        {
+            "data": data.to_csv(index=False),
+            "formula": formula,
+            "family": family,
+            "method": method,
+            "select": select,
+        },
+    )
+    cached = load_reference("mgcv", key)
+    if cached is not None:
+        return cached
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
         csv_path = tmpdir_path / "data.csv"
@@ -154,7 +168,9 @@ def _run_mgcv_trace(
             capture_output=True,
             text=True,
         )
-        return json.loads(json_path.read_text(encoding="utf-8"))
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+        save_reference("mgcv", key, result)
+        return result
 
 
 def _fit_nampy_trace(
@@ -201,6 +217,17 @@ def _run_mgcv_negbin_inner_trace(
     family,
 ):
     _family_obj, family_token = _family_specs(family)
+    key = reference_key(
+        "negbin_inner_trace",
+        {
+            "data": data.to_csv(index=False),
+            "formula": formula,
+            "family": family_token,
+        },
+    )
+    cached = load_reference("mgcv", key)
+    if cached is not None:
+        return cached
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
         csv_path = tmpdir_path / "data.csv"
@@ -220,7 +247,9 @@ def _run_mgcv_negbin_inner_trace(
             capture_output=True,
             text=True,
         )
-        return json.loads(json_path.read_text(encoding="utf-8"))
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+        save_reference("mgcv", key, result)
+        return result
 
 
 def _fit_nampy_negbin_inner_trace(data: pd.DataFrame, formula: str, family):

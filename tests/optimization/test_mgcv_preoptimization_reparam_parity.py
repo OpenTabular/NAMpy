@@ -15,6 +15,7 @@ from nampy.gam.fit.selection.reparam import (
 from tests._paths import PARITY_DIR, REPO_ROOT
 from tests.mgcv_parity_utils import _family_specs, _fit_nampy_model_fixed_sp
 from tests.optimization.test_mgcv_preoptimization_blocks_parity import PREOPT_CASES
+from tests.reference_fixtures import load_reference, reference_key, save_reference
 
 R_SCRIPT = shutil.which("Rscript")
 MGCV_PREOPT_REPARAM_SCRIPT = PARITY_DIR / "mgcv_preoptimization_reparam.R"
@@ -62,6 +63,19 @@ def test_reparam_case_matrix_covers_requested_surface():
 def _run_mgcv_preoptimization_reparam(data, formula, family, method, *, select=False):
     family_nampy, family_token = _family_specs(family)
     del family_nampy
+    key = reference_key(
+        "preoptimization_reparameterization",
+        {
+            "data": data.to_csv(index=False),
+            "formula": formula,
+            "family": family_token,
+            "method": method,
+            "select": select,
+        },
+    )
+    cached = load_reference("mgcv", key)
+    if cached is not None:
+        return cached
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
@@ -84,7 +98,9 @@ def _run_mgcv_preoptimization_reparam(data, formula, family, method, *, select=F
             capture_output=True,
             text=True,
         )
-        return json.loads(json_path.read_text(encoding="utf-8"))
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+        save_reference("mgcv", key, result)
+        return result
 
 
 def _fit_nampy_reparameterization_model(data, formula, family, fit_sp, *, select=False):

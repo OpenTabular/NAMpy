@@ -1,7 +1,7 @@
 # GAM subsystem status
 
 - Updated: 2026-08-18
-- Upstream specification: vendored `mgcv` 1.9-4 R/C sources
+- Upstream specification: `mgcv` 1.9-4 R/C sources (local development reference)
 - Stage: experimental strict-parity implementation
 
 This is the maintained status page for `nampy/gam/`. The exact supported and
@@ -65,9 +65,11 @@ Python 3.11-3.12 range, and predated several recorded fixes; it is not retained
 as current release evidence.
 
 Before release, the configured Python 3.11/3.12 and Linux/macOS/Windows jobs
-must provide clean evidence using the vendored R package. Follow the
-smallest-sufficient-slice policy locally; use a broader run only when its scope
-is explicitly justified.
+must provide clean evidence using the committed static reference corpus without
+requiring R or local upstream clones. Fixture refreshes are separate, explicit
+developer operations against the source version recorded in the fixture
+manifest. Follow the smallest-sufficient-slice policy locally; use a broader
+run only when its scope is explicitly justified.
 
 ## Declared numerical invariants
 
@@ -88,7 +90,7 @@ These cases are passing behavioral contracts, not permission to weaken parity:
   lengths may vary by a small documented amount while the common trace,
   boundary classification, and fitted behavior remain constrained.
 
-New differences must first be localized to the corresponding vendored `mgcv`
+New differences must first be localized to the corresponding upstream `mgcv`
 routine. Do not add platform-specific LAPACK selection, eigenvector sign
 forcing, heuristic canonicalization, or approximate derivative fallbacks.
 

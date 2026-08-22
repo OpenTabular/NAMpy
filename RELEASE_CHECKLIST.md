@@ -8,8 +8,9 @@
       surface.
 - [ ] Confirm `GAM_IMPLEMENTED.md` and `GAM_NOT_IMPLEMENTED.md` still describe the
       tested GAM boundary.
-- [ ] Confirm the release commit contains no generated API stubs, cached parity
-      artifacts, credentials, or local build output.
+- [ ] Confirm the release commit contains no generated API stubs, legacy parity
+      caches, credentials, local upstream clones, or local build output. Static
+      fixtures under `tests/reference_fixtures/` are intentional test inputs.
 - [ ] Confirm every runtime dependency is available from the public package
       index. In particular, publish pristine `pretab>=1.0.0rc2` before a NAMpy
       release that declares the neural or `all` extras.
@@ -30,8 +31,10 @@ sphinx-build -E -W --keep-going -b html docs docs/_build/html
 
 - [ ] Run the smallest relevant neural and GAM release-contract slices locally.
 - [ ] Let CI run the complete matrix on Python 3.11 and 3.12.
-- [ ] Confirm live `mgcv` parity tests used the vendored `mgcv` package rather
-      than untracked snapshot caches.
+- [ ] Confirm normal parity tests use the committed, versioned static fixtures
+      and do not require R, `mgcv`, SCAM, or local reference clones.
+- [ ] If fixtures changed, confirm they were explicitly regenerated against the
+      source versions recorded in `tests/reference_fixtures/manifest.json`.
 - [ ] Confirm Linux, macOS, and Windows portability jobs pass.
 - [ ] Confirm the documentation job, including notebooks, passes with warnings
       treated as errors.

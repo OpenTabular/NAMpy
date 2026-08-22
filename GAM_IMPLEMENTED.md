@@ -1,7 +1,7 @@
 # GAM subsystem — implemented surface
 
 Snapshot date: 2026-08-21. This documents what `nampy/gam/` implements as a
-strict-parity port of R's `mgcv` (the vendored sources under `upstreams/mgcv/` are the
+strict-parity port of R's `mgcv` (the local sources under `upstreams/mgcv/` are the
 specification). Everything listed here is expected to match `mgcv` to the
 tolerances used by the parity suite; the only excluded class of differences is
 BLAS/LAPACK eigenvector/basis orientation inside mathematically indeterminate
@@ -294,8 +294,9 @@ pattern).
 Snapshot/trace serialization comparing coefficients, covariances, criterion
 values, optimizer traces (Newton/BFGS/EFS rows, joint scale/theta splits),
 inner PIRLS traces, predictions, SEs, residuals, `k.check`, `anova` tables,
-`sp.vcov`, `gam.vcomp`, and concurvity against live R `mgcv` runs with cached,
-content-hashed references (`tests/mgcv_r_cache/`). The optimization lifecycle
+`sp.vcov`, `gam.vcomp`, and concurvity against committed, content-hashed static
+R `mgcv` references (`tests/reference_fixtures/mgcv/`). Live R execution is an
+explicit fixture-refresh operation, not part of normal tests. The optimization lifecycle
 registry pins 31 strict optimizer branch cases (including weighted negbin
 estimated-theta and Gaussian log/inverse joint-scale branches).
 

@@ -2,14 +2,14 @@
 
 Read these in order when relevant:
 1. `CLAUDE.md` for repository-specific Claude guidance.
-2. The vendored upstream `mgcv` R/C sources for parity-sensitive GAM work.
+2. The local upstream `mgcv` R/C sources for parity-sensitive GAM work.
 3. `pyproject.toml` for actual tool configuration.
 
 ## Core principle
 
 For `nampy/gam/`, this repository is **not** trying to build a loosely inspired GAM library. It is trying to **mirror `mgcv` behavior in Python exactly and as faithfully as possible**.
 
-For parity-sensitive work, the upstream vendored `mgcv` source code in this repository is the primary behavioral specification. Prefer reproducing upstream logic over introducing cleaner-looking or more idiomatic Python formulations.
+For parity-sensitive work, the local upstream `mgcv` source under the ignored `upstreams/` directory is the primary behavioral specification. Prefer reproducing upstream logic over introducing cleaner-looking or more idiomatic Python formulations. Normal tests use committed static reference fixtures and must not require that directory.
 
 ## Non-negotiable rules
 
@@ -69,7 +69,7 @@ When debugging a failing parity test or investigating a suspected mismatch:
 
 1. Identify the failing or relevant targeted test first.
 2. Identify the exact Python subsystem involved.
-3. Locate the corresponding upstream `mgcv` R and/or C routine in the vendored sources.
+3. Locate the corresponding upstream `mgcv` R and/or C routine in the local sources.
 4. Mirror upstream control flow and data transformations as directly as practical.
 5. Run the smallest relevant validation slice.
 6. Only expand test coverage if the change crosses subsystem boundaries.

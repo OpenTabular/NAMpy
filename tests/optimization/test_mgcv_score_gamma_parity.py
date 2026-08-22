@@ -181,7 +181,24 @@ def _run_mgcv_fixed_sp_score_gamma(
     sp: np.ndarray,
     select: bool = False,
 ):
+    from tests.reference_fixtures import load_reference, reference_key, save_reference
 
+    sp_values = np.asarray(sp, dtype=np.float64).tolist()
+    key = reference_key(
+        "fixed_sp_score_gamma",
+        {
+            "data": data.to_csv(index=False),
+            "formula": formula,
+            "family": family,
+            "method": method,
+            "score_gamma": score_gamma,
+            "sp": sp_values,
+            "select": select,
+        },
+    )
+    cached = load_reference("mgcv", key)
+    if cached is not None:
+        return cached
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
         csv_path = tmpdir_path / "data.csv"
@@ -199,7 +216,7 @@ def _run_mgcv_fixed_sp_score_gamma(
                 family,
                 method,
                 str(float(score_gamma)),
-                json.dumps(np.asarray(sp, dtype=np.float64).tolist()),
+                json.dumps(sp_values),
                 "true" if select else "false",
             ],
             check=True,
@@ -207,7 +224,9 @@ def _run_mgcv_fixed_sp_score_gamma(
             capture_output=True,
             text=True,
         )
-        return json.loads(json_path.read_text(encoding="utf-8"))
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+        save_reference("mgcv", key, result)
+        return result
 
 
 def _fit_fixed_sp_model(

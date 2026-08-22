@@ -18,13 +18,13 @@ import pytest
 
 from nampy.gam.splines.basis.natparam import nat_param_type1
 from tests.mgcv_parity_utils import _make_fs_data_4levels
+from tests.reference_fixtures import load_reference, reference_key, save_reference
 from tests.smooths.test_mgcv_raw_constructor_parity import _build_runtime_term
 
 R_SCRIPT = shutil.which("Rscript")
 
 pytestmark = [
     pytest.mark.surface_regression,
-    pytest.mark.skipif(R_SCRIPT is None, reason="Rscript required for mgcv parity"),
 ]
 
 
@@ -51,6 +51,55 @@ def _run_r(script: str, temp: Path) -> None:
     )
 
 
+def _nat_param_reference(
+    X: np.ndarray,
+    S: np.ndarray,
+    *,
+    rank: int,
+    include_p: bool,
+) -> dict:
+    key = reference_key(
+        "nat_param_type1",
+        {
+            "X": np.asarray(X, dtype=np.float64).tolist(),
+            "S": np.asarray(S, dtype=np.float64).tolist(),
+            "rank": rank,
+            "unit_fnorm": True,
+            "include_p": include_p,
+        },
+    )
+    cached = load_reference("mgcv", key)
+    if cached is not None:
+        return cached
+    with tempfile.TemporaryDirectory(prefix="nampy-nat-param-") as temp_name:
+        temp = Path(temp_name)
+        np.savetxt(temp / "X.csv", X, delimiter=",", fmt="%.17g")
+        np.savetxt(temp / "S.csv", S, delimiter=",", fmt="%.17g")
+        _run_r(
+            f"""
+args <- commandArgs(trailingOnly=TRUE)
+d <- args[[1]]
+library(mgcv)
+X <- as.matrix(read.csv(file.path(d, "X.csv"), header=FALSE))
+S <- as.matrix(read.csv(file.path(d, "S.csv"), header=FALSE))
+rp <- mgcv:::nat.param(X, S, rank={rank}, type=1, unit.fnorm=TRUE)
+write.table(rp$X, file.path(d, "Xn.csv"), row.names=FALSE, col.names=FALSE, sep=",")
+write.table(rp$P, file.path(d, "P.csv"), row.names=FALSE, col.names=FALSE, sep=",")
+write.table(matrix(rp$D, nrow=1), file.path(d, "D.csv"),
+            row.names=FALSE, col.names=FALSE, sep=",")
+""",
+            temp,
+        )
+        result = {
+            "X": _read_matrix(temp / "Xn.csv").tolist(),
+            "D": _read_matrix(temp / "D.csv").ravel().tolist(),
+        }
+        if include_p:
+            result["P"] = _read_matrix(temp / "P.csv").tolist()
+        save_reference("mgcv", key, result)
+        return result
+
+
 def test_nat_param_type1_matches_mgcv_up_to_column_sign():
     """Simple penalized directions match by sign; the repeated null block by span."""
     rng = np.random.default_rng(732)
@@ -60,28 +109,10 @@ def test_nat_param_type1_matches_mgcv_up_to_column_sign():
 
     actual = nat_param_type1(X, S, rank=3, unit_fnorm=True)
 
-    with tempfile.TemporaryDirectory(prefix="nampy-nat-param-") as temp_name:
-        temp = Path(temp_name)
-        np.savetxt(temp / "X.csv", X, delimiter=",", fmt="%.17g")
-        np.savetxt(temp / "S.csv", S, delimiter=",", fmt="%.17g")
-        _run_r(
-            """
-args <- commandArgs(trailingOnly=TRUE)
-d <- args[[1]]
-library(mgcv)
-X <- as.matrix(read.csv(file.path(d, "X.csv"), header=FALSE))
-S <- as.matrix(read.csv(file.path(d, "S.csv"), header=FALSE))
-rp <- mgcv:::nat.param(X, S, rank=3, type=1, unit.fnorm=TRUE)
-write.table(rp$X, file.path(d, "Xn.csv"), row.names=FALSE, col.names=FALSE, sep=",")
-write.table(rp$P, file.path(d, "P.csv"), row.names=FALSE, col.names=FALSE, sep=",")
-write.table(matrix(rp$D, nrow=1), file.path(d, "D.csv"),
-            row.names=FALSE, col.names=FALSE, sep=",")
-""",
-            temp,
-        )
-        expected_X = _read_matrix(temp / "Xn.csv")
-        expected_P = _read_matrix(temp / "P.csv")
-        expected_D = _read_matrix(temp / "D.csv").ravel()
+    expected = _nat_param_reference(X, S, rank=3, include_p=True)
+    expected_X = np.asarray(expected["X"], dtype=np.float64)
+    expected_P = np.asarray(expected["P"], dtype=np.float64)
+    expected_D = np.asarray(expected["D"], dtype=np.float64)
 
     np.testing.assert_allclose(
         np.asarray(actual["D"], dtype=np.float64), expected_D, rtol=1e-10, atol=1e-12
@@ -122,26 +153,9 @@ def test_nat_param_type1_fs_base_matches_mgcv_subspace_invariants():
     B0, S0, _ = term._base_constructor_fit_matrices()
     actual = nat_param_type1(B0, S0, rank=4, unit_fnorm=True)
 
-    with tempfile.TemporaryDirectory(prefix="nampy-fs-nat-param-") as temp_name:
-        temp = Path(temp_name)
-        np.savetxt(temp / "B0.csv", B0, delimiter=",", fmt="%.17g")
-        np.savetxt(temp / "S0.csv", S0, delimiter=",", fmt="%.17g")
-        _run_r(
-            """
-args <- commandArgs(trailingOnly=TRUE)
-d <- args[[1]]
-library(mgcv)
-B0 <- as.matrix(read.csv(file.path(d, "B0.csv"), header=FALSE))
-S0 <- as.matrix(read.csv(file.path(d, "S0.csv"), header=FALSE))
-rp <- mgcv:::nat.param(B0, S0, rank=4, type=1, unit.fnorm=TRUE)
-write.table(rp$X, file.path(d, "Xn.csv"), row.names=FALSE, col.names=FALSE, sep=",")
-write.table(matrix(rp$D, nrow=1), file.path(d, "D.csv"),
-            row.names=FALSE, col.names=FALSE, sep=",")
-""",
-            temp,
-        )
-        expected_X = _read_matrix(temp / "Xn.csv")
-        expected_D = _read_matrix(temp / "D.csv").ravel()
+    expected = _nat_param_reference(B0, S0, rank=4, include_p=False)
+    expected_X = np.asarray(expected["X"], dtype=np.float64)
+    expected_D = np.asarray(expected["D"], dtype=np.float64)
 
     actual_X = np.asarray(actual["X"], dtype=np.float64)
     np.testing.assert_allclose(

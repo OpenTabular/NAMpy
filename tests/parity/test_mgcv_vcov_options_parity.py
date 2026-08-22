@@ -21,20 +21,20 @@ from nampy.gam import GAM
 from tests._paths import REPO_ROOT
 from tests.mgcv_parity_utils import (
     _build_r_command,
-    _df_cache_repr,
+    _df_fixture_repr,
     _family_specs,
     _make_gaussian_data,
     _make_poisson_data,
-    _mgcv_cache_key,
-    _mgcv_cache_load,
-    _mgcv_cache_save,
+    _mgcv_fixture_key,
+    _mgcv_fixture_load,
+    _mgcv_fixture_save,
     _run_mgcv_snapshot,
 )
 
 pytestmark = [pytest.mark.surface_output]
 
 _TWO_CR_FORMULA = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
-_VCOV_OPTIONS_CACHE_VERSION = 1
+_VCOV_OPTIONS_FIXTURE_VERSION = 1
 
 
 def _reml_fit(data, family):
@@ -92,18 +92,18 @@ def test_ordinary_family_sandwich_and_freq_vcov_match_mgcv(family, data_factory,
 def _run_mgcv_vcov_dispersion(data, formula, family, method, dispersion):
     """vcov.gam(dispersion=) reference (not exposed by mgcv_snapshot.R)."""
     _family_nampy, family_token = _family_specs(family)
-    cache_key = _mgcv_cache_key(
+    cache_key = _mgcv_fixture_key(
         "vcov_dispersion",
         {
-            "version": _VCOV_OPTIONS_CACHE_VERSION,
-            "data": _df_cache_repr(data),
+            "version": _VCOV_OPTIONS_FIXTURE_VERSION,
+            "data": _df_fixture_repr(data),
             "formula": str(formula),
             "family_token": family_token,
             "method": method,
             "dispersion": float(dispersion),
         },
     )
-    cached = _mgcv_cache_load(cache_key)
+    cached = _mgcv_fixture_load(cache_key)
     if cached is not None:
         return cached
 
@@ -159,7 +159,7 @@ write_json(
         )
         result = json.loads(json_path.read_text(encoding="utf-8"))
 
-    _mgcv_cache_save(cache_key, result)
+    _mgcv_fixture_save(cache_key, result)
     return result
 
 

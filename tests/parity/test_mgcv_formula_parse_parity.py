@@ -23,6 +23,7 @@ from nampy.gam.specs.build import build_formula_model
 from nampy.gam.specs.preprocess import apply_formula_preprocess_to_new_data
 from tests._paths import PARITY_DIR, REPO_ROOT
 from tests.mgcv_parity_utils import _normalize_python_formula_text
+from tests.reference_fixtures import load_reference, reference_key, save_reference
 
 R_SCRIPT = shutil.which("Rscript")
 MGCV_INTERPRET_GAM_SCRIPT = PARITY_DIR / "mgcv_interpret_gam.R"
@@ -41,8 +42,10 @@ def _ensure_list(value):
 
 
 def _run_mgcv_interpret_gam(formula):
-    if R_SCRIPT is None:
-        pytest.skip("Rscript is required for mgcv parser parity tests.")
+    key = reference_key("interpret_gam", {"formula": formula})
+    cached = load_reference("mgcv", key)
+    if cached is not None:
+        return cached
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
@@ -61,7 +64,9 @@ def _run_mgcv_interpret_gam(formula):
             capture_output=True,
             text=True,
         )
-        return json.loads(output_path.read_text(encoding="utf-8"))
+        result = json.loads(output_path.read_text(encoding="utf-8"))
+        save_reference("mgcv", key, result)
+        return result
 
 
 def _python_smooth_term(term: ParsedSmoothTerm) -> dict:

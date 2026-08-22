@@ -26,6 +26,7 @@ from tests.mgcv_parity_utils import (
     _make_gaussian_data,
     _make_random_effect_data_noisy,
 )
+from tests.reference_fixtures import load_reference, reference_key, save_reference
 
 pytestmark = [pytest.mark.surface_output]
 
@@ -68,6 +69,12 @@ write_json(payload, args[[2]], auto_unbox = TRUE, digits = 17)
 
 
 def _run_summary_driver(data: pd.DataFrame, mode: str) -> dict:
+    key = reference_key(
+        "summary_options", {"data": data.to_csv(index=False), "mode": mode}
+    )
+    cached = load_reference("mgcv", key)
+    if cached is not None:
+        return cached
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
         csv_path = tmp / "d.csv"
@@ -82,7 +89,9 @@ def _run_summary_driver(data: pd.DataFrame, mode: str) -> dict:
             capture_output=True,
             text=True,
         )
-        return json.loads(json_path.read_text(encoding="utf-8"))
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+        save_reference("mgcv", key, result)
+        return result
 
 
 def _p_table_matrix(summary) -> np.ndarray:
@@ -95,7 +104,6 @@ def _assert_table_close(actual: np.ndarray, expected, *, atol=1e-8, rtol=1e-5):
     np.testing.assert_allclose(actual, expected_arr, atol=atol, rtol=rtol)
 
 
-@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript required for mgcv parity")
 def test_summary_freq_and_dispersion_options_match_mgcv():
     """freq=TRUE switches to Ve; dispersion= rescales SEs and test statistics."""
     data = _make_gaussian_data(seed=433, n=160)
@@ -135,7 +143,6 @@ def test_summary_freq_and_dispersion_options_match_mgcv():
     )
 
 
-@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript required for mgcv parity")
 def test_summary_re_test_false_drops_random_effect_rows_like_mgcv():
     """re.test=FALSE removes reTest-eligible smooth rows exactly like mgcv."""
     data = _make_random_effect_data_noisy(seed=29, n_draws=45)

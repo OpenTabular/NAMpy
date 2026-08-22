@@ -42,7 +42,7 @@ or a redistribution of its source.
 - Used by: ``nampy/neural/interaction_selection/``,
   ``nampy/neural/architectures/components/block_masked_additive.py``, and
   ``nampy/neural/architectures/sian.py``
-- Upstream license: the vendored upstream commit does not contain a license
+- Upstream license: the referenced upstream commit does not contain a license
   file; review licensing before redistributing source-derived changes.
 - NAMpy independently integrates the published Archipelago/FIS pipeline,
   fractional-heredity search, and block-masked/independent term representation
@@ -94,6 +94,6 @@ audits; no source is copied into the package solely by cloning them:
   DNAMite, GP-NAM, HNAM, NAM-FS, LA-NAM, GamiNet, HONAM, and neuralGAM.
 - pyGAM, InterpretML, CRAN `mgcv`, qgam, Effector, and regional-RHALE.
 
-Consult `upstreams/manifest.json` and `UPSTREAM_LEDGER.md` for exact URLs,
+Consult `scripts/reference_generation/upstreams.json` and `UPSTREAM_LEDGER.md` for exact URLs,
 roles, and local paths. Before redistribution, review each upstream license
 and preserve its attribution requirements for any future adaptation.

@@ -306,7 +306,7 @@ scale.
 ## GAM backend
 
 `nampy.gam` is not a loosely inspired GAM implementation. For supported
-behavior, the vendored R and C sources of `mgcv` are treated as the behavioral
+behavior, the upstream R and C sources of `mgcv` are treated as the behavioral
 specification. Control flow, penalty ordering, constraints, smoothing
 selection, and numerically significant factorization choices are ported as
 directly as practical and exercised by parity tests.
@@ -406,9 +406,10 @@ aliases for NBM configurations.
 - **NodeGAM** is the architecture currently supporting masked reconstruction
 pretraining through the shared fit surface.
 
-Reference repositories vendored under `upstreams/` exist for implementation
-study and parity tests. They are development inputs, not runtime dependencies,
-and are excluded from package discovery.
+Reference repositories cloned locally under the ignored `upstreams/` directory
+exist for implementation study and fixture generation. They are neither
+runtime nor test dependencies. Normal parity tests consume the committed,
+versioned results under `tests/reference_fixtures/`.
 
 ## Preprocessing with PreTab
 

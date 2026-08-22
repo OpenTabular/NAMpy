@@ -36,13 +36,13 @@ from tests.mgcv_parity_utils import (
     _make_negbin_data,
     _run_mgcv_snapshot,
 )
+from tests.reference_fixtures import load_reference, reference_key, save_reference
 
 R_SCRIPT = shutil.which("Rscript")
 MGCV_OUTER_TRACE_SCRIPT = PARITY_DIR / "mgcv_outer_trace.R"
 
 pytestmark = [
     pytest.mark.surface_trace,
-    pytest.mark.skipif(R_SCRIPT is None, reason="Rscript required for mgcv parity"),
 ]
 
 _TRACE_SOURCE_ALIASES = {
@@ -95,6 +95,22 @@ def _run_mgcv_outer_trace(
     edge_correct: bool = False,
     weights_column: str | None = None,
 ):
+    key = reference_key(
+        "outer_optimization_trace",
+        {
+            "data": data.to_csv(index=False),
+            "formula": formula,
+            "family": family,
+            "method": method,
+            "optimizer": optimizer,
+            "select": select,
+            "edge_correct": edge_correct,
+            "weights_column": weights_column,
+        },
+    )
+    cached = load_reference("mgcv", key)
+    if cached is not None:
+        return cached
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
         csv_path = tmpdir_path / "data.csv"
@@ -119,7 +135,9 @@ def _run_mgcv_outer_trace(
             capture_output=True,
             text=True,
         )
-        return json.loads(json_path.read_text(encoding="utf-8"))
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+        save_reference("mgcv", key, result)
+        return result
 
 
 def _python_newton_edge_correct_state(

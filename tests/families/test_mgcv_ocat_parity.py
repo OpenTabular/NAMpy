@@ -17,9 +17,14 @@ from nampy.gam.fit.selection.optimize.objectives import _JointOcatPirlsRemlObjec
 from nampy.gam.inference.null_deviance import null_deviance
 from tests._paths import REPO_ROOT
 from tests.mgcv_parity_utils import _build_r_command
+from tests.reference_fixtures import load_reference, reference_key, save_reference
 
 
 def _run_r_json(code: str, payload: dict) -> dict:
+    key = reference_key("ocat_r_json", {"code": code, "payload": payload})
+    cached = load_reference("mgcv", key)
+    if cached is not None:
+        return cached
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         script = root / "probe.R"
@@ -32,7 +37,9 @@ def _run_r_json(code: str, payload: dict) -> dict:
             capture_output=True,
             text=True,
         )
-        return json.loads(output.read_text(encoding="utf-8"))
+        result = json.loads(output.read_text(encoding="utf-8"))
+        save_reference("mgcv", key, result)
+        return result
 
 
 def test_ocat_family_kernels_match_mgcv():

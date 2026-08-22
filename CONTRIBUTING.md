@@ -51,12 +51,12 @@ suite by default; explain why a broader run is necessary before doing so.
 ## GAM parity work
 
 `nampy/gam/` is a faithful port of `mgcv`, not a loosely inspired GAM library.
-The vendored `mgcv` R/C source is the behavioral specification. For a GAM
+The local `mgcv` R/C source under ignored `upstreams/` is the behavioral specification. For a GAM
 change:
 
 1. reproduce the issue in a targeted test;
 2. locate the owning Python subsystem;
-3. locate the corresponding vendored `mgcv` function;
+3. locate the corresponding upstream `mgcv` function;
 4. port its control flow, ordering, indexing, and factorization behavior;
 5. run the smallest relevant parity slice.
 
@@ -64,6 +64,13 @@ Do not add heuristic parity fallbacks, use matrix inverses where upstream uses a
 solve, silently broaden unsupported behavior, or force arbitrary eigenspace
 orientation. If a probe cannot be expressed cleanly as a test, retain it as a
 small script under `debug/`.
+
+Normal parity tests read committed, compressed JSON from
+`tests/reference_fixtures/`; they do not require R or any local upstream clone.
+To add or update a parity case, recreate the local references with
+`python3 scripts/fetch_upstreams.py`, opt into generation with
+`NAMPY_REFRESH_REFERENCE_FIXTURES=1`, run only the relevant test slice, and
+update the source provenance in `tests/reference_fixtures/manifest.json`.
 
 ## Pull requests
 

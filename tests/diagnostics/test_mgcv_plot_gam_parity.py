@@ -21,6 +21,7 @@ import pytest
 
 from nampy.gam import GAM
 from tests._paths import REPO_ROOT
+from tests.reference_fixtures import load_reference, reference_key, save_reference
 
 pytestmark = [pytest.mark.surface_output]
 
@@ -96,6 +97,12 @@ write_json(payload, args[[2]], auto_unbox = TRUE, digits = 17, na = "null")
 
 
 def _run_plot_driver(data: pd.DataFrame, mode: str) -> dict:
+    key = reference_key(
+        "plot_gam", {"data": data.to_csv(index=False), "mode": mode}
+    )
+    cached = load_reference("mgcv", key)
+    if cached is not None:
+        return cached
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
         csv_path = tmp / "d.csv"
@@ -110,7 +117,9 @@ def _run_plot_driver(data: pd.DataFrame, mode: str) -> dict:
             capture_output=True,
             text=True,
         )
-        return json.loads(json_path.read_text(encoding="utf-8"))
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+        save_reference("mgcv", key, result)
+        return result
 
 
 def _univariate_data(seed=91, n=120) -> pd.DataFrame:
@@ -222,7 +231,6 @@ def _num(values) -> np.ndarray:
     )
 
 
-@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript required for mgcv parity")
 def test_plot_gam_univariate_and_re_data_match_mgcv():
     """1-D grids/fits/SEs/partial residuals and the re QQ effects match."""
     data = _univariate_data()
@@ -311,7 +319,6 @@ def test_plot_gam_univariate_and_re_data_match_mgcv():
     )
 
 
-@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript required for mgcv parity")
 def test_plot_gam_bivariate_grid_fit_and_exclusion_match_mgcv():
     """2-D grid coordinates, fits and the too-far NA pattern match mgcv."""
     data = _univariate_data(seed=93, n=140)
@@ -349,7 +356,6 @@ def test_plot_gam_bivariate_grid_fit_and_exclusion_match_mgcv():
     )
 
 
-@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript required for mgcv parity")
 def test_plot_gam_fs_sz_numeric_by_data_match_mgcv():
     """FS/SZ curve grids, numeric-by activation, fits and SZ bands match."""
     cases = (
@@ -423,7 +429,6 @@ def test_plot_gam_fs_sz_numeric_by_data_match_mgcv():
     )
 
 
-@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript required for mgcv parity")
 def test_plot_gam_factor_by_curve_activation_matches_mgcv():
     """Each factor-by plot block activates its own level exactly as mgcv."""
     data = _structured_plot_data(seed=99)

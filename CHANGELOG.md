@@ -6,6 +6,14 @@ All notable changes are recorded here following
 
 ## [Unreleased]
 
+### Changed
+
+- Normal mgcv, SCAM, NBM-SPAM, and SIAN parity tests now consume committed,
+  versioned static fixtures. R and local upstream source clones are required
+  only for explicit fixture refreshes, and normal CI no longer installs them.
+- The entire `upstreams/` directory is local-only and ignored. Its tracked
+  clone catalogue moved to `scripts/reference_generation/upstreams.json`.
+
 ## [0.2.0] - 2026-08-22
 
 ### Added
@@ -112,7 +120,7 @@ All notable changes are recorded here following
 - Supported Python versions are now explicitly Python 3.11 and 3.12.
 - Package version metadata has one owner: `nampy.__version__` via
   `pyproject.toml` dynamic metadata.
-- CI performs live comparisons against the vendored `mgcv`, enforces Ruff and
+- CI performs parity comparisons against committed `mgcv` reference results, enforces Ruff and
   mypy, validates wheels, and tests supported Python and operating-system
   matrices.
 - Releases use validated artifacts and PyPI trusted publishing.

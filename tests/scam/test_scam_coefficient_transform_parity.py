@@ -9,17 +9,25 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
-import pytest
 
 from nampy.gam.coefficients import CoordinatewiseCoefficientTransform
 from tests._paths import REPO_ROOT
-from tests.mgcv_parity_utils import R_SCRIPT, _build_r_command
+from tests.mgcv_parity_utils import _build_r_command
+from tests.reference_fixtures import load_reference, reference_key, save_reference
 
 
 def _run_scam_transform_reference(values, *, beta, threshold):
+    values = np.asarray(values, dtype=np.float64)
+    key = reference_key(
+        "coefficient_transform",
+        {"values": values.tolist(), "beta": beta, "threshold": threshold},
+    )
+    cached = load_reference("scam", key)
+    if cached is not None:
+        return cached
     library = os.environ.get("SCAM_LIB_PATH")
     if not library:
-        pytest.skip("Set SCAM_LIB_PATH to an R library containing vendored SCAM.")
+        raise RuntimeError("SCAM_LIB_PATH is required to refresh SCAM fixtures.")
     code = r'''
 args <- commandArgs(trailingOnly=TRUE)
 .libPaths(c(args[[1]], .libPaths()))
@@ -55,10 +63,11 @@ write_json(out, args[[5]], digits=17, auto_unbox=FALSE)
             capture_output=True,
             text=True,
         )
-        return json.loads(output.read_text(encoding="utf-8"))
+        result = json.loads(output.read_text(encoding="utf-8"))
+        save_reference("scam", key, result)
+        return result
 
 
-@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript required for SCAM parity")
 def test_softplus_value_and_three_derivatives_match_scam_notexp():
     values = np.array([-100.0, -10.0, -1.0, 0.0, 1.0, 19.99, 20.0, 30.0])
     expected = _run_scam_transform_reference(values, beta=1.0, threshold=20.0)

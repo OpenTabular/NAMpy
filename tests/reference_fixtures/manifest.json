@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "policy": "Normal tests consume committed fixtures only; generation requires NAMPY_REFRESH_REFERENCE_FIXTURES=1.",
+  "sources": {
+    "mgcv": {
+      "package_version": "1.9-4",
+      "source_tree_sha256": "efce00a32a79ef5aedb81047520ff85a4ca3b3447bff6c868f9616dcecf401a5",
+      "base_mirror_commit": "1b6a4c8374612da27e36420b4459e93acb183f2d",
+      "known_local_difference": "R/gam.fit3.r uses Sstep <- grad/max(abs(grad)); the CRAN 1.9-4 mirror uses the negative sign",
+      "fixture_namespace": "mgcv",
+      "generator": "tests/mgcv_parity_utils.py"
+    },
+    "scam": {
+      "package_version": "1.2-22",
+      "source_commit": "0e43f56b598cfff1b7915ae210bd9fc228025fc3",
+      "fixture_namespace": "scam",
+      "generator": "tests/scam/scam_reference_utils.py"
+    },
+    "nbm-spam": {
+      "source_commit": "213604f41abf7cbfe37d800fcab2cd5e6f03bc29",
+      "fixture_namespace": "nbm_spam",
+      "generator": "tests/neural/test_nbm_spam_reference.py"
+    },
+    "sian": {
+      "source_commit": "fc304e1a0dd5fd5fd33a78300183a973f15f9b95",
+      "fixture_namespace": "sian",
+      "generator": "tests/neural/test_sian_reference.py"
+    }
+  }
+}

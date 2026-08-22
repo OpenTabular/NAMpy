@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch the shallow upstream repositories listed in upstreams/manifest.json."""
+"""Fetch local upstream references from the tracked source catalogue."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MANIFEST = ROOT / "upstreams" / "manifest.json"
+MANIFEST = ROOT / "scripts" / "reference_generation" / "upstreams.json"
 LOCKFILE = ROOT / "upstreams" / "lock.json"
 
 
