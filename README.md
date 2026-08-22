@@ -344,11 +344,10 @@ many extended/general families, several matrix-covariate cases, complete R
 graphics-device behavior, and exact R endpoint behavior for every `optim`
 combination.
 
-Advanced users should consult:
-
-- [implemented GAM behavior](GAM_IMPLEMENTED.md);
-- [guarded and unsupported GAM behavior](GAM_NOT_IMPLEMENTED.md); and
-- [shape-constrained GAMs](docs/user_guide/shape_constrained_gams.rst).
+Advanced users can consult the
+[shape-constrained GAM guide](docs/user_guide/shape_constrained_gams.rst).
+The supported boundary is defined by the public API, explicit unsupported-input
+errors, and the committed test suite.
 
 The stable package-level low-level surface is intentionally small:
 `GAM`, `fit_model_core`, `solve_fit`, and `FitCoreSolution`. Internal GAM

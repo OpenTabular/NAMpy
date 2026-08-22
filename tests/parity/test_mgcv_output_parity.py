@@ -226,7 +226,7 @@ TRANSFORMED_SMOOTH_OUTPUT_CASES = [
         # penalty's two near-zero eigenvectors, whose orientation is chaotic in
         # the last bits of the eigensolver input: a 1-ulp knot perturbation
         # moves the shrunk penalty by ~4e-5 relative — for mgcv's own eigen()
-        # just as for scipy (debug/cs_shrinkage_null_space_probe.py). Fitted
+        # just as for scipy (verified by the retained local shrinkage probe). Fitted
         # values at fixed sp therefore only reproduce to ~1e-4 across
         # LAPACK/BLAS builds; the basis itself stays exact (lpmatrix_atol).
         # Note ts/tp shrinkage uses one constant shrink across the whole null

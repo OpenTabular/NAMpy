@@ -4,18 +4,8 @@ The repository's ignored `upstreams/` directory contains local clones of
 external reference implementations used for audits, implementation work, and
 fixture generation.
 
-Nothing below `upstreams/` is tracked or included in a source distribution.
-The clone catalogue is tracked at
-`scripts/reference_generation/upstreams.json`; local repositories can be
-recreated with:
-
-```bash
-python3 scripts/fetch_upstreams.py
-python3 scripts/verify_upstreams.py
-```
-
-The fetch command creates shallow clones and writes resolved commit IDs to the
-ignored `upstreams/lock.json`. External repositories are development-only
+Nothing below `upstreams/` or in its local maintenance tooling is tracked or
+included in a source distribution. External repositories are development-only
 reference material. They are not imported by NAMpy and are not required by its
 normal test suite or CI. Check each upstream license before adapting any
 implementation.
@@ -23,9 +13,9 @@ implementation.
 Normal parity tests read versioned static fixtures from
 `tests/reference_fixtures/`. Developers refreshing those fixtures must use the
 explicit `NAMPY_REFRESH_REFERENCE_FIXTURES=1` mode and record the exact source
-version in `tests/reference_fixtures/manifest.json`. The local `mgcv` source can
-be installed into a temporary R library with
-`scripts/install_mgcv_reference.py`; `MGCV_LIB_PATH` selects that library.
+version in `tests/reference_fixtures/manifest.json`. Install the selected local
+R sources into a temporary library and use `MGCV_LIB_PATH` or `SCAM_LIB_PATH`
+to select it during fixture generation.
 
 ## Fixture policy
 
@@ -55,19 +45,15 @@ This is declared in the manifest rather than being misrepresented as a pristine
 upstream commit. Any future decision to rebaseline on pristine CRAN mgcv must
 regenerate and review the affected fixtures explicitly.
 
-The installer defaults to the historical local `upstreams/mgcv` path. The
-pristine CRAN mirror is deliberately not part of the local clone catalogue. An
-intentional rebaseline must obtain the exact source separately and select it
-with `--source`; do not mix fixtures from different source trees under one
-unchanged provenance record.
+An intentional rebaseline must obtain the exact source separately. Do not mix
+fixtures from different source trees under one unchanged provenance record.
 
 ## Refresh workflow
 
-Install the local R references when the affected slice needs them:
+Install the local R references when the affected slice needs them, then select
+their libraries:
 
 ```bash
-python3 scripts/install_mgcv_reference.py
-python3 scripts/install_scam_reference.py
 export MGCV_LIB_PATH="$PWD/.cache/mgcv-lib"
 export SCAM_LIB_PATH="$PWD/.cache/scam-lib"
 ```

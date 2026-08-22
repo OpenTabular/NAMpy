@@ -71,7 +71,7 @@ def _source(payload: dict, cell_type: str | None = None) -> str:
 
 
 def test_checked_in_notebooks_match_the_generator():
-    generator = runpy.run_path(str(ROOT / "scripts/generate_model_notebooks.py"))
+    generator = runpy.run_path(str(ROOT / "tests/docs/model_notebook_generator.py"))
     generated = {
         "00_overview.ipynb": generator["overview_notebook"](),
         "01_gam.ipynb": generator["gam_notebook"](),

@@ -32,7 +32,7 @@ def _exchangeable_sp_permutation(rows, case: OptimizationLifecycleCase):
     Upstream assigns one sp per nat.param null column, but R's eigen orders
     those numerically-zero eigenvalues by roundoff — mgcv itself flips the
     order under a row permutation of the same data
-    (debug/fs_null_order_stability_probe.py). Each side is therefore
+    (the retained local null-order stability probe). Each side is therefore
     canonicalized independently by descending final log-sp inside each
     declared group; every number must still match strictly afterwards.
     """

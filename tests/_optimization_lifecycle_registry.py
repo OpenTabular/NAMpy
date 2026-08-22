@@ -46,7 +46,7 @@ class OptimizationLifecycleCase:
     # mgcv-indeterminate (e.g. fs null-space penalties: upstream assigns one
     # sp per nat.param null column, and R's eigen orders those numerically-zero
     # eigenvalues by roundoff — mgcv itself flips the order under row
-    # permutation of the same data; debug/fs_null_order_stability_probe.py).
+    # permutation of the same data; see the retained local stability probe).
     # The harness canonicalizes each side independently by descending final
     # log-sp inside each group before the strict comparison.
     exchangeable_sp_groups: tuple[tuple[int, ...], ...] = ()

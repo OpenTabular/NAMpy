@@ -1,4 +1,4 @@
-"""Direct contracts for the seven public GAM pipeline stages in ``CLAUDE.md``."""
+"""Direct contracts for the repository's seven public GAM pipeline stages."""
 
 from __future__ import annotations
 

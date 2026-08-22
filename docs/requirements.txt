@@ -17,4 +17,4 @@ torchmetrics
 setuptools
 properscoring
 matplotlib
-pretab
+pretab>=1.0.0rc2

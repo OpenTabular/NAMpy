@@ -19,7 +19,7 @@ import nampy.neural as neural
 from nampy import LinRegRegressor, SNAMClassifier
 from nampy.neural.configs import DefaultSNAMConfig
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 EXPECTED_GAM_EXPORTS = [
     "GAM",
     "fit_model_core",

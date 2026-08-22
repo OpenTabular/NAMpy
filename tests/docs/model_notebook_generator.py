@@ -1,8 +1,7 @@
 """Generate the concise, public-API model notebooks in ``notebooks/``.
 
-Run from the repository root:
-
-    python scripts/generate_model_notebooks.py
+The checked-in notebooks are verified against this module by the neighboring
+structural test.
 
 The notebooks are deterministic documentation artifacts. Training cells are
 present but disabled by default so structural documentation checks stay fast.
@@ -14,7 +13,7 @@ import json
 from pathlib import Path
 from textwrap import dedent
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / "notebooks"
 
 

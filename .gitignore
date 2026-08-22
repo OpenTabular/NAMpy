@@ -161,17 +161,13 @@ cython_debug/
 #.idea/
 .DS_Store
 
-dist/
-
 # pkl files
 *.pkl
 
 # logs and checkpoints
 examples/lightning_logs
 *.ckpt
-
-docs/_build/doctrees/*
-docs/_build/html/*
+/logs/
 
 *lightning_logs
 
@@ -184,11 +180,23 @@ model_checkpoints/
 # Ruff
 .ruff_cache/XGBoostLSS/
 
-# Agent/planning scratch notes
-plan_claude.md
-claude_review*.md
-nampy_review.md
-neural_review.md
+# Local agent instructions, reviews, and project research notes
+/AGENTS.md
+/CLAUDE.md
+/GAM_IMPLEMENTED.md
+/GAM_NOT_IMPLEMENTED.md
+/PROJECT_STATUS.md
+/RELEASE_CHECKLIST.md
+/THIRD_PARTY_NOTICES.md
+/UPSTREAM_LEDGER.md
+/backlog.md
+/paper_list.md
+/*review*.md
+/plan_claude.md
+
+# Local development probes and maintenance tooling
+/debug/
+/scripts/
 
 # Upstream reference sources are local-only development inputs. Static parity
 # fixtures are committed under tests/reference_fixtures instead.

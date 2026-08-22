@@ -7,8 +7,8 @@ Use it to answer two questions quickly:
 - where should a new parity regression be added without duplicating broader snapshots?
 
 End-to-end parity suites remain the broad backstop. The files listed here are
-the primary owner-level localization points. Unresolved planning is maintained
-in the repository-level `backlog.md` rather than duplicated here.
+the primary owner-level localization points. Unresolved planning is kept in
+local development notes rather than duplicated here.
 
 ## Coverage Matrix
 
@@ -34,7 +34,7 @@ in the repository-level `backlog.md` rather than duplicated here.
 ## Seven-Stage Pipeline Gate and Combination Coverage
 
 `tests/parity/test_gam_seven_stage_pipeline_contracts.py` is the direct release
-gate for the seven pipeline stages documented in `CLAUDE.md`. It deliberately
+gate for the repository's seven-stage GAM pipeline. It deliberately
 uses one fixed-SP Gaussian formula with a parametric term, cubic smooth, and
 formula offset so every transition is checked without conflating the stage
 contract with outer-optimizer behavior. Stage 7 also compares newdata response
@@ -65,9 +65,9 @@ and add the smallest behavior/parity case that crosses its affected stages.
 
 There is no live expected GAM failure declared by the targeted owner/parity
 slices. This does not assert exhaustive Cartesian coverage or a current clean
-full-suite run. Numerical invariants and the last recorded validation state are
-documented in `PROJECT_STATUS.md`; unresolved supported-surface combinations
-are listed in `backlog.md`.
+full-suite run. The supported boundary is defined by public behavior, explicit
+unsupported-input errors, and the committed owner/parity tests; unresolved
+planning stays in local development notes.
 
 ## Sweep Rules
 

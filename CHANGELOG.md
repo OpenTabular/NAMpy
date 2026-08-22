@@ -11,8 +11,8 @@ All notable changes are recorded here following
 - Normal mgcv, SCAM, NBM-SPAM, and SIAN parity tests now consume committed,
   versioned static fixtures. R and local upstream source clones are required
   only for explicit fixture refreshes, and normal CI no longer installs them.
-- The entire `upstreams/` directory is local-only and ignored. Its tracked
-  clone catalogue moved to `scripts/reference_generation/upstreams.json`.
+- The entire `upstreams/` directory and its maintenance tooling are local-only
+  and ignored.
 
 ## [0.2.0] - 2026-08-22
 

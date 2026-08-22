@@ -79,6 +79,7 @@ Basic Example
 
    license
    faq
+   development/reference_sources
 
 Indices and tables
 ==================

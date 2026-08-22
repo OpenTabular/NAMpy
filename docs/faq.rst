@@ -49,6 +49,7 @@ What are the requirements?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * Python 3.11 or 3.12
+
 The core package requires NumPy, pandas, and scikit-learn. Install
 ``nampy[gam]`` for the GAM backend, ``nampy[neural]`` for the neural backend,
 or ``nampy[all]`` for both.

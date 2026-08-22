@@ -25,9 +25,9 @@ jobs:
 
     - name: Run release gates
       run: |
-        ruff check nampy tests scripts debug examples
+        ruff check nampy tests examples
         mypy nampy
-        python scripts/check_repository_hygiene.py
+        python tests/repository_hygiene.py
         pytest tests/neural/test_neural_sklearn_contracts.py::test_public_packages_export_supported_neural_surfaces tests/diagnostics/test_gam_plot_and_public_api_contracts.py::test_public_gam_package_exports_contract -v
 
     - name: Build package
@@ -40,7 +40,7 @@ jobs:
       run: |
         python -m pip install --no-deps --force-reinstall dist/*.whl
         cd "${RUNNER_TEMP}"
-        python "${GITHUB_WORKSPACE}/scripts/check_installed_package.py"
+        python "${GITHUB_WORKSPACE}/tests/public_api/installed_package_smoke.py"
 
     - name: Upload release artifacts
       uses: actions/upload-artifact@v4

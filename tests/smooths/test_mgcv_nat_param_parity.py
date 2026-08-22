@@ -1,5 +1,5 @@
 """Focused nat.param(type=1) parity vs mgcv (promoted from
-debug/nat_param_type1_probe.py per todo C3).
+the retained local natural-parameterization probe).
 
 Invariant policy: simple-eigenvalue directions must match up to column sign;
 inside repeated eigenspaces only the represented subspace (projector) is a

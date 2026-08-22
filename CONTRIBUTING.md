@@ -17,14 +17,14 @@ pre-commit install
 The configured static checks are:
 
 ```bash
-ruff check nampy tests scripts debug examples
+ruff check nampy tests examples
 mypy nampy
 ```
 
 Common Make targets: `make format` (black + isort), `make lint` (ruff),
 `make test TEST=...` (targeted slice), `make type-check` (mypy),
 `make quality` (all checks), `make docs` / `make docs-serve`, `make build`.
-Release steps live in `RELEASE_CHECKLIST.md`.
+Release validation is enforced by the tracked CI and publishing workflows.
 
 Do not run Black as a routine validation step. Keep formatting changes scoped to
 the files you are deliberately changing.
@@ -63,12 +63,13 @@ change:
 Do not add heuristic parity fallbacks, use matrix inverses where upstream uses a
 solve, silently broaden unsupported behavior, or force arbitrary eigenspace
 orientation. If a probe cannot be expressed cleanly as a test, retain it as a
-small script under `debug/`.
+small purpose-built local script; development probes are intentionally not
+versioned.
 
 Normal parity tests read committed, compressed JSON from
 `tests/reference_fixtures/`; they do not require R or any local upstream clone.
-To add or update a parity case, recreate the local references with
-`python3 scripts/fetch_upstreams.py`, opt into generation with
+To add or update a parity case, obtain the relevant upstream source locally,
+opt into generation with
 `NAMPY_REFRESH_REFERENCE_FIXTURES=1`, run only the relevant test slice, and
 update the source provenance in `tests/reference_fixtures/manifest.json`.
 
