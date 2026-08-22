@@ -20,6 +20,7 @@ jobs:
     - name: Install verification dependencies
       run: |
         python -m pip install --upgrade pip
+        python -m pip install -c .github/constraints-ci.txt -r .github/requirements-ci-cpu-torch.txt
         pip install -c .github/constraints-ci.txt -e ".[all,dev]"
         pip install build twine
 
