@@ -352,6 +352,7 @@ class IGANN(BaseModel):
             "s_min": 1,
             "s_max": self.sparse,
             "thread": 0,
+            "group": np.asarray(groups),
         }
         if objective_kind == "binary":
             selector = abess.linear.LogisticRegression(**common)
@@ -359,7 +360,7 @@ class IGANN(BaseModel):
         else:
             selector = abess.linear.LinearRegression(**common)
             response = targets[:, 0].detach().cpu().numpy()
-        selector.fit(basis, response, group=np.asarray(groups))
+        selector.fit(basis, response)
         coefficients = np.asarray(selector.coef_).reshape(-1)
         selected = torch.zeros_like(self.active_atomic_mask)
         for atomic_index, basis_slice in enumerate(self.atomic_basis_slices):

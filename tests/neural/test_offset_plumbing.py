@@ -69,7 +69,8 @@ def test_offset_shifts_regression_loss_exactly():
 
 def test_lss_rejects_nonzero_offsets():
     family = SimpleNamespace(
-        param_count=2, compute_loss=lambda preds, y: preds.sum() * 0.0
+        param_count=2,
+        compute_loss=lambda preds, y, reduction="none": preds.sum() * 0.0,
     )
     task_model = TaskModule(
         model_class=_ZeroOutputModel,
@@ -87,7 +88,7 @@ def test_lss_rejects_nonzero_offsets():
     # Zero offsets pass through.
     task_model.test_step(({}, features, labels, torch.zeros((2, 1))), 0)
 
-    with pytest.raises(RuntimeError, match="not supported for LSS"):
+    with pytest.raises(RuntimeError, match="not supported for distributional"):
         task_model.test_step(({}, features, labels, torch.ones((2, 1))), 0)
 
 
@@ -184,7 +185,7 @@ def test_custom_loss_fct_reaches_task_module(tmp_path):
         num_sanity_val_steps=0,
     )
 
-    assert estimator.model.loss_fct is loss
+    assert estimator.model.objective.loss_fct is loss
 
 
 def test_custom_loss_fct_rejected_outside_regression():

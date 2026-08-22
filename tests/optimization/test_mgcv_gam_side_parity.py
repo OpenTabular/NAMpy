@@ -736,10 +736,35 @@ def _assert_gam_side_case(
         expected_term_penalties = expected_S[int(first_sp) - 1 : int(last_sp)]
         assert len(actual_sm["penalties"]) == len(expected_term_penalties)
         penalty_atol = _penalty_atol_for_class(expected_sm["class_name"])
-        for actual_penalty, expected_penalty in zip(
-            actual_sm["penalties"], expected_term_penalties, strict=True
+        transformed_penalties = [
+            T.T @ np.asarray(penalty, dtype=np.float64) @ T
+            for penalty in actual_sm["penalties"]
+        ]
+        if expected_sm["class_name"] == "fs.interaction":
+            # mgcv/R/smooth.r::smooth.construct.fs.smooth.spec forms one
+            # penalty for each natural-parameter null direction. Those
+            # eigendirections have no unique orientation, so individual null
+            # penalties can rotate while their spectra and combined penalty
+            # remain fixed.
+            for actual_penalty, expected_penalty in zip(
+                transformed_penalties, expected_term_penalties, strict=True
+            ):
+                np.testing.assert_allclose(
+                    penalty_spectrum(actual_penalty),
+                    penalty_spectrum(expected_penalty),
+                    rtol=0.0,
+                    atol=penalty_atol,
+                )
+            np.testing.assert_allclose(
+                np.sum(transformed_penalties, axis=0),
+                np.sum(expected_term_penalties, axis=0),
+                rtol=0.0,
+                atol=penalty_atol,
+            )
+            continue
+        for actual_penalty_t, expected_penalty in zip(
+            transformed_penalties, expected_term_penalties, strict=True
         ):
-            actual_penalty_t = T.T @ np.asarray(actual_penalty, dtype=np.float64) @ T
             if gam_setup_compares_dominant_penalty_spectrum(case_id):
                 actual_spectrum = penalty_spectrum(actual_penalty_t)
                 expected_spectrum = penalty_spectrum(expected_penalty)

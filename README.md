@@ -1,8 +1,6 @@
 # NAMpy
 
-<p align="center">
-  <img src="docs/_static/logo.png" alt="NAMpy — Interpretable Additive Modeling" width="704">
-</p>
+![NAMpy — Interpretable Additive Modeling](docs/_static/logo.png)
 
 [![Python 3.11 | 3.12](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)

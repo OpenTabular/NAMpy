@@ -55,14 +55,18 @@ def _nat_param_reference(
     X: np.ndarray,
     S: np.ndarray,
     *,
+    fixture_case: str,
     rank: int,
     include_p: bool,
 ) -> dict:
+    # The upstream result is compared only through uniquely identified
+    # directions and subspace invariants below. Hashing raw X/S bytes makes
+    # lookup depend on BLAS/LAPACK rounding and arbitrary basis orientation,
+    # so use the semantic test case as the static-fixture identity.
     key = reference_key(
         "nat_param_type1",
         {
-            "X": np.asarray(X, dtype=np.float64).tolist(),
-            "S": np.asarray(S, dtype=np.float64).tolist(),
+            "fixture_case": fixture_case,
             "rank": rank,
             "unit_fnorm": True,
             "include_p": include_p,
@@ -109,7 +113,13 @@ def test_nat_param_type1_matches_mgcv_up_to_column_sign():
 
     actual = nat_param_type1(X, S, rank=3, unit_fnorm=True)
 
-    expected = _nat_param_reference(X, S, rank=3, include_p=True)
+    expected = _nat_param_reference(
+        X,
+        S,
+        fixture_case="random_rank3",
+        rank=3,
+        include_p=True,
+    )
     expected_X = np.asarray(expected["X"], dtype=np.float64)
     expected_P = np.asarray(expected["P"], dtype=np.float64)
     expected_D = np.asarray(expected["D"], dtype=np.float64)
@@ -153,7 +163,13 @@ def test_nat_param_type1_fs_base_matches_mgcv_subspace_invariants():
     B0, S0, _ = term._base_constructor_fit_matrices()
     actual = nat_param_type1(B0, S0, rank=4, unit_fnorm=True)
 
-    expected = _nat_param_reference(B0, S0, rank=4, include_p=False)
+    expected = _nat_param_reference(
+        B0,
+        S0,
+        fixture_case="fs_default_tp_rank4",
+        rank=4,
+        include_p=False,
+    )
     expected_X = np.asarray(expected["X"], dtype=np.float64)
     expected_D = np.asarray(expected["D"], dtype=np.float64)
 
