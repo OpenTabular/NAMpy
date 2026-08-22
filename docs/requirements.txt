@@ -9,6 +9,7 @@ pandoc
 # Package dependencies (needed for autodoc)
 numpy<=1.26.4
 pandas
+scipy>=1.16
 lightning
 scikit-learn
 torch
@@ -16,4 +17,4 @@ torchmetrics
 setuptools
 properscoring
 matplotlib
-
+pretab

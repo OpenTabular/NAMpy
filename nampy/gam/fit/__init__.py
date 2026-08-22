@@ -1,0 +1,92 @@
+"""
+GAM fitting subsystem.
+
+Public entry points
+-------------------
+:func:`fit_model_core`
+    Orchestrates the full fit: compile → optimise smoothing → solve → store.
+
+:func:`solve_fit`
+    Dispatch to the appropriate backend (Gaussian or P-IRLS) at fixed smoothing
+    parameters.
+
+:func:`solve_gaussian_fit`, :func:`solve_pirls_fit`
+    Backend-specific solvers.
+
+Key internal types
+------------------
+:class:`FitCoreSolution`
+    Common return type from all backends, passed to :func:`assign_fit_solution`.
+
+Lower-level components (exposed for testing and post-processing)
+----------------------------------------------------------------
+:func:`irls_core`, :func:`fit_irls_from_model`
+    Shared low-level penalized IRLS entry points used by Gaussian and PIRLS fits.
+:func:`gaussian_smoothness_postprocess`
+    Post-fit Gaussian smoothness scores and derivatives.
+:func:`pls_fit1_nonneg_w`, :func:`solve_gaussian_penalized_ls_stacked_qr`
+    Low-level stacked-QR penalized least-squares solvers.
+"""
+
+from .backends import (
+    available_fit_backends,
+    resolve_fit_backend,
+    solve_fit,
+    solve_gaussian_given_smoothing,
+    solve_pirls_given_smoothing,
+)
+from .covariance import (
+    build_bayes_and_freq_covariances,
+    select_covariance_matrix,
+)
+from .offsets import (
+    coerce_offset_array,
+    resolve_prediction_offset,
+)
+from .orchestrator import fit_model_core
+from .postprocess.gaussian_smoothness_postprocess import (
+    gaussian_smoothness_postprocess,
+    merge_gaussian_smoothness_into_fit_result,
+)
+from .solvers.gaussian_exact import solve_gaussian_fit
+from .solvers.irls_core import fit_irls_from_model, irls_core
+from .solvers.pirls import solve_pirls_fit
+from .solvers.stacked_qr import (
+    STACKED_QR_RANK_TOLERANCE,
+    pls_fit1_nonneg_w,
+    solve_gaussian_penalized_ls_stacked_qr,
+)
+from .state import (
+    FitCoreSolution,
+    FitResult,
+    FitState,
+    assign_fit_solution,
+    compute_edf_by_term,
+)
+
+__all__ = [
+    "fit_model_core",
+    "available_fit_backends",
+    "resolve_fit_backend",
+    "solve_fit",
+    "solve_gaussian_given_smoothing",
+    "solve_pirls_given_smoothing",
+    "solve_gaussian_fit",
+    "solve_pirls_fit",
+    "build_bayes_and_freq_covariances",
+    "select_covariance_matrix",
+    "coerce_offset_array",
+    "resolve_prediction_offset",
+    "FitCoreSolution",
+    "FitResult",
+    "FitState",
+    "assign_fit_solution",
+    "compute_edf_by_term",
+    "irls_core",
+    "fit_irls_from_model",
+    "gaussian_smoothness_postprocess",
+    "merge_gaussian_smoothness_into_fit_result",
+    "STACKED_QR_RANK_TOLERANCE",
+    "pls_fit1_nonneg_w",
+    "solve_gaussian_penalized_ls_stacked_qr",
+]

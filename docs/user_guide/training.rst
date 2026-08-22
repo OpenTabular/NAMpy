@@ -95,6 +95,20 @@ nampy automatically adjusts the learning rate during training:
 
 The learning rate is reduced when validation loss plateaus.
 
+Step-wise schedules are selected at fit time. ``cosine`` reproduces the
+schedule used by the NBM-SPAM reference trainer; adding warm-up steps yields
+its warm-up/cosine variant.
+
+.. code-block:: python
+
+   model.fit(
+       X_train,
+       y_train,
+       lr_schedule="cosine",
+       lr_warmup_steps=100,
+       lr_decay_steps=5000,  # cosine horizon; inferred when omitted
+   )
+
 Monitoring Training
 -------------------
 
@@ -141,6 +155,29 @@ Batching is controlled via the ``batch_size`` argument in ``fit()``:
 .. code-block:: python
 
    model.fit(X_train, y_train, max_epochs=100, batch_size=128)
+
+Inference can be chunked independently to bound accelerator memory:
+
+.. code-block:: python
+
+   predictions = model.predict(X_test, batch_size=2048)
+   components = model.predict_components(X_test, batch_size=2048)
+
+The same option is available on ``predict_proba`` and fixed-basis
+``basis_transform`` calls.
+
+Architecture-native training
+----------------------------
+
+Most neural architectures use Lightning epochs. IGANN regression and binary
+classification instead follow its released sequential ELM algorithm, so
+``n_estimators`` is the maximum number of boosting stages and
+``early_stopping`` is validation-stage patience. Multiclass and IGANNLSS use
+Lightning over the complete fixed ELM basis. The usual NAMpy split,
+preprocessing, persistence, prediction batching, and component APIs apply to
+both routes. For native fits, inspect attempted stage losses with
+``model.training_history()`` and the retained stage count with
+``model.n_estimators_``.
 
 Regularization
 --------------
@@ -247,7 +284,7 @@ Slow Training
 * **Use GPU**: Check `torch.cuda.is_available()`
 * **Reduce max_epochs**: Start with 50 for experimentation
 * **Use smaller model**: Reduce `layer_sizes`
-* **Reduce n_bins**: Fewer bins = faster training
+* **Reduce output_dim**: Fewer bins = faster training
 
 Next Steps
 ----------

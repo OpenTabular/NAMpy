@@ -4,23 +4,11 @@ Changelog
 All notable changes to NAMpy are documented here.
 
 For the complete changelog, see
-`CHANGELOG.md <https://github.com/Ananyapam7/NAMpy/blob/main/CHANGELOG.md>`_
+`CHANGELOG.md <https://github.com/OpenTabular/NAMpy/blob/main/CHANGELOG.md>`_
 on GitHub.
 
 Latest Release
 --------------
-
-Unreleased
-~~~~~~~~~~
-
-**Changed:**
-
-* Breaking: model ``forward()``, estimator ``_predict()``, and
-  ``predict_feature_vals()`` now return nested dictionaries with
-  ``prediction``, ``terms``, ``intercept``, ``regularization``, and ``extras``.
-* Per-term contributions moved from top-level result keys into ``terms``.
-* Training penalties moved from top-level ``*_penalty`` keys into
-  ``regularization``.
 
 Version 0.1.0 (2024-01-07)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -52,5 +40,5 @@ Version History
 For More Details
 ----------------
 
-See the `full changelog <https://github.com/Ananyapam7/NAMpy/blob/main/CHANGELOG.md>`_
+See the `full changelog <https://github.com/OpenTabular/NAMpy/blob/main/CHANGELOG.md>`_
 on GitHub for complete version history and migration guides.

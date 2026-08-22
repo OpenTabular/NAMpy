@@ -1,25 +1,9 @@
-Utilities
-=========
+Distributions
+=============
 
-Utility functions and distribution classes.
+Torch distribution families and metrics for LSS models.
 
-.. currentmodule:: nampy.utils
-
-The utils module contains interpretability helpers, summary utilities,
-distributional metrics, and probability distributions used in LSS models.
-
-Interpretability
-----------------
-
-.. autosummary::
-   :toctree: generated/
-   :nosignatures:
-
-   predict_terms
-   term_contributions
-   feature_importance
-   plot_terms
-   plot_interactions
+.. currentmodule:: nampy.neural.distributions
 
 Modules
 -------
@@ -27,9 +11,8 @@ Modules
 .. autosummary::
    :toctree: generated/
 
-   distributional_metrics
    distributions
-   interpretability
+   metrics
 
 Available Distributions
 -----------------------
@@ -54,8 +37,8 @@ Example Usage
    from nampy.models import NAMLSS
    
    # Use a specific distribution family
-   model = NAMLSS()
-   model.fit(X, y, family="normal", max_epochs=150)
+   model = NAMLSS(family="normal")
+   model.fit(X, y, max_epochs=150)
    
    # Predict distribution parameters
    params = model.predict(X_test)

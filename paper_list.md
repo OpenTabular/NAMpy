@@ -29,7 +29,7 @@ Scalable Polynomial Additive Models (SPAM) leverage tensor rank decompositions o
 **Link:** [Sparse NAM Paper](https://link.springer.com/chapter/10.1007/978-3-031-43418-1_21)
 
 **Summary:**
-Sparse Neural Additive Models enhance Neural Additive Models (NAMs) by incorporating group sparsity regularization for feature selection and improved generalization. SparseNAM-style models target feature selection with good accuracy and efficiency.
+Sparse Neural Additive Models (SNAM) enhance Neural Additive Models (NAMs) by incorporating group sparsity regularization for feature selection and improved generalization. SNAM provably achieves zero training loss and exact feature selection, demonstrating good accuracy and efficiency.
 
 ## SIAN: Sparse Interaction Additive Networks
 **Link:** [SIAN Paper](https://proceedings.neurips.cc/paper_files/paper/2022/file/5a3674849d6d6d23ac088b9a2552f323-Paper-Conference.pdf)
@@ -63,11 +63,11 @@ Neural Additive Image Models (NAIM) utilize Neural Additive Models and Diffusion
 
 
 
-## Structural Neural Additive Models
-**Link:** [Structural Neural Additive Models Paper](https://arxiv.org/pdf/2302.09275)
+## SNAM: Structural Neural Additive Models
+**Link:** [SNAM Paper](https://arxiv.org/pdf/2302.09275)
 
 **Summary:**
-Structural Neural Additive Models enhance the interpretability of neural networks by combining classical statistical methods (splines) with neural applications. They fit NAMs with splines instead of MLPs and optimize knot locations.
+Structural Neural Additive Models (SNAMs) enhance the interpretability of neural networks by combining classical statistical methods (Splines) with neural applications. Fitting NAMs with Splines instead of MLPs and optimizing knot locations.
 
 ## Semi-Structured Distributional Regression
 **Link:** [Semi-Structured Distributional Regression Paper](https://www.tandfonline.com/doi/abs/10.1080/00031305.2022.2164054)

@@ -34,7 +34,7 @@ print(f"Test samples: {len(X_test)}")
 
 # Create and train the NAM model
 model = NAMRegressor(
-    numerical_preprocessing="standardization",  # Preprocessing method
+    numerical_method="standardization",  # Preprocessing method
     dropout=0.1,
     layer_sizes=[64, 32, 16],  # Hidden layer sizes for each feature network
 )

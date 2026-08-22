@@ -1,20 +1,6 @@
 # mgcv R result cache (generated, not committed)
 tests/mgcv_r_cache/
 
-# Local agent/editor metadata and one-off repository notes
-.agents/
-.claude/
-.cursor/
-.codex
-.codexignore
-AGENTS.md
-CLAUDE.md
-DOCS_SETUP_COMPLETE.md
-PUBLISHING_CHECKLIST.md
-PUBLISHING_SUMMARY.md
-RELEASE_CHECKLIST.md
-note*.md
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -87,6 +73,7 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+docs/api/generated/
 
 # PyBuilder
 .pybuilder/
@@ -199,4 +186,16 @@ model_checkpoints/
 
 # Ruff
 .ruff_cache/XGBoostLSS/
-mgcv/
+
+# Agent/planning scratch notes
+plan_claude.md
+claude_review*.md
+nampy_review.md
+neural_review.md
+
+# Upstream reference clones are fetched locally from upstreams/manifest.json.
+# The tracked vendored mgcv source is explicitly kept visible.
+/upstreams/*/
+!/upstreams/mgcv/
+!/upstreams/mgcv/**
+/upstreams/lock.json

@@ -3,23 +3,27 @@ Configurations
 
 Configuration classes for nampy models.
 
-.. currentmodule:: nampy.configs
+.. currentmodule:: nampy.neural.configs
 
 .. autosummary::
    :toctree: generated/
    :nosignatures:
 
    DefaultNAMConfig
-   DefaultGPNAMConfig
+   DefaultSIANConfig
    DefaultNBMConfig
+   DefaultNBMSPAMConfig
+   DefaultSPAMConfig
    DefaultNATTConfig
    DefaultNAMformerConfig
    DefaultLinRegConfig
+   DefaultGPNAMConfig
+   DefaultIGANNConfig
    DefaultQNAMConfig
+   DefaultSNAMConfig
+   DefaultSplineNAMConfig
    DefaultTreeNAMConfig
    DefaultEnsembleTreeNAMConfig
-   DefaultSparseNAMConfig
-   DefaultSplineNAMConfig
    DefaultNodeGAMConfig
 
 Using Configurations
@@ -30,7 +34,7 @@ Configurations can be passed to models or used to create custom settings:
 .. code-block:: python
 
    from nampy.models import NAMRegressor
-   from nampy.configs import DefaultNAMConfig
+   from nampy.neural.configs import DefaultNAMConfig
    
    # Use default config (implicit)
    model = NAMRegressor()
@@ -47,8 +51,4 @@ Configurations can be passed to models or used to create custom settings:
    config.lr = 1e-3
    config.dropout = 0.3
 
-Available Configs
------------------
-
-Each model family with dedicated hyperparameters exposes its corresponding
-``Default*Config`` class from ``nampy.configs``.
+Each architecture-specific configuration is exported from :mod:`nampy.neural.configs`.
