@@ -22,6 +22,12 @@ import pandas as pd
 
 from nampy.gam import GAM
 from tests._paths import PARITY_DIR, REPO_ROOT, TESTS_DIR
+from tests.reference_fixtures import (
+    REFRESH_ENV,
+    MissingReferenceFixture,
+    load_reference,
+    save_reference,
+)
 
 _REPO_ROOT = REPO_ROOT
 _TESTS_DIR = TESTS_DIR
@@ -82,44 +88,25 @@ def _build_r_command(script_path: Path, *args: str) -> list[str]:
 R_SCRIPT = _resolve_r_executable()
 
 # ---------------------------------------------------------------------------
-# mgcv result cache
+# Static mgcv reference fixtures
 # ---------------------------------------------------------------------------
-# R mgcv results are deterministic given the same inputs — cache them so
-# tests only call R once per unique input combination.  Only mgcv outputs are
-# cached; nampy results are never cached.
-_MGCV_CACHE_DIR = _TESTS_DIR / "mgcv_r_cache"
+# Normal tests only read committed upstream outputs. R is invoked solely when
+# a developer explicitly opts into fixture generation with REFRESH_ENV.
+_MGCV_FIXTURE_DIR = _TESTS_DIR / "reference_fixtures" / "mgcv"
 _MGCV_SNAPSHOT_SERVER_PROCESS = None
 _MGCV_SNAPSHOT_SERVER_LOCK = threading.Lock()
 _MGCV_SNAPSHOT_SERVER_REQUEST_IDS = itertools.count(1)
 # Version 7: mgcv_snapshot.R gained the summary block (p.table, r.sq,
 # dev.expl, residual.df, method, ...) plus fit-level null_deviance / rank /
 # scale_estimated for the summary.gam port.
-_SNAPSHOT_CACHE_VERSION = 7
-_RAW_CONSTRUCTOR_CACHE_VERSION = 5
-_GAM_SETUP_ASSEMBLY_CACHE_VERSION = 5
-_GAM_VCOMP_CACHE_VERSION = 4
-_NATPARAM_TYPE3_CACHE_VERSION = 1
-_SMOOTHCON_PREDICT_MATRIX_CACHE_VERSION = 1
-_FIXED_SP_SCORE_CACHE_VERSION = 2
-_PREDICT_ON_NEWDATA_CACHE_VERSION = 3
-
-
-def _env_flag_is_true(value: str) -> bool:
-    return value.lower() in {"1", "true", "yes", "on"}
-
-
-def _mgcv_cache_only_override() -> bool | None:
-    override = os.environ.get("MGCV_CACHE_ONLY")
-    if override is None:
-        return None
-    return _env_flag_is_true(override)
-
-
-def _mgcv_cache_only_mode() -> bool:
-    override = _mgcv_cache_only_override()
-    if override is not None:
-        return override
-    return R_SCRIPT is None
+_SNAPSHOT_FIXTURE_VERSION = 7
+_RAW_CONSTRUCTOR_FIXTURE_VERSION = 5
+_GAM_SETUP_ASSEMBLY_FIXTURE_VERSION = 5
+_GAM_VCOMP_FIXTURE_VERSION = 4
+_NATPARAM_TYPE3_FIXTURE_VERSION = 1
+_SMOOTHCON_PREDICT_MATRIX_FIXTURE_VERSION = 1
+_FIXED_SP_SCORE_FIXTURE_VERSION = 2
+_PREDICT_ON_NEWDATA_FIXTURE_VERSION = 3
 
 
 def _start_mgcv_snapshot_server() -> subprocess.Popen:
@@ -336,7 +323,7 @@ def _run_mgcv_snapshot_batched(
             return response["result"]
 
 
-def _mgcv_cache_key(fn_name: str, key_parts: dict) -> str:
+def _mgcv_fixture_key(fn_name: str, key_parts: dict) -> str:
     """Return a stable hex digest that identifies a unique mgcv call."""
     buf = io.StringIO()
     buf.write(fn_name)
@@ -347,34 +334,24 @@ def _mgcv_cache_key(fn_name: str, key_parts: dict) -> str:
     return digest
 
 
-def _mgcv_cache_load(key: str):
-    """Return cached JSON result or None if not cached."""
-    path = _MGCV_CACHE_DIR / f"{key}.json"
-    if path.exists():
-        return json.loads(path.read_text(encoding="utf-8"))
-    if _mgcv_cache_only_mode():
-        if _mgcv_cache_only_override() is True:
-            raise RuntimeError(
-                "MGCV cache-only mode is enabled. This test requires a precomputed fixture "
-                f"and key '{key}' is not present in {path.parent}. "
-                "Set MGCV_CACHE_ONLY=0 to regenerate via R."
-            )
+def _mgcv_fixture_load(key: str):
+    """Return a committed result, or ``None`` only during explicit refresh."""
+    try:
+        return load_reference("", key, root=_MGCV_FIXTURE_DIR)
+    except MissingReferenceFixture as exc:
         raise RuntimeError(
-            "R is not available and this test requires a precomputed MGCV fixture. "
-            f"Key '{key}' is not present in {path.parent}. "
-            "Install R (including Rscript), set MGCV_RSCRIPT, or precompute the cache."
-        )
-    return None
+            "This test requires a committed static mgcv reference fixture. "
+            f"Key '{key}' is not present in {_MGCV_FIXTURE_DIR}. Generate it locally "
+            f"with {REFRESH_ENV}=1 and commit the result."
+        ) from exc
 
 
-def _mgcv_cache_save(key: str, result) -> None:
-    """Persist mgcv JSON result to cache."""
-    _MGCV_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    path = _MGCV_CACHE_DIR / f"{key}.json"
-    path.write_text(json.dumps(result), encoding="utf-8")
+def _mgcv_fixture_save(key: str, result) -> None:
+    """Persist deterministic compressed JSON during explicit refresh mode."""
+    save_reference("", key, result, root=_MGCV_FIXTURE_DIR)
 
 
-def _df_cache_repr(df: pd.DataFrame) -> str:
+def _df_fixture_repr(df: pd.DataFrame) -> str:
     """Deterministic string representation of a DataFrame for cache keying."""
     return df.to_csv(index=False)
 
@@ -886,8 +863,8 @@ def _run_mgcv_snapshot(
 
     _family_nampy, family_token = _family_specs(family)
     cache_parts = {
-        "version": _SNAPSHOT_CACHE_VERSION,
-        "data": _df_cache_repr(data),
+        "version": _SNAPSHOT_FIXTURE_VERSION,
+        "data": _df_fixture_repr(data),
         "formula": str(formula),
         "family_token": family_token,
         "method": method,
@@ -897,12 +874,12 @@ def _run_mgcv_snapshot(
     if optimizer is not None:
         cache_parts["optimizer"] = optimizer
 
-    _cache_key = _mgcv_cache_key(
+    _cache_key = _mgcv_fixture_key(
         "snapshot",
         cache_parts,
     )
     try:
-        cached = _mgcv_cache_load(_cache_key)
+        cached = _mgcv_fixture_load(_cache_key)
     except RuntimeError:
         if not allow_live_run:
             raise
@@ -941,7 +918,7 @@ def _run_mgcv_snapshot(
             )
 
     result = _normalize_snapshot_payload(result)
-    _mgcv_cache_save(_cache_key, result)
+    _mgcv_fixture_save(_cache_key, result)
     return result
 
 
@@ -957,10 +934,10 @@ def _run_mgcv_anova(
     _family_nampy, family_token = _family_specs(family)
     formula_texts = [str(formula) for formula in list(formulas)]
 
-    _cache_key = _mgcv_cache_key(
+    _cache_key = _mgcv_fixture_key(
         "anova",
         {
-            "data": _df_cache_repr(data),
+            "data": _df_fixture_repr(data),
             "formulas": formula_texts,
             "family_token": family_token,
             "method": method,
@@ -968,7 +945,7 @@ def _run_mgcv_anova(
             "test": test,
         },
     )
-    cached = _mgcv_cache_load(_cache_key)
+    cached = _mgcv_fixture_load(_cache_key)
     if cached is not None:
         return cached
 
@@ -996,7 +973,7 @@ def _run_mgcv_anova(
         )
         result = json.loads(json_path.read_text(encoding="utf-8"))
 
-    _mgcv_cache_save(_cache_key, result)
+    _mgcv_fixture_save(_cache_key, result)
     return result
 
 
@@ -1013,11 +990,11 @@ def _run_mgcv_gam_vcomp(
 ):
     _family_nampy, family_token = _family_specs(family)
 
-    _cache_key = _mgcv_cache_key(
+    _cache_key = _mgcv_fixture_key(
         "gam_vcomp",
         {
-            "version": _GAM_VCOMP_CACHE_VERSION,
-            "data": _df_cache_repr(data),
+            "version": _GAM_VCOMP_FIXTURE_VERSION,
+            "data": _df_fixture_repr(data),
             "formula": str(formula),
             "family_token": family_token,
             "method": str(method),
@@ -1039,7 +1016,7 @@ def _run_mgcv_gam_vcomp(
                 out[key] = None
         return out
 
-    cached = _mgcv_cache_load(_cache_key)
+    cached = _mgcv_fixture_load(_cache_key)
     if cached is not None:
         return _normalize_gam_vcomp_payload(cached)
 
@@ -1190,7 +1167,7 @@ write_json(serialize_gam_vcomp(vc), out, auto_unbox = TRUE, digits = 17)
             json.loads(json_path.read_text(encoding="utf-8"))
         )
 
-    _mgcv_cache_save(_cache_key, result)
+    _mgcv_fixture_save(_cache_key, result)
     return result
 
 
@@ -1255,11 +1232,11 @@ def _fit_nampy_snapshot(
 
 
 def _run_mgcv_smoothcon_matrix(data: pd.DataFrame, smooth_expr: str):
-    _cache_key = _mgcv_cache_key(
+    _cache_key = _mgcv_fixture_key(
         "smoothcon_matrix",
-        {"data": _df_cache_repr(data), "smooth_expr": smooth_expr},
+        {"data": _df_fixture_repr(data), "smooth_expr": smooth_expr},
     )
-    cached = _mgcv_cache_load(_cache_key)
+    cached = _mgcv_fixture_load(_cache_key)
     if cached is not None:
         return cached
 
@@ -1290,7 +1267,7 @@ write_json(list(X = unname(sm$X)), out, auto_unbox = TRUE, digits = 17)
         )
         result = json.loads(json_path.read_text(encoding="utf-8"))
 
-    _mgcv_cache_save(_cache_key, result)
+    _mgcv_fixture_save(_cache_key, result)
     return result
 
 
@@ -1301,16 +1278,16 @@ def _run_mgcv_smoothcon_penalties(
     absorb_cons: bool,
     scale_penalty: bool,
 ):
-    _cache_key = _mgcv_cache_key(
+    _cache_key = _mgcv_fixture_key(
         "smoothcon_penalties",
         {
-            "data": _df_cache_repr(data),
+            "data": _df_fixture_repr(data),
             "smooth_expr": smooth_expr,
             "absorb_cons": absorb_cons,
             "scale_penalty": scale_penalty,
         },
     )
-    cached = _mgcv_cache_load(_cache_key)
+    cached = _mgcv_fixture_load(_cache_key)
     if cached is not None:
         return cached
 
@@ -1353,16 +1330,16 @@ write_json(list(S = lapply(sm$S, unname)), out, auto_unbox = TRUE, digits = 17)
         )
         result = json.loads(json_path.read_text(encoding="utf-8"))
 
-    _mgcv_cache_save(_cache_key, result)
+    _mgcv_fixture_save(_cache_key, result)
     return result
 
 
 def _run_mgcv_smoothcon_matrix_unscaled(data: pd.DataFrame, smooth_expr: str):
-    _cache_key = _mgcv_cache_key(
+    _cache_key = _mgcv_fixture_key(
         "smoothcon_matrix_unscaled",
-        {"data": _df_cache_repr(data), "smooth_expr": smooth_expr},
+        {"data": _df_fixture_repr(data), "smooth_expr": smooth_expr},
     )
-    cached = _mgcv_cache_load(_cache_key)
+    cached = _mgcv_fixture_load(_cache_key)
     if cached is not None:
         return cached
 
@@ -1398,7 +1375,7 @@ write_json(list(X = unname(sm$X)), out, auto_unbox = TRUE, digits = 17)
         )
         result = json.loads(json_path.read_text(encoding="utf-8"))
 
-    _mgcv_cache_save(_cache_key, result)
+    _mgcv_fixture_save(_cache_key, result)
     return result
 
 
@@ -1434,16 +1411,16 @@ def _run_mgcv_raw_constructor(
 ):
     smooth_expr_r = _normalize_python_formula_text(smooth_expr)
     knots_payload = _normalize_raw_constructor_knots(knots)
-    _cache_key = _mgcv_cache_key(
+    _cache_key = _mgcv_fixture_key(
         "raw_constructor",
         {
-            "version": _RAW_CONSTRUCTOR_CACHE_VERSION,
-            "data": _df_cache_repr(data),
+            "version": _RAW_CONSTRUCTOR_FIXTURE_VERSION,
+            "data": _df_fixture_repr(data),
             "smooth_expr": smooth_expr_r,
             "knots": json.dumps(knots_payload, sort_keys=True, default=str),
         },
     )
-    cached = _mgcv_cache_load(_cache_key)
+    cached = _mgcv_fixture_load(_cache_key)
     if cached is not None:
         return _decode_packed_matrix_payload(cached)
 
@@ -1621,16 +1598,16 @@ write_json(serialize_smooth(sm), out, auto_unbox = TRUE, digits = 17, null = "nu
         )
         result = json.loads(json_path.read_text(encoding="utf-8"))
 
-    _mgcv_cache_save(_cache_key, result)
+    _mgcv_fixture_save(_cache_key, result)
     return _decode_packed_matrix_payload(result)
 
 
 def _run_mgcv_natparam_cr(data: pd.DataFrame, *, k: int):
-    _cache_key = _mgcv_cache_key(
+    _cache_key = _mgcv_fixture_key(
         "natparam_cr",
-        {"data": _df_cache_repr(data), "k": k},
+        {"data": _df_fixture_repr(data), "k": k},
     )
-    cached = _mgcv_cache_load(_cache_key)
+    cached = _mgcv_fixture_load(_cache_key)
     if cached is not None:
         return cached
 
@@ -1673,7 +1650,7 @@ write_json(
         )
         result = json.loads(json_path.read_text(encoding="utf-8"))
 
-    _mgcv_cache_save(_cache_key, result)
+    _mgcv_fixture_save(_cache_key, result)
     return result
 
 
@@ -1685,16 +1662,16 @@ def _run_mgcv_natparam_type3(
 ):
     smooth_expr_r = _normalize_python_formula_text(smooth_expr)
     knots_payload = _normalize_raw_constructor_knots(knots)
-    _cache_key = _mgcv_cache_key(
+    _cache_key = _mgcv_fixture_key(
         "natparam_type3",
         {
-            "version": _NATPARAM_TYPE3_CACHE_VERSION,
-            "data": _df_cache_repr(data),
+            "version": _NATPARAM_TYPE3_FIXTURE_VERSION,
+            "data": _df_fixture_repr(data),
             "smooth_expr": smooth_expr_r,
             "knots": json.dumps(knots_payload, sort_keys=True, default=str),
         },
     )
-    cached = _mgcv_cache_load(_cache_key)
+    cached = _mgcv_fixture_load(_cache_key)
     if cached is not None:
         return _decode_packed_matrix_payload(cached)
 
@@ -1780,7 +1757,7 @@ write_json(
         )
         result = json.loads(json_path.read_text(encoding="utf-8"))
 
-    _mgcv_cache_save(_cache_key, result)
+    _mgcv_fixture_save(_cache_key, result)
     return _decode_packed_matrix_payload(result)
 
 
@@ -1795,19 +1772,19 @@ def _run_mgcv_smoothcon_predict_matrix(
 ):
     smooth_expr_r = _normalize_python_formula_text(smooth_expr)
     knots_payload = _normalize_raw_constructor_knots(knots)
-    _cache_key = _mgcv_cache_key(
+    _cache_key = _mgcv_fixture_key(
         "smoothcon_predict_matrix",
         {
-            "version": _SMOOTHCON_PREDICT_MATRIX_CACHE_VERSION,
-            "data": _df_cache_repr(data),
-            "newdata": _df_cache_repr(newdata),
+            "version": _SMOOTHCON_PREDICT_MATRIX_FIXTURE_VERSION,
+            "data": _df_fixture_repr(data),
+            "newdata": _df_fixture_repr(newdata),
             "smooth_expr": smooth_expr_r,
             "knots": json.dumps(knots_payload, sort_keys=True, default=str),
             "absorb_cons": bool(absorb_cons),
             "scale_penalty": bool(scale_penalty),
         },
     )
-    cached = _mgcv_cache_load(_cache_key)
+    cached = _mgcv_fixture_load(_cache_key)
     if cached is not None:
         return _decode_packed_matrix_payload(cached)
 
@@ -1900,7 +1877,7 @@ write_json(
         )
         result = json.loads(json_path.read_text(encoding="utf-8"))
 
-    _mgcv_cache_save(_cache_key, result)
+    _mgcv_fixture_save(_cache_key, result)
     return _decode_packed_matrix_payload(result)
 
 
@@ -1925,12 +1902,12 @@ def _run_mgcv_predict_on_newdata(
     fit_method = "REML" if str(method).lower() == "fixed" else method
     formula_r = _normalize_python_formula_text(formula)
 
-    _cache_key = _mgcv_cache_key(
+    _cache_key = _mgcv_fixture_key(
         "predict_on_newdata",
         {
-            "version": _PREDICT_ON_NEWDATA_CACHE_VERSION,
-            "data": _df_cache_repr(data),
-            "newdata": _df_cache_repr(newdata),
+            "version": _PREDICT_ON_NEWDATA_FIXTURE_VERSION,
+            "data": _df_fixture_repr(data),
+            "newdata": _df_fixture_repr(newdata),
             "formula_r": formula_r,
             "family_token": family_token,
             "fit_method": fit_method,
@@ -1945,7 +1922,7 @@ def _run_mgcv_predict_on_newdata(
         },
     )
     try:
-        cached = _mgcv_cache_load(_cache_key)
+        cached = _mgcv_fixture_load(_cache_key)
     except RuntimeError:
         if not allow_live_run:
             raise
@@ -2129,7 +2106,7 @@ write_json(
         )
         result = json.loads(json_path.read_text(encoding="utf-8"))
 
-    _mgcv_cache_save(_cache_key, result)
+    _mgcv_fixture_save(_cache_key, result)
     return result
 
 
@@ -2147,11 +2124,11 @@ def _run_mgcv_fixed_sp_score(
     sp_list = np.asarray(smoothing_params, dtype=np.float64).tolist()
     formula_r = _normalize_python_formula_text(formula)
 
-    _cache_key = _mgcv_cache_key(
+    _cache_key = _mgcv_fixture_key(
         "fixed_sp_score",
         {
-            "version": _FIXED_SP_SCORE_CACHE_VERSION,
-            "data": _df_cache_repr(data),
+            "version": _FIXED_SP_SCORE_FIXTURE_VERSION,
+            "data": _df_fixture_repr(data),
             "formula": formula_r,
             "family_token": family_token,
             "method": method,
@@ -2159,7 +2136,7 @@ def _run_mgcv_fixed_sp_score(
             "smoothing_params": sp_list,
         },
     )
-    cached = _mgcv_cache_load(_cache_key)
+    cached = _mgcv_fixture_load(_cache_key)
     if cached is not None:
         return cached
 
@@ -2298,7 +2275,7 @@ write_json(
         )
         result = json.loads(json_path.read_text(encoding="utf-8"))
 
-    _mgcv_cache_save(_cache_key, result)
+    _mgcv_fixture_save(_cache_key, result)
     return result
 
 
@@ -2315,11 +2292,11 @@ def _run_mgcv_gam_setup_assembly(
     del _family_nampy
     formula_r = _normalize_python_formula_text(formula)
 
-    _cache_key = _mgcv_cache_key(
+    _cache_key = _mgcv_fixture_key(
         "gam_setup_assembly",
         {
-            "version": _GAM_SETUP_ASSEMBLY_CACHE_VERSION,
-            "data": _df_cache_repr(data),
+            "version": _GAM_SETUP_ASSEMBLY_FIXTURE_VERSION,
+            "data": _df_fixture_repr(data),
             "formula": formula_r,
             "family_token": family_token,
             "method": method,
@@ -2327,7 +2304,7 @@ def _run_mgcv_gam_setup_assembly(
         },
     )
     try:
-        cached = _mgcv_cache_load(_cache_key)
+        cached = _mgcv_fixture_load(_cache_key)
     except RuntimeError:
         if not allow_live_run:
             raise
@@ -2357,7 +2334,7 @@ def _run_mgcv_gam_setup_assembly(
         )
         result = json.loads(json_path.read_text(encoding="utf-8"))
 
-    _mgcv_cache_save(_cache_key, result)
+    _mgcv_fixture_save(_cache_key, result)
     return result
 
 

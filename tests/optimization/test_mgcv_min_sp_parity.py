@@ -23,16 +23,16 @@ from nampy.gam import GAM
 from tests._paths import REPO_ROOT
 from tests.mgcv_parity_utils import (
     _build_r_command,
-    _df_cache_repr,
+    _df_fixture_repr,
     _family_specs,
-    _mgcv_cache_key,
-    _mgcv_cache_load,
-    _mgcv_cache_save,
+    _mgcv_fixture_key,
+    _mgcv_fixture_load,
+    _mgcv_fixture_save,
 )
 
 pytestmark = [pytest.mark.surface_regression]
 
-_MIN_SP_CACHE_VERSION = 2
+_MIN_SP_FIXTURE_VERSION = 2
 
 
 def _wiggly_gaussian_data(seed=311, n=200) -> pd.DataFrame:
@@ -68,11 +68,11 @@ def _run_mgcv_min_sp_snapshot(
     """Reference mgcv fit with min.sp= (not supported by mgcv_snapshot.R)."""
     _family_nampy, family_token = _family_specs(family)
     min_sp_list = np.asarray(min_sp, dtype=np.float64).tolist()
-    cache_key = _mgcv_cache_key(
+    cache_key = _mgcv_fixture_key(
         "min_sp_snapshot",
         {
-            "version": _MIN_SP_CACHE_VERSION,
-            "data": _df_cache_repr(data),
+            "version": _MIN_SP_FIXTURE_VERSION,
+            "data": _df_fixture_repr(data),
             "formula": str(formula),
             "family_token": family_token,
             "method": method,
@@ -80,7 +80,7 @@ def _run_mgcv_min_sp_snapshot(
             "optimizer": str(optimizer),
         },
     )
-    cached = _mgcv_cache_load(cache_key)
+    cached = _mgcv_fixture_load(cache_key)
     if cached is not None:
         return cached
 
@@ -159,7 +159,7 @@ write_json(
         )
         result = json.loads(json_path.read_text(encoding="utf-8"))
 
-    _mgcv_cache_save(cache_key, result)
+    _mgcv_fixture_save(cache_key, result)
     return result
 
 

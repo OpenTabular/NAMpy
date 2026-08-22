@@ -66,7 +66,6 @@ def test_select_covariance_matrix_uses_model_default_and_override(monkeypatch):
     np.testing.assert_allclose(select_covariance_matrix(model, cov=freq), freq)
 
 
-@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript required for mgcv parity")
 def test_gaussian_exact_covariance_assembly_matches_mgcv_snapshot():
     """
     Owner-contract coverage verifying that gaussian exact covariance assembly matches
@@ -106,7 +105,6 @@ def test_gaussian_exact_covariance_assembly_matches_mgcv_snapshot():
     )
 
 
-@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript required for mgcv parity")
 def test_gaussian_stacked_qr_covariance_assembly_matches_mgcv_snapshot():
     """
     Owner-contract coverage verifying that gaussian stacked QR covariance assembly

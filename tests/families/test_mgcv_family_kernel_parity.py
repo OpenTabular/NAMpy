@@ -26,15 +26,15 @@ from tests._paths import REPO_ROOT
 from tests.mgcv_parity_utils import (
     _build_r_command,
     _make_binomial_data,
-    _mgcv_cache_key,
-    _mgcv_cache_load,
-    _mgcv_cache_save,
+    _mgcv_fixture_key,
+    _mgcv_fixture_load,
+    _mgcv_fixture_save,
     _run_mgcv_snapshot,
 )
 
 pytestmark = [pytest.mark.surface_derivatives]
 
-_FAMILY_KERNEL_CACHE_VERSION = 1
+_FAMILY_KERNEL_FIXTURE_VERSION = 1
 
 
 def _run_mgcv_family_kernels(
@@ -56,16 +56,16 @@ def _run_mgcv_family_kernels(
         "scale": float(scale),
         "ltheta": None if ltheta is None else float(ltheta),
     }
-    cache_key = _mgcv_cache_key(
+    cache_key = _mgcv_fixture_key(
         "family_kernels",
         {
-            "version": _FAMILY_KERNEL_CACHE_VERSION,
+            "version": _FAMILY_KERNEL_FIXTURE_VERSION,
             "family_key": family_key,
             "link": link,
             "payload": payload,
         },
     )
-    cached = _mgcv_cache_load(cache_key)
+    cached = _mgcv_fixture_load(cache_key)
     if cached is not None:
         return cached
 
@@ -161,7 +161,7 @@ write_json(res, out, auto_unbox = TRUE, digits = 17, null = "null")
         )
         result = json.loads(json_path.read_text(encoding="utf-8"))
 
-    _mgcv_cache_save(cache_key, result)
+    _mgcv_fixture_save(cache_key, result)
     return result
 
 

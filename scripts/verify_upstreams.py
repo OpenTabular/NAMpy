@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MANIFEST = ROOT / "upstreams" / "manifest.json"
+MANIFEST = ROOT / "scripts" / "reference_generation" / "upstreams.json"
 LOCKFILE = ROOT / "upstreams" / "lock.json"
 
 

@@ -1,6 +1,6 @@
 ## Primary objective
 
-For the GAM subsystem, the goal is **behavioral parity with `mgcv`**, not a merely reasonable Python approximation. When working on `nampy/gam/`, treat the vendored upstream **R and C `mgcv` sources in this repository as the primary specification**. Mirror the same logic, ordering, control flow, constraints, and edge-case behavior in Python whenever practical.
+For the GAM subsystem, the goal is **behavioral parity with `mgcv`**, not a merely reasonable Python approximation. When working on `nampy/gam/`, treat the local upstream **R and C `mgcv` sources under the ignored `upstreams/` directory as the primary specification**. Mirror the same logic, ordering, control flow, constraints, and edge-case behavior in Python whenever practical.
 
 Do **not**:
 
@@ -122,7 +122,7 @@ The fit pipeline has 7 stages:
 
 When changing `nampy/gam/`:
 
-- locate the corresponding upstream `mgcv` R and/or C implementation in the vendored reference sources,
+- locate the corresponding upstream `mgcv` R and/or C implementation in the local reference sources,
 - mirror the upstream routine as directly as possible in Python,
 - preserve operation ordering when numerically relevant,
 - keep shape conventions, constraints, penalty ordering, and side-condition handling aligned with upstream,
@@ -148,6 +148,11 @@ For any parity-sensitive change, your final summary should name:
 - `test_mgcv_pc_id_parity.py` — `pc=` and linked-`id=` parity
 - `test_mgcv_known_gaps.py` — tracked strict parity mismatches
 - `mgcv_parity_utils.py`, `mgcv_parity_structure_utils.py` — shared test helpers
+
+Normal parity tests compare against committed, versioned static outputs and
+must not require R or local upstream clones. Refresh fixtures only through the
+explicit `NAMPY_REFRESH_REFERENCE_FIXTURES=1` development workflow; do not
+update or break them casually.
 
 Parity snapshots compare against R `mgcv` output; do not update or break these casually.
 

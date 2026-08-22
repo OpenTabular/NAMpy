@@ -484,6 +484,21 @@ def test_preoptimization_case_matrix_covers_supported_non_general_surface():
 def _run_mgcv_preoptimization(data, formula, family, method, *, select=False):
     family_nampy, family_token = _family_specs(family)
     del family_nampy
+    from tests.reference_fixtures import load_reference, reference_key, save_reference
+
+    key = reference_key(
+        "preoptimization_blocks",
+        {
+            "data": data.to_csv(index=False),
+            "formula": formula,
+            "family": family_token,
+            "method": method,
+            "select": select,
+        },
+    )
+    cached = load_reference("mgcv", key)
+    if cached is not None:
+        return cached
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
@@ -506,7 +521,9 @@ def _run_mgcv_preoptimization(data, formula, family, method, *, select=False):
             capture_output=True,
             text=True,
         )
-        return json.loads(json_path.read_text(encoding="utf-8"))
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+        save_reference("mgcv", key, result)
+        return result
 
 
 def _fit_nampy_preoptimization(data, formula, family, method, *, select=False):

@@ -10,14 +10,36 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from tests._paths import REPO_ROOT
 from tests.mgcv_parity_utils import R_SCRIPT, _build_r_command
+from tests.reference_fixtures import (
+    REFRESH_ENV,
+    load_reference,
+    reference_key,
+    refresh_enabled,
+    save_reference,
+)
 
 
 def scam_reference_available() -> bool:
-    return R_SCRIPT is not None and bool(os.environ.get("SCAM_LIB_PATH"))
+    return True
+
+
+def _load_scam_reference(operation: str, payload) -> tuple[str, dict | None]:
+    key = reference_key(operation, payload)
+    return key, load_reference("scam", key)
+
+
+def _require_local_scam() -> str:
+    library = os.environ.get("SCAM_LIB_PATH")
+    if not refresh_enabled():
+        raise RuntimeError("SCAM execution is restricted to fixture refresh mode.")
+    if R_SCRIPT is None or not library:
+        raise RuntimeError(
+            f"Rscript and SCAM_LIB_PATH are required when {REFRESH_ENV}=1."
+        )
+    return library
 
 
 def run_scam_raw_constructor(
@@ -27,9 +49,19 @@ def run_scam_raw_constructor(
     new_data: pd.DataFrame | None = None,
     smoothcon: bool = False,
 ) -> dict:
-    library = os.environ.get("SCAM_LIB_PATH")
-    if R_SCRIPT is None or not library:
-        pytest.skip("Rscript and SCAM_LIB_PATH are required for SCAM parity.")
+    prediction_data = data if new_data is None else new_data
+    key, cached = _load_scam_reference(
+        "raw_constructor",
+        {
+            "data": data.to_csv(index=False),
+            "new_data": prediction_data.to_csv(index=False),
+            "smooth_expr": smooth_expr,
+            "smoothcon": smoothcon,
+        },
+    )
+    if cached is not None:
+        return _decode_matrices(cached)
+    library = _require_local_scam()
     code = r'''
 args <- commandArgs(trailingOnly=TRUE)
 .libPaths(c(args[[1]], .libPaths()))
@@ -84,7 +116,7 @@ write_json(out, args[[5]], digits=17, auto_unbox=TRUE, null="null")
         script_path = root / "constructor.R"
         output_path = root / "constructor.json"
         data.to_csv(data_path, index=False)
-        (data if new_data is None else new_data).to_csv(new_path, index=False)
+        prediction_data.to_csv(new_path, index=False)
         script_path.write_text(code, encoding="utf-8")
         subprocess.run(
             _build_r_command(
@@ -101,7 +133,9 @@ write_json(out, args[[5]], digits=17, auto_unbox=TRUE, null="null")
             capture_output=True,
             text=True,
         )
-        return _decode_matrices(json.loads(output_path.read_text(encoding="utf-8")))
+        result = json.loads(output_path.read_text(encoding="utf-8"))
+        save_reference("scam", key, result)
+        return _decode_matrices(result)
 
 
 def run_scam_linear_functional_constructor(
@@ -115,9 +149,29 @@ def run_scam_linear_functional_constructor(
     new_weights=None,
 ) -> dict:
     """Construct and predict a matrix-argument SCAM linear-functional term."""
-    library = os.environ.get("SCAM_LIB_PATH")
-    if R_SCRIPT is None or not library:
-        pytest.skip("Rscript and SCAM_LIB_PATH are required for SCAM parity.")
+    locations = np.asarray(locations, dtype=np.float64)
+    weights = np.asarray(weights, dtype=np.float64)
+    new_locations = (
+        locations if new_locations is None else np.asarray(new_locations, dtype=np.float64)
+    )
+    new_weights = (
+        weights if new_weights is None else np.asarray(new_weights, dtype=np.float64)
+    )
+    key, cached = _load_scam_reference(
+        "linear_functional_constructor",
+        {
+            "locations": locations.tolist(),
+            "weights": weights.tolist(),
+            "new_locations": new_locations.tolist(),
+            "new_weights": new_weights.tolist(),
+            "basis_code": basis_code,
+            "k": k,
+            "m": m,
+        },
+    )
+    if cached is not None:
+        return _decode_matrices(cached)
+    library = _require_local_scam()
     code = r'''
 args <- commandArgs(trailingOnly=TRUE)
 .libPaths(c(args[[1]], .libPaths()))
@@ -152,14 +206,6 @@ out <- list(
 )
 write_json(out, args[[9]], digits=17, auto_unbox=TRUE, null="null")
 '''
-    locations = np.asarray(locations, dtype=np.float64)
-    weights = np.asarray(weights, dtype=np.float64)
-    new_locations = (
-        locations if new_locations is None else np.asarray(new_locations, dtype=np.float64)
-    )
-    new_weights = (
-        weights if new_weights is None else np.asarray(new_weights, dtype=np.float64)
-    )
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         script_path = root / "linear_functional.R"
@@ -183,7 +229,9 @@ write_json(out, args[[9]], digits=17, auto_unbox=TRUE, null="null")
             capture_output=True,
             text=True,
         )
-        return _decode_matrices(json.loads(output_path.read_text(encoding="utf-8")))
+        result = json.loads(output_path.read_text(encoding="utf-8"))
+        save_reference("scam", key, result)
+        return _decode_matrices(result)
 
 
 def run_scam_linear_functional_fixed_fit(
@@ -198,9 +246,26 @@ def run_scam_linear_functional_fixed_fit(
     start,
 ) -> dict:
     """Fit a fixed-SP Gaussian SCAM linear-functional term."""
-    library = os.environ.get("SCAM_LIB_PATH")
-    if R_SCRIPT is None or not library:
-        pytest.skip("Rscript and SCAM_LIB_PATH are required for SCAM parity.")
+    locations = np.asarray(locations, dtype=np.float64)
+    weights = np.asarray(weights, dtype=np.float64)
+    response = np.asarray(y, dtype=np.float64)
+    start_values = np.asarray(start, dtype=np.float64)
+    key, cached = _load_scam_reference(
+        "linear_functional_fixed_fit",
+        {
+            "locations": locations.tolist(),
+            "weights": weights.tolist(),
+            "y": response.tolist(),
+            "basis_code": basis_code,
+            "k": k,
+            "m": m,
+            "sp": sp,
+            "start": start_values.tolist(),
+        },
+    )
+    if cached is not None:
+        return _decode_matrices(cached)
+    library = _require_local_scam()
     code = r'''
 args <- commandArgs(trailingOnly=TRUE)
 .libPaths(c(args[[1]], .libPaths()))
@@ -230,8 +295,6 @@ out <- list(
 )
 write_json(out, args[[10]], digits=17, auto_unbox=TRUE, null="null")
 '''
-    locations = np.asarray(locations, dtype=np.float64)
-    weights = np.asarray(weights, dtype=np.float64)
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         script_path = root / "linear_functional_fit.R"
@@ -243,8 +306,8 @@ write_json(out, args[[10]], digits=17, auto_unbox=TRUE, null="null")
                 library,
                 json.dumps(locations.tolist()),
                 json.dumps(weights.tolist()),
-                json.dumps(np.asarray(y, dtype=np.float64).tolist()),
-                json.dumps(np.asarray(start, dtype=np.float64).tolist()),
+                json.dumps(response.tolist()),
+                json.dumps(start_values.tolist()),
                 basis_code,
                 str(k),
                 str(m),
@@ -256,7 +319,9 @@ write_json(out, args[[10]], digits=17, auto_unbox=TRUE, null="null")
             capture_output=True,
             text=True,
         )
-        return _decode_matrices(json.loads(output_path.read_text(encoding="utf-8")))
+        result = json.loads(output_path.read_text(encoding="utf-8"))
+        save_reference("scam", key, result)
+        return _decode_matrices(result)
 
 
 def _decode_matrices(value):
@@ -284,9 +349,25 @@ def run_scam_fixed_sp_fit(
     include_behavior: bool = False,
 ) -> dict:
     """Run vendored ``scam`` with fixed smoothing and a shared start vector."""
-    library = os.environ.get("SCAM_LIB_PATH")
-    if R_SCRIPT is None or not library:
-        pytest.skip("Rscript and SCAM_LIB_PATH are required for SCAM parity.")
+    sp_values = np.asarray(sp, dtype=float).reshape(-1).tolist()
+    start_values = np.asarray(start, dtype=float).reshape(-1).tolist()
+    key, cached = _load_scam_reference(
+        "fixed_sp_fit",
+        {
+            "data": data.to_csv(index=False),
+            "formula": formula,
+            "family": family,
+            "sp": sp_values,
+            "start": start_values,
+            "positive_transform": positive_transform,
+            "softplus_beta": softplus_beta,
+            "softplus_threshold": softplus_threshold,
+            "include_behavior": include_behavior,
+        },
+    )
+    if cached is not None:
+        return _decode_matrices(cached)
+    library = _require_local_scam()
     code = r'''
 args <- commandArgs(trailingOnly=TRUE)
 .libPaths(c(args[[1]], .libPaths()))
@@ -394,8 +475,8 @@ write_json(out, args[[11]], digits=17, auto_unbox=TRUE, null="null")
                 str(data_path),
                 formula,
                 family,
-                json.dumps(list(np.asarray(sp, dtype=float).reshape(-1))),
-                json.dumps(list(np.asarray(start, dtype=float).reshape(-1))),
+                json.dumps(sp_values),
+                json.dumps(start_values),
                 positive_transform,
                 str(softplus_beta),
                 str(softplus_threshold),
@@ -407,7 +488,9 @@ write_json(out, args[[11]], digits=17, auto_unbox=TRUE, null="null")
             capture_output=True,
             text=True,
         )
-        return _decode_matrices(json.loads(output_path.read_text(encoding="utf-8")))
+        result = json.loads(output_path.read_text(encoding="utf-8"))
+        save_reference("scam", key, result)
+        return _decode_matrices(result)
 
 
 def run_scam_selected_sp_fit(
@@ -421,9 +504,22 @@ def run_scam_selected_sp_fit(
     softplus_threshold: float = 20.0,
 ) -> dict:
     """Run the released ``scam`` BFGS GCV/UBRE smoothing search."""
-    library = os.environ.get("SCAM_LIB_PATH")
-    if R_SCRIPT is None or not library:
-        pytest.skip("Rscript and SCAM_LIB_PATH are required for SCAM parity.")
+    start_values = np.asarray(start, dtype=float).reshape(-1).tolist()
+    key, cached = _load_scam_reference(
+        "selected_sp_fit",
+        {
+            "data": data.to_csv(index=False),
+            "formula": formula,
+            "family": family,
+            "start": start_values,
+            "positive_transform": positive_transform,
+            "softplus_beta": softplus_beta,
+            "softplus_threshold": softplus_threshold,
+        },
+    )
+    if cached is not None:
+        return _decode_matrices(cached)
+    library = _require_local_scam()
     code = r'''
 args <- commandArgs(trailingOnly=TRUE)
 .libPaths(c(args[[1]], .libPaths()))
@@ -476,7 +572,7 @@ write_json(out, args[[9]], digits=17, auto_unbox=TRUE, null="null")
                 str(data_path),
                 formula,
                 family,
-                json.dumps(list(np.asarray(start, dtype=float).reshape(-1))),
+                json.dumps(start_values),
                 positive_transform,
                 str(softplus_beta),
                 str(softplus_threshold),
@@ -487,7 +583,9 @@ write_json(out, args[[9]], digits=17, auto_unbox=TRUE, null="null")
             capture_output=True,
             text=True,
         )
-        return _decode_matrices(json.loads(output_path.read_text(encoding="utf-8")))
+        result = json.loads(output_path.read_text(encoding="utf-8"))
+        save_reference("scam", key, result)
+        return _decode_matrices(result)
 
 
 def run_scam_ar1_fixed_fit(
@@ -500,9 +598,23 @@ def run_scam_ar1_fixed_fit(
     ar_start,
 ) -> dict:
     """Run fixed-SP Gaussian-identity SCAM with its AR(1) root transform."""
-    library = os.environ.get("SCAM_LIB_PATH")
-    if R_SCRIPT is None or not library:
-        pytest.skip("Rscript and SCAM_LIB_PATH are required for SCAM parity.")
+    sp_values = np.asarray(sp, dtype=float).reshape(-1).tolist()
+    start_values = np.asarray(start, dtype=float).reshape(-1).tolist()
+    ar_start_values = np.asarray(ar_start, dtype=bool).reshape(-1).tolist()
+    key, cached = _load_scam_reference(
+        "ar1_fixed_fit",
+        {
+            "data": data.to_csv(index=False),
+            "formula": formula,
+            "sp": sp_values,
+            "start": start_values,
+            "ar1_rho": ar1_rho,
+            "ar_start": ar_start_values,
+        },
+    )
+    if cached is not None:
+        return _decode_matrices(cached)
+    library = _require_local_scam()
     code = r'''
 args <- commandArgs(trailingOnly=TRUE)
 .libPaths(c(args[[1]], .libPaths()))
@@ -549,10 +661,10 @@ write_json(out, args[[8]], digits=17, auto_unbox=TRUE, null="null")
                 library,
                 str(data_path),
                 formula,
-                json.dumps(list(np.asarray(sp, dtype=float).reshape(-1))),
-                json.dumps(list(np.asarray(start, dtype=float).reshape(-1))),
+                json.dumps(sp_values),
+                json.dumps(start_values),
                 str(float(ar1_rho)),
-                json.dumps(np.asarray(ar_start, dtype=bool).reshape(-1).tolist()),
+                json.dumps(ar_start_values),
                 str(output_path),
             ),
             cwd=REPO_ROOT,
@@ -560,7 +672,9 @@ write_json(out, args[[8]], digits=17, auto_unbox=TRUE, null="null")
             capture_output=True,
             text=True,
         )
-        return _decode_matrices(json.loads(output_path.read_text(encoding="utf-8")))
+        result = json.loads(output_path.read_text(encoding="utf-8"))
+        save_reference("scam", key, result)
+        return _decode_matrices(result)
 
 
 __all__ = [

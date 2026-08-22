@@ -29,6 +29,8 @@ def main() -> None:
         errors.append("setup.py duplicates the pyproject.toml package metadata")
     if tracked := _tracked_existing_files("tests/mgcv_r_cache"):
         errors.append(f"generated mgcv cache files are tracked: {tracked[:3]}")
+    if tracked := _tracked_files("upstreams"):
+        errors.append(f"local upstream sources are tracked: {tracked[:3]}")
     if tracked := _tracked_existing_files("docs/api/generated"):
         errors.append(f"generated autosummary files are tracked: {tracked[:3]}")
 

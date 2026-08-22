@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install the tracked mgcv reference package into a repo-local R library."""
+"""Install a local mgcv reference clone into a repo-local R library."""
 
 from __future__ import annotations
 
@@ -10,17 +10,22 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "upstreams" / "mgcv"
+DEFAULT_SOURCE = ROOT / "upstreams" / "mgcv"
 DEFAULT_LIBRARY = ROOT / ".cache" / "mgcv-lib"
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--source", type=Path, default=DEFAULT_SOURCE)
     parser.add_argument("--library", type=Path, default=DEFAULT_LIBRARY)
     args = parser.parse_args()
 
-    if not SOURCE.is_dir():
-        parser.error(f"missing tracked mgcv source: {SOURCE}")
+    source = args.source if args.source.is_absolute() else ROOT / args.source
+    if not source.is_dir():
+        parser.error(
+            f"missing local mgcv source: {source}; choose an explicit checkout "
+            "with --source"
+        )
     r_command = shutil.which("R")
     if r_command is None:
         parser.error("R is required to install the mgcv reference package")
@@ -30,7 +35,7 @@ def main() -> int:
     env = os.environ.copy()
     env["R_LIBS_USER"] = str(library)
     subprocess.run(
-        [r_command, "CMD", "INSTALL", "-l", str(library), str(SOURCE)],
+        [r_command, "CMD", "INSTALL", "-l", str(library), str(source)],
         cwd=ROOT,
         env=env,
         check=True,

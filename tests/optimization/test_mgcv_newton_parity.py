@@ -13,6 +13,7 @@ import pytest
 from nampy.gam import GAM
 from nampy.gam.parity import build_optimizer_trace
 from tests._paths import PARITY_DIR, REPO_ROOT
+from tests.reference_fixtures import load_reference, reference_key, save_reference
 
 R_SCRIPT = shutil.which("Rscript")
 MGCV_TRACE_SCRIPT = PARITY_DIR / "mgcv_trace.R"
@@ -51,6 +52,19 @@ def _run_mgcv_trace(
     family: str,
     method: str,
 ):
+    key = reference_key(
+        "optimizer_trace",
+        {
+            "data": data.to_csv(index=False),
+            "formula": formula,
+            "family": family,
+            "method": method,
+            "select": False,
+        },
+    )
+    cached = load_reference("mgcv", key)
+    if cached is not None:
+        return cached
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
         csv_path = tmpdir_path / "data.csv"
@@ -72,7 +86,9 @@ def _run_mgcv_trace(
             capture_output=True,
             text=True,
         )
-        return json.loads(json_path.read_text(encoding="utf-8"))
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+        save_reference("mgcv", key, result)
+        return result
 
 
 def _fit_nampy_trace(

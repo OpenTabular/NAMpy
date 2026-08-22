@@ -40,6 +40,7 @@ from tests.mgcv_parity_utils import (
     _make_gaussian_data,
     _make_poisson_data,
 )
+from tests.reference_fixtures import load_reference, reference_key, save_reference
 
 R_SCRIPT = shutil.which("Rscript")
 MGCV_FIXED_SP_MAGIC_SCRIPT = PARITY_DIR / "mgcv_fixed_sp_magic.R"
@@ -50,11 +51,21 @@ pytestmark = [
     pytest.mark.method_fixed,
     pytest.mark.surface_derivatives,
     pytest.mark.surface_regression,
-    pytest.mark.skipif(R_SCRIPT is None, reason="Rscript required for mgcv parity"),
 ]
 
 
 def _run_r_parity_script(script_path: Path, data, *args):
+    key = reference_key(
+        "fixed_inner_fit",
+        {
+            "script": script_path.name,
+            "data": data.to_csv(index=False),
+            "args": list(args),
+        },
+    )
+    cached = load_reference("mgcv", key)
+    if cached is not None:
+        return cached
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
         csv_path = tmpdir_path / "data.csv"
@@ -67,7 +78,9 @@ def _run_r_parity_script(script_path: Path, data, *args):
             capture_output=True,
             text=True,
         )
-        return json.loads(json_path.read_text(encoding="utf-8"))
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+        save_reference("mgcv", key, result)
+        return result
 
 
 def _run_mgcv_magic_fixed_sp(data, formula: str, sp: np.ndarray):

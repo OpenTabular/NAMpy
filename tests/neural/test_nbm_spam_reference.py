@@ -1,4 +1,4 @@
-"""Direct parity checks against the vendored NBM-SPAM reference code."""
+"""Static parity checks against the NBM-SPAM reference implementation."""
 
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ from nampy.neural.architectures.spam import SPAM
 from nampy.neural.configs.nbm_config import DefaultNBMConfig
 from nampy.neural.configs.nbm_spam_config import DefaultNBMSPAMConfig
 from nampy.neural.configs.spam_config import DefaultSPAMConfig
+from tests.reference_fixtures import load_reference, reference_key, save_reference
 
 
 @lru_cache(maxsize=1)
@@ -93,12 +94,42 @@ def _copy_parameters(source, target) -> None:
             target_parameter.copy_(source_parameter)
 
 
-def _copy_dense_nbm(source, target: NBM) -> None:
-    for key, source_basis in source.bases_nary_models.items():
-        _copy_parameters(source_basis, target.core.bases_nary_models[key])
-    assert target.core.featurizer is not None
-    target.core.featurizer.load_state_dict(source.featurizer.state_dict())
-    target.classifier.load_state_dict(source.classifier.state_dict())
+def _encode_parameters(module) -> list:
+    return [parameter.detach().cpu().tolist() for parameter in module.parameters()]
+
+
+def _load_parameters(module, values) -> None:
+    parameters = list(module.parameters())
+    assert len(parameters) == len(values)
+    with torch.no_grad():
+        for parameter, value in zip(parameters, values, strict=True):
+            parameter.copy_(torch.as_tensor(value, dtype=parameter.dtype))
+
+
+def _encode_state(module) -> dict:
+    return {
+        name: value.detach().cpu().tolist()
+        for name, value in module.state_dict().items()
+    }
+
+
+def _load_state(module, values: dict) -> None:
+    current = module.state_dict()
+    module.load_state_dict(
+        {
+            name: torch.as_tensor(value, dtype=current[name].dtype)
+            for name, value in values.items()
+        }
+    )
+
+
+def _nbm_spam_fixture(operation: str, payload: dict, producer):
+    key = reference_key(operation, payload)
+    fixture = load_reference("nbm_spam", key)
+    if fixture is None:
+        fixture = producer()
+        save_reference("nbm_spam", key, fixture)
+    return fixture
 
 
 def test_nbm_defaults_use_pristine_pretab_block_contract():
@@ -142,18 +173,41 @@ def test_nbm_flattens_pristine_pretab_grouped_blocks_to_atomic_concepts():
 
 
 def test_dense_nbm_forward_features_penalty_and_gradients_match_upstream():
-    concept_nbm, _ = _upstream_modules()
-    upstream = concept_nbm.ConceptNBMNary(
-        num_concepts=3,
-        num_classes=2,
-        nary=[1, 2],
-        num_bases=4,
-        hidden_dims=(5,),
-        num_subnets=2,
-        dropout=0.0,
-        bases_dropout=0.0,
-        batchnorm=False,
-        output_penalty=0.3,
+    matrix_values = [[0.1, 0.4, 0.8], [0.7, 0.2, 0.3], [0.9, 0.6, 0.5]]
+
+    def produce():
+        concept_nbm, _ = _upstream_modules()
+        upstream = concept_nbm.ConceptNBMNary(
+            num_concepts=3,
+            num_classes=2,
+            nary=[1, 2],
+            num_bases=4,
+            hidden_dims=(5,),
+            num_subnets=2,
+            dropout=0.0,
+            bases_dropout=0.0,
+            batchnorm=False,
+            output_penalty=0.3,
+        )
+        matrix = torch.tensor(matrix_values, requires_grad=True)
+        output, features = upstream(matrix)
+        gradient = torch.autograd.grad(output.sum(), matrix)[0]
+        return {
+            "bases": {
+                key: _encode_parameters(module)
+                for key, module in upstream.bases_nary_models.items()
+            },
+            "featurizer": _encode_state(upstream.featurizer),
+            "classifier": _encode_state(upstream.classifier),
+            "output": output.detach().cpu().tolist(),
+            "features": features.detach().cpu().tolist(),
+            "gradient": gradient.detach().cpu().tolist(),
+        }
+
+    fixture = _nbm_spam_fixture(
+        "dense_nbm",
+        {"num_concepts": 3, "num_classes": 2, "nary": [1, 2], "seed": 0},
+        produce,
     )
     model = NBM(
         {},
@@ -170,13 +224,15 @@ def test_dense_nbm_forward_features_penalty_and_gradients_match_upstream():
             output_penalty=0.3,
         ),
     )
-    _copy_dense_nbm(upstream, model)
+    for key, values in fixture["bases"].items():
+        _load_parameters(model.core.bases_nary_models[key], values)
+    assert model.core.featurizer is not None
+    _load_state(model.core.featurizer, fixture["featurizer"])
+    _load_state(model.classifier, fixture["classifier"])
 
-    matrix = torch.tensor(
-        [[0.1, 0.4, 0.8], [0.7, 0.2, 0.3], [0.9, 0.6, 0.5]],
-        requires_grad=True,
-    )
-    upstream_output, upstream_features = upstream(matrix)
+    matrix = torch.tensor(matrix_values, requires_grad=True)
+    upstream_output = torch.tensor(fixture["output"])
+    upstream_features = torch.tensor(fixture["features"])
     result = model(_inputs(matrix), {})
 
     torch.testing.assert_close(model.core(matrix), upstream_features)
@@ -191,9 +247,8 @@ def test_dense_nbm_forward_features_penalty_and_gradients_match_upstream():
     )
     torch.testing.assert_close(result["output"], reconstruction)
 
-    upstream_gradient = torch.autograd.grad(upstream_output.sum(), matrix)[0]
     model_gradient = torch.autograd.grad(result["output"].sum(), matrix)[0]
-    torch.testing.assert_close(model_gradient, upstream_gradient)
+    torch.testing.assert_close(model_gradient, torch.tensor(fixture["gradient"]))
 
     model.eval()
     assert "output_penalty" not in model(_inputs(matrix.detach()), {})
@@ -234,18 +289,44 @@ def test_einsum_and_upstream_conv1d_featurizers_are_equivalent():
 
 
 def test_sparse_nbm_active_tuple_path_matches_upstream():
-    concept_nbm, _ = _upstream_modules()
-    upstream = concept_nbm.ConceptNBMNarySparse(
-        num_concepts=3,
-        num_classes=2,
-        nary=[1, 2],
-        num_bases=3,
-        hidden_dims=(4,),
-        dropout=0.0,
-        bases_dropout=0.0,
-        batchnorm=False,
-        output_penalty=0.2,
-        nary_ignore_input=0.0,
+    matrix_values = [[0.0, 0.4, 0.0], [0.7, 0.0, 0.3], [0.0, 0.0, 0.0]]
+
+    def produce():
+        concept_nbm, _ = _upstream_modules()
+        upstream = concept_nbm.ConceptNBMNarySparse(
+            num_concepts=3,
+            num_classes=2,
+            nary=[1, 2],
+            num_bases=3,
+            hidden_dims=(4,),
+            dropout=0.0,
+            bases_dropout=0.0,
+            batchnorm=False,
+            output_penalty=0.2,
+            nary_ignore_input=0.0,
+        )
+        output, features = upstream(torch.tensor(matrix_values))
+        return {
+            "bases": {
+                str(order): _encode_parameters(module)
+                for order, module in upstream.bases_nary_models.items()
+            },
+            "featurizers": {
+                str(order): {
+                    "weight": values["weight"].detach().cpu().tolist(),
+                    "bias": values["bias"].detach().cpu().tolist(),
+                }
+                for order, values in upstream.featurizer_params.items()
+            },
+            "classifier": _encode_state(upstream.classifier),
+            "output": output.detach().cpu().tolist(),
+            "features": features.detach().cpu().tolist(),
+        }
+
+    fixture = _nbm_spam_fixture(
+        "sparse_nbm",
+        {"num_concepts": 3, "num_classes": 2, "nary": [1, 2], "seed": 0},
+        produce,
     )
     model = NBM(
         {},
@@ -263,21 +344,21 @@ def test_sparse_nbm_active_tuple_path_matches_upstream():
             nary_ignore_input=0.0,
         ),
     )
-    for order, source_basis in upstream.bases_nary_models.items():
-        _copy_parameters(source_basis, model.core.bases_nary_models[f"ord{order}_net0"])
+    for order_text, values in fixture["bases"].items():
+        order = int(order_text)
+        _load_parameters(model.core.bases_nary_models[f"ord{order}_net0"], values)
         with torch.no_grad():
-            model.core.featurizer_params[order]["weight"].copy_(
-                upstream.featurizer_params[order]["weight"]
+            model.core.featurizer_params[order_text]["weight"].copy_(
+                torch.tensor(fixture["featurizers"][order_text]["weight"])
             )
-            model.core.featurizer_params[order]["bias"].copy_(
-                upstream.featurizer_params[order]["bias"]
+            model.core.featurizer_params[order_text]["bias"].copy_(
+                torch.tensor(fixture["featurizers"][order_text]["bias"])
             )
-    model.classifier.load_state_dict(upstream.classifier.state_dict())
+    _load_state(model.classifier, fixture["classifier"])
 
-    matrix = torch.tensor(
-        [[0.0, 0.4, 0.0], [0.7, 0.0, 0.3], [0.0, 0.0, 0.0]]
-    )
-    upstream_output, upstream_features = upstream(matrix)
+    matrix = torch.tensor(matrix_values)
+    upstream_output = torch.tensor(fixture["output"])
+    upstream_features = torch.tensor(fixture["features"])
     result = model(_inputs(matrix), {})
     torch.testing.assert_close(model.core(matrix), upstream_features)
     torch.testing.assert_close(result["output"], upstream_output)
@@ -309,15 +390,33 @@ def test_sparse_nbm_defines_all_ignored_batches_and_rejects_subnet_ambiguity():
 
 
 def test_spam_forward_and_regularizers_match_upstream():
-    _, concept_spam = _upstream_modules()
-    upstream = concept_spam.ConceptSPAM(
-        num_concepts=3,
-        num_classes=2,
-        ranks=[3, 2],
-        dropout=0.0,
-        reg_order=2,
-        lower_order_correction=True,
-        use_geometric_mean=True,
+    matrix_values = [[0.1, 0.4, 0.8], [0.7, 0.2, 0.3], [0.9, 0.6, 0.5]]
+
+    def produce():
+        _, concept_spam = _upstream_modules()
+        upstream = concept_spam.ConceptSPAM(
+            num_concepts=3,
+            num_classes=2,
+            ranks=[3, 2],
+            dropout=0.0,
+            reg_order=2,
+            lower_order_correction=True,
+            use_geometric_mean=True,
+        )
+        return {
+            "poly_weights": [_encode_state(module) for module in upstream.poly_weights],
+            "classifier": _encode_state(upstream.classifier),
+            "output": upstream(torch.tensor(matrix_values)).detach().cpu().tolist(),
+            "tensor_regularization": float(upstream.tensor_regularization().detach()),
+            "basis_l1_regularization": float(
+                upstream.basis_l1_regularization().detach()
+            ),
+        }
+
+    fixture = _nbm_spam_fixture(
+        "spam_forward",
+        {"num_concepts": 3, "num_classes": 2, "ranks": [3, 2], "seed": 0},
+        produce,
     )
     model = SPAM(
         {},
@@ -333,56 +432,66 @@ def test_spam_forward_and_regularizers_match_upstream():
             basis_l1_regularization=0.2,
         ),
     )
-    for source, target in zip(
-        upstream.poly_weights, model.core.poly_weights, strict=True
-    ):
-        target.load_state_dict(source.state_dict())
-    model.core.classifier.load_state_dict(upstream.classifier.state_dict())
+    for source, target in zip(fixture["poly_weights"], model.core.poly_weights, strict=True):
+        _load_state(target, source)
+    _load_state(model.core.classifier, fixture["classifier"])
 
-    matrix = torch.tensor(
-        [[0.1, 0.4, 0.8], [0.7, 0.2, 0.3], [0.9, 0.6, 0.5]]
-    )
+    matrix = torch.tensor(matrix_values)
     result = model(_inputs(matrix), {})
-    torch.testing.assert_close(result["output"], upstream(matrix))
+    torch.testing.assert_close(result["output"], torch.tensor(fixture["output"]))
     torch.testing.assert_close(
-        result["tensor_regularizer"], 0.4 * upstream.tensor_regularization()
+        result["tensor_regularizer"],
+        torch.tensor(0.4 * fixture["tensor_regularization"]),
     )
     torch.testing.assert_close(
         result["basis_l1_regularizer"],
-        0.2 * upstream.basis_l1_regularization(),
+        torch.tensor(0.2 * fixture["basis_l1_regularization"]),
     )
 
 
 def test_spam_quadratic_local_importance_matches_upstream():
-    _, concept_spam = _upstream_modules()
-    upstream = concept_spam.ConceptSPAM(
-        num_concepts=3, num_classes=1, ranks=[4], dropout=0.0
-    ).eval()
+    row = torch.tensor([0.2, 0.5, 0.9])
+
+    def produce():
+        _, concept_spam = _upstream_modules()
+        upstream = concept_spam.ConceptSPAM(
+            num_concepts=3, num_classes=1, ranks=[4], dropout=0.0
+        ).eval()
+        upstream_index, upstream_value = upstream.get_importance(
+            row, target=0, top_k=1
+        )[0]
+        upstream_term = (
+            (upstream_index,)
+            if upstream_index < 3
+            else list(combinations(range(3), 2))[upstream_index - 3]
+        )
+        return {
+            "poly_weights": [_encode_state(module) for module in upstream.poly_weights],
+            "classifier": _encode_state(upstream.classifier),
+            "term": list(upstream_term),
+            "value": float(upstream_value),
+        }
+
+    fixture = _nbm_spam_fixture(
+        "spam_local_importance",
+        {"num_concepts": 3, "num_classes": 1, "ranks": [4], "seed": 0},
+        produce,
+    )
     model = SPAM(
         {},
         _info(3),
         config=DefaultSPAMConfig(ranks=[4], dropout=0.0),
     ).eval()
-    for source, target in zip(
-        upstream.poly_weights, model.core.poly_weights, strict=True
-    ):
-        target.load_state_dict(source.state_dict())
-    model.core.classifier.load_state_dict(upstream.classifier.state_dict())
+    for source, target in zip(fixture["poly_weights"], model.core.poly_weights, strict=True):
+        _load_state(target, source)
+    _load_state(model.core.classifier, fixture["classifier"])
 
-    row = torch.tensor([0.2, 0.5, 0.9])
-    upstream_index, upstream_value = upstream.get_importance(
-        row, target=0, top_k=1
-    )[0]
-    if upstream_index < 3:
-        upstream_term = (upstream_index,)
-    else:
-        upstream_term = list(combinations(range(3), 2))[upstream_index - 3]
     actual_term, actual_value = model.core.local_term_importance(
         row.unsqueeze(0), target=0, top_k=1
     )[0][0]
 
-    assert actual_term == upstream_term
-    assert actual_value == pytest.approx(upstream_value)
+    assert actual_term == tuple(fixture["term"])
+    assert actual_value == pytest.approx(fixture["value"])
 
 
 def test_spam_proximal_projection_and_training_only_penalties():
@@ -413,20 +522,41 @@ def test_spam_proximal_projection_and_training_only_penalties():
 
 
 def test_nbm_spam_hybrid_matches_upstream_block_assembly():
-    concept_nbm, _ = _upstream_modules()
     polynomial = {"ranks": [3], "dropout": 0.0}
-    upstream = concept_nbm.ConceptNBMNary(
-        num_concepts=3,
-        num_classes=2,
-        nary=None,
-        num_bases=4,
-        hidden_dims=(5,),
-        num_subnets=1,
-        dropout=0.0,
-        bases_dropout=0.0,
-        batchnorm=False,
-        output_penalty=0.2,
-        polynomial=polynomial,
+    matrix_values = [[0.1, 0.4, 0.8], [0.7, 0.2, 0.3], [0.9, 0.6, 0.5]]
+
+    def produce():
+        concept_nbm, _ = _upstream_modules()
+        upstream = concept_nbm.ConceptNBMNary(
+            num_concepts=3,
+            num_classes=2,
+            nary=None,
+            num_bases=4,
+            hidden_dims=(5,),
+            num_subnets=1,
+            dropout=0.0,
+            bases_dropout=0.0,
+            batchnorm=False,
+            output_penalty=0.2,
+            polynomial=polynomial,
+        )
+        output, features = upstream(torch.tensor(matrix_values))
+        return {
+            "bases": {
+                key: _encode_parameters(module)
+                for key, module in upstream.bases_nary_models.items()
+            },
+            "featurizer": _encode_state(upstream.featurizer),
+            "linear_head": _encode_state(upstream._spam[0]),
+            "polynomial_head": _encode_parameters(upstream._spam[1]),
+            "output": output.detach().cpu().tolist(),
+            "features": features.detach().cpu().tolist(),
+        }
+
+    fixture = _nbm_spam_fixture(
+        "nbm_spam_hybrid",
+        {"num_concepts": 3, "num_classes": 2, "ranks": [3], "seed": 0},
+        produce,
     )
     model = NBMSPAM(
         {},
@@ -443,16 +573,15 @@ def test_nbm_spam_hybrid_matches_upstream_block_assembly():
             output_penalty=0.2,
         ),
     )
-    for key, source_basis in upstream.bases_nary_models.items():
-        _copy_parameters(source_basis, model.core.bases_nary_models[key])
-    model.core.featurizer.load_state_dict(upstream.featurizer.state_dict())
-    model.linear_head.load_state_dict(upstream._spam[0].state_dict())
-    _copy_parameters(upstream._spam[1], model.polynomial_heads[0])
+    for key, values in fixture["bases"].items():
+        _load_parameters(model.core.bases_nary_models[key], values)
+    _load_state(model.core.featurizer, fixture["featurizer"])
+    _load_state(model.linear_head, fixture["linear_head"])
+    _load_parameters(model.polynomial_heads[0], fixture["polynomial_head"])
 
-    matrix = torch.tensor(
-        [[0.1, 0.4, 0.8], [0.7, 0.2, 0.3], [0.9, 0.6, 0.5]]
-    )
-    upstream_output, upstream_features = upstream(matrix)
+    matrix = torch.tensor(matrix_values)
+    upstream_output = torch.tensor(fixture["output"])
+    upstream_features = torch.tensor(fixture["features"])
     result = model(_inputs(matrix), {})
     torch.testing.assert_close(model.core(matrix), upstream_features)
     torch.testing.assert_close(result["output"], upstream_output)

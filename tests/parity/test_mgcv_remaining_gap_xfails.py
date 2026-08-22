@@ -49,6 +49,7 @@ from tests.mgcv_parity_utils import (
 from tests.mgcv_parity_utils import _make_negbin_data as _coverage_make_negbin_data
 from tests.mgcv_parity_utils import _make_poisson_data as _coverage_make_poisson_data
 from tests.mgcv_parity_utils import _run_mgcv_snapshot as _coverage_run_mgcv_snapshot
+from tests.reference_fixtures import load_reference, reference_key, save_reference
 
 R_SCRIPT = shutil.which("Rscript")
 
@@ -60,6 +61,12 @@ def _build_formula_only(formula, data: pd.DataFrame):
 
 
 def _run_mgcv_random_effect_id_error(data: pd.DataFrame):
+    key = reference_key(
+        "random_effect_id_error", {"data": data.to_csv(index=False)}
+    )
+    cached = load_reference("mgcv", key)
+    if cached is not None:
+        return cached
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
         csv_path = tmpdir_path / "data.csv"
@@ -91,7 +98,9 @@ write_json(payload, args[[2]], auto_unbox = TRUE, digits = 17)
             capture_output=True,
             text=True,
         )
-        return json.loads(json_path.read_text(encoding="utf-8"))
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+        save_reference("mgcv", key, result)
+        return result
 
 
 def test_formula_dot_shorthand_builds_with_data_context():
@@ -204,7 +213,6 @@ def test_general_family_formula_multi_predictor_offsets_predict_with_defaults():
     assert_allclose(eta_default[:, 1] - eta_zero[:, 1], o2, atol=1e-10, rtol=1e-10)
 
 
-@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript required for mgcv parity")
 def test_random_effect_id_linkage_is_explicitly_unsupported_like_mgcv():
     """
     Known-gap coverage verifying that random effect id linkage is explicitly unsupported

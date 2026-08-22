@@ -18,21 +18,21 @@ import pytest
 from tests._paths import REPO_ROOT
 from tests.mgcv_parity_utils import (
     _build_r_command,
-    _df_cache_repr,
+    _df_fixture_repr,
     _family_specs,
     _fit_nampy_model,
     _make_gaussian_data,
     _make_negbin_data,
     _make_poisson_data,
-    _mgcv_cache_key,
-    _mgcv_cache_load,
-    _mgcv_cache_save,
+    _mgcv_fixture_key,
+    _mgcv_fixture_load,
+    _mgcv_fixture_save,
     _run_mgcv_anova,
 )
 
 pytestmark = [pytest.mark.surface_output]
 
-_ANOVA_OPTIONS_CACHE_VERSION = 1
+_ANOVA_OPTIONS_FIXTURE_VERSION = 1
 
 _GAUSSIAN_FORMULAS = [
     'y ~ s(x0, bs="cr", k=8)',
@@ -66,11 +66,11 @@ def _run_mgcv_anova_options(
     """anova.gam reference with dispersion= / freq= (not in mgcv_anova.R)."""
     _family_nampy, family_token = _family_specs(family)
     formula_texts = [str(formula) for formula in list(formulas)]
-    cache_key = _mgcv_cache_key(
+    cache_key = _mgcv_fixture_key(
         "anova_options",
         {
-            "version": _ANOVA_OPTIONS_CACHE_VERSION,
-            "data": _df_cache_repr(data),
+            "version": _ANOVA_OPTIONS_FIXTURE_VERSION,
+            "data": _df_fixture_repr(data),
             "formulas": formula_texts,
             "family_token": family_token,
             "method": method,
@@ -79,7 +79,7 @@ def _run_mgcv_anova_options(
             "freq": freq,
         },
     )
-    cached = _mgcv_cache_load(cache_key)
+    cached = _mgcv_fixture_load(cache_key)
     if cached is not None:
         return cached
 
@@ -159,7 +159,7 @@ write_json(payload, out, auto_unbox = TRUE, digits = 17, null = "null")
         )
         result = json.loads(json_path.read_text(encoding="utf-8"))
 
-    _mgcv_cache_save(cache_key, result)
+    _mgcv_fixture_save(cache_key, result)
     return result
 
 

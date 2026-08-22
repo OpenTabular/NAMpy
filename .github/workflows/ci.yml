@@ -11,8 +11,6 @@ jobs:
   test:
     name: Test Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
-    env:
-      MGCV_LIB_PATH: ${{ github.workspace }}/.cache/mgcv-lib
     strategy:
       fail-fast: false
       matrix:
@@ -32,28 +30,12 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
 
-    - name: Set up R
-      uses: r-lib/actions/setup-r@v2
-      with:
-        r-version: "4.5.3"
-        use-public-rspm: true
-
-    - name: Install R test dependencies
-      uses: r-lib/actions/setup-r-dependencies@v2
-      with:
-        packages: any::jsonlite
-
-    - name: Install vendored mgcv
-      run: python scripts/install_mgcv_reference.py
-
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -e ".[all,dev]"
 
-    - name: Run tests
-      env:
-        MGCV_CACHE_ONLY: "0"
+    - name: Run tests from static upstream fixtures
       run: |
         pytest tests/ --cov=nampy --cov-report=xml --cov-report=term-missing
 
@@ -73,9 +55,6 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-    env:
-      MGCV_CACHE_ONLY: "0"
-
     steps:
     - uses: actions/checkout@v4
 
@@ -84,20 +63,6 @@ jobs:
       with:
         python-version: "3.11"
         cache: 'pip'
-
-    - name: Set up R
-      uses: r-lib/actions/setup-r@v2
-      with:
-        r-version: "4.5.3"
-        use-public-rspm: true
-
-    - name: Install R test dependencies
-      uses: r-lib/actions/setup-r-dependencies@v2
-      with:
-        packages: any::jsonlite
-
-    - name: Install vendored mgcv
-      run: python scripts/install_mgcv_reference.py
 
     - name: Install dependencies
       run: |

@@ -24,6 +24,7 @@ from tests.families.test_general_family_mgcv_parity import (
     _gaulss_data,
 )
 from tests.mgcv_parity_utils import _family_specs, _fit_nampy_model_fixed_sp
+from tests.reference_fixtures import load_reference, reference_key, save_reference
 
 R_SCRIPT = shutil.which("Rscript")
 MGCV_GENERAL_PREOPT_SCRIPT = PARITY_DIR / "mgcv_general_family_preoptimization.R"
@@ -35,6 +36,21 @@ def _run_mgcv_general_preoptimization(
 ):
     family_nampy, family_token = _family_specs(family)
     del family_nampy
+    sp_values = None if sp is None else np.asarray(sp, dtype=np.float64).tolist()
+    key = reference_key(
+        "general_family_preoptimization",
+        {
+            "data": data.to_csv(index=False),
+            "formula": str(formula),
+            "family": family_token,
+            "method": method,
+            "select": select,
+            "sp": sp_values,
+        },
+    )
+    cached = load_reference("mgcv", key)
+    if cached is not None:
+        return cached
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
@@ -52,7 +68,7 @@ def _run_mgcv_general_preoptimization(
             "true" if select else "false",
         ]
         if sp is not None:
-            command.append(json.dumps(np.asarray(sp, dtype=np.float64).tolist()))
+            command.append(json.dumps(sp_values))
         subprocess.run(
             command,
             check=True,
@@ -60,12 +76,27 @@ def _run_mgcv_general_preoptimization(
             capture_output=True,
             text=True,
         )
-        return json.loads(json_path.read_text(encoding="utf-8"))
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+        save_reference("mgcv", key, result)
+        return result
 
 
 def _run_mgcv_initial_spg(data, formula, family, method, *, select=False):
     family_nampy, family_token = _family_specs(family)
     del family_nampy
+    key = reference_key(
+        "initial_spg",
+        {
+            "data": data.to_csv(index=False),
+            "formula": str(formula),
+            "family": family_token,
+            "method": method,
+            "select": select,
+        },
+    )
+    cached = load_reference("mgcv", key)
+    if cached is not None:
+        return cached
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
@@ -88,7 +119,9 @@ def _run_mgcv_initial_spg(data, formula, family, method, *, select=False):
             capture_output=True,
             text=True,
         )
-        return json.loads(json_path.read_text(encoding="utf-8"))
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+        save_reference("mgcv", key, result)
+        return result
 
 
 def _as_matrix(value):

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install the tracked SCAM reference package into a repo-local R library."""
+"""Install a local SCAM reference clone into a repo-local R library."""
 
 from __future__ import annotations
 
@@ -20,7 +20,9 @@ def main() -> int:
     args = parser.parse_args()
 
     if not SOURCE.is_dir():
-        parser.error(f"missing tracked SCAM source: {SOURCE}")
+        parser.error(
+            f"missing local SCAM source: {SOURCE}; run scripts/fetch_upstreams.py"
+        )
     r_command = shutil.which("R")
     if r_command is None:
         parser.error("R is required to install the SCAM reference package")

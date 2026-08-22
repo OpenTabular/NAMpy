@@ -193,9 +193,6 @@ claude_review*.md
 nampy_review.md
 neural_review.md
 
-# Upstream reference clones are fetched locally from upstreams/manifest.json.
-# The tracked vendored mgcv source is explicitly kept visible.
-/upstreams/*/
-!/upstreams/mgcv/
-!/upstreams/mgcv/**
-/upstreams/lock.json
+# Upstream reference sources are local-only development inputs. Static parity
+# fixtures are committed under tests/reference_fixtures instead.
+/upstreams/

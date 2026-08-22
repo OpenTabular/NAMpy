@@ -15,8 +15,8 @@ Run the static gates with ``ruff check nampy tests`` and ``mypy nampy``. Tests
 should use the smallest relevant pytest slice; the full suite is not the default
 development command.
 
-Work under ``nampy/gam/`` must reproduce the vendored upstream ``mgcv`` behavior.
-Start from a targeted parity test and the corresponding vendored R/C routine, and
+Work under ``nampy/gam/`` must reproduce upstream ``mgcv`` behavior.
+Start from a targeted parity test and the corresponding local R/C routine, and
 do not introduce approximate or heuristic fallbacks for unsupported behavior.
 
 The complete workflow, test policy, and pull-request checklist are in
