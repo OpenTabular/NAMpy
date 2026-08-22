@@ -6,7 +6,13 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import pytest
-import torch
+
+try:
+    import torch
+except ModuleNotFoundError as exc:
+    if exc.name != "torch":
+        raise
+    torch = None
 
 from tests._paths import REPO_ROOT
 from tests._taxonomy_registry import (
@@ -34,7 +40,8 @@ if _REFERENCE_SCAM_LIBRARY.is_dir():
 @pytest.fixture(autouse=True)
 def _set_seeds():
     np.random.seed(0)
-    torch.manual_seed(0)
+    if torch is not None:
+        torch.manual_seed(0)
 
 
 @pytest.fixture
