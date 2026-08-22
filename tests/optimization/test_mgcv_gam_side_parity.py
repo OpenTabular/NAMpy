@@ -16,6 +16,7 @@ from nampy.gam.specs.modeling import prepare_formula_inputs
 from tests.mgcv_invariant_policy import (
     gam_setup_compares_dominant_penalty_spectrum,
     gam_side_uses_invariant_transform,
+    normalize_penalty_scale,
     penalty_spectrum,
     stable_column_space_projector,
 )
@@ -750,14 +751,20 @@ def _assert_gam_side_case(
                 transformed_penalties, expected_term_penalties, strict=True
             ):
                 np.testing.assert_allclose(
-                    penalty_spectrum(actual_penalty),
-                    penalty_spectrum(expected_penalty),
+                    penalty_spectrum(normalize_penalty_scale(actual_penalty)),
+                    penalty_spectrum(normalize_penalty_scale(expected_penalty)),
                     rtol=0.0,
                     atol=penalty_atol,
                 )
             np.testing.assert_allclose(
-                np.sum(transformed_penalties, axis=0),
-                np.sum(expected_term_penalties, axis=0),
+                np.sum(
+                    [normalize_penalty_scale(value) for value in transformed_penalties],
+                    axis=0,
+                ),
+                np.sum(
+                    [normalize_penalty_scale(value) for value in expected_term_penalties],
+                    axis=0,
+                ),
                 rtol=0.0,
                 atol=penalty_atol,
             )

@@ -81,14 +81,9 @@ REQUESTED_PARITY_TRACKED_MODEL_CASES: list[CaseSpec] = [
 REQUESTED_PARITY_FAILING_OR_WARNING_CASES = REQUESTED_PARITY_TRACKED_MODEL_CASES
 
 
-def _parametrize_requested_parity_failing_cases():
-    for c in REQUESTED_PARITY_TRACKED_MODEL_CASES:
-        yield c
-
-
 @pytest.mark.parametrize(
     "case",
-    _parametrize_requested_parity_failing_cases(),
+    REQUESTED_PARITY_TRACKED_MODEL_CASES,
     ids=[c.case_id for c in REQUESTED_PARITY_TRACKED_MODEL_CASES],
 )
 def test_requested_mgcv_parity_tracked_model_cases(case: CaseSpec):

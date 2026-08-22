@@ -5,7 +5,10 @@ import pandas as pd
 import pytest
 
 from nampy.gam.linalg import matrix_self_gram
-from tests.mgcv_invariant_policy import lpmatrix_uses_invariant_comparison
+from tests.mgcv_invariant_policy import (
+    center_term_contributions,
+    lpmatrix_uses_invariant_comparison,
+)
 from tests.mgcv_parity_utils import (
     _fit_nampy_model,
     _fit_nampy_model_fixed_sp,
@@ -796,6 +799,13 @@ def test_output_parity_terms(case, return_se):
     assert actual_terms.ndim == expected_terms.ndim == 2
     assert actual_terms.shape == expected_terms.shape
     assert np.atleast_1d(r_result["term_names"]).size == actual_terms.shape[1]
+
+    # smooth.construct.fs.smooth.spec leaves the two-dimensional TP null-space
+    # orientation to LAPACK.  The resulting intercept/term split is a gauge;
+    # the centered factor-smooth contribution is identified.
+    if case["case_id"] == "fs":
+        actual_terms = center_term_contributions(actual_terms)
+        expected_terms = center_term_contributions(expected_terms)
 
     np.testing.assert_allclose(
         actual_terms,

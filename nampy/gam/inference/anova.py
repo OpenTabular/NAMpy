@@ -481,7 +481,10 @@ def _smooth_test_stat(
             )
         else:
             pval = 0.5 * (float(chi2.sf(d, rank1)) + float(chi2.sf(d1, rank1)))
-    return d, rank1, min(max(pval, 0.0), 1.0)
+    # mgcv/R/mgcv.r::testStat() only caps the upper tail.  In particular, it
+    # preserves the tiny negative qfc artifacts that can occur at the edge of
+    # its numerical tolerance instead of silently changing the reported value.
+    return d, rank1, min(pval, 1.0)
 
 
 def _term_table(

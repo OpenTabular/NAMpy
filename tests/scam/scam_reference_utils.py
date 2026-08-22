@@ -16,6 +16,7 @@ from tests.mgcv_parity_utils import R_SCRIPT, _build_r_command
 from tests.reference_fixtures import (
     REFRESH_ENV,
     load_reference,
+    portable_dataframe_repr,
     reference_key,
     refresh_enabled,
     save_reference,
@@ -354,7 +355,7 @@ def run_scam_fixed_sp_fit(
     key, cached = _load_scam_reference(
         "fixed_sp_fit",
         {
-            "data": data.to_csv(index=False),
+            "data": portable_dataframe_repr(data),
             "formula": formula,
             "family": family,
             "sp": sp_values,

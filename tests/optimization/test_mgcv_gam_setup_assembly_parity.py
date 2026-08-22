@@ -16,6 +16,7 @@ from nampy.gam.linalg import matrix_self_gram
 from tests.mgcv_invariant_policy import (
     gam_setup_compares_dominant_penalty_spectrum,
     gam_setup_uses_invariant_transform,
+    normalize_penalty_scale,
     penalized_response_operator,
     penalty_spectrum,
 )
@@ -562,9 +563,14 @@ def _assert_gam_setup_assembly_case(case_id, data, formula, family, method, *, s
             T_local.T @ np.asarray(actual_penalty, dtype=np.float64) @ T_local
         )
         if use_transform:
+            actual_for_spectrum = actual_penalty
+            expected_for_spectrum = expected_penalty
+            if case_id == "gaussian_fs":
+                actual_for_spectrum = normalize_penalty_scale(actual_for_spectrum)
+                expected_for_spectrum = normalize_penalty_scale(expected_for_spectrum)
             np.testing.assert_allclose(
-                penalty_spectrum(actual_penalty),
-                penalty_spectrum(expected_penalty),
+                penalty_spectrum(actual_for_spectrum),
+                penalty_spectrum(expected_for_spectrum),
                 rtol=1e-12,
                 atol=penalty_atol,
             )
@@ -590,15 +596,24 @@ def _assert_gam_setup_assembly_case(case_id, data, formula, family, method, *, s
             )
 
     if use_transform:
+        actual_operator_penalties = actual_setup.S
+        expected_operator_penalties = expected_S
+        if case_id == "gaussian_fs":
+            actual_operator_penalties = [
+                normalize_penalty_scale(penalty) for penalty in actual_setup.S
+            ]
+            expected_operator_penalties = [
+                normalize_penalty_scale(penalty) for penalty in expected_S
+            ]
         np.testing.assert_allclose(
             penalized_response_operator(
                 actual_X,
-                actual_setup.S,
+                actual_operator_penalties,
                 offsets=actual_setup.off,
             ),
             penalized_response_operator(
                 expected_X,
-                expected_S,
+                expected_operator_penalties,
                 offsets=expected["off"],
             ),
             rtol=0.0,

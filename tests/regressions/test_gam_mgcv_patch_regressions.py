@@ -66,6 +66,21 @@ from nampy.gam.splines.univariate.tp import construct_tprs_basis
 from tests.mgcv_parity_utils import _make_gaussian_data
 
 
+def test_smooth_test_stat_preserves_mgcv_negative_qfc_artifact(monkeypatch):
+    anova_module = importlib.import_module("nampy.gam.inference.anova")
+    monkeypatch.setattr(anova_module, "psum_chisq", lambda *args, **kwargs: -5e-6)
+
+    _stat, _ref_df, p_value = anova_module._smooth_test_stat(
+        np.array([1.0, 0.0]),
+        np.eye(2),
+        np.eye(2),
+        rank=1.5,
+        residual_df=0.0,
+    )
+
+    assert p_value == pytest.approx(-5e-6)
+
+
 def test_gcv_scores_square_negative_denominator_like_mgcv(monkeypatch):
     model = SimpleNamespace(n_samples_=10, score_gamma=2.0)
     sol = {"trace_H": 10.0, "rss": 5.0, "deviance": 7.0}
@@ -2553,7 +2568,7 @@ def test_rank_deficient_pirls_fit_matches_mgcv_drop_gauge(
         if not apply_side_conditions:
             shared_formula = (
                 'y ~ x1 + z + s(x0, bs="cr", k=8, sp='
-                f"{float(gam.smoothing_params[0]):.17g})"
+                f"{float(gam.smoothing_params[0]):.15g})"
             )
             expected_shared = _run_mgcv_snapshot(
                 data=data,

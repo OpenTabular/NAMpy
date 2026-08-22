@@ -162,6 +162,34 @@ def penalized_response_operator(design, penalties, *, offsets=None) -> np.ndarra
     return np.asarray(X @ np.linalg.pinv(precision, hermitian=True) @ X.T)
 
 
+def normalize_penalty_scale(matrix) -> np.ndarray:
+    """Remove an arbitrary positive scalar from a symmetric penalty.
+
+    This is needed for default ``fs`` smooths only. ``mgcv::nat.param`` leaves
+    the repeated null eigenspace orientation to LAPACK, while ``smoothCon``
+    subsequently uses an orientation-dependent row-sum norm to scale every
+    factor-smooth penalty. The represented penalty subspace is identified; its
+    common scalar is not portable across LAPACK builds.
+    """
+    mat = np.asarray(matrix, dtype=np.float64)
+    if mat.size == 0:
+        return mat.copy()
+    symmetric = 0.5 * (mat + mat.T)
+    eigenvalues = np.linalg.eigvalsh(symmetric)
+    scale = float(np.max(np.abs(eigenvalues))) if eigenvalues.size else 0.0
+    if scale == 0.0:
+        return symmetric
+    return np.asarray(symmetric / scale, dtype=np.float64)
+
+
+def center_term_contributions(matrix) -> np.ndarray:
+    """Remove the non-identifiable intercept gauge from term contributions."""
+    values = np.asarray(matrix, dtype=np.float64)
+    if values.ndim != 2:
+        raise ValueError("term contributions must be a 2D matrix.")
+    return np.asarray(values - np.mean(values, axis=0, keepdims=True))
+
+
 def _copy_raw_value(value):
     if isinstance(value, np.ndarray):
         return np.asarray(value).copy()
@@ -303,6 +331,7 @@ __all__ = [
     "gam_setup_uses_invariant_transform",
     "gam_side_uses_invariant_transform",
     "lpmatrix_uses_invariant_comparison",
+    "normalize_penalty_scale",
     "penalized_response_operator",
     "preoptimization_blocks_align_basis_columns",
     "preoptimization_blocks_compare_range_root_representation",

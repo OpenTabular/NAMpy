@@ -160,7 +160,10 @@ def test_numeric_by_shape_compilation_matches_scam(
     np.testing.assert_allclose(
         compiled.compiled_penalties[0].matrix,
         expected["S"][0],
-        rtol=0.0,
+        # The largest entries are ~4e2. Keep the comparison within two ulps
+        # across BLAS builds while retaining the existing absolute floor near
+        # zero.
+        rtol=4e-16,
         atol=3e-14,
     )
     np.testing.assert_array_equal(
