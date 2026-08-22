@@ -1,0 +1,6 @@
+﻿nampy.neural.configs.DefaultNAMformerConfig
+===========================================
+
+.. currentmodule:: nampy.neural.configs
+
+.. autoclass:: DefaultNAMformerConfig

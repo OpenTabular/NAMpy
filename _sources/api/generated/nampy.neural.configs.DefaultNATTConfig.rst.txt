@@ -1,0 +1,6 @@
+﻿nampy.neural.configs.DefaultNATTConfig
+======================================
+
+.. currentmodule:: nampy.neural.configs
+
+.. autoclass:: DefaultNATTConfig

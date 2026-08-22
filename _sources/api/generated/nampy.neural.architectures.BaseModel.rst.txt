@@ -1,0 +1,6 @@
+﻿nampy.neural.architectures.BaseModel
+====================================
+
+.. currentmodule:: nampy.neural.architectures
+
+.. autoclass:: BaseModel

@@ -1,0 +1,6 @@
+﻿nampy.neural.configs.DefaultTreeNAMConfig
+=========================================
+
+.. currentmodule:: nampy.neural.configs
+
+.. autoclass:: DefaultTreeNAMConfig

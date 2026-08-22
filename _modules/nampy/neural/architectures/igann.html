@@ -1,0 +1,1361 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>nampy.neural.architectures.igann &mdash; nampy 0.2.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/custom.css?v=ea57e989" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=938c9ccc"></script>
+      <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            nampy
+              <img src="../../../../_static/logo.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../installation.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../installation.html#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../installation.html#installation-methods">Installation Methods</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../installation.html#from-pypi-recommended">From PyPI (Recommended)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../installation.html#from-source">From Source</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../installation.html#from-github">From GitHub</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../installation.html#development-installation">Development Installation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../installation.html#verifying-installation">Verifying Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../installation.html#gpu-support">GPU Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../installation.html#getting-help">Getting Help</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart.html">Quick Start Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../quickstart.html#basic-workflow">Basic Workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../quickstart.html#regression-example">Regression Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../quickstart.html#classification-example">Classification Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../quickstart.html#distributional-regression-lss">Distributional Regression (LSS)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../quickstart.html#working-with-dataframes">Working with DataFrames</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../quickstart.html#preprocessing-options">Preprocessing Options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../quickstart.html#model-configurations">Model Configurations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../quickstart.html#integration-with-scikit-learn">Integration with scikit-learn</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../quickstart.html#saving-and-loading-models">Saving and Loading Models</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../architecture.html">Architecture</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../architecture.html#neural-architecture-contract">Neural architecture contract</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../architecture.html#optional-training-and-inference-contracts">Optional training and inference contracts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../architecture.html#adding-an-architecture">Adding an architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../architecture.html#gam-isolation">GAM isolation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user_guide.html">User Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../user_guide/preprocessing.html">Preprocessing (PreTab)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/preprocessing.html#using-pretab-with-nampy">Using PreTab with NAMpy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/preprocessing.html#preprocessor-contract">Preprocessor contract</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/preprocessing.html#accessing-the-preprocessor">Accessing the preprocessor</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../user_guide/pretab_compatibility.html">Published PreTab compatibility</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/pretab_compatibility.html#supported-contract">Supported contract</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/pretab_compatibility.html#removed-requirements">Removed requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/pretab_compatibility.html#model-impact">Model impact</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/pretab_compatibility.html#nam">NAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/pretab_compatibility.html#nbm">NBM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/pretab_compatibility.html#spam-and-nbm-spam">SPAM and NBM-SPAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/pretab_compatibility.html#nodegam">NodeGAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/pretab_compatibility.html#other-neural-models">Other neural models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/pretab_compatibility.html#gam-backend">GAM backend</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/pretab_compatibility.html#behavioral-consequences">Behavioral consequences</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../user_guide/training.html">Training Models</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/training.html#basic-training">Basic Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/training.html#training-parameters">Training Parameters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/training.html#common-training-parameters">Common Training Parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/training.html#complete-example">Complete Example</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/training.html#early-stopping">Early Stopping</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/training.html#learning-rate-scheduling">Learning Rate Scheduling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/training.html#monitoring-training">Monitoring Training</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/training.html#training-progress">Training Progress</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/training.html#custom-monitoring">Custom Monitoring</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/training.html#gpu-training">GPU Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/training.html#batch-size">Batch Size</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/training.html#architecture-native-training">Architecture-native training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/training.html#regularization">Regularization</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/training.html#weight-decay-l2">Weight Decay (L2)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/training.html#dropout">Dropout</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/training.html#hyperparameter-tuning">Hyperparameter Tuning</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/training.html#manual-search">Manual Search</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/training.html#using-scikit-learn">Using scikit-learn</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/training.html#training-tips">Training Tips</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/training.html#common-issues">Common Issues</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/training.html#model-not-converging">Model Not Converging</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/training.html#overfitting">Overfitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/training.html#underfitting">Underfitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/training.html#slow-training">Slow Training</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/training.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../user_guide/shape_constrained_gams.html">Shape-constrained GAMs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/shape_constrained_gams.html#architecture">Architecture</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/shape_constrained_gams.html#basic-use">Basic use</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/shape_constrained_gams.html#univariate-bases">Univariate bases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/shape_constrained_gams.html#bivariate-bases">Bivariate bases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/shape_constrained_gams.html#linear-functionals">Linear functionals</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/shape_constrained_gams.html#inference-and-diagnostics">Inference and diagnostics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/shape_constrained_gams.html#gaussian-ar-1-errors">Gaussian AR(1) errors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/shape_constrained_gams.html#current-boundaries">Current boundaries</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../user_guide/custom_models.html">Custom Models</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/custom_models.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/custom_models.html#step-by-step-guide">Step-by-Step Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/custom_models.html#define-configuration">1. Define Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/custom_models.html#implement-the-model">2. Implement the Model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/custom_models.html#register-the-architecture">3. Register the Architecture</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/custom_models.html#use-your-custom-model">4. Use Your Custom Model</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/custom_models.html#complete-example">Complete Example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/custom_models.html#important-notes">Important Notes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/custom_models.html#forward-pass-requirements">Forward Pass Requirements</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/custom_models.html#for-interpretable-models">For Interpretable Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../user_guide/custom_models.html#configuration-best-practices">Configuration Best Practices</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/custom_models.html#testing-your-model">Testing Your Model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/custom_models.html#contributing-your-model">Contributing Your Model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/custom_models.html#resources">Resources</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../user_guide/interpretability.html">Interpretability</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/interpretability.html#understanding-additive-models">Understanding Additive Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/interpretability.html#feature-level-predictions">Feature-Level Predictions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/interpretability.html#model-comparison">Model Comparison</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/interpretability.html#visualization">Visualization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/interpretability.html#contributing">Contributing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide/interpretability.html#for-more-information">For More Information</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../user_guide.html#model-selection">Model Selection</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide.html#standard-models">Standard Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide.html#advanced-models">Advanced Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide.html#specialized-models">Specialized Models</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../user_guide.html#task-types">Task Types</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide.html#regression">Regression</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide.html#classification">Classification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide.html#distributional-regression-lss">Distributional Regression (LSS)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../user_guide.html#hyperparameter-configuration">Hyperparameter Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide.html#common-hyperparameters">Common Hyperparameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide.html#training-parameters">Training Parameters</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../user_guide.html#model-evaluation">Model Evaluation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide.html#standard-metrics">Standard Metrics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide.html#custom-metrics">Custom Metrics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide.html#cross-validation">Cross-Validation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../user_guide.html#best-practices">Best Practices</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide.html#data-preparation">Data Preparation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide.html#training">Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide.html#id1">Model Selection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../user_guide.html#performance-optimization">Performance Optimization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../user_guide.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/models.html">Models</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/models.html#regression-models">Regression Models</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.NAMRegressor.html">nampy.models.NAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.SIANRegressor.html">nampy.models.SIANRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.GPNAMRegressor.html">nampy.models.GPNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.IGANNRegressor.html">nampy.models.IGANNRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.NBMRegressor.html">nampy.models.NBMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.NBMSPAMRegressor.html">nampy.models.NBMSPAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.SPAMRegressor.html">nampy.models.SPAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.NATTRegressor.html">nampy.models.NATTRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.NAMformerRegressor.html">nampy.models.NAMformerRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.LinRegRegressor.html">nampy.models.LinRegRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.TreeNAMRegressor.html">nampy.models.TreeNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.EnsembleTreeNAMRegressor.html">nampy.models.EnsembleTreeNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.SNAMRegressor.html">nampy.models.SNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.SplineNAMRegressor.html">nampy.models.SplineNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.NodeGAMRegressor.html">nampy.models.NodeGAMRegressor</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/models.html#classification-models">Classification Models</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.NAMClassifier.html">nampy.models.NAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.SIANClassifier.html">nampy.models.SIANClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.GPNAMClassifier.html">nampy.models.GPNAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.IGANNClassifier.html">nampy.models.IGANNClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.NBMClassifier.html">nampy.models.NBMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.NBMSPAMClassifier.html">nampy.models.NBMSPAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.SPAMClassifier.html">nampy.models.SPAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.NATTClassifier.html">nampy.models.NATTClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.NAMformerClassifier.html">nampy.models.NAMformerClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.LinRegClassifier.html">nampy.models.LinRegClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.TreeNAMClassifier.html">nampy.models.TreeNAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.EnsembleTreeNAMClassifier.html">nampy.models.EnsembleTreeNAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.SNAMClassifier.html">nampy.models.SNAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.NodeGAMClassifier.html">nampy.models.NodeGAMClassifier</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/models.html#distributional-regression-models-lss">Distributional Regression Models (LSS)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.NAMLSS.html">nampy.models.NAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.SIANLSS.html">nampy.models.SIANLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.GPNAMLSS.html">nampy.models.GPNAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.IGANNLSS.html">nampy.models.IGANNLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.NBMLSS.html">nampy.models.NBMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.NBMSPAMLSS.html">nampy.models.NBMSPAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.SPAMLSS.html">nampy.models.SPAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.NATTLSS.html">nampy.models.NATTLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.NAMformerLSS.html">nampy.models.NAMformerLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.LinRegLSS.html">nampy.models.LinRegLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.TreeNAMLSS.html">nampy.models.TreeNAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.EnsembleTreeNAMLSS.html">nampy.models.EnsembleTreeNAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.SNAMLSS.html">nampy.models.SNAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.NodeGAMLSS.html">nampy.models.NodeGAMLSS</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/models.html#other-models">Other Models</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.QNAMLSS.html">nampy.models.QNAMLSS</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/models.html#base-classes">Base Classes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.NeuralRegressor.html">nampy.models.NeuralRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.NeuralClassifier.html">nampy.models.NeuralClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.NeuralLSS.html">nampy.models.NeuralLSS</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/gam.html">GAM (mgcv-parity backend)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/gam.html#high-level-model">High-level model</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.gam.GAM.html">nampy.gam.GAM</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/gam.html#shape-constrained-smooths">Shape-constrained smooths</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.gam.diagnostics.SmoothDerivativeResult.html">nampy.gam.diagnostics.SmoothDerivativeResult</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/gam.html#scikit-learn-adapters">Scikit-learn adapters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.GAMRegressor.html">nampy.models.GAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.models.GAMClassifier.html">nampy.models.GAMClassifier</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/gam.html#fit-core">Fit core</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.gam.fit_model_core.html">nampy.gam.fit_model_core</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.gam.solve_fit.html">nampy.gam.solve_fit</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.gam.FitCoreSolution.html">nampy.gam.FitCoreSolution</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/gam.html#shared-contracts">Shared contracts</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.contracts.FeatureSchema.html">nampy.contracts.FeatureSchema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.contracts.AdditivePrediction.html">nampy.contracts.AdditivePrediction</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/basemodels.html">Base Models</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/basemodels.html#base-classes">Base Classes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.architectures.BaseModel.html">nampy.neural.architectures.BaseModel</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.task.TaskModule.html">nampy.neural.task.TaskModule</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/basemodels.html#model-implementations">Model Implementations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.architectures.NAM.html">nampy.neural.architectures.NAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.architectures.SIAN.html">nampy.neural.architectures.SIAN</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.architectures.GPNAM.html">nampy.neural.architectures.GPNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.architectures.IGANN.html">nampy.neural.architectures.IGANN</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.architectures.NBM.html">nampy.neural.architectures.NBM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.architectures.NBMSPAM.html">nampy.neural.architectures.NBMSPAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.architectures.SPAM.html">nampy.neural.architectures.SPAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.architectures.NATT.html">nampy.neural.architectures.NATT</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.architectures.NAMformer.html">nampy.neural.architectures.NAMformer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.architectures.LinReg.html">nampy.neural.architectures.LinReg</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.architectures.QNAM.html">nampy.neural.architectures.QNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.architectures.SNAM.html">nampy.neural.architectures.SNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.architectures.TreeNAM.html">nampy.neural.architectures.TreeNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.architectures.EnsembleTreeNAM.html">nampy.neural.architectures.EnsembleTreeNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.architectures.SplineNAM.html">nampy.neural.architectures.SplineNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.architectures.NodeGAM.html">nampy.neural.architectures.NodeGAM</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/configs.html">Configurations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultNAMConfig.html">nampy.neural.configs.DefaultNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultSIANConfig.html">nampy.neural.configs.DefaultSIANConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig"><code class="docutils literal notranslate"><span class="pre">DefaultSIANConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultNBMConfig.html">nampy.neural.configs.DefaultNBMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNBMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html">nampy.neural.configs.DefaultNBMSPAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNBMSPAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultSPAMConfig.html">nampy.neural.configs.DefaultSPAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultSPAMConfig.html#nampy.neural.configs.DefaultSPAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultSPAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultNATTConfig.html">nampy.neural.configs.DefaultNATTConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNATTConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultNAMformerConfig.html">nampy.neural.configs.DefaultNAMformerConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNAMformerConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultLinRegConfig.html">nampy.neural.configs.DefaultLinRegConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultLinRegConfig.html#nampy.neural.configs.DefaultLinRegConfig"><code class="docutils literal notranslate"><span class="pre">DefaultLinRegConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultGPNAMConfig.html">nampy.neural.configs.DefaultGPNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultGPNAMConfig.html#nampy.neural.configs.DefaultGPNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultGPNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultIGANNConfig.html">nampy.neural.configs.DefaultIGANNConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultIGANNConfig.html#nampy.neural.configs.DefaultIGANNConfig"><code class="docutils literal notranslate"><span class="pre">DefaultIGANNConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultQNAMConfig.html">nampy.neural.configs.DefaultQNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultQNAMConfig.html#nampy.neural.configs.DefaultQNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultQNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultSNAMConfig.html">nampy.neural.configs.DefaultSNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultSNAMConfig.html#nampy.neural.configs.DefaultSNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultSNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultSplineNAMConfig.html">nampy.neural.configs.DefaultSplineNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultSplineNAMConfig.html#nampy.neural.configs.DefaultSplineNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultSplineNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultTreeNAMConfig.html">nampy.neural.configs.DefaultTreeNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultTreeNAMConfig.html#nampy.neural.configs.DefaultTreeNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultTreeNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultEnsembleTreeNAMConfig.html">nampy.neural.configs.DefaultEnsembleTreeNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultEnsembleTreeNAMConfig.html#nampy.neural.configs.DefaultEnsembleTreeNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultEnsembleTreeNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html">nampy.neural.configs.DefaultNodeGAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNodeGAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/configs.html#using-configurations">Using Configurations</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/utils.html">Distributions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/utils.html#modules">Modules</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.distributions.distributions.html">nampy.neural.distributions.distributions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/nampy.neural.distributions.metrics.html">nampy.neural.distributions.metrics</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/utils.html#available-distributions">Available Distributions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/utils.html#example-usage">Example Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#package-overview">Package Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#quick-api-reference">Quick API Reference</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/index.html#models">Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/index.html#base-models">Base Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/index.html#preprocessing-pretab">Preprocessing (PreTab)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/index.html#version-information">Version Information</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/index.html#nampy.__version__"><code class="docutils literal notranslate"><span class="pre">__version__</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models/index.html">Models</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../models/index.html#model-overview">Model Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../models/index.html#model-families">Model Families</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../models/index.html#additive-models-interpretable">Additive Models (Interpretable)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../models/index.html#basis-function-models">Basis Function Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../models/index.html#attention-based-models">Attention-Based Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../models/index.html#specialized-models">Specialized Models</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../models/index.html#task-variants">Task Variants</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../models/index.html#regression">Regression</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../models/index.html#classification">Classification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../models/index.html#distributional-regression-lss">Distributional Regression (LSS)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../models/index.html#model-reference">Model Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../models/index.html#complete-api-reference">Complete API Reference</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples/index.html">Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/basic_regression.html">Basic Regression Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/basic_classification.html">Basic Classification Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/distributional_regression.html">Distributional Regression Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/custom_model.html">Custom Model Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/index.html#jupyter-notebook-examples">Jupyter Notebook Examples</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../notebooks/01_nam_regression.html">Basic Regression with NAMpy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/01_nam_regression.html#Setup">Setup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/01_nam_regression.html#1.-Synthetic-Data-Example">1. Synthetic Data Example</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/01_nam_regression.html#4.-Real-World-Dataset:-California-Housing">4. Real-World Dataset: California Housing</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../notebooks/02_classification.html">Classification with NAMpy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/02_classification.html#Setup">Setup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/02_classification.html#1.-Binary-Classification">1. Binary Classification</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/02_classification.html#2.-Feature-Importance-via-Shape-Functions">2. Feature Importance via Shape Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/02_classification.html#3.-Multi-class-Classification">3. Multi-class Classification</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/02_classification.html#4.-Synthetic-Multi-class-Example">4. Synthetic Multi-class Example</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/02_classification.html#Summary">Summary</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../notebooks/03_distributional_regression.html">Distributional Regression with NAMpy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/03_distributional_regression.html#Setup">Setup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/03_distributional_regression.html#1.-Understanding-Distributional-Regression">1. Understanding Distributional Regression</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/03_distributional_regression.html#2.-Training-a-NAMLSS-Model">2. Training a NAMLSS Model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/03_distributional_regression.html#3.-Visualizing-Prediction-Intervals">3. Visualizing Prediction Intervals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/03_distributional_regression.html#4.-Comparing-Predicted-vs-True-Variance">4. Comparing Predicted vs True Variance</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/03_distributional_regression.html#5.-Different-Distribution-Families">5. Different Distribution Families</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/03_distributional_regression.html#6.-Probabilistic-Metrics">6. Probabilistic Metrics</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/03_distributional_regression.html#7.-Shape-Functions-for-Distribution-Parameters">7. Shape Functions for Distribution Parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/03_distributional_regression.html#Summary">Summary</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../notebooks/04_model_comparison.html">Model Comparison in NAMpy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/04_model_comparison.html#Available-Models">Available Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/04_model_comparison.html#Setup">Setup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/04_model_comparison.html#1.-Prepare-Data">1. Prepare Data</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/04_model_comparison.html#2.-Define-Models">2. Define Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/04_model_comparison.html#3.-Train-and-Evaluate-Models">3. Train and Evaluate Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/04_model_comparison.html#4.-Visualize-Results">4. Visualize Results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/04_model_comparison.html#5.-Compare-Shape-Functions">5. Compare Shape Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/04_model_comparison.html#6.-Model-Selection-Guide">6. Model Selection Guide</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/04_model_comparison.html#Summary">Summary</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../notebooks/05_interpretability.html">Interpretability in NAMpy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/05_interpretability.html#1.-Understanding-Shape-Functions">1. Understanding Shape Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/05_interpretability.html#2.-Feature-Importance">2. Feature Importance</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/05_interpretability.html#3.-Local-Interpretations">3. Local Interpretations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/05_interpretability.html#4.-Classification-Interpretability">4. Classification Interpretability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/05_interpretability.html#5.-Model-Comparison:-Interpretability-across-Different-Architectures">5. Model Comparison: Interpretability across Different Architectures</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/05_interpretability.html#6.-Best-Practices-for-Interpretability">6. Best Practices for Interpretability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/05_interpretability.html#Conclusion">Conclusion</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/index.html#quick-examples">Quick Examples</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/index.html#basic-regression">Basic Regression</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/index.html#basic-classification">Basic Classification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/index.html#distributional-regression">Distributional Regression</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/index.html#real-world-example-house-price-prediction">Real-World Example: House Price Prediction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/index.html#model-comparison">Model Comparison</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/index.html#hyperparameter-tuning">Hyperparameter Tuning</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/index.html#custom-model-implementation">Custom Model Implementation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/index.html#more-examples">More Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/index.html#running-notebooks-locally">Running Notebooks Locally</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../contributing.html">Contributing</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../contributing.html#useful-links">Useful links</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../changelog.html">Changelog</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../changelog.html#latest-release">Latest Release</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../changelog.html#version-0-2-0-2026-08-22">Version 0.2.0 (2026-08-22)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../changelog.html#version-0-1-0-2024-01-07">Version 0.1.0 (2024-01-07)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../changelog.html#version-history">Version History</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../changelog.html#for-more-details">For More Details</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Additional Information:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../license.html">License</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../license.html#mit-license">MIT License</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../license.html#summary">Summary</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq.html">Frequently Asked Questions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../faq.html#general-questions">General Questions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../faq.html#what-is-nampy">What is NAMpy?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../faq.html#why-use-nampy-over-traditional-methods">Why use NAMpy over traditional methods?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../faq.html#is-nampy-production-ready">Is NAMpy production-ready?</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../faq.html#installation-setup">Installation &amp; Setup</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../faq.html#how-do-i-install-nampy">How do I install NAMpy?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../faq.html#what-are-the-requirements">What are the requirements?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../faq.html#do-i-need-a-gpu">Do I need a GPU?</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../faq.html#usage-questions">Usage Questions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../faq.html#how-do-i-choose-which-model-to-use">How do I choose which model to use?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../faq.html#can-i-use-nampy-with-pandas-dataframes">Can I use NAMpy with pandas DataFrames?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../faq.html#how-do-i-handle-categorical-features">How do I handle categorical features?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../faq.html#can-i-use-nampy-with-scikit-learn-pipelines">Can I use NAMpy with scikit-learn pipelines?</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../faq.html#performance-questions">Performance Questions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../faq.html#why-is-training-slow">Why is training slow?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../faq.html#how-do-i-speed-up-predictions">How do I speed up predictions?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../faq.html#my-model-is-overfitting-what-should-i-do">My model is overfitting, what should I do?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../faq.html#my-model-is-underfitting-what-should-i-do">My model is underfitting, what should I do?</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../faq.html#technical-questions">Technical Questions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../faq.html#how-do-i-save-and-load-models">How do I save and load models?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../faq.html#can-i-implement-custom-models">Can I implement custom models?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../faq.html#how-do-i-extract-feature-importances">How do I extract feature importances?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../faq.html#does-nampy-support-multi-output-regression">Does NAMpy support multi-output regression?</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../faq.html#integration-questions">Integration Questions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../faq.html#can-i-use-nampy-with-other-frameworks">Can I use NAMpy with other frameworks?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../faq.html#does-nampy-work-with-jupyter-notebooks">Does NAMpy work with Jupyter notebooks?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../faq.html#can-i-deploy-nampy-models-in-production">Can I deploy NAMpy models in production?</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../faq.html#contributing-questions">Contributing Questions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../faq.html#how-can-i-contribute">How can I contribute?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../faq.html#how-do-i-report-a-bug">How do I report a bug?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../faq.html#how-do-i-request-a-feature">How do I request a feature?</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../faq.html#still-have-questions">Still Have Questions?</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../development/reference_sources.html">Local upstream references</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../development/reference_sources.html#fixture-policy">Fixture policy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../development/reference_sources.html#refresh-workflow">Refresh workflow</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">nampy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">nampy.neural.architectures.igann</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for nampy.neural.architectures.igann</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""Interpretable Generalized Additive Neural Networks (IGANN)."""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mapping</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn.functional</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">F</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.linear_model</span><span class="w"> </span><span class="kn">import</span> <span class="n">Lasso</span><span class="p">,</span> <span class="n">LogisticRegression</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">..configs.igann_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">DefaultIGANNConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.components.base_model</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
+
+
+<div class="viewcode-block" id="IGANN">
+<a class="viewcode-back" href="../../../../api/generated/nampy.neural.architectures.IGANN.html#nampy.neural.architectures.IGANN">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">IGANN</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Linear initialization followed by feature-wise ELM boosting.</span>
+
+<span class="sd">    This mirrors ``igann.IGANN``'s architecture-specific optimization rather</span>
+<span class="sd">    than treating its fixed random hidden layers as an ordinary end-to-end</span>
+<span class="sd">    network. Numerical features receive ``n_hid`` independent random units;</span>
+<span class="sd">    categorical features are reference-coded and remain linear in every ELM.</span>
+<span class="sd">    """</span>
+
+    <span class="n">supports_native_training</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">native_objective_kinds</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">"regression"</span><span class="p">,</span> <span class="s2">"binary"</span><span class="p">})</span>
+    <span class="n">estimator_fitted_attributes</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">"n_estimators_"</span><span class="p">,</span>
+        <span class="s2">"selected_features_"</span><span class="p">,</span>
+        <span class="s2">"training_history_"</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">cat_feature_info</span><span class="p">,</span>
+        <span class="n">num_feature_info</span><span class="p">,</span>
+        <span class="n">num_classes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">config</span><span class="p">:</span> <span class="n">DefaultIGANNConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="k">if</span> <span class="n">config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">config</span> <span class="o">=</span> <span class="n">DefaultIGANNConfig</span><span class="p">()</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">save_hyperparameters</span><span class="p">(</span><span class="n">ignore</span><span class="o">=</span><span class="p">[</span><span class="s2">"cat_feature_info"</span><span class="p">,</span> <span class="s2">"num_feature_info"</span><span class="p">])</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">lr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hparams</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"lr"</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">lr</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lr_patience</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hparams</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"lr_patience"</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">lr_patience</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weight_decay</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hparams</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"weight_decay"</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">weight_decay</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lr_factor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hparams</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"lr_factor"</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">lr_factor</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">cat_feature_info</span> <span class="o">=</span> <span class="n">cat_feature_info</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_feature_info</span> <span class="o">=</span> <span class="n">num_feature_info</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_features</span><span class="p">(</span><span class="n">num_feature_info</span><span class="p">,</span> <span class="n">cat_feature_info</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_feature_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">num_feature_info</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cat_feature_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">cat_feature_info</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source_feature_names</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_feature_names</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">cat_feature_names</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_classes</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">num_classes</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_num</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_feature_names</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_hid</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hparams</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"n_hid"</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">n_hid</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_estimators</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">hparams</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"n_estimators"</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">n_estimators</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">boost_rate</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hparams</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"boost_rate"</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">boost_rate</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">init_reg</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hparams</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"init_reg"</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">init_reg</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">elm_scale</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hparams</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"elm_scale"</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">elm_scale</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">elm_alpha</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hparams</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"elm_alpha"</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">elm_alpha</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">early_stopping</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">hparams</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"early_stopping"</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">early_stopping</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">elm_random_state</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">hparams</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"elm_random_state"</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">elm_random_state</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sparse</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hparams</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"sparse"</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">sparse</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">native_device</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hparams</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"device"</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">device</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">clip_predictions</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">hparams</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"clip_predictions"</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">clip_predictions</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">activation_name</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">hparams</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"activation"</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">activation</span><span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">solver</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hparams</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"solver"</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">solver</span><span class="p">))</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_configuration</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">activation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_activation</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_input_representation</span><span class="p">()</span>
+        <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">source_design_slices</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">source_basis_slices</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">atomic_design_slices</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">atomic_basis_slices</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">atomic_feature_names</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">atomic_source_indices</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_feature_layout</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">design_dim</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">source_design_slices</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">stop</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_design_slices</span> <span class="k">else</span> <span class="mi">0</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">basis_dim</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">source_basis_slices</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">stop</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_basis_slices</span> <span class="k">else</span> <span class="mi">0</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">design_dim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"IGANN requires at least one non-constant input column."</span><span class="p">)</span>
+
+        <span class="n">hidden_weights</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_hidden_weights</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">"hidden_weights"</span><span class="p">,</span> <span class="n">hidden_weights</span><span class="p">,</span> <span class="n">persistent</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span>
+            <span class="s2">"active_atomic_mask"</span><span class="p">,</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">atomic_feature_names</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span><span class="p">),</span>
+            <span class="n">persistent</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span>
+            <span class="s2">"n_estimators_fitted_tensor"</span><span class="p">,</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">),</span>
+            <span class="n">persistent</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear_weights</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">design_dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_classes</span><span class="p">),</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">False</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">intercept</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_classes</span><span class="p">),</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">False</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stage_coefficients</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_estimators</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">basis_dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_classes</span><span class="p">),</span>
+            <span class="n">requires_grad</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_train_losses</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_val_losses</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_configuration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_hid</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"n_hid must be a positive integer."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_estimators</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"n_estimators must be non-negative."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">boost_rate</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"boost_rate must be positive."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_reg</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">elm_alpha</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"init_reg and elm_alpha must be non-negative."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">early_stopping</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"early_stopping must be non-negative."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sparse</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"sparse must be non-negative."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">math</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">elm_scale</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">elm_scale</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"elm_scale must be finite and positive."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">math</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">clip_predictions</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">clip_predictions</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"clip_predictions must be finite and positive."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">activation_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"elu"</span><span class="p">,</span> <span class="s2">"relu"</span><span class="p">}:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"activation must be 'elu' or 'relu'."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"auto"</span><span class="p">,</span> <span class="s2">"native"</span><span class="p">,</span> <span class="s2">"gradient"</span><span class="p">}:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"solver must be 'auto', 'native', or 'gradient'."</span><span class="p">)</span>
+
+<div class="viewcode-block" id="IGANN.uses_native_training">
+<a class="viewcode-back" href="../../../../api/generated/nampy.neural.architectures.IGANN.html#nampy.neural.architectures.IGANN.uses_native_training">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">uses_native_training</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">objective</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Select native fitting only where the released updates are defined."""</span>
+        <span class="n">solver</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s2">"solver"</span><span class="p">,</span> <span class="s2">"auto"</span><span class="p">))</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="n">objective_kind</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">objective</span><span class="p">,</span> <span class="s2">"kind"</span><span class="p">,</span> <span class="s2">""</span><span class="p">))</span>
+        <span class="n">supported</span> <span class="o">=</span> <span class="n">objective_kind</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">native_objective_kinds</span>
+        <span class="k">if</span> <span class="n">solver</span> <span class="o">==</span> <span class="s2">"native"</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">supported</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s2">"IGANN solver='native' supports squared-error regression and "</span>
+                <span class="s2">"binary classification only. Use solver='gradient' or 'auto' "</span>
+                <span class="s2">"for multiclass and distributional objectives."</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">solver</span> <span class="o">==</span> <span class="s2">"native"</span> <span class="ow">or</span> <span class="p">(</span><span class="n">solver</span> <span class="o">==</span> <span class="s2">"auto"</span> <span class="ow">and</span> <span class="n">supported</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="IGANN.prepare_gradient_training">
+<a class="viewcode-back" href="../../../../api/generated/nampy.neural.architectures.IGANN.html#nampy.neural.architectures.IGANN.prepare_gradient_training">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">prepare_gradient_training</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Enable the shared objective engine over the complete fixed ELM basis."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sparse</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s2">"IGANN-Sparse is defined for native training only; use sparse=0 "</span>
+                <span class="s2">"with solver='gradient'."</span>
+            <span class="p">)</span>
+        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">n_estimators_fitted_tensor</span><span class="o">.</span><span class="n">fill_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_estimators</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">parameter</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
+            <span class="n">parameter</span><span class="o">.</span><span class="n">requires_grad_</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_make_activation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">nn</span><span class="o">.</span><span class="n">ELU</span><span class="p">()</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">activation_name</span> <span class="o">==</span> <span class="s2">"elu"</span> <span class="k">else</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_input_representation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">invalid_num</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">name</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">info</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_feature_info</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">info</span><span class="p">[</span><span class="s2">"dimension"</span><span class="p">])</span> <span class="o">!=</span> <span class="mi">1</span>
+        <span class="p">]</span>
+        <span class="n">invalid_cat</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">name</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">info</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cat_feature_info</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">info</span><span class="p">[</span><span class="s2">"dimension"</span><span class="p">])</span> <span class="o">!=</span> <span class="mi">1</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="n">invalid_num</span> <span class="ow">or</span> <span class="n">invalid_cat</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"IGANN requires scalar numerical inputs and integer-encoded "</span>
+                <span class="s2">"categorical inputs; invalid numerical features "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">invalid_num</span><span class="si">}</span><span class="s2">, invalid categorical features </span><span class="si">{</span><span class="n">invalid_cat</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_feature_layout</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">source_design_slices</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">source_basis_slices</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">atomic_design_slices</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">atomic_basis_slices</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">atomic_names</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">atomic_sources</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">design_start</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">basis_start</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">source_index</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_feature_names</span><span class="p">):</span>
+            <span class="n">source_design_slices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">slice</span><span class="p">(</span><span class="n">design_start</span><span class="p">,</span> <span class="n">design_start</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="n">source_basis_slices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">slice</span><span class="p">(</span><span class="n">basis_start</span><span class="p">,</span> <span class="n">basis_start</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_hid</span><span class="p">))</span>
+            <span class="n">atomic_design_slices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">slice</span><span class="p">(</span><span class="n">design_start</span><span class="p">,</span> <span class="n">design_start</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="n">atomic_basis_slices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">slice</span><span class="p">(</span><span class="n">basis_start</span><span class="p">,</span> <span class="n">basis_start</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_hid</span><span class="p">))</span>
+            <span class="n">design_start</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">basis_start</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_hid</span>
+            <span class="n">atomic_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="n">atomic_sources</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">source_index</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">source_index</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cat_feature_names</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_num</span>
+        <span class="p">):</span>
+            <span class="n">cardinality</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cat_feature_info</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"n_unique"</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">cardinality</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"IGANN requires fitted categorical cardinality for </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">."</span>
+                <span class="p">)</span>
+            <span class="n">width</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">cardinality</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">source_design_slices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">slice</span><span class="p">(</span><span class="n">design_start</span><span class="p">,</span> <span class="n">design_start</span> <span class="o">+</span> <span class="n">width</span><span class="p">))</span>
+            <span class="n">source_basis_slices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">slice</span><span class="p">(</span><span class="n">basis_start</span><span class="p">,</span> <span class="n">basis_start</span> <span class="o">+</span> <span class="n">width</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">level</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">cardinality</span><span class="p">):</span>
+                <span class="n">offset</span> <span class="o">=</span> <span class="n">level</span> <span class="o">-</span> <span class="mi">1</span>
+                <span class="n">atomic_design_slices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="nb">slice</span><span class="p">(</span><span class="n">design_start</span> <span class="o">+</span> <span class="n">offset</span><span class="p">,</span> <span class="n">design_start</span> <span class="o">+</span> <span class="n">offset</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">atomic_basis_slices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="nb">slice</span><span class="p">(</span><span class="n">basis_start</span> <span class="o">+</span> <span class="n">offset</span><span class="p">,</span> <span class="n">basis_start</span> <span class="o">+</span> <span class="n">offset</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">atomic_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">[</span><span class="si">{</span><span class="n">level</span><span class="si">}</span><span class="s2">]"</span><span class="p">)</span>
+                <span class="n">atomic_sources</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">source_index</span><span class="p">)</span>
+            <span class="n">design_start</span> <span class="o">+=</span> <span class="n">width</span>
+            <span class="n">basis_start</span> <span class="o">+=</span> <span class="n">width</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="n">source_design_slices</span><span class="p">,</span>
+            <span class="n">source_basis_slices</span><span class="p">,</span>
+            <span class="n">atomic_design_slices</span><span class="p">,</span>
+            <span class="n">atomic_basis_slices</span><span class="p">,</span>
+            <span class="n">atomic_names</span><span class="p">,</span>
+            <span class="n">atomic_sources</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_hidden_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_num</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_estimators</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_estimators</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_num</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_hid</span><span class="p">)</span>
+        <span class="n">stages</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">stage</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_estimators</span><span class="p">):</span>
+            <span class="n">generator</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">()</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">elm_random_state</span> <span class="o">+</span> <span class="n">stage</span><span class="p">)</span>
+            <span class="c1"># Mirror upstream ELM_Regressor: draw the full masked matrix before</span>
+            <span class="c1"># retaining its feature-specific diagonal blocks.</span>
+            <span class="n">full</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">n_num</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">n_num</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_hid</span><span class="p">,</span>
+                <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span>
+            <span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">elm_scale</span>
+            <span class="n">stages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span>
+                    <span class="p">[</span>
+                        <span class="n">full</span><span class="p">[</span><span class="n">index</span><span class="p">,</span> <span class="n">index</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_hid</span> <span class="p">:</span> <span class="p">(</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_hid</span><span class="p">]</span>
+                        <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_num</span><span class="p">)</span>
+                    <span class="p">]</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">stages</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_design_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_features</span><span class="p">,</span> <span class="n">cat_features</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">blocks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_feature_names</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">num_features</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+            <span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">value</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cat_feature_names</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">cat_features</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">value</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">cardinality</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cat_feature_info</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="s2">"n_unique"</span><span class="p">])</span>
+            <span class="c1"># PreTab's integer encoder is one-based and reserves zero for an</span>
+            <span class="c1"># unseen level. Unknown levels therefore receive the same all-zero</span>
+            <span class="c1"># reference coding as upstream OneHotEncoder(handle_unknown="ignore").</span>
+            <span class="n">encoded_values</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">long</span><span class="p">()</span>
+            <span class="n">unknown</span> <span class="o">=</span> <span class="n">encoded_values</span> <span class="o">==</span> <span class="mi">0</span>
+            <span class="n">indices</span> <span class="o">=</span> <span class="n">encoded_values</span> <span class="o">-</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">indices</span> <span class="o">&lt;</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="ow">or</span> <span class="n">torch</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">indices</span> <span class="o">&gt;=</span> <span class="n">cardinality</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Categorical feature </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> contains an invalid encoded level."</span>
+                <span class="p">)</span>
+            <span class="n">safe_indices</span> <span class="o">=</span> <span class="n">indices</span><span class="o">.</span><span class="n">clamp_min</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">one_hot</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">one_hot</span><span class="p">(</span><span class="n">safe_indices</span><span class="p">,</span> <span class="n">num_classes</span><span class="o">=</span><span class="n">cardinality</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+            <span class="n">one_hot</span><span class="p">[</span><span class="n">unknown</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">one_hot</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:])</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">blocks</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_basis_for_stage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">design</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">stage</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">blocks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_num</span><span class="p">:</span>
+            <span class="n">numerical</span> <span class="o">=</span> <span class="n">design</span><span class="p">[:,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_num</span><span class="p">]</span>
+            <span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">activation</span><span class="p">(</span>
+                    <span class="n">numerical</span><span class="p">[:,</span> <span class="p">:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">hidden_weights</span><span class="p">[</span><span class="n">stage</span><span class="p">][</span><span class="kc">None</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">design_dim</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_num</span><span class="p">:</span>
+            <span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">design</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_num</span> <span class="p">:])</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">blocks</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_atomic_masks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+        <span class="n">design_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">design_dim</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">basis_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">basis_dim</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">active</span><span class="p">,</span> <span class="n">design_slice</span><span class="p">,</span> <span class="n">basis_slice</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">active_atomic_mask</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">atomic_design_slices</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">atomic_basis_slices</span><span class="p">,</span>
+            <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">):</span>
+            <span class="k">if</span> <span class="n">active</span><span class="p">:</span>
+                <span class="n">design_mask</span><span class="p">[</span><span class="n">design_slice</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="n">basis_mask</span><span class="p">[</span><span class="n">basis_slice</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="n">design_mask</span><span class="p">,</span> <span class="n">basis_mask</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_select_sparse_features</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">design</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">targets</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">objective_kind</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sparse</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">sparse</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">atomic_feature_names</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">active_atomic_mask</span><span class="o">.</span><span class="n">fill_</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="n">targets</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s2">"IGANN-Sparse currently supports one target column only."</span>
+            <span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">abess.linear</span>
+        <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+                <span class="s2">"IGANN sparse&gt;0 requires the optional 'abess' package. "</span>
+                <span class="s2">"Install abess&gt;=0.4.5 to enable best-subset selection."</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
+
+        <span class="n">basis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_basis_for_stage</span><span class="p">(</span><span class="n">design</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+        <span class="n">groups</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">atomic_index</span><span class="p">,</span> <span class="n">basis_slice</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">atomic_basis_slices</span><span class="p">):</span>
+            <span class="n">groups</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">atomic_index</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">basis_slice</span><span class="o">.</span><span class="n">stop</span> <span class="o">-</span> <span class="n">basis_slice</span><span class="o">.</span><span class="n">start</span><span class="p">))</span>
+        <span class="n">common</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"path_type"</span><span class="p">:</span> <span class="s2">"gs"</span><span class="p">,</span>
+            <span class="s2">"cv"</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+            <span class="s2">"s_min"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="s2">"s_max"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">sparse</span><span class="p">,</span>
+            <span class="s2">"thread"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="n">objective_kind</span> <span class="o">==</span> <span class="s2">"binary"</span><span class="p">:</span>
+            <span class="n">selector</span> <span class="o">=</span> <span class="n">abess</span><span class="o">.</span><span class="n">linear</span><span class="o">.</span><span class="n">LogisticRegression</span><span class="p">(</span><span class="o">**</span><span class="n">common</span><span class="p">)</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="n">targets</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">selector</span> <span class="o">=</span> <span class="n">abess</span><span class="o">.</span><span class="n">linear</span><span class="o">.</span><span class="n">LinearRegression</span><span class="p">(</span><span class="o">**</span><span class="n">common</span><span class="p">)</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="n">targets</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+        <span class="n">selector</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">response</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">groups</span><span class="p">))</span>
+        <span class="n">coefficients</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">selector</span><span class="o">.</span><span class="n">coef_</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">selected</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">active_atomic_mask</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">atomic_index</span><span class="p">,</span> <span class="n">basis_slice</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">atomic_basis_slices</span><span class="p">):</span>
+            <span class="n">selected</span><span class="p">[</span><span class="n">atomic_index</span><span class="p">]</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">coefficients</span><span class="p">[</span><span class="n">basis_slice</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">torch</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">selected</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"IGANN-Sparse selected no usable feature blocks."</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">active_atomic_mask</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">selected</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_as_targets</span><span class="p">(</span><span class="n">targets</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">output_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">targets</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">values</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">values</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">output_dim</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"IGANN expected </span><span class="si">{</span><span class="n">output_dim</span><span class="si">}</span><span class="s2"> target columns, got </span><span class="si">{</span><span class="n">values</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">values</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_reject_nonuniform_weights</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">weights</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">weights</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">flat</span> <span class="o">=</span> <span class="n">weights</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">flat</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">flat</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"IGANN native boosting does not yet support non-uniform </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_fit_linear_initialization</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">design</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">targets</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">objective_kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">random_state</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">offset</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">design_mask</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_atomic_masks</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">design</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">selected</span> <span class="o">=</span> <span class="n">design</span><span class="p">[:,</span> <span class="n">design_mask</span><span class="p">]</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">targets</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">offset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="n">response</span> <span class="o">-</span> <span class="n">offset</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+
+        <span class="n">coefficients</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">design_dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_classes</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">objective_kind</span> <span class="o">==</span> <span class="s2">"binary"</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_reg</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Binary IGANN requires init_reg &gt; 0."</span><span class="p">)</span>
+            <span class="n">estimator</span> <span class="o">=</span> <span class="n">LogisticRegression</span><span class="p">(</span>
+                <span class="n">penalty</span><span class="o">=</span><span class="s2">"l1"</span><span class="p">,</span>
+                <span class="n">solver</span><span class="o">=</span><span class="s2">"liblinear"</span><span class="p">,</span>
+                <span class="n">C</span><span class="o">=</span><span class="mf">1.0</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_reg</span><span class="p">,</span>
+                <span class="n">random_state</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">random_state</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="n">estimator</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">selected</span><span class="p">,</span> <span class="n">response</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">))</span>
+            <span class="n">coefficients</span><span class="p">[</span><span class="n">design_mask</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">estimator</span><span class="o">.</span><span class="n">coef_</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">intercept</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">estimator</span><span class="o">.</span><span class="n">intercept_</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">intercept</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_classes</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">output_index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_classes</span><span class="p">):</span>
+                <span class="n">estimator</span> <span class="o">=</span> <span class="n">Lasso</span><span class="p">(</span>
+                    <span class="n">alpha</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">init_reg</span><span class="p">,</span>
+                    <span class="n">random_state</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">random_state</span><span class="p">),</span>
+                <span class="p">)</span>
+                <span class="n">estimator</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">selected</span><span class="p">,</span> <span class="n">response</span><span class="p">[:,</span> <span class="n">output_index</span><span class="p">])</span>
+                <span class="n">coefficients</span><span class="p">[</span><span class="n">design_mask</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">output_index</span><span class="p">]</span> <span class="o">=</span> <span class="n">estimator</span><span class="o">.</span><span class="n">coef_</span>
+                <span class="n">intercept</span><span class="p">[</span><span class="n">output_index</span><span class="p">]</span> <span class="o">=</span> <span class="n">estimator</span><span class="o">.</span><span class="n">intercept_</span>
+
+        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">linear_weights</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span>
+                    <span class="n">coefficients</span><span class="p">,</span>
+                    <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">linear_weights</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+                    <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">linear_weights</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">intercept</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span>
+                    <span class="n">intercept</span><span class="p">,</span>
+                    <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">intercept</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+                    <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">intercept</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">design</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear_weights</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">intercept</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_mean_loss</span><span class="p">(</span>
+        <span class="n">predictions</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">targets</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">objective_kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">offset</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">offset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">predictions</span> <span class="o">=</span> <span class="n">predictions</span> <span class="o">+</span> <span class="n">offset</span>
+        <span class="k">if</span> <span class="n">objective_kind</span> <span class="o">==</span> <span class="s2">"binary"</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">F</span><span class="o">.</span><span class="n">binary_cross_entropy_with_logits</span><span class="p">(</span><span class="n">predictions</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">F</span><span class="o">.</span><span class="n">mse_loss</span><span class="p">(</span><span class="n">predictions</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span>
+
+<div class="viewcode-block" id="IGANN.fit_native">
+<a class="viewcode-back" href="../../../../api/generated/nampy.neural.architectures.IGANN.html#nampy.neural.architectures.IGANN.fit_native">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fit_native</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">train_num_features</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">train_cat_features</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">train_targets</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">val_num_features</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">val_cat_features</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">val_targets</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">objective</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span>
+        <span class="n">train_offset</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">val_offset</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">train_sample_weight</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">val_sample_weight</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">random_state</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Fit the upstream linear-plus-ELM boosting sequence."""</span>
+        <span class="n">objective_kind</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">objective</span><span class="p">,</span> <span class="s2">"kind"</span><span class="p">,</span> <span class="s2">""</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">objective_kind</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"regression"</span><span class="p">,</span> <span class="s2">"binary"</span><span class="p">}:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s2">"IGANN supports regression and binary classification only."</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reject_nonuniform_weights</span><span class="p">(</span><span class="s2">"sample_weight"</span><span class="p">,</span> <span class="n">train_sample_weight</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reject_nonuniform_weights</span><span class="p">(</span><span class="s2">"sample_weight_val"</span><span class="p">,</span> <span class="n">val_sample_weight</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">objective_kind</span> <span class="o">==</span> <span class="s2">"binary"</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="n">train_offset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">val_offset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s2">"Binary IGANN does not support per-sample link offsets."</span>
+            <span class="p">)</span>
+
+        <span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">native_device</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"cuda"</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"IGANN device='cuda' requested but CUDA is unavailable."</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">train_num</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">value</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">train_num_features</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="n">train_cat</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">value</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">train_cat_features</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="n">val_num</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">value</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">val_num_features</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="n">val_cat</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">value</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">val_cat_features</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="n">y_train</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_as_targets</span><span class="p">(</span><span class="n">train_targets</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_classes</span><span class="p">)</span>
+        <span class="n">y_val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_as_targets</span><span class="p">(</span><span class="n">val_targets</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_classes</span><span class="p">)</span>
+        <span class="n">offset_train</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">train_offset</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">train_offset</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">offset_val</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">val_offset</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">val_offset</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="n">train_design</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_design_inputs</span><span class="p">(</span><span class="n">train_num</span><span class="p">,</span> <span class="n">train_cat</span><span class="p">)</span>
+        <span class="n">val_design</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_design_inputs</span><span class="p">(</span><span class="n">val_num</span><span class="p">,</span> <span class="n">val_cat</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">linear_weights</span><span class="o">.</span><span class="n">zero_</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">intercept</span><span class="o">.</span><span class="n">zero_</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stage_coefficients</span><span class="o">.</span><span class="n">zero_</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">n_estimators_fitted_tensor</span><span class="o">.</span><span class="n">zero_</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_train_losses</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_val_losses</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_select_sparse_features</span><span class="p">(</span><span class="n">train_design</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">objective_kind</span><span class="p">)</span>
+
+        <span class="n">prediction_train</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fit_linear_initialization</span><span class="p">(</span>
+            <span class="n">train_design</span><span class="p">,</span>
+            <span class="n">y_train</span><span class="p">,</span>
+            <span class="n">objective_kind</span><span class="o">=</span><span class="n">objective_kind</span><span class="p">,</span>
+            <span class="n">random_state</span><span class="o">=</span><span class="n">random_state</span><span class="p">,</span>
+            <span class="n">offset</span><span class="o">=</span><span class="n">offset_train</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">prediction_val</span> <span class="o">=</span> <span class="n">val_design</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear_weights</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">intercept</span>
+        <span class="n">best_loss</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mean_loss</span><span class="p">(</span>
+            <span class="n">prediction_val</span><span class="p">,</span>
+            <span class="n">y_val</span><span class="p">,</span>
+            <span class="n">objective_kind</span><span class="o">=</span><span class="n">objective_kind</span><span class="p">,</span>
+            <span class="n">offset</span><span class="o">=</span><span class="n">offset_val</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">best_iteration</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">without_progress</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">basis_mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_atomic_masks</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="n">signed_targets</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">y_train</span> <span class="o">-</span> <span class="mf">1.0</span> <span class="k">if</span> <span class="n">objective_kind</span> <span class="o">==</span> <span class="s2">"binary"</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">stage</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_estimators</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">objective_kind</span> <span class="o">==</span> <span class="s2">"binary"</span><span class="p">:</span>
+                <span class="n">full_prediction</span> <span class="o">=</span> <span class="n">prediction_train</span>
+                <span class="n">hessian_sqrt</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">/</span> <span class="n">torch</span><span class="o">.</span><span class="n">cosh</span><span class="p">(</span>
+                    <span class="mf">0.5</span> <span class="o">*</span> <span class="n">signed_targets</span> <span class="o">*</span> <span class="n">full_prediction</span>
+                <span class="p">)</span>
+                <span class="n">pseudo_target</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span>
+                    <span class="n">signed_targets</span>
+                    <span class="o">/</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">signed_targets</span> <span class="o">*</span> <span class="n">full_prediction</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">multiplier</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">boost_rate</span> <span class="o">*</span> <span class="n">hessian_sqrt</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">full_prediction</span> <span class="o">=</span> <span class="n">prediction_train</span>
+                <span class="k">if</span> <span class="n">offset_train</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">full_prediction</span> <span class="o">=</span> <span class="n">full_prediction</span> <span class="o">+</span> <span class="n">offset_train</span>
+                <span class="n">pseudo_target</span> <span class="o">=</span> <span class="n">y_train</span> <span class="o">-</span> <span class="n">full_prediction</span>
+                <span class="n">multiplier</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">pseudo_target</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">boost_rate</span><span class="p">)</span>
+
+            <span class="n">train_basis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_basis_for_stage</span><span class="p">(</span><span class="n">train_design</span><span class="p">,</span> <span class="n">stage</span><span class="p">)</span>
+            <span class="n">val_basis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_basis_for_stage</span><span class="p">(</span><span class="n">val_design</span><span class="p">,</span> <span class="n">stage</span><span class="p">)</span>
+            <span class="n">weighted_basis</span> <span class="o">=</span> <span class="n">train_basis</span> <span class="o">*</span> <span class="n">multiplier</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">gram</span> <span class="o">=</span> <span class="n">weighted_basis</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">weighted_basis</span>
+            <span class="n">gram</span> <span class="o">=</span> <span class="n">gram</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">elm_alpha</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">basis_dim</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">gram</span><span class="o">.</span><span class="n">dtype</span>
+            <span class="p">)</span>
+            <span class="n">right_hand_side</span> <span class="o">=</span> <span class="n">weighted_basis</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">pseudo_target</span>
+            <span class="n">coefficients</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">gram</span><span class="p">,</span> <span class="n">right_hand_side</span><span class="p">)</span>
+            <span class="n">coefficients</span><span class="p">[</span><span class="o">~</span><span class="n">basis_mask</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stage_coefficients</span><span class="p">[</span><span class="n">stage</span><span class="p">]</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">coefficients</span><span class="p">)</span>
+
+            <span class="n">prediction_train</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span>
+                <span class="n">prediction_train</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">boost_rate</span> <span class="o">*</span> <span class="p">(</span><span class="n">train_basis</span> <span class="o">@</span> <span class="n">coefficients</span><span class="p">),</span>
+                <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">clip_predictions</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">clip_predictions</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">prediction_val</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span>
+                <span class="n">prediction_val</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">boost_rate</span> <span class="o">*</span> <span class="p">(</span><span class="n">val_basis</span> <span class="o">@</span> <span class="n">coefficients</span><span class="p">),</span>
+                <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">clip_predictions</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">clip_predictions</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">train_loss</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mean_loss</span><span class="p">(</span>
+                <span class="n">prediction_train</span><span class="p">,</span>
+                <span class="n">y_train</span><span class="p">,</span>
+                <span class="n">objective_kind</span><span class="o">=</span><span class="n">objective_kind</span><span class="p">,</span>
+                <span class="n">offset</span><span class="o">=</span><span class="n">offset_train</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">val_loss</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mean_loss</span><span class="p">(</span>
+                <span class="n">prediction_val</span><span class="p">,</span>
+                <span class="n">y_val</span><span class="p">,</span>
+                <span class="n">objective_kind</span><span class="o">=</span><span class="n">objective_kind</span><span class="p">,</span>
+                <span class="n">offset</span><span class="o">=</span><span class="n">offset_val</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_train_losses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">train_loss</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_val_losses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">val_loss</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()))</span>
+
+            <span class="n">without_progress</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">val_loss</span> <span class="o">&lt;</span> <span class="n">best_loss</span><span class="p">:</span>
+                <span class="n">best_loss</span> <span class="o">=</span> <span class="n">val_loss</span>
+                <span class="n">best_iteration</span> <span class="o">=</span> <span class="n">stage</span> <span class="o">+</span> <span class="mi">1</span>
+                <span class="n">without_progress</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">early_stopping</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">without_progress</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">early_stopping</span><span class="p">:</span>
+                <span class="k">break</span>
+
+        <span class="n">fitted</span> <span class="o">=</span> <span class="n">best_iteration</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">early_stopping</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_val_losses</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">n_estimators_fitted_tensor</span><span class="o">.</span><span class="n">fill_</span><span class="p">(</span><span class="n">fitted</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">fitted</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_estimators</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stage_coefficients</span><span class="p">[</span><span class="n">fitted</span><span class="p">:]</span><span class="o">.</span><span class="n">zero_</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"algorithm"</span><span class="p">:</span> <span class="s2">"igann_native_elm_boosting"</span><span class="p">,</span>
+            <span class="s2">"n_estimators_attempted"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_val_losses</span><span class="p">),</span>
+            <span class="s2">"n_estimators_fitted"</span><span class="p">:</span> <span class="n">fitted</span><span class="p">,</span>
+            <span class="s2">"best_validation_loss"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">best_loss</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()),</span>
+            <span class="s2">"selected_features"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">selected_features_</span><span class="p">,</span>
+        <span class="p">}</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n_estimators_</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_estimators_fitted_tensor</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">selected_features_</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="n">name</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">active</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">atomic_feature_names</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">active_atomic_mask</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+                <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">active</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">training_history_</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="o">...</span><span class="p">]]:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"train_loss"</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_train_losses</span><span class="p">),</span>
+            <span class="s2">"val_loss"</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_val_losses</span><span class="p">),</span>
+        <span class="p">}</span>
+
+<div class="viewcode-block" id="IGANN.basis_metadata">
+<a class="viewcode-back" href="../../../../api/generated/nampy.neural.architectures.IGANN.html#nampy.neural.architectures.IGANN.basis_metadata">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">basis_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"source_feature_names"</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">source_feature_names</span><span class="p">),</span>
+            <span class="s2">"atomic_feature_names"</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">atomic_feature_names</span><span class="p">),</span>
+            <span class="s2">"selected_features"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">selected_features_</span><span class="p">,</span>
+            <span class="s2">"hidden_weights"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">hidden_weights</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_estimators_</span><span class="p">]</span>
+            <span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
+            <span class="s2">"activation"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">activation_name</span><span class="p">,</span>
+            <span class="s2">"elm_scale"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">elm_scale</span><span class="p">,</span>
+        <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="IGANN.complexity_metadata">
+<a class="viewcode-back" href="../../../../api/generated/nampy.neural.architectures.IGANN.html#nampy.neural.architectures.IGANN.complexity_metadata">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">complexity_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="n">active_design</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">active_basis</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">active</span><span class="p">,</span> <span class="n">design_slice</span><span class="p">,</span> <span class="n">basis_slice</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">active_atomic_mask</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">atomic_design_slices</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">atomic_basis_slices</span><span class="p">,</span>
+            <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">):</span>
+            <span class="k">if</span> <span class="n">active</span><span class="p">:</span>
+                <span class="n">active_design</span> <span class="o">+=</span> <span class="n">design_slice</span><span class="o">.</span><span class="n">stop</span> <span class="o">-</span> <span class="n">design_slice</span><span class="o">.</span><span class="n">start</span>
+                <span class="n">active_basis</span> <span class="o">+=</span> <span class="n">basis_slice</span><span class="o">.</span><span class="n">stop</span> <span class="o">-</span> <span class="n">basis_slice</span><span class="o">.</span><span class="n">start</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"fitted_estimators"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_estimators_</span><span class="p">,</span>
+            <span class="s2">"selected_features"</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">active_atomic_mask</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()),</span>
+            <span class="s2">"effective_fitted_coefficients"</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">num_classes</span>
+                <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">active_design</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_estimators_</span> <span class="o">*</span> <span class="n">active_basis</span><span class="p">)</span>
+            <span class="p">),</span>
+        <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="IGANN.forward">
+<a class="viewcode-back" href="../../../../api/generated/nampy.neural.architectures.IGANN.html#nampy.neural.architectures.IGANN.forward">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_features</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">cat_features</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+        <span class="n">design</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_design_inputs</span><span class="p">(</span><span class="n">num_features</span><span class="p">,</span> <span class="n">cat_features</span><span class="p">)</span>
+        <span class="n">source_outputs</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">design</span><span class="p">[:,</span> <span class="n">design_slice</span><span class="p">]</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear_weights</span><span class="p">[</span><span class="n">design_slice</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">design_slice</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_design_slices</span>
+        <span class="p">]</span>
+        <span class="k">for</span> <span class="n">stage</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_estimators_</span><span class="p">):</span>
+            <span class="n">basis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_basis_for_stage</span><span class="p">(</span><span class="n">design</span><span class="p">,</span> <span class="n">stage</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">source_index</span><span class="p">,</span> <span class="n">basis_slice</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">source_basis_slices</span><span class="p">):</span>
+                <span class="n">source_outputs</span><span class="p">[</span><span class="n">source_index</span><span class="p">]</span> <span class="o">=</span> <span class="n">source_outputs</span><span class="p">[</span><span class="n">source_index</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">boost_rate</span>
+                    <span class="o">*</span> <span class="p">(</span><span class="n">basis</span><span class="p">[:,</span> <span class="n">basis_slice</span><span class="p">]</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">stage_coefficients</span><span class="p">[</span><span class="n">stage</span><span class="p">,</span> <span class="n">basis_slice</span><span class="p">])</span>
+                <span class="p">)</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">source_outputs</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">intercept</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"output"</span><span class="p">:</span> <span class="n">output</span><span class="p">}</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">source_feature_names</span><span class="p">,</span> <span class="n">source_outputs</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)))</span>
+        <span class="n">result</span><span class="p">[</span><span class="s2">"intercept"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">intercept</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+</div>
+
+
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"IGANN"</span><span class="p">]</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Ananyapam De, Anton Thielmann, and OpenTabular Contributors.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

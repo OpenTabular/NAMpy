@@ -1,0 +1,6 @@
+﻿nampy.neural.configs.DefaultLinRegConfig
+========================================
+
+.. currentmodule:: nampy.neural.configs
+
+.. autoclass:: DefaultLinRegConfig

@@ -1,0 +1,6 @@
+﻿nampy.models.QNAMLSS
+====================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: QNAMLSS

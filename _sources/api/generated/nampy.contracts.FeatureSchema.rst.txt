@@ -1,0 +1,6 @@
+﻿nampy.contracts.FeatureSchema
+=============================
+
+.. currentmodule:: nampy.contracts
+
+.. autoclass:: FeatureSchema

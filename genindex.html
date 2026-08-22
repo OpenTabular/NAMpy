@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Index &mdash; nampy 0.1.0 documentation</title>
+  <title>Index &mdash; nampy 0.2.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="_static/custom.css?v=ea57e989" />
@@ -13,9 +13,9 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=01f34227"></script>
-      <script src="_static/doctools.js?v=9bcbadda"></script>
-      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="_static/documentation_options.js?v=938c9ccc"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
       <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="#" />
@@ -32,6 +32,7 @@
           
           <a href="index.html" class="icon icon-home">
             nampy
+              <img src="_static/logo.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
@@ -69,11 +70,33 @@
 <li class="toctree-l2"><a class="reference internal" href="quickstart.html#saving-and-loading-models">Saving and Loading Models</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#neural-architecture-contract">Neural architecture contract</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#optional-training-and-inference-contracts">Optional training and inference contracts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#adding-an-architecture">Adding an architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#gam-isolation">GAM isolation</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="user_guide.html">User Guide</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="user_guide/preprocessing.html">Preprocessing (PreTab)</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="user_guide/preprocessing.html#using-pretab-with-nampy">Using PreTab with NAMpy</a></li>
 <li class="toctree-l3"><a class="reference internal" href="user_guide/preprocessing.html#preprocessor-contract">Preprocessor contract</a></li>
 <li class="toctree-l3"><a class="reference internal" href="user_guide/preprocessing.html#accessing-the-preprocessor">Accessing the preprocessor</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/pretab_compatibility.html">Published PreTab compatibility</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/pretab_compatibility.html#supported-contract">Supported contract</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/pretab_compatibility.html#removed-requirements">Removed requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/pretab_compatibility.html#model-impact">Model impact</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="user_guide/pretab_compatibility.html#nam">NAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="user_guide/pretab_compatibility.html#nbm">NBM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="user_guide/pretab_compatibility.html#spam-and-nbm-spam">SPAM and NBM-SPAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="user_guide/pretab_compatibility.html#nodegam">NodeGAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="user_guide/pretab_compatibility.html#other-neural-models">Other neural models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="user_guide/pretab_compatibility.html#gam-backend">GAM backend</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/pretab_compatibility.html#behavioral-consequences">Behavioral consequences</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="user_guide/training.html">Training Models</a><ul>
@@ -92,6 +115,7 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="user_guide/training.html#gpu-training">GPU Training</a></li>
 <li class="toctree-l3"><a class="reference internal" href="user_guide/training.html#batch-size">Batch Size</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/training.html#architecture-native-training">Architecture-native training</a></li>
 <li class="toctree-l3"><a class="reference internal" href="user_guide/training.html#regularization">Regularization</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="user_guide/training.html#weight-decay-l2">Weight Decay (L2)</a></li>
 <li class="toctree-l4"><a class="reference internal" href="user_guide/training.html#dropout">Dropout</a></li>
@@ -113,12 +137,23 @@
 <li class="toctree-l3"><a class="reference internal" href="user_guide/training.html#next-steps">Next Steps</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/shape_constrained_gams.html">Shape-constrained GAMs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/shape_constrained_gams.html#architecture">Architecture</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/shape_constrained_gams.html#basic-use">Basic use</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/shape_constrained_gams.html#univariate-bases">Univariate bases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/shape_constrained_gams.html#bivariate-bases">Bivariate bases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/shape_constrained_gams.html#linear-functionals">Linear functionals</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/shape_constrained_gams.html#inference-and-diagnostics">Inference and diagnostics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/shape_constrained_gams.html#gaussian-ar-1-errors">Gaussian AR(1) errors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/shape_constrained_gams.html#current-boundaries">Current boundaries</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="user_guide/custom_models.html">Custom Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="user_guide/custom_models.html#overview">Overview</a></li>
 <li class="toctree-l3"><a class="reference internal" href="user_guide/custom_models.html#step-by-step-guide">Step-by-Step Guide</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="user_guide/custom_models.html#define-configuration">1. Define Configuration</a></li>
 <li class="toctree-l4"><a class="reference internal" href="user_guide/custom_models.html#implement-the-model">2. Implement the Model</a></li>
-<li class="toctree-l4"><a class="reference internal" href="user_guide/custom_models.html#create-wrapper-classes">3. Create Wrapper Classes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="user_guide/custom_models.html#register-the-architecture">3. Register the Architecture</a></li>
 <li class="toctree-l4"><a class="reference internal" href="user_guide/custom_models.html#use-your-custom-model">4. Use Your Custom Model</a></li>
 </ul>
 </li>
@@ -137,10 +172,9 @@
 <li class="toctree-l2"><a class="reference internal" href="user_guide/interpretability.html">Interpretability</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="user_guide/interpretability.html#understanding-additive-models">Understanding Additive Models</a></li>
 <li class="toctree-l3"><a class="reference internal" href="user_guide/interpretability.html#feature-level-predictions">Feature-Level Predictions</a></li>
-<li class="toctree-l3"><a class="reference internal" href="user_guide/interpretability.html#feature-importance">Feature Importance</a></li>
-<li class="toctree-l3"><a class="reference internal" href="user_guide/interpretability.html#visualization">Visualization</a></li>
-<li class="toctree-l3"><a class="reference internal" href="user_guide/interpretability.html#summaries-and-diagnostics">Summaries and Diagnostics</a></li>
 <li class="toctree-l3"><a class="reference internal" href="user_guide/interpretability.html#model-comparison">Model Comparison</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/interpretability.html#visualization">Visualization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/interpretability.html#contributing">Contributing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="user_guide/interpretability.html#for-more-information">For More Information</a></li>
 </ul>
 </li>
@@ -181,103 +215,194 @@
 <li class="toctree-l2"><a class="reference internal" href="api/models.html">Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="api/models.html#regression-models">Regression Models</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.NAMRegressor.html">nampy.models.NAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.SIANRegressor.html">nampy.models.SIANRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.GPNAMRegressor.html">nampy.models.GPNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.IGANNRegressor.html">nampy.models.IGANNRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.NBMRegressor.html">nampy.models.NBMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.NBMSPAMRegressor.html">nampy.models.NBMSPAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.SPAMRegressor.html">nampy.models.SPAMRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.NATTRegressor.html">nampy.models.NATTRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.NAMformerRegressor.html">nampy.models.NAMformerRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.LinRegRegressor.html">nampy.models.LinRegRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.TreeNAMRegressor.html">nampy.models.TreeNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.EnsembleTreeNAMRegressor.html">nampy.models.EnsembleTreeNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.SNAMRegressor.html">nampy.models.SNAMRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.SplineNAMRegressor.html">nampy.models.SplineNAMRegressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.SparseNAMRegressor.html">nampy.models.SparseNAMRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.NodeGAMRegressor.html">nampy.models.NodeGAMRegressor</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="api/models.html#classification-models">Classification Models</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.NAMClassifier.html">nampy.models.NAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.SIANClassifier.html">nampy.models.SIANClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.GPNAMClassifier.html">nampy.models.GPNAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.IGANNClassifier.html">nampy.models.IGANNClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.NBMClassifier.html">nampy.models.NBMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.NBMSPAMClassifier.html">nampy.models.NBMSPAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.SPAMClassifier.html">nampy.models.SPAMClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.NATTClassifier.html">nampy.models.NATTClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.NAMformerClassifier.html">nampy.models.NAMformerClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.LinRegClassifier.html">nampy.models.LinRegClassifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.SplineNAMClassifier.html">nampy.models.SplineNAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.TreeNAMClassifier.html">nampy.models.TreeNAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.EnsembleTreeNAMClassifier.html">nampy.models.EnsembleTreeNAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.SNAMClassifier.html">nampy.models.SNAMClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.NodeGAMClassifier.html">nampy.models.NodeGAMClassifier</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="api/models.html#distributional-regression-models-lss">Distributional Regression Models (LSS)</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.NAMLSS.html">nampy.models.NAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.SIANLSS.html">nampy.models.SIANLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.GPNAMLSS.html">nampy.models.GPNAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.IGANNLSS.html">nampy.models.IGANNLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.NBMLSS.html">nampy.models.NBMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.NBMSPAMLSS.html">nampy.models.NBMSPAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.SPAMLSS.html">nampy.models.SPAMLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.NATTLSS.html">nampy.models.NATTLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.NAMformerLSS.html">nampy.models.NAMformerLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.LinRegLSS.html">nampy.models.LinRegLSS</a></li>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.SplineNAMLSS.html">nampy.models.SplineNAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.TreeNAMLSS.html">nampy.models.TreeNAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.EnsembleTreeNAMLSS.html">nampy.models.EnsembleTreeNAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.SNAMLSS.html">nampy.models.SNAMLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.NodeGAMLSS.html">nampy.models.NodeGAMLSS</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="api/models.html#other-models">Other Models</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.QNAM.html">nampy.models.QNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.QNAMLSS.html">nampy.models.QNAMLSS</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="api/models.html#base-classes">Base Classes</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.SklearnBaseRegressor.html">nampy.models.SklearnBaseRegressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.SklearnBaseClassifier.html">nampy.models.SklearnBaseClassifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.SklearnBaseLSS.html">nampy.models.SklearnBaseLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.NeuralRegressor.html">nampy.models.NeuralRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.NeuralClassifier.html">nampy.models.NeuralClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.NeuralLSS.html">nampy.models.NeuralLSS</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/gam.html">GAM (mgcv-parity backend)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/gam.html#high-level-model">High-level model</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.gam.GAM.html">nampy.gam.GAM</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/gam.html#shape-constrained-smooths">Shape-constrained smooths</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.gam.diagnostics.SmoothDerivativeResult.html">nampy.gam.diagnostics.SmoothDerivativeResult</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/gam.html#scikit-learn-adapters">Scikit-learn adapters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.GAMRegressor.html">nampy.models.GAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.models.GAMClassifier.html">nampy.models.GAMClassifier</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/gam.html#fit-core">Fit core</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.gam.fit_model_core.html">nampy.gam.fit_model_core</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.gam.solve_fit.html">nampy.gam.solve_fit</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.gam.FitCoreSolution.html">nampy.gam.FitCoreSolution</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/gam.html#shared-contracts">Shared contracts</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.contracts.FeatureSchema.html">nampy.contracts.FeatureSchema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.contracts.AdditivePrediction.html">nampy.contracts.AdditivePrediction</a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="api/basemodels.html">Base Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="api/basemodels.html#base-classes">Base Classes</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.basemodels.BaseModel.html">nampy.basemodels.BaseModel</a></li>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.basemodels.TaskModel.html">nampy.basemodels.TaskModel</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.architectures.BaseModel.html">nampy.neural.architectures.BaseModel</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.task.TaskModule.html">nampy.neural.task.TaskModule</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="api/basemodels.html#model-implementations">Model Implementations</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.basemodels.NAM.html">nampy.basemodels.NAM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.basemodels.GPNAM.html">nampy.basemodels.GPNAM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.basemodels.NBM.html">nampy.basemodels.NBM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.basemodels.NATT.html">nampy.basemodels.NATT</a></li>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.basemodels.NAMformer.html">nampy.basemodels.NAMformer</a></li>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.basemodels.LinReg.html">nampy.basemodels.LinReg</a></li>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.basemodels.QNAMBase.html">nampy.basemodels.QNAMBase</a></li>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.basemodels.SparseNAM.html">nampy.basemodels.SparseNAM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.basemodels.SplineNAM.html">nampy.basemodels.SplineNAM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.basemodels.NodeGAM.html">nampy.basemodels.NodeGAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.architectures.NAM.html">nampy.neural.architectures.NAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.architectures.SIAN.html">nampy.neural.architectures.SIAN</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.architectures.GPNAM.html">nampy.neural.architectures.GPNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.architectures.IGANN.html">nampy.neural.architectures.IGANN</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.architectures.NBM.html">nampy.neural.architectures.NBM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.architectures.NBMSPAM.html">nampy.neural.architectures.NBMSPAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.architectures.SPAM.html">nampy.neural.architectures.SPAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.architectures.NATT.html">nampy.neural.architectures.NATT</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.architectures.NAMformer.html">nampy.neural.architectures.NAMformer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.architectures.LinReg.html">nampy.neural.architectures.LinReg</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.architectures.QNAM.html">nampy.neural.architectures.QNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.architectures.SNAM.html">nampy.neural.architectures.SNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.architectures.TreeNAM.html">nampy.neural.architectures.TreeNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.architectures.EnsembleTreeNAM.html">nampy.neural.architectures.EnsembleTreeNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.architectures.SplineNAM.html">nampy.neural.architectures.SplineNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.architectures.NodeGAM.html">nampy.neural.architectures.NodeGAM</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="api/preprocessing.html">Preprocessing (PreTab)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/configs.html">Configurations</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.configs.DefaultNAMConfig.html">nampy.configs.DefaultNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.configs.DefaultGPNAMConfig.html">nampy.configs.DefaultGPNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.configs.DefaultNBMConfig.html">nampy.configs.DefaultNBMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.configs.DefaultNATTConfig.html">nampy.configs.DefaultNATTConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.configs.DefaultNAMformerConfig.html">nampy.configs.DefaultNAMformerConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.configs.DefaultLinRegConfig.html">nampy.configs.DefaultLinRegConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.configs.DefaultQNAMConfig.html">nampy.configs.DefaultQNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.configs.DefaultTreeNAMConfig.html">nampy.configs.DefaultTreeNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.configs.DefaultEnsembleTreeNAMConfig.html">nampy.configs.DefaultEnsembleTreeNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.configs.DefaultSparseNAMConfig.html">nampy.configs.DefaultSparseNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.configs.DefaultSplineNAMConfig.html">nampy.configs.DefaultSplineNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.configs.DefaultNodeGAMConfig.html">nampy.configs.DefaultNodeGAMConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultNAMConfig.html">nampy.neural.configs.DefaultNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultSIANConfig.html">nampy.neural.configs.DefaultSIANConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig"><code class="docutils literal notranslate"><span class="pre">DefaultSIANConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultNBMConfig.html">nampy.neural.configs.DefaultNBMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNBMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html">nampy.neural.configs.DefaultNBMSPAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNBMSPAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultSPAMConfig.html">nampy.neural.configs.DefaultSPAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultSPAMConfig.html#nampy.neural.configs.DefaultSPAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultSPAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultNATTConfig.html">nampy.neural.configs.DefaultNATTConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNATTConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html">nampy.neural.configs.DefaultNAMformerConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNAMformerConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultLinRegConfig.html">nampy.neural.configs.DefaultLinRegConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultLinRegConfig.html#nampy.neural.configs.DefaultLinRegConfig"><code class="docutils literal notranslate"><span class="pre">DefaultLinRegConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultGPNAMConfig.html">nampy.neural.configs.DefaultGPNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultGPNAMConfig.html#nampy.neural.configs.DefaultGPNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultGPNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultIGANNConfig.html">nampy.neural.configs.DefaultIGANNConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultIGANNConfig.html#nampy.neural.configs.DefaultIGANNConfig"><code class="docutils literal notranslate"><span class="pre">DefaultIGANNConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultQNAMConfig.html">nampy.neural.configs.DefaultQNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultQNAMConfig.html#nampy.neural.configs.DefaultQNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultQNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultSNAMConfig.html">nampy.neural.configs.DefaultSNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultSNAMConfig.html#nampy.neural.configs.DefaultSNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultSNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultSplineNAMConfig.html">nampy.neural.configs.DefaultSplineNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultSplineNAMConfig.html#nampy.neural.configs.DefaultSplineNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultSplineNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultTreeNAMConfig.html">nampy.neural.configs.DefaultTreeNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultTreeNAMConfig.html#nampy.neural.configs.DefaultTreeNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultTreeNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultEnsembleTreeNAMConfig.html">nampy.neural.configs.DefaultEnsembleTreeNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultEnsembleTreeNAMConfig.html#nampy.neural.configs.DefaultEnsembleTreeNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultEnsembleTreeNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html">nampy.neural.configs.DefaultNodeGAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNodeGAMConfig</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="api/configs.html#using-configurations">Using Configurations</a></li>
-<li class="toctree-l3"><a class="reference internal" href="api/configs.html#available-configs">Available Configs</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="api/utils.html">Utilities</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="api/utils.html#interpretability">Interpretability</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.utils.predict_terms.html">nampy.utils.predict_terms</a></li>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.utils.term_contributions.html">nampy.utils.term_contributions</a></li>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.utils.feature_importance.html">nampy.utils.feature_importance</a></li>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.utils.plot_terms.html">nampy.utils.plot_terms</a></li>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.utils.plot_interactions.html">nampy.utils.plot_interactions</a></li>
-</ul>
-</li>
+<li class="toctree-l2"><a class="reference internal" href="api/utils.html">Distributions</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="api/utils.html#modules">Modules</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.utils.distributional_metrics.html">nampy.utils.distributional_metrics</a></li>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.utils.distributions.html">nampy.utils.distributions</a></li>
-<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.utils.interpretability.html">nampy.utils.interpretability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.distributions.distributions.html">nampy.neural.distributions.distributions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/generated/nampy.neural.distributions.metrics.html">nampy.neural.distributions.metrics</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="api/utils.html#available-distributions">Available Distributions</a></li>
@@ -312,94 +437,8 @@
 <li class="toctree-l3"><a class="reference internal" href="models/index.html#distributional-regression-lss">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="models/index.html#model-reference">Model Reference</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="models/reference.html">Model Reference</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#shared-fit-time-parameters">Shared Fit-Time Parameters</a></li>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#neural-additive-models">Neural Additive Models</a></li>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#basis-function-models">Basis Function Models</a></li>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#attention-based-models">Attention-Based Models</a></li>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#specialized-models">Specialized Models</a></li>
-</ul>
-</li>
-</ul>
-</li>
+<li class="toctree-l2"><a class="reference internal" href="models/index.html#model-reference">Model Reference</a></li>
 <li class="toctree-l2"><a class="reference internal" href="models/index.html#complete-api-reference">Complete API Reference</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="models/reference.html">Model Reference</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="models/reference.html#shared-fit-time-parameters">Shared Fit-Time Parameters</a></li>
-<li class="toctree-l2"><a class="reference internal" href="models/reference.html#neural-additive-models">Neural Additive Models</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="models/reference.html#nam">NAM</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#regressor">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#classifier">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#distributional-regression-lss">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="models/reference.html#gpnam">GPNAM</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#id1">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#id2">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#id3">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="models/reference.html#treenam">TreeNAM</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#id4">Regressor</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="models/reference.html#splinenam">SplineNAM</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#id5">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#id6">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#id7">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="models/reference.html#sparsenam">SparseNAM</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#id8">Regressor</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="models/reference.html#nodegam">NodeGAM</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#id9">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#id10">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#id11">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="models/reference.html#basis-function-models">Basis Function Models</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="models/reference.html#nbm">NBM</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#id12">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#id13">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#id14">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="models/reference.html#attention-based-models">Attention-Based Models</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="models/reference.html#natt">NATT</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#id15">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#id16">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#id17">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="models/reference.html#namformer">NAMformer</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#id18">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#id19">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#id20">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="models/reference.html#specialized-models">Specialized Models</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="models/reference.html#qnam-quantile-nam">QNAM (Quantile NAM)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#id21">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="models/reference.html#linreg-neural-linear-regression">LinReg (Neural Linear Regression)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#id22">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#id23">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="models/reference.html#id24">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-</ul>
-</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="examples/index.html">Examples</a><ul>
@@ -474,15 +513,12 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="contributing.html#quick-links">Quick Links</a></li>
-<li class="toctree-l2"><a class="reference internal" href="contributing.html#ways-to-contribute">Ways to Contribute</a></li>
-<li class="toctree-l2"><a class="reference internal" href="contributing.html#getting-started">Getting Started</a></li>
-<li class="toctree-l2"><a class="reference internal" href="contributing.html#development-setup">Development Setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="contributing.html#useful-links">Useful links</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="changelog.html">Changelog</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="changelog.html#latest-release">Latest Release</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="changelog.html#unreleased">Unreleased</a></li>
+<li class="toctree-l3"><a class="reference internal" href="changelog.html#version-0-2-0-2026-08-22">Version 0.2.0 (2026-08-22)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="changelog.html#version-0-1-0-2024-01-07">Version 0.1.0 (2024-01-07)</a></li>
 </ul>
 </li>
@@ -547,6 +583,11 @@
 <li class="toctree-l2"><a class="reference internal" href="faq.html#still-have-questions">Still Have Questions?</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="development/reference_sources.html">Local upstream references</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="development/reference_sources.html#fixture-policy">Fixture policy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development/reference_sources.html#refresh-workflow">Refresh workflow</a></li>
+</ul>
+</li>
 </ul>
 
         </div>
@@ -577,74 +618,43 @@
 
 <div class="genindex-jumpbox">
  <a href="#_"><strong>_</strong></a>
+ | <a href="#A"><strong>A</strong></a>
+ | <a href="#B"><strong>B</strong></a>
+ | <a href="#C"><strong>C</strong></a>
+ | <a href="#D"><strong>D</strong></a>
+ | <a href="#E"><strong>E</strong></a>
  | <a href="#F"><strong>F</strong></a>
  | <a href="#G"><strong>G</strong></a>
+ | <a href="#H"><strong>H</strong></a>
+ | <a href="#I"><strong>I</strong></a>
+ | <a href="#K"><strong>K</strong></a>
  | <a href="#L"><strong>L</strong></a>
  | <a href="#M"><strong>M</strong></a>
  | <a href="#N"><strong>N</strong></a>
+ | <a href="#O"><strong>O</strong></a>
  | <a href="#P"><strong>P</strong></a>
  | <a href="#Q"><strong>Q</strong></a>
+ | <a href="#R"><strong>R</strong></a>
  | <a href="#S"><strong>S</strong></a>
  | <a href="#T"><strong>T</strong></a>
+ | <a href="#U"><strong>U</strong></a>
+ | <a href="#V"><strong>V</strong></a>
+ | <a href="#W"><strong>W</strong></a>
  
 </div>
 <h2 id="_">_</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="models/reference.html#nampy.models.GPNAMClassifier.__init__">__init__() (nampy.models.GPNAMClassifier method)</a>
+      <li><a href="api/generated/nampy.neural.architectures.BaseModel.html#nampy.neural.architectures.BaseModel.__init__">__init__() (nampy.neural.architectures.BaseModel method)</a>
 
       <ul>
-        <li><a href="models/reference.html#nampy.models.GPNAMLSS.__init__">(nampy.models.GPNAMLSS method)</a>
+        <li><a href="api/generated/nampy.neural.architectures.NAM.html#nampy.neural.architectures.NAM.__init__">(nampy.neural.architectures.NAM method)</a>
 </li>
-        <li><a href="models/reference.html#nampy.models.GPNAMRegressor.__init__">(nampy.models.GPNAMRegressor method)</a>
+        <li><a href="api/generated/nampy.neural.architectures.NAMformer.html#nampy.neural.architectures.NAMformer.__init__">(nampy.neural.architectures.NAMformer method)</a>
 </li>
-        <li><a href="models/reference.html#nampy.models.LinRegClassifier.__init__">(nampy.models.LinRegClassifier method)</a>
+        <li><a href="api/generated/nampy.neural.architectures.NATT.html#nampy.neural.architectures.NATT.__init__">(nampy.neural.architectures.NATT method)</a>
 </li>
-        <li><a href="models/reference.html#nampy.models.LinRegLSS.__init__">(nampy.models.LinRegLSS method)</a>
-</li>
-        <li><a href="models/reference.html#nampy.models.LinRegRegressor.__init__">(nampy.models.LinRegRegressor method)</a>
-</li>
-        <li><a href="models/reference.html#nampy.models.NAMClassifier.__init__">(nampy.models.NAMClassifier method)</a>
-</li>
-        <li><a href="models/reference.html#nampy.models.NAMformerClassifier.__init__">(nampy.models.NAMformerClassifier method)</a>
-</li>
-        <li><a href="models/reference.html#nampy.models.NAMformerLSS.__init__">(nampy.models.NAMformerLSS method)</a>
-</li>
-        <li><a href="models/reference.html#nampy.models.NAMformerRegressor.__init__">(nampy.models.NAMformerRegressor method)</a>
-</li>
-        <li><a href="models/reference.html#nampy.models.NAMLSS.__init__">(nampy.models.NAMLSS method)</a>
-</li>
-        <li><a href="models/reference.html#nampy.models.NAMRegressor.__init__">(nampy.models.NAMRegressor method)</a>
-</li>
-        <li><a href="models/reference.html#nampy.models.NATTClassifier.__init__">(nampy.models.NATTClassifier method)</a>
-</li>
-        <li><a href="models/reference.html#nampy.models.NATTLSS.__init__">(nampy.models.NATTLSS method)</a>
-</li>
-        <li><a href="models/reference.html#nampy.models.NATTRegressor.__init__">(nampy.models.NATTRegressor method)</a>
-</li>
-        <li><a href="models/reference.html#nampy.models.NBMClassifier.__init__">(nampy.models.NBMClassifier method)</a>
-</li>
-        <li><a href="models/reference.html#nampy.models.NBMLSS.__init__">(nampy.models.NBMLSS method)</a>
-</li>
-        <li><a href="models/reference.html#nampy.models.NBMRegressor.__init__">(nampy.models.NBMRegressor method)</a>
-</li>
-        <li><a href="models/reference.html#nampy.models.NodeGAMClassifier.__init__">(nampy.models.NodeGAMClassifier method)</a>
-</li>
-        <li><a href="models/reference.html#nampy.models.NodeGAMLSS.__init__">(nampy.models.NodeGAMLSS method)</a>
-</li>
-        <li><a href="models/reference.html#nampy.models.NodeGAMRegressor.__init__">(nampy.models.NodeGAMRegressor method)</a>
-</li>
-        <li><a href="models/reference.html#nampy.models.QNAM.__init__">(nampy.models.QNAM method)</a>
-</li>
-        <li><a href="models/reference.html#nampy.models.SparseNAMRegressor.__init__">(nampy.models.SparseNAMRegressor method)</a>
-</li>
-        <li><a href="models/reference.html#nampy.models.SplineNAMClassifier.__init__">(nampy.models.SplineNAMClassifier method)</a>
-</li>
-        <li><a href="models/reference.html#nampy.models.SplineNAMLSS.__init__">(nampy.models.SplineNAMLSS method)</a>
-</li>
-        <li><a href="models/reference.html#nampy.models.SplineNAMRegressor.__init__">(nampy.models.SplineNAMRegressor method)</a>
-</li>
-        <li><a href="models/reference.html#nampy.models.TreeNAMRegressor.__init__">(nampy.models.TreeNAMRegressor method)</a>
+        <li><a href="api/generated/nampy.neural.architectures.NodeGAM.html#nampy.neural.architectures.NodeGAM.__init__">(nampy.neural.architectures.NodeGAM method)</a>
 </li>
       </ul></li>
   </ul></td>
@@ -654,14 +664,516 @@
   </ul></td>
 </tr></table>
 
-<h2 id="F">F</h2>
+<h2 id="A">A</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/generated/nampy.utils.feature_importance.html#nampy.utils.feature_importance">feature_importance() (in module nampy.utils)</a>
+      <li><a href="api/generated/nampy.neural.configs.DefaultIGANNConfig.html#nampy.neural.configs.DefaultIGANNConfig.activation">activation (nampy.neural.configs.DefaultIGANNConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.activation">(nampy.neural.configs.DefaultNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.activation">(nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.activation">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig.activation">(nampy.neural.configs.DefaultNBMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.activation">(nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultQNAMConfig.html#nampy.neural.configs.DefaultQNAMConfig.activation">(nampy.neural.configs.DefaultQNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.activation">(nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.adaptive_width">adaptive_width (nampy.neural.configs.DefaultNAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig.addi_tree_dim">addi_tree_dim (nampy.neural.configs.DefaultNodeGAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.contracts.AdditivePrediction.html#nampy.contracts.AdditivePrediction">AdditivePrediction (class in nampy.contracts)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultEnsembleTreeNAMConfig.html#nampy.neural.configs.DefaultEnsembleTreeNAMConfig.aggregation">aggregation (nampy.neural.configs.DefaultEnsembleTreeNAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.aic">aic() (nampy.gam.GAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig.anneal_steps">anneal_steps (nampy.neural.configs.DefaultNodeGAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.anova">anova() (nampy.gam.GAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.ar1_standardized_residuals">ar1_standardized_residuals() (nampy.gam.GAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig.arch">arch (nampy.neural.configs.DefaultNodeGAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.archipelago_baseline">archipelago_baseline (nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.models.EnsembleTreeNAMClassifier.html#nampy.models.EnsembleTreeNAMClassifier.architecture_name">architecture_name (nampy.models.EnsembleTreeNAMClassifier attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.models.EnsembleTreeNAMLSS.html#nampy.models.EnsembleTreeNAMLSS.architecture_name">(nampy.models.EnsembleTreeNAMLSS attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.EnsembleTreeNAMRegressor.html#nampy.models.EnsembleTreeNAMRegressor.architecture_name">(nampy.models.EnsembleTreeNAMRegressor attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.GPNAMClassifier.html#nampy.models.GPNAMClassifier.architecture_name">(nampy.models.GPNAMClassifier attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.GPNAMLSS.html#nampy.models.GPNAMLSS.architecture_name">(nampy.models.GPNAMLSS attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.GPNAMRegressor.html#nampy.models.GPNAMRegressor.architecture_name">(nampy.models.GPNAMRegressor attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.IGANNClassifier.html#nampy.models.IGANNClassifier.architecture_name">(nampy.models.IGANNClassifier attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.IGANNLSS.html#nampy.models.IGANNLSS.architecture_name">(nampy.models.IGANNLSS attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.IGANNRegressor.html#nampy.models.IGANNRegressor.architecture_name">(nampy.models.IGANNRegressor attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.LinRegClassifier.html#nampy.models.LinRegClassifier.architecture_name">(nampy.models.LinRegClassifier attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.LinRegLSS.html#nampy.models.LinRegLSS.architecture_name">(nampy.models.LinRegLSS attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.LinRegRegressor.html#nampy.models.LinRegRegressor.architecture_name">(nampy.models.LinRegRegressor attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NAMClassifier.html#nampy.models.NAMClassifier.architecture_name">(nampy.models.NAMClassifier attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NAMformerClassifier.html#nampy.models.NAMformerClassifier.architecture_name">(nampy.models.NAMformerClassifier attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NAMformerLSS.html#nampy.models.NAMformerLSS.architecture_name">(nampy.models.NAMformerLSS attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NAMformerRegressor.html#nampy.models.NAMformerRegressor.architecture_name">(nampy.models.NAMformerRegressor attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NAMLSS.html#nampy.models.NAMLSS.architecture_name">(nampy.models.NAMLSS attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NAMRegressor.html#nampy.models.NAMRegressor.architecture_name">(nampy.models.NAMRegressor attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NATTClassifier.html#nampy.models.NATTClassifier.architecture_name">(nampy.models.NATTClassifier attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NATTLSS.html#nampy.models.NATTLSS.architecture_name">(nampy.models.NATTLSS attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NATTRegressor.html#nampy.models.NATTRegressor.architecture_name">(nampy.models.NATTRegressor attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NBMClassifier.html#nampy.models.NBMClassifier.architecture_name">(nampy.models.NBMClassifier attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NBMLSS.html#nampy.models.NBMLSS.architecture_name">(nampy.models.NBMLSS attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NBMRegressor.html#nampy.models.NBMRegressor.architecture_name">(nampy.models.NBMRegressor attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NBMSPAMClassifier.html#nampy.models.NBMSPAMClassifier.architecture_name">(nampy.models.NBMSPAMClassifier attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NBMSPAMLSS.html#nampy.models.NBMSPAMLSS.architecture_name">(nampy.models.NBMSPAMLSS attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NBMSPAMRegressor.html#nampy.models.NBMSPAMRegressor.architecture_name">(nampy.models.NBMSPAMRegressor attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NodeGAMClassifier.html#nampy.models.NodeGAMClassifier.architecture_name">(nampy.models.NodeGAMClassifier attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NodeGAMLSS.html#nampy.models.NodeGAMLSS.architecture_name">(nampy.models.NodeGAMLSS attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NodeGAMRegressor.html#nampy.models.NodeGAMRegressor.architecture_name">(nampy.models.NodeGAMRegressor attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.QNAMLSS.html#nampy.models.QNAMLSS.architecture_name">(nampy.models.QNAMLSS attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.SIANClassifier.html#nampy.models.SIANClassifier.architecture_name">(nampy.models.SIANClassifier attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.SIANLSS.html#nampy.models.SIANLSS.architecture_name">(nampy.models.SIANLSS attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.SIANRegressor.html#nampy.models.SIANRegressor.architecture_name">(nampy.models.SIANRegressor attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.SNAMClassifier.html#nampy.models.SNAMClassifier.architecture_name">(nampy.models.SNAMClassifier attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.SNAMLSS.html#nampy.models.SNAMLSS.architecture_name">(nampy.models.SNAMLSS attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.SNAMRegressor.html#nampy.models.SNAMRegressor.architecture_name">(nampy.models.SNAMRegressor attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.SPAMClassifier.html#nampy.models.SPAMClassifier.architecture_name">(nampy.models.SPAMClassifier attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.SPAMLSS.html#nampy.models.SPAMLSS.architecture_name">(nampy.models.SPAMLSS attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.SPAMRegressor.html#nampy.models.SPAMRegressor.architecture_name">(nampy.models.SPAMRegressor attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.SplineNAMRegressor.html#nampy.models.SplineNAMRegressor.architecture_name">(nampy.models.SplineNAMRegressor attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.TreeNAMClassifier.html#nampy.models.TreeNAMClassifier.architecture_name">(nampy.models.TreeNAMClassifier attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.TreeNAMLSS.html#nampy.models.TreeNAMLSS.architecture_name">(nampy.models.TreeNAMLSS attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.models.TreeNAMRegressor.html#nampy.models.TreeNAMRegressor.architecture_name">(nampy.models.TreeNAMRegressor attribute)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.attn_dropout">attn_dropout (nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.attn_dropout">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="B">B</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.contracts.AdditivePrediction.html#nampy.contracts.AdditivePrediction.backend">backend (nampy.contracts.AdditivePrediction attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.BaseModel.html#nampy.neural.architectures.BaseModel">BaseModel (class in nampy.neural.architectures)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig.bases_dropout">bases_dropout (nampy.neural.configs.DefaultNBMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.bases_dropout">(nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.architectures.NBM.html#nampy.neural.architectures.NBM.bases_nary_models">bases_nary_models (nampy.neural.architectures.NBM property)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.basis_l1_regularization">basis_l1_regularization (nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSPAMConfig.html#nampy.neural.configs.DefaultSPAMConfig.basis_l1_regularization">(nampy.neural.configs.DefaultSPAMConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.architectures.GPNAM.html#nampy.neural.architectures.GPNAM.basis_metadata">basis_metadata() (nampy.neural.architectures.GPNAM method)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.architectures.IGANN.html#nampy.neural.architectures.IGANN.basis_metadata">(nampy.neural.architectures.IGANN method)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.batch_norm">batch_norm (nampy.neural.configs.DefaultNAMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.batch_norm">(nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.batch_norm">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig.batch_norm">(nampy.neural.configs.DefaultNBMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.batch_norm">(nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultQNAMConfig.html#nampy.neural.configs.DefaultQNAMConfig.batch_norm">(nampy.neural.configs.DefaultQNAMConfig attribute)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.bias">bias (nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.bias">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.bic">bic() (nampy.gam.GAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig.bin_activation">bin_activation (nampy.neural.configs.DefaultNodeGAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.SIAN.html#nampy.neural.architectures.SIAN.block_mask">block_mask() (nampy.neural.architectures.SIAN method)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultIGANNConfig.html#nampy.neural.configs.DefaultIGANNConfig.boost_rate">boost_rate (nampy.neural.configs.DefaultIGANNConfig attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="C">C</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.cat_encoding">cat_encoding (nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.cat_encoding">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.architectures.NAM.html#nampy.neural.architectures.NAM.cat_feature_networks">cat_feature_networks (nampy.neural.architectures.NAM attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultGPNAMConfig.html#nampy.neural.configs.DefaultGPNAMConfig.cg_max_iter">cg_max_iter (nampy.neural.configs.DefaultGPNAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultGPNAMConfig.html#nampy.neural.configs.DefaultGPNAMConfig.cg_rtol">cg_rtol (nampy.neural.configs.DefaultGPNAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultIGANNConfig.html#nampy.neural.configs.DefaultIGANNConfig.clip_predictions">clip_predictions (nampy.neural.configs.DefaultIGANNConfig attribute)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="models/reference.html#nampy.models.QNAM.fit">fit() (nampy.models.QNAM method)</a>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig.colsample_bytree">colsample_bytree (nampy.neural.configs.DefaultNodeGAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.IGANN.html#nampy.neural.architectures.IGANN.complexity_metadata">complexity_metadata() (nampy.neural.architectures.IGANN method)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.architectures.SIAN.html#nampy.neural.architectures.SIAN.complexity_metadata">(nampy.neural.architectures.SIAN method)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.architectures.SIAN.html#nampy.neural.architectures.SIAN.compress">compress() (nampy.neural.architectures.SIAN method)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.task.TaskModule.html#nampy.neural.task.TaskModule.compute_loss">compute_loss() (nampy.neural.task.TaskModule method)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.concurvity">concurvity() (nampy.gam.GAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.task.TaskModule.html#nampy.neural.task.TaskModule.configure_optimizers">configure_optimizers() (nampy.neural.task.TaskModule method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="D">D</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.gam.diagnostics.SmoothDerivativeResult.html#nampy.gam.diagnostics.SmoothDerivativeResult.d">d (nampy.gam.diagnostics.SmoothDerivativeResult property)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.d_model">d_model (nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.d_model">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.models.GAMClassifier.html#nampy.models.GAMClassifier.decision_function">decision_function() (nampy.models.GAMClassifier method)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultEnsembleTreeNAMConfig.html#nampy.neural.configs.DefaultEnsembleTreeNAMConfig">DefaultEnsembleTreeNAMConfig (class in nampy.neural.configs)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultGPNAMConfig.html#nampy.neural.configs.DefaultGPNAMConfig">DefaultGPNAMConfig (class in nampy.neural.configs)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultIGANNConfig.html#nampy.neural.configs.DefaultIGANNConfig">DefaultIGANNConfig (class in nampy.neural.configs)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultLinRegConfig.html#nampy.neural.configs.DefaultLinRegConfig">DefaultLinRegConfig (class in nampy.neural.configs)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig">DefaultNAMConfig (class in nampy.neural.configs)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig">DefaultNAMformerConfig (class in nampy.neural.configs)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig">DefaultNATTConfig (class in nampy.neural.configs)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig">DefaultNBMConfig (class in nampy.neural.configs)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig">DefaultNBMSPAMConfig (class in nampy.neural.configs)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig">DefaultNodeGAMConfig (class in nampy.neural.configs)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultQNAMConfig.html#nampy.neural.configs.DefaultQNAMConfig">DefaultQNAMConfig (class in nampy.neural.configs)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig">DefaultSIANConfig (class in nampy.neural.configs)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSNAMConfig.html#nampy.neural.configs.DefaultSNAMConfig">DefaultSNAMConfig (class in nampy.neural.configs)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSPAMConfig.html#nampy.neural.configs.DefaultSPAMConfig">DefaultSPAMConfig (class in nampy.neural.configs)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSplineNAMConfig.html#nampy.neural.configs.DefaultSplineNAMConfig">DefaultSplineNAMConfig (class in nampy.neural.configs)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultTreeNAMConfig.html#nampy.neural.configs.DefaultTreeNAMConfig">DefaultTreeNAMConfig (class in nampy.neural.configs)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig.depth">depth (nampy.neural.configs.DefaultNodeGAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.diagnostics.SmoothDerivativeResult.html#nampy.gam.diagnostics.SmoothDerivativeResult.derivative">derivative (nampy.gam.diagnostics.SmoothDerivativeResult attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.derivative">derivative() (nampy.gam.GAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.diagnostics.SmoothDerivativeResult.html#nampy.gam.diagnostics.SmoothDerivativeResult.derivative_matrix">derivative_matrix (nampy.gam.diagnostics.SmoothDerivativeResult attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultIGANNConfig.html#nampy.neural.configs.DefaultIGANNConfig.device">device (nampy.neural.configs.DefaultIGANNConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig.dim_att">dim_att (nampy.neural.configs.DefaultNodeGAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.dropout">dropout (nampy.neural.configs.DefaultNAMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.dropout">(nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.dropout">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig.dropout">(nampy.neural.configs.DefaultNBMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.dropout">(nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultQNAMConfig.html#nampy.neural.configs.DefaultQNAMConfig.dropout">(nampy.neural.configs.DefaultQNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.dropout">(nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSPAMConfig.html#nampy.neural.configs.DefaultSPAMConfig.dropout">(nampy.neural.configs.DefaultSPAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSplineNAMConfig.html#nampy.neural.configs.DefaultSplineNAMConfig.dropout">(nampy.neural.configs.DefaultSplineNAMConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.contracts.FeatureSchema.html#nampy.contracts.FeatureSchema.dtypes">dtypes (nampy.contracts.FeatureSchema attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="E">E</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.neural.configs.DefaultIGANNConfig.html#nampy.neural.configs.DefaultIGANNConfig.early_stopping">early_stopping (nampy.neural.configs.DefaultIGANNConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.edf1">edf1() (nampy.gam.GAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultIGANNConfig.html#nampy.neural.configs.DefaultIGANNConfig.elm_alpha">elm_alpha (nampy.neural.configs.DefaultIGANNConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultIGANNConfig.html#nampy.neural.configs.DefaultIGANNConfig.elm_random_state">elm_random_state (nampy.neural.configs.DefaultIGANNConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultIGANNConfig.html#nampy.neural.configs.DefaultIGANNConfig.elm_scale">elm_scale (nampy.neural.configs.DefaultIGANNConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.embedding_activation">embedding_activation (nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.embedding_activation">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.architectures.EnsembleTreeNAM.html#nampy.neural.architectures.EnsembleTreeNAM">EnsembleTreeNAM (class in nampy.neural.architectures)</a>
+</li>
+      <li><a href="api/generated/nampy.models.EnsembleTreeNAMClassifier.html#nampy.models.EnsembleTreeNAMClassifier">EnsembleTreeNAMClassifier (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.EnsembleTreeNAMLSS.html#nampy.models.EnsembleTreeNAMLSS">EnsembleTreeNAMLSS (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.EnsembleTreeNAMRegressor.html#nampy.models.EnsembleTreeNAMRegressor">EnsembleTreeNAMRegressor (class in nampy.models)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.neural.architectures.GPNAM.html#nampy.neural.architectures.GPNAM.estimator_fitted_attributes">estimator_fitted_attributes (nampy.neural.architectures.GPNAM attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.architectures.IGANN.html#nampy.neural.architectures.IGANN.estimator_fitted_attributes">(nampy.neural.architectures.IGANN attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.architectures.SIAN.html#nampy.neural.architectures.SIAN.estimator_fitted_attributes">(nampy.neural.architectures.SIAN attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.models.GAMRegressor.html#nampy.models.GAMRegressor.evaluate">evaluate() (nampy.models.GAMRegressor method)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.models.NeuralClassifier.html#nampy.models.NeuralClassifier.evaluate">(nampy.models.NeuralClassifier method)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NeuralLSS.html#nampy.models.NeuralLSS.evaluate">(nampy.models.NeuralLSS method)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NeuralRegressor.html#nampy.models.NeuralRegressor.evaluate">(nampy.models.NeuralRegressor method)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.execution_mode">execution_mode (nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.BaseModel.html#nampy.neural.architectures.BaseModel.extra_reserved_feature_names">extra_reserved_feature_names (nampy.neural.architectures.BaseModel attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.architectures.GPNAM.html#nampy.neural.architectures.GPNAM.extra_reserved_feature_names">(nampy.neural.architectures.GPNAM attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.architectures.SIAN.html#nampy.neural.architectures.SIAN.extra_reserved_feature_names">(nampy.neural.architectures.SIAN attribute)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="F">F</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.neural.task.TaskModule.html#nampy.neural.task.TaskModule.family">family (nampy.neural.task.TaskModule property)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.NodeGAM.html#nampy.neural.architectures.NodeGAM.feature_dropout">feature_dropout (nampy.neural.architectures.NodeGAM attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.feature_dropout">(nampy.neural.configs.DefaultNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.feature_dropout">(nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.feature_dropout">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig.feature_dropout">(nampy.neural.configs.DefaultNBMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig.feature_dropout">(nampy.neural.configs.DefaultNodeGAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultQNAMConfig.html#nampy.neural.configs.DefaultQNAMConfig.feature_dropout">(nampy.neural.configs.DefaultQNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSplineNAMConfig.html#nampy.neural.configs.DefaultSplineNAMConfig.feature_dropout">(nampy.neural.configs.DefaultSplineNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultTreeNAMConfig.html#nampy.neural.configs.DefaultTreeNAMConfig.feature_dropout">(nampy.neural.configs.DefaultTreeNAMConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.architectures.NAM.html#nampy.neural.architectures.NAM.feature_dropout_p">feature_dropout_p (nampy.neural.architectures.NAM attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.feature_layer">feature_layer (nampy.neural.configs.DefaultNAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.contracts.FeatureSchema.html#nampy.contracts.FeatureSchema.feature_names">feature_names (nampy.contracts.FeatureSchema attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.feature_output_bias">feature_output_bias (nampy.neural.configs.DefaultNAMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.feature_output_bias">(nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.feature_widths">feature_widths (nampy.neural.configs.DefaultNAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.contracts.FeatureSchema.html#nampy.contracts.FeatureSchema">FeatureSchema (class in nampy.contracts)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.NBM.html#nampy.neural.architectures.NBM.featurizer">featurizer (nampy.neural.architectures.NBM property)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig.featurizer">(nampy.neural.configs.DefaultNBMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.featurizer">(nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.ff_dropout">ff_dropout (nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.ff_dropout">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.fit">fit() (nampy.gam.GAM method)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.models.GAMClassifier.html#nampy.models.GAMClassifier.fit">(nampy.models.GAMClassifier method)</a>
+</li>
+        <li><a href="api/generated/nampy.models.GAMRegressor.html#nampy.models.GAMRegressor.fit">(nampy.models.GAMRegressor method)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NeuralLSS.html#nampy.models.NeuralLSS.fit">(nampy.models.NeuralLSS method)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.gam.fit_model_core.html#nampy.gam.fit_model_core">fit_model_core() (in module nampy.gam)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.neural.architectures.IGANN.html#nampy.neural.architectures.IGANN.fit_native">fit_native() (nampy.neural.architectures.IGANN method)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.FitCoreSolution.html#nampy.gam.FitCoreSolution.fit_result">fit_result (nampy.gam.FitCoreSolution attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.fit_result">fit_result() (nampy.gam.GAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.FitCoreSolution.html#nampy.gam.FitCoreSolution.fit_state">fit_state (nampy.gam.FitCoreSolution attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.FitCoreSolution.html#nampy.gam.FitCoreSolution">FitCoreSolution (class in nampy.gam)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.formula_feature_columns_">formula_feature_columns_ (nampy.gam.GAM property)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.formula_offset_name_">formula_offset_name_ (nampy.gam.GAM property)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.formula_offset_names_">formula_offset_names_ (nampy.gam.GAM property)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.formula_used_columns_">formula_used_columns_ (nampy.gam.GAM property)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.EnsembleTreeNAM.html#nampy.neural.architectures.EnsembleTreeNAM.forward">forward() (nampy.neural.architectures.EnsembleTreeNAM method)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.architectures.GPNAM.html#nampy.neural.architectures.GPNAM.forward">(nampy.neural.architectures.GPNAM method)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.architectures.IGANN.html#nampy.neural.architectures.IGANN.forward">(nampy.neural.architectures.IGANN method)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.architectures.LinReg.html#nampy.neural.architectures.LinReg.forward">(nampy.neural.architectures.LinReg method)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.architectures.NAM.html#nampy.neural.architectures.NAM.forward">(nampy.neural.architectures.NAM method)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.architectures.NAMformer.html#nampy.neural.architectures.NAMformer.forward">(nampy.neural.architectures.NAMformer method)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.architectures.NATT.html#nampy.neural.architectures.NATT.forward">(nampy.neural.architectures.NATT method)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.architectures.NBM.html#nampy.neural.architectures.NBM.forward">(nampy.neural.architectures.NBM method)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.architectures.NBMSPAM.html#nampy.neural.architectures.NBMSPAM.forward">(nampy.neural.architectures.NBMSPAM method)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.architectures.NodeGAM.html#nampy.neural.architectures.NodeGAM.forward">(nampy.neural.architectures.NodeGAM method)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.architectures.QNAM.html#nampy.neural.architectures.QNAM.forward">(nampy.neural.architectures.QNAM method)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.architectures.SIAN.html#nampy.neural.architectures.SIAN.forward">(nampy.neural.architectures.SIAN method)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.architectures.SNAM.html#nampy.neural.architectures.SNAM.forward">(nampy.neural.architectures.SNAM method)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.architectures.SPAM.html#nampy.neural.architectures.SPAM.forward">(nampy.neural.architectures.SPAM method)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.architectures.SplineNAM.html#nampy.neural.architectures.SplineNAM.forward">(nampy.neural.architectures.SplineNAM method)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.architectures.TreeNAM.html#nampy.neural.architectures.TreeNAM.forward">(nampy.neural.architectures.TreeNAM method)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.task.TaskModule.html#nampy.neural.task.TaskModule.forward">(nampy.neural.task.TaskModule method)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.contracts.FeatureSchema.html#nampy.contracts.FeatureSchema.from_data">from_data() (nampy.contracts.FeatureSchema class method)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.FitCoreSolution.html#nampy.gam.FitCoreSolution.from_dict">from_dict() (nampy.gam.FitCoreSolution class method)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -669,13 +1181,207 @@
 <h2 id="G">G</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="models/reference.html#nampy.models.GPNAMClassifier">GPNAMClassifier (class in nampy.models)</a>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM">GAM (class in nampy.gam)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.gam_check">gam_check() (nampy.gam.GAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.gam_vcomp">gam_vcomp() (nampy.gam.GAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.models.GAMClassifier.html#nampy.models.GAMClassifier">GAMClassifier (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.GAMRegressor.html#nampy.models.GAMRegressor">GAMRegressor (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.FitCoreSolution.html#nampy.gam.FitCoreSolution.get">get() (nampy.gam.FitCoreSolution method)</a>
+</li>
+      <li><a href="api/generated/nampy.models.NeuralLSS.html#nampy.models.NeuralLSS.get_default_metrics">get_default_metrics() (nampy.models.NeuralLSS method)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.get_device">get_device() (nampy.gam.GAM method)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.architectures.BaseModel.html#nampy.neural.architectures.BaseModel.get_device">(nampy.neural.architectures.BaseModel method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.neural.architectures.SNAM.html#nampy.neural.architectures.SNAM.get_group_norms">get_group_norms() (nampy.neural.architectures.SNAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.models.NeuralLSS.html#nampy.models.NeuralLSS.get_params">get_params() (nampy.models.NeuralLSS method)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.GPNAM.html#nampy.neural.architectures.GPNAM">GPNAM (class in nampy.neural.architectures)</a>
+</li>
+      <li><a href="api/generated/nampy.models.GPNAMClassifier.html#nampy.models.GPNAMClassifier">GPNAMClassifier (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.GPNAMLSS.html#nampy.models.GPNAMLSS">GPNAMLSS (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.GPNAMRegressor.html#nampy.models.GPNAMRegressor">GPNAMRegressor (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSNAMConfig.html#nampy.neural.configs.DefaultSNAMConfig.group_lasso_include_interactions">group_lasso_include_interactions (nampy.neural.configs.DefaultSNAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSNAMConfig.html#nampy.neural.configs.DefaultSNAMConfig.group_lasso_lambda">group_lasso_lambda (nampy.neural.configs.DefaultSNAMConfig attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="H">H</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.head_activation">head_activation (nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.head_activation">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.head_dropout">head_dropout (nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.head_dropout">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.head_layer_sizes">head_layer_sizes (nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.head_layer_sizes">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.head_skip_layers">head_skip_layers (nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.head_skip_layers">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.head_use_batch_norm">head_use_batch_norm (nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.head_use_batch_norm">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.heredity_fraction">heredity_fraction (nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="I">I</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSplineNAMConfig.html#nampy.neural.configs.DefaultSplineNAMConfig.identify">identify (nampy.neural.configs.DefaultSplineNAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.IGANN.html#nampy.neural.architectures.IGANN">IGANN (class in nampy.neural.architectures)</a>
+</li>
+      <li><a href="api/generated/nampy.models.IGANNClassifier.html#nampy.models.IGANNClassifier">IGANNClassifier (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.IGANNLSS.html#nampy.models.IGANNLSS">IGANNLSS (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.IGANNRegressor.html#nampy.models.IGANNRegressor">IGANNRegressor (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSPAMConfig.html#nampy.neural.configs.DefaultSPAMConfig.ignore_unary">ignore_unary (nampy.neural.configs.DefaultSPAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultIGANNConfig.html#nampy.neural.configs.DefaultIGANNConfig.init_reg">init_reg (nampy.neural.configs.DefaultIGANNConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.GPNAM.html#nampy.neural.architectures.GPNAM.initialize_from_training_data">initialize_from_training_data() (nampy.neural.architectures.GPNAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig.input_dropout">input_dropout (nampy.neural.configs.DefaultNodeGAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.NAM.html#nampy.neural.architectures.NAM.interaction_degree">interaction_degree (nampy.neural.architectures.NAM attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultGPNAMConfig.html#nampy.neural.configs.DefaultGPNAMConfig.interaction_degree">(nampy.neural.configs.DefaultGPNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.interaction_degree">(nampy.neural.configs.DefaultNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.interaction_degree">(nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.interaction_degree">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig.interaction_degree">(nampy.neural.configs.DefaultNBMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig.interaction_degree">(nampy.neural.configs.DefaultNodeGAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultQNAMConfig.html#nampy.neural.configs.DefaultQNAMConfig.interaction_degree">(nampy.neural.configs.DefaultQNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.interaction_degree">(nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSplineNAMConfig.html#nampy.neural.configs.DefaultSplineNAMConfig.interaction_degree">(nampy.neural.configs.DefaultSplineNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultTreeNAMConfig.html#nampy.neural.configs.DefaultTreeNAMConfig.interaction_degree">(nampy.neural.configs.DefaultTreeNAMConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.interaction_detector">interaction_detector (nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.NAM.html#nampy.neural.architectures.NAM.interaction_networks">interaction_networks (nampy.neural.architectures.NAM attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.interaction_thresholds">interaction_thresholds (nampy.neural.configs.DefaultSIANConfig attribute)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="models/reference.html#nampy.models.GPNAMLSS">GPNAMLSS (class in nampy.models)</a>
+      <li><a href="api/generated/nampy.neural.configs.DefaultGPNAMConfig.html#nampy.neural.configs.DefaultGPNAMConfig.interactions">interactions (nampy.neural.configs.DefaultGPNAMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.interactions">(nampy.neural.configs.DefaultNAMConfig attribute)</a>
 </li>
-      <li><a href="models/reference.html#nampy.models.GPNAMRegressor">GPNAMRegressor (class in nampy.models)</a>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.interactions">(nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.interactions">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultQNAMConfig.html#nampy.neural.configs.DefaultQNAMConfig.interactions">(nampy.neural.configs.DefaultQNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.interactions">(nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSplineNAMConfig.html#nampy.neural.configs.DefaultSplineNAMConfig.interactions">(nampy.neural.configs.DefaultSplineNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultTreeNAMConfig.html#nampy.neural.configs.DefaultTreeNAMConfig.interactions">(nampy.neural.configs.DefaultTreeNAMConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.contracts.AdditivePrediction.html#nampy.contracts.AdditivePrediction.intercept">intercept (nampy.contracts.AdditivePrediction attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.architectures.NAM.html#nampy.neural.architectures.NAM.intercept">(nampy.neural.architectures.NAM attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.architectures.NBM.html#nampy.neural.architectures.NBM.intercept">(nampy.neural.architectures.NBM property)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.architectures.NBMSPAM.html#nampy.neural.architectures.NBMSPAM.intercept">(nampy.neural.architectures.NBMSPAM property)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.architectures.SPAM.html#nampy.neural.architectures.SPAM.intercept">(nampy.neural.architectures.SPAM property)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultGPNAMConfig.html#nampy.neural.configs.DefaultGPNAMConfig.intercept">(nampy.neural.configs.DefaultGPNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultLinRegConfig.html#nampy.neural.configs.DefaultLinRegConfig.intercept">(nampy.neural.configs.DefaultLinRegConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.intercept">(nampy.neural.configs.DefaultNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.intercept">(nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.intercept">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig.intercept">(nampy.neural.configs.DefaultNBMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultQNAMConfig.html#nampy.neural.configs.DefaultQNAMConfig.intercept">(nampy.neural.configs.DefaultQNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.intercept">(nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSPAMConfig.html#nampy.neural.configs.DefaultSPAMConfig.intercept">(nampy.neural.configs.DefaultSPAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSplineNAMConfig.html#nampy.neural.configs.DefaultSplineNAMConfig.intercept">(nampy.neural.configs.DefaultSplineNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultTreeNAMConfig.html#nampy.neural.configs.DefaultTreeNAMConfig.intercept">(nampy.neural.configs.DefaultTreeNAMConfig attribute)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="K">K</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.k_check">k_check() (nampy.gam.GAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultGPNAMConfig.html#nampy.neural.configs.DefaultGPNAMConfig.kernel_width">kernel_width (nampy.neural.configs.DefaultGPNAMConfig attribute)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.neural.configs.DefaultGPNAMConfig.html#nampy.neural.configs.DefaultGPNAMConfig.kernel_widths">kernel_widths (nampy.neural.configs.DefaultGPNAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.GPNAM.html#nampy.neural.architectures.GPNAM.kernel_widths_">kernel_widths_ (nampy.neural.architectures.GPNAM property)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -683,13 +1389,187 @@
 <h2 id="L">L</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="models/reference.html#nampy.models.LinRegClassifier">LinRegClassifier (class in nampy.models)</a>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig.l1_interactions">l1_interactions (nampy.neural.configs.DefaultNodeGAMConfig attribute)</a>
 </li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.l1_regularization">l1_regularization (nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig.l2_interactions">l2_interactions (nampy.neural.configs.DefaultNodeGAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig.l2_lambda">l2_lambda (nampy.neural.configs.DefaultNodeGAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.l2_regularization">l2_regularization (nampy.neural.configs.DefaultNAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig.last_dropout">last_dropout (nampy.neural.configs.DefaultNodeGAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.layer_norm">layer_norm (nampy.neural.configs.DefaultNAMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.layer_norm">(nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.layer_norm">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig.layer_norm">(nampy.neural.configs.DefaultNBMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.layer_norm">(nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultQNAMConfig.html#nampy.neural.configs.DefaultQNAMConfig.layer_norm">(nampy.neural.configs.DefaultQNAMConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.layer_norm_after_embedding">layer_norm_after_embedding (nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.layer_norm_after_embedding">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.layer_norm_eps">layer_norm_eps (nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.layer_norm_eps">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.layer_sizes">layer_sizes (nampy.neural.configs.DefaultNAMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.layer_sizes">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig.layer_sizes">(nampy.neural.configs.DefaultNBMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.layer_sizes">(nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultQNAMConfig.html#nampy.neural.configs.DefaultQNAMConfig.layer_sizes">(nampy.neural.configs.DefaultQNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.layer_sizes">(nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSplineNAMConfig.html#nampy.neural.configs.DefaultSplineNAMConfig.learn_knots">learn_knots (nampy.neural.configs.DefaultSplineNAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.GPNAM.html#nampy.neural.architectures.GPNAM.linear_design">linear_design() (nampy.neural.architectures.GPNAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.contracts.AdditivePrediction.html#nampy.contracts.AdditivePrediction.link">link (nampy.contracts.AdditivePrediction attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.LinReg.html#nampy.neural.architectures.LinReg">LinReg (class in nampy.neural.architectures)</a>
+</li>
+      <li><a href="api/generated/nampy.models.LinRegClassifier.html#nampy.models.LinRegClassifier">LinRegClassifier (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.LinRegLSS.html#nampy.models.LinRegLSS">LinRegLSS (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.LinRegRegressor.html#nampy.models.LinRegRegressor">LinRegRegressor (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.load_model">load_model() (nampy.gam.GAM class method)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.SPAM.html#nampy.neural.architectures.SPAM.local_term_importance">local_term_importance() (nampy.neural.architectures.SPAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.loglik">loglik() (nampy.gam.GAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.lower_order_correction">lower_order_correction (nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSPAMConfig.html#nampy.neural.configs.DefaultSPAMConfig.lower_order_correction">(nampy.neural.configs.DefaultSPAMConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.lpmatrix">lpmatrix() (nampy.gam.GAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultGPNAMConfig.html#nampy.neural.configs.DefaultGPNAMConfig.lr">lr (nampy.neural.configs.DefaultGPNAMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultIGANNConfig.html#nampy.neural.configs.DefaultIGANNConfig.lr">(nampy.neural.configs.DefaultIGANNConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultLinRegConfig.html#nampy.neural.configs.DefaultLinRegConfig.lr">(nampy.neural.configs.DefaultLinRegConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.lr">(nampy.neural.configs.DefaultNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.lr">(nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.lr">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig.lr">(nampy.neural.configs.DefaultNBMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.lr">(nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig.lr">(nampy.neural.configs.DefaultNodeGAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultQNAMConfig.html#nampy.neural.configs.DefaultQNAMConfig.lr">(nampy.neural.configs.DefaultQNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.lr">(nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSPAMConfig.html#nampy.neural.configs.DefaultSPAMConfig.lr">(nampy.neural.configs.DefaultSPAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSplineNAMConfig.html#nampy.neural.configs.DefaultSplineNAMConfig.lr">(nampy.neural.configs.DefaultSplineNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultTreeNAMConfig.html#nampy.neural.configs.DefaultTreeNAMConfig.lr">(nampy.neural.configs.DefaultTreeNAMConfig attribute)</a>
+</li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="models/reference.html#nampy.models.LinRegLSS">LinRegLSS (class in nampy.models)</a>
+      <li><a href="api/generated/nampy.neural.configs.DefaultGPNAMConfig.html#nampy.neural.configs.DefaultGPNAMConfig.lr_factor">lr_factor (nampy.neural.configs.DefaultGPNAMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultIGANNConfig.html#nampy.neural.configs.DefaultIGANNConfig.lr_factor">(nampy.neural.configs.DefaultIGANNConfig attribute)</a>
 </li>
-      <li><a href="models/reference.html#nampy.models.LinRegRegressor">LinRegRegressor (class in nampy.models)</a>
+        <li><a href="api/generated/nampy.neural.configs.DefaultLinRegConfig.html#nampy.neural.configs.DefaultLinRegConfig.lr_factor">(nampy.neural.configs.DefaultLinRegConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.lr_factor">(nampy.neural.configs.DefaultNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.lr_factor">(nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.lr_factor">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig.lr_factor">(nampy.neural.configs.DefaultNBMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.lr_factor">(nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig.lr_factor">(nampy.neural.configs.DefaultNodeGAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultQNAMConfig.html#nampy.neural.configs.DefaultQNAMConfig.lr_factor">(nampy.neural.configs.DefaultQNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.lr_factor">(nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSPAMConfig.html#nampy.neural.configs.DefaultSPAMConfig.lr_factor">(nampy.neural.configs.DefaultSPAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSplineNAMConfig.html#nampy.neural.configs.DefaultSplineNAMConfig.lr_factor">(nampy.neural.configs.DefaultSplineNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultTreeNAMConfig.html#nampy.neural.configs.DefaultTreeNAMConfig.lr_factor">(nampy.neural.configs.DefaultTreeNAMConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultGPNAMConfig.html#nampy.neural.configs.DefaultGPNAMConfig.lr_patience">lr_patience (nampy.neural.configs.DefaultGPNAMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultIGANNConfig.html#nampy.neural.configs.DefaultIGANNConfig.lr_patience">(nampy.neural.configs.DefaultIGANNConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultLinRegConfig.html#nampy.neural.configs.DefaultLinRegConfig.lr_patience">(nampy.neural.configs.DefaultLinRegConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.lr_patience">(nampy.neural.configs.DefaultNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.lr_patience">(nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.lr_patience">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig.lr_patience">(nampy.neural.configs.DefaultNBMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.lr_patience">(nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig.lr_patience">(nampy.neural.configs.DefaultNodeGAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultQNAMConfig.html#nampy.neural.configs.DefaultQNAMConfig.lr_patience">(nampy.neural.configs.DefaultQNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.lr_patience">(nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSPAMConfig.html#nampy.neural.configs.DefaultSPAMConfig.lr_patience">(nampy.neural.configs.DefaultSPAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSplineNAMConfig.html#nampy.neural.configs.DefaultSplineNAMConfig.lr_patience">(nampy.neural.configs.DefaultSplineNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultTreeNAMConfig.html#nampy.neural.configs.DefaultTreeNAMConfig.lr_patience">(nampy.neural.configs.DefaultTreeNAMConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultGPNAMConfig.html#nampy.neural.configs.DefaultGPNAMConfig.lr_schedule">lr_schedule (nampy.neural.configs.DefaultGPNAMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultIGANNConfig.html#nampy.neural.configs.DefaultIGANNConfig.lr_schedule">(nampy.neural.configs.DefaultIGANNConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.lr_schedule">(nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.task.TaskModule.html#nampy.neural.task.TaskModule.lss">lss (nampy.neural.task.TaskModule property)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -697,75 +1577,212 @@
 <h2 id="M">M</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.max_candidates">max_candidates (nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.max_interaction_order">max_interaction_order (nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.max_terms_per_order">max_terms_per_order (nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultQNAMConfig.html#nampy.neural.configs.DefaultQNAMConfig.min_increment">min_increment (nampy.neural.configs.DefaultQNAMConfig attribute)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.neural.architectures.NodeGAM.html#nampy.neural.architectures.NodeGAM.models">models (nampy.neural.architectures.NodeGAM attribute)</a>
+</li>
       <li>
     module
 
       <ul>
-        <li><a href="api/generated/nampy.utils.distributional_metrics.html#module-nampy.utils.distributional_metrics">nampy.utils.distributional_metrics</a>
+        <li><a href="api/generated/nampy.neural.distributions.distributions.html#module-nampy.neural.distributions.distributions">nampy.neural.distributions.distributions</a>
 </li>
-        <li><a href="api/generated/nampy.utils.distributions.html#module-nampy.utils.distributions">nampy.utils.distributions</a>
-</li>
-        <li><a href="api/generated/nampy.utils.interpretability.html#module-nampy.utils.interpretability">nampy.utils.interpretability</a>
+        <li><a href="api/generated/nampy.neural.distributions.metrics.html#module-nampy.neural.distributions.metrics">nampy.neural.distributions.metrics</a>
 </li>
       </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultQNAMConfig.html#nampy.neural.configs.DefaultQNAMConfig.monotone_transform">monotone_transform (nampy.neural.configs.DefaultQNAMConfig attribute)</a>
+</li>
   </ul></td>
 </tr></table>
 
 <h2 id="N">N</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="models/reference.html#nampy.models.NAMClassifier">NAMClassifier (class in nampy.models)</a>
+      <li><a href="api/generated/nampy.neural.configs.DefaultIGANNConfig.html#nampy.neural.configs.DefaultIGANNConfig.n_estimators">n_estimators (nampy.neural.configs.DefaultIGANNConfig attribute)</a>
 </li>
-      <li><a href="models/reference.html#nampy.models.NAMformerClassifier">NAMformerClassifier (class in nampy.models)</a>
+      <li><a href="api/generated/nampy.neural.architectures.IGANN.html#nampy.neural.architectures.IGANN.n_estimators_">n_estimators_ (nampy.neural.architectures.IGANN property)</a>
 </li>
-      <li><a href="models/reference.html#nampy.models.NAMformerLSS">NAMformerLSS (class in nampy.models)</a>
+      <li><a href="api/generated/nampy.contracts.FeatureSchema.html#nampy.contracts.FeatureSchema.n_features">n_features (nampy.contracts.FeatureSchema property)</a>
 </li>
-      <li><a href="models/reference.html#nampy.models.NAMformerRegressor">NAMformerRegressor (class in nampy.models)</a>
-</li>
-      <li><a href="models/reference.html#nampy.models.NAMLSS">NAMLSS (class in nampy.models)</a>
-</li>
-      <li>
-    nampy.utils.distributional_metrics
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.n_heads">n_heads (nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
 
       <ul>
-        <li><a href="api/generated/nampy.utils.distributional_metrics.html#module-nampy.utils.distributional_metrics">module</a>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.n_heads">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultIGANNConfig.html#nampy.neural.configs.DefaultIGANNConfig.n_hid">n_hid (nampy.neural.configs.DefaultIGANNConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSplineNAMConfig.html#nampy.neural.configs.DefaultSplineNAMConfig.n_knots">n_knots (nampy.neural.configs.DefaultSplineNAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.n_layers">n_layers (nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.n_layers">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.architectures.NAM.html#nampy.neural.architectures.NAM">NAM (class in nampy.neural.architectures)</a>
+</li>
+      <li><a href="api/generated/nampy.models.NAMClassifier.html#nampy.models.NAMClassifier">NAMClassifier (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.NAMformer.html#nampy.neural.architectures.NAMformer">NAMformer (class in nampy.neural.architectures)</a>
+</li>
+      <li><a href="api/generated/nampy.models.NAMformerClassifier.html#nampy.models.NAMformerClassifier">NAMformerClassifier (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.NAMformerLSS.html#nampy.models.NAMformerLSS">NAMformerLSS (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.NAMformerRegressor.html#nampy.models.NAMformerRegressor">NAMformerRegressor (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.NAMLSS.html#nampy.models.NAMLSS">NAMLSS (class in nampy.models)</a>
+</li>
+      <li>
+    nampy.neural.distributions.distributions
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.distributions.distributions.html#module-nampy.neural.distributions.distributions">module</a>
 </li>
       </ul></li>
       <li>
-    nampy.utils.distributions
+    nampy.neural.distributions.metrics
 
       <ul>
-        <li><a href="api/generated/nampy.utils.distributions.html#module-nampy.utils.distributions">module</a>
+        <li><a href="api/generated/nampy.neural.distributions.metrics.html#module-nampy.neural.distributions.metrics">module</a>
 </li>
       </ul></li>
-      <li>
-    nampy.utils.interpretability
+      <li><a href="api/generated/nampy.models.NAMRegressor.html#nampy.models.NAMRegressor">NAMRegressor (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig.nary">nary (nampy.neural.configs.DefaultNBMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig.nary_ignore_input">nary_ignore_input (nampy.neural.configs.DefaultNBMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.IGANN.html#nampy.neural.architectures.IGANN.native_objective_kinds">native_objective_kinds (nampy.neural.architectures.IGANN attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.NATT.html#nampy.neural.architectures.NATT">NATT (class in nampy.neural.architectures)</a>
+</li>
+      <li><a href="api/generated/nampy.models.NATTClassifier.html#nampy.models.NATTClassifier">NATTClassifier (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.NATTLSS.html#nampy.models.NATTLSS">NATTLSS (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.NATTRegressor.html#nampy.models.NATTRegressor">NATTRegressor (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.NBM.html#nampy.neural.architectures.NBM">NBM (class in nampy.neural.architectures)</a>
+</li>
+      <li><a href="api/generated/nampy.models.NBMClassifier.html#nampy.models.NBMClassifier">NBMClassifier (class in nampy.models)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.models.NBMLSS.html#nampy.models.NBMLSS">NBMLSS (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.NBMRegressor.html#nampy.models.NBMRegressor">NBMRegressor (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.NBMSPAM.html#nampy.neural.architectures.NBMSPAM">NBMSPAM (class in nampy.neural.architectures)</a>
+</li>
+      <li><a href="api/generated/nampy.models.NBMSPAMClassifier.html#nampy.models.NBMSPAMClassifier">NBMSPAMClassifier (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.NBMSPAMLSS.html#nampy.models.NBMSPAMLSS">NBMSPAMLSS (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.NBMSPAMRegressor.html#nampy.models.NBMSPAMRegressor">NBMSPAMRegressor (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.NeuralClassifier.html#nampy.models.NeuralClassifier">NeuralClassifier (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.NeuralLSS.html#nampy.models.NeuralLSS">NeuralLSS (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.NeuralRegressor.html#nampy.models.NeuralRegressor">NeuralRegressor (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.NodeGAM.html#nampy.neural.architectures.NodeGAM">NodeGAM (class in nampy.neural.architectures)</a>
+</li>
+      <li><a href="api/generated/nampy.models.NodeGAMClassifier.html#nampy.models.NodeGAMClassifier">NodeGAMClassifier (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.NodeGAMLSS.html#nampy.models.NodeGAMLSS">NodeGAMLSS (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.NodeGAMRegressor.html#nampy.models.NodeGAMRegressor">NodeGAMRegressor (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.norm">norm (nampy.neural.configs.DefaultNAMConfig attribute)</a>
 
       <ul>
-        <li><a href="api/generated/nampy.utils.interpretability.html#module-nampy.utils.interpretability">module</a>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.norm">(nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.norm">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig.norm">(nampy.neural.configs.DefaultNBMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.norm">(nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultQNAMConfig.html#nampy.neural.configs.DefaultQNAMConfig.norm">(nampy.neural.configs.DefaultQNAMConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.norm_first">norm_first (nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.norm_first">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig.num_bases">num_bases (nampy.neural.configs.DefaultNBMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.num_bases">(nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.num_basis_functions">num_basis_functions (nampy.neural.configs.DefaultNAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultEnsembleTreeNAMConfig.html#nampy.neural.configs.DefaultEnsembleTreeNAMConfig.num_estimators">num_estimators (nampy.neural.configs.DefaultEnsembleTreeNAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.NAM.html#nampy.neural.architectures.NAM.num_feature_networks">num_feature_networks (nampy.neural.architectures.NAM attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig.num_layers">num_layers (nampy.neural.configs.DefaultNodeGAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig.num_subnets">num_subnets (nampy.neural.configs.DefaultNBMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.num_subnets">(nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig.num_trees">num_trees (nampy.neural.configs.DefaultNodeGAMConfig attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="O">O</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.contracts.AdditivePrediction.html#nampy.contracts.AdditivePrediction.offset">offset (nampy.contracts.AdditivePrediction attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.task.TaskModule.html#nampy.neural.task.TaskModule.on_train_batch_start">on_train_batch_start() (nampy.neural.task.TaskModule method)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.one_se_rule">one_se_rule() (nampy.gam.GAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.optimizer">optimizer (nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.diagnostics.SmoothDerivativeResult.html#nampy.gam.diagnostics.SmoothDerivativeResult.order">order (nampy.gam.diagnostics.SmoothDerivativeResult attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig.order">(nampy.neural.configs.DefaultNBMConfig attribute)</a>
 </li>
       </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="models/reference.html#nampy.models.NAMRegressor">NAMRegressor (class in nampy.models)</a>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.orthogonal">orthogonal (nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSPAMConfig.html#nampy.neural.configs.DefaultSPAMConfig.orthogonal">(nampy.neural.configs.DefaultSPAMConfig attribute)</a>
 </li>
-      <li><a href="models/reference.html#nampy.models.NATTClassifier">NATTClassifier (class in nampy.models)</a>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig.output_dropout">output_dropout (nampy.neural.configs.DefaultNodeGAMConfig attribute)</a>
 </li>
-      <li><a href="models/reference.html#nampy.models.NATTLSS">NATTLSS (class in nampy.models)</a>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig.output_penalty">output_penalty (nampy.neural.configs.DefaultNBMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.output_penalty">(nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
 </li>
-      <li><a href="models/reference.html#nampy.models.NATTRegressor">NATTRegressor (class in nampy.models)</a>
-</li>
-      <li><a href="models/reference.html#nampy.models.NBMClassifier">NBMClassifier (class in nampy.models)</a>
-</li>
-      <li><a href="models/reference.html#nampy.models.NBMLSS">NBMLSS (class in nampy.models)</a>
-</li>
-      <li><a href="models/reference.html#nampy.models.NBMRegressor">NBMRegressor (class in nampy.models)</a>
-</li>
-      <li><a href="models/reference.html#nampy.models.NodeGAMClassifier">NodeGAMClassifier (class in nampy.models)</a>
-</li>
-      <li><a href="models/reference.html#nampy.models.NodeGAMLSS">NodeGAMLSS (class in nampy.models)</a>
-</li>
-      <li><a href="models/reference.html#nampy.models.NodeGAMRegressor">NodeGAMRegressor (class in nampy.models)</a>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.output_regularization">output_regularization (nampy.neural.configs.DefaultNAMConfig attribute)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -773,21 +1790,123 @@
 <h2 id="P">P</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/generated/nampy.utils.plot_interactions.html#nampy.utils.plot_interactions">plot_interactions() (in module nampy.utils)</a>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.parity_snapshot">parity_snapshot() (nampy.gam.GAM method)</a>
 </li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.plot">plot() (nampy.gam.GAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.pooling_method">pooling_method (nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.pooling_method">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.predict">predict() (nampy.gam.GAM method)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.models.GAMClassifier.html#nampy.models.GAMClassifier.predict">(nampy.models.GAMClassifier method)</a>
+</li>
+        <li><a href="api/generated/nampy.models.GAMRegressor.html#nampy.models.GAMRegressor.predict">(nampy.models.GAMRegressor method)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NeuralClassifier.html#nampy.models.NeuralClassifier.predict">(nampy.models.NeuralClassifier method)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NeuralLSS.html#nampy.models.NeuralLSS.predict">(nampy.models.NeuralLSS method)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NeuralRegressor.html#nampy.models.NeuralRegressor.predict">(nampy.models.NeuralRegressor method)</a>
+</li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/generated/nampy.utils.plot_terms.html#nampy.utils.plot_terms">plot_terms() (in module nampy.utils)</a>
+      <li><a href="api/generated/nampy.models.NeuralClassifier.html#nampy.models.NeuralClassifier.predict_components">predict_components() (nampy.models.NeuralClassifier method)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.models.NeuralLSS.html#nampy.models.NeuralLSS.predict_components">(nampy.models.NeuralLSS method)</a>
 </li>
-      <li><a href="api/generated/nampy.utils.predict_terms.html#nampy.utils.predict_terms">predict_terms() (in module nampy.utils)</a>
+        <li><a href="api/generated/nampy.models.NeuralRegressor.html#nampy.models.NeuralRegressor.predict_components">(nampy.models.NeuralRegressor method)</a>
 </li>
+      </ul></li>
+      <li><a href="api/generated/nampy.models.GAMClassifier.html#nampy.models.GAMClassifier.predict_proba">predict_proba() (nampy.models.GAMClassifier method)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.models.NeuralClassifier.html#nampy.models.NeuralClassifier.predict_proba">(nampy.models.NeuralClassifier method)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.predict_terms">predict_terms() (nampy.gam.GAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.IGANN.html#nampy.neural.architectures.IGANN.prepare_gradient_training">prepare_gradient_training() (nampy.neural.architectures.IGANN method)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.proximal">proximal (nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSPAMConfig.html#nampy.neural.configs.DefaultSPAMConfig.proximal">(nampy.neural.configs.DefaultSPAMConfig attribute)</a>
+</li>
+      </ul></li>
   </ul></td>
 </tr></table>
 
 <h2 id="Q">Q</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="models/reference.html#nampy.models.QNAM">QNAM (class in nampy.models)</a>
+      <li><a href="api/generated/nampy.neural.architectures.QNAM.html#nampy.neural.architectures.QNAM">QNAM (class in nampy.neural.architectures)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.models.QNAMLSS.html#nampy.models.QNAMLSS">QNAMLSS (class in nampy.models)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="R">R</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.ranks">ranks (nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSPAMConfig.html#nampy.neural.configs.DefaultSPAMConfig.ranks">(nampy.neural.configs.DefaultSPAMConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.reference_batch_size">reference_batch_size (nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.reference_device">reference_device (nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.reference_epochs">reference_epochs (nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.reference_layer_sizes">reference_layer_sizes (nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.reference_lr">reference_lr (nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.reference_weight_decay">reference_weight_decay (nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.reg_order">reg_order (nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSPAMConfig.html#nampy.neural.configs.DefaultSPAMConfig.reg_order">(nampy.neural.configs.DefaultSPAMConfig attribute)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.regularization_scale">regularization_scale (nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSPAMConfig.html#nampy.neural.configs.DefaultSPAMConfig.regularization_scale">(nampy.neural.configs.DefaultSPAMConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.regularize_interactions">regularize_interactions (nampy.neural.configs.DefaultNAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.residual_layer_sizes">residual_layer_sizes (nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.residual_network">residual_network (nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.residuals">residuals() (nampy.gam.GAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.contracts.AdditivePrediction.html#nampy.contracts.AdditivePrediction.response">response (nampy.contracts.AdditivePrediction attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultGPNAMConfig.html#nampy.neural.configs.DefaultGPNAMConfig.rff_num_feat">rff_num_feat (nampy.neural.configs.DefaultGPNAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultGPNAMConfig.html#nampy.neural.configs.DefaultGPNAMConfig.rff_random_state">rff_random_state (nampy.neural.configs.DefaultGPNAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultGPNAMConfig.html#nampy.neural.configs.DefaultGPNAMConfig.rff_scheme">rff_scheme (nampy.neural.configs.DefaultGPNAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultGPNAMConfig.html#nampy.neural.configs.DefaultGPNAMConfig.ridge">ridge (nampy.neural.configs.DefaultGPNAMConfig attribute)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -795,15 +1914,119 @@
 <h2 id="S">S</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="models/reference.html#nampy.models.SparseNAMRegressor">SparseNAMRegressor (class in nampy.models)</a>
+      <li><a href="api/generated/nampy.neural.architectures.BaseModel.html#nampy.neural.architectures.BaseModel.save_hyperparameters">save_hyperparameters() (nampy.neural.architectures.BaseModel method)</a>
 </li>
-      <li><a href="models/reference.html#nampy.models.SplineNAMClassifier">SplineNAMClassifier (class in nampy.models)</a>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.save_model">save_model() (nampy.gam.GAM method)</a>
 </li>
+      <li><a href="api/generated/nampy.models.GAMClassifier.html#nampy.models.GAMClassifier.score">score() (nampy.models.GAMClassifier method)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.models.GAMRegressor.html#nampy.models.GAMRegressor.score">(nampy.models.GAMRegressor method)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NeuralClassifier.html#nampy.models.NeuralClassifier.score">(nampy.models.NeuralClassifier method)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NeuralLSS.html#nampy.models.NeuralLSS.score">(nampy.models.NeuralLSS method)</a>
+</li>
+        <li><a href="api/generated/nampy.models.NeuralRegressor.html#nampy.models.NeuralRegressor.score">(nampy.models.NeuralRegressor method)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.gam.diagnostics.SmoothDerivativeResult.html#nampy.gam.diagnostics.SmoothDerivativeResult.se">se (nampy.gam.diagnostics.SmoothDerivativeResult attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.diagnostics.SmoothDerivativeResult.html#nampy.gam.diagnostics.SmoothDerivativeResult.se_d">se_d (nampy.gam.diagnostics.SmoothDerivativeResult property)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.IGANN.html#nampy.neural.architectures.IGANN.selected_features_">selected_features_ (nampy.neural.architectures.IGANN property)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.SNAM.html#nampy.neural.architectures.SNAM.selected_groups">selected_groups() (nampy.neural.architectures.SNAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.selection_batch_size">selection_batch_size (nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.selection_max_pairs">selection_max_pairs (nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.selection_max_samples">selection_max_samples (nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.selection_output_index">selection_output_index (nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig.selector_activation">selector_activation (nampy.neural.configs.DefaultNodeGAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.GPNAM.html#nampy.neural.architectures.GPNAM.set_linear_coefficients">set_linear_coefficients() (nampy.neural.architectures.GPNAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.models.NeuralLSS.html#nampy.models.NeuralLSS.set_params">set_params() (nampy.models.NeuralLSS method)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.SIAN.html#nampy.neural.architectures.SIAN">SIAN (class in nampy.neural.architectures)</a>
+</li>
+      <li><a href="api/generated/nampy.models.SIANClassifier.html#nampy.models.SIANClassifier">SIANClassifier (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.SIANLSS.html#nampy.models.SIANLSS">SIANLSS (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.SIANRegressor.html#nampy.models.SIANRegressor">SIANRegressor (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.skip_connections">skip_connections (nampy.neural.configs.DefaultNAMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.skip_connections">(nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.skip_connections">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig.skip_connections">(nampy.neural.configs.DefaultNBMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.skip_connections">(nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultQNAMConfig.html#nampy.neural.configs.DefaultQNAMConfig.skip_connections">(nampy.neural.configs.DefaultQNAMConfig attribute)</a>
+</li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="models/reference.html#nampy.models.SplineNAMLSS">SplineNAMLSS (class in nampy.models)</a>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.skip_layers">skip_layers (nampy.neural.configs.DefaultNATTConfig attribute)</a>
 </li>
-      <li><a href="models/reference.html#nampy.models.SplineNAMRegressor">SplineNAMRegressor (class in nampy.models)</a>
+      <li><a href="api/generated/nampy.gam.diagnostics.SmoothDerivativeResult.html#nampy.gam.diagnostics.SmoothDerivativeResult">SmoothDerivativeResult (class in nampy.gam.diagnostics)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSplineNAMConfig.html#nampy.neural.configs.DefaultSplineNAMConfig.smoothing">smoothing (nampy.neural.configs.DefaultSplineNAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.SNAM.html#nampy.neural.architectures.SNAM">SNAM (class in nampy.neural.architectures)</a>
+</li>
+      <li><a href="api/generated/nampy.models.SNAMClassifier.html#nampy.models.SNAMClassifier">SNAMClassifier (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.SNAMLSS.html#nampy.models.SNAMLSS">SNAMLSS (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.SNAMRegressor.html#nampy.models.SNAMRegressor">SNAMRegressor (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.solve_fit.html#nampy.gam.solve_fit">solve_fit() (in module nampy.gam)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultGPNAMConfig.html#nampy.neural.configs.DefaultGPNAMConfig.solver">solver (nampy.neural.configs.DefaultGPNAMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultIGANNConfig.html#nampy.neural.configs.DefaultIGANNConfig.solver">(nampy.neural.configs.DefaultIGANNConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.sp_vcov">sp_vcov() (nampy.gam.GAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.SPAM.html#nampy.neural.architectures.SPAM">SPAM (class in nampy.neural.architectures)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.spam_dropout">spam_dropout (nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.models.SPAMClassifier.html#nampy.models.SPAMClassifier">SPAMClassifier (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.SPAMLSS.html#nampy.models.SPAMLSS">SPAMLSS (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.SPAMRegressor.html#nampy.models.SPAMRegressor">SPAMRegressor (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultIGANNConfig.html#nampy.neural.configs.DefaultIGANNConfig.sparse">sparse (nampy.neural.configs.DefaultIGANNConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig.sparse">(nampy.neural.configs.DefaultNBMConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.architectures.SplineNAM.html#nampy.neural.architectures.SplineNAM">SplineNAM (class in nampy.neural.architectures)</a>
+</li>
+      <li><a href="api/generated/nampy.models.SplineNAMRegressor.html#nampy.models.SplineNAMRegressor">SplineNAMRegressor (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.summary">summary() (nampy.gam.GAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.GPNAM.html#nampy.neural.architectures.GPNAM.supports_fixed_linear_regression">supports_fixed_linear_regression (nampy.neural.architectures.GPNAM attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.NodeGAM.html#nampy.neural.architectures.NodeGAM.supports_masked_pretraining">supports_masked_pretraining (nampy.neural.architectures.NodeGAM attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.IGANN.html#nampy.neural.architectures.IGANN.supports_native_training">supports_native_training (nampy.neural.architectures.IGANN attribute)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -811,11 +2034,143 @@
 <h2 id="T">T</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/generated/nampy.utils.term_contributions.html#nampy.utils.term_contributions">term_contributions() (in module nampy.utils)</a>
+      <li><a href="api/generated/nampy.neural.task.TaskModule.html#nampy.neural.task.TaskModule">TaskModule (class in nampy.neural.task)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.NodeGAM.html#nampy.neural.architectures.NodeGAM.temp_step_callback">temp_step_callback() (nampy.neural.architectures.NodeGAM method)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.diagnostics.SmoothDerivativeResult.html#nampy.gam.diagnostics.SmoothDerivativeResult.term_label">term_label (nampy.gam.diagnostics.SmoothDerivativeResult attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.contracts.AdditivePrediction.html#nampy.contracts.AdditivePrediction.terms">terms (nampy.contracts.AdditivePrediction attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.task.TaskModule.html#nampy.neural.task.TaskModule.test_step">test_step() (nampy.neural.task.TaskModule method)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.threshold_mode">threshold_mode (nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.IGANN.html#nampy.neural.architectures.IGANN.training_history_">training_history_ (nampy.neural.architectures.IGANN property)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.task.TaskModule.html#nampy.neural.task.TaskModule.training_step">training_step() (nampy.neural.task.TaskModule method)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.transformer_activation">transformer_activation (nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.transformer_activation">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.transformer_dim_feedforward">transformer_dim_feedforward (nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.transformer_dim_feedforward">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultTreeNAMConfig.html#nampy.neural.configs.DefaultTreeNAMConfig.tree_depth">tree_depth (nampy.neural.configs.DefaultTreeNAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultTreeNAMConfig.html#nampy.neural.configs.DefaultTreeNAMConfig.tree_lamda">tree_lamda (nampy.neural.configs.DefaultTreeNAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultTreeNAMConfig.html#nampy.neural.configs.DefaultTreeNAMConfig.tree_temperature">tree_temperature (nampy.neural.configs.DefaultTreeNAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.TreeNAM.html#nampy.neural.architectures.TreeNAM">TreeNAM (class in nampy.neural.architectures)</a>
+</li>
+      <li><a href="api/generated/nampy.models.TreeNAMClassifier.html#nampy.models.TreeNAMClassifier">TreeNAMClassifier (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.TreeNAMLSS.html#nampy.models.TreeNAMLSS">TreeNAMLSS (class in nampy.models)</a>
+</li>
+      <li><a href="api/generated/nampy.models.TreeNAMRegressor.html#nampy.models.TreeNAMRegressor">TreeNAMRegressor (class in nampy.models)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="U">U</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.units_multiplier">units_multiplier (nampy.neural.configs.DefaultNAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.use_cls">use_cls (nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.use_cls">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultSPAMConfig.html#nampy.neural.configs.DefaultSPAMConfig.use_geometric_mean">use_geometric_mean (nampy.neural.configs.DefaultSPAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.use_glu">use_glu (nampy.neural.configs.DefaultNAMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.use_glu">(nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.use_glu">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig.use_glu">(nampy.neural.configs.DefaultNBMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.use_glu">(nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultQNAMConfig.html#nampy.neural.configs.DefaultQNAMConfig.use_glu">(nampy.neural.configs.DefaultQNAMConfig attribute)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.neural.configs.DefaultTreeNAMConfig.html#nampy.neural.configs.DefaultTreeNAMConfig.use_hard_routing_in_eval">use_hard_routing_in_eval (nampy.neural.configs.DefaultTreeNAMConfig attribute)</a>
+</li>
+      <li><a href="api/generated/nampy.neural.architectures.IGANN.html#nampy.neural.architectures.IGANN.uses_native_training">uses_native_training() (nampy.neural.architectures.IGANN class method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="V">V</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.contracts.FeatureSchema.html#nampy.contracts.FeatureSchema.validate">validate() (nampy.contracts.FeatureSchema method)</a>
+</li>
+      <li><a href="api/generated/nampy.contracts.AdditivePrediction.html#nampy.contracts.AdditivePrediction.validate_additive_reconstruction">validate_additive_reconstruction() (nampy.contracts.AdditivePrediction method)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="models/reference.html#nampy.models.TreeNAMRegressor">TreeNAMRegressor (class in nampy.models)</a>
+      <li><a href="api/generated/nampy.neural.task.TaskModule.html#nampy.neural.task.TaskModule.validation_step">validation_step() (nampy.neural.task.TaskModule method)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.GAM.html#nampy.gam.GAM.vcov">vcov() (nampy.gam.GAM method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="W">W</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.neural.configs.DefaultGPNAMConfig.html#nampy.neural.configs.DefaultGPNAMConfig.weight_decay">weight_decay (nampy.neural.configs.DefaultGPNAMConfig attribute)</a>
+
+      <ul>
+        <li><a href="api/generated/nampy.neural.configs.DefaultIGANNConfig.html#nampy.neural.configs.DefaultIGANNConfig.weight_decay">(nampy.neural.configs.DefaultIGANNConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultLinRegConfig.html#nampy.neural.configs.DefaultLinRegConfig.weight_decay">(nampy.neural.configs.DefaultLinRegConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig.weight_decay">(nampy.neural.configs.DefaultNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig.weight_decay">(nampy.neural.configs.DefaultNAMformerConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig.weight_decay">(nampy.neural.configs.DefaultNATTConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig.weight_decay">(nampy.neural.configs.DefaultNBMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig.weight_decay">(nampy.neural.configs.DefaultNBMSPAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig.weight_decay">(nampy.neural.configs.DefaultNodeGAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultQNAMConfig.html#nampy.neural.configs.DefaultQNAMConfig.weight_decay">(nampy.neural.configs.DefaultQNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig.weight_decay">(nampy.neural.configs.DefaultSIANConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSPAMConfig.html#nampy.neural.configs.DefaultSPAMConfig.weight_decay">(nampy.neural.configs.DefaultSPAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultSplineNAMConfig.html#nampy.neural.configs.DefaultSplineNAMConfig.weight_decay">(nampy.neural.configs.DefaultSplineNAMConfig attribute)</a>
+</li>
+        <li><a href="api/generated/nampy.neural.configs.DefaultTreeNAMConfig.html#nampy.neural.configs.DefaultTreeNAMConfig.weight_decay">(nampy.neural.configs.DefaultTreeNAMConfig attribute)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/nampy.gam.FitCoreSolution.html#nampy.gam.FitCoreSolution.with_fit_result">with_fit_result() (nampy.gam.FitCoreSolution method)</a>
+</li>
+      <li><a href="api/generated/nampy.gam.FitCoreSolution.html#nampy.gam.FitCoreSolution.with_fit_state">with_fit_state() (nampy.gam.FitCoreSolution method)</a>
 </li>
   </ul></td>
 </tr></table>

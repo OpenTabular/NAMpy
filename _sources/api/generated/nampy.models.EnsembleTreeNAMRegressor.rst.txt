@@ -1,0 +1,6 @@
+﻿nampy.models.EnsembleTreeNAMRegressor
+=====================================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: EnsembleTreeNAMRegressor

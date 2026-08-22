@@ -1,0 +1,6 @@
+﻿nampy.neural.configs.DefaultIGANNConfig
+=======================================
+
+.. currentmodule:: nampy.neural.configs
+
+.. autoclass:: DefaultIGANNConfig

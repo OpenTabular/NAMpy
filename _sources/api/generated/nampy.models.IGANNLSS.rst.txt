@@ -1,0 +1,6 @@
+﻿nampy.models.IGANNLSS
+=====================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: IGANNLSS

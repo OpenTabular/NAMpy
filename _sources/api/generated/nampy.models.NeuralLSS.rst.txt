@@ -1,0 +1,6 @@
+﻿nampy.models.NeuralLSS
+======================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: NeuralLSS

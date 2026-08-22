@@ -1,0 +1,6 @@
+﻿nampy.neural.architectures.NodeGAM
+==================================
+
+.. currentmodule:: nampy.neural.architectures
+
+.. autoclass:: NodeGAM

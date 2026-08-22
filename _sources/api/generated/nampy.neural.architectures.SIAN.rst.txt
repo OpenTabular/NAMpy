@@ -1,0 +1,6 @@
+﻿nampy.neural.architectures.SIAN
+===============================
+
+.. currentmodule:: nampy.neural.architectures
+
+.. autoclass:: SIAN

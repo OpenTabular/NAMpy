@@ -1,0 +1,6 @@
+﻿nampy.models.NBMSPAMLSS
+=======================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: NBMSPAMLSS

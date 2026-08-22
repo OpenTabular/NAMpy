@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Interpretability in NAMpy &mdash; nampy 0.1.0 documentation</title>
+  <title>Interpretability in NAMpy &mdash; nampy 0.2.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../_static/nbsphinx-code-cells.css?v=2aa19091" />
@@ -15,12 +15,12 @@
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=01f34227"></script>
-      <script src="../_static/doctools.js?v=9bcbadda"></script>
-      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/documentation_options.js?v=938c9ccc"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
       <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
       <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
-      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -38,6 +38,7 @@
           
           <a href="../index.html" class="icon icon-home">
             nampy
+              <img src="../_static/logo.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
@@ -75,11 +76,33 @@
 <li class="toctree-l2"><a class="reference internal" href="../quickstart.html#saving-and-loading-models">Saving and Loading Models</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture.html">Architecture</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../architecture.html#neural-architecture-contract">Neural architecture contract</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture.html#optional-training-and-inference-contracts">Optional training and inference contracts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture.html#adding-an-architecture">Adding an architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture.html#gam-isolation">GAM isolation</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../user_guide.html">User Guide</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../user_guide/preprocessing.html">Preprocessing (PreTab)</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/preprocessing.html#using-pretab-with-nampy">Using PreTab with NAMpy</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/preprocessing.html#preprocessor-contract">Preprocessor contract</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/preprocessing.html#accessing-the-preprocessor">Accessing the preprocessor</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../user_guide/pretab_compatibility.html">Published PreTab compatibility</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/pretab_compatibility.html#supported-contract">Supported contract</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/pretab_compatibility.html#removed-requirements">Removed requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/pretab_compatibility.html#model-impact">Model impact</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/pretab_compatibility.html#nam">NAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/pretab_compatibility.html#nbm">NBM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/pretab_compatibility.html#spam-and-nbm-spam">SPAM and NBM-SPAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/pretab_compatibility.html#nodegam">NodeGAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/pretab_compatibility.html#other-neural-models">Other neural models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/pretab_compatibility.html#gam-backend">GAM backend</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/pretab_compatibility.html#behavioral-consequences">Behavioral consequences</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../user_guide/training.html">Training Models</a><ul>
@@ -98,6 +121,7 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/training.html#gpu-training">GPU Training</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/training.html#batch-size">Batch Size</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/training.html#architecture-native-training">Architecture-native training</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/training.html#regularization">Regularization</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../user_guide/training.html#weight-decay-l2">Weight Decay (L2)</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../user_guide/training.html#dropout">Dropout</a></li>
@@ -119,12 +143,23 @@
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/training.html#next-steps">Next Steps</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="../user_guide/shape_constrained_gams.html">Shape-constrained GAMs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/shape_constrained_gams.html#architecture">Architecture</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/shape_constrained_gams.html#basic-use">Basic use</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/shape_constrained_gams.html#univariate-bases">Univariate bases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/shape_constrained_gams.html#bivariate-bases">Bivariate bases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/shape_constrained_gams.html#linear-functionals">Linear functionals</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/shape_constrained_gams.html#inference-and-diagnostics">Inference and diagnostics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/shape_constrained_gams.html#gaussian-ar-1-errors">Gaussian AR(1) errors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/shape_constrained_gams.html#current-boundaries">Current boundaries</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="../user_guide/custom_models.html">Custom Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/custom_models.html#overview">Overview</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/custom_models.html#step-by-step-guide">Step-by-Step Guide</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../user_guide/custom_models.html#define-configuration">1. Define Configuration</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../user_guide/custom_models.html#implement-the-model">2. Implement the Model</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../user_guide/custom_models.html#create-wrapper-classes">3. Create Wrapper Classes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/custom_models.html#register-the-architecture">3. Register the Architecture</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../user_guide/custom_models.html#use-your-custom-model">4. Use Your Custom Model</a></li>
 </ul>
 </li>
@@ -143,10 +178,9 @@
 <li class="toctree-l2"><a class="reference internal" href="../user_guide/interpretability.html">Interpretability</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#understanding-additive-models">Understanding Additive Models</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#feature-level-predictions">Feature-Level Predictions</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#feature-importance">Feature Importance</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#visualization">Visualization</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#summaries-and-diagnostics">Summaries and Diagnostics</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#model-comparison">Model Comparison</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#visualization">Visualization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#contributing">Contributing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#for-more-information">For More Information</a></li>
 </ul>
 </li>
@@ -187,103 +221,194 @@
 <li class="toctree-l2"><a class="reference internal" href="../api/models.html">Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/models.html#regression-models">Regression Models</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMRegressor.html">nampy.models.NAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SIANRegressor.html">nampy.models.SIANRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.GPNAMRegressor.html">nampy.models.GPNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.IGANNRegressor.html">nampy.models.IGANNRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NBMRegressor.html">nampy.models.NBMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NBMSPAMRegressor.html">nampy.models.NBMSPAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SPAMRegressor.html">nampy.models.SPAMRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NATTRegressor.html">nampy.models.NATTRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMformerRegressor.html">nampy.models.NAMformerRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.LinRegRegressor.html">nampy.models.LinRegRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.TreeNAMRegressor.html">nampy.models.TreeNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.EnsembleTreeNAMRegressor.html">nampy.models.EnsembleTreeNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SNAMRegressor.html">nampy.models.SNAMRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SplineNAMRegressor.html">nampy.models.SplineNAMRegressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SparseNAMRegressor.html">nampy.models.SparseNAMRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NodeGAMRegressor.html">nampy.models.NodeGAMRegressor</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/models.html#classification-models">Classification Models</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMClassifier.html">nampy.models.NAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SIANClassifier.html">nampy.models.SIANClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.GPNAMClassifier.html">nampy.models.GPNAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.IGANNClassifier.html">nampy.models.IGANNClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NBMClassifier.html">nampy.models.NBMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NBMSPAMClassifier.html">nampy.models.NBMSPAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SPAMClassifier.html">nampy.models.SPAMClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NATTClassifier.html">nampy.models.NATTClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMformerClassifier.html">nampy.models.NAMformerClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.LinRegClassifier.html">nampy.models.LinRegClassifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SplineNAMClassifier.html">nampy.models.SplineNAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.TreeNAMClassifier.html">nampy.models.TreeNAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.EnsembleTreeNAMClassifier.html">nampy.models.EnsembleTreeNAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SNAMClassifier.html">nampy.models.SNAMClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NodeGAMClassifier.html">nampy.models.NodeGAMClassifier</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/models.html#distributional-regression-models-lss">Distributional Regression Models (LSS)</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMLSS.html">nampy.models.NAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SIANLSS.html">nampy.models.SIANLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.GPNAMLSS.html">nampy.models.GPNAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.IGANNLSS.html">nampy.models.IGANNLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NBMLSS.html">nampy.models.NBMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NBMSPAMLSS.html">nampy.models.NBMSPAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SPAMLSS.html">nampy.models.SPAMLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NATTLSS.html">nampy.models.NATTLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMformerLSS.html">nampy.models.NAMformerLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.LinRegLSS.html">nampy.models.LinRegLSS</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SplineNAMLSS.html">nampy.models.SplineNAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.TreeNAMLSS.html">nampy.models.TreeNAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.EnsembleTreeNAMLSS.html">nampy.models.EnsembleTreeNAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SNAMLSS.html">nampy.models.SNAMLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NodeGAMLSS.html">nampy.models.NodeGAMLSS</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/models.html#other-models">Other Models</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.QNAM.html">nampy.models.QNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.QNAMLSS.html">nampy.models.QNAMLSS</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/models.html#base-classes">Base Classes</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SklearnBaseRegressor.html">nampy.models.SklearnBaseRegressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SklearnBaseClassifier.html">nampy.models.SklearnBaseClassifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SklearnBaseLSS.html">nampy.models.SklearnBaseLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NeuralRegressor.html">nampy.models.NeuralRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NeuralClassifier.html">nampy.models.NeuralClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NeuralLSS.html">nampy.models.NeuralLSS</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/gam.html">GAM (mgcv-parity backend)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/gam.html#high-level-model">High-level model</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.gam.GAM.html">nampy.gam.GAM</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/gam.html#shape-constrained-smooths">Shape-constrained smooths</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.gam.diagnostics.SmoothDerivativeResult.html">nampy.gam.diagnostics.SmoothDerivativeResult</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/gam.html#scikit-learn-adapters">Scikit-learn adapters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.GAMRegressor.html">nampy.models.GAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.GAMClassifier.html">nampy.models.GAMClassifier</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/gam.html#fit-core">Fit core</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.gam.fit_model_core.html">nampy.gam.fit_model_core</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.gam.solve_fit.html">nampy.gam.solve_fit</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.gam.FitCoreSolution.html">nampy.gam.FitCoreSolution</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/gam.html#shared-contracts">Shared contracts</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.contracts.FeatureSchema.html">nampy.contracts.FeatureSchema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.contracts.AdditivePrediction.html">nampy.contracts.AdditivePrediction</a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../api/basemodels.html">Base Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/basemodels.html#base-classes">Base Classes</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.BaseModel.html">nampy.basemodels.BaseModel</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.TaskModel.html">nampy.basemodels.TaskModel</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.BaseModel.html">nampy.neural.architectures.BaseModel</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.task.TaskModule.html">nampy.neural.task.TaskModule</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/basemodels.html#model-implementations">Model Implementations</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NAM.html">nampy.basemodels.NAM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.GPNAM.html">nampy.basemodels.GPNAM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NBM.html">nampy.basemodels.NBM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NATT.html">nampy.basemodels.NATT</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NAMformer.html">nampy.basemodels.NAMformer</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.LinReg.html">nampy.basemodels.LinReg</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.QNAMBase.html">nampy.basemodels.QNAMBase</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.SparseNAM.html">nampy.basemodels.SparseNAM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.SplineNAM.html">nampy.basemodels.SplineNAM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NodeGAM.html">nampy.basemodels.NodeGAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.NAM.html">nampy.neural.architectures.NAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.SIAN.html">nampy.neural.architectures.SIAN</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.GPNAM.html">nampy.neural.architectures.GPNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.IGANN.html">nampy.neural.architectures.IGANN</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.NBM.html">nampy.neural.architectures.NBM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.NBMSPAM.html">nampy.neural.architectures.NBMSPAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.SPAM.html">nampy.neural.architectures.SPAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.NATT.html">nampy.neural.architectures.NATT</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.NAMformer.html">nampy.neural.architectures.NAMformer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.LinReg.html">nampy.neural.architectures.LinReg</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.QNAM.html">nampy.neural.architectures.QNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.SNAM.html">nampy.neural.architectures.SNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.TreeNAM.html">nampy.neural.architectures.TreeNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.EnsembleTreeNAM.html">nampy.neural.architectures.EnsembleTreeNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.SplineNAM.html">nampy.neural.architectures.SplineNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.NodeGAM.html">nampy.neural.architectures.NodeGAM</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../api/preprocessing.html">Preprocessing (PreTab)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/configs.html">Configurations</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNAMConfig.html">nampy.configs.DefaultNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultGPNAMConfig.html">nampy.configs.DefaultGPNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNBMConfig.html">nampy.configs.DefaultNBMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNATTConfig.html">nampy.configs.DefaultNATTConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNAMformerConfig.html">nampy.configs.DefaultNAMformerConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultLinRegConfig.html">nampy.configs.DefaultLinRegConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultQNAMConfig.html">nampy.configs.DefaultQNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultTreeNAMConfig.html">nampy.configs.DefaultTreeNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultEnsembleTreeNAMConfig.html">nampy.configs.DefaultEnsembleTreeNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultSparseNAMConfig.html">nampy.configs.DefaultSparseNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultSplineNAMConfig.html">nampy.configs.DefaultSplineNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNodeGAMConfig.html">nampy.configs.DefaultNodeGAMConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNAMConfig.html">nampy.neural.configs.DefaultNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultSIANConfig.html">nampy.neural.configs.DefaultSIANConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig"><code class="docutils literal notranslate"><span class="pre">DefaultSIANConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNBMConfig.html">nampy.neural.configs.DefaultNBMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNBMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html">nampy.neural.configs.DefaultNBMSPAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNBMSPAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultSPAMConfig.html">nampy.neural.configs.DefaultSPAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultSPAMConfig.html#nampy.neural.configs.DefaultSPAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultSPAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNATTConfig.html">nampy.neural.configs.DefaultNATTConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNATTConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNAMformerConfig.html">nampy.neural.configs.DefaultNAMformerConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNAMformerConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultLinRegConfig.html">nampy.neural.configs.DefaultLinRegConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultLinRegConfig.html#nampy.neural.configs.DefaultLinRegConfig"><code class="docutils literal notranslate"><span class="pre">DefaultLinRegConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultGPNAMConfig.html">nampy.neural.configs.DefaultGPNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultGPNAMConfig.html#nampy.neural.configs.DefaultGPNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultGPNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultIGANNConfig.html">nampy.neural.configs.DefaultIGANNConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultIGANNConfig.html#nampy.neural.configs.DefaultIGANNConfig"><code class="docutils literal notranslate"><span class="pre">DefaultIGANNConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultQNAMConfig.html">nampy.neural.configs.DefaultQNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultQNAMConfig.html#nampy.neural.configs.DefaultQNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultQNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultSNAMConfig.html">nampy.neural.configs.DefaultSNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultSNAMConfig.html#nampy.neural.configs.DefaultSNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultSNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultSplineNAMConfig.html">nampy.neural.configs.DefaultSplineNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultSplineNAMConfig.html#nampy.neural.configs.DefaultSplineNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultSplineNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultTreeNAMConfig.html">nampy.neural.configs.DefaultTreeNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultTreeNAMConfig.html#nampy.neural.configs.DefaultTreeNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultTreeNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultEnsembleTreeNAMConfig.html">nampy.neural.configs.DefaultEnsembleTreeNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultEnsembleTreeNAMConfig.html#nampy.neural.configs.DefaultEnsembleTreeNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultEnsembleTreeNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html">nampy.neural.configs.DefaultNodeGAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNodeGAMConfig</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="../api/configs.html#using-configurations">Using Configurations</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/configs.html#available-configs">Available Configs</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../api/utils.html">Utilities</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../api/utils.html#interpretability">Interpretability</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.predict_terms.html">nampy.utils.predict_terms</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.term_contributions.html">nampy.utils.term_contributions</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.feature_importance.html">nampy.utils.feature_importance</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.plot_terms.html">nampy.utils.plot_terms</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.plot_interactions.html">nampy.utils.plot_interactions</a></li>
-</ul>
-</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/utils.html">Distributions</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/utils.html#modules">Modules</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.distributional_metrics.html">nampy.utils.distributional_metrics</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.distributions.html">nampy.utils.distributions</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.interpretability.html">nampy.utils.interpretability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.distributions.distributions.html">nampy.neural.distributions.distributions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.distributions.metrics.html">nampy.neural.distributions.metrics</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/utils.html#available-distributions">Available Distributions</a></li>
@@ -318,94 +443,8 @@
 <li class="toctree-l3"><a class="reference internal" href="../models/index.html#distributional-regression-lss">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../models/index.html#model-reference">Model Reference</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../models/reference.html">Model Reference</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#shared-fit-time-parameters">Shared Fit-Time Parameters</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#neural-additive-models">Neural Additive Models</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#basis-function-models">Basis Function Models</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#attention-based-models">Attention-Based Models</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#specialized-models">Specialized Models</a></li>
-</ul>
-</li>
-</ul>
-</li>
+<li class="toctree-l2"><a class="reference internal" href="../models/index.html#model-reference">Model Reference</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../models/index.html#complete-api-reference">Complete API Reference</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="../models/reference.html">Model Reference</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../models/reference.html#shared-fit-time-parameters">Shared Fit-Time Parameters</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../models/reference.html#neural-additive-models">Neural Additive Models</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../models/reference.html#nam">NAM</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#regressor">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#classifier">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#distributional-regression-lss">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../models/reference.html#gpnam">GPNAM</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id1">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id2">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id3">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../models/reference.html#treenam">TreeNAM</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id4">Regressor</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../models/reference.html#splinenam">SplineNAM</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id5">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id6">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id7">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../models/reference.html#sparsenam">SparseNAM</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id8">Regressor</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../models/reference.html#nodegam">NodeGAM</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id9">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id10">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id11">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../models/reference.html#basis-function-models">Basis Function Models</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../models/reference.html#nbm">NBM</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id12">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id13">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id14">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../models/reference.html#attention-based-models">Attention-Based Models</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../models/reference.html#natt">NATT</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id15">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id16">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id17">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../models/reference.html#namformer">NAMformer</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id18">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id19">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id20">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../models/reference.html#specialized-models">Specialized Models</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../models/reference.html#qnam-quantile-nam">QNAM (Quantile NAM)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id21">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../models/reference.html#linreg-neural-linear-regression">LinReg (Neural Linear Regression)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id22">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id23">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id24">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-</ul>
-</li>
 </ul>
 </li>
 <li class="toctree-l1 current"><a class="reference internal" href="../examples/index.html">Examples</a><ul class="current">
@@ -480,15 +519,12 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../contributing.html#quick-links">Quick Links</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../contributing.html#ways-to-contribute">Ways to Contribute</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../contributing.html#getting-started">Getting Started</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../contributing.html#development-setup">Development Setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contributing.html#useful-links">Useful links</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changelog</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../changelog.html#latest-release">Latest Release</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../changelog.html#unreleased">Unreleased</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../changelog.html#version-0-2-0-2026-08-22">Version 0.2.0 (2026-08-22)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../changelog.html#version-0-1-0-2024-01-07">Version 0.1.0 (2024-01-07)</a></li>
 </ul>
 </li>
@@ -553,6 +589,11 @@
 <li class="toctree-l2"><a class="reference internal" href="../faq.html#still-have-questions">Still Have Questions?</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../development/reference_sources.html">Local upstream references</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../development/reference_sources.html#fixture-policy">Fixture policy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../development/reference_sources.html#refresh-workflow">Refresh workflow</a></li>
+</ul>
+</li>
 </ul>
 
         </div>
@@ -605,15 +646,15 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">fetch_california_housing</span><span class="p">,</span> <span class="n">load_breast_cancer</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.model_selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_test_split</span>
 
-<span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s1">&#39;ignore&#39;</span><span class="p">)</span>
+<span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s1">'ignore'</span><span class="p">)</span>
 
 <span class="c1"># Set random seed for reproducibility</span>
 <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
 
 <span class="c1"># Plotting style</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">style</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s1">&#39;seaborn-v0_8-whitegrid&#39;</span><span class="p">)</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s1">&#39;figure.figsize&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">12</span><span class="p">,</span> <span class="mi">6</span><span class="p">]</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s1">&#39;font.size&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">11</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">style</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s1">'seaborn-v0_8-whitegrid'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s1">'figure.figsize'</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">12</span><span class="p">,</span> <span class="mi">6</span><span class="p">]</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s1">'font.size'</span><span class="p">]</span> <span class="o">=</span> <span class="mi">11</span>
 </pre></div>
 </div>
 </div>
@@ -629,10 +670,10 @@
 <span class="n">X</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">feature_names</span><span class="p">)</span>
 <span class="n">y</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">target</span>
 
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Dataset shape:&quot;</span><span class="p">,</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Feature names:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Dataset shape:"</span><span class="p">,</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Feature names:"</span><span class="p">)</span>
 <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">feature_names</span><span class="p">):</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -648,8 +689,8 @@
     <span class="n">X_subset</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">y_subset</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span>
 <span class="p">)</span>
 
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Training set: </span><span class="si">{</span><span class="n">X_train</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> samples&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Test set: </span><span class="si">{</span><span class="n">X_test</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> samples&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Training set: </span><span class="si">{</span><span class="n">X_train</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> samples"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Test set: </span><span class="si">{</span><span class="n">X_test</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> samples"</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -663,7 +704,7 @@
 
 <span class="c1"># Train a NAM model</span>
 <span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">(</span>
-    <span class="n">numerical_preprocessing</span><span class="o">=</span><span class="s2">&quot;ple&quot;</span><span class="p">,</span>
+    <span class="n">numerical_preprocessing</span><span class="o">=</span><span class="s2">"ple"</span><span class="p">,</span>
     <span class="n">n_bins</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
     <span class="n">layer_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">64</span><span class="p">,</span> <span class="mi">32</span><span class="p">],</span>
     <span class="n">dropout</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
@@ -678,9 +719,9 @@
 <span class="p">)</span>
 
 <span class="n">y_pred</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Model Performance:&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;R² Score: </span><span class="si">{</span><span class="n">r2_score</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span><span class="w"> </span><span class="n">y_pred</span><span class="p">)</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;RMSE: </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mean_squared_error</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span><span class="w"> </span><span class="n">y_pred</span><span class="p">))</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Model Performance:"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"R² Score: </span><span class="si">{</span><span class="n">r2_score</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span><span class="w"> </span><span class="n">y_pred</span><span class="p">)</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"RMSE: </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mean_squared_error</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span><span class="w"> </span><span class="n">y_pred</span><span class="p">))</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 <br/></pre></div>
 </div>
 </div>
@@ -692,7 +733,7 @@
 </pre></div>
 </div>
 <div class="input_area highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">plot_shape_functions</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">feature_names</span><span class="p">,</span> <span class="n">ncols</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Plot shape functions for all features.</span>
 
 <span class="sd">    Parameters:</span>
@@ -705,7 +746,7 @@
 <span class="sd">        Names of features</span>
 <span class="sd">    ncols : int</span>
 <span class="sd">        Number of columns in the plot grid</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">n_features</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">feature_names</span><span class="p">)</span>
     <span class="n">nrows</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">n_features</span> <span class="o">/</span> <span class="n">ncols</span><span class="p">))</span>
 
@@ -731,18 +772,18 @@
         <span class="n">preds_centered</span> <span class="o">=</span> <span class="n">preds</span> <span class="o">-</span> <span class="n">preds</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
 
         <span class="c1"># Plot</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">feature_vals</span><span class="p">,</span> <span class="n">preds_centered</span><span class="p">,</span> <span class="s2">&quot;b-&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">feature_vals</span><span class="p">,</span> <span class="n">preds_centered</span><span class="p">,</span> <span class="s2">"b-"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 
         <span class="c1"># Add histogram of feature values</span>
         <span class="n">ax2</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">twinx</span><span class="p">()</span>
-        <span class="n">ax2</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">X</span><span class="p">[:,</span> <span class="n">i</span><span class="p">],</span> <span class="n">bins</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;gray&quot;</span><span class="p">)</span>
-        <span class="n">ax2</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="n">ax2</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">X</span><span class="p">[:,</span> <span class="n">i</span><span class="p">],</span> <span class="n">bins</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"gray"</span><span class="p">)</span>
+        <span class="n">ax2</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">""</span><span class="p">)</span>
         <span class="n">ax2</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">([])</span>
 
         <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="n">feature_names</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;Contribution&quot;</span><span class="p">)</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Shape Function: </span><span class="si">{</span><span class="n">feature_names</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;--&quot;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Contribution"</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Shape Function: </span><span class="si">{</span><span class="n">feature_names</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"r"</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">"--"</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
 
     <span class="c1"># Hide empty subplots</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_features</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">axes</span><span class="p">)):</span>
@@ -754,7 +795,7 @@
 
 <span class="c1"># Plot shape functions</span>
 <span class="n">fig</span> <span class="o">=</span> <span class="n">plot_shape_functions</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X_train</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">feature_names</span><span class="p">)</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s2">&quot;Shape Functions for California Housing Prediction&quot;</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">1.02</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s2">"Shape Functions for California Housing Prediction"</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">1.02</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -768,9 +809,9 @@
 </pre></div>
 </div>
 <div class="input_area highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">detailed_shape_function</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">feature_idx</span><span class="p">,</span> <span class="n">feature_name</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Create a detailed visualization of a single shape function.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
 
@@ -786,22 +827,22 @@
     <span class="n">preds_centered</span> <span class="o">=</span> <span class="n">preds</span> <span class="o">-</span> <span class="n">preds</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
 
     <span class="c1"># Main shape function plot</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">feature_vals</span><span class="p">,</span> <span class="n">preds_centered</span><span class="p">,</span> <span class="s1">&#39;b-&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Shape Function&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">feature_vals</span><span class="p">,</span> <span class="n">preds_centered</span><span class="p">,</span> <span class="s1">'b-'</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">'Shape Function'</span><span class="p">)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">fill_between</span><span class="p">(</span><span class="n">feature_vals</span><span class="p">,</span> <span class="n">preds_centered</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span>
 
     <span class="c1"># Add rug plot for data density</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">X</span><span class="p">[:,</span> <span class="n">feature_idx</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="n">ax</span><span class="o">.</span><span class="n">get_ylim</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.01</span><span class="p">),</span>
-               <span class="n">alpha</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="s1">&#39;black&#39;</span><span class="p">)</span>
+               <span class="n">alpha</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="s1">'black'</span><span class="p">)</span>
 
     <span class="c1"># Mark key statistics</span>
     <span class="n">median_val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">X</span><span class="p">[:,</span> <span class="n">feature_idx</span><span class="p">])</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">median_val</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;green&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Median: </span><span class="si">{</span><span class="n">median_val</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">median_val</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">'green'</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">'--'</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">'Median: </span><span class="si">{</span><span class="n">median_val</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
 
-    <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;-&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">'red'</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">'-'</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="n">feature_name</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Contribution to Prediction&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Detailed Shape Function: </span><span class="si">{</span><span class="n">feature_name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s1">&#39;best&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">'Contribution to Prediction'</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Detailed Shape Function: </span><span class="si">{</span><span class="n">feature_name</span><span class="si">}</span><span class="s1">'</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s1">'best'</span><span class="p">)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">ax</span>
@@ -810,10 +851,10 @@
 <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
 
 <span class="c1"># MedInc (index 0)</span>
-<span class="n">detailed_shape_function</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X_train</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;MedInc (Median Income)&#39;</span><span class="p">,</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="n">detailed_shape_function</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X_train</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">'MedInc (Median Income)'</span><span class="p">,</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
 
 <span class="c1"># AveRooms (index 2)</span>
-<span class="n">detailed_shape_function</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X_train</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;AveRooms (Avg Rooms per Household)&#39;</span><span class="p">,</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<span class="n">detailed_shape_function</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X_train</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">'AveRooms (Avg Rooms per Household)'</span><span class="p">,</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
 
 <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
@@ -829,8 +870,8 @@
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
 </pre></div>
 </div>
-<div class="input_area highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">compute_feature_importance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;variance&quot;</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<div class="input_area highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">compute_feature_importance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"variance"</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute feature importance based on shape function variance.</span>
 
 <span class="sd">    Parameters:</span>
@@ -840,14 +881,14 @@
 <span class="sd">    X : array-like</span>
 <span class="sd">        Input data</span>
 <span class="sd">    method : str</span>
-<span class="sd">        &quot;variance&quot; - variance of partial predictions</span>
-<span class="sd">        &quot;range&quot; - range of partial predictions</span>
+<span class="sd">        "variance" - variance of partial predictions</span>
+<span class="sd">        "range" - range of partial predictions</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">    --------</span>
 <span class="sd">    importances : array</span>
 <span class="sd">        Feature importance scores</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">n_features</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
     <span class="n">importances</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_features</span><span class="p">)</span>
 
@@ -860,9 +901,9 @@
         <span class="c1"># Get predictions</span>
         <span class="n">preds</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_partial</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;variance&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">"variance"</span><span class="p">:</span>
             <span class="n">importances</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">preds</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;range&quot;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">"range"</span><span class="p">:</span>
             <span class="n">importances</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">preds</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">-</span> <span class="n">preds</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
 
     <span class="c1"># Normalize</span>
@@ -871,7 +912,7 @@
 
 
 <span class="c1"># Compute importance</span>
-<span class="n">importance</span> <span class="o">=</span> <span class="n">compute_feature_importance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X_train</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;variance&quot;</span><span class="p">)</span>
+<span class="n">importance</span> <span class="o">=</span> <span class="n">compute_feature_importance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X_train</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"variance"</span><span class="p">)</span>
 
 <span class="c1"># Create a bar plot</span>
 <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
@@ -887,16 +928,16 @@
 <span class="n">ax</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sorted_names</span><span class="p">)))</span>
 <span class="n">ax</span><span class="o">.</span><span class="n">set_yticklabels</span><span class="p">(</span><span class="n">sorted_names</span><span class="p">)</span>
 <span class="n">ax</span><span class="o">.</span><span class="n">invert_yaxis</span><span class="p">()</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Relative Importance&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Feature Importance (based on shape function variance)&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"Relative Importance"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"Feature Importance (based on shape function variance)"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
 
 <span class="c1"># Add percentage labels</span>
 <span class="k">for</span> <span class="n">_i</span><span class="p">,</span> <span class="p">(</span><span class="n">bar</span><span class="p">,</span> <span class="n">imp</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">bars</span><span class="p">,</span> <span class="n">sorted_importance</span><span class="p">)):</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span>
         <span class="n">bar</span><span class="o">.</span><span class="n">get_width</span><span class="p">()</span> <span class="o">+</span> <span class="mf">0.01</span><span class="p">,</span>
         <span class="n">bar</span><span class="o">.</span><span class="n">get_y</span><span class="p">()</span> <span class="o">+</span> <span class="n">bar</span><span class="o">.</span><span class="n">get_height</span><span class="p">()</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span>
-        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">imp</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">,</span>
-        <span class="n">va</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">imp</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%"</span><span class="p">,</span>
+        <span class="n">va</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span>
         <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
     <span class="p">)</span>
 
@@ -912,18 +953,18 @@
 </pre></div>
 </div>
 <div class="input_area highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Compare different importance methods</span>
-<span class="n">importance_variance</span> <span class="o">=</span> <span class="n">compute_feature_importance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X_train</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;variance&#39;</span><span class="p">)</span>
-<span class="n">importance_range</span> <span class="o">=</span> <span class="n">compute_feature_importance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X_train</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;range&#39;</span><span class="p">)</span>
+<span class="n">importance_variance</span> <span class="o">=</span> <span class="n">compute_feature_importance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X_train</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">'variance'</span><span class="p">)</span>
+<span class="n">importance_range</span> <span class="o">=</span> <span class="n">compute_feature_importance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X_train</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">'range'</span><span class="p">)</span>
 
 <span class="c1"># Create comparison DataFrame</span>
 <span class="n">importance_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
-    <span class="s1">&#39;Feature&#39;</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">feature_names</span><span class="p">,</span>
-    <span class="s1">&#39;Variance-based&#39;</span><span class="p">:</span> <span class="n">importance_variance</span><span class="p">,</span>
-    <span class="s1">&#39;Range-based&#39;</span><span class="p">:</span> <span class="n">importance_range</span>
-<span class="p">})</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s1">&#39;Variance-based&#39;</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="s1">'Feature'</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">feature_names</span><span class="p">,</span>
+    <span class="s1">'Variance-based'</span><span class="p">:</span> <span class="n">importance_variance</span><span class="p">,</span>
+    <span class="s1">'Range-based'</span><span class="p">:</span> <span class="n">importance_range</span>
+<span class="p">})</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s1">'Variance-based'</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Feature Importance Comparison:&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="o">*</span><span class="mi">60</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Feature Importance Comparison:"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"="</span><span class="o">*</span><span class="mi">60</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">importance_df</span><span class="o">.</span><span class="n">to_string</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
 </pre></div>
 </div>
@@ -942,15 +983,15 @@
 <span class="n">sorted_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">importance_variance</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
 
 <span class="n">bars1</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">width</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="n">importance_variance</span><span class="p">[</span><span class="n">sorted_idx</span><span class="p">],</span> <span class="n">width</span><span class="p">,</span>
-               <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Variance-based&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;steelblue&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
+               <span class="n">label</span><span class="o">=</span><span class="s1">'Variance-based'</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">'steelblue'</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
 <span class="n">bars2</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="n">width</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="n">importance_range</span><span class="p">[</span><span class="n">sorted_idx</span><span class="p">],</span> <span class="n">width</span><span class="p">,</span>
-               <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Range-based&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;darkorange&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
+               <span class="n">label</span><span class="o">=</span><span class="s1">'Range-based'</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">'darkorange'</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
 
-<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Feature&#39;</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Relative Importance&#39;</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Comparison of Feature Importance Methods&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">'Feature'</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">'Relative Importance'</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Comparison of Feature Importance Methods'</span><span class="p">)</span>
 <span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">([</span><span class="n">data</span><span class="o">.</span><span class="n">feature_names</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">sorted_idx</span><span class="p">],</span> <span class="n">rotation</span><span class="o">=</span><span class="mi">45</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s1">&#39;right&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">([</span><span class="n">data</span><span class="o">.</span><span class="n">feature_names</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">sorted_idx</span><span class="p">],</span> <span class="n">rotation</span><span class="o">=</span><span class="mi">45</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s1">'right'</span><span class="p">)</span>
 <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
 
 <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
@@ -968,7 +1009,7 @@
 </pre></div>
 </div>
 <div class="input_area highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">explain_prediction</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">feature_names</span><span class="p">,</span> <span class="n">X_train</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Explain a single prediction by computing feature contributions.</span>
 
 <span class="sd">    Parameters:</span>
@@ -986,7 +1027,7 @@
 <span class="sd">    --------</span>
 <span class="sd">    contributions : dict</span>
 <span class="sd">        Feature contributions</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="c1"># Baseline prediction (at median values)</span>
     <span class="n">baseline</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
     <span class="n">baseline_pred</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">baseline</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
@@ -1005,9 +1046,9 @@
         <span class="n">contributions</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">partial_pred</span> <span class="o">-</span> <span class="n">baseline_pred</span>
 
     <span class="k">return</span> <span class="p">{</span>
-        <span class="s2">&quot;baseline_prediction&quot;</span><span class="p">:</span> <span class="n">baseline_pred</span><span class="p">,</span>
-        <span class="s2">&quot;actual_prediction&quot;</span><span class="p">:</span> <span class="n">actual_pred</span><span class="p">,</span>
-        <span class="s2">&quot;contributions&quot;</span><span class="p">:</span> <span class="n">contributions</span><span class="p">,</span>
+        <span class="s2">"baseline_prediction"</span><span class="p">:</span> <span class="n">baseline_pred</span><span class="p">,</span>
+        <span class="s2">"actual_prediction"</span><span class="p">:</span> <span class="n">actual_pred</span><span class="p">,</span>
+        <span class="s2">"contributions"</span><span class="p">:</span> <span class="n">contributions</span><span class="p">,</span>
     <span class="p">}</span>
 
 
@@ -1016,17 +1057,17 @@
 <span class="n">x_sample</span> <span class="o">=</span> <span class="n">X_test</span><span class="p">[</span><span class="n">sample_idx</span><span class="p">]</span>
 <span class="n">explanation</span> <span class="o">=</span> <span class="n">explain_prediction</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">x_sample</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">feature_names</span><span class="p">,</span> <span class="n">X_train</span><span class="p">)</span>
 
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Explaining prediction for sample </span><span class="si">{</span><span class="n">sample_idx</span><span class="si">}</span><span class="s2">:&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Actual house value: $</span><span class="si">{</span><span class="n">y_test</span><span class="p">[</span><span class="n">sample_idx</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100000</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Predicted house value: $</span><span class="si">{</span><span class="n">explanation</span><span class="p">[</span><span class="s1">&#39;actual_prediction&#39;</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100000</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Baseline prediction: $</span><span class="si">{</span><span class="n">explanation</span><span class="p">[</span><span class="s1">&#39;baseline_prediction&#39;</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100000</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Feature Contributions:&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">40</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Explaining prediction for sample </span><span class="si">{</span><span class="n">sample_idx</span><span class="si">}</span><span class="s2">:"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Actual house value: $</span><span class="si">{</span><span class="n">y_test</span><span class="p">[</span><span class="n">sample_idx</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100000</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Predicted house value: $</span><span class="si">{</span><span class="n">explanation</span><span class="p">[</span><span class="s1">'actual_prediction'</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100000</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Baseline prediction: $</span><span class="si">{</span><span class="n">explanation</span><span class="p">[</span><span class="s1">'baseline_prediction'</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100000</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Feature Contributions:"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"-"</span> <span class="o">*</span> <span class="mi">40</span><span class="p">)</span>
 <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">contrib</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span>
-    <span class="n">explanation</span><span class="p">[</span><span class="s2">&quot;contributions&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">abs</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span>
+    <span class="n">explanation</span><span class="p">[</span><span class="s2">"contributions"</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">abs</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span>
 <span class="p">):</span>
-    <span class="n">sign</span> <span class="o">=</span> <span class="s2">&quot;+&quot;</span> <span class="k">if</span> <span class="n">contrib</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s2">15s</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">sign</span><span class="si">}</span><span class="s2">$</span><span class="si">{</span><span class="n">contrib</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100000</span><span class="si">:</span><span class="s2">&gt;10,.0f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">sign</span> <span class="o">=</span> <span class="s2">"+"</span> <span class="k">if</span> <span class="n">contrib</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="k">else</span> <span class="s2">""</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s2">15s</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">sign</span><span class="si">}</span><span class="s2">$</span><span class="si">{</span><span class="n">contrib</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100000</span><span class="si">:</span><span class="s2">&gt;10,.0f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 <br/></pre></div>
 </div>
 </div>
@@ -1035,14 +1076,14 @@
 </pre></div>
 </div>
 <div class="input_area highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">waterfall_plot</span><span class="p">(</span><span class="n">explanation</span><span class="p">,</span> <span class="n">feature_names</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Create a waterfall plot for feature contributions.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
 
-    <span class="n">contributions</span> <span class="o">=</span> <span class="n">explanation</span><span class="p">[</span><span class="s1">&#39;contributions&#39;</span><span class="p">]</span>
-    <span class="n">baseline</span> <span class="o">=</span> <span class="n">explanation</span><span class="p">[</span><span class="s1">&#39;baseline_prediction&#39;</span><span class="p">]</span>
+    <span class="n">contributions</span> <span class="o">=</span> <span class="n">explanation</span><span class="p">[</span><span class="s1">'contributions'</span><span class="p">]</span>
+    <span class="n">baseline</span> <span class="o">=</span> <span class="n">explanation</span><span class="p">[</span><span class="s1">'baseline_prediction'</span><span class="p">]</span>
 
     <span class="c1"># Sort by absolute contribution</span>
     <span class="n">sorted_contribs</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">contributions</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">abs</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1052,22 +1093,22 @@
     <span class="c1"># Calculate cumulative sum for waterfall</span>
     <span class="n">cumsum</span> <span class="o">=</span> <span class="n">baseline</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">([</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">values</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
 
-    <span class="n">colors</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;green&#39;</span> <span class="k">if</span> <span class="n">v</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="k">else</span> <span class="s1">&#39;red&#39;</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">values</span><span class="p">]</span>
+    <span class="n">colors</span> <span class="o">=</span> <span class="p">[</span><span class="s1">'green'</span> <span class="k">if</span> <span class="n">v</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="k">else</span> <span class="s1">'red'</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">values</span><span class="p">]</span>
 
     <span class="c1"># Plot bars</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">barh</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">)),</span> <span class="n">values</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="n">cumsum</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">colors</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">)</span>
 
     <span class="c1"># Add baseline and final value markers</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">baseline</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;black&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Baseline: </span><span class="si">{</span><span class="n">baseline</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">explanation</span><span class="p">[</span><span class="s1">&#39;actual_prediction&#39;</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;blue&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;-&#39;</span><span class="p">,</span>
-               <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Prediction: </span><span class="si">{</span><span class="n">explanation</span><span class="p">[</span><span class="s2">&quot;actual_prediction&quot;</span><span class="p">]</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">baseline</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">'black'</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">'--'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">'Baseline: </span><span class="si">{</span><span class="n">baseline</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">explanation</span><span class="p">[</span><span class="s1">'actual_prediction'</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="s1">'blue'</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">'-'</span><span class="p">,</span>
+               <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">'Prediction: </span><span class="si">{</span><span class="n">explanation</span><span class="p">[</span><span class="s2">"actual_prediction"</span><span class="p">]</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
 
     <span class="n">ax</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">)))</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">set_yticklabels</span><span class="p">(</span><span class="n">names</span><span class="p">)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">invert_yaxis</span><span class="p">()</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Prediction Value&#39;</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Waterfall Plot: Feature Contributions&#39;</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s1">&#39;lower right&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">'Prediction Value'</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Waterfall Plot: Feature Contributions'</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s1">'lower right'</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">ax</span>
 
@@ -1104,7 +1145,7 @@
 
 <span class="c1"># Train classifier</span>
 <span class="n">clf</span> <span class="o">=</span> <span class="n">NAMClassifier</span><span class="p">(</span>
-    <span class="n">numerical_preprocessing</span><span class="o">=</span><span class="s2">&quot;standardization&quot;</span><span class="p">,</span>
+    <span class="n">numerical_preprocessing</span><span class="o">=</span><span class="s2">"standardization"</span><span class="p">,</span>
     <span class="n">layer_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">32</span><span class="p">,</span> <span class="mi">16</span><span class="p">],</span>
     <span class="n">dropout</span><span class="o">=</span><span class="mf">0.3</span>
 <span class="p">)</span>
@@ -1117,7 +1158,7 @@
 <span class="p">)</span>
 
 <span class="n">y_pred_c</span> <span class="o">=</span> <span class="n">clf</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test_c</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Classification Accuracy: </span><span class="si">{</span><span class="n">accuracy_score</span><span class="p">(</span><span class="n">y_test_c</span><span class="p">,</span><span class="w"> </span><span class="n">y_pred_c</span><span class="p">)</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Classification Accuracy: </span><span class="si">{</span><span class="n">accuracy_score</span><span class="p">(</span><span class="n">y_test_c</span><span class="p">,</span><span class="w"> </span><span class="n">y_pred_c</span><span class="p">)</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1126,7 +1167,7 @@
 </pre></div>
 </div>
 <div class="input_area highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Compute feature importance for classifier</span>
-<span class="n">clf_importance</span> <span class="o">=</span> <span class="n">compute_feature_importance</span><span class="p">(</span><span class="n">clf</span><span class="p">,</span> <span class="n">X_train_c</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;variance&#39;</span><span class="p">)</span>
+<span class="n">clf_importance</span> <span class="o">=</span> <span class="n">compute_feature_importance</span><span class="p">(</span><span class="n">clf</span><span class="p">,</span> <span class="n">X_train_c</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">'variance'</span><span class="p">)</span>
 
 <span class="c1"># Get top 10 features</span>
 <span class="n">top_k</span> <span class="o">=</span> <span class="mi">10</span>
@@ -1140,8 +1181,8 @@
 <span class="n">ax</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">top_k</span><span class="p">))</span>
 <span class="n">ax</span><span class="o">.</span><span class="n">set_yticklabels</span><span class="p">([</span><span class="n">cancer_features</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">sorted_idx</span><span class="p">])</span>
 <span class="n">ax</span><span class="o">.</span><span class="n">invert_yaxis</span><span class="p">()</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Relative Importance&#39;</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Top 10 Most Important Features for Breast Cancer Classification&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">'Relative Importance'</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Top 10 Most Important Features for Breast Cancer Classification'</span><span class="p">)</span>
 
 <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
@@ -1172,20 +1213,20 @@
     <span class="c1"># Get probability predictions</span>
     <span class="n">probs</span> <span class="o">=</span> <span class="n">clf</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="n">X_partial</span><span class="p">)[:,</span> <span class="mi">1</span><span class="p">]</span>  <span class="c1"># Probability of benign (class 1)</span>
 
-    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">feature_vals</span><span class="p">,</span> <span class="n">probs</span><span class="p">,</span> <span class="s1">&#39;b-&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">feature_vals</span><span class="p">,</span> <span class="n">probs</span><span class="p">,</span> <span class="s1">'b-'</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">fill_between</span><span class="p">(</span><span class="n">feature_vals</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">probs</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="n">probs</span> <span class="o">&gt;</span> <span class="mf">0.5</span><span class="p">,</span>
-                    <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;green&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Benign tendency&#39;</span><span class="p">)</span>
+                    <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">'green'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">'Benign tendency'</span><span class="p">)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">fill_between</span><span class="p">(</span><span class="n">feature_vals</span><span class="p">,</span> <span class="n">probs</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="n">probs</span> <span class="o">&lt;</span> <span class="mf">0.5</span><span class="p">,</span>
-                    <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Malignant tendency&#39;</span><span class="p">)</span>
+                    <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">'red'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">'Malignant tendency'</span><span class="p">)</span>
 
-    <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;black&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">'black'</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">'--'</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="n">cancer_features</span><span class="p">[</span><span class="n">feat_idx</span><span class="p">])</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;P(Benign)&#39;</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Shape Function: </span><span class="si">{</span><span class="n">cancer_features</span><span class="p">[</span><span class="n">feat_idx</span><span class="p">]</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">'P(Benign)'</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Shape Function: </span><span class="si">{</span><span class="n">cancer_features</span><span class="p">[</span><span class="n">feat_idx</span><span class="p">]</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s1">&#39;best&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s1">'best'</span><span class="p">)</span>
 
-<span class="n">plt</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s1">&#39;Shape Functions for Top Features in Classification&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">1.02</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s1">'Shape Functions for Top Features in Classification'</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">1.02</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div>
@@ -1205,14 +1246,14 @@
 <span class="n">models</span> <span class="o">=</span> <span class="p">{}</span>
 
 <span class="c1"># NAM</span>
-<span class="n">models</span><span class="p">[</span><span class="s1">&#39;NAM&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">(</span><span class="n">numerical_preprocessing</span><span class="o">=</span><span class="s2">&quot;ple&quot;</span><span class="p">,</span> <span class="n">n_bins</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
-<span class="n">models</span><span class="p">[</span><span class="s1">&#39;NAM&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">max_epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span> <span class="n">patience</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">models</span><span class="p">[</span><span class="s1">'NAM'</span><span class="p">]</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">(</span><span class="n">numerical_preprocessing</span><span class="o">=</span><span class="s2">"ple"</span><span class="p">,</span> <span class="n">n_bins</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+<span class="n">models</span><span class="p">[</span><span class="s1">'NAM'</span><span class="p">]</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">max_epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span> <span class="n">patience</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
 
 <span class="c1"># NBM</span>
-<span class="n">models</span><span class="p">[</span><span class="s1">&#39;NBM&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">NBMRegressor</span><span class="p">(</span><span class="n">numerical_preprocessing</span><span class="o">=</span><span class="s2">&quot;ple&quot;</span><span class="p">,</span> <span class="n">n_bins</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
-<span class="n">models</span><span class="p">[</span><span class="s1">&#39;NBM&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">max_epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span> <span class="n">patience</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">models</span><span class="p">[</span><span class="s1">'NBM'</span><span class="p">]</span> <span class="o">=</span> <span class="n">NBMRegressor</span><span class="p">(</span><span class="n">numerical_preprocessing</span><span class="o">=</span><span class="s2">"ple"</span><span class="p">,</span> <span class="n">n_bins</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+<span class="n">models</span><span class="p">[</span><span class="s1">'NBM'</span><span class="p">]</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">max_epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span> <span class="n">patience</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
 
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Models trained successfully!&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Models trained successfully!"</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1221,15 +1262,15 @@
 </pre></div>
 </div>
 <div class="input_area highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">compare_shape_functions</span><span class="p">(</span><span class="n">models</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">feature_idx</span><span class="p">,</span> <span class="n">feature_name</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compare shape functions across different models.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
 
     <span class="c1"># Create range of values</span>
     <span class="n">feature_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">X</span><span class="p">[:,</span> <span class="n">feature_idx</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">X</span><span class="p">[:,</span> <span class="n">feature_idx</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="mi">100</span><span class="p">)</span>
 
-    <span class="n">colors</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;blue&#39;</span><span class="p">,</span> <span class="s1">&#39;orange&#39;</span><span class="p">,</span> <span class="s1">&#39;green&#39;</span><span class="p">,</span> <span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="s1">&#39;purple&#39;</span><span class="p">]</span>
+    <span class="n">colors</span> <span class="o">=</span> <span class="p">[</span><span class="s1">'blue'</span><span class="p">,</span> <span class="s1">'orange'</span><span class="p">,</span> <span class="s1">'green'</span><span class="p">,</span> <span class="s1">'red'</span><span class="p">,</span> <span class="s1">'purple'</span><span class="p">]</span>
 
     <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">models</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
         <span class="c1"># Create partial dependence data</span>
@@ -1242,17 +1283,17 @@
 
         <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">feature_vals</span><span class="p">,</span> <span class="n">preds_centered</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">colors</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
 
-    <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;black&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">'black'</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">'--'</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="n">feature_name</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Contribution&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Shape Function Comparison: </span><span class="si">{</span><span class="n">feature_name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">'Contribution'</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Shape Function Comparison: </span><span class="si">{</span><span class="n">feature_name</span><span class="si">}</span><span class="s1">'</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">fig</span>
 
 <span class="c1"># Compare shape functions for MedInc</span>
-<span class="n">fig</span> <span class="o">=</span> <span class="n">compare_shape_functions</span><span class="p">(</span><span class="n">models</span><span class="p">,</span> <span class="n">X_train</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;MedInc (Median Income)&#39;</span><span class="p">)</span>
+<span class="n">fig</span> <span class="o">=</span> <span class="n">compare_shape_functions</span><span class="p">(</span><span class="n">models</span><span class="p">,</span> <span class="n">X_train</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">'MedInc (Median Income)'</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div>
@@ -1268,7 +1309,7 @@
 <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
 <span class="n">axes</span> <span class="o">=</span> <span class="n">axes</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
 
-<span class="n">colors</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;blue&#39;</span><span class="p">,</span> <span class="s1">&#39;orange&#39;</span><span class="p">]</span>
+<span class="n">colors</span> <span class="o">=</span> <span class="p">[</span><span class="s1">'blue'</span><span class="p">,</span> <span class="s1">'orange'</span><span class="p">]</span>
 
 <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">feat_idx</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">feature_indices</span><span class="p">):</span>
     <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
@@ -1285,14 +1326,14 @@
 
         <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">feature_vals</span><span class="p">,</span> <span class="n">preds_centered</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">colors</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
 
-    <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;black&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">'black'</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">'--'</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">feature_names</span><span class="p">[</span><span class="n">feat_idx</span><span class="p">])</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Contribution&#39;</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="n">feature_names</span><span class="p">[</span><span class="n">feat_idx</span><span class="p">]</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s1">&#39;best&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">'Contribution'</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="n">feature_names</span><span class="p">[</span><span class="n">feat_idx</span><span class="p">]</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s1">'best'</span><span class="p">)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
 
-<span class="n">plt</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s1">&#39;Shape Function Comparison Across Models&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">1.02</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s1">'Shape Function Comparison Across Models'</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">1.02</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div>
@@ -1349,26 +1390,26 @@
 </pre></div>
 </div>
 <div class="input_area highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Summary statistics</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;INTERPRETABILITY ANALYSIS SUMMARY&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"="</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"INTERPRETABILITY ANALYSIS SUMMARY"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"="</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
 
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">1. MODEL PERFORMANCE:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">1. MODEL PERFORMANCE:"</span><span class="p">)</span>
 <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">model</span> <span class="ow">in</span> <span class="n">models</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
     <span class="n">y_pred</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
     <span class="n">r2</span> <span class="o">=</span> <span class="n">r2_score</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">)</span>
     <span class="n">rmse</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mean_squared_error</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">))</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: R² = </span><span class="si">{</span><span class="n">r2</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">, RMSE = </span><span class="si">{</span><span class="n">rmse</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: R² = </span><span class="si">{</span><span class="n">r2</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">, RMSE = </span><span class="si">{</span><span class="n">rmse</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">2. TOP 5 IMPORTANT FEATURES:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">2. TOP 5 IMPORTANT FEATURES:"</span><span class="p">)</span>
 <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">importance_variance</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">][:</span><span class="mi">5</span><span class="p">]):</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   </span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">. </span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="n">feature_names</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">importance_variance</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">*</span><span class="mi">100</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   </span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">. </span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="n">feature_names</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">importance_variance</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">*</span><span class="mi">100</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%"</span><span class="p">)</span>
 
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">3. KEY INSIGHTS:&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;   - MedInc (Median Income) is the dominant predictor&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;   - Geographic features (Lat, Long) capture location effects&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;   - Shape functions reveal non-linear relationships&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;   - Models agree on general patterns but differ in details&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">3. KEY INSIGHTS:"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"   - MedInc (Median Income) is the dominant predictor"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"   - Geographic features (Lat, Long) capture location effects"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"   - Shape functions reveal non-linear relationships"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"   - Models agree on general patterns but differ in details"</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>

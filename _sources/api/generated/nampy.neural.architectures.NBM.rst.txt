@@ -1,0 +1,6 @@
+﻿nampy.neural.architectures.NBM
+==============================
+
+.. currentmodule:: nampy.neural.architectures
+
+.. autoclass:: NBM

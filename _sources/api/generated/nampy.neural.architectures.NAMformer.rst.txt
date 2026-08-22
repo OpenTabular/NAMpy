@@ -1,0 +1,6 @@
+﻿nampy.neural.architectures.NAMformer
+====================================
+
+.. currentmodule:: nampy.neural.architectures
+
+.. autoclass:: NAMformer

@@ -1,0 +1,6 @@
+﻿nampy.models.NBMSPAMClassifier
+==============================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: NBMSPAMClassifier

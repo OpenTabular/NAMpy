@@ -1,0 +1,6 @@
+﻿nampy.contracts.AdditivePrediction
+==================================
+
+.. currentmodule:: nampy.contracts
+
+.. autoclass:: AdditivePrediction

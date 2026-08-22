@@ -1,0 +1,6 @@
+﻿nampy.neural.configs.DefaultQNAMConfig
+======================================
+
+.. currentmodule:: nampy.neural.configs
+
+.. autoclass:: DefaultQNAMConfig

@@ -1,0 +1,6 @@
+﻿nampy.neural.configs.DefaultSNAMConfig
+======================================
+
+.. currentmodule:: nampy.neural.configs
+
+.. autoclass:: DefaultSNAMConfig

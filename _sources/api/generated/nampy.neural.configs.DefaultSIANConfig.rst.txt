@@ -1,0 +1,6 @@
+﻿nampy.neural.configs.DefaultSIANConfig
+======================================
+
+.. currentmodule:: nampy.neural.configs
+
+.. autoclass:: DefaultSIANConfig

@@ -1,0 +1,6 @@
+﻿nampy.models.GAMRegressor
+=========================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: GAMRegressor

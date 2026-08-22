@@ -1,0 +1,6 @@
+﻿nampy.neural.task.TaskModule
+============================
+
+.. currentmodule:: nampy.neural.task
+
+.. autoclass:: TaskModule

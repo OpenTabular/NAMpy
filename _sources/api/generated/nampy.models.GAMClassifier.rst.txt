@@ -1,0 +1,6 @@
+﻿nampy.models.GAMClassifier
+==========================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: GAMClassifier

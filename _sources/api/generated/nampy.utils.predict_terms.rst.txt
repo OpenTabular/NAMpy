@@ -1,6 +1,0 @@
-﻿nampy.utils.predict\_terms
-==========================
-
-.. currentmodule:: nampy.utils
-
-.. autofunction:: predict_terms

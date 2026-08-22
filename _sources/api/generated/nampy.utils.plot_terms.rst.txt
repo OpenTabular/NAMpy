@@ -1,6 +1,0 @@
-﻿nampy.utils.plot\_terms
-=======================
-
-.. currentmodule:: nampy.utils
-
-.. autofunction:: plot_terms

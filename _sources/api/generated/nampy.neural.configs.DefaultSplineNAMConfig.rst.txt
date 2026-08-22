@@ -1,0 +1,6 @@
+﻿nampy.neural.configs.DefaultSplineNAMConfig
+===========================================
+
+.. currentmodule:: nampy.neural.configs
+
+.. autoclass:: DefaultSplineNAMConfig

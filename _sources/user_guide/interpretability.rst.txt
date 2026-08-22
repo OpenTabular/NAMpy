@@ -1,8 +1,7 @@
 Interpretability
 ================
 
-One of NAMpy's key strengths is model interpretability, especially for additive
-models like NAM, NodeGAM, SplineNAM, and SparseNAM.
+One of NAMpy's key strengths is model interpretability, especially for additive models like NAM.
 
 Understanding Additive Models
 ------------------------------
@@ -21,8 +20,8 @@ Where:
 Feature-Level Predictions
 --------------------------
 
-For interpretable models, you can extract per-term contributions on the raw
-additive scale:
+For interpretable models (NAM, GPNAM, etc.), you can extract feature
+contributions:
 
 .. code-block:: python
 
@@ -31,68 +30,10 @@ additive scale:
    model = NAMRegressor()
    model.fit(X_train, y_train, max_epochs=100)
    
-   terms = model.predict_terms(X_test)
-   terms_frame = model.predict_terms(X_test, as_frame=True)
-   raw = model.predict_feature_vals(X_test)
-   prediction = raw["prediction"]
-   regularization = raw["regularization"]
-
-The same method works for regression, classification, and LSS wrappers. For
-classification, contributions are logits. For LSS models, contributions are raw
-distribution-parameter outputs.
-
-The raw model output uses a nested dictionary: ``"prediction"`` stores the final
-tensor, ``"terms"`` stores per-term contributions, ``"intercept"`` stores the
-optional intercept, and ``"regularization"`` stores loss penalties.
-
-Feature Importance
-------------------
-
-Feature importance can be computed from the variation in term contributions:
-
-.. code-block:: python
-
-   importance = model.feature_importance(X_test, method="variance")
-
-Supported methods are ``"variance"``, ``"range"``, ``"mean_abs"``, and
-``"max_abs"``.
-
-Visualization
--------------
-
-Use the generic plotting helpers for main effects and pairwise interactions:
-
-.. code-block:: python
-
-   model.plot_terms(X_test)
-   model.plot_interactions(X_test)
-
-The helper functions are also available from :mod:`nampy.utils`:
-
-.. code-block:: python
-
-   from nampy.utils import predict_terms, feature_importance
-
-   terms = predict_terms(model, X_test)
-   importance = feature_importance(model, X_test)
-
-Summaries and Diagnostics
--------------------------
-
-All sklearn-style estimators expose a compact summary:
-
-.. code-block:: python
-
-   info = model.summary()
-
-For model-specific diagnostics, use:
-
-.. code-block:: python
-
-   diagnostics = model.diagnostics()
-
-SplineNAM diagnostics include knot locations and regularization penalties.
-SparseNAM diagnostics include group norms and selected groups.
+   components = model.predict_components(X_test, center=True)
+   table = model.explain_terms(X_test)
+   importance = model.term_importance(X_test)
+   figures = model.plot_terms(X_test)
 
 Model Comparison
 ----------------
@@ -114,7 +55,7 @@ Compare interpretable vs. black-box models:
    * - GPNAM
      - High (feature-level)
      - Good
-     - With uncertainty
+     - Smooth, parameter-efficient effects
    * - TreeNAM
      - High (feature-level)
      - Good
@@ -127,6 +68,19 @@ Compare interpretable vs. black-box models:
      - Low
      - Best
      - Pure performance
+
+Visualization
+-------------
+
+``plot_terms`` renders one-dimensional contribution curves, while
+``plot_interactions`` handles interaction heatmaps. ``explain_terms`` and
+``term_importance`` return reusable tables for custom plotting.
+
+Contributing
+------------
+
+Interpretability tools are an active area of development. Contributions
+are welcome! See :doc:`../contributing` for details.
 
 For More Information
 --------------------

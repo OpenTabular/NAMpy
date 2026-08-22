@@ -1,0 +1,6 @@
+﻿nampy.gam.solve\_fit
+====================
+
+.. currentmodule:: nampy.gam
+
+.. autofunction:: solve_fit

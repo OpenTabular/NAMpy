@@ -1,0 +1,6 @@
+﻿nampy.neural.architectures.TreeNAM
+==================================
+
+.. currentmodule:: nampy.neural.architectures
+
+.. autoclass:: TreeNAM

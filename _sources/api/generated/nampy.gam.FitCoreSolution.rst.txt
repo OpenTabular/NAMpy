@@ -1,0 +1,6 @@
+﻿nampy.gam.FitCoreSolution
+=========================
+
+.. currentmodule:: nampy.gam
+
+.. autoclass:: FitCoreSolution

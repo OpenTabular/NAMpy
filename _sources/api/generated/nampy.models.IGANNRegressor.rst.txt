@@ -1,0 +1,6 @@
+﻿nampy.models.IGANNRegressor
+===========================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: IGANNRegressor

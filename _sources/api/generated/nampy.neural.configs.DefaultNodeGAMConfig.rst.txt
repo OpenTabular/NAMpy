@@ -1,0 +1,6 @@
+﻿nampy.neural.configs.DefaultNodeGAMConfig
+=========================================
+
+.. currentmodule:: nampy.neural.configs
+
+.. autoclass:: DefaultNodeGAMConfig

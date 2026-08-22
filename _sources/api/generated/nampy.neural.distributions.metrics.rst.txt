@@ -1,0 +1,12 @@
+﻿nampy.neural.distributions.metrics
+==================================
+
+.. automodule:: nampy.neural.distributions.metrics
+   :no-members:
+   :no-inherited-members:
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   

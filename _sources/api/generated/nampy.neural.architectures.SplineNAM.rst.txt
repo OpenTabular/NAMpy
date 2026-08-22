@@ -1,0 +1,6 @@
+﻿nampy.neural.architectures.SplineNAM
+====================================
+
+.. currentmodule:: nampy.neural.architectures
+
+.. autoclass:: SplineNAM

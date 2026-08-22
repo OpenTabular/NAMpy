@@ -1,0 +1,6 @@
+﻿nampy.models.SNAMLSS
+====================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: SNAMLSS

@@ -1,0 +1,6 @@
+﻿nampy.neural.configs.DefaultNBMConfig
+=====================================
+
+.. currentmodule:: nampy.neural.configs
+
+.. autoclass:: DefaultNBMConfig

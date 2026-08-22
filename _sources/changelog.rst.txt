@@ -10,17 +10,23 @@ on GitHub.
 Latest Release
 --------------
 
-Unreleased
-~~~~~~~~~~
+Version 0.2.0 (2026-08-22)
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Added:**
+
+* Strict ``mgcv``-aligned GAM backend with sklearn-style adapters
+* Shape-constrained GAMs and expanded ordinary/general-family support
+* Registry-generated NBM, SPAM, NBM-SPAM, SIAN, IGANN, and ensemble estimators
+* Shared additive explanations, plots, importance tables, and persistence
+* Distributional objectives and architecture-specific native training routes
 
 **Changed:**
 
-* Breaking: model ``forward()``, estimator ``_predict()``, and
-  ``predict_feature_vals()`` now return nested dictionaries with
-  ``prediction``, ``terms``, ``intercept``, ``regularization``, and ``extras``.
-* Per-term contributions moved from top-level result keys into ``terms``.
-* Training penalties moved from top-level ``*_penalty`` keys into
-  ``regularization``.
+* Neural architectures now live under ``nampy.neural.architectures``
+* Neural preprocessing targets published PreTab 0.0.3's public block contract
+* LSS family configuration is constructor-owned and sklearn-cloneable
+* Public imports are lazy and backend dependencies are split into extras
 
 Version 0.1.0 (2024-01-07)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -46,6 +52,7 @@ Version 0.1.0 (2024-01-07)
 Version History
 ---------------
 
+* **0.2.0** - Statistical GAM backend and expanded neural model platform
 * **0.1.0** - First stable public release
 * **0.0.1** - Initial development version
 

@@ -1,0 +1,6 @@
+﻿nampy.models.SNAMClassifier
+===========================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: SNAMClassifier

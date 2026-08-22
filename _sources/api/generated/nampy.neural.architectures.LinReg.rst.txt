@@ -1,0 +1,6 @@
+﻿nampy.neural.architectures.LinReg
+=================================
+
+.. currentmodule:: nampy.neural.architectures
+
+.. autoclass:: LinReg

@@ -1,6 +1,0 @@
-﻿nampy.utils.feature\_importance
-===============================
-
-.. currentmodule:: nampy.utils
-
-.. autofunction:: feature_importance

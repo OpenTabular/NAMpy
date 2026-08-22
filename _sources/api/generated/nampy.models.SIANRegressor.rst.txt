@@ -1,0 +1,6 @@
+﻿nampy.models.SIANRegressor
+==========================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: SIANRegressor

@@ -1,0 +1,6 @@
+﻿nampy.models.SNAMRegressor
+==========================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: SNAMRegressor

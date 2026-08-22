@@ -1,0 +1,6 @@
+﻿nampy.neural.architectures.SNAM
+===============================
+
+.. currentmodule:: nampy.neural.architectures
+
+.. autoclass:: SNAM

@@ -1,0 +1,6 @@
+﻿nampy.neural.architectures.NATT
+===============================
+
+.. currentmodule:: nampy.neural.architectures
+
+.. autoclass:: NATT

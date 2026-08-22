@@ -1,0 +1,6 @@
+﻿nampy.neural.architectures.NAM
+==============================
+
+.. currentmodule:: nampy.neural.architectures
+
+.. autoclass:: NAM

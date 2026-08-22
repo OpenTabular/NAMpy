@@ -1,0 +1,6 @@
+﻿nampy.models.NBMSPAMRegressor
+=============================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: NBMSPAMRegressor

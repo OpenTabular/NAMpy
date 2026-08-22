@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Models &mdash; nampy 0.1.0 documentation</title>
+  <title>Models &mdash; nampy 0.2.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=ea57e989" />
@@ -14,17 +14,17 @@
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=01f34227"></script>
-      <script src="../_static/doctools.js?v=9bcbadda"></script>
-      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/documentation_options.js?v=938c9ccc"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
       <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
       <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
-      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Model Reference" href="reference.html" />
-    <link rel="prev" title="nampy.utils.interpretability" href="../api/generated/nampy.utils.interpretability.html" /> 
+    <link rel="next" title="Examples" href="../examples/index.html" />
+    <link rel="prev" title="nampy.neural.distributions.metrics" href="../api/generated/nampy.neural.distributions.metrics.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -37,6 +37,7 @@
           
           <a href="../index.html" class="icon icon-home">
             nampy
+              <img src="../_static/logo.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
@@ -74,11 +75,33 @@
 <li class="toctree-l2"><a class="reference internal" href="../quickstart.html#saving-and-loading-models">Saving and Loading Models</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture.html">Architecture</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../architecture.html#neural-architecture-contract">Neural architecture contract</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture.html#optional-training-and-inference-contracts">Optional training and inference contracts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture.html#adding-an-architecture">Adding an architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture.html#gam-isolation">GAM isolation</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../user_guide.html">User Guide</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../user_guide/preprocessing.html">Preprocessing (PreTab)</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/preprocessing.html#using-pretab-with-nampy">Using PreTab with NAMpy</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/preprocessing.html#preprocessor-contract">Preprocessor contract</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/preprocessing.html#accessing-the-preprocessor">Accessing the preprocessor</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../user_guide/pretab_compatibility.html">Published PreTab compatibility</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/pretab_compatibility.html#supported-contract">Supported contract</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/pretab_compatibility.html#removed-requirements">Removed requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/pretab_compatibility.html#model-impact">Model impact</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/pretab_compatibility.html#nam">NAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/pretab_compatibility.html#nbm">NBM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/pretab_compatibility.html#spam-and-nbm-spam">SPAM and NBM-SPAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/pretab_compatibility.html#nodegam">NodeGAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/pretab_compatibility.html#other-neural-models">Other neural models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/pretab_compatibility.html#gam-backend">GAM backend</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/pretab_compatibility.html#behavioral-consequences">Behavioral consequences</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../user_guide/training.html">Training Models</a><ul>
@@ -97,6 +120,7 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/training.html#gpu-training">GPU Training</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/training.html#batch-size">Batch Size</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/training.html#architecture-native-training">Architecture-native training</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/training.html#regularization">Regularization</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../user_guide/training.html#weight-decay-l2">Weight Decay (L2)</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../user_guide/training.html#dropout">Dropout</a></li>
@@ -118,12 +142,23 @@
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/training.html#next-steps">Next Steps</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="../user_guide/shape_constrained_gams.html">Shape-constrained GAMs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/shape_constrained_gams.html#architecture">Architecture</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/shape_constrained_gams.html#basic-use">Basic use</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/shape_constrained_gams.html#univariate-bases">Univariate bases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/shape_constrained_gams.html#bivariate-bases">Bivariate bases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/shape_constrained_gams.html#linear-functionals">Linear functionals</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/shape_constrained_gams.html#inference-and-diagnostics">Inference and diagnostics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/shape_constrained_gams.html#gaussian-ar-1-errors">Gaussian AR(1) errors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/shape_constrained_gams.html#current-boundaries">Current boundaries</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="../user_guide/custom_models.html">Custom Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/custom_models.html#overview">Overview</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/custom_models.html#step-by-step-guide">Step-by-Step Guide</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../user_guide/custom_models.html#define-configuration">1. Define Configuration</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../user_guide/custom_models.html#implement-the-model">2. Implement the Model</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../user_guide/custom_models.html#create-wrapper-classes">3. Create Wrapper Classes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/custom_models.html#register-the-architecture">3. Register the Architecture</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../user_guide/custom_models.html#use-your-custom-model">4. Use Your Custom Model</a></li>
 </ul>
 </li>
@@ -142,10 +177,9 @@
 <li class="toctree-l2"><a class="reference internal" href="../user_guide/interpretability.html">Interpretability</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#understanding-additive-models">Understanding Additive Models</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#feature-level-predictions">Feature-Level Predictions</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#feature-importance">Feature Importance</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#visualization">Visualization</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#summaries-and-diagnostics">Summaries and Diagnostics</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#model-comparison">Model Comparison</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#visualization">Visualization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#contributing">Contributing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#for-more-information">For More Information</a></li>
 </ul>
 </li>
@@ -186,103 +220,194 @@
 <li class="toctree-l2"><a class="reference internal" href="../api/models.html">Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/models.html#regression-models">Regression Models</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMRegressor.html">nampy.models.NAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SIANRegressor.html">nampy.models.SIANRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.GPNAMRegressor.html">nampy.models.GPNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.IGANNRegressor.html">nampy.models.IGANNRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NBMRegressor.html">nampy.models.NBMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NBMSPAMRegressor.html">nampy.models.NBMSPAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SPAMRegressor.html">nampy.models.SPAMRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NATTRegressor.html">nampy.models.NATTRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMformerRegressor.html">nampy.models.NAMformerRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.LinRegRegressor.html">nampy.models.LinRegRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.TreeNAMRegressor.html">nampy.models.TreeNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.EnsembleTreeNAMRegressor.html">nampy.models.EnsembleTreeNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SNAMRegressor.html">nampy.models.SNAMRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SplineNAMRegressor.html">nampy.models.SplineNAMRegressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SparseNAMRegressor.html">nampy.models.SparseNAMRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NodeGAMRegressor.html">nampy.models.NodeGAMRegressor</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/models.html#classification-models">Classification Models</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMClassifier.html">nampy.models.NAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SIANClassifier.html">nampy.models.SIANClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.GPNAMClassifier.html">nampy.models.GPNAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.IGANNClassifier.html">nampy.models.IGANNClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NBMClassifier.html">nampy.models.NBMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NBMSPAMClassifier.html">nampy.models.NBMSPAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SPAMClassifier.html">nampy.models.SPAMClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NATTClassifier.html">nampy.models.NATTClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMformerClassifier.html">nampy.models.NAMformerClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.LinRegClassifier.html">nampy.models.LinRegClassifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SplineNAMClassifier.html">nampy.models.SplineNAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.TreeNAMClassifier.html">nampy.models.TreeNAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.EnsembleTreeNAMClassifier.html">nampy.models.EnsembleTreeNAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SNAMClassifier.html">nampy.models.SNAMClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NodeGAMClassifier.html">nampy.models.NodeGAMClassifier</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/models.html#distributional-regression-models-lss">Distributional Regression Models (LSS)</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMLSS.html">nampy.models.NAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SIANLSS.html">nampy.models.SIANLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.GPNAMLSS.html">nampy.models.GPNAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.IGANNLSS.html">nampy.models.IGANNLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NBMLSS.html">nampy.models.NBMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NBMSPAMLSS.html">nampy.models.NBMSPAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SPAMLSS.html">nampy.models.SPAMLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NATTLSS.html">nampy.models.NATTLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMformerLSS.html">nampy.models.NAMformerLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.LinRegLSS.html">nampy.models.LinRegLSS</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SplineNAMLSS.html">nampy.models.SplineNAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.TreeNAMLSS.html">nampy.models.TreeNAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.EnsembleTreeNAMLSS.html">nampy.models.EnsembleTreeNAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SNAMLSS.html">nampy.models.SNAMLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NodeGAMLSS.html">nampy.models.NodeGAMLSS</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/models.html#other-models">Other Models</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.QNAM.html">nampy.models.QNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.QNAMLSS.html">nampy.models.QNAMLSS</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/models.html#base-classes">Base Classes</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SklearnBaseRegressor.html">nampy.models.SklearnBaseRegressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SklearnBaseClassifier.html">nampy.models.SklearnBaseClassifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SklearnBaseLSS.html">nampy.models.SklearnBaseLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NeuralRegressor.html">nampy.models.NeuralRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NeuralClassifier.html">nampy.models.NeuralClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NeuralLSS.html">nampy.models.NeuralLSS</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/gam.html">GAM (mgcv-parity backend)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/gam.html#high-level-model">High-level model</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.gam.GAM.html">nampy.gam.GAM</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/gam.html#shape-constrained-smooths">Shape-constrained smooths</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.gam.diagnostics.SmoothDerivativeResult.html">nampy.gam.diagnostics.SmoothDerivativeResult</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/gam.html#scikit-learn-adapters">Scikit-learn adapters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.GAMRegressor.html">nampy.models.GAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.GAMClassifier.html">nampy.models.GAMClassifier</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/gam.html#fit-core">Fit core</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.gam.fit_model_core.html">nampy.gam.fit_model_core</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.gam.solve_fit.html">nampy.gam.solve_fit</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.gam.FitCoreSolution.html">nampy.gam.FitCoreSolution</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/gam.html#shared-contracts">Shared contracts</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.contracts.FeatureSchema.html">nampy.contracts.FeatureSchema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.contracts.AdditivePrediction.html">nampy.contracts.AdditivePrediction</a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../api/basemodels.html">Base Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/basemodels.html#base-classes">Base Classes</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.BaseModel.html">nampy.basemodels.BaseModel</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.TaskModel.html">nampy.basemodels.TaskModel</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.BaseModel.html">nampy.neural.architectures.BaseModel</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.task.TaskModule.html">nampy.neural.task.TaskModule</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/basemodels.html#model-implementations">Model Implementations</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NAM.html">nampy.basemodels.NAM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.GPNAM.html">nampy.basemodels.GPNAM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NBM.html">nampy.basemodels.NBM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NATT.html">nampy.basemodels.NATT</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NAMformer.html">nampy.basemodels.NAMformer</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.LinReg.html">nampy.basemodels.LinReg</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.QNAMBase.html">nampy.basemodels.QNAMBase</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.SparseNAM.html">nampy.basemodels.SparseNAM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.SplineNAM.html">nampy.basemodels.SplineNAM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NodeGAM.html">nampy.basemodels.NodeGAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.NAM.html">nampy.neural.architectures.NAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.SIAN.html">nampy.neural.architectures.SIAN</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.GPNAM.html">nampy.neural.architectures.GPNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.IGANN.html">nampy.neural.architectures.IGANN</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.NBM.html">nampy.neural.architectures.NBM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.NBMSPAM.html">nampy.neural.architectures.NBMSPAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.SPAM.html">nampy.neural.architectures.SPAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.NATT.html">nampy.neural.architectures.NATT</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.NAMformer.html">nampy.neural.architectures.NAMformer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.LinReg.html">nampy.neural.architectures.LinReg</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.QNAM.html">nampy.neural.architectures.QNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.SNAM.html">nampy.neural.architectures.SNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.TreeNAM.html">nampy.neural.architectures.TreeNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.EnsembleTreeNAM.html">nampy.neural.architectures.EnsembleTreeNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.SplineNAM.html">nampy.neural.architectures.SplineNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.NodeGAM.html">nampy.neural.architectures.NodeGAM</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../api/preprocessing.html">Preprocessing (PreTab)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/configs.html">Configurations</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNAMConfig.html">nampy.configs.DefaultNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultGPNAMConfig.html">nampy.configs.DefaultGPNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNBMConfig.html">nampy.configs.DefaultNBMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNATTConfig.html">nampy.configs.DefaultNATTConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNAMformerConfig.html">nampy.configs.DefaultNAMformerConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultLinRegConfig.html">nampy.configs.DefaultLinRegConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultQNAMConfig.html">nampy.configs.DefaultQNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultTreeNAMConfig.html">nampy.configs.DefaultTreeNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultEnsembleTreeNAMConfig.html">nampy.configs.DefaultEnsembleTreeNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultSparseNAMConfig.html">nampy.configs.DefaultSparseNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultSplineNAMConfig.html">nampy.configs.DefaultSplineNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNodeGAMConfig.html">nampy.configs.DefaultNodeGAMConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNAMConfig.html">nampy.neural.configs.DefaultNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultSIANConfig.html">nampy.neural.configs.DefaultSIANConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig"><code class="docutils literal notranslate"><span class="pre">DefaultSIANConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNBMConfig.html">nampy.neural.configs.DefaultNBMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNBMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html">nampy.neural.configs.DefaultNBMSPAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNBMSPAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultSPAMConfig.html">nampy.neural.configs.DefaultSPAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultSPAMConfig.html#nampy.neural.configs.DefaultSPAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultSPAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNATTConfig.html">nampy.neural.configs.DefaultNATTConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNATTConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNAMformerConfig.html">nampy.neural.configs.DefaultNAMformerConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNAMformerConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultLinRegConfig.html">nampy.neural.configs.DefaultLinRegConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultLinRegConfig.html#nampy.neural.configs.DefaultLinRegConfig"><code class="docutils literal notranslate"><span class="pre">DefaultLinRegConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultGPNAMConfig.html">nampy.neural.configs.DefaultGPNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultGPNAMConfig.html#nampy.neural.configs.DefaultGPNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultGPNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultIGANNConfig.html">nampy.neural.configs.DefaultIGANNConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultIGANNConfig.html#nampy.neural.configs.DefaultIGANNConfig"><code class="docutils literal notranslate"><span class="pre">DefaultIGANNConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultQNAMConfig.html">nampy.neural.configs.DefaultQNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultQNAMConfig.html#nampy.neural.configs.DefaultQNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultQNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultSNAMConfig.html">nampy.neural.configs.DefaultSNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultSNAMConfig.html#nampy.neural.configs.DefaultSNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultSNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultSplineNAMConfig.html">nampy.neural.configs.DefaultSplineNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultSplineNAMConfig.html#nampy.neural.configs.DefaultSplineNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultSplineNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultTreeNAMConfig.html">nampy.neural.configs.DefaultTreeNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultTreeNAMConfig.html#nampy.neural.configs.DefaultTreeNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultTreeNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultEnsembleTreeNAMConfig.html">nampy.neural.configs.DefaultEnsembleTreeNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultEnsembleTreeNAMConfig.html#nampy.neural.configs.DefaultEnsembleTreeNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultEnsembleTreeNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html">nampy.neural.configs.DefaultNodeGAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNodeGAMConfig</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="../api/configs.html#using-configurations">Using Configurations</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/configs.html#available-configs">Available Configs</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../api/utils.html">Utilities</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../api/utils.html#interpretability">Interpretability</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.predict_terms.html">nampy.utils.predict_terms</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.term_contributions.html">nampy.utils.term_contributions</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.feature_importance.html">nampy.utils.feature_importance</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.plot_terms.html">nampy.utils.plot_terms</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.plot_interactions.html">nampy.utils.plot_interactions</a></li>
-</ul>
-</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/utils.html">Distributions</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/utils.html#modules">Modules</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.distributional_metrics.html">nampy.utils.distributional_metrics</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.distributions.html">nampy.utils.distributions</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.interpretability.html">nampy.utils.interpretability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.distributions.distributions.html">nampy.neural.distributions.distributions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.distributions.metrics.html">nampy.neural.distributions.metrics</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/utils.html#available-distributions">Available Distributions</a></li>
@@ -317,94 +442,8 @@
 <li class="toctree-l3"><a class="reference internal" href="#distributional-regression-lss">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#model-reference">Model Reference</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="reference.html">Model Reference</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#shared-fit-time-parameters">Shared Fit-Time Parameters</a></li>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#neural-additive-models">Neural Additive Models</a></li>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#basis-function-models">Basis Function Models</a></li>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#attention-based-models">Attention-Based Models</a></li>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#specialized-models">Specialized Models</a></li>
-</ul>
-</li>
-</ul>
-</li>
+<li class="toctree-l2"><a class="reference internal" href="#model-reference">Model Reference</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#complete-api-reference">Complete API Reference</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="reference.html">Model Reference</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="reference.html#shared-fit-time-parameters">Shared Fit-Time Parameters</a></li>
-<li class="toctree-l2"><a class="reference internal" href="reference.html#neural-additive-models">Neural Additive Models</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="reference.html#nam">NAM</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#regressor">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#classifier">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#distributional-regression-lss">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="reference.html#gpnam">GPNAM</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id1">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id2">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id3">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="reference.html#treenam">TreeNAM</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id4">Regressor</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="reference.html#splinenam">SplineNAM</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id5">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id6">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id7">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="reference.html#sparsenam">SparseNAM</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id8">Regressor</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="reference.html#nodegam">NodeGAM</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id9">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id10">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id11">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="reference.html#basis-function-models">Basis Function Models</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="reference.html#nbm">NBM</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id12">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id13">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id14">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="reference.html#attention-based-models">Attention-Based Models</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="reference.html#natt">NATT</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id15">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id16">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id17">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="reference.html#namformer">NAMformer</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id18">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id19">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id20">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="reference.html#specialized-models">Specialized Models</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="reference.html#qnam-quantile-nam">QNAM (Quantile NAM)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id21">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="reference.html#linreg-neural-linear-regression">LinReg (Neural Linear Regression)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id22">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id23">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id24">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-</ul>
-</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../examples/index.html">Examples</a><ul>
@@ -479,15 +518,12 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../contributing.html#quick-links">Quick Links</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../contributing.html#ways-to-contribute">Ways to Contribute</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../contributing.html#getting-started">Getting Started</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../contributing.html#development-setup">Development Setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contributing.html#useful-links">Useful links</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changelog</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../changelog.html#latest-release">Latest Release</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../changelog.html#unreleased">Unreleased</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../changelog.html#version-0-2-0-2026-08-22">Version 0.2.0 (2026-08-22)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../changelog.html#version-0-1-0-2024-01-07">Version 0.1.0 (2024-01-07)</a></li>
 </ul>
 </li>
@@ -552,6 +588,11 @@
 <li class="toctree-l2"><a class="reference internal" href="../faq.html#still-have-questions">Still Have Questions?</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../development/reference_sources.html">Local upstream references</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../development/reference_sources.html#fixture-policy">Fixture policy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../development/reference_sources.html#refresh-workflow">Refresh workflow</a></li>
+</ul>
+</li>
 </ul>
 
         </div>
@@ -582,8 +623,9 @@
 <h1>Models<a class="headerlink" href="#models" title="Link to this heading"></a></h1>
 <p>NAMpy provides a comprehensive suite of interpretable and high-performance models
 for tabular data. Most models are available in three variants: regression, classification,
-and distributional regression (LSS). Some models are specialized (for example, QNAM is
-distributional-only, while TreeNAM and SparseNAM are currently regression-only).</p>
+and distributional regression (LSS). QNAM is specialized for distributional
+regression; NBM, SPAM, NBM-SPAM, TreeNAM, EnsembleTreeNAM, and SNAM support
+all three task types.</p>
 <section id="model-overview">
 <h2>Model Overview<a class="headerlink" href="#model-overview" title="Link to this heading"></a></h2>
 <table class="docutils align-default">
@@ -606,15 +648,35 @@ distributional-only, while TreeNAM and SparseNAM are currently regression-only).
 <td><p>✓ Yes</p></td>
 <td><p>Interpretability + Performance</p></td>
 </tr>
-<tr class="row-odd"><td><p>GPNAM</p></td>
-<td><p>Gaussian Process NAM</p></td>
+<tr class="row-odd"><td><p>SIAN</p></td>
+<td><p>Sparse Interaction Additive Network</p></td>
 <td><p>✓ Yes</p></td>
-<td><p>Uncertainty Quantification</p></td>
+<td><p>Automatically selected higher-order interactions</p></td>
+</tr>
+<tr class="row-even"><td><p>GPNAM</p></td>
+<td><p>Fixed-RFF Gaussian Process NAM</p></td>
+<td><p>✓ Yes</p></td>
+<td><p>Fast smooth additive regression</p></td>
+</tr>
+<tr class="row-odd"><td><p>IGANN</p></td>
+<td><p>Linear initialization with boosted ELM shape functions</p></td>
+<td><p>✓ Yes</p></td>
+<td><p>Fast, smooth, optionally sparse additive fitting</p></td>
 </tr>
 <tr class="row-even"><td><p>NBM</p></td>
 <td><p>Neural Basis Model</p></td>
-<td><p>✓ Partial</p></td>
-<td><p>Complex Non-linearities</p></td>
+<td><p>✓ Yes</p></td>
+<td><p>Shared learned basis functions</p></td>
+</tr>
+<tr class="row-odd"><td><p>SPAM</p></td>
+<td><p>Scalable Polynomial Additive Model</p></td>
+<td><p>✓ Yes</p></td>
+<td><p>Low-rank polynomial effects</p></td>
+</tr>
+<tr class="row-even"><td><p>NBM-SPAM</p></td>
+<td><p>Neural bases with polynomial interactions</p></td>
+<td><p>✓ Yes</p></td>
+<td><p>Learned concepts and higher-order structure</p></td>
 </tr>
 <tr class="row-odd"><td><p>NATT</p></td>
 <td><p>Neural Attentive Transformer</p></td>
@@ -626,7 +688,7 @@ distributional-only, while TreeNAM and SparseNAM are currently regression-only).
 <td><p>✓ Partial</p></td>
 <td><p>Balance of Both</p></td>
 </tr>
-<tr class="row-odd"><td><p>QNAM</p></td>
+<tr class="row-odd"><td><p>QNAMLSS</p></td>
 <td><p>Quantile NAM (distributional-only)</p></td>
 <td><p>✓ Yes</p></td>
 <td><p>Quantile Regression</p></td>
@@ -636,22 +698,17 @@ distributional-only, while TreeNAM and SparseNAM are currently regression-only).
 <td><p>✓ Yes</p></td>
 <td><p>Categorical Features</p></td>
 </tr>
-<tr class="row-odd"><td><p>SplineNAM</p></td>
-<td><p>Cubic spline NAM</p></td>
-<td><p>✓ Yes</p></td>
-<td><p>Smooth shape functions</p></td>
-</tr>
-<tr class="row-even"><td><p>SparseNAM</p></td>
-<td><p>Sparse neural additive model</p></td>
+<tr class="row-odd"><td><p>SNAM</p></td>
+<td><p>Sparse NAM</p></td>
 <td><p>✓ Yes</p></td>
 <td><p>Feature Selection</p></td>
 </tr>
-<tr class="row-odd"><td><p>NodeGAM</p></td>
+<tr class="row-even"><td><p>NodeGAM</p></td>
 <td><p>Node-based GAM</p></td>
 <td><p>✓ Yes</p></td>
 <td><p>Large Datasets</p></td>
 </tr>
-<tr class="row-even"><td><p>LinReg</p></td>
+<tr class="row-odd"><td><p>LinReg</p></td>
 <td><p>Neural Linear Regression</p></td>
 <td><p>✓ Yes</p></td>
 <td><p>Linear Relationships</p></td>
@@ -670,63 +727,225 @@ independently using a neural network.</p>
 <div class="math notranslate nohighlight">
 \[f(x) = \beta_0 + \sum_{i=1}^{d} f_i(x_i) + \sum_{S \in \mathcal{I}} f_S(x_S)\]</div>
 <p>Where <span class="math notranslate nohighlight">\(f_i\)</span> is a feature-specific MLP, and the optional interaction set
-<span class="math notranslate nohighlight">\(\mathcal{I}\)</span> is used when <code class="docutils literal notranslate"><span class="pre">interaction_degree</span> <span class="pre">&gt;=</span> <span class="pre">2</span></code>.</p>
+<span class="math notranslate nohighlight">\(\mathcal{I}\)</span> is used when <code class="docutils literal notranslate"><span class="pre">interaction_degree</span> <span class="pre">&gt;=</span> <span class="pre">2</span></code>. Architectures
+using the shared interaction scaffold also accept an explicit sparse set such
+as <code class="docutils literal notranslate"><span class="pre">interactions=((&quot;age&quot;,</span> <span class="pre">&quot;income&quot;),)</span></code>; specifying both forms is an error.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NAMRegressor</span>
 
 <span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">(</span>
     <span class="n">layer_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">32</span><span class="p">],</span>
-    <span class="n">numerical_preprocessing</span><span class="o">=</span><span class="s2">&quot;ple&quot;</span>
+    <span class="n">numerical_preprocessing</span><span class="o">=</span><span class="s2">"ple"</span>
 <span class="p">)</span>
 </pre></div>
 </div>
+<p>NAM capabilities are composable rather than tied to an architecture preset.
+For example, ExU feature networks, train-cardinality-dependent widths, and
+feature-output regularization can be enabled independently:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">(</span>
+    <span class="n">feature_layer</span><span class="o">=</span><span class="s2">"exu"</span><span class="p">,</span>       <span class="c1"># also "linear" or "centered_relu"</span>
+    <span class="n">activation</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">,</span>         <span class="c1"># activation for later linear hidden layers</span>
+    <span class="n">adaptive_width</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">num_basis_functions</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+    <span class="n">units_multiplier</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">output_regularization</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span>
+    <span class="n">l2_regularization</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span>
+    <span class="n">feature_output_bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">feature_widths={&quot;feature_name&quot;:</span> <span class="pre">width}</span></code> overrides the first hidden width
+for selected main effects. <code class="docutils literal notranslate"><span class="pre">regularize_interactions=True</span></code> extends the output
+penalty to configured interaction terms.</p>
+<p><strong>SIAN (Sparse Interaction Additive Network)</strong></p>
+<p>SIAN first fits a reference ReLU MLP, scores candidate feature subsets with
+Archipelago inclusion/removal contrasts, applies fractional-heredity frontier
+selection, and then trains an additive network containing the selected terms.
+Selection operates on logical source features, so transformed columns from a
+one-hot or basis expansion are perturbed together. Main effects are always
+included; sparse selection controls the higher-order term set.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">SIANRegressor</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">SIANRegressor</span><span class="p">(</span>
+    <span class="n">max_interaction_order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">interaction_thresholds</span><span class="o">=</span><span class="p">{</span><span class="mi">2</span><span class="p">:</span> <span class="mf">0.10</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">},</span>
+    <span class="n">threshold_mode</span><span class="o">=</span><span class="s2">"fraction"</span><span class="p">,</span>
+    <span class="n">heredity_fraction</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
+
+<span class="n">selected</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">selected_interactions_</span>
+<span class="n">scores</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">interaction_selection_table</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">threshold_mode=&quot;fraction&quot;</span></code> retains the requested highest-scoring fraction
+at each order. <code class="docutils literal notranslate"><span class="pre">&quot;absolute&quot;</span></code> applies raw score cutoffs and <code class="docutils literal notranslate"><span class="pre">&quot;quantile&quot;</span></code>
+applies empirical quantiles. Supplying <code class="docutils literal notranslate"><span class="pre">interactions=((&quot;age&quot;,</span> <span class="pre">&quot;income&quot;),)</span></code>
+bypasses reference fitting and discovery.</p>
+<p>The SIAN preset uses the paper’s <code class="docutils literal notranslate"><span class="pre">[16,</span> <span class="pre">12,</span> <span class="pre">8]</span></code> ReLU shape networks,
+Adagrad learning rate <code class="docutils literal notranslate"><span class="pre">5e-3</span></code>, and L1 coefficient <code class="docutils literal notranslate"><span class="pre">5e-5</span></code>. These remain
+ordinary constructor or fit controls rather than a separate training engine.</p>
+<p>The default <code class="docutils literal notranslate"><span class="pre">execution_mode</span></code> is <code class="docutils literal notranslate"><span class="pre">&quot;block_masked&quot;</span></code>. Call
+<code class="docutils literal notranslate"><span class="pre">model.compress_terms()</span></code> for independent shape subnetworks and
+<code class="docutils literal notranslate"><span class="pre">model.block_mask_terms()</span></code> to reconstruct the parallel form without changing
+predictions. The same
+architecture declaration generates <code class="docutils literal notranslate"><span class="pre">SIANRegressor</span></code>, <code class="docutils literal notranslate"><span class="pre">SIANClassifier</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">SIANLSS</span></code> through NAMpy’s objective registry.</p>
+<p>For multi-output regression, multiclass classification, or multivariate LSS,
+<code class="docutils literal notranslate"><span class="pre">selection_output_index</span></code> chooses the scalar target used by discovery.
+<code class="docutils literal notranslate"><span class="pre">residual_network=True</span></code> adds the upstream maximal-update-parameterized
+unrestricted contribution named
+<code class="docutils literal notranslate"><span class="pre">&quot;residual&quot;</span></code>; the result remains decomposed, but it is no longer purely
+additive in individual source features.</p>
+<p>Higher-order terms appear in <code class="docutils literal notranslate"><span class="pre">predict_components()</span></code>, <code class="docutils literal notranslate"><span class="pre">explain_terms()</span></code>,
+and <code class="docutils literal notranslate"><span class="pre">interaction_importance()</span></code>. Explanation tables retain one <code class="docutils literal notranslate"><span class="pre">value_N</span></code>
+column per interaction dimension, while <code class="docutils literal notranslate"><span class="pre">plot_interactions()</span></code> renders
+conditioned heatmap slices above order two.</p>
 <p><strong>GPNAM (Gaussian Process NAM)</strong></p>
-<p>Extends NAM with Gaussian processes for uncertainty quantification.</p>
+<p>Uses a fixed random-Fourier-feature approximation to one RBF-kernel shape
+function per scalar input. Only the additive RFF coefficients and intercept
+are learned. This is a point-estimation model; it does <strong>not</strong> compute a GP
+posterior covariance or epistemic predictive uncertainty.</p>
 <div class="math notranslate nohighlight">
 \[\phi(x) = \sqrt{\frac{2}{M}}
 \left[\cos\left(\frac{z_m x_j}{\ell} + c_{m,j}\right)\right]_{j=1..d,\,m=1..M},
 \quad f(x) = \phi(x)^\top w\]</div>
-<p>This model uses random Fourier features (RFF) with kernel width <span class="math notranslate nohighlight">\(\ell\)</span> and
-learns a linear predictor over the RFF mapping.</p>
+<p>The default quasi-random construction uses an inverse-normal frequency grid
+and a separately permuted uniform phase grid for every input. Numerical values
+are passed to GPNAM without generic PLE expansion. By default, feature-specific
+kernel widths are fitted as <code class="docutils literal notranslate"><span class="pre">std(x)</span> <span class="pre">/</span> <span class="pre">24</span></code> on training rows only.</p>
+<p>Ordinary regression uses the reference conjugate-gradient ridge solve with an
+unpenalized intercept. <code class="docutils literal notranslate"><span class="pre">ridge=0.05</span></code> matches the released Python and MATLAB
+implementations. Set <code class="docutils literal notranslate"><span class="pre">solver=&quot;gradient&quot;</span></code> to use the shared Lightning engine;
+classification and LSS always use that engine. <code class="docutils literal notranslate"><span class="pre">GPNAMLSS</span></code> is a NAMpy
+distributional extension and represents aleatoric distribution parameters,
+not a GP posterior.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">GPNAMRegressor</span>
 
-<span class="n">model</span> <span class="o">=</span> <span class="n">GPNAMRegressor</span><span class="p">()</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">GPNAMRegressor</span><span class="p">(</span>
+    <span class="n">kernel_width</span><span class="o">=</span><span class="s2">"auto"</span><span class="p">,</span>
+    <span class="n">rff_num_feat</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+    <span class="n">solver</span><span class="o">=</span><span class="s2">"cg"</span><span class="p">,</span>
+    <span class="n">ridge</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
+    <span class="n">rff_random_state</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
+
+<span class="c1"># Fixed-basis and solver diagnostics</span>
+<span class="n">Phi</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">basis_transform</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">1024</span><span class="p">)</span>
+<span class="n">metadata</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">basis_metadata</span><span class="p">()</span>
+<span class="n">complexity</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">model_complexity</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The GP-NA2M extension adds selected two-dimensional RFF interaction terms:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">GPNAMRegressor</span><span class="p">(</span>
+    <span class="n">interactions</span><span class="o">=</span><span class="p">((</span><span class="s2">"age"</span><span class="p">,</span> <span class="s2">"income"</span><span class="p">),</span> <span class="p">(</span><span class="s2">"debt"</span><span class="p">,</span> <span class="s2">"assets"</span><span class="p">)),</span>
+    <span class="n">rff_num_feat</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">interaction_degree=2</span></code> instead constructs every pair. Explicit interactions
+are preferable when the full quadratic set would be unnecessarily large.</p>
+<p><strong>IGANN (Interpretable Generalized Additive Neural Network)</strong></p>
+<p>IGANN starts from an L1-regularized linear model and sequentially adds shallow
+extreme learning machines (ELMs). Every numerical feature owns <code class="docutils literal notranslate"><span class="pre">n_hid</span></code> fixed
+random hidden units, categorical features remain reference-coded linear terms,
+and each stage solves only its output coefficients by ridge regression. The
+result stays exactly additive while allowing a linear relationship to bend only
+when the boosted residuals justify it.</p>
+<div class="math notranslate nohighlight">
+\[f(x) = \beta_0 + \sum_j \beta_j x_j
+       + \sum_{t=1}^{T} \eta \sum_j
+         w_{t,j}^{\mathsf T}\sigma(a_{t,j}x_j)\]</div>
+<p>The upstream Newton-style pseudo-response and Hessian scaling are implemented
+through NAMpy’s architecture-native training contract. Therefore
+<code class="docutils literal notranslate"><span class="pre">n_estimators</span></code> and <code class="docutils literal notranslate"><span class="pre">early_stopping</span></code> are IGANN constructor controls rather
+than Lightning epochs. The shared preprocessing pipeline remains fitted on
+training rows only, avoiding the validation leakage present in the released
+standalone fit path.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">IGANNRegressor</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">IGANNRegressor</span><span class="p">(</span>
+    <span class="n">n_hid</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+    <span class="n">n_estimators</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
+    <span class="n">boost_rate</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+    <span class="n">init_reg</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">elm_scale</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">elm_alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">early_stopping</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">7</span><span class="p">)</span>
+
+<span class="n">components</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict_components</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">2048</span><span class="p">)</span>
+<span class="n">history</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">training_history</span><span class="p">()</span>
+<span class="n">metadata</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">basis_metadata</span><span class="p">()</span>
+<span class="n">complexity</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">model_complexity</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>For regression and binary classification, <code class="docutils literal notranslate"><span class="pre">solver=&quot;auto&quot;</span></code> selects the
+released stagewise optimizer. Multiclass classification and <code class="docutils literal notranslate"><span class="pre">IGANNLSS</span></code> use
+the shared gradient objective engine over the complete fixed ELM basis because
+the released second-order updates do not define those losses. This is an
+explicit NAMpy extension: set <code class="docutils literal notranslate"><span class="pre">solver=&quot;gradient&quot;</span></code> to request it for any task,
+or <code class="docutils literal notranslate"><span class="pre">solver=&quot;native&quot;</span></code> to require the reference optimizer and reject an
+unsupported objective.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">IGANNLSS</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">IGANNLSS</span><span class="p">(</span>
+    <span class="n">family</span><span class="o">=</span><span class="s2">"normal"</span><span class="p">,</span>
+    <span class="n">n_hid</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+    <span class="n">n_estimators</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">max_epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>IGANN-Sparse applies grouped best-subset selection to the first ELM’s nonlinear
+feature blocks before fitting the linear initialization and boosting sequence:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">IGANNRegressor</span><span class="p">(</span><span class="n">sparse</span><span class="o">=</span><span class="mi">7</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This native-training option requires <code class="docutils literal notranslate"><span class="pre">abess&gt;=0.4.5</span></code> (install
+<code class="docutils literal notranslate"><span class="pre">nampy[igann-sparse]</span></code>). With
+<code class="docutils literal notranslate"><span class="pre">sparse=0</span></code>—the default—ABESS is neither imported nor required. Selected
+atomic terms are available as <code class="docutils literal notranslate"><span class="pre">selected_features_</span></code>. Pairwise interactions
+are intentionally absent: the IGANN-Sparse paper lists them as future work and
+the current stable upstream model does not implement them.</p>
+<p>For bagging, use the generic ensemble rather than an IGANN-specific wrapper:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">IGANNRegressor</span><span class="p">,</span> <span class="n">NeuralEnsemble</span>
+
+<span class="n">ensemble</span> <span class="o">=</span> <span class="n">NeuralEnsemble</span><span class="p">(</span>
+    <span class="n">IGANNRegressor</span><span class="p">(</span><span class="n">n_estimators</span><span class="o">=</span><span class="mi">300</span><span class="p">),</span>
+    <span class="n">n_estimators</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+    <span class="n">bootstrap</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">ensemble</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
 </pre></div>
 </div>
 <p><strong>TreeNAM</strong></p>
-<p>Combines tree-based methods with additive modeling.</p>
+<p>Uses one differentiable neural decision tree per feature, with optional
+interaction trees.</p>
 <div class="math notranslate nohighlight">
 \[f(x) = \sum_{i=1}^{d} f_i(x_i), \quad
 f_i(x_i) = \sum_{m=1}^{M} \eta \, T_{i,m}(x_i)\]</div>
-<p>Each feature has a boosted ensemble of neural decision trees <span class="math notranslate nohighlight">\(T_{i,m}\)</span> with
-learning rate <span class="math notranslate nohighlight">\(\eta\)</span>.</p>
+<p>Each feature contribution is produced by a soft neural decision tree; routing
+can be made hard during evaluation.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">TreeNAMRegressor</span>
 
 <span class="n">model</span> <span class="o">=</span> <span class="n">TreeNAMRegressor</span><span class="p">()</span>
 </pre></div>
 </div>
-<p><strong>SparseNAM</strong></p>
+<p><strong>SNAM (Sparse NAM)</strong></p>
 <p>Applies sparsity constraints for automatic feature selection.</p>
 <div class="math notranslate nohighlight">
-\[f(x) = \beta_0 + \sum_{i=1}^{d} f_i(x_i) + \sum_{S \in \mathcal{I}} f_S(x_S)
-+ \lambda \sum_j \|\theta_j\|_2\]</div>
-<p>Here <span class="math notranslate nohighlight">\(\theta_j\)</span> is the parameter vector of one feature or interaction
-subnetwork. The group penalty encourages whole feature terms to drop out.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">SparseNAMRegressor</span>
+\[f(x) = \beta_0 + \sum_{i=1}^{d} f_i(x_i)
++ \sum_{S \in \mathcal{I}} f_S(x_S), \qquad
+\Omega(\theta) = \lambda \sum_j \lVert\theta_j\rVert_2\]</div>
+<p>SNAM reuses NAM feature subnetworks and applies a group-lasso penalty to each
+subnetwork’s trainable parameter vector.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">SNAMRegressor</span>
 
-<span class="n">model</span> <span class="o">=</span> <span class="n">SparseNAMRegressor</span><span class="p">()</span>
-</pre></div>
-</div>
-<p><strong>SplineNAM</strong></p>
-<p>Uses cubic spline basis functions for smooth additive shape functions,
-optional smoothness regularization, and tensor-product spline interactions
-for scalar feature pairs. The fitted base model exposes
-<code class="docutils literal notranslate"><span class="pre">get_spline_diagnostics()</span></code> for knot locations and per-term penalties.</p>
-<div class="math notranslate nohighlight">
-\[f(x) = \beta_0 + \sum_{i=1}^{d} \sum_{k=1}^{K} w_{i,k} B_k(x_i)
-+ \sum_{S \in \mathcal{I}} f_S(x_S)\]</div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">SplineNAMRegressor</span>
-
-<span class="n">model</span> <span class="o">=</span> <span class="n">SplineNAMRegressor</span><span class="p">(</span><span class="n">smoothing</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span> <span class="n">n_knots</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">SNAMRegressor</span><span class="p">()</span>
 </pre></div>
 </div>
 <p><strong>NodeGAM</strong></p>
@@ -737,7 +956,46 @@ for scalar feature pairs. The fitted base model exposes
 (GA2M) and the outputs are summed across trees and layers.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NodeGAMRegressor</span>
 
-<span class="n">model</span> <span class="o">=</span> <span class="n">NodeGAMRegressor</span><span class="p">()</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">NodeGAMRegressor</span><span class="p">(</span>
+    <span class="n">selector_activation</span><span class="o">=</span><span class="s2">"entmax15"</span><span class="p">,</span>  <span class="c1"># or "sparsemax"</span>
+    <span class="n">bin_activation</span><span class="o">=</span><span class="s2">"entmoid15"</span><span class="p">,</span>      <span class="c1"># or "sparsemoid"</span>
+    <span class="n">l1_interactions</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">l2_interactions</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+    <span class="n">X_train</span><span class="p">,</span>
+    <span class="n">y_train</span><span class="p">,</span>
+    <span class="n">pretrain_epochs</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>       <span class="c1"># optional masked reconstruction</span>
+    <span class="n">average_checkpoints</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">n_last_checkpoints</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The neural estimators and GAM adapters share <code class="docutils literal notranslate"><span class="pre">explain_terms()</span></code>,
+<code class="docutils literal notranslate"><span class="pre">term_importance()</span></code>, and <code class="docutils literal notranslate"><span class="pre">interaction_importance()</span></code>. Quantile input maps
+are available to every neural estimator with
+<code class="docutils literal notranslate"><span class="pre">numerical_preprocessing=&quot;quantile&quot;</span></code>. Published PreTab 0.0.3 owns the
+quantile transform defaults and does not expose separate <code class="docutils literal notranslate"><span class="pre">quantile_*</span></code>
+constructor controls.</p>
+<p>Term contributions can be centered without changing predictions. By default
+they are centered on the explained rows; <code class="docutils literal notranslate"><span class="pre">reference_X</span></code> can supply a separate
+reference population:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">components</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict_components</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">importance</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">term_importance</span><span class="p">(</span>
+    <span class="n">X_test</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">reference_X</span><span class="o">=</span><span class="n">X_train</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>All neural objectives, including LSS distributions, accept fit-time
+<code class="docutils literal notranslate"><span class="pre">sample_weight</span></code>. Classifiers additionally accept <code class="docutils literal notranslate"><span class="pre">class_weight</span></code>;
+<code class="docutils literal notranslate"><span class="pre">sampling_strategy=&quot;balanced&quot;</span></code> enables inverse-frequency sampling while
+keeping sampling separate from loss weights.</p>
+<p>Independent fitted estimators can be combined with <code class="docutils literal notranslate"><span class="pre">NeuralEnsemble</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NAMRegressor</span><span class="p">,</span> <span class="n">NeuralEnsemble</span>
+
+<span class="n">ensemble</span> <span class="o">=</span> <span class="n">NeuralEnsemble</span><span class="p">(</span><span class="n">NAMRegressor</span><span class="p">(),</span> <span class="n">n_estimators</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">ensemble</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">max_epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<span class="n">uncertainty</span> <span class="o">=</span> <span class="n">ensemble</span><span class="o">.</span><span class="n">predict_component_uncertainty</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -750,10 +1008,44 @@ for scalar feature pairs. The fitted base model exposes
 f(x) = W\,g(h(x)) + b\]</div>
 <p>For each n-ary subset <span class="math notranslate nohighlight">\(S\)</span>, the basis network outputs <span class="math notranslate nohighlight">\(K\)</span> basis
 responses that are combined by a grouped featurizer <span class="math notranslate nohighlight">\(g\)</span> and a final linear
-layer.</p>
+layer. The default hidden topology, ReLU/BatchNorm behavior, basis dropout,
+and grouped <code class="docutils literal notranslate"><span class="pre">Conv1d</span></code> featurizer match the released NBM definition. Set
+<code class="docutils literal notranslate"><span class="pre">sparse=True</span></code> to use its sentinel-driven active-tuple execution path;
+<code class="docutils literal notranslate"><span class="pre">nary_ignore_input</span></code> controls the ignored value globally or by order.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NBMRegressor</span>
 
-<span class="n">model</span> <span class="o">=</span> <span class="n">NBMRegressor</span><span class="p">()</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">NBMRegressor</span><span class="p">(</span><span class="n">nary</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+</pre></div>
+</div>
+<p>The default preprocessor supplies one scalar transformed column per concept.
+PLE/spline expansions remain available explicitly, but each resulting column
+then becomes its own NBM concept.</p>
+<p><strong>SPAM (Scalable Polynomial Additive Model)</strong></p>
+<p>SPAM adds low-rank homogeneous polynomial blocks by degree. <code class="docutils literal notranslate"><span class="pre">ranks[i]</span></code> is
+the rank for degree <code class="docutils literal notranslate"><span class="pre">i</span> <span class="pre">+</span> <span class="pre">2</span></code>. Tensor and basis-L1 penalties are controlled
+independently.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">SPAMRegressor</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">SPAMRegressor</span><span class="p">(</span>
+    <span class="n">ranks</span><span class="o">=</span><span class="p">[</span><span class="mi">200</span><span class="p">,</span> <span class="mi">50</span><span class="p">],</span>
+    <span class="n">regularization_scale</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>After fitting, <code class="docutils literal notranslate"><span class="pre">model.local_term_importance(X,</span> <span class="pre">top_k=10)</span></code> expands the
+degree-specific low-rank representation into the upstream-style local unary
+and distinct-variable polynomial terms.</p>
+<p><strong>NBM-SPAM</strong></p>
+<p>NBM-SPAM first learns unary shared-basis scores, then combines one score block
+linearly and the remaining blocks through degree-specific SPAM heads. As in
+the reference implementation, the NBM stage is restricted to unary terms;
+the polynomial heads create the higher-order structure.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NBMSPAMRegressor</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">NBMSPAMRegressor</span><span class="p">(</span>
+    <span class="n">num_bases</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+    <span class="n">ranks</span><span class="o">=</span><span class="p">[</span><span class="mi">200</span><span class="p">],</span>
+<span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -794,10 +1086,10 @@ while the [CLS] token is mapped by <span class="math notranslate nohighlight">\(
 \quad k = 1,\dots,K\]</div>
 <p>The model outputs a set of quantile functions <span class="math notranslate nohighlight">\(q_{\tau_k}\)</span> for requested
 quantile levels <span class="math notranslate nohighlight">\(\tau_k\)</span>.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">QNAM</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">QNAMLSS</span>
 
-<span class="n">model</span> <span class="o">=</span> <span class="n">QNAM</span><span class="p">()</span>
-<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">distributional_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;quantiles&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">]})</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">QNAMLSS</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">distributional_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">"quantiles"</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">]})</span>
 </pre></div>
 </div>
 <p><strong>LinReg (Neural Linear Regression)</strong></p>
@@ -837,21 +1129,16 @@ quantile levels <span class="math notranslate nohighlight">\(\tau_k\)</span>.</p
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NAMLSS</span><span class="p">,</span> <span class="n">GPNAMLSS</span><span class="p">,</span> <span class="n">NBMLSS</span><span class="p">,</span> <span class="n">NodeGAMLSS</span>
 <span class="c1"># etc.</span>
 
-<span class="n">model</span> <span class="o">=</span> <span class="n">NAMLSS</span><span class="p">()</span>
-<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">family</span><span class="o">=</span><span class="s2">&quot;normal&quot;</span><span class="p">,</span> <span class="n">max_epochs</span><span class="o">=</span><span class="mi">150</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">NAMLSS</span><span class="p">(</span><span class="n">family</span><span class="o">=</span><span class="s2">"normal"</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">max_epochs</span><span class="o">=</span><span class="mi">150</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
 </section>
 <section id="model-reference">
 <h2>Model Reference<a class="headerlink" href="#model-reference" title="Link to this heading"></a></h2>
-<p>For full constructor arguments, keyword arguments, and hyperparameters for each model
-class, see the reference page.</p>
-<div class="toctree-wrapper compound">
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="reference.html">Model Reference</a></li>
-</ul>
-</div>
+<p>For full constructor arguments, keyword arguments, and hyperparameters for each
+model class, see the <a class="reference internal" href="../api/models.html"><span class="doc">Models</span></a> page.</p>
 </section>
 <section id="complete-api-reference">
 <h2>Complete API Reference<a class="headerlink" href="#complete-api-reference" title="Link to this heading"></a></h2>
@@ -863,8 +1150,8 @@ class, see the reference page.</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="../api/generated/nampy.utils.interpretability.html" class="btn btn-neutral float-left" title="nampy.utils.interpretability" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="reference.html" class="btn btn-neutral float-right" title="Model Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="../api/generated/nampy.neural.distributions.metrics.html" class="btn btn-neutral float-left" title="nampy.neural.distributions.metrics" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../examples/index.html" class="btn btn-neutral float-right" title="Examples" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

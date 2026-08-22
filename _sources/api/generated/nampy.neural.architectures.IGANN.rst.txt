@@ -1,0 +1,6 @@
+﻿nampy.neural.architectures.IGANN
+================================
+
+.. currentmodule:: nampy.neural.architectures
+
+.. autoclass:: IGANN

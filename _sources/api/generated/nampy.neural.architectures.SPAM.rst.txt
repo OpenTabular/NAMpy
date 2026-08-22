@@ -1,0 +1,6 @@
+﻿nampy.neural.architectures.SPAM
+===============================
+
+.. currentmodule:: nampy.neural.architectures
+
+.. autoclass:: SPAM

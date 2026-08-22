@@ -1,0 +1,6 @@
+﻿nampy.models.TreeNAMLSS
+=======================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: TreeNAMLSS

@@ -1,0 +1,6 @@
+﻿nampy.neural.configs.DefaultSPAMConfig
+======================================
+
+.. currentmodule:: nampy.neural.configs
+
+.. autoclass:: DefaultSPAMConfig

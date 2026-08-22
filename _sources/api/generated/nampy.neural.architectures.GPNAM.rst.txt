@@ -1,0 +1,6 @@
+﻿nampy.neural.architectures.GPNAM
+================================
+
+.. currentmodule:: nampy.neural.architectures
+
+.. autoclass:: GPNAM

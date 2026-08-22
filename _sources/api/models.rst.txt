@@ -13,14 +13,19 @@ Regression Models
    :nosignatures:
 
    NAMRegressor
+   SIANRegressor
    GPNAMRegressor
+   IGANNRegressor
    NBMRegressor
+   NBMSPAMRegressor
+   SPAMRegressor
    NATTRegressor
    NAMformerRegressor
    LinRegRegressor
    TreeNAMRegressor
+   EnsembleTreeNAMRegressor
+   SNAMRegressor
    SplineNAMRegressor
-   SparseNAMRegressor
    NodeGAMRegressor
 
 Classification Models
@@ -31,12 +36,18 @@ Classification Models
    :nosignatures:
 
    NAMClassifier
+   SIANClassifier
    GPNAMClassifier
+   IGANNClassifier
    NBMClassifier
+   NBMSPAMClassifier
+   SPAMClassifier
    NATTClassifier
    NAMformerClassifier
    LinRegClassifier
-   SplineNAMClassifier
+   TreeNAMClassifier
+   EnsembleTreeNAMClassifier
+   SNAMClassifier
    NodeGAMClassifier
 
 Distributional Regression Models (LSS)
@@ -47,12 +58,18 @@ Distributional Regression Models (LSS)
    :nosignatures:
 
    NAMLSS
+   SIANLSS
    GPNAMLSS
+   IGANNLSS
    NBMLSS
+   NBMSPAMLSS
+   SPAMLSS
    NATTLSS
    NAMformerLSS
    LinRegLSS
-   SplineNAMLSS
+   TreeNAMLSS
+   EnsembleTreeNAMLSS
+   SNAMLSS
    NodeGAMLSS
 
 Other Models
@@ -62,7 +79,7 @@ Other Models
    :toctree: generated/
    :nosignatures:
 
-   QNAM
+   QNAMLSS
 
 Base Classes
 ------------
@@ -71,6 +88,6 @@ Base Classes
    :toctree: generated/
    :nosignatures:
 
-   SklearnBaseRegressor
-   SklearnBaseClassifier
-   SklearnBaseLSS
+   NeuralRegressor
+   NeuralClassifier
+   NeuralLSS

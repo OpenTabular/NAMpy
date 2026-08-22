@@ -1,0 +1,6 @@
+﻿nampy.neural.configs.DefaultGPNAMConfig
+=======================================
+
+.. currentmodule:: nampy.neural.configs
+
+.. autoclass:: DefaultGPNAMConfig

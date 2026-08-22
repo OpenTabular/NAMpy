@@ -1,0 +1,6 @@
+﻿nampy.neural.architectures.QNAM
+===============================
+
+.. currentmodule:: nampy.neural.architectures
+
+.. autoclass:: QNAM

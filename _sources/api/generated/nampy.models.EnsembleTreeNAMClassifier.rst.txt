@@ -1,0 +1,6 @@
+﻿nampy.models.EnsembleTreeNAMClassifier
+======================================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: EnsembleTreeNAMClassifier

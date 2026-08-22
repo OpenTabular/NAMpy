@@ -1,0 +1,6 @@
+﻿nampy.neural.architectures.NBMSPAM
+==================================
+
+.. currentmodule:: nampy.neural.architectures
+
+.. autoclass:: NBMSPAM
