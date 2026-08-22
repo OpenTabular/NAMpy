@@ -13,7 +13,7 @@ import lightning as pl
 import numpy as np
 import torch
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
-from pretab import Preprocessor
+from pretab.preprocessor import Preprocessor
 from sklearn.base import BaseEstimator
 from sklearn.exceptions import NotFittedError
 from sklearn.utils.class_weight import compute_sample_weight
@@ -158,6 +158,16 @@ def _preprocessor_defaults() -> dict[str, Any]:
         for name, parameter in parameters.items()
         if name != "self" and parameter.default is not inspect.Parameter.empty
     }
+
+
+def _normalize_preprocessor_params(params: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(params)
+    if normalized.get("categorical_preprocessing") in ("one_hot", "one-hot"):
+        normalized["categorical_preprocessing"] = "one-hot"
+    if normalized.get("numerical_preprocessing") == "normalization":
+        normalized["numerical_preprocessing"] = "minmax"
+    return normalized
+
 
 def seed_neural_runtime(seed: int) -> None:
     """Seed model construction and data-order RNGs from the public fit seed."""
@@ -1319,6 +1329,7 @@ class NeuralEstimatorBase(BaseEstimator):
             if name in preprocessor_names
         }
         explicit_preprocessor.update(nested_preprocessor_kwargs)
+        explicit_preprocessor = _normalize_preprocessor_params(explicit_preprocessor)
         self._config_param_names = tuple(sorted(config_names))
         self._preprocessor_param_names = tuple(sorted(preprocessor_names))
         self.config = config_class(**config_inputs)
@@ -1384,7 +1395,9 @@ class NeuralEstimatorBase(BaseEstimator):
             self.config_kwargs[name] = value
 
         if preprocessor_updates:
-            self._preprocessor_kwargs.update(preprocessor_updates)
+            self._preprocessor_kwargs.update(
+                _normalize_preprocessor_params(preprocessor_updates)
+            )
             self._rebuild_preprocessor()
 
         return self

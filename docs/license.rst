@@ -43,5 +43,5 @@ With the following conditions:
 * The software is provided "as is", without warranty
 
 For the complete license text, see the
-`LICENSE <https://github.com/OpenTabular/NAMpy/blob/main/LICENSE>`_
+`LICENSE <https://github.com/Ananyapam7/NAMpy/blob/main/LICENSE>`_
 file in the repository.

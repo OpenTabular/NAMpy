@@ -39,7 +39,7 @@ To install the latest development version from source:
 
 .. code-block:: bash
 
-   git clone https://github.com/OpenTabular/NAMpy.git
+   git clone https://github.com/Ananyapam7/NAMpy.git
    cd NAMpy
    pip install -e ".[all]"
 
@@ -50,7 +50,7 @@ You can also install directly from Github:
 
 .. code-block:: bash
 
-   pip install "nampy[all] @ git+https://github.com/OpenTabular/NAMpy.git@main"
+   pip install "nampy[all] @ git+https://github.com/Ananyapam7/NAMpy.git@main"
 
 Development Installation
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -59,7 +59,7 @@ If you want to contribute to NAMpy, install with development dependencies:
 
 .. code-block:: bash
 
-   git clone https://github.com/OpenTabular/NAMpy.git
+   git clone https://github.com/Ananyapam7/NAMpy.git
    cd NAMpy
    pip install -e ".[all,dev]"
    
@@ -103,6 +103,6 @@ Getting Help
 
 If you encounter issues during installation:
 
-* Check the `GitHub Issues <https://github.com/OpenTabular/NAMpy/issues>`_
-* Ask a question in `GitHub Discussions <https://github.com/OpenTabular/NAMpy/discussions>`_
+* Check the `GitHub Issues <https://github.com/Ananyapam7/NAMpy/issues>`_
+* Ask a question in `GitHub Discussions <https://github.com/Ananyapam7/NAMpy/discussions>`_
 * Consult the :doc:`faq` page

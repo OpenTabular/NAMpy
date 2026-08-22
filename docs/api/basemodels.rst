@@ -16,7 +16,16 @@ Base Classes
    :nosignatures:
 
    BaseModel
-   ~nampy.neural.task.TaskModule
+
+.. currentmodule:: nampy.neural.task
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   TaskModule
+
+.. currentmodule:: nampy.neural.architectures
 
 Model Implementations
 ---------------------

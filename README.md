@@ -1,12 +1,12 @@
 # NAMpy
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/OpenTabular/NAMpy/main/docs/_static/logo.png" alt="NAMpy — Interpretable Additive Modeling" width="704">
+  <img src="docs/_static/logo.png" alt="NAMpy — Interpretable Additive Modeling" width="704">
 </p>
 
 [![Python 3.11 | 3.12](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
-[![Development status: Beta](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/OpenTabular/NAMpy)
+[![Development status: Beta](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/Ananyapam7/NAMpy)
 
 Interpretable additive modeling in Python, from classical generalized additive
 models to modern neural architectures.
@@ -70,7 +70,7 @@ that every estimator is the same.
 | Numerical engine | NumPy/SciPy ports of `mgcv` algorithms                                       | PyTorch and Lightning, plus architecture-native solvers where required                                              |
 | Main strengths   | Penalized smooths, smoothing selection, covariance and classical diagnostics | Large architecture catalog, flexible objectives, GPU training and distributional regression                         |
 | Formula support  | Yes                                                                          | No; use feature matrices or data frames                                                                             |
-| Preprocessing    | GAM-owned formula/model-frame semantics                                      | Pristine PreTab block contract                                                                                      |
+| Preprocessing    | GAM-owned formula/model-frame semantics                                      | Published PreTab 0.0.3 block contract                                                                               |
 | Parity policy    | Strict `mgcv` behavior where supported                                       | Preserve reference architecture/training behavior where integrated; shared APIs and PreTab may intentionally differ |
 
 
@@ -102,7 +102,7 @@ IGANN does not require ABESS; only `IGANNRegressor(sparse=...)` does.
 For development:
 
 ```bash
-git clone https://github.com/OpenTabular/NAMpy.git
+git clone https://github.com/Ananyapam7/NAMpy.git
 cd NAMpy
 pip install -e ".[all,dev,docs]"
 ```
@@ -204,7 +204,7 @@ X_train, X_test, y_train, y_test = train_test_split(
 nam = NAMRegressor(
     layer_sizes=[64, 32],
     dropout=0.1,
-    numerical_method="minmax",
+    numerical_preprocessing="minmax",
 )
 nam.fit(
     X_train,
@@ -344,11 +344,10 @@ many extended/general families, several matrix-covariate cases, complete R
 graphics-device behavior, and exact R endpoint behavior for every `optim`
 combination.
 
-Advanced users should consult:
-
-- [implemented GAM behavior](GAM_IMPLEMENTED.md);
-- [guarded and unsupported GAM behavior](GAM_NOT_IMPLEMENTED.md); and
-- [shape-constrained GAMs](docs/user_guide/shape_constrained_gams.rst).
+Advanced users can consult the
+[shape-constrained GAM guide](docs/user_guide/shape_constrained_gams.rst).
+The supported boundary is defined by the public API, explicit unsupported-input
+errors, and the committed test suite.
 
 The stable package-level low-level surface is intentionally small:
 `GAM`, `fit_model_core`, `solve_fit`, and `FitCoreSolution`. Internal GAM
@@ -414,23 +413,23 @@ versioned results under `tests/reference_fixtures/`.
 ## Preprocessing with PreTab
 
 The neural backend delegates generic tabular preprocessing to
-[PreTab](https://github.com/OpenTabular/PreTab) and targets the public contract in
-pristine PreTab `1.0.0rc2` or newer:
+[PreTab](https://github.com/OpenTabular/PreTab) and targets the public contract
+in the published PreTab `0.0.3` release:
 
 - `Preprocessor.fit(X, y)` and `transform(X)`;
 - dictionary outputs with `num_<feature>` and `cat_<feature>` blocks;
 - block metadata from `get_feature_info(verbose=False)`; and
 - constructor options supported by the installed `Preprocessor`, including
-numerical/categorical methods, per-feature preprocessing, scaling, output
-dimensions, degree, dtype, and random state.
+numerical and categorical preprocessing, per-feature overrides, bin and knot
+counts, polynomial degree, and numerical scaling strategy.
 
 High-level estimators accept PreTab constructor arguments directly:
 
 ```python
 model = NAMRegressor(
-    numerical_method="ple",
-    categorical_method="one-hot",
-    output_dim=32,
+    numerical_preprocessing="ple",
+    categorical_preprocessing="one-hot",
+    n_bins=32,
 )
 ```
 
@@ -442,7 +441,7 @@ from nampy.models import SplineNAMRegressor
 
 model = SplineNAMRegressor(
     n_knots=8,
-    preprocessor__output_dim=32,
+    preprocessor__n_bins=32,
 )
 ```
 
@@ -457,8 +456,8 @@ implementation. It therefore does not require experimental PreTab surfaces
 such as atomic output-column metadata, output ordering/granularity controls,
 post-encoding output ranges, generic representation parameter dictionaries,
 quantile-noise controls, or TF-IDF categoricals. This preserves compatibility
-with pristine PreTab but can differ from preprocessing in individual upstream
-model repositories.
+with published PreTab 0.0.3 but can differ from preprocessing in individual
+upstream model repositories.
 
 See [the PreTab compatibility contract](docs/user_guide/pretab_compatibility.rst)
 and [the preprocessing guide](docs/user_guide/preprocessing.rst) for the exact
@@ -652,7 +651,7 @@ If NAMpy supports your research, cite the software:
 @software{nampy,
   author  = {Ananyapam De and Anton Thielmann},
   title   = {NAMpy: Interpretable Additive Modeling in Python},
-  url     = {https://github.com/OpenTabular/NAMpy},
+  url     = {https://github.com/Ananyapam7/NAMpy},
   version = {0.2.0},
   date    = {2026-08-22}
 }

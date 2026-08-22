@@ -129,7 +129,7 @@ class GPNAM(BaseModel):
             raise ValueError(
                 "GPNAM requires one scalar architecture input per numerical "
                 f"feature; expanded numerical features: {expanded}. Use "
-                "numerical_method='none', 'standardization', or 'minmax'."
+                "numerical_preprocessing='none', 'standardization', or 'minmax'."
             )
 
     def _build_atomic_feature_names(self) -> list[str]:

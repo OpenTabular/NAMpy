@@ -18,7 +18,7 @@ LSS estimators predict the parameters of a chosen response distribution.
    )
 
    model = TreeNAMLSS(
-       family="normal", numerical_method="standardization"
+       family="normal", numerical_preprocessing="standardization"
    )
    model.fit(
        X_train,

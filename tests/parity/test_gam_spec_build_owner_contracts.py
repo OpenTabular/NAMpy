@@ -179,7 +179,7 @@ def test_single_formula_multiple_offsets_keep_first_with_mgcv_warning():
     """
     mgcv::interpret.gam0 (mgcv/R/mgcv.r:387-389) assigns all offset labels into
     one slot, so base R keeps only the first offset and warns; verified against
-    mgcv 1.9-4 in debug/multi_offset_probe.R.
+    mgcv 1.9-4 in the retained local multi-offset probe.
     """
     data = pd.DataFrame(
         {

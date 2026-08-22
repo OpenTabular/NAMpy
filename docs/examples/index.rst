@@ -46,7 +46,7 @@ Complete regression workflow:
    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
    
    # Train model
-   model = NAMRegressor(numerical_method="standardization")
+   model = NAMRegressor(numerical_preprocessing="standardization")
    model.fit(X_train, y_train, max_epochs=100, lr=1e-3)
    
    # Evaluate
@@ -72,7 +72,7 @@ Binary and multi-class classification:
    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
    
    # Train model
-   model = NAMClassifier(numerical_method="ple", output_dim=50)
+   model = NAMClassifier(numerical_preprocessing="ple", n_bins=50)
    model.fit(X_train, y_train, max_epochs=150, lr=1e-4)
    
    # Evaluate
@@ -128,8 +128,8 @@ Real-World Example: House Price Prediction
    
    # Train model
    model = NAMRegressor(
-       numerical_method="ple",
-       output_dim=50,
+       numerical_preprocessing="ple",
+       n_bins=50,
        layer_sizes=[128, 128, 32],
        dropout=0.3
    )
@@ -193,7 +193,7 @@ Using scikit-learn's GridSearchCV:
    
    param_grid = {
        'dropout': [0.1, 0.3, 0.5],
-       'output_dim': [25, 50]
+       'n_bins': [25, 50]
    }
    
    # GridSearchCV requires careful setup for deep learning
@@ -204,14 +204,14 @@ Using scikit-learn's GridSearchCV:
    best_params = None
    
    for dropout in [0.1, 0.3, 0.5]:
-       for output_dim in [25, 50]:
-           model = NAMRegressor(dropout=dropout, output_dim=output_dim)
+       for n_bins in [25, 50]:
+           model = NAMRegressor(dropout=dropout, n_bins=n_bins)
            model.fit(X_train, y_train, max_epochs=50, lr=1e-3)
            score = model.score(X_val, y_val)
            
            if score > best_score:
                best_score = score
-               best_params = {'dropout': dropout, 'output_dim': output_dim}
+               best_params = {'dropout': dropout, 'n_bins': n_bins}
    
    print(f"Best parameters: {best_params}")
    print(f"Best score: {best_score:.4f}")

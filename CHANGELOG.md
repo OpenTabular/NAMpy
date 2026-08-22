@@ -8,11 +8,15 @@ All notable changes are recorded here following
 
 ### Changed
 
+- Neural preprocessing now uses the published ``pretab==0.0.3`` API and
+  dependency instead of requiring the unavailable ``1.0.0rc2`` release.
+- The README logo uses a repository-relative path so it renders for private
+  repository viewers, and project links point to the actual GitHub owner.
 - Normal mgcv, SCAM, NBM-SPAM, and SIAN parity tests now consume committed,
   versioned static fixtures. R and local upstream source clones are required
   only for explicit fixture refreshes, and normal CI no longer installs them.
-- The entire `upstreams/` directory is local-only and ignored. Its tracked
-  clone catalogue moved to `scripts/reference_generation/upstreams.json`.
+- The entire `upstreams/` directory and its maintenance tooling are local-only
+  and ignored.
 
 ## [0.2.0] - 2026-08-22
 

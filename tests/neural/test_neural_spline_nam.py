@@ -125,7 +125,7 @@ def test_spline_nam_regressor_fits_and_predicts_with_default_preprocessing(tmp_p
 
     assert fitted is model
     assert model.config.n_knots == 6
-    assert model.preprocessor.numerical_method == "minmax"
+    assert model.preprocessor.numerical_preprocessing == "minmax"
     assert predictions.shape == (len(data),)
     assert np.isfinite(predictions).all()
     assert terms["x:group"].shape == (len(data), 1)

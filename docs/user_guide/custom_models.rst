@@ -158,7 +158,7 @@ Now use it like any other NAMpy model:
    
    # Train
    model = MyRegressor(
-       numerical_method="standardization",
+       numerical_preprocessing="standardization",
        hidden_size=256,
        num_layers=4
    )
@@ -278,7 +278,7 @@ Here's a complete working example:
    
    # 4. Usage
    model = AttentiveMLPRegressor(
-       numerical_method="standardization",
+       numerical_preprocessing="standardization",
        hidden_size=256,
        num_heads=8
    )

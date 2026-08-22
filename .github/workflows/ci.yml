@@ -111,10 +111,10 @@ jobs:
 
     - name: Lint with Ruff
       run: |
-        ruff check nampy tests scripts debug examples
+        ruff check nampy tests examples
 
     - name: Check repository hygiene
-      run: python scripts/check_repository_hygiene.py
+      run: python tests/repository_hygiene.py
 
   type-check:
     name: Type Check
@@ -171,7 +171,7 @@ jobs:
         wheel_paths=(dist/*.whl)
         python -m pip install --no-cache-dir "${wheel_paths[0]}[all]"
         cd "${RUNNER_TEMP}"
-        python "${GITHUB_WORKSPACE}/scripts/check_installed_package.py"
+        python "${GITHUB_WORKSPACE}/tests/public_api/installed_package_smoke.py"
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4

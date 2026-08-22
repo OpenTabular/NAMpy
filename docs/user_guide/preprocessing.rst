@@ -6,7 +6,7 @@ NAMpy does not implement its own tabular preprocessing. All preprocessing is don
 Using PreTab with NAMpy
 -----------------------
 
-1. Create a PreTab preprocessor with the options you need (task, output_dim, numerical/categorical strategies, etc.). See the `PreTab documentation <https://pypi.org/project/pretab/>`_ for full options.
+1. Create a PreTab preprocessor with the options you need (task, n_bins, numerical/categorical strategies, etc.). See the `PreTab documentation <https://pypi.org/project/pretab/>`_ for full options.
 
 2. Use it either:
 
@@ -18,8 +18,8 @@ Using PreTab with NAMpy
 
       model = NAMRegressor(
           task="regression",
-          output_dim=50,
-          numerical_method="ple",  # or other PreTab options
+          n_bins=50,
+          numerical_preprocessing="ple",  # or other PreTab options
       )
       model.fit(X_train, y_train, max_epochs=100)
       predictions = model.predict(X_test)
@@ -31,7 +31,7 @@ Using PreTab with NAMpy
       from pretab.preprocessor import Preprocessor
       from nampy.neural.data.datamodule import NAMpyDataModule
 
-      preprocessor = Preprocessor(task="regression", output_dim=50)
+      preprocessor = Preprocessor(task="regression", n_bins=50)
       data_module = NAMpyDataModule(
           preprocessor=preprocessor,
           batch_size=128,

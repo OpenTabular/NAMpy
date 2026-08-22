@@ -40,7 +40,7 @@ class _EstimatorCase:
     estimator_class: type
     task: str
     model_kwargs: dict
-    categorical_method: str = "int"
+    categorical_preprocessing: str = "int"
     n_classes: int = 2
 
 
@@ -200,7 +200,7 @@ ESTIMATOR_CASES += tuple(
         case.estimator_class,
         case.task,
         case.model_kwargs,
-        categorical_method="one-hot",
+        categorical_preprocessing="one-hot",
     )
     for case in ESTIMATOR_CASES
     if case.estimator_class is not SplineNAMRegressor
@@ -223,12 +223,12 @@ ESTIMATOR_CASES += tuple(
         case.estimator_class,
         case.task,
         case.model_kwargs,
-        categorical_method=case.categorical_method,
+        categorical_preprocessing=case.categorical_preprocessing,
         n_classes=3,
     )
     for case in ESTIMATOR_CASES
     if case.task == "classification"
-    and case.categorical_method == "int"
+    and case.categorical_preprocessing == "int"
 )
 
 
@@ -249,8 +249,8 @@ def test_public_neural_estimator_fits_and_predicts(case, tmp_path):
     classification_target = np.resize(np.arange(case.n_classes), x.size)
 
     estimator_kwargs = {
-        "numerical_method": "minmax",
-        "categorical_method": case.categorical_method,
+        "numerical_preprocessing": "minmax",
+        "categorical_preprocessing": case.categorical_preprocessing,
         **case.model_kwargs,
     }
     if case.task == "lss":
@@ -316,7 +316,7 @@ def test_public_neural_regressors_support_multioutput_targets(case, tmp_path):
         )
     )
     estimator = case.estimator_class(
-        numerical_method="minmax", **case.model_kwargs
+        numerical_preprocessing="minmax", **case.model_kwargs
     )
 
     estimator.fit(

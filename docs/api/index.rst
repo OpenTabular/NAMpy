@@ -76,7 +76,7 @@ NAMpy uses the PreTab library for preprocessing. Pass a PreTab preprocessor into
 
    from pretab.preprocessor import Preprocessor
    
-   preprocessor = Preprocessor(task="regression", output_dim=50)
+   preprocessor = Preprocessor(task="regression", n_bins=50)
    # Use with NAMpyDataModule or model.fit(X, y, ...)
    
    X_processed = preprocessor.fit_transform(X, y)

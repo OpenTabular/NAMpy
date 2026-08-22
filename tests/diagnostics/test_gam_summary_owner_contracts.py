@@ -70,7 +70,7 @@ def test_null_deviance_without_intercept_stays_mean_based_like_mgcv():
     The gam.fit3.r:841 "no intercept -> wtdmu = linkinv(offset)" branch is
     therefore unreachable through gam(); observed mgcv null.deviance for a
     no-intercept fit is the weighted-mean one (verified live in
-    debug/no_intercept_null_deviance_probe.R and
+    the retained local no-intercept null-deviance probe and
     tests/parity/test_mgcv_summary_parity.py::gaussian_no_intercept_reml).
     """
     data = _gaussian_data(seed=7)

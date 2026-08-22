@@ -7,8 +7,8 @@ Use it to answer two questions quickly:
 - where should a new parity regression be added without duplicating broader snapshots?
 
 End-to-end parity suites remain the broad backstop. The files listed here are
-the primary owner-level localization points. Unresolved planning is maintained
-in the repository-level `backlog.md` rather than duplicated here.
+the primary owner-level localization points. Unresolved planning is kept in
+local development notes rather than duplicated here.
 
 ## Coverage Matrix
 
@@ -34,11 +34,11 @@ in the repository-level `backlog.md` rather than duplicated here.
 ## Seven-Stage Pipeline Gate and Combination Coverage
 
 `tests/parity/test_gam_seven_stage_pipeline_contracts.py` is the direct release
-gate for the seven pipeline stages documented in `CLAUDE.md`. It deliberately
+gate for the repository's seven-stage GAM pipeline. It deliberately
 uses one fixed-SP Gaussian formula with a parametric term, cubic smooth, and
 formula offset so every transition is checked without conflating the stage
 contract with outer-optimizer behavior. Stage 7 also compares newdata response
-prediction with live `mgcv`.
+prediction with a committed `mgcv` reference fixture.
 
 The vertical gate is complemented by
 `tests/parity/test_gam_pipeline_combination_matrix.py`. The combination matrix
@@ -48,7 +48,7 @@ declared stage, supported leaf, or unsupported guard loses its owner test.
 
 | Pipeline stage | Combination coverage now owned |
 | --- | --- |
-| 1. Formula parsing and canonical specs | Formula lists/shared components, transformed covariates, supported numeric/factor interactions, factor-by smooths, formula and fit offsets, intercept policies, weights, knots, `min_sp`, `drop_intercept`, and tensor-`m` warning/fallback behavior; the combined interaction recipe is rebuilt on newdata and compared live with `mgcv`. |
+| 1. Formula parsing and canonical specs | Formula lists/shared components, transformed covariates, supported numeric/factor interactions, factor-by smooths, formula and fit offsets, intercept policies, weights, knots, `min_sp`, `drop_intercept`, and tensor-`m` warning/fallback behavior; the combined interaction recipe is rebuilt on newdata and compared with a committed `mgcv` reference fixture. |
 | 2. Runtime terms and low-level bases | Train/newdata pairing for every supported basis (`cr/cs/cc/ps/tp/ts/re/fs/sz/te/ti`), including univariate and structured boundary response/SE parity. Row-permutation contracts cover linked and identified-FS terms, PS/TP/TS bases, `te`/`ti`, SZ, and factor-by smooths. Non-unique constructor representations use column-space projectors and penalized response operators instead of arbitrary coefficient orientation. |
 | 3. Constructed/wrapped terms | Numeric-by plus linked `id=`, factor-by plus linked `id=`, tensor-by, and mixed fixed/free/select penalty ownership, numerical coefficient-map composition, and fitted response/SE parity. |
 | 4. Predictor/model compilation | Multi-predictor slices with unequal intercept and offset policies plus three-term linked, fixed/free, select, and rank-deficient assembly; supported `gaulss` and `gammals` layouts are also fitted and compared with `mgcv`. |
@@ -65,9 +65,9 @@ and add the smallest behavior/parity case that crosses its affected stages.
 
 There is no live expected GAM failure declared by the targeted owner/parity
 slices. This does not assert exhaustive Cartesian coverage or a current clean
-full-suite run. Numerical invariants and the last recorded validation state are
-documented in `PROJECT_STATUS.md`; unresolved supported-surface combinations
-are listed in `backlog.md`.
+full-suite run. The supported boundary is defined by public behavior, explicit
+unsupported-input errors, and the committed owner/parity tests; unresolved
+planning stays in local development notes.
 
 ## Sweep Rules
 

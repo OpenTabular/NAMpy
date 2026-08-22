@@ -73,8 +73,9 @@ class SplineNAM(BaseModel):
                 raise ValueError(
                     "SplineNAM requires scalar transformed features; "
                     f"feature {feature_name!r} has dimension {dimension!r}. "
-                    "Use scalar preprocessing such as numerical_method='minmax' "
-                    "and categorical_method='int'."
+                    "Use scalar preprocessing such as "
+                    "numerical_preprocessing='minmax' and "
+                    "categorical_preprocessing='int'."
                 )
 
         self._feature_ranges = {}

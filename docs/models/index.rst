@@ -103,7 +103,7 @@ as ``interactions=(("age", "income"),)``; specifying both forms is an error.
    
    model = NAMRegressor(
        layer_sizes=[128, 128, 32],
-       numerical_method="ple"
+       numerical_preprocessing="ple"
    )
 
 NAM capabilities are composable rather than tied to an architecture preset.
@@ -394,8 +394,9 @@ Each oblivious tree :math:`g_t` selects one feature (GAM) or a pair of features
 The neural estimators and GAM adapters share ``explain_terms()``,
 ``term_importance()``, and ``interaction_importance()``. Quantile input maps
 are available to every neural estimator with
-``numerical_method="quantile"`` and the ``quantile_*`` constructor
-controls.
+``numerical_preprocessing="quantile"``. Published PreTab 0.0.3 owns the
+quantile transform defaults and does not expose separate ``quantile_*``
+constructor controls.
 
 Term contributions can be centered without changing predictions. By default
 they are centered on the explained rows; ``reference_X`` can supply a separate

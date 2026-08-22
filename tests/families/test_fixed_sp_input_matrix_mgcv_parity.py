@@ -1078,9 +1078,9 @@ def test_fixed_sp_family_matrix_derivatives_match_mgcv(
 
     # The cs shrinkage penalty is chaotic in the eigensolver's resolution of
     # the cr penalty's two near-zero eigenvectors (mgcv's own eigen() included;
-    # debug/cs_shrinkage_null_space_probe.py). Injecting R's exact penalty
+    # the retained local shrinkage null-space probe). Injecting R's exact penalty
     # reproduces the mgcv criterion to 1e-15 and its stationary gradient to
-    # ~5e-7 for both cases below (debug/cs_fixed_sp_criterion_probe.py), so
+    # ~5e-7 for both cases below (retained local fixed-sp criterion probe), so
     # the residual gaps are entirely the platform-indeterminate penalty
     # orientation — largest at heavy smoothing where the null-space shrink
     # dominates the fit. The overrides below bound that orientation spread;

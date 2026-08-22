@@ -34,13 +34,13 @@ test-cov:
 	pytest --cov=nampy --cov-report=term-missing --cov-report=html $(TEST)
 
 lint:
-	ruff check nampy tests scripts
+	ruff check nampy tests
 
 type-check:
 	mypy nampy
 
 hygiene:
-	python scripts/check_repository_hygiene.py
+	python tests/repository_hygiene.py
 
 quality: lint type-check hygiene
 	@echo "Static quality checks passed!"

@@ -75,7 +75,7 @@ autodoc_default_options = {
     "member-order": "bysource",
     "undoc-members": True,
     # Exclude sklearn internal methods that cause duplicate target errors
-    "exclude-members": "__weakref__,__init_subclass__,set_fit_request,set_predict_request,set_score_request,set_transform_request,get_metadata_routing",
+    "exclude-members": "__weakref__,__init_subclass__,set_decision_function_request,set_fit_request,set_predict_proba_request,set_predict_request,set_score_request,set_transform_request,get_metadata_routing",
     "inherited-members": False,  # Don't document inherited sklearn methods
 }
 autodoc_typehints = "description"

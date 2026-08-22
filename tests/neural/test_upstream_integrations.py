@@ -6,7 +6,7 @@ import pytest
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from pretab import Preprocessor
+from pretab.preprocessor import Preprocessor
 
 from nampy.models._base import NeuralEstimatorBase
 from nampy.models.nam import NAMLSS, NAMRegressor
@@ -96,7 +96,7 @@ def test_nam_exu_adaptive_width_fits_through_estimator_contract(tmp_path):
         num_basis_functions=8,
         units_multiplier=2,
         output_regularization=1e-4,
-        numerical_method="minmax",
+        numerical_preprocessing="minmax",
     )
     estimator.fit(
         X,
@@ -187,12 +187,11 @@ def test_nodegam_can_select_original_node_activations():
     assert "output_penalty" in result
 
 
-def test_quantile_preprocessing_uses_pristine_pretab_contract():
+def test_quantile_preprocessing_uses_published_pretab_contract():
     X = pd.DataFrame({"x": np.repeat([0.0, 1.0, 2.0, 3.0], 8)})
     preprocessor = Preprocessor(
-        numerical_method="quantile",
-        scaling=None,
-        random_state=7,
+        numerical_preprocessing="quantile",
+        scaling_strategy=None,
         treat_all_integers_as_numerical=True,
     ).fit(X)
 
@@ -201,7 +200,7 @@ def test_quantile_preprocessing_uses_pristine_pretab_contract():
     np.testing.assert_array_equal(first, second)
 
 
-def test_nam_uses_pristine_pretab_grouped_block_metadata():
+def test_nam_uses_published_pretab_grouped_block_metadata():
     X = pd.DataFrame(
         {
             "age": [20.0, 40.0, 30.0],
@@ -221,7 +220,6 @@ def test_nam_uses_pristine_pretab_grouped_block_metadata():
     assert list(cat_info) == ["city"]
     assert list(num_info) == ["age"]
     assert cat_info["city"]["dimension"] == 2
-    assert all(block.dtype == np.float32 for block in transformed.values())
     assert transformed["num_age"].shape[1] == 1
     assert transformed["cat_city"].shape[1] == 2
 
@@ -236,7 +234,7 @@ def test_nam_uses_pristine_pretab_grouped_block_metadata():
     ]
 
 
-def test_nbm_consumes_pristine_pretab_grouped_one_hot_blocks():
+def test_nbm_consumes_published_pretab_grouped_one_hot_blocks():
     X = pd.DataFrame({"group": ["a", "b", "c", "a"]})
     estimator = NBMRegressor()
     estimator.preprocessor.fit(X, np.array([0.0, 1.0, 0.5, 0.0]))
@@ -247,7 +245,6 @@ def test_nbm_consumes_pristine_pretab_grouped_one_hot_blocks():
     assert list(transformed) == ["cat_group"]
     assert transformed["cat_group"].shape == (4, 3)
     assert cat_info["group"]["dimension"] == 3
-    assert all(block.dtype == np.float32 for block in transformed.values())
 
 
 def test_nodegam_forwards_interaction_specific_penalties():

@@ -61,7 +61,7 @@ neural = [
     "torch",
     "torchmetrics",
     "properscoring",
-    "pretab>=1.0.0rc2",
+    "pretab==0.0.3",
 ]
 igann-sparse = [
     "abess>=0.4.5",
@@ -73,7 +73,7 @@ all = [
     "torch",
     "torchmetrics",
     "properscoring",
-    "pretab>=1.0.0rc2",
+    "pretab==0.0.3",
     "abess>=0.4.5",
 ]
 dev = [
@@ -95,10 +95,10 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/OpenTabular/NAMpy"
-Documentation = "https://github.com/OpenTabular/NAMpy"
-Repository = "https://github.com/OpenTabular/NAMpy"
-"Bug Tracker" = "https://github.com/OpenTabular/NAMpy/issues"
+Homepage = "https://github.com/Ananyapam7/NAMpy"
+Documentation = "https://github.com/Ananyapam7/NAMpy"
+Repository = "https://github.com/Ananyapam7/NAMpy"
+"Bug Tracker" = "https://github.com/Ananyapam7/NAMpy/issues"
 
 [tool.setuptools]
 include-package-data = true
@@ -159,9 +159,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "F403", "F405"]
-# Debug probes and examples are standalone scripts: sys.path setup precedes
-# imports (E402), and probe-local zip/closure looseness is acceptable there.
-"debug/*" = ["E402", "B905", "B023", "F841"]
+# Examples are standalone scripts, so sys.path setup may precede imports.
 "examples/*" = ["E402", "B905"]
 
 [tool.mypy]

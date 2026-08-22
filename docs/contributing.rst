@@ -20,11 +20,11 @@ Start from a targeted parity test and the corresponding local R/C routine, and
 do not introduce approximate or heuristic fallbacks for unsupported behavior.
 
 The complete workflow, test policy, and pull-request checklist are in
-`CONTRIBUTING.md <https://github.com/OpenTabular/NAMpy/blob/main/CONTRIBUTING.md>`_.
+`CONTRIBUTING.md <https://github.com/Ananyapam7/NAMpy/blob/main/CONTRIBUTING.md>`_.
 
 Useful links
 ------------
 
-* `Issue tracker <https://github.com/OpenTabular/NAMpy/issues>`_
-* `Pull requests <https://github.com/OpenTabular/NAMpy/pulls>`_
-* `Discussions <https://github.com/OpenTabular/NAMpy/discussions>`_
+* `Issue tracker <https://github.com/Ananyapam7/NAMpy/issues>`_
+* `Pull requests <https://github.com/Ananyapam7/NAMpy/pulls>`_
+* `Discussions <https://github.com/Ananyapam7/NAMpy/discussions>`_
