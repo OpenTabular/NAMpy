@@ -108,10 +108,13 @@ class AdditivePrediction:
             if response.ndim == 2 and shape[1:] not in {(), (1,), response.shape[1:]}:
                 raise ValueError(f"Term {name!r} has an incompatible output shape.")
 
-        for name, value in (("intercept", self.intercept), ("offset", self.offset)):
-            if value is None:
+        scalar_inputs: tuple[
+            tuple[str, float | np.ndarray | None], ...
+        ] = (("intercept", self.intercept), ("offset", self.offset))
+        for name, scalar_value in scalar_inputs:
+            if scalar_value is None:
                 continue
-            shape = np.asarray(value).shape
+            shape = np.asarray(scalar_value).shape
             compatible = {(), (n_samples,), response.shape}
             if response.ndim == 2:
                 compatible.add((response.shape[1],))

@@ -62,7 +62,11 @@ def residuals_gam(
     fitted = np.asarray(_fitted_mu(model), dtype=np.float64)
     eta_fitted = _fitted_eta(model)
     family_residuals = getattr(model.family, "residuals", None)
-    if callable(family_residuals) and type != "working":
+    # mgcv/R/mgcv.r::residuals.gam delegates every residual type to a
+    # family-owned residual function when one exists. In particular, GAMLSS
+    # families must reject residual types outside their own match.arg surface
+    # instead of falling through to the default GAM implementation.
+    if callable(family_residuals):
         try:
             try:
                 return np.asarray(

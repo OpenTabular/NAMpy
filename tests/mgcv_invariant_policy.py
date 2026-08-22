@@ -19,6 +19,7 @@ _GAM_SETUP_INVARIANT_CASE_IDS = frozenset(
         "gaussian_ts_two_dim",
         "gaussian_fs",
         "gaussian_fs_numeric_by",
+        "gaulss_fs",
         "gaussian_sz",
     }
 )
