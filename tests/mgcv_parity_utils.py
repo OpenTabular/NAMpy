@@ -26,6 +26,7 @@ from tests.reference_fixtures import (
     REFRESH_ENV,
     MissingReferenceFixture,
     load_reference,
+    portable_dataframe_repr,
     save_reference,
 )
 
@@ -365,7 +366,7 @@ def _portable_df_fixture_repr(df: pd.DataFrame) -> str:
     different hashes. Fifteen significant decimal digits retain far more
     precision than the parity tolerances while removing that platform noise.
     """
-    return df.to_csv(index=False, float_format="%.15g", lineterminator="\n")
+    return portable_dataframe_repr(df)
 
 
 def _raw_constructor_fixture_frame(

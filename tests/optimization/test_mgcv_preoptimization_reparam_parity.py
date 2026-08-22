@@ -13,6 +13,7 @@ from nampy.gam.fit.selection.reparam import (
     gam_reparam,
 )
 from tests._paths import PARITY_DIR, REPO_ROOT
+from tests.mgcv_invariant_policy import normalize_penalty_scale
 from tests.mgcv_parity_utils import _family_specs, _fit_nampy_model_fixed_sp
 from tests.optimization.test_mgcv_preoptimization_blocks_parity import PREOPT_CASES
 from tests.reference_fixtures import load_reference, reference_key, save_reference
@@ -204,7 +205,9 @@ def _current_log_sp_full(model, setup):
     )
 
 
-def _assert_setup_reparam_surface(actual, expected, *, atol=1e-10):
+def _assert_setup_reparam_surface(
+    actual, expected, *, atol=1e-10, normalize_penalty_scales=False
+):
     expected_E = np.asarray(expected["E"], dtype=np.float64)
     expected_Eb = np.asarray(expected["Eb"], dtype=np.float64)
     expected_U1 = np.asarray(expected["U1"], dtype=np.float64)
@@ -219,15 +222,40 @@ def _assert_setup_reparam_surface(actual, expected, *, atol=1e-10):
     _assert_u1_subspaces_equal(
         actual.U1, expected_U1, q_range=expected_E.shape[0], atol=atol
     )
-    _assert_root_gram_equal(actual.E, expected_E, atol=atol)
-    _assert_root_gram_equal(actual.Eb, expected_Eb, atol=atol)
+    if normalize_penalty_scales:
+        np.testing.assert_allclose(
+            normalize_penalty_scale(actual.E.T @ actual.E),
+            normalize_penalty_scale(expected_E.T @ expected_E),
+            rtol=0.0,
+            atol=atol,
+        )
+        np.testing.assert_allclose(
+            normalize_penalty_scale(actual.Eb.T @ actual.Eb),
+            normalize_penalty_scale(expected_Eb.T @ expected_Eb),
+            rtol=0.0,
+            atol=atol,
+        )
+    else:
+        _assert_root_gram_equal(actual.E, expected_E, atol=atol)
+        _assert_root_gram_equal(actual.Eb, expected_Eb, atol=atol)
     for a_root, e_root in zip(actual.UrS, expected_UrS, strict=True):
-        _assert_root_gram_equal(a_root, e_root, atol=atol)
+        if normalize_penalty_scales:
+            np.testing.assert_allclose(
+                normalize_penalty_scale(a_root.T @ a_root),
+                normalize_penalty_scale(e_root.T @ e_root),
+                rtol=0.0,
+                atol=atol,
+            )
+        else:
+            _assert_root_gram_equal(a_root, e_root, atol=atol)
 
 
-def _assert_gam_reparam_invariants(actual, expected, *, atol=1e-10):
+def _assert_gam_reparam_invariants(
+    actual, expected, *, atol=1e-10, normalize_penalty_scales=False
+):
     assert bool(actual["fixed_penalty"]) is bool(expected["fixed_penalty"])
-    assert float(actual["det"]) == pytest.approx(float(expected["det"]), abs=atol)
+    if not normalize_penalty_scales:
+        assert float(actual["det"]) == pytest.approx(float(expected["det"]), abs=atol)
     np.testing.assert_allclose(
         np.asarray(actual["det1"], dtype=np.float64),
         np.asarray(expected["det1"], dtype=np.float64),
@@ -241,13 +269,44 @@ def _assert_gam_reparam_invariants(actual, expected, *, atol=1e-10):
         atol=max(atol, 5e-10),
     )
 
-    _assert_symmetric_spectrum_equal(actual["S"], expected["S"], atol=atol)
-    _assert_root_singular_values_equal(actual["E"], expected["E"], atol=atol)
+    if normalize_penalty_scales:
+        _assert_symmetric_spectrum_equal(
+            normalize_penalty_scale(actual["S"]),
+            normalize_penalty_scale(expected["S"]),
+            atol=atol,
+        )
+        _assert_symmetric_spectrum_equal(
+            normalize_penalty_scale(
+                np.asarray(actual["E"], dtype=np.float64).T
+                @ np.asarray(actual["E"], dtype=np.float64)
+            ),
+            normalize_penalty_scale(
+                np.asarray(expected["E"], dtype=np.float64).T
+                @ np.asarray(expected["E"], dtype=np.float64)
+            ),
+            atol=atol,
+        )
+    else:
+        _assert_symmetric_spectrum_equal(actual["S"], expected["S"], atol=atol)
+        _assert_root_singular_values_equal(actual["E"], expected["E"], atol=atol)
 
     expected_rS = _as_matrix_list(expected.get("rS", []))
     assert len(actual["rS"]) == len(expected_rS)
     for a_root, e_root in zip(actual["rS"], expected_rS, strict=True):
-        _assert_root_gram_equal(a_root, e_root, atol=atol)
+        if normalize_penalty_scales:
+            _assert_symmetric_spectrum_equal(
+                normalize_penalty_scale(
+                    np.asarray(a_root, dtype=np.float64).T
+                    @ np.asarray(a_root, dtype=np.float64)
+                ),
+                normalize_penalty_scale(
+                    np.asarray(e_root, dtype=np.float64).T
+                    @ np.asarray(e_root, dtype=np.float64)
+                ),
+                atol=atol,
+            )
+        else:
+            _assert_root_gram_equal(a_root, e_root, atol=atol)
 
 
 @pytest.mark.parametrize(
@@ -265,7 +324,7 @@ def test_preoptimization_reparameterization_matches_mgcv(
     _compare_design_space_only,
 ):
     """Verify that preoptimization reparameterization matches mgcv."""
-    del case_id, _compare_design_space_only
+    del _compare_design_space_only
     data = data_factory()
     expected = _run_mgcv_preoptimization_reparam(
         data,
@@ -289,11 +348,20 @@ def test_preoptimization_reparameterization_matches_mgcv(
         rtol=0.0,
         atol=1e-12,
     )
-    _assert_setup_reparam_surface(actual_setup, expected["setup"])
+    normalize_penalty_scales = case_id == "gaussian_fs"
+    _assert_setup_reparam_surface(
+        actual_setup,
+        expected["setup"],
+        normalize_penalty_scales=normalize_penalty_scales,
+    )
 
     actual_rp = gam_reparam(
         [np.asarray(root, dtype=np.float64) for root in actual_setup.UrS],
         _current_log_sp_full(gam, actual_setup),
         deriv=2,
     )
-    _assert_gam_reparam_invariants(actual_rp, expected["gam_reparam"])
+    _assert_gam_reparam_invariants(
+        actual_rp,
+        expected["gam_reparam"],
+        normalize_penalty_scales=normalize_penalty_scales,
+    )

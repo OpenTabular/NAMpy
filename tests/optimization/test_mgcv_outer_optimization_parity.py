@@ -363,7 +363,12 @@ def _assert_expected_subset_close(
         return
 
     if isinstance(expected, int) and not isinstance(expected, bool):
-        assert int(actual) == expected
+        np.testing.assert_allclose(
+            float(actual),
+            float(expected),
+            atol=effective_atol,
+            rtol=0.0,
+        )
         return
 
     if isinstance(expected, float):

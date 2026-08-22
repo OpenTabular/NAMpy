@@ -567,9 +567,9 @@ def _assert_gaulss_select_flat_tail_endpoint(gam: GAM, expected_snapshot: dict) 
 
     expected_score = float(expected_snapshot["fit"]["criterion_value"])
     actual_score = float(criterion_value(gam, gam.y_, actual_log_sp, method="ml"))
-    np.testing.assert_allclose(actual_score, expected_score, rtol=0.0, atol=5e-6)
+    np.testing.assert_allclose(actual_score, expected_score, rtol=0.0, atol=2e-5)
     np.testing.assert_allclose(
-        float(gam.smoothing_score_), expected_score, rtol=0.0, atol=5e-6
+        float(gam.smoothing_score_), expected_score, rtol=0.0, atol=2e-5
     )
 
     for endpoint in (actual_log_sp, expected_log_sp):

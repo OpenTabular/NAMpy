@@ -1520,6 +1520,15 @@ class TestNumericByVariable:
             pred_atol=8e-3,
             pred_rtol=0.0,
             sp_log_atol=0.7,
+            check_edf_by_term=False,
+        )
+        # Both smooths contain the same unpenalized numeric-by direction, so
+        # mgcv can assign one EDF to either term.  Total complexity is unique.
+        np.testing.assert_allclose(
+            np.sum(np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64)),
+            np.sum(np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64)),
+            rtol=0.0,
+            atol=1e-8,
         )
 
     def test_poisson_numeric_by_reml_matches_mgcv(self):
@@ -1703,11 +1712,17 @@ class TestAdditionalScenarioParity:
             pred_atol=1e-6,
             pred_rtol=1e-6,
             sp_log_atol=2.0,
+            check_sp=False,
             criterion_atol=1e-3,
         )
 
         actual_sp = np.asarray(actual["fit"]["smoothing_params"], dtype=np.float64)
         expected_sp = np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)
+        # Separate penalties on an arbitrary repeated TP null eigenspace make
+        # the optimizer coordinates platform-dependent.  Both endpoints are
+        # the same effective zero-penalty boundary state.
+        assert np.max(actual_sp) < 1e-7
+        assert np.max(expected_sp) < 1e-7
         actual_score_r = _run_mgcv_fixed_sp_score(
             data,
             formula,

@@ -15,6 +15,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
+
 from tests._paths import TESTS_DIR
 
 FIXTURE_ROOT = TESTS_DIR / "reference_fixtures"
@@ -50,6 +52,22 @@ def reference_key(operation: str, payload: Any) -> str:
         default=str,
     ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def portable_dataframe_repr(frame: pd.DataFrame) -> str:
+    """Return a platform-stable DataFrame identity for fixture keys.
+
+    NumPy transcendental functions can differ by a final binary digit across
+    system math libraries. Pandas' default full-precision CSV output preserves
+    that immaterial noise and consequently gives equivalent parity inputs
+    different fixture keys. Fifteen significant decimal digits retain much
+    more precision than the parity tolerances while keeping the identity stable.
+    """
+    return frame.to_csv(
+        index=False,
+        float_format="%.15g",
+        lineterminator="\n",
+    )
 
 
 def fixture_path(namespace: str, key: str, *, root: Path | None = None) -> Path:
@@ -111,6 +129,7 @@ __all__ = [
     "fixture_path",
     "generation_enabled",
     "load_reference",
+    "portable_dataframe_repr",
     "reference_key",
     "rebuild_enabled",
     "refresh_enabled",

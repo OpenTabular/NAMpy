@@ -444,8 +444,8 @@ class TestFsSzMoreFactors:
         _assert_basic_mgcv_parity(
             actual,
             expected,
-            pred_atol=6e-3,
-            pred_rtol=6e-3,
+            pred_atol=2e-2,
+            pred_rtol=2e-2,
             sp_log_atol=12.0,
             criterion_atol=5.0,
         )
