@@ -55,12 +55,11 @@ This is declared in the manifest rather than being misrepresented as a pristine
 upstream commit. Any future decision to rebaseline on pristine CRAN mgcv must
 regenerate and review the affected fixtures explicitly.
 
-The installer defaults to the historical local `upstreams/mgcv` path. On a
-fresh clone, `fetch_upstreams.py` obtains the pristine mirror as
-`upstreams/cran-mgcv`; select that tree with
-`--source upstreams/cran-mgcv` only as part of an intentional rebaseline. Do
-not mix fixtures from these two source trees under one unchanged provenance
-record.
+The installer defaults to the historical local `upstreams/mgcv` path. The
+pristine CRAN mirror is deliberately not part of the local clone catalogue. An
+intentional rebaseline must obtain the exact source separately and select it
+with `--source`; do not mix fixtures from different source trees under one
+unchanged provenance record.
 
 ## Refresh workflow
 

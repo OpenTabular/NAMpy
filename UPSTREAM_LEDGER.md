@@ -23,12 +23,10 @@ test oracle.
 | `coxse` | CoxNAM, CoxSE, DeepSurv comparison code | survival LSS/family integration | Candidate, not yet exposed |
 | `crisp-nam` | Competing-risks NAM | competing-risks survival family | Candidate, not yet exposed |
 | `dnamite` | Discretized additive regression/classification/survival | binning and survival-specific heads | Candidate, not yet exposed |
-| `anfreth-nampy` | Historical NAMpy implementation | compatibility and migration audit | Reference clone; audit pending |
 | `gpnam` | Gaussian-process NAM | `GPNAM`, fixed RFF basis and convex fitting | Paper RFF construction, auto bandwidths, CG solve, and GP-NA2M integrated |
 | `hnam-demand-forecasting` | Hierarchical NAM forecasting | grouped/time-series additive terms | Candidate, not yet exposed |
 | `pygam` | Python classical GAM | `nampy.gam` public/API comparison | Reference clone; audit pending |
 | `interpret` | EBM and additive explanations | generic term storage/plotting | Candidate, not yet exposed |
-| `cran-mgcv` | Released CRAN mgcv mirror | source/version comparison | Reference clone; parity source |
 | `qgam` | Quantile GAM | quantile smoothing/family behavior | Candidate, not yet exposed |
 | `scam` | Shape-constrained additive models | explicit shape constraints | All released univariate/bivariate bases, constrained fitting, GCV/UBRE, inference, and AR(1) integrated |
 | `nbm-spam` | Neural Basis Models and SPAM | `NBM`, `SPAM`, `NBMSPAM` | Dense/sparse NBM, SPAM, and hybrid integrated; direct parity coverage added |
