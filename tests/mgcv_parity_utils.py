@@ -356,6 +356,18 @@ def _df_fixture_repr(df: pd.DataFrame) -> str:
     return df.to_csv(index=False)
 
 
+def _portable_df_fixture_repr(df: pd.DataFrame) -> str:
+    """Return a platform-stable DataFrame identity for static fixture keys.
+
+    Transcendental NumPy operations can differ by a final binary digit across
+    system math libraries. Those differences are immaterial to constructor
+    parity but pandas' default full-precision CSV output turns them into
+    different hashes. Fifteen significant decimal digits retain far more
+    precision than the parity tolerances while removing that platform noise.
+    """
+    return df.to_csv(index=False, float_format="%.15g", lineterminator="\n")
+
+
 def _make_gaussian_data(seed=123, n=180):
     rng = np.random.default_rng(seed)
     x0 = rng.uniform(-2.0, 2.0, size=n)
@@ -1411,16 +1423,31 @@ def _run_mgcv_raw_constructor(
 ):
     smooth_expr_r = _normalize_python_formula_text(smooth_expr)
     knots_payload = _normalize_raw_constructor_knots(knots)
-    _cache_key = _mgcv_fixture_key(
-        "raw_constructor",
-        {
-            "version": _RAW_CONSTRUCTOR_FIXTURE_VERSION,
-            "data": _df_fixture_repr(data),
-            "smooth_expr": smooth_expr_r,
-            "knots": json.dumps(knots_payload, sort_keys=True, default=str),
-        },
-    )
-    cached = _mgcv_fixture_load(_cache_key)
+    key_parts = {
+        "version": _RAW_CONSTRUCTOR_FIXTURE_VERSION,
+        "data": _portable_df_fixture_repr(data),
+        "smooth_expr": smooth_expr_r,
+        "knots": json.dumps(knots_payload, sort_keys=True, default=str),
+    }
+    _cache_key = _mgcv_fixture_key("raw_constructor", key_parts)
+    try:
+        cached = _mgcv_fixture_load(_cache_key)
+    except RuntimeError as portable_error:
+        # Preserve access to the committed v5 fixtures while they are migrated
+        # from exact pandas CSV identities to platform-stable identities.
+        legacy_key = _mgcv_fixture_key(
+            "raw_constructor",
+            {
+                **key_parts,
+                "data": _df_fixture_repr(data),
+            },
+        )
+        if legacy_key == _cache_key:
+            raise
+        try:
+            cached = _mgcv_fixture_load(legacy_key)
+        except RuntimeError:
+            raise portable_error from None
     if cached is not None:
         return _decode_packed_matrix_payload(cached)
 
