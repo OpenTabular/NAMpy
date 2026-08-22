@@ -89,6 +89,5 @@ an existing baseline. For an intentional source-version rebaseline, use
 `NAMPY_REBUILD_REFERENCE_FIXTURES=1`; it bypasses and overwrites existing
 fixtures exercised by the selected test slice.
 
-`scripts/reference_generation/promote_mgcv_cache.py` exists only to migrate
-reviewed legacy JSON results. New cases should write through the shared fixture
-helpers rather than create another cache format.
+Legacy raw JSON caches are unsupported. New cases must write through the shared
+fixture helpers rather than create another cache format.

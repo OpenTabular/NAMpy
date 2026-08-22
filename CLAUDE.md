@@ -147,7 +147,7 @@ For any parity-sensitive change, your final summary should name:
 - `tests/optimization/test_mgcv_inner_trace_parity.py` — PIRLS and negbin inner-trace parity
 - `test_mgcv_pc_id_parity.py` — `pc=` and linked-`id=` parity
 - `test_mgcv_known_gaps.py` — tracked strict parity mismatches
-- `mgcv_parity_utils.py`, `mgcv_parity_structure_utils.py` — shared test helpers
+- `mgcv_parity_utils.py`, `reference_fixtures.py` — shared test helpers
 
 Normal parity tests compare against committed, versioned static outputs and
 must not require R or local upstream clones. Refresh fixtures only through the

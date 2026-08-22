@@ -1,6 +1,3 @@
-# mgcv R result cache (generated, not committed)
-tests/mgcv_r_cache/
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

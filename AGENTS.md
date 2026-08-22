@@ -171,7 +171,7 @@ Primary parity-oriented tests live in `tests/`:
 - `optimization/test_mgcv_inner_trace_parity.py`
 - `test_mgcv_pc_id_parity.py`
 - `test_mgcv_known_gaps.py`
-- helpers: `mgcv_parity_utils.py`, `mgcv_parity_structure_utils.py`
+- helpers: `mgcv_parity_utils.py`, `reference_fixtures.py`
 
 ## What a good final report should contain
 

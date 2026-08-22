@@ -9,7 +9,7 @@ The GAM test suite is intentionally overlapping. The goal is fast subset runs an
 - `tests/families/`: general-family and GAMLSS-specific derivative/value coverage
 - `tests/diagnostics/`: diagnostics such as `k_check`
 - `tests/regressions/`: targeted regression tests for previously fixed bugs and test-suite structure contracts
-- `tests/`: shared helpers, marker inference, taxonomy registry, cache, and parity R scripts
+- `tests/`: shared helpers, marker inference, taxonomy registry, static reference fixtures, and parity-generation R scripts
 
 ## Taxonomy Axes
 - `smooth_<name>`: `cr`, `cs`, `cc`, `ps`, `tp`, `ts`, `te`, `ti`, `fs`, `sz`, `re`
