@@ -73,3 +73,22 @@ def test_portable_dataframe_fixture_identity_ignores_final_bit_platform_noise():
     assert mgcv_parity_utils._portable_df_fixture_repr(
         left
     ) != mgcv_parity_utils._portable_df_fixture_repr(meaningfully_different)
+
+
+def test_raw_constructor_fixture_identity_uses_only_referenced_columns():
+    """Response and unrelated columns cannot perturb a constructor fixture key."""
+    data = pd.DataFrame(
+        {
+            "y": [0.1, 0.2],
+            "x": [1.0, 2.0],
+            "by_factor": ["a", "b"],
+            "unrelated": [3.0, 4.0],
+        }
+    )
+
+    selected = mgcv_parity_utils._raw_constructor_fixture_frame(
+        data,
+        's(x, by=by_factor, bs="cr")',
+    )
+
+    assert list(selected.columns) == ["x", "by_factor"]

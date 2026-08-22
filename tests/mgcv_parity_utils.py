@@ -368,6 +368,25 @@ def _portable_df_fixture_repr(df: pd.DataFrame) -> str:
     return df.to_csv(index=False, float_format="%.15g", lineterminator="\n")
 
 
+def _raw_constructor_fixture_frame(
+    data: pd.DataFrame, smooth_expr: str
+) -> pd.DataFrame:
+    """Select only columns that can affect the requested smooth constructor."""
+    identifier_char = r"A-Za-z0-9_."
+    referenced = [
+        column
+        for column in data.columns
+        if re.search(
+            rf"(?<![{identifier_char}]){re.escape(str(column))}"
+            rf"(?![{identifier_char}])",
+            smooth_expr,
+        )
+    ]
+    # Preserve the complete input for unusual expressions whose referenced
+    # columns cannot be identified lexically.
+    return data.loc[:, referenced] if referenced else data
+
+
 def _make_gaussian_data(seed=123, n=180):
     rng = np.random.default_rng(seed)
     x0 = rng.uniform(-2.0, 2.0, size=n)
@@ -1425,7 +1444,9 @@ def _run_mgcv_raw_constructor(
     knots_payload = _normalize_raw_constructor_knots(knots)
     key_parts = {
         "version": _RAW_CONSTRUCTOR_FIXTURE_VERSION,
-        "data": _portable_df_fixture_repr(data),
+        "data": _portable_df_fixture_repr(
+            _raw_constructor_fixture_frame(data, smooth_expr_r)
+        ),
         "smooth_expr": smooth_expr_r,
         "knots": json.dumps(knots_payload, sort_keys=True, default=str),
     }
@@ -1434,19 +1455,30 @@ def _run_mgcv_raw_constructor(
         cached = _mgcv_fixture_load(_cache_key)
     except RuntimeError as portable_error:
         # Preserve access to the committed v5 fixtures while they are migrated
-        # from exact pandas CSV identities to platform-stable identities.
-        legacy_key = _mgcv_fixture_key(
-            "raw_constructor",
-            {
-                **key_parts,
-                "data": _df_fixture_repr(data),
-            },
-        )
-        if legacy_key == _cache_key:
-            raise
-        try:
-            cached = _mgcv_fixture_load(legacy_key)
-        except RuntimeError:
+        # first from full-frame portable identities, then exact pandas CSV.
+        legacy_keys = [
+            _mgcv_fixture_key(
+                "raw_constructor",
+                {
+                    **key_parts,
+                    "data": representation,
+                },
+            )
+            for representation in (
+                _portable_df_fixture_repr(data),
+                _df_fixture_repr(data),
+            )
+        ]
+        cached = None
+        for legacy_key in dict.fromkeys(legacy_keys):
+            if legacy_key == _cache_key:
+                continue
+            try:
+                cached = _mgcv_fixture_load(legacy_key)
+            except RuntimeError:
+                continue
+            break
+        if cached is None:
             raise portable_error from None
     if cached is not None:
         return _decode_packed_matrix_payload(cached)
