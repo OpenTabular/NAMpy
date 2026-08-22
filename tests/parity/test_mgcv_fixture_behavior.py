@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import numpy as np
+import pandas as pd
 import pytest
 
 from tests import mgcv_parity_utils
@@ -54,3 +56,20 @@ def test_explicit_rebuild_bypasses_an_existing_fixture(monkeypatch, tmp_path):
     mgcv_parity_utils._mgcv_fixture_save("example", {"version": 2})
     monkeypatch.delenv("NAMPY_REBUILD_REFERENCE_FIXTURES")
     assert mgcv_parity_utils._mgcv_fixture_load("example") == {"version": 2}
+
+
+def test_portable_dataframe_fixture_identity_ignores_final_bit_platform_noise():
+    """Equivalent libm results share a static raw-constructor fixture key."""
+    value = 0.912763940260521
+    platform_neighbor = np.nextafter(value, np.inf)
+
+    left = pd.DataFrame({"x": [value], "label": ["a"]})
+    right = pd.DataFrame({"x": [platform_neighbor], "label": ["a"]})
+    meaningfully_different = pd.DataFrame({"x": [value + 1e-10], "label": ["a"]})
+
+    assert mgcv_parity_utils._portable_df_fixture_repr(
+        left
+    ) == mgcv_parity_utils._portable_df_fixture_repr(right)
+    assert mgcv_parity_utils._portable_df_fixture_repr(
+        left
+    ) != mgcv_parity_utils._portable_df_fixture_repr(meaningfully_different)
