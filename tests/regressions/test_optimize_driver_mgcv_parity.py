@@ -155,6 +155,7 @@ def test_public_fit_coerces_general_family_method_before_support_check(
         smoothing_optimizer="outer_newton",
         smoothing_params=np.empty((0,), dtype=np.float64),
         smoothing_fixed_mask_=None,
+        predictor_specs=(),
         hparams={},
     )
 
