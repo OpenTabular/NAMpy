@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 [![Development status: Beta](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/Ananyapam7/NAMpy)
 
-NAMpy provides interpretable additive models for **generalized additive models (GAMs)** with statistical inference, automatic smoothness selection, diagnostics, shape constraints etc. along with **neural additive models** (such as NAM, NBM, IGANN, GPNAM, SIAN, SPAM, NodeGAM, and related architectures).
+NAMpy offering a suite of interpretable models for regression, classification, and distributional regression tasks for tabular data offering **generalized additive models (GAMs)** with statistical inference, automatic smoothness selection, diagnostics, shape constraints etc. along with **neural additive models** (such as NAM, NBM, IGANN, GPNAM, SIAN, SPAM, NodeGAM, and related architectures). The models are available for `regression`, `classification` and distributional regression, denoted by `LSS`. Hence, they are available as e.g. `NAMRegressor`, `NAMClassifier` or `NAMLSS`. NAMpy models adhere to scikit-learn's `BaseEstimator` interface, making them highly compatible with the familiar scikit-learn ecosystem.
 
 ## Installation
 
@@ -16,7 +16,40 @@ NAMpy supports Python 3.11 and 3.12. Install all functionality with:
 pip install "nampy[all]"
 ```
 
-## Quick start
+## Interpretability
+
+NAMpy models express predictions as sums of interpretable term contributions-
+
+$$\eta(\mathbf{x})=\beta_0+ \sum_{j=1}^{p} f_j(x_j) + \sum_{(j,k)\in\mathcal I} f_{jk}(x_j,x_k) +o,$$
+
+where $\beta_0$ is the intercept, $f_j$ are main effects, $f_{jk}$ are
+selected interactions, and $o$ is an optional offset. A response transformation
+connects the additive predictor to the prediction:
+
+$$
+\hat{\mu}(\mathbf{x}) = g^{-1}\left(\eta(\mathbf{x})\right).
+$$
+
+GAMs represent the functions $f_j$ using penalized spline bases and estimate
+their smoothness statistically. Neural additive models represent them using
+feature networks, neural trees, learned bases, or related architectures. For distributional regression, NAMpy constructs one additive predictor for
+each distribution parameter:
+
+$$
+Y \mid \mathbf{x}
+\sim
+\mathcal D\left(\theta_1(\mathbf{x}),\ldots,\theta_K(\mathbf{x})\right),
+\qquad
+\theta_k(\mathbf{x}) = h_k^{-1}\left(\eta_k(\mathbf{x})\right).
+$$
+
+This preserves an additive decomposition on the parameter/link scale while
+allowing location, scale, shape, quantiles, or class probabilities to vary with
+the inputs.
+
+## Quick start — Fitting a model
+
+NAMpy’s public estimator classes follow the scikit-learn estimator interface and implement familiar methods such as fit(), predict(), score() and supporting scikit-learn workflows like cross-validation and hyperparameter search.
 
 #### Generalized Additive Model (GAM)
 
@@ -63,7 +96,7 @@ parsing and smooth construction through fitting, prediction, inference, and
 diagnostics. Ordinary and shape-constrained terms share the same formula,
 result, and prediction interfaces.
 
-### Ordinary GAM functionality
+### GAM functionality
 
 
 | Formula surface    | Supported terms                                                                                      |
@@ -73,8 +106,6 @@ result, and prediction interfaces.
 | Tensor products    | `te(...)` and `ti(...)` over supported numeric marginals                                             |
 | Parametric terms   | numeric and factor terms, supported interactions, intercept policies, and formula offsets            |
 | Shared smoothing   | supported `id=` groups, fixed/free smoothing parameters, `select=True`, and `pc=` on supported bases |
-
-
 
 
 ### Shape-constrained functionality
@@ -140,7 +171,7 @@ importance = model.term_importance(X_test)
 figures = model.plot_terms(X_test)
 ```
 
-NAMpy supports the following architectures-
+### Integrated Neural Models
 
 | Architecture                                                                                                                                      | Model idea                                                                                 |
 | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
@@ -164,7 +195,7 @@ NAMpy supports the following architectures-
 
 ### Distributional regression
 
-`*LSS` estimators learn every parameter of a conditional distribution. This
+`LSS` estimators learn every parameter of a conditional distribution. This
 surface follows the [NAMLSS framework](https://proceedings.mlr.press/v238/frederik-thielmann24a.html):
 the family owns output width, valid parameter transforms, loss, prediction,
 and metrics, while the registered architecture supplies additive predictors.
@@ -294,27 +325,6 @@ restored = type(model).load_model(path)
 
 These artifacts use Python pickle. Load them only from trusted sources.
 
-## Documentation and project status
-
-NAMpy is under active development and is classified as beta. Verify advanced
-family, basis, and optimizer combinations on data representative of the
-intended workload.
-
-
-| Resource                    | Link                                                                                     |
-| --------------------------- | ---------------------------------------------------------------------------------------- |
-| Quick start                 | [docs/quickstart.rst](docs/quickstart.rst)                                               |
-| User guide                  | [docs/user_guide.rst](docs/user_guide.rst)                                               |
-| Shape-constrained GAM guide | [docs/user_guide/shape_constrained_gams.rst](docs/user_guide/shape_constrained_gams.rst) |
-| Model guide                 | [docs/models/index.rst](docs/models/index.rst)                                           |
-| API reference               | [docs/api/index.rst](docs/api/index.rst)                                                 |
-| Examples                    | [examples/](examples/)                                                                   |
-| Tutorial notebooks          | [docs/notebooks/](docs/notebooks/)                                                       |
-
-
-NAMpy is released under the [MIT License](LICENSE).
-
-
 
 Both model families keep predictions decomposable into named terms:
 
@@ -325,16 +335,3 @@ prediction = intercept + main effects + optional interactions + optional offset
 NAMpy gives them a shared estimator and interpretation surface without hiding
 their different numerical semantics. GAM inference remains statistical GAM
 inference; neural architectures retain their own training algorithms.
-
-## Functionality at a glance
-
-
-| Model family                    | Supported functionality                                                                                                                                                                                                                           | Public surface                                                | Research references                                                                                            |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| **Generalized additive models** | Formula interface; univariate, tensor-product, factor, and random-effect smooths; automatic smoothness selection; covariance and standard errors; inference and diagnostics; monotone, convex, concave, positive, and bivariate shape constraints | `GAMRegressor`, `GAMClassifier`, `GAM`                        | [Wood (2011)](https://arxiv.org/abs/0709.3906), [Pya & Wood (2015)](https://doi.org/10.1007/s11222-013-9448-7) |
-| **Neural additive models**      | Regression, classification, and distributional regression; learned main effects and selected interactions; model-specific fitting; GPU execution; additive term inspection                                                                        | Registered `*Regressor`, `*Classifier`, and `*LSS` estimators | Per-model papers in the [model catalog](#model-catalog)                                                        |
-
-
-Shape constraints are GAM functionality, not a separate model family. Ordinary
-and constrained smooths use the same `GAM` interface and can coexist in one
-fitted model.
