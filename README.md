@@ -294,27 +294,6 @@ restored = type(model).load_model(path)
 
 These artifacts use Python pickle. Load them only from trusted sources.
 
-## Documentation and project status
-
-NAMpy is under active development and is classified as beta. Verify advanced
-family, basis, and optimizer combinations on data representative of the
-intended workload.
-
-
-| Resource                    | Link                                                                                     |
-| --------------------------- | ---------------------------------------------------------------------------------------- |
-| Quick start                 | [docs/quickstart.rst](docs/quickstart.rst)                                               |
-| User guide                  | [docs/user_guide.rst](docs/user_guide.rst)                                               |
-| Shape-constrained GAM guide | [docs/user_guide/shape_constrained_gams.rst](docs/user_guide/shape_constrained_gams.rst) |
-| Model guide                 | [docs/models/index.rst](docs/models/index.rst)                                           |
-| API reference               | [docs/api/index.rst](docs/api/index.rst)                                                 |
-| Examples                    | [examples/](examples/)                                                                   |
-| Tutorial notebooks          | [docs/notebooks/](docs/notebooks/)                                                       |
-
-
-NAMpy is released under the [MIT License](LICENSE).
-
-
 
 Both model families keep predictions decomposable into named terms:
 
@@ -325,16 +304,3 @@ prediction = intercept + main effects + optional interactions + optional offset
 NAMpy gives them a shared estimator and interpretation surface without hiding
 their different numerical semantics. GAM inference remains statistical GAM
 inference; neural architectures retain their own training algorithms.
-
-## Functionality at a glance
-
-
-| Model family                    | Supported functionality                                                                                                                                                                                                                           | Public surface                                                | Research references                                                                                            |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| **Generalized additive models** | Formula interface; univariate, tensor-product, factor, and random-effect smooths; automatic smoothness selection; covariance and standard errors; inference and diagnostics; monotone, convex, concave, positive, and bivariate shape constraints | `GAMRegressor`, `GAMClassifier`, `GAM`                        | [Wood (2011)](https://arxiv.org/abs/0709.3906), [Pya & Wood (2015)](https://doi.org/10.1007/s11222-013-9448-7) |
-| **Neural additive models**      | Regression, classification, and distributional regression; learned main effects and selected interactions; model-specific fitting; GPU execution; additive term inspection                                                                        | Registered `*Regressor`, `*Classifier`, and `*LSS` estimators | Per-model papers in the [model catalog](#model-catalog)                                                        |
-
-
-Shape constraints are GAM functionality, not a separate model family. Ordinary
-and constrained smooths use the same `GAM` interface and can coexist in one
-fitted model.
