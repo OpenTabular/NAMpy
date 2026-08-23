@@ -64,7 +64,6 @@ docs/
 ├── models/index.rst     # Compact model-selection catalog
 ├── examples/            # Short copyable task recipes
 ├── contributing.rst     # Contributing guide
-├── changelog.rst        # Changelog
 ├── license.rst          # License information
 ├── faq.rst             # FAQ
 ├── _static/            # Static files (CSS, images)
@@ -180,7 +179,6 @@ When adding new features:
 3. Add model theory or a guided workflow through `generate_notebooks.py`; add a standalone
    verification to ``examples/``; keep Sphinx examples as short recipes
 4. Build and check locally before committing
-5. Update the changelog
 
 ## Resources
 

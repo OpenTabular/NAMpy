@@ -5,16 +5,16 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "nampy"
 dynamic = ["version"]
-description = "Interpretable additive modeling with mgcv-aligned GAMs and neural models"
+description = "Interpretable statistical and neural additive models for Python"
 readme = "README.md"
 license = "MIT"
 authors = [
-    {name = "Ananyapam De", email = "ananyapam7@tu-clausthal.de"},
-    {name = "Anton Thielmann", email = "anton.thielmann@tu-clausthal.de"},
+    {name = "Ananyapam De", email = "ananyapam7@gmail.com"},
+    {name = "Anton Thielmann", email = "antonthielmann@t-online.de"},
 ]
 maintainers = [
-    {name = "Ananyapam De", email = "ananyapam7@tu-clausthal.de"},
-    {name = "Anton Thielmann", email = "anton.thielmann@tu-clausthal.de"},
+    {name = "Ananyapam De", email = "ananyapam7@gmail.com"},
+    {name = "Anton Thielmann", email = "antonthielmann@t-online.de"},
 ]
 keywords = [
     "machine learning",

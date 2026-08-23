@@ -58,7 +58,6 @@ do not repeat tutorials.
 
    architecture
    contributing
-   changelog
    license
    faq
    development/reference_sources
