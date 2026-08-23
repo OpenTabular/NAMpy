@@ -342,8 +342,13 @@ def test_saturated_loglik_matches_fix_family_ls_reference(family_key):
                 family.ls(y, wt, n=np.ones_like(y), scale=spec["scale"]),
                 dtype=np.float64,
             )
-            # scipy polygamma vs R trigamma agree to ~1e-9 relative.
-            np.testing.assert_allclose(actual_ls, expected_ls, rtol=1e-8, atol=1e-10)
+            # The Gamma LSat term has the same large-term cancellation as the
+            # scalar saturated log likelihood above.  Preserve the strict
+            # relative comparison while allowing its cross-libm absolute floor.
+            ls_atol = 3e-8 if family_key == "gamma" else 1e-10
+            np.testing.assert_allclose(
+                actual_ls, expected_ls, rtol=1e-8, atol=ls_atol
+            )
 
 
 @pytest.mark.parametrize("family_key", ["poisson", "binomial"])

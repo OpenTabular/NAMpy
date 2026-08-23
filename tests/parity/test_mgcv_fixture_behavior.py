@@ -154,6 +154,19 @@ def test_committed_mgcv_fixture_aliases_resolve_to_static_fixtures():
     assert not missing
 
 
+def test_committed_scam_fixture_aliases_resolve_to_static_fixtures():
+    """Every portable SCAM alias remains usable without a live R package."""
+    fixture_dir = mgcv_parity_utils._MGCV_FIXTURE_DIR.parent / "scam"
+    aliases = json.loads((fixture_dir / "aliases.json").read_text(encoding="utf-8"))
+    missing = [
+        target
+        for target in aliases.values()
+        if not (fixture_dir / f"{target}.json.gz").is_file()
+    ]
+
+    assert not missing
+
+
 def test_raw_constructor_fixture_identity_uses_only_referenced_columns():
     """Response and unrelated columns cannot perturb a constructor fixture key."""
     data = pd.DataFrame(

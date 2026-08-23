@@ -161,7 +161,11 @@ write_json(ans, args[[2]], digits=17, auto_unbox=TRUE)
     np.testing.assert_allclose(fit_result.deviance, expected["deviance"], rtol=3e-6, atol=3e-7)
     np.testing.assert_allclose(fit_result.edf_total, expected["edf"], rtol=3e-6, atol=3e-7)
     np.testing.assert_allclose(fit_result.scale, expected["scale"], rtol=3e-6, atol=3e-7)
-    np.testing.assert_allclose(gam.family.getTheta(True), expected["theta"], rtol=0, atol=0)
+    # Both sides recover theta through exp(log(theta)); libm may round that
+    # round-trip by one binary64 ULP.
+    np.testing.assert_allclose(
+        gam.family.getTheta(True), expected["theta"], rtol=2e-15, atol=0
+    )
     np.testing.assert_allclose(fit_result.smoothing_params, expected["sp"], rtol=2e-10, atol=2e-10)
 
 

@@ -171,7 +171,7 @@ importance = model.term_importance(X_test)
 figures = model.plot_terms(X_test)
 ```
 
-NAMpy supports the following architectures-
+### Integrated Neural Models
 
 | Architecture                                                                                                                                      | Model idea                                                                                 |
 | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
@@ -195,7 +195,7 @@ NAMpy supports the following architectures-
 
 ### Distributional regression
 
-`*LSS` estimators learn every parameter of a conditional distribution. This
+`LSS` estimators learn every parameter of a conditional distribution. This
 surface follows the [NAMLSS framework](https://proceedings.mlr.press/v238/frederik-thielmann24a.html):
 the family owns output width, valid parameter transforms, loss, prediction,
 and metrics, while the registered architecture supplies additive predictors.

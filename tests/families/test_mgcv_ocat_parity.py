@@ -87,7 +87,10 @@ write_json(ans, args[[2]], digits=17, auto_unbox=TRUE)
         for name, value in expected[key].items():
             if value is None or name not in actual:
                 continue
-            np.testing.assert_allclose(actual[name], value)
+            # Analytic zeros can retain one rounding residual in R's libm path.
+            np.testing.assert_allclose(
+                actual[name], value, atol=8.0 * np.finfo(np.float64).eps
+            )
     ls = family.ls(y, wt, family.getTheta(False), 1.0)
     np.testing.assert_allclose(ls["lsth1"], expected["ls"]["lsth1"])
     np.testing.assert_allclose(ls["LSTH1"], expected["ls"]["LSTH1"])

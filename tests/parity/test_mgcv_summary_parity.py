@@ -238,8 +238,10 @@ def test_summary_gam_matches_mgcv(case_id, family, formula, data_factory, method
             ["edf", "ref_df", "wald_stat", "p_value"]
         ].to_numpy(dtype=np.float64)
         assert act_values.shape == exp_values.shape
+        # General-family optimizer endpoints vary at the low-ppm level across
+        # supported LAPACK wheels; the table still derives from the same fit.
         np.testing.assert_allclose(
-            act_values[:, :2], exp_values[:, :2], rtol=1e-6, atol=1e-8
+            act_values[:, :2], exp_values[:, :2], rtol=2e-6, atol=1e-8
         )
         np.testing.assert_allclose(
             act_values[:, 2], exp_values[:, 2], rtol=1e-5, atol=1e-8
