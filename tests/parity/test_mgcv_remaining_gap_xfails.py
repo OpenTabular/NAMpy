@@ -49,7 +49,12 @@ from tests.mgcv_parity_utils import (
 from tests.mgcv_parity_utils import _make_negbin_data as _coverage_make_negbin_data
 from tests.mgcv_parity_utils import _make_poisson_data as _coverage_make_poisson_data
 from tests.mgcv_parity_utils import _run_mgcv_snapshot as _coverage_run_mgcv_snapshot
-from tests.reference_fixtures import load_reference, reference_key, save_reference
+from tests.reference_fixtures import (
+    load_reference,
+    portable_dataframe_identity,
+    reference_key,
+    save_reference,
+)
 
 R_SCRIPT = shutil.which("Rscript")
 
@@ -62,7 +67,7 @@ def _build_formula_only(formula, data: pd.DataFrame):
 
 def _run_mgcv_random_effect_id_error(data: pd.DataFrame):
     key = reference_key(
-        "random_effect_id_error", {"data": data.to_csv(index=False)}
+        "random_effect_id_error", {"data": portable_dataframe_identity(data)}
     )
     cached = load_reference("mgcv", key)
     if cached is not None:

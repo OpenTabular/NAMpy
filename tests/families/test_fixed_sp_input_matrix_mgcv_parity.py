@@ -1088,6 +1088,7 @@ def test_fixed_sp_family_matrix_derivatives_match_mgcv(
     criterion_rtol, cs_derivative_atol = {
         "gaussian_cs_single": (1e-4, 1e-3),
         "poisson_cs_single": (2e-2, 1e-2),
+        "gamma_cs_single": (1e-4, 1e-3),
     }.get(case_id, (2e-7, None))
     grad_tol = float(_grad_tol) if cs_derivative_atol is None else cs_derivative_atol
     hess_tol = float(_hess_tol) if cs_derivative_atol is None else cs_derivative_atol

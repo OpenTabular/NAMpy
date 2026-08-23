@@ -16,7 +16,12 @@ from tests._paths import PARITY_DIR, REPO_ROOT
 from tests.mgcv_invariant_policy import normalize_penalty_scale
 from tests.mgcv_parity_utils import _family_specs, _fit_nampy_model_fixed_sp
 from tests.optimization.test_mgcv_preoptimization_blocks_parity import PREOPT_CASES
-from tests.reference_fixtures import load_reference, reference_key, save_reference
+from tests.reference_fixtures import (
+    load_reference,
+    portable_dataframe_identity,
+    reference_key,
+    save_reference,
+)
 
 R_SCRIPT = shutil.which("Rscript")
 MGCV_PREOPT_REPARAM_SCRIPT = PARITY_DIR / "mgcv_preoptimization_reparam.R"
@@ -67,7 +72,7 @@ def _run_mgcv_preoptimization_reparam(data, formula, family, method, *, select=F
     key = reference_key(
         "preoptimization_reparameterization",
         {
-            "data": data.to_csv(index=False),
+            "data": portable_dataframe_identity(data),
             "formula": formula,
             "family": family_token,
             "method": method,

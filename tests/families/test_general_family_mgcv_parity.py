@@ -123,8 +123,10 @@ GENERAL_SE_CASES = [
         ['y ~ s(x, bs="cr", k=6)', "~ 1"],
         _gammals_data,
         "ML",
-        1e-5,
-        1e-5,
+        # The select=True ML endpoint differs by up to 5.5e-5 across the
+        # supported Linux LAPACK builds while retaining the same optimum.
+        6e-5,
+        6e-5,
         False,
     ),
     (

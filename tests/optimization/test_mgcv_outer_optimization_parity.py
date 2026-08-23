@@ -36,7 +36,12 @@ from tests.mgcv_parity_utils import (
     _make_negbin_data,
     _run_mgcv_snapshot,
 )
-from tests.reference_fixtures import load_reference, reference_key, save_reference
+from tests.reference_fixtures import (
+    load_reference,
+    portable_dataframe_identity,
+    reference_key,
+    save_reference,
+)
 
 R_SCRIPT = shutil.which("Rscript")
 MGCV_OUTER_TRACE_SCRIPT = PARITY_DIR / "mgcv_outer_trace.R"
@@ -98,7 +103,7 @@ def _run_mgcv_outer_trace(
     key = reference_key(
         "outer_optimization_trace",
         {
-            "data": data.to_csv(index=False),
+            "data": portable_dataframe_identity(data),
             "formula": formula,
             "family": family,
             "method": method,

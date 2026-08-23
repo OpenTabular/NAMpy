@@ -15,7 +15,12 @@ from nampy.gam.model_state import _fit_workspace
 from nampy.gam.parity import build_optimizer_trace
 from tests._paths import PARITY_DIR, REPO_ROOT
 from tests.mgcv_parity_utils import _family_specs
-from tests.reference_fixtures import load_reference, reference_key, save_reference
+from tests.reference_fixtures import (
+    load_reference,
+    portable_dataframe_identity,
+    reference_key,
+    save_reference,
+)
 
 R_SCRIPT = shutil.which("Rscript")
 MGCV_TRACE_SCRIPT = PARITY_DIR / "mgcv_trace.R"
@@ -137,7 +142,7 @@ def _run_mgcv_trace(
     key = reference_key(
         "optimizer_trace",
         {
-            "data": data.to_csv(index=False),
+            "data": portable_dataframe_identity(data),
             "formula": formula,
             "family": family,
             "method": method,
@@ -220,7 +225,7 @@ def _run_mgcv_negbin_inner_trace(
     key = reference_key(
         "negbin_inner_trace",
         {
-            "data": data.to_csv(index=False),
+            "data": portable_dataframe_identity(data),
             "formula": formula,
             "family": family_token,
         },

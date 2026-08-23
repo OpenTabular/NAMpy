@@ -10,7 +10,12 @@ import pytest
 
 from nampy.gam import GAM
 from tests._paths import PARITY_DIR, REPO_ROOT
-from tests.reference_fixtures import load_reference, reference_key, save_reference
+from tests.reference_fixtures import (
+    load_reference,
+    portable_dataframe_identity,
+    reference_key,
+    save_reference,
+)
 
 R_SCRIPT = shutil.which("Rscript")
 MGCV_TRACE_SCRIPT = PARITY_DIR / "mgcv_trace.R"
@@ -47,7 +52,7 @@ def _run_mgcv_trace(data, formula, family, method):
     key = reference_key(
         "optimizer_trace",
         {
-            "data": data.to_csv(index=False),
+            "data": portable_dataframe_identity(data),
             "formula": formula,
             "family": family,
             "method": method,

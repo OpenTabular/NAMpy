@@ -485,12 +485,17 @@ def test_preoptimization_case_matrix_covers_supported_non_general_surface():
 def _run_mgcv_preoptimization(data, formula, family, method, *, select=False):
     family_nampy, family_token = _family_specs(family)
     del family_nampy
-    from tests.reference_fixtures import load_reference, reference_key, save_reference
+    from tests.reference_fixtures import (
+        load_reference,
+        portable_dataframe_identity,
+        reference_key,
+        save_reference,
+    )
 
     key = reference_key(
         "preoptimization_blocks",
         {
-            "data": data.to_csv(index=False),
+            "data": portable_dataframe_identity(data),
             "formula": formula,
             "family": family_token,
             "method": method,
