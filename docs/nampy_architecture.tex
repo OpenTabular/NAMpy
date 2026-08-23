@@ -1,0 +1,200 @@
+\documentclass[tikz,border=12pt]{standalone}
+
+% NAMpy codebase architecture — refined visual system.
+% Compile with: pdflatex nampy_architecture_refined.tex
+
+\usepackage[T1]{fontenc}
+\usepackage{microtype}
+\usetikzlibrary{arrows.meta,backgrounds,fit,positioning}
+
+% Color-blind-safe, print-friendly palette (Okabe--Ito inspired).
+\definecolor{ink}{HTML}{1F2937}
+\definecolor{muted}{HTML}{667085}
+\definecolor{paper}{HTML}{FFFFFF}
+\definecolor{apiFill}{HTML}{FFF4D6}
+\definecolor{apiStroke}{HTML}{9A6700}
+\definecolor{gamFill}{HTML}{EAF4FB}
+\definecolor{gamStroke}{HTML}{0072B2}
+\definecolor{scamFill}{HTML}{E8F6F1}
+\definecolor{scamStroke}{HTML}{008A6A}
+\definecolor{neuralFill}{HTML}{F3ECFA}
+\definecolor{neuralStroke}{HTML}{7A4EAB}
+\definecolor{sharedFill}{HTML}{F5F6F8}
+\definecolor{sharedStroke}{HTML}{596579}
+
+\pgfdeclarelayer{background}
+\pgfsetlayers{background,main}
+
+\tikzset{
+  font=\sffamily,
+  >={Latex[length=2.35mm,width=1.55mm]},
+  flow/.style={->,draw=ink!88,line width=.85pt,line cap=round,line join=round},
+  route/.style={flow,rounded corners=3pt},
+  junction/.style={circle,fill=ink!88,inner sep=0pt,minimum size=3.2pt},
+  box/.style={
+    draw=ink,fill=paper,rounded corners=3pt,line width=.75pt,
+    align=center,inner xsep=8pt,inner ysep=7pt
+  },
+  api box/.style={box,fill=apiFill,draw=apiStroke,line width=1pt},
+  gam box/.style={box,fill=gamFill,draw=gamStroke},
+  scam box/.style={box,fill=scamFill,draw=scamStroke},
+  neural box/.style={box,fill=neuralFill,draw=neuralStroke},
+  shared box/.style={box,fill=sharedFill,draw=sharedStroke},
+  group/.style={rounded corners=7pt,line width=1pt,inner sep=14pt},
+  group title/.style={
+    font=\sffamily\bfseries\large,fill=paper,
+    inner xsep=7pt,inner ysep=2.5pt,rounded corners=2pt
+  },
+  note/.style={font=\sffamily\scriptsize,text=muted,align=center}
+}
+
+\begin{document}
+\begin{tikzpicture}[x=1cm,y=1cm]
+
+  \node[font=\sffamily\bfseries\LARGE,text=ink] at (0,2.15)
+    {NAMpy Codebase Architecture};
+  \node[note,text width=18cm] at (0,1.45)
+    {One estimator API, two independent numerical subsystems, and shared contracts for additive-model inspection};
+
+  \node[api box,text width=15.8cm,minimum height=1.35cm] (api) at (0,0)
+    {\textbf{\texttt{nampy.models}: public estimator facade}\\[2pt]
+     \scriptsize \texttt{GAMRegressor} / \texttt{GAMClassifier} and registry-generated neural
+     \texttt{*Regressor} / \texttt{*Classifier} / \texttt{*LSS} estimators};
+
+  % Statistical subsystem
+  \node[gam box,text width=9.7cm,minimum height=1.05cm] (gam-entry) at (-7.25,-2.65)
+    {\textbf{\texttt{GAM} facade}\\[-1pt]
+     \scriptsize formula or array input; family and smooth specifications};
+  \node[gam box,text width=9.7cm,minimum height=1.05cm] (gam-spec) at (-7.25,-4.65)
+    {\textbf{\texttt{formula/} + \texttt{specs/}}\\[-1pt]
+     \scriptsize parse predictors, terms, \texttt{by}/\texttt{id} links, and families};
+  \node[gam box,text width=9.7cm,minimum height=1.10cm] (gam-basis) at (-7.25,-6.75)
+    {\textbf{\texttt{smooths/} + \texttt{splines/} + \texttt{constraints/}}\\[-1pt]
+     \scriptsize runtime terms own basis semantics; build ordinary or SCOP bases,\\
+     penalties, identifiability constraints, and coefficient maps};
+  \node[gam box,text width=9.7cm,minimum height=1.05cm] (gam-compile) at (-7.25,-8.90)
+    {\textbf{\texttt{compiler/}}\\[-1pt]
+     \scriptsize \texttt{CompiledTerm} $\rightarrow$ \texttt{CompiledPredictor} $\rightarrow$ \texttt{CompiledModel}};
+  \node[gam box,text width=5.15cm,minimum height=2.05cm] (mgcv-route) at (-10.35,-11.65)
+    {\textbf{ordinary \texttt{mgcv}-aligned route}\\[4pt]
+     \scriptsize identity coefficient map\\
+     Gaussian exact / PIRLS / general-family solvers\\
+     REML, ML, GCV, UBRE selection};
+  \node[scam box,text width=5.15cm,minimum height=2.05cm] (scam-route) at (-4.15,-11.65)
+    {\textbf{shape-constrained \texttt{scam}-aligned route}\\[4pt]
+     \scriptsize SCOP smooths + transformed coefficients\\
+     constrained fitting iteration\\
+     GCV/UBRE selection};
+  \node[gam box,text width=9.7cm,minimum height=1.05cm] (gam-result) at (-7.25,-14.25)
+    {\textbf{fitted statistical state}\\[-1pt]
+     \scriptsize \texttt{GAMResult}, \texttt{FitCoreSolution}, covariance,\\
+     EDF, smoothing parameters, diagnostics};
+  \node[gam box,text width=9.7cm,minimum height=1.05cm] (gam-output) at (-7.25,-16.35)
+    {\textbf{\texttt{predict/} + \texttt{inference/} + \texttt{diagnostics/}}\\[-1pt]
+     \scriptsize prediction transforms remain paired with the fitted runtime terms};
+
+  % Neural subsystem
+  \node[neural box,text width=9.7cm,minimum height=1.05cm] (registry) at (7.25,-2.65)
+    {\textbf{\texttt{neural.registry} + model configs}\\[-1pt]
+     \scriptsize architecture, capabilities, preprocessing defaults, and estimator mixins};
+  \node[neural box,text width=3.45cm,minimum height=1.55cm] (data) at (2.95,-5.15)
+    {\textbf{\texttt{neural.data}}\\[-1pt]
+     \scriptsize PreTab schema, encoders, datasets, data module};
+  \node[neural box,text width=3.45cm,minimum height=1.55cm] (architectures) at (7.25,-5.15)
+    {\textbf{\texttt{architectures/}}\\[-1pt]
+     \scriptsize model modules; SIAN selection and NodeGAM pretraining hooks};
+  \node[neural box,text width=3.45cm,minimum height=1.55cm] (objectives) at (11.55,-5.15)
+    {\textbf{objectives + distributions}\\[-1pt]
+     \scriptsize task semantics, losses, links, and LSS families};
+  \coordinate (neural-bus) at (7.25,-7.15);
+  \node[neural box,text width=3.45cm,minimum height=2.05cm] (gradient) at (2.95,-9.25)
+    {\textbf{Lightning gradient route}\\[4pt]
+     \scriptsize most architectures; also IGANN multiclass and LSS};
+  \node[neural box,text width=3.45cm,minimum height=2.05cm] (fixed) at (7.25,-9.25)
+    {\textbf{fixed-basis route}\\[4pt]
+     \scriptsize GPNAM regression uses a conjugate-gradient coefficient solve};
+  \node[neural box,text width=3.45cm,minimum height=2.05cm] (native) at (11.55,-9.25)
+    {\textbf{native training route}\\[4pt]
+     \scriptsize IGANN regression/binary uses sequential Newton--ELM ridge updates};
+  \node[neural box,text width=9.7cm,minimum height=1.05cm] (neural-result) at (7.25,-12.25)
+    {\textbf{fitted neural estimator state}\\[-1pt]
+     \scriptsize preprocessing artifacts, trained module/provider state, objective metadata};
+  \node[neural box,text width=9.7cm,minimum height=1.05cm] (neural-output) at (7.25,-16.35)
+    {\textbf{batched prediction + term extraction}\\[-1pt]
+     \scriptsize predictions and additive contributions are converted to backend-neutral contracts};
+
+  % Shared public surfaces
+  \node[shared box,text width=18.5cm,minimum height=1.45cm] (shared) at (0,-19.25)
+    {\textbf{shared inspection and presentation layer}\\[2pt]
+     \scriptsize \texttt{nampy.contracts}: \texttt{FeatureSchema} + \texttt{AdditivePrediction}\quad
+     \textbullet\quad \texttt{nampy.explanations}: tidy term tables\quad
+     \textbullet\quad \texttt{nampy.plotting}: common renderer};
+  \node[api box,text width=15.8cm,minimum height=1.15cm] (user-output) at (0,-21.45)
+    {\textbf{common user workflow}\\[2pt]
+     \scriptsize \texttt{fit} $\rightarrow$ \texttt{predict} $\rightarrow$ \texttt{score}
+     $\rightarrow$ inspect terms $\rightarrow$ plot effects $\rightarrow$ persist fitted estimators};
+
+  % Control flow: each fan-out/fan-in has one explicit junction.
+  \coordinate (api-split) at (0,-1.45);
+  \draw[flow] (api.south) -- (api-split);
+  \node[junction] at (api-split) {};
+  \draw[route] (api-split) -| (gam-entry.north);
+  \draw[route] (api-split) -| (registry.north);
+
+  \draw[flow] (gam-entry) -- (gam-spec);
+  \draw[flow] (gam-spec) -- (gam-basis);
+  \draw[flow] (gam-basis) -- (gam-compile);
+  \coordinate (gam-split) at (-7.25,-10.05);
+  \draw[flow] (gam-compile.south) -- (gam-split);
+  \node[junction] at (gam-split) {};
+  \draw[route] (gam-split) -| (mgcv-route.north);
+  \draw[route] (gam-split) -| (scam-route.north);
+  \coordinate (gam-merge) at (-7.25,-13.20);
+  \draw[route] (mgcv-route.south) |- (gam-merge);
+  \draw[route] (scam-route.south) |- (gam-merge);
+  \node[junction] at (gam-merge) {};
+  \draw[flow] (gam-merge) -- (gam-result.north);
+  \draw[flow] (gam-result) -- (gam-output);
+
+  \coordinate (registry-split) at (7.25,-3.70);
+  \draw[flow] (registry.south) -- (registry-split);
+  \node[junction] at (registry-split) {};
+  \draw[route] (registry-split) -| (data.north);
+  \draw[flow] (registry-split) -- (architectures.north);
+  \draw[route] (registry-split) -| (objectives.north);
+  \draw[route] (data.south) |- (neural-bus);
+  \draw[flow] (architectures.south) -- (neural-bus);
+  \draw[route] (objectives.south) |- (neural-bus);
+  \node[junction] at (neural-bus) {};
+  \coordinate (training-split) at (7.25,-7.70);
+  \draw[flow] (neural-bus) -- (training-split);
+  \node[junction] at (training-split) {};
+  \draw[route] (training-split) -| (gradient.north);
+  \draw[flow] (training-split) -- (fixed.north);
+  \draw[route] (training-split) -| (native.north);
+  \coordinate (neural-merge) at (7.25,-10.75);
+  \draw[route] (gradient.south) |- (neural-merge);
+  \draw[flow] (fixed.south) -- (neural-merge);
+  \draw[route] (native.south) |- (neural-merge);
+  \node[junction] at (neural-merge) {};
+  \draw[flow] (neural-merge) -- (neural-result.north);
+  \draw[flow] (neural-result) -- (neural-output);
+
+  \coordinate (shared-merge) at (0,-18.05);
+  \draw[route] (gam-output.south) |- (shared-merge);
+  \draw[route] (neural-output.south) |- (shared-merge);
+  \node[junction] at (shared-merge) {};
+  \draw[flow] (shared-merge) -- (shared.north);
+  \draw[flow] (shared) -- (user-output);
+
+  \begin{pgfonlayer}{background}
+    \node[group,draw=gamStroke!85,fill=gamFill!55!paper,
+      fit=(gam-entry)(gam-spec)(gam-basis)(gam-compile)(mgcv-route)(scam-route)(gam-result)(gam-output),
+      label={[group title,text=gamStroke]north:\texttt{nampy.gam} --- statistical subsystem}] {};
+    \node[group,draw=neuralStroke!85,fill=neuralFill!58!paper,
+      fit=(registry)(data)(architectures)(objectives)(gradient)(fixed)(native)(neural-result)(neural-output),
+      label={[group title,text=neuralStroke]north:\texttt{nampy.neural} --- neural subsystem}] {};
+  \end{pgfonlayer}
+
+\end{tikzpicture}
+\end{document}

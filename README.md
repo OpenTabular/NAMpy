@@ -310,7 +310,6 @@ intended workload.
 | API reference               | [docs/api/index.rst](docs/api/index.rst)                                                 |
 | Examples                    | [examples/](examples/)                                                                   |
 | Tutorial notebooks          | [docs/notebooks/](docs/notebooks/)                                                       |
-| Changelog                   | [CHANGELOG.md](CHANGELOG.md)                                                             |
 
 
 NAMpy is released under the [MIT License](LICENSE).

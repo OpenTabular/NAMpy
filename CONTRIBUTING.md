@@ -76,7 +76,7 @@ update the source provenance in `tests/reference_fixtures/manifest.json`.
 ## Pull requests
 
 - Add or update tests for user-visible behavior.
-- Update public docs and `CHANGELOG.md` when appropriate.
+- Update public documentation when appropriate.
 - Keep refactors separate from parity fixes.
 - Report the exact tests and static checks run.
 - For GAM fixes, name the upstream `mgcv` file and function used as reference.

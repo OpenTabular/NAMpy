@@ -6,17 +6,25 @@ NAMpy separates fitted estimators from their numerical backends:
 .. code-block:: text
 
    nampy.models                  public sklearn-style estimator facade
-       |-- neural estimators --> nampy.neural
-       |                         |-- architectures/  torch forward models
-       |                         |-- objectives.py   output/loss semantics
-       |                         |-- distributions/  LSS families
-       |                         `-- data/, task.py  training runtime
-       `-- GAM adapters -------> nampy.gam           mgcv-parity backend
+       |-- GAM adapters -------> nampy.gam
+       |                         |-- ordinary GAM functionality (mgcv-aligned)
+       |                         `-- shape constraints (scam-aligned)
+       `-- neural estimators --> nampy.neural
+                                 |-- architectures/  torch forward models
+                                 |-- objectives.py   output/loss semantics
+                                 |-- distributions/  LSS families
+                                 `-- data/, task.py  training runtime
 
-``nampy.models`` is therefore the generic public layer. ``nampy.neural`` and
-``nampy.gam`` remain separate because they use fundamentally different fitting
-algorithms. Both expose additive predictions through the shared contracts and
-plotting surfaces.
+``nampy.models`` is therefore the generic public layer. NAMpy has two numerical
+backends: ``nampy.gam`` and ``nampy.neural``. They remain separate because they
+use fundamentally different fitting algorithms, while both expose additive
+predictions through the shared contracts and plotting surfaces. ``mgcv`` and
+``scam`` are upstream behavioral specifications within the GAM backend, not
+additional NAMpy backends.
+
+A more detailed, publication-ready rendering of these ownership and control-flow
+boundaries is available as :download:`standalone TikZ source
+<nampy_architecture.tex>`.
 
 Neural architecture contract
 ----------------------------
