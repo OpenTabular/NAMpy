@@ -152,7 +152,13 @@ def test_general_family_residual_types_match_mgcv_snapshot(
 ):
     """Verify that general family residual types match mgcv snapshot."""
     data = data_factory()
-    expected = _run_mgcv_snapshot(data, formula, family, "ML")
+    expected = _run_mgcv_snapshot(
+        data,
+        formula,
+        family,
+        "ML",
+        portable_fixture_identity=True,
+    )
     sp = np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)
     gam = _fit_nampy_model_fixed_sp(data, formula, family, sp)
     expected_residuals = expected["parity"]["diagnostics"]["residuals"]
@@ -180,7 +186,13 @@ def test_general_family_additional_residual_types_match_mgcv_snapshot(
 ):
     """Verify that general family additional residual types match mgcv snapshot."""
     data = data_factory()
-    expected = _run_mgcv_snapshot(data, formula, family, "ML")
+    expected = _run_mgcv_snapshot(
+        data,
+        formula,
+        family,
+        "ML",
+        portable_fixture_identity=True,
+    )
     sp = np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)
     gam = _fit_nampy_model_fixed_sp(data, formula, family, sp)
     expected_residuals = expected["parity"]["diagnostics"]["residuals"]
@@ -208,7 +220,13 @@ def test_general_family_summary_text_reports_public_term_labels_and_fit_scalars(
     """
     data = _gaulss_data(seed=43)
     formula = ['y ~ s(x, bs="cr", k=6)', "~ 1"]
-    expected = _run_mgcv_snapshot(data, formula, "gaulss", "ML")
+    expected = _run_mgcv_snapshot(
+        data,
+        formula,
+        "gaulss",
+        "ML",
+        portable_fixture_identity=True,
+    )
     gam = _fit_nampy_model(data, formula, "gaulss", "ML")
 
     from nampy.gam.inference.summary import summary_gam
