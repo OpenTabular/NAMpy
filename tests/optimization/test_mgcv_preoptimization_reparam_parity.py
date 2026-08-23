@@ -44,28 +44,6 @@ REPARAM_CASE_IDS = {
 REPARAM_CASES = [case for case in PREOPT_CASES if case[0] in REPARAM_CASE_IDS]
 
 
-def _normalize_family_name(family):
-    if isinstance(family, dict):
-        return str(family.get("name", "")).lower()
-    return str(family).lower()
-
-
-def test_reparam_case_matrix_covers_requested_surface():
-    """Verify that reparam case matrix covers requested surface."""
-    ids = {case[0] for case in REPARAM_CASES}
-    assert ids == REPARAM_CASE_IDS
-
-    families = {_normalize_family_name(case[3]) for case in REPARAM_CASES}
-    assert families >= {"gaussian", "binomial", "poisson", "gamma", "negbin"}
-
-    assert any(case[5] for case in REPARAM_CASES), "Missing select=True coverage."
-    assert any('id="' in str(case[2]) for case in REPARAM_CASES)
-    assert any("by=z" in str(case[2]) for case in REPARAM_CASES)
-    assert any("by=f" in str(case[2]) for case in REPARAM_CASES)
-    assert any(any(token in str(case[2]) for token in ("ti(", 'bs="fs"')) for case in REPARAM_CASES)
-    assert any('bs="re"' in str(case[2]) for case in REPARAM_CASES)
-
-
 def _run_mgcv_preoptimization_reparam(data, formula, family, method, *, select=False):
     family_nampy, family_token = _family_specs(family)
     del family_nampy

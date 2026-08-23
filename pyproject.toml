@@ -194,10 +194,7 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# Collect every test module. Do not narrow this to name-prefix allowlists:
-# a file that stops matching is skipped silently, and the suite-contract
-# test's explicit-path collection would still certify it (see
-# tests/regressions/test_gam_test_suite_contracts.py).
+# Collect every conventionally named test module.
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

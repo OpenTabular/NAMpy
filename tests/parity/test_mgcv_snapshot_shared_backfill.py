@@ -7,9 +7,7 @@ module or it silently stops running. `test_mgcv_snapshot_parity.py` owns
 `test_mgcv_parity_failing_and_warnings.py` own the re-exported
 `TestAdditionalScenarioParity` methods; this module owns everything else.
 
-`tests/regressions/test_gam_test_suite_contracts.py::
-test_shared_snapshot_parity_classes_are_all_collected` fails if a shared class
-loses its owner again.
+Keep these re-exports at module scope so pytest collects the shared classes.
 """
 
 from tests._mgcv_snapshot_parity_shared import (
