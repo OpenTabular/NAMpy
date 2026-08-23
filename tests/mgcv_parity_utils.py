@@ -24,9 +24,11 @@ from nampy.gam import GAM
 from tests._paths import PARITY_DIR, REPO_ROOT, TESTS_DIR
 from tests.reference_fixtures import (
     REFRESH_ENV,
+    AliasedReferenceKey,
     MissingReferenceFixture,
-    load_reference,
-    portable_dataframe_repr,
+    fixture_payload_variants,
+    load_aliased_reference,
+    portable_dataframe_identity,
     save_reference,
 )
 
@@ -94,6 +96,7 @@ R_SCRIPT = _resolve_r_executable()
 # Normal tests only read committed upstream outputs. R is invoked solely when
 # a developer explicitly opts into fixture generation with REFRESH_ENV.
 _MGCV_FIXTURE_DIR = _TESTS_DIR / "reference_fixtures" / "mgcv"
+_MGCV_FIXTURE_ALIASES = _MGCV_FIXTURE_DIR / "aliases.json"
 _MGCV_SNAPSHOT_SERVER_PROCESS = None
 _MGCV_SNAPSHOT_SERVER_LOCK = threading.Lock()
 _MGCV_SNAPSHOT_SERVER_REQUEST_IDS = itertools.count(1)
@@ -324,21 +327,32 @@ def _run_mgcv_snapshot_batched(
             return response["result"]
 
 
-def _mgcv_fixture_key(fn_name: str, key_parts: dict) -> str:
+def _mgcv_fixture_key(fn_name: str, key_parts: dict) -> AliasedReferenceKey:
     """Return a stable hex digest that identifies a unique mgcv call."""
-    buf = io.StringIO()
-    buf.write(fn_name)
-    buf.write("|")
-    # Sort keys for stability; values are already strings/primitives.
-    buf.write(json.dumps(key_parts, sort_keys=True, default=str))
-    digest = hashlib.sha256(buf.getvalue().encode()).hexdigest()
-    return digest
+    canonical_parts, legacy_parts = fixture_payload_variants(key_parts)
+
+    def digest(parts) -> str:
+        buf = io.StringIO()
+        buf.write(fn_name)
+        buf.write("|")
+        # Sort keys for stability; values are already strings/primitives.
+        buf.write(json.dumps(parts, sort_keys=True, default=str))
+        return hashlib.sha256(buf.getvalue().encode()).hexdigest()
+
+    canonical = digest(canonical_parts)
+    legacy = digest(legacy_parts)
+    return AliasedReferenceKey(canonical, None if legacy == canonical else legacy)
 
 
 def _mgcv_fixture_load(key: str):
     """Return a committed result, or ``None`` only during explicit refresh."""
     try:
-        return load_reference("", key, root=_MGCV_FIXTURE_DIR)
+        return load_aliased_reference(
+            "",
+            key,
+            aliases_path=_MGCV_FIXTURE_ALIASES,
+            root=_MGCV_FIXTURE_DIR,
+        )
     except MissingReferenceFixture as exc:
         raise RuntimeError(
             "This test requires a committed static mgcv reference fixture. "
@@ -349,12 +363,12 @@ def _mgcv_fixture_load(key: str):
 
 def _mgcv_fixture_save(key: str, result) -> None:
     """Persist deterministic compressed JSON during explicit refresh mode."""
-    save_reference("", key, result, root=_MGCV_FIXTURE_DIR)
+    save_reference("", str(key), result, root=_MGCV_FIXTURE_DIR)
 
 
 def _df_fixture_repr(df: pd.DataFrame) -> str:
     """Deterministic string representation of a DataFrame for cache keying."""
-    return df.to_csv(index=False)
+    return portable_dataframe_identity(df)
 
 
 def _portable_df_fixture_repr(df: pd.DataFrame) -> str:
@@ -363,10 +377,10 @@ def _portable_df_fixture_repr(df: pd.DataFrame) -> str:
     Transcendental NumPy operations can differ by a final binary digit across
     system math libraries. Those differences are immaterial to constructor
     parity but pandas' default full-precision CSV output turns them into
-    different hashes. Fifteen significant decimal digits retain far more
-    precision than the parity tolerances while removing that platform noise.
+    different hashes. Twelve significant decimal digits retain more precision
+    than the parity data scales while removing that platform noise.
     """
-    return portable_dataframe_repr(df)
+    return portable_dataframe_identity(df, legacy_float_format="%.15g")
 
 
 def _raw_constructor_fixture_frame(

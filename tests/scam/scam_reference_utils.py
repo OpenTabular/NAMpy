@@ -15,12 +15,14 @@ from tests._paths import REPO_ROOT
 from tests.mgcv_parity_utils import R_SCRIPT, _build_r_command
 from tests.reference_fixtures import (
     REFRESH_ENV,
-    load_reference,
-    portable_dataframe_repr,
-    reference_key,
+    aliased_reference_key,
+    load_aliased_reference,
+    portable_dataframe_identity,
     refresh_enabled,
     save_reference,
 )
+
+_SCAM_FIXTURE_ALIASES = REPO_ROOT / "tests" / "reference_fixtures" / "scam" / "aliases.json"
 
 
 def scam_reference_available() -> bool:
@@ -28,8 +30,12 @@ def scam_reference_available() -> bool:
 
 
 def _load_scam_reference(operation: str, payload) -> tuple[str, dict | None]:
-    key = reference_key(operation, payload)
-    return key, load_reference("scam", key)
+    key = aliased_reference_key(operation, payload, normalize_floats=True)
+    return key, load_aliased_reference(
+        "scam",
+        key,
+        aliases_path=_SCAM_FIXTURE_ALIASES,
+    )
 
 
 def _require_local_scam() -> str:
@@ -54,8 +60,8 @@ def run_scam_raw_constructor(
     key, cached = _load_scam_reference(
         "raw_constructor",
         {
-            "data": data.to_csv(index=False),
-            "new_data": prediction_data.to_csv(index=False),
+            "data": portable_dataframe_identity(data),
+            "new_data": portable_dataframe_identity(prediction_data),
             "smooth_expr": smooth_expr,
             "smoothcon": smoothcon,
         },
@@ -355,7 +361,7 @@ def run_scam_fixed_sp_fit(
     key, cached = _load_scam_reference(
         "fixed_sp_fit",
         {
-            "data": portable_dataframe_repr(data),
+            "data": portable_dataframe_identity(data),
             "formula": formula,
             "family": family,
             "sp": sp_values,
@@ -509,7 +515,7 @@ def run_scam_selected_sp_fit(
     key, cached = _load_scam_reference(
         "selected_sp_fit",
         {
-            "data": data.to_csv(index=False),
+            "data": portable_dataframe_identity(data),
             "formula": formula,
             "family": family,
             "start": start_values,
@@ -605,7 +611,7 @@ def run_scam_ar1_fixed_fit(
     key, cached = _load_scam_reference(
         "ar1_fixed_fit",
         {
-            "data": data.to_csv(index=False),
+            "data": portable_dataframe_identity(data),
             "formula": formula,
             "sp": sp_values,
             "start": start_values,
