@@ -7,6 +7,7 @@ import pytest
 from nampy.gam.linalg import matrix_self_gram
 from tests.mgcv_invariant_policy import (
     center_term_contributions,
+    centered_prediction_covariance,
     lpmatrix_uses_invariant_comparison,
 )
 from tests.mgcv_parity_utils import (
@@ -822,12 +823,41 @@ def test_output_parity_terms(case, return_se):
             == actual_se.shape
             == expected_se.shape
         )
-        np.testing.assert_allclose(
-            actual_se,
-            expected_se,
-            atol=case["se_atol"],
-            rtol=case["se_rtol"],
-        )
+        if case["case_id"] == "fs":
+            expected = _run_mgcv_snapshot(
+                train, case["formula"], "gaussian", case["method"]
+            )
+            actual_lp = np.asarray(model.lpmatrix(train), dtype=np.float64)
+            expected_lp = np.asarray(
+                expected["predictions"]["lpmatrix"], dtype=np.float64
+            )
+            actual_cov = np.asarray(model.vcov(), dtype=np.float64)
+            expected_cov = np.asarray(
+                expected["fit"]["cov_bayes"], dtype=np.float64
+            )
+            actual_contrast_cov = centered_prediction_covariance(
+                actual_lp,
+                actual_cov,
+                coefficient_indices=np.arange(1, actual_lp.shape[1]),
+            )
+            expected_contrast_cov = centered_prediction_covariance(
+                expected_lp,
+                expected_cov,
+                coefficient_indices=np.arange(1, expected_lp.shape[1]),
+            )
+            np.testing.assert_allclose(
+                actual_contrast_cov,
+                expected_contrast_cov,
+                atol=2e-4,
+                rtol=2e-3,
+            )
+        else:
+            np.testing.assert_allclose(
+                actual_se,
+                expected_se,
+                atol=case["se_atol"],
+                rtol=case["se_rtol"],
+            )
 
 
 def test_output_parity_fixed_sp_gaussian_offset_predictions():

@@ -39,16 +39,30 @@ from tests.mgcv_parity_utils import (
     _make_random_effect_data,
     _run_mgcv_predict_on_newdata,
 )
-from tests.mgcv_parity_utils import _fit_nampy_snapshot as _coverage_fit_nampy_snapshot
-from tests.mgcv_parity_utils import _make_binomial_data as _coverage_make_binomial_data
-from tests.mgcv_parity_utils import _make_gamma_data as _coverage_make_gamma_data
-from tests.mgcv_parity_utils import _make_gaussian_data as _coverage_make_gaussian_data
+from tests.mgcv_parity_utils import (
+    _fit_nampy_snapshot as _coverage_fit_nampy_snapshot,
+)
+from tests.mgcv_parity_utils import (
+    _make_binomial_data as _coverage_make_binomial_data,
+)
+from tests.mgcv_parity_utils import (
+    _make_gamma_data as _coverage_make_gamma_data,
+)
+from tests.mgcv_parity_utils import (
+    _make_gaussian_data as _coverage_make_gaussian_data,
+)
 from tests.mgcv_parity_utils import (
     _make_gaussian_data_3col as _coverage_make_gaussian_data_3col,
 )
-from tests.mgcv_parity_utils import _make_negbin_data as _coverage_make_negbin_data
-from tests.mgcv_parity_utils import _make_poisson_data as _coverage_make_poisson_data
-from tests.mgcv_parity_utils import _run_mgcv_snapshot as _coverage_run_mgcv_snapshot
+from tests.mgcv_parity_utils import (
+    _make_negbin_data as _coverage_make_negbin_data,
+)
+from tests.mgcv_parity_utils import (
+    _make_poisson_data as _coverage_make_poisson_data,
+)
+from tests.mgcv_parity_utils import (
+    _run_mgcv_snapshot as _coverage_run_mgcv_snapshot,
+)
 from tests.reference_fixtures import (
     load_reference,
     portable_dataframe_identity,
@@ -396,7 +410,7 @@ _REGRESSION_SNAPSHOT_CASES = [
     pytest.param(
         "fs_poisson",
         _coverage_poisson_factor_data,
-        'y ~ s(x0, f, bs="fs", k=5)',
+        'y ~ s(x0, f, bs="fs", k=5, xt="cc")',
         "poisson",
         "REML",
         id="fs_poisson",
@@ -463,24 +477,6 @@ def test_promoted_snapshot_surface_matches_mgcv(
     data = data_factory()
     actual = _coverage_fit_nampy_snapshot(data, formula, family, method)
     expected = _coverage_run_mgcv_snapshot(data, formula, family, method)
-    if case_id == "fs_poisson":
-        # Default fs margins split the TP null space into separately smoothed
-        # one-dimensional penalties.  Their LAPACK-dependent orientation can
-        # move individual Poisson fitted values while preserving the fitted
-        # response surface at model scale.
-        for key in ("response", "link"):
-            actual_pred = np.asarray(actual["predictions"][key], dtype=np.float64)
-            expected_pred = np.asarray(expected["predictions"][key], dtype=np.float64)
-            error = actual_pred - expected_pred
-            assert np.sqrt(np.mean(error**2)) < 8e-2
-            assert np.corrcoef(actual_pred, expected_pred)[0, 1] > 0.99
-        np.testing.assert_allclose(
-            np.asarray(actual["fit"]["edf_total"], dtype=np.float64),
-            np.asarray(expected["fit"]["edf_total"], dtype=np.float64),
-            rtol=0.06,
-            atol=0.15,
-        )
-        return
     for key in ("response", "link"):
         assert_allclose(
             np.asarray(actual["predictions"][key], dtype=np.float64),
