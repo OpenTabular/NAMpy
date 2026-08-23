@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import json
+
 import numpy as np
 import pandas as pd
 import pytest
 
 from tests import mgcv_parity_utils
+from tests.reference_fixtures import AliasedReferenceKey, FixtureIdentity
 
 pytestmark = [
     pytest.mark.surface_output,
@@ -73,6 +76,33 @@ def test_portable_dataframe_fixture_identity_ignores_final_bit_platform_noise():
     assert mgcv_parity_utils._portable_df_fixture_repr(
         left
     ) != mgcv_parity_utils._portable_df_fixture_repr(meaningfully_different)
+
+
+def test_portable_fixture_key_records_and_reuses_existing_fixture_alias(
+    monkeypatch, tmp_path
+):
+    """Canonical keys reuse committed fixtures created with historical text."""
+    aliases_path = tmp_path / "aliases.json"
+    monkeypatch.setattr(mgcv_parity_utils, "_MGCV_FIXTURE_DIR", tmp_path)
+    monkeypatch.setattr(mgcv_parity_utils, "_MGCV_FIXTURE_ALIASES", aliases_path)
+    key = mgcv_parity_utils._mgcv_fixture_key(
+        "example",
+        {"data": FixtureIdentity("x\n0.5\n", "x\n0.5000000000000001\n")},
+    )
+    assert key.legacy is not None
+
+    monkeypatch.setenv("NAMPY_REFRESH_REFERENCE_FIXTURES", "1")
+    mgcv_parity_utils._mgcv_fixture_save(key.legacy, {"value": 3})
+    monkeypatch.delenv("NAMPY_REFRESH_REFERENCE_FIXTURES")
+    monkeypatch.setenv("NAMPY_RECORD_REFERENCE_ALIASES", "1")
+    assert mgcv_parity_utils._mgcv_fixture_load(key) == {"value": 3}
+    assert json.loads(aliases_path.read_text(encoding="utf-8")) == {
+        str(key): key.legacy
+    }
+
+    monkeypatch.delenv("NAMPY_RECORD_REFERENCE_ALIASES")
+    alias_only_key = AliasedReferenceKey(str(key), "unavailable")
+    assert mgcv_parity_utils._mgcv_fixture_load(alias_only_key) == {"value": 3}
 
 
 def test_raw_constructor_fixture_identity_uses_only_referenced_columns():

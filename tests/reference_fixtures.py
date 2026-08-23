@@ -22,10 +22,33 @@ from tests._paths import TESTS_DIR
 FIXTURE_ROOT = TESTS_DIR / "reference_fixtures"
 REFRESH_ENV = "NAMPY_REFRESH_REFERENCE_FIXTURES"
 REBUILD_ENV = "NAMPY_REBUILD_REFERENCE_FIXTURES"
+RECORD_ALIASES_ENV = "NAMPY_RECORD_REFERENCE_ALIASES"
 
 
 class MissingReferenceFixture(RuntimeError):
     """Raised when a parity case has no committed static reference result."""
+
+
+class FixtureIdentity(str):
+    """Canonical fixture input text paired with its pre-migration spelling."""
+
+    legacy: str
+
+    def __new__(cls, canonical: str, legacy: str):
+        value = super().__new__(cls, canonical)
+        value.legacy = legacy
+        return value
+
+
+class AliasedReferenceKey(str):
+    """Canonical fixture key paired with the key used by existing fixtures."""
+
+    legacy: str | None
+
+    def __new__(cls, canonical: str, legacy: str | None = None):
+        value = super().__new__(cls, canonical)
+        value.legacy = legacy
+        return value
 
 
 def refresh_enabled() -> bool:
@@ -54,20 +77,133 @@ def reference_key(operation: str, payload: Any) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _map_fixture_payload(value: Any, *, legacy: bool, normalize_floats: bool) -> Any:
+    """Map a fixture payload to its canonical or historical representation."""
+    if isinstance(value, FixtureIdentity):
+        return value.legacy if legacy else str(value)
+    if isinstance(value, dict):
+        return {
+            key: _map_fixture_payload(
+                item, legacy=legacy, normalize_floats=normalize_floats
+            )
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [
+            _map_fixture_payload(
+                item, legacy=legacy, normalize_floats=normalize_floats
+            )
+            for item in value
+        ]
+    if normalize_floats and not legacy and isinstance(value, float):
+        return float(f"{value:.12g}")
+    return value
+
+
+def aliased_reference_key(
+    operation: str,
+    payload: Any,
+    *,
+    normalize_floats: bool = False,
+) -> AliasedReferenceKey:
+    """Build a portable key while retaining the existing fixture key."""
+    canonical_payload = _map_fixture_payload(
+        payload, legacy=False, normalize_floats=normalize_floats
+    )
+    legacy_payload = _map_fixture_payload(
+        payload, legacy=True, normalize_floats=normalize_floats
+    )
+    canonical = reference_key(operation, canonical_payload)
+    legacy = reference_key(operation, legacy_payload)
+    return AliasedReferenceKey(canonical, None if legacy == canonical else legacy)
+
+
+def fixture_payload_variants(
+    payload: Any,
+    *,
+    normalize_floats: bool = False,
+) -> tuple[Any, Any]:
+    """Return canonical and historical forms of a fixture-key payload."""
+    return (
+        _map_fixture_payload(
+            payload, legacy=False, normalize_floats=normalize_floats
+        ),
+        _map_fixture_payload(
+            payload, legacy=True, normalize_floats=normalize_floats
+        ),
+    )
+
+
 def portable_dataframe_repr(frame: pd.DataFrame) -> str:
     """Return a platform-stable DataFrame identity for fixture keys.
 
     NumPy transcendental functions can differ by a final binary digit across
     system math libraries. Pandas' default full-precision CSV output preserves
     that immaterial noise and consequently gives equivalent parity inputs
-    different fixture keys. Fifteen significant decimal digits retain much
-    more precision than the parity tolerances while keeping the identity stable.
+    different fixture keys. Twelve significant decimal digits remain finer
+    than the data-scale parity tolerances while avoiding decimal rounding
+    boundaries that a one-ULP difference can cross at fifteen digits.
     """
     return frame.to_csv(
         index=False,
-        float_format="%.15g",
+        float_format="%.12g",
         lineterminator="\n",
     )
+
+
+def portable_dataframe_identity(
+    frame: pd.DataFrame,
+    *,
+    legacy_float_format: str | None = None,
+) -> FixtureIdentity:
+    """Return portable DataFrame text with its historical representation."""
+    legacy = frame.to_csv(
+        index=False,
+        float_format=legacy_float_format,
+        lineterminator="\n",
+    )
+    return FixtureIdentity(portable_dataframe_repr(frame), legacy)
+
+
+def load_aliased_reference(
+    namespace: str,
+    key: str,
+    *,
+    aliases_path: Path,
+    root: Path | None = None,
+) -> Any | None:
+    """Load a canonical fixture through a committed legacy-key alias."""
+    try:
+        return load_reference(namespace, str(key), root=root)
+    except MissingReferenceFixture as canonical_error:
+        aliases = (
+            json.loads(aliases_path.read_text(encoding="utf-8"))
+            if aliases_path.exists()
+            else {}
+        )
+        target = aliases.get(str(key))
+        legacy = getattr(key, "legacy", None)
+        if target is None and legacy is not None:
+            target = legacy
+        if target is None:
+            raise canonical_error
+        try:
+            result = load_reference(namespace, target, root=root)
+        except MissingReferenceFixture:
+            raise canonical_error from None
+        if (
+            target == legacy
+            and aliases.get(str(key)) != target
+            and os.environ.get(RECORD_ALIASES_ENV, "").lower()
+            in {"1", "true", "yes", "on"}
+        ):
+            aliases[str(key)] = target
+            aliases_path.parent.mkdir(parents=True, exist_ok=True)
+            aliases_path.write_text(
+                json.dumps(aliases, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+        return result
 
 
 def fixture_path(namespace: str, key: str, *, root: Path | None = None) -> Path:
@@ -122,13 +258,20 @@ def save_reference(
 
 
 __all__ = [
+    "AliasedReferenceKey",
     "FIXTURE_ROOT",
+    "FixtureIdentity",
     "MissingReferenceFixture",
     "REBUILD_ENV",
     "REFRESH_ENV",
+    "RECORD_ALIASES_ENV",
+    "aliased_reference_key",
     "fixture_path",
+    "fixture_payload_variants",
     "generation_enabled",
     "load_reference",
+    "load_aliased_reference",
+    "portable_dataframe_identity",
     "portable_dataframe_repr",
     "reference_key",
     "rebuild_enabled",
