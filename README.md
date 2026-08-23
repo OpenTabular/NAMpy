@@ -20,17 +20,7 @@ pip install "nampy[all]"
 
 NAMpy models express predictions as sums of interpretable term contributions-
 
-$$
-\eta(\mathbf{x})
-=
-\beta_0
-+
-\sum_{j=1}^{p} f_j(x_j)
-+
-\sum_{(j,k)\in\mathcal I} f_{jk}(x_j,x_k)
-+
-o,
-$$
+$$\eta(\mathbf{x})=\beta_0+ \sum_{j=1}^{p} f_j(x_j) + \sum_{(j,k)\in\mathcal I} f_{jk}(x_j,x_k) +o,$$
 
 where $\beta_0$ is the intercept, $f_j$ are main effects, $f_{jk}$ are
 selected interactions, and $o$ is an optional offset. A response transformation
