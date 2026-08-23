@@ -589,16 +589,6 @@
 <li class="toctree-l2"><a class="reference internal" href="contributing.html#useful-links">Useful links</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="changelog.html">Changelog</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="changelog.html#latest-release">Latest Release</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="changelog.html#version-0-2-0-2026-08-22">Version 0.2.0 (2026-08-22)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="changelog.html#version-0-1-0-2024-01-07">Version 0.1.0 (2024-01-07)</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="changelog.html#version-history">Version History</a></li>
-<li class="toctree-l2"><a class="reference internal" href="changelog.html#for-more-details">For More Details</a></li>
-</ul>
-</li>
 <li class="toctree-l1"><a class="reference internal" href="license.html">License</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="license.html#mit-license">MIT License</a></li>
 <li class="toctree-l2"><a class="reference internal" href="license.html#summary">Summary</a></li>
@@ -688,18 +678,24 @@
 <h1>Architecture<a class="headerlink" href="#architecture" title="Link to this heading"></a></h1>
 <p>NAMpy separates fitted estimators from their numerical backends:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>nampy.models                  public sklearn-style estimator facade
-    |-- neural estimators --&gt; nampy.neural
-    |                         |-- architectures/  torch forward models
-    |                         |-- objectives.py   output/loss semantics
-    |                         |-- distributions/  LSS families
-    |                         `-- data/, task.py  training runtime
-    `-- GAM adapters -------&gt; nampy.gam           mgcv-parity backend
+    |-- GAM adapters -------&gt; nampy.gam
+    |                         |-- ordinary GAM functionality (mgcv-aligned)
+    |                         `-- shape constraints (scam-aligned)
+    `-- neural estimators --&gt; nampy.neural
+                              |-- architectures/  torch forward models
+                              |-- objectives.py   output/loss semantics
+                              |-- distributions/  LSS families
+                              `-- data/, task.py  training runtime
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">nampy.models</span></code> is therefore the generic public layer. <code class="docutils literal notranslate"><span class="pre">nampy.neural</span></code> and
-<code class="docutils literal notranslate"><span class="pre">nampy.gam</span></code> remain separate because they use fundamentally different fitting
-algorithms. Both expose additive predictions through the shared contracts and
-plotting surfaces.</p>
+<p><code class="docutils literal notranslate"><span class="pre">nampy.models</span></code> is therefore the generic public layer. NAMpy has two numerical
+backends: <code class="docutils literal notranslate"><span class="pre">nampy.gam</span></code> and <code class="docutils literal notranslate"><span class="pre">nampy.neural</span></code>. They remain separate because they
+use fundamentally different fitting algorithms, while both expose additive
+predictions through the shared contracts and plotting surfaces. <code class="docutils literal notranslate"><span class="pre">mgcv</span></code> and
+<code class="docutils literal notranslate"><span class="pre">scam</span></code> are upstream behavioral specifications within the GAM backend, not
+additional NAMpy backends.</p>
+<p>A more detailed, publication-ready rendering of these ownership and control-flow
+boundaries is available as <a class="reference download internal" download="" href="_downloads/86866a38001c5fcce6039085f5cfb4e1/nampy_architecture.tex"><code class="xref download docutils literal notranslate"><span class="pre">standalone</span> <span class="pre">TikZ</span> <span class="pre">source</span></code></a>.</p>
 <section id="neural-architecture-contract">
 <h2>Neural architecture contract<a class="headerlink" href="#neural-architecture-contract" title="Link to this heading"></a></h2>
 <p>A neural architecture always defines a forward model. It accepts transformed
