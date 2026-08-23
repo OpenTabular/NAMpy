@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 [![Development status: Beta](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/Ananyapam7/NAMpy)
 
-NAMpy provides interpretable additive models for **generalized additive models (GAMs)** with statistical inference, automatic smoothness selection, diagnostics, shape constraints etc. along with **neural additive models** (such as NAM, NBM, IGANN, GPNAM, SIAN, SPAM, NodeGAM, and related architectures).
+NAMpy offering a suite of interpretable models for regression, classification, and distributional regression tasks for tabular data offering **generalized additive models (GAMs)** with statistical inference, automatic smoothness selection, diagnostics, shape constraints etc. along with **neural additive models** (such as NAM, NBM, IGANN, GPNAM, SIAN, SPAM, NodeGAM, and related architectures). The models are available for `regression`, `classification` and distributional regression, denoted by `LSS`. Hence, they are available as e.g. `NAMRegressor`, `NAMClassifier` or `NAMLSS`. NAMpy models adhere to scikit-learn's `BaseEstimator` interface, making them highly compatible with the familiar scikit-learn ecosystem.
 
 ## Installation
 
@@ -16,7 +16,50 @@ NAMpy supports Python 3.11 and 3.12. Install all functionality with:
 pip install "nampy[all]"
 ```
 
-## Quick start
+## Interpretability
+
+NAMpy models express predictions as sums of interpretable term contributions-
+
+$$
+\eta(\mathbf{x})
+=
+\beta_0
++
+\sum_{j=1}^{p} f_j(x_j)
++
+\sum_{(j,k)\in\mathcal I} f_{jk}(x_j,x_k)
++
+o,
+$$
+
+where $\beta_0$ is the intercept, $f_j$ are main effects, $f_{jk}$ are
+selected interactions, and $o$ is an optional offset. A response transformation
+connects the additive predictor to the prediction:
+
+$$
+\hat{\mu}(\mathbf{x}) = g^{-1}\!\left(\eta(\mathbf{x})\right).
+$$
+
+GAMs represent the functions $f_j$ using penalized spline bases and estimate
+their smoothness statistically. Neural additive models represent them using
+feature networks, neural trees, learned bases, or related architectures. For distributional regression, NAMpy constructs one additive predictor for
+each distribution parameter:
+
+$$
+Y \mid \mathbf{x}
+\sim
+\mathcal D\!\left(\theta_1(\mathbf{x}),\ldots,\theta_K(\mathbf{x})\right),
+\qquad
+\theta_k(\mathbf{x}) = h_k^{-1}\!\left(\eta_k(\mathbf{x})\right).
+$$
+
+This preserves an additive decomposition on the parameter/link scale while
+allowing location, scale, shape, quantiles, or class probabilities to vary with
+the inputs.
+
+## Quick start — Fitting a model
+
+NAMpy’s public estimator classes follow the scikit-learn estimator interface and implement familiar methods such as fit(), predict(), score() and supporting scikit-learn workflows like cross-validation and hyperparameter search.
 
 #### Generalized Additive Model (GAM)
 
@@ -63,7 +106,7 @@ parsing and smooth construction through fitting, prediction, inference, and
 diagnostics. Ordinary and shape-constrained terms share the same formula,
 result, and prediction interfaces.
 
-### Ordinary GAM functionality
+### GAM functionality
 
 
 | Formula surface    | Supported terms                                                                                      |
@@ -73,8 +116,6 @@ result, and prediction interfaces.
 | Tensor products    | `te(...)` and `ti(...)` over supported numeric marginals                                             |
 | Parametric terms   | numeric and factor terms, supported interactions, intercept policies, and formula offsets            |
 | Shared smoothing   | supported `id=` groups, fixed/free smoothing parameters, `select=True`, and `pc=` on supported bases |
-
-
 
 
 ### Shape-constrained functionality
