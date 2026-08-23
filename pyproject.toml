@@ -92,6 +92,8 @@ docs = [
     "myst-parser>=2.0.0",
     "nbsphinx>=0.9.0",
     "ipykernel",
+    "nbclient>=0.10.0",
+    "nbformat>=5.10.0",
 ]
 
 [project.urls]
