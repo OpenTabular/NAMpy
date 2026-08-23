@@ -22,6 +22,7 @@ from tests.families.test_general_family_mgcv_parity import (
 )
 from tests.mgcv_invariant_policy import (
     center_term_contributions,
+    centered_prediction_covariance,
     stable_column_space_projector,
 )
 from tests.mgcv_parity_utils import (
@@ -1197,7 +1198,39 @@ def test_stage_7_structured_terms_unconditional_se_matches_mgcv(
         actual_pred = center_term_contributions(actual_pred)
         expected_pred = center_term_contributions(expected_pred)
     np.testing.assert_allclose(actual_pred, expected_pred, atol=tol, rtol=tol)
-    np.testing.assert_allclose(actual_se, expected["se"], atol=tol, rtol=tol)
+    if 'bs="fs"' in formula:
+        expected_snapshot = _run_mgcv_snapshot(
+            data,
+            formula,
+            "gaussian",
+            "REML",
+        )
+        actual_lp = np.asarray(gam.lpmatrix(newdata), dtype=np.float64)
+        expected_lp = np.asarray(
+            expected_snapshot["predictions"]["lpmatrix"], dtype=np.float64
+        )[6::13]
+        actual_cov = np.asarray(gam.vcov(unconditional=True), dtype=np.float64)
+        expected_cov = np.asarray(
+            expected_snapshot["fit"]["cov_unconditional"], dtype=np.float64
+        )
+        actual_contrast_cov = centered_prediction_covariance(
+            actual_lp,
+            actual_cov,
+            coefficient_indices=np.arange(1, actual_lp.shape[1]),
+        )
+        expected_contrast_cov = centered_prediction_covariance(
+            expected_lp,
+            expected_cov,
+            coefficient_indices=np.arange(1, expected_lp.shape[1]),
+        )
+        np.testing.assert_allclose(
+            actual_contrast_cov,
+            expected_contrast_cov,
+            atol=5e-4,
+            rtol=2e-3,
+        )
+    else:
+        np.testing.assert_allclose(actual_se, expected["se"], atol=tol, rtol=tol)
 
 
 @pytest.mark.parametrize(

@@ -257,11 +257,9 @@ def test_gaussian_shape_ar1_fit_and_standardized_residuals_match_scam():
     rng = np.random.default_rng(927)
     n = 108
     x = np.linspace(-1.8, 2.3, n)
-    setup = build_scop_univariate_setup(
-        x, basis_code="mpi", bs_dim=8, spline_order=2
-    )
-    start = np.concatenate([[0.22], np.linspace(-1.5, -0.65, setup.n_coef)])
-    mean = 0.22 + setup.basis_train @ np.exp(start[1:])
+    start = np.concatenate([[0.22], np.linspace(-1.5, -0.65, 7)])
+    x_shift = x - float(np.min(x))
+    mean = 0.22 + 0.11 * x_shift + 0.025 * x_shift**2
     ar_start = np.zeros(n, dtype=bool)
     ar_start[[0, 54]] = True
     errors = np.empty(n)

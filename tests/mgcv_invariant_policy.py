@@ -190,6 +190,34 @@ def center_term_contributions(matrix) -> np.ndarray:
     return np.asarray(values - np.mean(values, axis=0, keepdims=True))
 
 
+def centered_prediction_covariance(
+    lpmatrix, covariance, *, coefficient_indices
+) -> np.ndarray:
+    """Return covariance of prediction contrasts after removing a constant gauge.
+
+    Default ``fs`` smooths are uncentred. Their TP null-space basis may rotate
+    between LAPACK implementations, moving a constant component between the
+    intercept and smooth coefficient blocks. Covariance of centred smooth
+    contributions is identified even though raw ``type="terms"`` standard
+    errors are not.
+    """
+    design = np.asarray(lpmatrix, dtype=np.float64)
+    cov = np.asarray(covariance, dtype=np.float64)
+    indices = np.asarray(coefficient_indices, dtype=np.int64).reshape(-1)
+    if design.ndim != 2 or cov.ndim != 2 or cov.shape[0] != cov.shape[1]:
+        raise ValueError("lpmatrix and covariance must be two-dimensional.")
+    if design.shape[1] != cov.shape[0]:
+        raise ValueError("lpmatrix width must match covariance dimension.")
+    if np.any(indices < 0) or np.any(indices >= design.shape[1]):
+        raise ValueError("coefficient_indices are outside the coefficient space.")
+    term_design = design[:, indices]
+    term_cov = cov[np.ix_(indices, indices)]
+    kernel = np.asarray(term_design @ term_cov @ term_design.T, dtype=np.float64)
+    row_mean = np.mean(kernel, axis=1, keepdims=True)
+    col_mean = np.mean(kernel, axis=0, keepdims=True)
+    return np.asarray(kernel - row_mean - col_mean + np.mean(kernel), dtype=np.float64)
+
+
 def _copy_raw_value(value):
     if isinstance(value, np.ndarray):
         return np.asarray(value).copy()
@@ -327,6 +355,7 @@ def canonicalize_raw_representation_state(state: dict[str, Any]) -> dict[str, An
 
 __all__ = [
     "canonicalize_raw_representation_state",
+    "centered_prediction_covariance",
     "final_fit_uses_exact_orientation_parity",
     "gam_setup_uses_invariant_transform",
     "gam_side_uses_invariant_transform",

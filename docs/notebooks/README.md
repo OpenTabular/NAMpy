@@ -1,7 +1,15 @@
 # Model notebooks
 
-Concise conceptual and API tutorials for every supported NAMpy model. Start
-with `00_overview.ipynb`; training cells are disabled by default.
+Compact, visual tutorials for every supported NAMpy model. Each notebook pairs
+the essential theory with a runnable fit, predictive checks, additive
+explanations, term importance, and model-specific plots. Start with
+`00_overview.ipynb`; training cells are disabled by default except when
+explicitly enabled by the reader.
+
+`01_gam.ipynb` is a longer energy-system case study covering penalized
+likelihood, smooth construction, smoothing criteria and optimizers, response
+families, multi-linear-predictor models, shape constraints, inference, and
+diagnostics.
 
 | Notebook | Model |
 |---|---|
@@ -16,7 +24,6 @@ with `00_overview.ipynb`; training cells are disabled by default.
 | `09_spam.ipynb` | SPAM |
 | `10_nbm_spam.ipynb` | NBM-SPAM |
 | `11_treenam.ipynb` | TreeNAM |
-| `12_ensemble_treenam.ipynb` | jointly trained EnsembleTreeNAM |
 | `13_nodegam.ipynb` | NodeGAM |
 | `14_natt.ipynb` | NATT |
 | `15_namformer.ipynb` | NAMformer |
@@ -28,5 +35,5 @@ From the repository root, install the complete environment and launch Jupyter:
 
 ```bash
 pip install -e ".[all,docs]" jupyterlab
-jupyter lab notebooks
+jupyter lab docs/notebooks
 ```

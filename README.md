@@ -1,4 +1,4 @@
-# NAMpy
+# NAMpy — Interpretable Additive Modeling
 
 ![NAMpy — Interpretable Additive Modeling](docs/_static/logo.png)
 
@@ -111,16 +111,6 @@ Shape-constrained functionality includes fixed smoothing, the supported automati
 | Prediction                | link, response, terms, interaction terms, linear-predictor matrices, and pointwise standard errors                                                 |
 | Inference and diagnostics | covariance choices, derivatives, residuals, summaries, ANOVA, log likelihood, AIC/BIC, concurvity, `k_check`, `gam_check`, and plot data/rendering |
 
-
-Support is intentionally combination-specific. Unsupported inputs raise an
-explicit error rather than silently selecting an approximate fallback.
-Important exclusions include `t2`, Gaussian-process, MRF, adaptive and soap
-smooths, `paraPen`, NCV/QNCV, several matrix-covariate combinations, and
-shape-constrained optimizer branches not listed in the dedicated guide.
-
-The stable low-level `nampy.gam` API is deliberately small: `GAM`,
-`fit_model_core`, `solve_fit`, and `FitCoreSolution`.
-
 #### Neural Additive Model (NAM)
 
 NAMpy provides multiple neural additive architectures behind consistent
@@ -166,7 +156,6 @@ NAMpy supports the following architectures-
 | [Neural Attentive Tabular Transformer (NATT)](https://openreview.net/forum?id=TdJ7lpzAkD)                                                         | Additive tabular transformer representations                                               |
 | [Transformer-based Neural Additive Model (NAMformer)](https://arxiv.org/abs/2504.08712)                                                           | Transformer backbone with identifiable marginal feature effects                            |
 | Tree-based Neural Additive Model (TreeNAM)                                                                                                        | One differentiable neural decision tree per term                                           |
-| Ensemble Tree-based Neural Additive Model (EnsembleTreeNAM)                                                                                       | Mean aggregation of multiple complete TreeNAM learners                                     |
 | [Neural Generalized Additive Model (NodeGAM)](https://arxiv.org/abs/2106.01613)                                                                   | Differentiable oblivious trees with additive term extraction                               |
 | Quantile Neural Additive Model (QNAM)                                                                                                             | Non-crossing additive quantile outputs                                                     |
 | Spline Neural Additive Model (SplineNAM)                                                                                                          | Cubic-spline feature and interaction layers with smoothing penalties                       |
@@ -320,7 +309,7 @@ intended workload.
 | Model guide                 | [docs/models/index.rst](docs/models/index.rst)                                           |
 | API reference               | [docs/api/index.rst](docs/api/index.rst)                                                 |
 | Examples                    | [examples/](examples/)                                                                   |
-| Tutorial notebooks          | [notebooks/](notebooks/)                                                                 |
+| Tutorial notebooks          | [docs/notebooks/](docs/notebooks/)                                                       |
 | Changelog                   | [CHANGELOG.md](CHANGELOG.md)                                                             |
 
 

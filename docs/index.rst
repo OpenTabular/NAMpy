@@ -1,5 +1,5 @@
-NAMpy: Interpretable (Additive) Tabular Deep Learning
-=====================================================
+NAMpy: Interpretable Additive Modeling
+======================================
 
 .. image:: _static/logo.png
    :alt: NAMpy — Interpretable Additive Modeling
@@ -14,69 +14,51 @@ NAMpy: Interpretable (Additive) Tabular Deep Learning
    :target: https://opensource.org/licenses/MIT
    :alt: License: MIT
 
-NAMpy provides a strict ``mgcv``-aligned statistical GAM backend and a broad
-collection of neural additive models for regression, classification, and
-distributional regression.
+NAMpy combines a strict ``mgcv``-aligned statistical GAM backend with neural
+additive models for regression, classification, and distributional regression.
 
-Key Features
-------------
+Choose a starting point
+-----------------------
 
-* **Scikit-learn Compatible**: Consistent API with sklearn estimators
-* **10+ Model Architectures**: NAM, GPNAM, NBM, NATT, NAMformer, and more
-* **Three Task Types**: Regression, classification, and distributional regression (LSS)
-* **Interpretable**: Additive structure supports feature-level interpretation
-* **PyTorch Backend**: Built on modern deep learning tooling
-* **Extensible**: Interfaces for custom model implementations
+* :doc:`quickstart` — install NAMpy and fit one statistical GAM and one neural
+  additive model.
+* :doc:`notebook_tutorials` — theory-first, executable tutorials for every
+  supported model family.
+* :doc:`user_guide` — preprocessing, training, interpretation, shape
+  constraints, and extension contracts.
+* :doc:`models/index` — a compact model-selection catalog.
+* :doc:`examples/index` — short task recipes and standalone verification
+  scripts.
+* :doc:`api/index` — constructor, method, and function signatures.
 
-Quick Start
------------
+Documentation roles
+-------------------
 
-Installation
-~~~~~~~~~~~~
-
-.. code-block:: bash
-
-   pip install "nampy[all]"
-
-Basic Example
-~~~~~~~~~~~~~
-
-.. code-block:: python
-
-   from nampy.models import NAMRegressor
-   from sklearn.datasets import make_regression
-   from sklearn.model_selection import train_test_split
-
-   # Generate sample data
-   X, y = make_regression(n_samples=1000, n_features=10, noise=0.1)
-   X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-
-   # Train model
-   model = NAMRegressor(numerical_preprocessing="standardization")
-   model.fit(X_train, y_train, max_epochs=100, lr=1e-3)
-
-   # Evaluate
-   score = model.score(X_test, y_test)
-   print(f"R² Score: {score:.4f}")
+Each kind of documentation has one owner. Tutorials and model theory live in
+``docs/notebooks/`` and are regenerated before every build. Sphinx user guides explain concepts shared
+by multiple models. The root ``examples/`` directory contains longer scripts
+that can be run from a terminal. API pages are generated from docstrings and
+do not repeat tutorials.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Learn and use NAMpy
 
    installation
    quickstart
-   architecture
-   user_guide
-   api/index
+   notebook_tutorials
    models/index
+   user_guide
    examples/index
-   contributing
-   changelog
+   api/index
 
 .. toctree::
    :maxdepth: 1
-   :caption: Additional Information:
+   :caption: Project information
 
+   architecture
+   contributing
+   changelog
    license
    faq
    development/reference_sources

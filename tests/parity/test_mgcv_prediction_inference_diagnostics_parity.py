@@ -24,6 +24,7 @@ from tests._mgcv_parity_requested_shared import CaseSpec
 from tests._mgcv_snapshot_parity_shared import _make_fs_data, _make_gaussian_data
 from tests.mgcv_invariant_policy import (
     center_term_contributions,
+    centered_prediction_covariance,
     lpmatrix_uses_invariant_comparison,
 )
 from tests.mgcv_parity_utils import (
@@ -218,6 +219,39 @@ def _normalize_vector(x) -> np.ndarray:
     return np.asarray(x, dtype=np.float64).reshape(-1)
 
 
+def _assert_fs_centered_term_covariance(
+    model, expected_snapshot, newdata, *, unconditional: bool, atol: float
+) -> None:
+    actual_lp = np.asarray(model.lpmatrix(newdata), dtype=np.float64)
+    expected_lp_all = np.asarray(
+        expected_snapshot["predictions"]["lpmatrix"], dtype=np.float64
+    )
+    expected_lp = expected_lp_all[np.asarray(newdata.index, dtype=np.int64)]
+    actual_cov = np.asarray(
+        model.vcov(unconditional=unconditional), dtype=np.float64
+    )
+    covariance_key = "cov_unconditional" if unconditional else "cov_bayes"
+    expected_cov = np.asarray(
+        expected_snapshot["fit"][covariance_key], dtype=np.float64
+    )
+    actual_contrast_cov = centered_prediction_covariance(
+        actual_lp,
+        actual_cov,
+        coefficient_indices=np.arange(1, actual_lp.shape[1]),
+    )
+    expected_contrast_cov = centered_prediction_covariance(
+        expected_lp,
+        expected_cov,
+        coefficient_indices=np.arange(1, expected_lp.shape[1]),
+    )
+    np.testing.assert_allclose(
+        actual_contrast_cov,
+        expected_contrast_cov,
+        atol=atol,
+        rtol=2e-3,
+    )
+
+
 def _labels_list(x) -> list[str]:
     if x is None:
         return []
@@ -326,7 +360,7 @@ def _assert_p_values_close(actual, expected, *, atol: float, rtol: float) -> Non
 )
 def test_predict_gam_newdata_surfaces_match_mgcv(case: CaseSpec, pred_type: str):
     """Verify that predict gam new-data surfaces match mgcv."""
-    data, _expected, model = _case_bundle(case.case_id)
+    data, expected_snapshot, model = _case_bundle(case.case_id)
     newdata = _newdata_for_case(case.case_id)
     r_result = _run_mgcv_predict_on_newdata(
         data,
@@ -376,7 +410,16 @@ def test_predict_gam_newdata_surfaces_match_mgcv(case: CaseSpec, pred_type: str)
         actual_se = _normalize_vector(actual_se)
 
     np.testing.assert_allclose(actual_pred, expected_pred, atol=tol, rtol=tol)
-    np.testing.assert_allclose(actual_se, expected_se, atol=tol, rtol=tol)
+    if pred_type == "terms" and case.case_id == "gaussian_fs_select_reml":
+        _assert_fs_centered_term_covariance(
+            model,
+            expected_snapshot,
+            newdata,
+            unconditional=False,
+            atol=2e-4,
+        )
+    else:
+        np.testing.assert_allclose(actual_se, expected_se, atol=tol, rtol=tol)
 
 
 @pytest.mark.parametrize(
@@ -393,7 +436,7 @@ def test_predict_gam_unconditional_se_match_mgcv_or_documented_gap(
     """
     Verify that predict gam unconditional standard errors match mgcv or documented gap.
     """
-    data, _expected, model = _case_outer_bundle(case.case_id)
+    data, expected_snapshot, model = _case_outer_bundle(case.case_id)
     newdata = _newdata_for_case(case.case_id)
     r_result = _run_mgcv_predict_on_newdata(
         data,
@@ -428,12 +471,21 @@ def test_predict_gam_unconditional_se_match_mgcv_or_documented_gap(
             atol=tol,
             rtol=tol,
         )
-        np.testing.assert_allclose(
-            _normalize_matrix(actual_se),
-            _normalize_matrix(r_result["se"]),
-            atol=tol,
-            rtol=tol,
-        )
+        if case.case_id == "gaussian_fs_select_reml":
+            _assert_fs_centered_term_covariance(
+                model,
+                expected_snapshot,
+                newdata,
+                unconditional=True,
+                atol=5e-4,
+            )
+        else:
+            np.testing.assert_allclose(
+                _normalize_matrix(actual_se),
+                _normalize_matrix(r_result["se"]),
+                atol=tol,
+                rtol=tol,
+            )
         return
 
     np.testing.assert_allclose(

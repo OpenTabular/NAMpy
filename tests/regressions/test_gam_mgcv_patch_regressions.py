@@ -2566,9 +2566,14 @@ def test_rank_deficient_pirls_fit_matches_mgcv_drop_gauge(
             atol=1e-8,
         )
         if not apply_side_conditions:
+            shared_sp = float(
+                np.asarray(
+                    expected["fit"]["smoothing_params"], dtype=np.float64
+                ).reshape(-1)[0]
+            )
             shared_formula = (
                 'y ~ x1 + z + s(x0, bs="cr", k=8, sp='
-                f"{float(gam.smoothing_params[0]):.15g})"
+                f"{shared_sp:.15g})"
             )
             expected_shared = _run_mgcv_snapshot(
                 data=data,
@@ -2576,14 +2581,23 @@ def test_rank_deficient_pirls_fit_matches_mgcv_drop_gauge(
                 family=family_name,
                 method="fixed",
             )
+            shared_model = GAM(
+                formula=formula,
+                family=family_name,
+                optimize_smoothing=False,
+                smoothing_method="fixed",
+                smoothing_params=[shared_sp],
+                apply_side_conditions=False,
+            ).fit(data=data)
+            shared_result = shared_model.fit_result()
             np.testing.assert_allclose(
-                coef,
+                np.asarray(shared_result.coef_full, dtype=np.float64),
                 np.asarray(expected_shared["fit"]["coef_full"], dtype=np.float64),
                 rtol=0.0,
                 atol=1e-8,
             )
             np.testing.assert_allclose(
-                vp,
+                np.asarray(shared_result.cov_bayes, dtype=np.float64),
                 np.asarray(expected_shared["fit"]["cov_bayes"], dtype=np.float64),
                 rtol=2e-6,
                 atol=1e-9,
