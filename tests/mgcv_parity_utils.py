@@ -856,6 +856,7 @@ def _run_mgcv_snapshot(
     weights_column: str | None = None,
     allow_live_run: bool = False,
     optimizer: str | None = None,
+    portable_fixture_identity: bool = False,
 ):
     def _normalize_snapshot_payload(payload):
         if not isinstance(payload, dict):
@@ -896,7 +897,11 @@ def _run_mgcv_snapshot(
     _family_nampy, family_token = _family_specs(family)
     cache_parts = {
         "version": _SNAPSHOT_FIXTURE_VERSION,
-        "data": _df_fixture_repr(data),
+        "data": (
+            _portable_df_fixture_repr(data)
+            if portable_fixture_identity
+            else _df_fixture_repr(data)
+        ),
         "formula": str(formula),
         "family_token": family_token,
         "method": method,
