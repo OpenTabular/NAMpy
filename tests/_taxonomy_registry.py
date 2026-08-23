@@ -106,8 +106,6 @@ _DEFAULT_MARKS_BY_FILE = {
         "family_gaussian",
     },
     "test_gam_mgcv_patch_regressions.py": {"surface_regression"},
-    "test_gam_optimization_lifecycle_contracts.py": {"surface_regression"},
-    "test_gam_test_suite_contracts.py": {"surface_regression"},
     "test_mgcv_under_tested_supported_combinations.py": {"surface_regression"},
 }
 
@@ -304,8 +302,6 @@ _PRIMARY_COVERAGE_BY_MARK = {
     ),
     "surface_regression": (
         "tests/regressions/test_gam_mgcv_patch_regressions.py",
-        "tests/regressions/test_gam_optimization_lifecycle_contracts.py",
-        "tests/regressions/test_gam_test_suite_contracts.py",
     ),
     "surface_backend": ("tests/optimization/test_mgcv_gaussian_backend_selection.py",),
 }

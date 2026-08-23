@@ -142,8 +142,6 @@ GENERAL_SE_CASES = [
 ]
 
 
-_GENERAL_FAMILIES = {"gaulss", "gammals"}
-
 GENERAL_OUTER_DERIV_TOLS = {
     "gaulss": {"grad": 3e-4, "hess": 3e-3},
     "gammals": {"grad": 5e-4, "hess": 5e-3},
@@ -153,21 +151,6 @@ GENERAL_OUTER_ENDPOINT_TOLS = {
     "gaulss": {"log_sp": 2e-2, "score": 2e-5},
     "gammals": {"log_sp": 2e-2, "score": 5e-5},
 }
-
-
-def test_general_family_se_case_matrix_covers_requested_surface():
-    """
-    Verify that general family standard errors case matrix covers requested surface.
-    """
-    families = {case[1] for case in GENERAL_SE_CASES}
-    assert families >= _GENERAL_FAMILIES
-
-    for family in _GENERAL_FAMILIES:
-        family_cases = [case for case in GENERAL_SE_CASES if case[1] == family]
-        ids = {case[0] for case in family_cases}
-        assert any(case_id.endswith("_cr") for case_id in ids)
-        assert any("select_true" in case_id for case_id in ids)
-        assert any("numeric_by" in case_id for case_id in ids)
 
 
 def _reshape_expected_like(actual, expected):

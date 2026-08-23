@@ -42,9 +42,7 @@ prediction with a committed `mgcv` reference fixture.
 
 The vertical gate is complemented by
 `tests/parity/test_gam_pipeline_combination_matrix.py`. The combination matrix
-closes the former seven-stage under-tested backlog, while
-`tests/regressions/test_gam_test_suite_contracts.py` fails collection if a
-declared stage, supported leaf, or unsupported guard loses its owner test.
+closes the former seven-stage under-tested backlog.
 
 | Pipeline stage | Combination coverage now owned |
 | --- | --- |

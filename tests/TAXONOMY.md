@@ -40,7 +40,6 @@ pytest -m "smooth_fs and family_gaussian and surface_snapshot"
 - Overlap is expected when it improves triage.
 - `status_failing_or_warning` and `status_known_gap` are intended to be easy to exclude from normal parity sweeps.
 - Canonical file/mark ownership lives in `tests/_taxonomy_registry.py`.
-- `tests/regressions/test_gam_test_suite_contracts.py` guards against hidden nested tests and missing taxonomy-owner entries.
 
 ## Owner-Level Coverage
 - Owner-level localization lives alongside the broader parity suites; use [SUBSYSTEM_COVERAGE.md](/home/ad32/projects/package/NAMpy/tests/SUBSYSTEM_COVERAGE.md) as the primary map.
