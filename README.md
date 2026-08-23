@@ -1,10 +1,10 @@
-# NAMpy: Interpretable Additive Modeling in Python
+# NAMpy
 
-NAMpy — Interpretable Additive Modeling
+![NAMpy — Interpretable Additive Modeling](docs/_static/logo.png)
 
-[Python 3.11 | 3.12](https://www.python.org/downloads/)
-[License: MIT](LICENSE)
-[Development status: Beta](https://github.com/Ananyapam7/NAMpy)
+[![Python 3.11 | 3.12](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
+[![Development status: Beta](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/Ananyapam7/NAMpy)
 
 NAMpy is a Python library for two families of interpretable additive models:
 
