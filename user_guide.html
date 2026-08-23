@@ -22,7 +22,7 @@
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Preprocessing (PreTab)" href="user_guide/preprocessing.html" />
-    <link rel="prev" title="Architecture" href="architecture.html" /> 
+    <link rel="prev" title="Model Catalog" href="models/index.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -45,7 +45,7 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Learn and use NAMpy</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="installation.html#requirements">Requirements</a></li>
@@ -61,23 +61,193 @@
 <li class="toctree-l2"><a class="reference internal" href="installation.html#getting-help">Getting Help</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="quickstart.html#basic-workflow">Basic Workflow</a></li>
-<li class="toctree-l2"><a class="reference internal" href="quickstart.html#regression-example">Regression Example</a></li>
-<li class="toctree-l2"><a class="reference internal" href="quickstart.html#classification-example">Classification Example</a></li>
-<li class="toctree-l2"><a class="reference internal" href="quickstart.html#distributional-regression-lss">Distributional Regression (LSS)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="quickstart.html#working-with-dataframes">Working with DataFrames</a></li>
-<li class="toctree-l2"><a class="reference internal" href="quickstart.html#preprocessing-options">Preprocessing Options</a></li>
-<li class="toctree-l2"><a class="reference internal" href="quickstart.html#model-configurations">Model Configurations</a></li>
-<li class="toctree-l2"><a class="reference internal" href="quickstart.html#integration-with-scikit-learn">Integration with scikit-learn</a></li>
-<li class="toctree-l2"><a class="reference internal" href="quickstart.html#saving-and-loading-models">Saving and Loading Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#install">Install</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#statistical-gam">Statistical GAM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#neural-additive-model">Neural additive model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#where-to-continue">Where to continue</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="architecture.html#neural-architecture-contract">Neural architecture contract</a></li>
-<li class="toctree-l2"><a class="reference internal" href="architecture.html#optional-training-and-inference-contracts">Optional training and inference contracts</a></li>
-<li class="toctree-l2"><a class="reference internal" href="architecture.html#adding-an-architecture">Adding an architecture</a></li>
-<li class="toctree-l2"><a class="reference internal" href="architecture.html#gam-isolation">GAM isolation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="notebook_tutorials.html">Notebook Tutorials</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/00_overview.html">NAMpy model notebooks</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/00_overview.html#Shared-additive-contract">Shared additive contract</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/00_overview.html#Choosing-a-model">Choosing a model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/00_overview.html#Running-the-notebooks">Running the notebooks</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/01_gam.html">GAM: theory, fitting, inference, and constrained effects</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/01_gam.html#1.-Additive-predictors-and-exponential-family-responses">1. Additive predictors and exponential-family responses</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/01_gam.html#2.-Penalized-likelihood,-identifiability,-and-uncertainty">2. Penalized likelihood, identifiability, and uncertainty</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/01_gam.html#3.-Selecting-smoothness">3. Selecting smoothness</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/01_gam.html#Primary-references">Primary references</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/01_gam.html#4.-First-model:-Gaussian-demand-with-cyclic-and-ordinary-smooths">4. First model: Gaussian demand with cyclic and ordinary smooths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/01_gam.html#5.-Smooth-construction-gallery">5. Smooth construction gallery</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/01_gam.html#6.-Criteria-and-outer-optimizers">6. Criteria and outer optimizers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/01_gam.html#7.-Families-and-links-in-the-same-application">7. Families and links in the same application</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/01_gam.html#8.-Multi-linear-predictor-GAMs">8. Multi-linear-predictor GAMs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/01_gam.html#9.-Shape-constrained-GAM:-monotone-saturation">9. Shape-constrained GAM: monotone saturation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/01_gam.html#10.-Prediction,-inference,-and-diagnostics">10. Prediction, inference, and diagnostics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/01_gam.html#11.-Direct-backend,-adapters,-and-classification">11. Direct backend, adapters, and classification</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/02_linreg.html">LinReg: Additive linear baseline</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/02_linreg.html#Model-in-one-view">Model in one view</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/02_linreg.html#Fit-the-model">Fit the model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/02_linreg.html#Evaluate-and-explain">Evaluate and explain</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/02_linreg.html#Model-specific-controls">Model-specific controls</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/02_linreg.html#Supported-task-variants">Supported task variants</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/02_linreg.html#References">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/03_nam.html">NAM: Neural Additive Model</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/03_nam.html#Model-in-one-view">Model in one view</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/03_nam.html#Fit-the-model">Fit the model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/03_nam.html#Evaluate-and-explain">Evaluate and explain</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/03_nam.html#Model-specific-controls">Model-specific controls</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/03_nam.html#Supported-task-variants">Supported task variants</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/03_nam.html#References">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/04_snam.html">SNAM: Sparse Neural Additive Model</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/04_snam.html#Model-in-one-view">Model in one view</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/04_snam.html#Fit-the-model">Fit the model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/04_snam.html#Evaluate-and-explain">Evaluate and explain</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/04_snam.html#Model-specific-controls">Model-specific controls</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/04_snam.html#Supported-task-variants">Supported task variants</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/04_snam.html#References">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/05_sian.html">SIAN: Sparse Interaction Additive Network</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/05_sian.html#Model-in-one-view">Model in one view</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/05_sian.html#Fit-the-model">Fit the model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/05_sian.html#Evaluate-and-explain">Evaluate and explain</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/05_sian.html#Model-specific-controls">Model-specific controls</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/05_sian.html#Supported-task-variants">Supported task variants</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/05_sian.html#References">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/06_gpnam.html">GPNAM: Gaussian-process-inspired additive model</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/06_gpnam.html#Model-in-one-view">Model in one view</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/06_gpnam.html#Fit-the-model">Fit the model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/06_gpnam.html#Evaluate-and-explain">Evaluate and explain</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/06_gpnam.html#Model-specific-controls">Model-specific controls</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/06_gpnam.html#Supported-task-variants">Supported task variants</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/06_gpnam.html#References">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/07_igann.html">IGANN: Interpretable Generalized Additive Neural Network</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/07_igann.html#Model-in-one-view">Model in one view</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/07_igann.html#Fit-the-model">Fit the model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/07_igann.html#Evaluate-and-explain">Evaluate and explain</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/07_igann.html#Model-specific-controls">Model-specific controls</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/07_igann.html#Supported-task-variants">Supported task variants</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/07_igann.html#References">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/08_nbm.html">NBM: Neural Basis Model</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/08_nbm.html#Model-in-one-view">Model in one view</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/08_nbm.html#Fit-the-model">Fit the model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/08_nbm.html#Evaluate-and-explain">Evaluate and explain</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/08_nbm.html#Model-specific-controls">Model-specific controls</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/08_nbm.html#Supported-task-variants">Supported task variants</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/08_nbm.html#References">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/09_spam.html">SPAM: Scalable Polynomial Additive Model</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/09_spam.html#Model-in-one-view">Model in one view</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/09_spam.html#Fit-the-model">Fit the model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/09_spam.html#Evaluate-and-explain">Evaluate and explain</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/09_spam.html#Model-specific-controls">Model-specific controls</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/09_spam.html#Supported-task-variants">Supported task variants</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/09_spam.html#References">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/10_nbm_spam.html">NBM-SPAM: Learned unary bases with low-rank polynomial heads</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/10_nbm_spam.html#Model-in-one-view">Model in one view</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/10_nbm_spam.html#Fit-the-model">Fit the model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/10_nbm_spam.html#Evaluate-and-explain">Evaluate and explain</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/10_nbm_spam.html#Model-specific-controls">Model-specific controls</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/10_nbm_spam.html#Supported-task-variants">Supported task variants</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/10_nbm_spam.html#References">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/11_treenam.html">TreeNAM: Additive differentiable trees</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/11_treenam.html#Model-in-one-view">Model in one view</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/11_treenam.html#Fit-the-model">Fit the model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/11_treenam.html#Evaluate-and-explain">Evaluate and explain</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/11_treenam.html#Model-specific-controls">Model-specific controls</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/11_treenam.html#Supported-task-variants">Supported task variants</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/11_treenam.html#References">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/12_ensemble_treenam.html">EnsembleTreeNAM: Jointly trained TreeNAM ensemble</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/12_ensemble_treenam.html#Model-in-one-view">Model in one view</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/12_ensemble_treenam.html#Fit-the-model">Fit the model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/12_ensemble_treenam.html#Evaluate-and-explain">Evaluate and explain</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/12_ensemble_treenam.html#Model-specific-controls">Model-specific controls</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/12_ensemble_treenam.html#Supported-task-variants">Supported task variants</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/12_ensemble_treenam.html#References">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/13_nodegam.html">NodeGAM: Additive oblivious decision trees</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/13_nodegam.html#Model-in-one-view">Model in one view</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/13_nodegam.html#Fit-the-model">Fit the model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/13_nodegam.html#Evaluate-and-explain">Evaluate and explain</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/13_nodegam.html#Model-specific-controls">Model-specific controls</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/13_nodegam.html#Supported-task-variants">Supported task variants</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/13_nodegam.html#References">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/14_natt.html">NATT: Neural attentive tabular additive model</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/14_natt.html#Model-in-one-view">Model in one view</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/14_natt.html#Fit-the-model">Fit the model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/14_natt.html#Evaluate-and-explain">Evaluate and explain</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/14_natt.html#Model-specific-controls">Model-specific controls</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/14_natt.html#Supported-task-variants">Supported task variants</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/14_natt.html#References">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/15_namformer.html">NAMformer: Transformer-enhanced additive model</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/15_namformer.html#Model-in-one-view">Model in one view</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/15_namformer.html#Fit-the-model">Fit the model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/15_namformer.html#Evaluate-and-explain">Evaluate and explain</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/15_namformer.html#Model-specific-controls">Model-specific controls</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/15_namformer.html#Supported-task-variants">Supported task variants</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/15_namformer.html#References">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/16_qnam.html">QNAM: Noncrossing additive quantile regression</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/16_qnam.html#Model-in-one-view">Model in one view</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/16_qnam.html#Fit-the-model">Fit the model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/16_qnam.html#Model-specific-controls">Model-specific controls</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/16_qnam.html#Supported-task-variants">Supported task variants</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/16_qnam.html#References">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/17_spline_nam.html">SplineNAM: Additive cubic spline network</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/17_spline_nam.html#Model-in-one-view">Model in one view</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/17_spline_nam.html#Fit-the-model">Fit the model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/17_spline_nam.html#Evaluate-and-explain">Evaluate and explain</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/17_spline_nam.html#Model-specific-controls">Model-specific controls</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/17_spline_nam.html#Supported-task-variants">Supported task variants</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/17_spline_nam.html#References">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/18_neural_ensemble.html">NeuralEnsemble: independent fitted-model ensembles</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/18_neural_ensemble.html#Ensemble-in-one-view">Ensemble in one view</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/18_neural_ensemble.html#Fit,-predict,-and-inspect-uncertainty">Fit, predict, and inspect uncertainty</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/18_neural_ensemble.html#Interpretation">Interpretation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/18_neural_ensemble.html#Reference">Reference</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebook_tutorials.html#run-locally">Run locally</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="models/index.html">Model Catalog</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="models/index.html#statistical-model">Statistical model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models/index.html#neural-architectures">Neural architectures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models/index.html#ensembling">Ensembling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models/index.html#task-availability">Task availability</a></li>
 </ul>
 </li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">User Guide</a><ul>
@@ -181,37 +351,23 @@
 <li class="toctree-l3"><a class="reference internal" href="user_guide/interpretability.html#for-more-information">For More Information</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#model-selection">Model Selection</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#standard-models">Standard Models</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#advanced-models">Advanced Models</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#specialized-models">Specialized Models</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="#task-types">Task Types</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#regression">Regression</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#classification">Classification</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#distributional-regression-lss">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="#hyperparameter-configuration">Hyperparameter Configuration</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#common-hyperparameters">Common Hyperparameters</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#training-parameters">Training Parameters</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="#model-evaluation">Model Evaluation</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#standard-metrics">Standard Metrics</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#custom-metrics">Custom Metrics</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#cross-validation">Cross-Validation</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="#best-practices">Best Practices</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#data-preparation">Data Preparation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#guide-map">Guide map</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#preprocessing">Preprocessing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#training">Training</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id1">Model Selection</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#performance-optimization">Performance Optimization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#interpretation">Interpretation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#shape-constrained-gams">Shape-constrained GAMs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#extending-nampy">Extending NAMpy</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#next-steps">Next Steps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#related-material">Related material</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="examples/index.html">Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="examples/basic_regression.html">Basic Regression Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/basic_classification.html">Basic Classification Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/distributional_regression.html">Distributional Regression Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/index.html#choosing-the-right-format">Choosing the right format</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/index.html#running-repository-material">Running repository material</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="api/index.html">API Reference</a><ul>
@@ -412,107 +568,21 @@
 <li class="toctree-l3"><a class="reference internal" href="api/utils.html#example-usage">Example Usage</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="api/index.html#package-overview">Package Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="api/index.html#quick-api-reference">Quick API Reference</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="api/index.html#models">Models</a></li>
-<li class="toctree-l3"><a class="reference internal" href="api/index.html#base-models">Base Models</a></li>
-<li class="toctree-l3"><a class="reference internal" href="api/index.html#preprocessing-pretab">Preprocessing (PreTab)</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="api/index.html#version-information">Version Information</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html#public-layers">Public layers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html#version">Version</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="api/index.html#nampy.__version__"><code class="docutils literal notranslate"><span class="pre">__version__</span></code></a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="models/index.html">Models</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="models/index.html#model-overview">Model Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="models/index.html#model-families">Model Families</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="models/index.html#additive-models-interpretable">Additive Models (Interpretable)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="models/index.html#basis-function-models">Basis Function Models</a></li>
-<li class="toctree-l3"><a class="reference internal" href="models/index.html#attention-based-models">Attention-Based Models</a></li>
-<li class="toctree-l3"><a class="reference internal" href="models/index.html#specialized-models">Specialized Models</a></li>
 </ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="models/index.html#task-variants">Task Variants</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="models/index.html#regression">Regression</a></li>
-<li class="toctree-l3"><a class="reference internal" href="models/index.html#classification">Classification</a></li>
-<li class="toctree-l3"><a class="reference internal" href="models/index.html#distributional-regression-lss">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="models/index.html#model-reference">Model Reference</a></li>
-<li class="toctree-l2"><a class="reference internal" href="models/index.html#complete-api-reference">Complete API Reference</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="examples/index.html">Examples</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="examples/basic_regression.html">Basic Regression Examples</a></li>
-<li class="toctree-l2"><a class="reference internal" href="examples/basic_classification.html">Basic Classification Examples</a></li>
-<li class="toctree-l2"><a class="reference internal" href="examples/distributional_regression.html">Distributional Regression Examples</a></li>
-<li class="toctree-l2"><a class="reference internal" href="examples/custom_model.html">Custom Model Examples</a></li>
-<li class="toctree-l2"><a class="reference internal" href="examples/index.html#jupyter-notebook-examples">Jupyter Notebook Examples</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/01_nam_regression.html">Basic Regression with NAMpy</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/01_nam_regression.html#Setup">Setup</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/01_nam_regression.html#1.-Synthetic-Data-Example">1. Synthetic Data Example</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/01_nam_regression.html#4.-Real-World-Dataset:-California-Housing">4. Real-World Dataset: California Housing</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/02_classification.html">Classification with NAMpy</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/02_classification.html#Setup">Setup</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/02_classification.html#1.-Binary-Classification">1. Binary Classification</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/02_classification.html#2.-Feature-Importance-via-Shape-Functions">2. Feature Importance via Shape Functions</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/02_classification.html#3.-Multi-class-Classification">3. Multi-class Classification</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/02_classification.html#4.-Synthetic-Multi-class-Example">4. Synthetic Multi-class Example</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/02_classification.html#Summary">Summary</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/03_distributional_regression.html">Distributional Regression with NAMpy</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/03_distributional_regression.html#Setup">Setup</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/03_distributional_regression.html#1.-Understanding-Distributional-Regression">1. Understanding Distributional Regression</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/03_distributional_regression.html#2.-Training-a-NAMLSS-Model">2. Training a NAMLSS Model</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/03_distributional_regression.html#3.-Visualizing-Prediction-Intervals">3. Visualizing Prediction Intervals</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/03_distributional_regression.html#4.-Comparing-Predicted-vs-True-Variance">4. Comparing Predicted vs True Variance</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/03_distributional_regression.html#5.-Different-Distribution-Families">5. Different Distribution Families</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/03_distributional_regression.html#6.-Probabilistic-Metrics">6. Probabilistic Metrics</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/03_distributional_regression.html#7.-Shape-Functions-for-Distribution-Parameters">7. Shape Functions for Distribution Parameters</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/03_distributional_regression.html#Summary">Summary</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/04_model_comparison.html">Model Comparison in NAMpy</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/04_model_comparison.html#Available-Models">Available Models</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/04_model_comparison.html#Setup">Setup</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/04_model_comparison.html#1.-Prepare-Data">1. Prepare Data</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/04_model_comparison.html#2.-Define-Models">2. Define Models</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/04_model_comparison.html#3.-Train-and-Evaluate-Models">3. Train and Evaluate Models</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/04_model_comparison.html#4.-Visualize-Results">4. Visualize Results</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/04_model_comparison.html#5.-Compare-Shape-Functions">5. Compare Shape Functions</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/04_model_comparison.html#6.-Model-Selection-Guide">6. Model Selection Guide</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/04_model_comparison.html#Summary">Summary</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/05_interpretability.html">Interpretability in NAMpy</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/05_interpretability.html#1.-Understanding-Shape-Functions">1. Understanding Shape Functions</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/05_interpretability.html#2.-Feature-Importance">2. Feature Importance</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/05_interpretability.html#3.-Local-Interpretations">3. Local Interpretations</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/05_interpretability.html#4.-Classification-Interpretability">4. Classification Interpretability</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/05_interpretability.html#5.-Model-Comparison:-Interpretability-across-Different-Architectures">5. Model Comparison: Interpretability across Different Architectures</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/05_interpretability.html#6.-Best-Practices-for-Interpretability">6. Best Practices for Interpretability</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/05_interpretability.html#Conclusion">Conclusion</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="examples/index.html#quick-examples">Quick Examples</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="examples/index.html#basic-regression">Basic Regression</a></li>
-<li class="toctree-l3"><a class="reference internal" href="examples/index.html#basic-classification">Basic Classification</a></li>
-<li class="toctree-l3"><a class="reference internal" href="examples/index.html#distributional-regression">Distributional Regression</a></li>
-<li class="toctree-l3"><a class="reference internal" href="examples/index.html#real-world-example-house-price-prediction">Real-World Example: House Price Prediction</a></li>
-<li class="toctree-l3"><a class="reference internal" href="examples/index.html#model-comparison">Model Comparison</a></li>
-<li class="toctree-l3"><a class="reference internal" href="examples/index.html#hyperparameter-tuning">Hyperparameter Tuning</a></li>
-<li class="toctree-l3"><a class="reference internal" href="examples/index.html#custom-model-implementation">Custom Model Implementation</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="examples/index.html#more-examples">More Examples</a></li>
-<li class="toctree-l2"><a class="reference internal" href="examples/index.html#running-notebooks-locally">Running Notebooks Locally</a></li>
+<p class="caption" role="heading"><span class="caption-text">Project information</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#neural-architecture-contract">Neural architecture contract</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#optional-training-and-inference-contracts">Optional training and inference contracts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#adding-an-architecture">Adding an architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#gam-isolation">GAM isolation</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing</a><ul>
@@ -529,9 +599,6 @@
 <li class="toctree-l2"><a class="reference internal" href="changelog.html#for-more-details">For More Details</a></li>
 </ul>
 </li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Additional Information:</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="license.html">License</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="license.html#mit-license">MIT License</a></li>
 <li class="toctree-l2"><a class="reference internal" href="license.html#summary">Summary</a></li>
@@ -619,7 +686,9 @@
              
   <section id="user-guide">
 <h1>User Guide<a class="headerlink" href="#user-guide" title="Link to this heading"></a></h1>
-<p>This guide provides comprehensive information on using NAMpy effectively.</p>
+<p>The user guide owns concepts and contracts that apply across model families.
+It deliberately does not repeat per-model theory or complete tutorials; those
+live in <a class="reference internal" href="notebook_tutorials.html"><span class="doc">Notebook Tutorials</span></a>.</p>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="user_guide/preprocessing.html">Preprocessing (PreTab)</a><ul>
@@ -683,257 +752,46 @@
 </li>
 </ul>
 </div>
-<section id="model-selection">
-<h2>Model Selection<a class="headerlink" href="#model-selection" title="Link to this heading"></a></h2>
-<p>NAMpy provides multiple model architectures for different use cases:</p>
-<section id="standard-models">
-<h3>Standard Models<a class="headerlink" href="#standard-models" title="Link to this heading"></a></h3>
-<dl class="simple">
-<dt><strong>NAM (Neural Additive Model)</strong></dt><dd><p>The foundational interpretable model. Best for when interpretability is crucial
-and you need feature-level attributions.</p>
-</dd>
-<dt><strong>Linear Regression (Neural)</strong></dt><dd><p>A neural network implementation of linear regression. Useful as a baseline
-or when linear relationships are expected.</p>
-</dd>
-</dl>
-</section>
-<section id="advanced-models">
-<h3>Advanced Models<a class="headerlink" href="#advanced-models" title="Link to this heading"></a></h3>
-<dl class="simple">
-<dt><strong>GPNAM (Gaussian Process NAM)</strong></dt><dd><p>Uses fixed random Fourier features to learn smooth additive RBF-kernel shape
-functions with a convex regression objective. It is parameter-efficient and
-interpretable, but does not itself provide GP posterior uncertainty.</p>
-</dd>
-<dt><strong>IGANN</strong></dt><dd><p>Initializes additively with a sparse linear model and then boosts fixed
-feature-wise ELM bases. It is useful when fast training, smooth shape
-functions, and optional nonlinear feature selection are priorities.</p>
-</dd>
-<dt><strong>SIAN</strong></dt><dd><p>Detects interactions with a reference MLP and Archipelago, then trains a
-sparse additive model with selected interactions of configurable order.</p>
-</dd>
-<dt><strong>NBM (Neural Basis Model)</strong></dt><dd><p>Learns shared basis functions for unary or n-ary concept tuples. Dense and
-sparse active-tuple execution are selected through configuration.</p>
-</dd>
-<dt><strong>SPAM and NBM-SPAM</strong></dt><dd><p>SPAM learns low-rank polynomial effects. NBM-SPAM applies those polynomial
-heads to learned unary NBM scores.</p>
-</dd>
-<dt><strong>NATT (Neural Attentive Tabular Transformer)</strong></dt><dd><p>Transformer-based architecture with attention mechanisms. Best for
-datasets with complex feature interactions.</p>
-</dd>
-<dt><strong>NAMformer</strong></dt><dd><p>Combines NAM’s interpretability with transformer architecture.
-Good balance between performance and interpretability.</p>
-</dd>
-</dl>
-</section>
-<section id="specialized-models">
-<h3>Specialized Models<a class="headerlink" href="#specialized-models" title="Link to this heading"></a></h3>
-<dl class="simple">
-<dt><strong>QNAM (Quantile NAM)</strong></dt><dd><p>Designed for quantile regression. Use when you need to predict
-specific quantiles of the target distribution.</p>
-</dd>
-<dt><strong>TreeNAM</strong></dt><dd><p>Integrates tree-based methods with NAM. Good for tabular data
-with categorical features.</p>
-</dd>
-<dt><strong>SNAM (Sparse NAM)</strong></dt><dd><p>Applies sparsity constraints for feature selection. Useful when
-you have many features and want automatic selection.</p>
-</dd>
-<dt><strong>NodeGAM</strong></dt><dd><p>Node-based generalized additive model. Efficient for large datasets.</p>
-</dd>
-</dl>
-</section>
-</section>
-<section id="task-types">
-<h2>Task Types<a class="headerlink" href="#task-types" title="Link to this heading"></a></h2>
-<section id="regression">
-<h3>Regression<a class="headerlink" href="#regression" title="Link to this heading"></a></h3>
-<p>For predicting continuous values:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NAMRegressor</span>
-
-<span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">()</span>
-<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">max_epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
-<span class="n">predictions</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>Most models have a <cite>*Regressor</cite> variant (for example, <cite>GPNAMRegressor</cite>,
-<cite>IGANNRegressor</cite>, <cite>SIANRegressor</cite>, <cite>TreeNAMRegressor</cite>, and <cite>SNAMRegressor</cite>).</p>
-</section>
-<section id="classification">
-<h3>Classification<a class="headerlink" href="#classification" title="Link to this heading"></a></h3>
-<p>For predicting categorical labels:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NAMClassifier</span>
-
-<span class="n">model</span> <span class="o">=</span> <span class="n">NAMClassifier</span><span class="p">()</span>
-<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">max_epochs</span><span class="o">=</span><span class="mi">150</span><span class="p">)</span>
-
-<span class="c1"># Class predictions</span>
-<span class="n">predictions</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
-
-<span class="c1"># Probability estimates</span>
-<span class="n">probabilities</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>Most models have a <cite>*Classifier</cite> variant (e.g., <cite>GPNAMClassifier</cite>,
-<cite>SIANClassifier</cite>, and <cite>NBMClassifier</cite>).</p>
-</section>
-<section id="distributional-regression-lss">
-<h3>Distributional Regression (LSS)<a class="headerlink" href="#distributional-regression-lss" title="Link to this heading"></a></h3>
-<p>For modeling the full distribution of the target:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NAMLSS</span>
-
-<span class="n">model</span> <span class="o">=</span> <span class="n">NAMLSS</span><span class="p">(</span><span class="n">family</span><span class="o">=</span><span class="s2">"normal"</span><span class="p">)</span>
-<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">max_epochs</span><span class="o">=</span><span class="mi">150</span><span class="p">)</span>
-
-<span class="c1"># Distribution parameters</span>
-<span class="n">params</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>Available distribution families:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">normal</span></code> - Normal/Gaussian distribution</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">poisson</span></code> - Poisson distribution (count data)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">gamma</span></code> - Gamma distribution (positive continuous)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">beta</span></code> - Beta distribution (values in [0, 1])</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">studentt</span></code> - Student’s t-distribution (heavy tails)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">negativebinom</span></code> - Negative binomial (overdispersed counts)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">inversegamma</span></code> - Inverse gamma distribution</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">categorical</span></code> - Categorical distribution</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">dirichlet</span></code> - Dirichlet distribution</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">quantile</span></code> - Quantile regression</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">robustnormal</span></code> - Robust normal distribution</p></li>
-</ul>
-<p>Most models have an <cite>*LSS</cite> variant (for example, <cite>GPNAMLSS</cite>, <cite>SIANLSS</cite>, and
-<cite>SNAMLSS</cite>). <cite>QNAM</cite> is distributional-only.</p>
-</section>
-</section>
-<section id="hyperparameter-configuration">
-<h2>Hyperparameter Configuration<a class="headerlink" href="#hyperparameter-configuration" title="Link to this heading"></a></h2>
-<section id="common-hyperparameters">
-<h3>Common Hyperparameters<a class="headerlink" href="#common-hyperparameters" title="Link to this heading"></a></h3>
-<p>All models share these common hyperparameters:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">(</span>
-    <span class="c1"># Learning parameters</span>
-    <span class="n">lr</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span>                    <span class="c1"># Learning rate</span>
-    <span class="n">lr_patience</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>             <span class="c1"># Patience for LR scheduler</span>
-    <span class="n">lr_factor</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>              <span class="c1"># LR reduction factor</span>
-    <span class="n">weight_decay</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span>          <span class="c1"># L2 regularization</span>
-
-    <span class="c1"># Architecture parameters</span>
-    <span class="n">layer_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">32</span><span class="p">],</span> <span class="c1"># Hidden layer sizes</span>
-    <span class="n">dropout</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>                <span class="c1"># Dropout rate</span>
-
-    <span class="c1"># Preprocessing</span>
-    <span class="n">numerical_preprocessing</span><span class="o">=</span><span class="s2">"ple"</span><span class="p">,</span>  <span class="c1"># Preprocessing strategy</span>
-    <span class="n">n_bins</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>                      <span class="c1"># Number of bins for encoding</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-</section>
-<section id="training-parameters">
-<h3>Training Parameters<a class="headerlink" href="#training-parameters" title="Link to this heading"></a></h3>
-<p>These are passed to the <code class="docutils literal notranslate"><span class="pre">.fit()</span></code> method:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
-    <span class="n">X_train</span><span class="p">,</span>
-    <span class="n">y_train</span><span class="p">,</span>
-    <span class="n">max_epochs</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span>      <span class="c1"># Maximum training epochs</span>
-    <span class="n">lr</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span>             <span class="c1"># Learning rate (can override init)</span>
-    <span class="n">patience</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>         <span class="c1"># Early stopping patience</span>
-    <span class="n">val_size</span><span class="o">=</span><span class="mf">0.2</span>         <span class="c1"># Validation split ratio</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-</section>
-</section>
-<section id="model-evaluation">
-<h2>Model Evaluation<a class="headerlink" href="#model-evaluation" title="Link to this heading"></a></h2>
-<section id="standard-metrics">
-<h3>Standard Metrics<a class="headerlink" href="#standard-metrics" title="Link to this heading"></a></h3>
-<p>Use sklearn-compatible scoring:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># For regression</span>
-<span class="n">r2</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span>
-
-<span class="c1"># For classification</span>
-<span class="n">accuracy</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span>
-</pre></div>
-</div>
-</section>
-<section id="custom-metrics">
-<h3>Custom Metrics<a class="headerlink" href="#custom-metrics" title="Link to this heading"></a></h3>
-<p>Use sklearn metrics manually:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">mean_squared_error</span><span class="p">,</span> <span class="n">accuracy_score</span><span class="p">,</span> <span class="n">f1_score</span>
-
-<span class="n">predictions</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
-
-<span class="c1"># Regression</span>
-<span class="n">mse</span> <span class="o">=</span> <span class="n">mean_squared_error</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">predictions</span><span class="p">)</span>
-
-<span class="c1"># Classification</span>
-<span class="n">acc</span> <span class="o">=</span> <span class="n">accuracy_score</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">predictions</span><span class="p">)</span>
-<span class="n">f1</span> <span class="o">=</span> <span class="n">f1_score</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">predictions</span><span class="p">,</span> <span class="n">average</span><span class="o">=</span><span class="s1">'weighted'</span><span class="p">)</span>
-</pre></div>
-</div>
-</section>
-<section id="cross-validation">
-<h3>Cross-Validation<a class="headerlink" href="#cross-validation" title="Link to this heading"></a></h3>
-<p>NAMpy models work with sklearn’s cross-validation:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.model_selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">cross_val_score</span>
-
-<span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">()</span>
-<span class="n">scores</span> <span class="o">=</span> <span class="n">cross_val_score</span><span class="p">(</span>
-    <span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
-    <span class="n">fit_params</span><span class="o">=</span><span class="p">{</span><span class="s1">'max_epochs'</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span> <span class="s1">'lr'</span><span class="p">:</span> <span class="mf">1e-3</span><span class="p">}</span>
-<span class="p">)</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CV Score: </span><span class="si">{</span><span class="n">scores</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> (+/- </span><span class="si">{</span><span class="n">scores</span><span class="o">.</span><span class="n">std</span><span class="p">()</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
-</pre></div>
-</div>
-</section>
-</section>
-<section id="best-practices">
-<h2>Best Practices<a class="headerlink" href="#best-practices" title="Link to this heading"></a></h2>
-<section id="data-preparation">
-<h3>Data Preparation<a class="headerlink" href="#data-preparation" title="Link to this heading"></a></h3>
-<ol class="arabic simple">
-<li><p><strong>Handle missing values</strong> before passing to NAMpy</p></li>
-<li><p><strong>Encode categorical variables</strong> appropriately</p></li>
-<li><p><strong>Check for outliers</strong> in your target variable</p></li>
-<li><p><strong>Split data</strong> into train/val/test sets</p></li>
-</ol>
+<section id="guide-map">
+<h2>Guide map<a class="headerlink" href="#guide-map" title="Link to this heading"></a></h2>
+<section id="preprocessing">
+<h3>Preprocessing<a class="headerlink" href="#preprocessing" title="Link to this heading"></a></h3>
+<p><a class="reference internal" href="user_guide/preprocessing.html"><span class="doc">Preprocessing (PreTab)</span></a> explains numerical and categorical transforms.
+<a class="reference internal" href="user_guide/pretab_compatibility.html"><span class="doc">Published PreTab compatibility</span></a> records the exact PreTab compatibility
+contract and architecture-specific exceptions.</p>
 </section>
 <section id="training">
 <h3>Training<a class="headerlink" href="#training" title="Link to this heading"></a></h3>
-<ol class="arabic simple">
-<li><p><strong>Start with defaults</strong> and adjust based on validation performance</p></li>
-<li><p><strong>Use early stopping</strong> (patience parameter) to prevent overfitting</p></li>
-<li><p><strong>Monitor training</strong> on a validation set</p></li>
-<li><p><strong>Try different preprocessing</strong> strategies for your data type</p></li>
-</ol>
+<p><a class="reference internal" href="user_guide/training.html"><span class="doc">Training Models</span></a> covers validation splits, callbacks, checkpoints,
+warm starts, weighting, and optimization controls shared by neural estimators.
+Statistical GAM smoothing criteria and optimizers are demonstrated in the GAM
+notebook linked from <a class="reference internal" href="notebook_tutorials.html"><span class="doc">Notebook Tutorials</span></a>.</p>
 </section>
-<section id="id1">
-<h3>Model Selection<a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
-<ol class="arabic simple">
-<li><p><strong>Start with NAM</strong> as a baseline</p></li>
-<li><p><strong>Try specialized models</strong> (GPNAM, NBM, etc.) for specific needs</p></li>
-<li><p><strong>Compare multiple models</strong> on validation data</p></li>
-<li><p><strong>Consider interpretability vs. performance</strong> trade-offs</p></li>
-</ol>
+<section id="interpretation">
+<h3>Interpretation<a class="headerlink" href="#interpretation" title="Link to this heading"></a></h3>
+<p><a class="reference internal" href="user_guide/interpretability.html"><span class="doc">Interpretability</span></a> documents additive components, importance,
+and plotting conventions. Every model notebook then demonstrates the relevant
+interpretation surface for that architecture.</p>
 </section>
-<section id="performance-optimization">
-<h3>Performance Optimization<a class="headerlink" href="#performance-optimization" title="Link to this heading"></a></h3>
-<ol class="arabic simple">
-<li><p><strong>Use GPU</strong> if available (automatic with PyTorch)</p></li>
-<li><p><strong>Batch your data</strong> appropriately</p></li>
-<li><p><strong>Adjust n_bins</strong> based on dataset size</p></li>
-<li><p><strong>Use appropriate preprocessing</strong> for your feature types</p></li>
-</ol>
+<section id="shape-constrained-gams">
+<h3>Shape-constrained GAMs<a class="headerlink" href="#shape-constrained-gams" title="Link to this heading"></a></h3>
+<p><a class="reference internal" href="user_guide/shape_constrained_gams.html"><span class="doc">Shape-constrained GAMs</span></a> is the authoritative list of supported
+shape bases, constraints, and current boundaries. The GAM notebook provides a
+narrative example rather than duplicating that support matrix.</p>
+</section>
+<section id="extending-nampy">
+<h3>Extending NAMpy<a class="headerlink" href="#extending-nampy" title="Link to this heading"></a></h3>
+<p><a class="reference internal" href="user_guide/custom_models.html"><span class="doc">Custom Models</span></a> is the single complete guide to registering a
+custom neural architecture. The API reference supplies signatures for the
+classes used by that guide.</p>
 </section>
 </section>
-<section id="next-steps">
-<h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading"></a></h2>
+<section id="related-material">
+<h2>Related material<a class="headerlink" href="#related-material" title="Link to this heading"></a></h2>
 <ul class="simple">
-<li><p>Learn about <a class="reference internal" href="user_guide/preprocessing.html"><span class="doc">Preprocessing (PreTab)</span></a></p></li>
-<li><p>Explore <a class="reference internal" href="user_guide/custom_models.html"><span class="doc">Custom Models</span></a></p></li>
-<li><p>Check <a class="reference internal" href="examples/index.html"><span class="doc">Examples</span></a> for real-world use cases</p></li>
-<li><p>Read the <a class="reference internal" href="api/index.html"><span class="doc">API Reference</span></a> for detailed API information</p></li>
+<li><p><a class="reference internal" href="models/index.html"><span class="doc">Model Catalog</span></a> — model selection at a glance</p></li>
+<li><p><a class="reference internal" href="examples/index.html"><span class="doc">Examples</span></a> — short task recipes and runnable scripts</p></li>
+<li><p><a class="reference internal" href="api/index.html"><span class="doc">API Reference</span></a> — exact public API</p></li>
 </ul>
 </section>
 </section>
@@ -942,7 +800,7 @@ you have many features and want automatic selection.</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="architecture.html" class="btn btn-neutral float-left" title="Architecture" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="models/index.html" class="btn btn-neutral float-left" title="Model Catalog" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="user_guide/preprocessing.html" class="btn btn-neutral float-right" title="Preprocessing (PreTab)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

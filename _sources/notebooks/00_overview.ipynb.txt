@@ -1,0 +1,129 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "overview-title",
+   "metadata": {},
+   "source": [
+    "# NAMpy model notebooks\n",
+    "\n",
+    "These notebooks cover every registered neural architecture, the mgcv-aligned\n",
+    "GAM backend, and independent neural ensembles. They use a common estimator\n",
+    "surface while documenting each model's distinct mathematics and controls.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "overview-contract",
+   "metadata": {},
+   "source": [
+    "## Shared additive contract\n",
+    "\n",
+    "Most models expose a link-scale decomposition\n",
+    "\n",
+    "$$\n",
+    "\\eta(x)=\\beta_0+\\sum_t f_t(x_t)+o,\n",
+    "$$\n",
+    "\n",
+    "where $o$ is an optional offset. `predict_components()` returns response,\n",
+    "link, terms, intercept, and offset and can validate this reconstruction.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "overview-registry",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import matplotlib.pyplot as plt\n",
+    "import pandas as pd\n",
+    "from nampy.neural.registry import architectures\n",
+    "\n",
+    "registry = architectures()\n",
+    "capability_map = {\n",
+    "    name: sorted(spec.capabilities)\n",
+    "    for name, spec in registry.items()\n",
+    "}\n",
+    "capability_map\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "overview-visual",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "rows = [\n",
+    "    {\"model\": model, \"task\": task}\n",
+    "    for model, tasks in capability_map.items()\n",
+    "    for task in tasks\n",
+    "]\n",
+    "coverage = (\n",
+    "    pd.DataFrame(rows)\n",
+    "    .assign(supported=1)\n",
+    "    .pivot(index=\"model\", columns=\"task\", values=\"supported\")\n",
+    "    .fillna(0)\n",
+    ")\n",
+    "\n",
+    "fig, ax = plt.subplots(figsize=(8.5, 6.2), constrained_layout=True)\n",
+    "image = ax.imshow(coverage.to_numpy(), cmap=\"Blues\", vmin=0, vmax=1, aspect=\"auto\")\n",
+    "ax.set_xticks(range(len(coverage.columns)), coverage.columns, rotation=25, ha=\"right\")\n",
+    "ax.set_yticks(range(len(coverage.index)), coverage.index)\n",
+    "ax.set_title(\"Registered architecture capabilities\", fontweight=\"bold\")\n",
+    "for row in range(coverage.shape[0]):\n",
+    "    for column in range(coverage.shape[1]):\n",
+    "        if coverage.iloc[row, column]:\n",
+    "            ax.text(column, row, \"\u25cf\", ha=\"center\", va=\"center\", color=\"#0F172A\")\n",
+    "plt.show()\n",
+    "plt.close(fig)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "overview-choice",
+   "metadata": {},
+   "source": [
+    "## Choosing a model\n",
+    "\n",
+    "- **Statistical smooths:** GAM.\n",
+    "- **Independent neural shapes:** NAM; add group sparsity with SNAM.\n",
+    "- **Sparse discovered interactions:** SIAN.\n",
+    "- **Fixed bases:** GPNAM or IGANN.\n",
+    "- **Learned bases/polynomials:** NBM, SPAM, or NBM-SPAM.\n",
+    "- **Differentiable trees:** TreeNAM, EnsembleTreeNAM, or NodeGAM.\n",
+    "- **Attention:** NATT or NAMformer.\n",
+    "- **Ordered quantiles:** QNAM.\n",
+    "- **Trainable splines:** SplineNAM.\n",
+    "- **Baseline:** LinReg.\n",
+    "- **Between-fit variability:** NeuralEnsemble.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "overview-run",
+   "metadata": {},
+   "source": [
+    "## Running the notebooks\n",
+    "\n",
+    "From a repository checkout, install `nampy[all,docs]` and JupyterLab, start it\n",
+    "in the project root, and open `docs/notebooks/`. Each notebook defaults to\n",
+    "`RUN_TRAINING = False`; set it to `True` to execute its short fit.\n"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "name": "python",
+   "version": "3.11"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}

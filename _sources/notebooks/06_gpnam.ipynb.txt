@@ -1,0 +1,308 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "06_gpnam-title",
+   "metadata": {},
+   "source": [
+    "# GPNAM: Gaussian-process-inspired additive model\n",
+    "\n",
+    "GPNAM fixes a random Fourier feature map for each scalar input and estimates only additive coefficients. It approximates RBF-kernel functions but does not produce GP posterior covariance.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "06_gpnam-theory",
+   "metadata": {},
+   "source": [
+    "## Model in one view\n",
+    "\n",
+    "\n",
+    "$$\n",
+    "\\phi_j(x_j)=\\sqrt{\\frac{2}{M}}\n",
+    "\\left[\\cos\\!\\left(z_mx_j/\\ell_j+c_{mj}\\right)\\right]_{m=1}^{M},\n",
+    "\\qquad\n",
+    "\\eta(x)=\\beta_0+\\sum_j\\phi_j(x_j)^\\top w_j.\n",
+    "$$\n",
+    "\n",
+    "Selected pairs add two-dimensional GP-NA2M feature maps.\n",
+    "\n",
+    "\n",
+    "\n",
+    "For a stationary RBF kernel, Bochner's theorem represents the kernel as an\n",
+    "expectation over sinusoidal features. GPNAM samples a finite deterministic\n",
+    "random-feature approximation per input and estimates additive ridge\n",
+    "coefficients in that basis. Kernel width controls the frequency scale and\n",
+    "therefore how rapidly a learned shape may vary.\n",
+    "\n",
+    "The resulting estimator is finite-dimensional and computationally cheaper\n",
+    "than an exact Gaussian process. It borrows the GP function-space bias but does\n",
+    "not return a GP posterior or epistemic covariance. Pairwise GP-NA2M blocks use\n",
+    "the same construction on selected two-dimensional inputs.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "06_gpnam-data",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import matplotlib.pyplot as plt\n",
+    "import numpy as np\n",
+    "import pandas as pd\n",
+    "from sklearn.model_selection import train_test_split\n",
+    "\n",
+    "plt.style.use(\"seaborn-v0_8-whitegrid\")\n",
+    "COLORS = [\"#2563EB\", \"#F97316\", \"#10B981\", \"#8B5CF6\", \"#EF4444\"]\n",
+    "\n",
+    "rng = np.random.default_rng(7)\n",
+    "n = 180\n",
+    "X = pd.DataFrame({\n",
+    "    \"x1\": rng.uniform(-1.0, 1.0, n),\n",
+    "    \"x2\": rng.normal(size=n),\n",
+    "    \"group\": rng.choice([\"a\", \"b\", \"c\"], size=n),\n",
+    "})\n",
+    "y = (\n",
+    "    np.sin(np.pi * X[\"x1\"])\n",
+    "    + 0.35 * X[\"x2\"] ** 2\n",
+    "    + 0.30 * (X[\"group\"] == \"b\")\n",
+    "    + rng.normal(0.0, 0.12, n)\n",
+    ")\n",
+    "X_train, X_test, y_train, y_test = train_test_split(\n",
+    "    X, y, test_size=0.25, random_state=7\n",
+    ")\n",
+    "\n",
+    "# Set True to run the small fit and all fitted-model demonstrations.\n",
+    "RUN_TRAINING = bool(globals().get(\"RUN_TRAINING\", False))\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "06_gpnam-data-visual",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "fig, axes = plt.subplots(1, 2, figsize=(11, 3.8), constrained_layout=True)\n",
+    "axes[0].scatter(X[\"x1\"], y, s=22, alpha=0.65, color=COLORS[0], edgecolor=\"none\")\n",
+    "axes[0].set(title=\"Response across x1\", xlabel=\"x1\", ylabel=\"y\")\n",
+    "\n",
+    "group_order = [\"a\", \"b\", \"c\"]\n",
+    "group_values = [y[X[\"group\"].to_numpy() == level] for level in group_order]\n",
+    "boxes = axes[1].boxplot(group_values, tick_labels=group_order, patch_artist=True)\n",
+    "for patch, color in zip(boxes[\"boxes\"], COLORS, strict=False):\n",
+    "    patch.set_facecolor(color)\n",
+    "axes[1].set(title=\"Response by group\", xlabel=\"group\", ylabel=\"y\")\n",
+    "fig.suptitle(\"Synthetic mixed-feature example\", fontweight=\"bold\")\n",
+    "plt.show()\n",
+    "plt.close(fig)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "06_gpnam-construct-title",
+   "metadata": {},
+   "source": [
+    "## Fit the model\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "06_gpnam-construct",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from nampy.models import GPNAMClassifier, GPNAMLSS, GPNAMRegressor\n",
+    "\n",
+    "\n",
+    "model = GPNAMRegressor(\n",
+    "    rff_num_feat=32,\n",
+    "    kernel_width=\"auto\",\n",
+    "    solver=\"cg\",\n",
+    "    ridge=0.05,\n",
+    "    interactions=((\"x1\", \"x2\"),),\n",
+    "    rff_random_state=7,\n",
+    ")\n",
+    "model.get_params(deep=False)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "06_gpnam-fit",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "if RUN_TRAINING:\n",
+    "    model.fit(\n",
+    "        X_train,\n",
+    "        y_train,\n",
+    "        max_epochs=3,\n",
+    "        batch_size=64,\n",
+    "        random_state=7,\n",
+    "        logger=False,\n",
+    "        enable_progress_bar=False,\n",
+    "        enable_model_summary=False,\n",
+    "    )\n",
+    "    predictions = model.predict(X_test)\n",
+    "    r2 = model.score(X_test, y_test)\n",
+    "    metrics = model.evaluate(X_test, y_test)\n",
+    "    components = model.predict_components(X_test)\n",
+    "    explanation = model.explain_terms(X_test, max_bins=24, center=True)\n",
+    "    importance = model.term_importance(X_test, center=True)\n",
+    "    interaction_importance = model.interaction_importance(X_test, center=True)\n",
+    "    display({\"R2\": r2, **metrics})\n",
+    "    display(importance)\n",
+    "    display(explanation.head(12))\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "06_gpnam-visual-title",
+   "metadata": {},
+   "source": [
+    "## Evaluate and explain\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "06_gpnam-visual",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "if RUN_TRAINING:\n",
+    "    observed = np.asarray(y_test).reshape(-1)\n",
+    "    fitted = np.asarray(predictions).reshape(-1)\n",
+    "    residual = observed - fitted\n",
+    "\n",
+    "    fig, axes = plt.subplots(1, 3, figsize=(14, 3.8), constrained_layout=True)\n",
+    "    axes[0].scatter(observed, fitted, s=28, alpha=0.75, color=COLORS[0])\n",
+    "    lo = min(observed.min(), fitted.min())\n",
+    "    hi = max(observed.max(), fitted.max())\n",
+    "    axes[0].plot([lo, hi], [lo, hi], \"--\", color=\"#334155\", linewidth=1.2)\n",
+    "    axes[0].set(title=\"Observed vs predicted\", xlabel=\"Observed\", ylabel=\"Predicted\")\n",
+    "\n",
+    "    axes[1].scatter(fitted, residual, s=28, alpha=0.75, color=COLORS[1])\n",
+    "    axes[1].axhline(0.0, color=\"#334155\", linestyle=\"--\", linewidth=1.2)\n",
+    "    axes[1].set(title=\"Residual pattern\", xlabel=\"Predicted\", ylabel=\"Residual\")\n",
+    "\n",
+    "    importance_plot = (\n",
+    "        importance.groupby(\"term\", as_index=False)[\"importance\"]\n",
+    "        .mean()\n",
+    "        .sort_values(\"importance\")\n",
+    "    )\n",
+    "    axes[2].barh(importance_plot[\"term\"], importance_plot[\"importance\"], color=COLORS[2])\n",
+    "    axes[2].set(title=\"Mean absolute contribution\", xlabel=\"Link-scale importance\")\n",
+    "    fig.suptitle(\"Predictive fit and global explanation\", fontweight=\"bold\")\n",
+    "    plt.show()\n",
+    "    plt.close(fig)\n",
+    "\n",
+    "    main_effects = explanation.loc[\n",
+    "        (explanation[\"term_type\"] == \"main\") & (explanation[\"output\"] == 0)\n",
+    "    ].copy()\n",
+    "    main_effects[\"numeric_value\"] = pd.to_numeric(main_effects[\"value\"], errors=\"coerce\")\n",
+    "    main_effects = main_effects.dropna(subset=[\"numeric_value\"])\n",
+    "    if not main_effects.empty:\n",
+    "        numeric_terms = set(main_effects[\"term\"])\n",
+    "        top_term = next(\n",
+    "            term\n",
+    "            for term in importance_plot.sort_values(\"importance\", ascending=False)[\"term\"]\n",
+    "            if term in numeric_terms\n",
+    "        )\n",
+    "        curve = main_effects.loc[main_effects[\"term\"] == top_term].sort_values(\"numeric_value\")\n",
+    "        if not curve.empty:\n",
+    "            fig, ax = plt.subplots(figsize=(7.5, 3.8), constrained_layout=True)\n",
+    "            ax.plot(curve[\"numeric_value\"], curve[\"contribution\"], color=COLORS[3], linewidth=2.4)\n",
+    "            ax.scatter(curve[\"numeric_value\"], curve[\"contribution\"], s=20, color=COLORS[3])\n",
+    "            ax.axhline(0.0, color=\"#64748B\", linewidth=1)\n",
+    "            ax.set(title=f\"Binned explanation: {top_term}\", xlabel=top_term, ylabel=\"Contribution\")\n",
+    "            plt.show()\n",
+    "            plt.close(fig)\n",
+    "\n",
+    "    term_figures = model.plot_terms(X_test, center=True, rug=True, pages=1)\n",
+    "    interaction_terms = interaction_importance[\"term\"].astype(str).tolist()\n",
+    "    interactions_are_raw_columns = all(\n",
+    "        all(\n",
+    "            part in X_test.columns\n",
+    "            and pd.api.types.is_numeric_dtype(X_test[part])\n",
+    "            for part in term.split(\":\")\n",
+    "        )\n",
+    "        for term in interaction_terms\n",
+    "    )\n",
+    "    if interaction_terms and interactions_are_raw_columns:\n",
+    "        model.plot_interactions(X_test)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "06_gpnam-specific-title",
+   "metadata": {},
+   "source": [
+    "## Model-specific controls\n",
+    "\n",
+    "Regression defaults to the fixed conjugate-gradient ridge solve. `basis_transform`, `basis_metadata`, and `model_complexity` expose the fitted finite basis.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "06_gpnam-specific",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "if RUN_TRAINING:\n",
+    "    Phi = model.basis_transform(X_test)\n",
+    "    display(Phi.shape)\n",
+    "    display(model.basis_metadata())\n",
+    "    display(model.model_complexity())\n",
+    "    display(model.kernel_widths_)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "06_gpnam-variants",
+   "metadata": {},
+   "source": [
+    "## Supported task variants\n",
+    "\n",
+    "`GPNAMClassifier` and `GPNAMLSS` use gradient training. Distributional uncertainty is aleatoric, not GP posterior uncertainty.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "06_gpnam-task-variants",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "task_variants = {\"regression\": GPNAMRegressor(), \"classification\": GPNAMClassifier(), \"distributional\": GPNAMLSS()}\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "06_gpnam-references",
+   "metadata": {},
+   "source": [
+    "## References\n",
+    "\n",
+    "- [Gaussian Process Neural Additive Models (2024)](https://arxiv.org/abs/2402.12518).\n"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "name": "python",
+   "version": "3.11"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
