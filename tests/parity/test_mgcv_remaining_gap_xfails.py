@@ -39,16 +39,30 @@ from tests.mgcv_parity_utils import (
     _make_random_effect_data,
     _run_mgcv_predict_on_newdata,
 )
-from tests.mgcv_parity_utils import _fit_nampy_snapshot as _coverage_fit_nampy_snapshot
-from tests.mgcv_parity_utils import _make_binomial_data as _coverage_make_binomial_data
-from tests.mgcv_parity_utils import _make_gamma_data as _coverage_make_gamma_data
-from tests.mgcv_parity_utils import _make_gaussian_data as _coverage_make_gaussian_data
+from tests.mgcv_parity_utils import (
+    _fit_nampy_snapshot as _coverage_fit_nampy_snapshot,
+)
+from tests.mgcv_parity_utils import (
+    _make_binomial_data as _coverage_make_binomial_data,
+)
+from tests.mgcv_parity_utils import (
+    _make_gamma_data as _coverage_make_gamma_data,
+)
+from tests.mgcv_parity_utils import (
+    _make_gaussian_data as _coverage_make_gaussian_data,
+)
 from tests.mgcv_parity_utils import (
     _make_gaussian_data_3col as _coverage_make_gaussian_data_3col,
 )
-from tests.mgcv_parity_utils import _make_negbin_data as _coverage_make_negbin_data
-from tests.mgcv_parity_utils import _make_poisson_data as _coverage_make_poisson_data
-from tests.mgcv_parity_utils import _run_mgcv_snapshot as _coverage_run_mgcv_snapshot
+from tests.mgcv_parity_utils import (
+    _make_negbin_data as _coverage_make_negbin_data,
+)
+from tests.mgcv_parity_utils import (
+    _make_poisson_data as _coverage_make_poisson_data,
+)
+from tests.mgcv_parity_utils import (
+    _run_mgcv_snapshot as _coverage_run_mgcv_snapshot,
+)
 from tests.reference_fixtures import (
     load_reference,
     portable_dataframe_identity,

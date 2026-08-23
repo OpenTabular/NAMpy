@@ -72,6 +72,17 @@ def _source(payload: dict, cell_type: str | None = None) -> str:
     )
 
 
+def _without_execution(payload: dict) -> dict:
+    """Return the stable source portion of an executed notebook."""
+    payload = json.loads(json.dumps(payload))
+    for cell in payload["cells"]:
+        if cell["cell_type"] == "code":
+            cell["execution_count"] = None
+            cell["outputs"] = []
+            cell["metadata"].pop("execution", None)
+    return payload
+
+
 def test_checked_in_notebooks_match_the_generator():
     generator = runpy.run_path(str(GENERATOR))
     generated = {
@@ -83,7 +94,9 @@ def test_checked_in_notebooks_match_the_generator():
         },
         "18_neural_ensemble.ipynb": generator["neural_ensemble_notebook"](),
     }
-    assert {filename: _load(filename) for filename in generated} == generated
+    assert {
+        filename: _without_execution(_load(filename)) for filename in generated
+    } == generated
     assert (NOTEBOOKS / "README.md").read_text(encoding="utf-8") == generator[
         "README"
     ]
@@ -98,7 +111,7 @@ def test_every_registered_architecture_has_one_notebook():
 @pytest.mark.parametrize(
     "filename", sorted(set(ARCHITECTURE_NOTEBOOKS.values()) | OTHER_NOTEBOOKS)
 )
-def test_notebook_is_clean_valid_json_with_compilable_code(filename):
+def test_notebook_is_executed_valid_json_with_compilable_code(filename):
     payload = _load(filename)
     assert payload["nbformat"] == 4
     assert payload["nbformat_minor"] >= 5
@@ -108,31 +121,35 @@ def test_notebook_is_clean_valid_json_with_compilable_code(filename):
     assert len(ids) == len(set(ids))
     assert "$$" in _source(payload, "markdown")
 
+    output_count = 0
     for index, cell in enumerate(payload["cells"]):
         if cell["cell_type"] != "code":
             continue
-        assert cell["execution_count"] is None
-        assert cell["outputs"] == []
+        assert isinstance(cell["execution_count"], int)
+        output_count += len(cell["outputs"])
         compile("".join(cell["source"]), f"{filename}:cell-{index}", "exec")
+    assert output_count > 0
+    assert "RUN_TRAINING" not in _source(payload)
+    assert "RUN_EXTENDED_FITS" not in _source(payload)
 
 
 @pytest.mark.parametrize(
     "filename", sorted(set(ARCHITECTURE_NOTEBOOKS.values()) | OTHER_NOTEBOOKS)
 )
-def test_notebook_executes_its_default_no_training_path(filename):
-    """Execute cells in one namespace, like a fresh notebook kernel.
-
-    The examples intentionally keep ``RUN_TRAINING`` false. This checks every
-    import, constructor, parameter name, and unguarded public call without
-    making documentation tests train 19 models.
-    """
-
-    namespace = {"__name__": "__notebook__"}
-    for index, cell in enumerate(_load(filename)["cells"]):
-        if cell["cell_type"] != "code":
-            continue
-        source = "".join(cell["source"])
-        exec(compile(source, f"{filename}:cell-{index}", "exec"), namespace)
+def test_notebook_saved_execution_contains_no_errors(filename):
+    payload = _load(filename)
+    outputs = [
+        output
+        for cell in payload["cells"]
+        if cell["cell_type"] == "code"
+        for output in cell["outputs"]
+    ]
+    assert outputs
+    assert all(output.get("output_type") != "error" for output in outputs)
+    assert any("image/png" in output.get("data", {}) for output in outputs)
+    rendered_outputs = json.dumps(outputs)
+    assert "FigureCanvasAgg" not in rendered_outputs
+    assert "cannot be shown" not in rendered_outputs
 
 
 @pytest.mark.parametrize("filename", sorted(ARCHITECTURE_NOTEBOOKS.values()))
@@ -303,11 +320,9 @@ def test_gam_notebook_uses_one_coherent_energy_story():
 
 
 def test_gam_notebook_executes_its_short_training_story():
-    """The primary fitted examples run; expensive galleries remain opt-in."""
+    """The complete GAM story runs in one fresh notebook namespace."""
     namespace = {
         "__name__": "__notebook__",
-        "RUN_TRAINING": True,
-        "RUN_EXTENDED_FITS": False,
         "display": lambda *args, **kwargs: None,
     }
     for index, cell in enumerate(_load("01_gam.ipynb")["cells"]):
@@ -327,11 +342,9 @@ def test_gam_notebook_executes_its_short_training_story():
     reason="set NAMPY_RUN_EXTENDED_DOC_FITS=1 for the three-minute GAM gallery",
 )
 def test_gam_notebook_executes_its_extended_visual_gallery():
-    """Optimizer, family, multi-predictor, and shape galleries stay runnable."""
+    """Retained opt-in duplicate run for the expensive GAM gallery."""
     namespace = {
         "__name__": "__notebook__",
-        "RUN_TRAINING": False,
-        "RUN_EXTENDED_FITS": True,
         "display": lambda *args, **kwargs: None,
     }
     for index, cell in enumerate(_load("01_gam.ipynb")["cells"]):
@@ -361,7 +374,6 @@ def test_independent_ensemble_is_distinguished_from_joint_tree_ensemble():
 def test_independent_ensemble_notebook_executes_its_fitted_visual_story():
     namespace = {
         "__name__": "__notebook__",
-        "RUN_TRAINING": True,
         "display": lambda *args, **kwargs: None,
     }
     filename = "18_neural_ensemble.ipynb"
@@ -394,6 +406,7 @@ def test_docs_notebooks_are_the_only_notebook_collection():
 def test_sphinx_build_regenerates_notebooks_before_rendering():
     conf = (ROOT / "docs/conf.py").read_text(encoding="utf-8")
     assert "generate_notebooks.py" in conf
+    assert '_notebook_generator["main"]()' in conf
     assert '"nbsphinx"' in conf
     assert "nbsphinx_execute = \"never\"" in conf
 

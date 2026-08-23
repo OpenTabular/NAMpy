@@ -3,8 +3,7 @@
 Compact, visual tutorials for every supported NAMpy model. Each notebook pairs
 the essential theory with a runnable fit, predictive checks, additive
 explanations, term importance, and model-specific plots. Start with
-`00_overview.ipynb`; training cells are disabled by default except when
-explicitly enabled by the reader.
+`00_overview.ipynb`; every checked-in notebook includes executed outputs.
 
 `01_gam.ipynb` is a longer energy-system case study covering penalized
 likelihood, smooth construction, smoothing criteria and optimizers, response

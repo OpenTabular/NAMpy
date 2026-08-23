@@ -1,17 +1,22 @@
-"""Generate the theory-first model notebooks in ``docs/notebooks/``.
+"""Generate and execute the model notebooks in ``docs/notebooks/``.
 
 Sphinx invokes this module before reading its sources, and the checked-in
 notebooks are verified against it by the documentation tests.
 
-The notebooks are deterministic documentation artifacts. Training cells are
-present but disabled by default so structural documentation checks stay fast.
+The checked-in notebooks are executable documentation artifacts. Every fit and
+visualization is run during generation so GitHub and Sphinx render real tables,
+diagnostics, and plots rather than empty code cells.
 """
 
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from textwrap import dedent
+
+import nbformat
+from nbclient import NotebookClient
 
 DOCS = Path(__file__).resolve().parent
 ROOT = DOCS.parent
@@ -32,6 +37,28 @@ def markdown(text: str, cell_id: str) -> dict:
     }
 
 
+def _remove_execution_guards(text: str) -> str:
+    """Remove legacy opt-in guards while preserving nested cell code."""
+    lines = dedent(text).strip("\n").splitlines()
+    result: list[str] = []
+    guard_indent: int | None = None
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith(("RUN_TRAINING =", "RUN_EXTENDED_FITS =")):
+            continue
+        if stripped in {"if RUN_TRAINING:", "if RUN_EXTENDED_FITS:"}:
+            guard_indent = len(line) - len(line.lstrip())
+            continue
+        if guard_indent is not None and stripped:
+            indent = len(line) - len(line.lstrip())
+            if indent > guard_indent:
+                line = line[:guard_indent] + line[guard_indent + 4 :]
+            else:
+                guard_indent = None
+        result.append(line)
+    return "\n".join(result)
+
+
 def code(text: str, cell_id: str) -> dict:
     return {
         "cell_type": "code",
@@ -39,7 +66,7 @@ def code(text: str, cell_id: str) -> dict:
         "id": cell_id,
         "metadata": {},
         "outputs": [],
-        "source": _source(text),
+        "source": _source(_remove_execution_guards(text)),
     }
 
 
@@ -85,8 +112,6 @@ X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.25, random_state=7
 )
 
-# Set True to run the small fit and all fitted-model demonstrations.
-RUN_TRAINING = bool(globals().get("RUN_TRAINING", False))
 """
 
 
@@ -1207,8 +1232,8 @@ plt.close(fig)
                 """## Running the notebooks
 
 From a repository checkout, install `nampy[all,docs]` and JupyterLab, start it
-in the project root, and open `docs/notebooks/`. Each notebook defaults to
-`RUN_TRAINING = False`; set it to `True` to execute its short fit.
+in the project root, and open `docs/notebooks/`. The checked-in notebooks have
+already been run, and **Run All** reproduces every fit and visualization.
 """,
                 "overview-run",
             ),
@@ -1225,8 +1250,8 @@ def gam_notebook() -> dict:
 This notebook develops one coherent energy-system case study while introducing
 NAMpy's strict `mgcv`-aligned GAM backend. We model continuous demand, event
 counts, binary alerts, positive costs, and distributional location/scale using
-the same covariates. Training is disabled by default so the notebook remains a
-fast documentation artifact; set the flags in the data cell to execute fits.
+the same covariates. Every example is executed during notebook generation, so
+the checked-in artifact includes fitted results and visual diagnostics.
 """,
                 "gam-title",
             ),
@@ -2081,8 +2106,7 @@ README = """# Model notebooks
 Compact, visual tutorials for every supported NAMpy model. Each notebook pairs
 the essential theory with a runnable fit, predictive checks, additive
 explanations, term importance, and model-specific plots. Start with
-`00_overview.ipynb`; training cells are disabled by default except when
-explicitly enabled by the reader.
+`00_overview.ipynb`; every checked-in notebook includes executed outputs.
 
 `01_gam.ipynb` is a longer energy-system case study covering penalized
 likelihood, smooth construction, smoothing criteria and optimizers, response
@@ -2118,6 +2142,31 @@ jupyter lab docs/notebooks
 """
 
 
+def _execute(payload: dict, filename: str) -> dict:
+    """Execute one notebook and return a stable checked-in representation."""
+    os.environ.setdefault("MPLCONFIGDIR", "/tmp/nampy-matplotlib")
+    document = nbformat.from_dict(payload)
+    for cell in document.cells:
+        if isinstance(cell.source, list):
+            cell.source = "".join(cell.source)
+    client = NotebookClient(
+        document,
+        timeout=1800,
+        startup_timeout=180,
+        kernel_name="python3",
+        allow_errors=False,
+        resources={"metadata": {"path": str(ROOT)}},
+    )
+    client.execute()
+    for cell in document.cells:
+        cell.metadata.pop("execution", None)
+    # Kernel execution enriches ``language_info`` with environment-specific
+    # paths and versions. Keep the declared portable Python 3.11 metadata so
+    # rebuilding on another machine does not create unrelated notebook diffs.
+    document.metadata = nbformat.from_dict(payload["metadata"])
+    return json.loads(nbformat.writes(document))
+
+
 def main() -> None:
     OUTPUT.mkdir(exist_ok=True)
     generated = {
@@ -2126,7 +2175,9 @@ def main() -> None:
         **{spec["filename"]: neural_notebook(spec) for spec in MODEL_SPECS},
         "18_neural_ensemble.ipynb": neural_ensemble_notebook(),
     }
-    for filename, payload in generated.items():
+    for index, (filename, payload) in enumerate(generated.items(), start=1):
+        print(f"executing {index}/{len(generated)}: {filename}", flush=True)
+        payload = _execute(payload, filename)
         path = OUTPUT / filename
         path.write_text(json.dumps(payload, indent=1) + "\n", encoding="utf-8")
     (OUTPUT / "README.md").write_text(README, encoding="utf-8")
