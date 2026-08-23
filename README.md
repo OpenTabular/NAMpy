@@ -27,7 +27,7 @@ selected interactions, and $o$ is an optional offset. A response transformation
 connects the additive predictor to the prediction:
 
 $$
-\hat{\mu}(\mathbf{x}) = g^{-1}\!\left(\eta(\mathbf{x})\right).
+\hat{\mu}(\mathbf{x}) = g^{-1}\left(\eta(\mathbf{x})\right).
 $$
 
 GAMs represent the functions $f_j$ using penalized spline bases and estimate
@@ -38,9 +38,9 @@ each distribution parameter:
 $$
 Y \mid \mathbf{x}
 \sim
-\mathcal D\!\left(\theta_1(\mathbf{x}),\ldots,\theta_K(\mathbf{x})\right),
+\mathcal D\left(\theta_1(\mathbf{x}),\ldots,\theta_K(\mathbf{x})\right),
 \qquad
-\theta_k(\mathbf{x}) = h_k^{-1}\!\left(\eta_k(\mathbf{x})\right).
+\theta_k(\mathbf{x}) = h_k^{-1}\left(\eta_k(\mathbf{x})\right).
 $$
 
 This preserves an additive decomposition on the parameter/link scale while
