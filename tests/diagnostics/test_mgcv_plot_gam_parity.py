@@ -21,7 +21,12 @@ import pytest
 
 from nampy.gam import GAM
 from tests._paths import REPO_ROOT
-from tests.reference_fixtures import load_reference, reference_key, save_reference
+from tests.reference_fixtures import (
+    load_reference,
+    portable_dataframe_identity,
+    reference_key,
+    save_reference,
+)
 
 pytestmark = [pytest.mark.surface_output]
 
@@ -98,7 +103,7 @@ write_json(payload, args[[2]], auto_unbox = TRUE, digits = 17, na = "null")
 
 def _run_plot_driver(data: pd.DataFrame, mode: str) -> dict:
     key = reference_key(
-        "plot_gam", {"data": data.to_csv(index=False), "mode": mode}
+        "plot_gam", {"data": portable_dataframe_identity(data), "mode": mode}
     )
     cached = load_reference("mgcv", key)
     if cached is not None:

@@ -26,7 +26,12 @@ from tests.mgcv_parity_utils import (
     _make_gaussian_data,
     _make_random_effect_data_noisy,
 )
-from tests.reference_fixtures import load_reference, reference_key, save_reference
+from tests.reference_fixtures import (
+    load_reference,
+    portable_dataframe_identity,
+    reference_key,
+    save_reference,
+)
 
 pytestmark = [pytest.mark.surface_output]
 
@@ -70,7 +75,8 @@ write_json(payload, args[[2]], auto_unbox = TRUE, digits = 17)
 
 def _run_summary_driver(data: pd.DataFrame, mode: str) -> dict:
     key = reference_key(
-        "summary_options", {"data": data.to_csv(index=False), "mode": mode}
+        "summary_options",
+        {"data": portable_dataframe_identity(data), "mode": mode},
     )
     cached = load_reference("mgcv", key)
     if cached is not None:

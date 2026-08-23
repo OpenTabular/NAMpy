@@ -7,7 +7,13 @@ import pandas as pd
 import pytest
 
 from tests import mgcv_parity_utils
-from tests.reference_fixtures import AliasedReferenceKey, FixtureIdentity
+from tests.reference_fixtures import (
+    AliasedReferenceKey,
+    FixtureIdentity,
+    load_reference,
+    reference_key,
+    save_reference,
+)
 
 pytestmark = [
     pytest.mark.surface_output,
@@ -103,6 +109,49 @@ def test_portable_fixture_key_records_and_reuses_existing_fixture_alias(
     monkeypatch.delenv("NAMPY_RECORD_REFERENCE_ALIASES")
     alias_only_key = AliasedReferenceKey(str(key), "unavailable")
     assert mgcv_parity_utils._mgcv_fixture_load(alias_only_key) == {"value": 3}
+
+
+def test_direct_reference_key_records_and_reuses_legacy_float_payload(
+    monkeypatch, tmp_path
+):
+    """Direct family helpers migrate their historical numeric fixture keys."""
+    value = 0.912763940260521
+    key = reference_key(
+        "example",
+        {"values": [np.nextafter(value, np.inf)]},
+        normalize_floats=True,
+    )
+    assert isinstance(key, AliasedReferenceKey)
+    assert key.legacy is not None
+
+    monkeypatch.setenv("NAMPY_REFRESH_REFERENCE_FIXTURES", "1")
+    save_reference("mgcv", key.legacy, {"value": 7}, root=tmp_path)
+    monkeypatch.delenv("NAMPY_REFRESH_REFERENCE_FIXTURES")
+    monkeypatch.setenv("NAMPY_RECORD_REFERENCE_ALIASES", "1")
+
+    assert load_reference("mgcv", key, root=tmp_path) == {"value": 7}
+    aliases_path = tmp_path / "mgcv" / "aliases.json"
+    assert json.loads(aliases_path.read_text(encoding="utf-8")) == {
+        str(key): key.legacy
+    }
+
+    monkeypatch.delenv("NAMPY_RECORD_REFERENCE_ALIASES")
+    alias_only_key = AliasedReferenceKey(str(key), "unavailable")
+    assert load_reference("mgcv", alias_only_key, root=tmp_path) == {"value": 7}
+
+
+def test_committed_mgcv_fixture_aliases_resolve_to_static_fixtures():
+    """Every portable alias remains usable on machines without R."""
+    aliases = json.loads(
+        mgcv_parity_utils._MGCV_FIXTURE_ALIASES.read_text(encoding="utf-8")
+    )
+    missing = [
+        target
+        for target in aliases.values()
+        if not (mgcv_parity_utils._MGCV_FIXTURE_DIR / f"{target}.json.gz").is_file()
+    ]
+
+    assert not missing
 
 
 def test_raw_constructor_fixture_identity_uses_only_referenced_columns():

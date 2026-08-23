@@ -329,7 +329,9 @@ def _run_mgcv_snapshot_batched(
 
 def _mgcv_fixture_key(fn_name: str, key_parts: dict) -> AliasedReferenceKey:
     """Return a stable hex digest that identifies a unique mgcv call."""
-    canonical_parts, legacy_parts = fixture_payload_variants(key_parts)
+    canonical_parts, legacy_parts = fixture_payload_variants(
+        key_parts, normalize_floats=True
+    )
 
     def digest(parts) -> str:
         buf = io.StringIO()
@@ -1490,9 +1492,12 @@ def _run_mgcv_raw_constructor(
             )
         ]
         cached = None
-        for legacy_key in dict.fromkeys(legacy_keys):
-            if legacy_key == _cache_key:
+        seen_candidates: set[tuple[str, str | None]] = set()
+        for legacy_key in legacy_keys:
+            candidate = (str(legacy_key), getattr(legacy_key, "legacy", None))
+            if candidate in seen_candidates:
                 continue
+            seen_candidates.add(candidate)
             try:
                 cached = _mgcv_fixture_load(legacy_key)
             except RuntimeError:

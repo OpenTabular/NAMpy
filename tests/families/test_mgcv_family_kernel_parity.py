@@ -327,8 +327,15 @@ def test_saturated_loglik_matches_fix_family_ls_reference(family_key):
         actual_saturated = family.saturated_loglik(
             y, weights=wt, n=np.ones_like(y), scale=spec["scale"]
         )
+        # Gamma's upstream expression combines lgamma terms near 1e6 with
+        # an O(1e-2) result. Supported libm builds differ in that cancellation
+        # by up to 3.8e-9 while following fix.family.ls term-for-term.
+        saturated_atol = 5e-9 if family_key == "gamma" else 1e-10
         np.testing.assert_allclose(
-            actual_saturated, expected_ls[0], rtol=1e-10, atol=1e-10
+            actual_saturated,
+            expected_ls[0],
+            rtol=1e-10,
+            atol=saturated_atol,
         )
         if family_key in {"gaussian", "gamma"}:
             actual_ls = np.asarray(

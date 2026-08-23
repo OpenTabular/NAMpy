@@ -24,7 +24,12 @@ from tests.families.test_general_family_mgcv_parity import (
     _gaulss_data,
 )
 from tests.mgcv_parity_utils import _family_specs, _fit_nampy_model_fixed_sp
-from tests.reference_fixtures import load_reference, reference_key, save_reference
+from tests.reference_fixtures import (
+    load_reference,
+    portable_dataframe_identity,
+    reference_key,
+    save_reference,
+)
 
 R_SCRIPT = shutil.which("Rscript")
 MGCV_GENERAL_PREOPT_SCRIPT = PARITY_DIR / "mgcv_general_family_preoptimization.R"
@@ -40,7 +45,7 @@ def _run_mgcv_general_preoptimization(
     key = reference_key(
         "general_family_preoptimization",
         {
-            "data": data.to_csv(index=False),
+            "data": portable_dataframe_identity(data),
             "formula": str(formula),
             "family": family_token,
             "method": method,
@@ -87,7 +92,7 @@ def _run_mgcv_initial_spg(data, formula, family, method, *, select=False):
     key = reference_key(
         "initial_spg",
         {
-            "data": data.to_csv(index=False),
+            "data": portable_dataframe_identity(data),
             "formula": str(formula),
             "family": family_token,
             "method": method,

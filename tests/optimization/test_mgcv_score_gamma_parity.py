@@ -181,13 +181,18 @@ def _run_mgcv_fixed_sp_score_gamma(
     sp: np.ndarray,
     select: bool = False,
 ):
-    from tests.reference_fixtures import load_reference, reference_key, save_reference
+    from tests.reference_fixtures import (
+        load_reference,
+        portable_dataframe_identity,
+        reference_key,
+        save_reference,
+    )
 
     sp_values = np.asarray(sp, dtype=np.float64).tolist()
     key = reference_key(
         "fixed_sp_score_gamma",
         {
-            "data": data.to_csv(index=False),
+            "data": portable_dataframe_identity(data),
             "formula": formula,
             "family": family,
             "method": method,

@@ -40,7 +40,12 @@ from tests.mgcv_parity_utils import (
     _make_gaussian_data,
     _make_poisson_data,
 )
-from tests.reference_fixtures import load_reference, reference_key, save_reference
+from tests.reference_fixtures import (
+    load_reference,
+    portable_dataframe_identity,
+    reference_key,
+    save_reference,
+)
 
 R_SCRIPT = shutil.which("Rscript")
 MGCV_FIXED_SP_MAGIC_SCRIPT = PARITY_DIR / "mgcv_fixed_sp_magic.R"
@@ -59,7 +64,7 @@ def _run_r_parity_script(script_path: Path, data, *args):
         "fixed_inner_fit",
         {
             "script": script_path.name,
-            "data": data.to_csv(index=False),
+            "data": portable_dataframe_identity(data),
             "args": list(args),
         },
     )

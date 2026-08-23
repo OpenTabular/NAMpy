@@ -66,7 +66,7 @@ def generation_enabled() -> bool:
     return refresh_enabled() or rebuild_enabled()
 
 
-def reference_key(operation: str, payload: Any) -> str:
+def _reference_digest(operation: str, payload: Any) -> str:
     """Build a stable content key for one upstream operation and its inputs."""
     encoded = json.dumps(
         {"operation": operation, "payload": payload},
@@ -75,6 +75,23 @@ def reference_key(operation: str, payload: Any) -> str:
         default=str,
     ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def reference_key(
+    operation: str,
+    payload: Any,
+    *,
+    normalize_floats: bool = False,
+) -> str:
+    """Build a content key, optionally retaining a portable numeric variant."""
+    canonical_payload, legacy_payload = fixture_payload_variants(
+        payload, normalize_floats=normalize_floats
+    )
+    canonical = _reference_digest(operation, canonical_payload)
+    legacy = _reference_digest(operation, legacy_payload)
+    if legacy == canonical:
+        return canonical
+    return AliasedReferenceKey(canonical, legacy)
 
 
 def _map_fixture_payload(value: Any, *, legacy: bool, normalize_floats: bool) -> Any:
@@ -113,8 +130,8 @@ def aliased_reference_key(
     legacy_payload = _map_fixture_payload(
         payload, legacy=True, normalize_floats=normalize_floats
     )
-    canonical = reference_key(operation, canonical_payload)
-    legacy = reference_key(operation, legacy_payload)
+    canonical = _reference_digest(operation, canonical_payload)
+    legacy = _reference_digest(operation, legacy_payload)
     return AliasedReferenceKey(canonical, None if legacy == canonical else legacy)
 
 
@@ -219,13 +236,41 @@ def load_reference(
     root: Path | None = None,
 ) -> Any | None:
     """Load a fixture, or return ``None`` only in explicit refresh mode."""
-    path = fixture_path(namespace, key, root=root)
+    path = fixture_path(namespace, str(key), root=root)
     if rebuild_enabled():
         return None
     if path.exists():
         return json.loads(gzip.decompress(path.read_bytes()).decode("utf-8"))
     if generation_enabled():
         return None
+    if isinstance(key, AliasedReferenceKey):
+        base = FIXTURE_ROOT if root is None else root
+        aliases_path = base / namespace / "aliases.json"
+        aliases = (
+            json.loads(aliases_path.read_text(encoding="utf-8"))
+            if aliases_path.exists()
+            else {}
+        )
+        target = aliases.get(str(key), key.legacy)
+        if target is not None:
+            target_path = fixture_path(namespace, target, root=root)
+            if target_path.exists():
+                result = json.loads(
+                    gzip.decompress(target_path.read_bytes()).decode("utf-8")
+                )
+                if (
+                    target == key.legacy
+                    and aliases.get(str(key)) != target
+                    and os.environ.get(RECORD_ALIASES_ENV, "").lower()
+                    in {"1", "true", "yes", "on"}
+                ):
+                    aliases[str(key)] = target
+                    aliases_path.parent.mkdir(parents=True, exist_ok=True)
+                    aliases_path.write_text(
+                        json.dumps(aliases, indent=2, sort_keys=True) + "\n",
+                        encoding="utf-8",
+                    )
+                return result
     raise MissingReferenceFixture(
         f"Missing static {namespace} reference fixture {key} at {path}. "
         f"Generate it locally with {REFRESH_ENV}=1 and commit the result."

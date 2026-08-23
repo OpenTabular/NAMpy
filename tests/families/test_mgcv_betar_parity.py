@@ -20,7 +20,11 @@ from tests.reference_fixtures import load_reference, reference_key, save_referen
 
 
 def _run_r_json(code: str, payload: dict) -> dict:
-    key = reference_key("betar_r_json", {"code": code, "payload": payload})
+    key = reference_key(
+        "betar_r_json",
+        {"code": code, "payload": payload},
+        normalize_floats=True,
+    )
     cached = load_reference("mgcv", key)
     if cached is not None:
         return cached
