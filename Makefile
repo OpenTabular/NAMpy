@@ -46,7 +46,7 @@ quality: lint type-check hygiene
 	@echo "Static quality checks passed!"
 
 docs:
-	NAMPY_DOCS_SKIP_NOTEBOOKS=1 sphinx-build -E -W --keep-going -b html docs docs/_build/html
+	sphinx-build -E -W --keep-going -b html docs docs/_build/html
 	@echo "Documentation built successfully!"
 	@echo "Open docs/_build/html/index.html in your browser"
 

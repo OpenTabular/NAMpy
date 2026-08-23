@@ -4,17 +4,27 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 import os
+import runpy
 import sys
 from datetime import datetime
+from pathlib import Path
 
 # Keep Matplotlib cache writes out of user home directories in local and CI builds.
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/nampy-matplotlib")
 
-# Add the project root to the path
-sys.path.insert(0, os.path.abspath(".."))
+# Add the project root independently of the caller's working directory.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 # Import the package to get version
 import nampy
+
+# Notebooks are deterministic documentation sources. Regenerate them before
+# Sphinx discovers source files so the rendered pages cannot drift from the
+# generator. nbsphinx/nbconvert use Pandoc during the HTML publishing step.
+_notebook_generator = runpy.run_path(
+    str(Path(__file__).with_name("generate_notebooks.py"))
+)
+_notebook_generator["main"]()
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -40,11 +50,10 @@ extensions = [
     "sphinx.ext.githubpages",
     "sphinx_rtd_theme",
     "myst_parser",  # For Markdown support
-    "nbsphinx",  # For Jupyter notebook support
+    "nbsphinx",  # Render generated notebook sources (via nbconvert/Pandoc)
 ]
 
-# nbsphinx settings
-nbsphinx_execute = "never"  # Don't execute notebooks during build
+nbsphinx_execute = "never"
 nbsphinx_allow_errors = False
 nbsphinx_kernel_name = "python3"
 highlight_language = "python3"  # Use python3 for syntax highlighting
@@ -83,10 +92,13 @@ autodoc_typehints_description_target = "documented"
 autodoc_inherit_docstrings = False  # Don't inherit sklearn docstrings
 
 templates_path = ["_templates"]
-exclude_patterns = ["_build", "README.md", "Thumbs.db", ".DS_Store"]
-if os.environ.get("NAMPY_DOCS_SKIP_NOTEBOOKS") == "1":
-    exclude_patterns.append("notebooks/*")
-    suppress_warnings = ["toc.excluded"]
+exclude_patterns = [
+    "_build",
+    "README.md",
+    "notebooks/README.md",
+    "Thumbs.db",
+    ".DS_Store",
+]
 
 # Source file suffixes
 source_suffix = {

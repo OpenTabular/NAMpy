@@ -907,9 +907,14 @@ def test_supported_combination_registries_are_fully_collected():
 
     assert len(
         selected(
-            "test_tensor_full_cartesian_basis_matrix_matches_live_mgcv_response_and_se"
+            "test_tensor_portable_cartesian_basis_matrix_matches_mgcv_response_and_se"
         )
-    ) == 72
+    ) == 50
+    assert (
+        f"{SUPPORTED_COMBINATIONS_PATH}::"
+        "test_tensor_cs_pairs_are_owned_by_representation_invariant_stage_checks"
+        in nodeids
+    )
     assert len(
         selected("test_three_margin_tensor_basis_cover_fixed_fit_matches_live_mgcv")
     ) == 12
