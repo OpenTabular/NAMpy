@@ -697,8 +697,8 @@
 <div class="math notranslate nohighlight">
 \[\eta(x)=\beta_0+\sum_t f_t(x_t)+o,\]</div>
 <p>where <span class="math notranslate nohighlight">\(o\)</span> is an optional offset. <code class="docutils literal notranslate"><span class="pre">predict_components()</span></code> returns response, link, terms, intercept, and offset and can validate this reconstruction.</p>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
 </pre></div>
 </div>
 <div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
@@ -714,8 +714,91 @@
 <br/></pre></div>
 </div>
 </div>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+{&#39;linreg&#39;: [&#39;additive_components&#39;,
+  &#39;classification&#39;,
+  &#39;distributional&#39;,
+  &#39;regression&#39;],
+ &#39;nam&#39;: [&#39;additive_components&#39;,
+  &#39;classification&#39;,
+  &#39;distributional&#39;,
+  &#39;interactions&#39;,
+  &#39;regression&#39;],
+ &#39;sian&#39;: [&#39;additive_components&#39;,
+  &#39;classification&#39;,
+  &#39;distributional&#39;,
+  &#39;interaction_selection&#39;,
+  &#39;interactions&#39;,
+  &#39;regression&#39;],
+ &#39;snam&#39;: [&#39;additive_components&#39;,
+  &#39;classification&#39;,
+  &#39;distributional&#39;,
+  &#39;interactions&#39;,
+  &#39;regression&#39;],
+ &#39;gpnam&#39;: [&#39;additive_components&#39;,
+  &#39;classification&#39;,
+  &#39;distributional&#39;,
+  &#39;fixed_linear_design&#39;,
+  &#39;interactions&#39;,
+  &#39;regression&#39;],
+ &#39;igann&#39;: [&#39;additive_components&#39;,
+  &#39;classification&#39;,
+  &#39;distributional&#39;,
+  &#39;native_training&#39;,
+  &#39;regression&#39;],
+ &#39;nbm&#39;: [&#39;additive_components&#39;,
+  &#39;classification&#39;,
+  &#39;distributional&#39;,
+  &#39;interactions&#39;,
+  &#39;regression&#39;],
+ &#39;nbm_spam&#39;: [&#39;additive_components&#39;,
+  &#39;classification&#39;,
+  &#39;distributional&#39;,
+  &#39;interactions&#39;,
+  &#39;regression&#39;],
+ &#39;spam&#39;: [&#39;additive_components&#39;,
+  &#39;classification&#39;,
+  &#39;distributional&#39;,
+  &#39;interactions&#39;,
+  &#39;local_term_importance&#39;,
+  &#39;regression&#39;],
+ &#39;natt&#39;: [&#39;additive_components&#39;,
+  &#39;classification&#39;,
+  &#39;distributional&#39;,
+  &#39;interactions&#39;,
+  &#39;regression&#39;],
+ &#39;namformer&#39;: [&#39;additive_components&#39;,
+  &#39;classification&#39;,
+  &#39;distributional&#39;,
+  &#39;interactions&#39;,
+  &#39;regression&#39;],
+ &#39;treenam&#39;: [&#39;additive_components&#39;,
+  &#39;classification&#39;,
+  &#39;distributional&#39;,
+  &#39;interactions&#39;,
+  &#39;regression&#39;],
+ &#39;ensemble_treenam&#39;: [&#39;additive_components&#39;,
+  &#39;classification&#39;,
+  &#39;distributional&#39;,
+  &#39;interactions&#39;,
+  &#39;regression&#39;],
+ &#39;nodegam&#39;: [&#39;additive_components&#39;,
+  &#39;classification&#39;,
+  &#39;distributional&#39;,
+  &#39;interactions&#39;,
+  &#39;masked_pretraining&#39;,
+  &#39;regression&#39;],
+ &#39;qnam&#39;: [&#39;additive_components&#39;, &#39;distributional&#39;, &#39;interactions&#39;],
+ &#39;spline_nam&#39;: [&#39;additive_components&#39;, &#39;interactions&#39;, &#39;regression&#39;]}
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
 </pre></div>
 </div>
 <div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">rows</span> <span class="o">=</span> <span class="p">[</span>
@@ -744,6 +827,13 @@
 <br/></pre></div>
 </div>
 </div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/notebooks_00_overview_3_0.png" src="../_images/notebooks_00_overview_3_0.png" />
+</div>
+</div>
 </section>
 <section id="Choosing-a-model">
 <h2>Choosing a model<a class="headerlink" href="#Choosing-a-model" title="Link to this heading"></a></h2>
@@ -763,7 +853,7 @@
 </section>
 <section id="Running-the-notebooks">
 <h2>Running the notebooks<a class="headerlink" href="#Running-the-notebooks" title="Link to this heading"></a></h2>
-<p>From a repository checkout, install <code class="docutils literal notranslate"><span class="pre">nampy[all,docs]</span></code> and JupyterLab, start it in the project root, and open <code class="docutils literal notranslate"><span class="pre">docs/notebooks/</span></code>. Each notebook defaults to <code class="docutils literal notranslate"><span class="pre">RUN_TRAINING</span> <span class="pre">=</span> <span class="pre">False</span></code>; set it to <code class="docutils literal notranslate"><span class="pre">True</span></code> to execute its short fit.</p>
+<p>From a repository checkout, install <code class="docutils literal notranslate"><span class="pre">nampy[all,docs]</span></code> and JupyterLab, start it in the project root, and open <code class="docutils literal notranslate"><span class="pre">docs/notebooks/</span></code>. The checked-in notebooks have already been run, and <strong>Run All</strong> reproduces every fit and visualization.</p>
 </section>
 </section>
 

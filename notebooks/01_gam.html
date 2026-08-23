@@ -690,7 +690,7 @@
              
   <section id="GAM:-theory,-fitting,-inference,-and-constrained-effects">
 <h1>GAM: theory, fitting, inference, and constrained effects<a class="headerlink" href="#GAM:-theory,-fitting,-inference,-and-constrained-effects" title="Link to this heading"></a></h1>
-<p>This notebook develops one coherent energy-system case study while introducing NAMpy’s strict <code class="docutils literal notranslate"><span class="pre">mgcv</span></code>-aligned GAM backend. We model continuous demand, event counts, binary alerts, positive costs, and distributional location/scale using the same covariates. Training is disabled by default so the notebook remains a fast documentation artifact; set the flags in the data cell to execute fits.</p>
+<p>This notebook develops one coherent energy-system case study while introducing NAMpy’s strict <code class="docutils literal notranslate"><span class="pre">mgcv</span></code>-aligned GAM backend. We model continuous demand, event counts, binary alerts, positive costs, and distributional location/scale using the same covariates. Every example is executed during notebook generation, so the checked-in artifact includes fitted results and visual diagnostics.</p>
 <section id="1.-Additive-predictors-and-exponential-family-responses">
 <h2>1. Additive predictors and exponential-family responses<a class="headerlink" href="#1.-Additive-predictors-and-exponential-family-responses" title="Link to this heading"></a></h2>
 <p>For an exponential-family response, the conditional mean <span class="math notranslate nohighlight">\(\mu_i\)</span> is connected to an additive predictor through a link <span class="math notranslate nohighlight">\(g\)</span>:</p>
@@ -734,7 +734,7 @@
 </ul>
 <p>NAMpy follows the upstream <code class="docutils literal notranslate"><span class="pre">mgcv</span></code> and <code class="docutils literal notranslate"><span class="pre">scam</span></code> implementations as its behavioral specification; the papers explain the statistical construction.</p>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
 </pre></div>
 </div>
 <div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
@@ -786,14 +786,11 @@
 <span class="n">shape_mean</span> <span class="o">=</span> <span class="mi">4</span> <span class="o">+</span> <span class="mi">7</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mi">4</span> <span class="o">*</span> <span class="n">data</span><span class="p">[</span><span class="s2">"dose"</span><span class="p">]))</span>
 <span class="n">data</span><span class="p">[</span><span class="s2">"shape_y"</span><span class="p">]</span> <span class="o">=</span> <span class="n">shape_mean</span> <span class="o">+</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
 <span class="n">data</span><span class="p">[</span><span class="s2">"shape_count"</span><span class="p">]</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">poisson</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mf">0.4</span> <span class="o">+</span> <span class="mf">1.2</span> <span class="o">*</span> <span class="n">data</span><span class="p">[</span><span class="s2">"dose"</span><span class="p">]))</span>
-
-<span class="n">RUN_TRAINING</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="nb">globals</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"RUN_TRAINING"</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
-<span class="n">RUN_EXTENDED_FITS</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="nb">globals</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"RUN_EXTENDED_FITS"</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
 <br/></pre></div>
 </div>
 </div>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
 </pre></div>
 </div>
 <div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">site_colors</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"north"</span><span class="p">:</span> <span class="n">COLORS</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">"central"</span><span class="p">:</span> <span class="n">COLORS</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">"south"</span><span class="p">:</span> <span class="n">COLORS</span><span class="p">[</span><span class="mi">2</span><span class="p">]}</span>
@@ -829,13 +826,20 @@
 <br/></pre></div>
 </div>
 </div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/notebooks_01_gam_6_0.png" src="../_images/notebooks_01_gam_6_0.png" />
+</div>
+</div>
 </section>
 <section id="4.-First-model:-Gaussian-demand-with-cyclic-and-ordinary-smooths">
 <h2>4. First model: Gaussian demand with cyclic and ordinary smooths<a class="headerlink" href="#4.-First-model:-Gaussian-demand-with-cyclic-and-ordinary-smooths" title="Link to this heading"></a></h2>
 <p>Demand has a nonlinear temperature response, a 24-hour cycle, and site-level differences. A cubic regression spline estimates the temperature shape; a cyclic cubic spline forces midnight and the end of the day to join smoothly; the categorical site enters parametrically.</p>
 <p><code class="docutils literal notranslate"><span class="pre">GAMRegressor</span></code> and <code class="docutils literal notranslate"><span class="pre">GAMClassifier</span></code> provide sklearn-style methods while exposing the fitted parity backend as <code class="docutils literal notranslate"><span class="pre">gam_</span></code>.</p>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
 </pre></div>
 </div>
 <div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">GAMClassifier</span><span class="p">,</span> <span class="n">GAMRegressor</span>
@@ -850,46 +854,313 @@
 <span class="p">)</span>
 <span class="n">model</span><span class="o">.</span><span class="n">get_params</span><span class="p">(</span><span class="n">deep</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-<span class="k">if</span> <span class="n">RUN_TRAINING</span><span class="p">:</span>
-    <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-    <span class="n">predictions</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-    <span class="n">r2</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">data</span><span class="p">[</span><span class="s2">"demand"</span><span class="p">])</span>
-    <span class="n">metrics</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">data</span><span class="p">[</span><span class="s2">"demand"</span><span class="p">])</span>
-    <span class="n">components</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict_components</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-    <span class="n">components</span><span class="o">.</span><span class="n">validate_additive_reconstruction</span><span class="p">()</span>
-    <span class="n">explanation</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">explain_terms</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">max_bins</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
-    <span class="n">importance</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">term_importance</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-    <span class="n">display</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
-    <span class="n">display</span><span class="p">(</span><span class="n">importance</span><span class="p">)</span>
-    <span class="n">display</span><span class="p">(</span><span class="n">explanation</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">12</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">predictions</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">r2</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">data</span><span class="p">[</span><span class="s2">"demand"</span><span class="p">])</span>
+<span class="n">metrics</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">data</span><span class="p">[</span><span class="s2">"demand"</span><span class="p">])</span>
+<span class="n">components</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict_components</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">components</span><span class="o">.</span><span class="n">validate_additive_reconstruction</span><span class="p">()</span>
+<span class="n">explanation</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">explain_terms</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">max_bins</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+<span class="n">importance</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">term_importance</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">display</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
+<span class="n">display</span><span class="p">(</span><span class="n">importance</span><span class="p">)</span>
+<span class="n">display</span><span class="p">(</span><span class="n">explanation</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">12</span><span class="p">))</span>
 <br/></pre></div>
 </div>
 </div>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+
+Family: gaussian
+Link function: identity
+
+Formula:
+demand ~ s(temperature, k=10, bs=&#39;cr&#39;) + s(hour, k=8, bs=&#39;cc&#39;) + site
+
+Parametric coefficients:
+                 Estimate   Std. Error      t value     Pr(&gt;|t|)
+(Intercept)        22.534     0.090328       249.47       &lt;2e-16 ***
+site[north]        1.3293      0.12433       10.691       &lt;2e-16 ***
+site[south]      -0.91813      0.13085      -7.0168    2.634e-11 ***
+---
+Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+
+Approximate significance of smooth terms:
+                                        edf       Ref.df            F      p-value
+s(temperature, k=10, bs=&#39;cr&#39;)        6.5526       7.6755       1119.3       &lt;2e-16 ***
+s(hour, k=8, bs=&#39;cc&#39;)                5.2013            6       157.61       &lt;2e-16 ***
+---
+Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+
+R-sq.(adj) = 0.976   Deviance explained = 97.7%
+-REML = 304.31  Scale est. = 0.62172  n = 240
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+GAMSummary(family_name=&#39;gaussian&#39;, link_name=&#39;identity&#39;, formula=&#34;demand ~ s(temperature, k=10, bs=&#39;cr&#39;) + s(hour, k=8, bs=&#39;cc&#39;) + site&#34;, p_coeff=array([22.53434611,  1.3293028 , -0.91813009]), se=array([0.09032826, 0.12433323, 0.13084758, 0.19317468, 0.15615294,
+       0.18051927, 0.1758145 , 0.16261441, 0.1755368 , 0.15106531,
+       0.1953019 , 0.40658691, 0.13873112, 0.13681816, 0.13853482,
+       0.13992446, 0.13706636, 0.13774241]), p_t=array([249.47171401,  10.6914524 ,  -7.01679057]), p_pv=array([3.91710701e-277, 7.63361955e-022, 2.63371919e-011]), p_table=              Estimate  Std. Error     t value       Pr(&gt;|t|)
+(Intercept)  22.534346    0.090328  249.471714  3.917107e-277
+site[north]   1.329303    0.124333   10.691452   7.633620e-22
+site[south]  -0.918130    0.130848   -7.016791   2.633719e-11, pterms_table=  label   df   wald_stat       p_value test covariance  dispersion
+0  site  2.0  161.053047  3.727986e-44    F      bayes    0.621716, s_table=                           label       edf    ref_df    wald_stat  p_value  \
+0  s(temperature, k=10, bs=&#39;cr&#39;)  6.552618  7.675521  1119.307876      0.0
+1          s(hour, k=8, bs=&#39;cc&#39;)  5.201306  6.000000   157.613828      0.0
+
+  test term_type basis_name covariance  dispersion
+0    F    smooth         cr      bayes    0.621716
+1    F    smooth         cc      bayes    0.621716  , residual_df=225.2460762520178, m=2, scale=0.6217162949854625, dispersion=0.6217162949854625, scale_estimated=True, r_sq=0.97599862344129, dev_expl=0.9773798498138216, null_deviance=6190.903015002372, deviance=140.03915598741744, n=240, np=18, rank=18, method=&#39;-REML&#39;, sp_criterion=304.30754035779216, covariance=&#39;bayes&#39;, edf_total=14.753923747982217, metadata={})
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>term</th>
+      <th>term_type</th>
+      <th>output</th>
+      <th>importance</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>s(temperature, k=10, bs='cr')</td>
+      <td>main</td>
+      <td>0</td>
+      <td>4.162145</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>s(hour, k=8, bs='cc')</td>
+      <td>main</td>
+      <td>0</td>
+      <td>1.412007</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>site[north]</td>
+      <td>main</td>
+      <td>0</td>
+      <td>0.770501</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>term</th>
+      <th>term_type</th>
+      <th>output</th>
+      <th>value</th>
+      <th>contribution</th>
+      <th>count</th>
+      <th>importance</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>site[north]</td>
+      <td>main</td>
+      <td>0</td>
+      <td>site[north]</td>
+      <td>0.204321</td>
+      <td>240</td>
+      <td>0.770501</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>s(temperature, k=10, bs='cr')</td>
+      <td>main</td>
+      <td>0</td>
+      <td>1.2705</td>
+      <td>10.438221</td>
+      <td>8</td>
+      <td>4.162145</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>s(temperature, k=10, bs='cr')</td>
+      <td>main</td>
+      <td>0</td>
+      <td>2.295</td>
+      <td>9.060311</td>
+      <td>8</td>
+      <td>4.162145</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>s(temperature, k=10, bs='cr')</td>
+      <td>main</td>
+      <td>0</td>
+      <td>2.797</td>
+      <td>8.120147</td>
+      <td>8</td>
+      <td>4.162145</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>s(temperature, k=10, bs='cr')</td>
+      <td>main</td>
+      <td>0</td>
+      <td>3.374</td>
+      <td>7.392107</td>
+      <td>8</td>
+      <td>4.162145</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>s(temperature, k=10, bs='cr')</td>
+      <td>main</td>
+      <td>0</td>
+      <td>3.999</td>
+      <td>6.154551</td>
+      <td>8</td>
+      <td>4.162145</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>s(temperature, k=10, bs='cr')</td>
+      <td>main</td>
+      <td>0</td>
+      <td>4.7115</td>
+      <td>5.321538</td>
+      <td>8</td>
+      <td>4.162145</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>s(temperature, k=10, bs='cr')</td>
+      <td>main</td>
+      <td>0</td>
+      <td>5.262</td>
+      <td>4.476857</td>
+      <td>8</td>
+      <td>4.162145</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>s(temperature, k=10, bs='cr')</td>
+      <td>main</td>
+      <td>0</td>
+      <td>5.7</td>
+      <td>3.844946</td>
+      <td>8</td>
+      <td>4.162145</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>s(temperature, k=10, bs='cr')</td>
+      <td>main</td>
+      <td>0</td>
+      <td>6.322</td>
+      <td>3.044042</td>
+      <td>8</td>
+      <td>4.162145</td>
+    </tr>
+    <tr>
+      <th>10</th>
+      <td>s(temperature, k=10, bs='cr')</td>
+      <td>main</td>
+      <td>0</td>
+      <td>6.924</td>
+      <td>2.205016</td>
+      <td>8</td>
+      <td>4.162145</td>
+    </tr>
+    <tr>
+      <th>11</th>
+      <td>s(temperature, k=10, bs='cr')</td>
+      <td>main</td>
+      <td>0</td>
+      <td>7.4225</td>
+      <td>1.478768</td>
+      <td>8</td>
+      <td>4.162145</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
 </pre></div>
 </div>
-<div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">RUN_TRAINING</span><span class="p">:</span>
-    <span class="n">observed</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">"demand"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
-    <span class="n">residual</span> <span class="o">=</span> <span class="n">observed</span> <span class="o">-</span> <span class="n">predictions</span>
-    <span class="n">importance_plot</span> <span class="o">=</span> <span class="n">importance</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">"importance"</span><span class="p">)</span>
+<div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">observed</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">"demand"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+<span class="n">residual</span> <span class="o">=</span> <span class="n">observed</span> <span class="o">-</span> <span class="n">predictions</span>
+<span class="n">importance_plot</span> <span class="o">=</span> <span class="n">importance</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">"importance"</span><span class="p">)</span>
 
-    <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mf">3.8</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"time"</span><span class="p">],</span> <span class="n">observed</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#94A3B8"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">1.2</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Observed"</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"time"</span><span class="p">],</span> <span class="n">predictions</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">1.8</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Fitted"</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Demand fit"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Hour index"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Demand"</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">frameon</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mf">3.8</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"time"</span><span class="p">],</span> <span class="n">observed</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#94A3B8"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">1.2</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Observed"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"time"</span><span class="p">],</span> <span class="n">predictions</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">1.8</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Fitted"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Demand fit"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Hour index"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Demand"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">frameon</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">predictions</span><span class="p">,</span> <span class="n">residual</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.65</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#334155"</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">"--"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Residual pattern"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Fitted"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Residual"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">predictions</span><span class="p">,</span> <span class="n">residual</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.65</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#334155"</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">"--"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Residual pattern"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Fitted"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Residual"</span><span class="p">)</span>
 
-    <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">barh</span><span class="p">(</span><span class="n">importance_plot</span><span class="p">[</span><span class="s2">"term"</span><span class="p">],</span> <span class="n">importance_plot</span><span class="p">[</span><span class="s2">"importance"</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Term importance"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Mean absolute contribution"</span><span class="p">)</span>
-    <span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s2">"Fit quality and additive explanation"</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">"bold"</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">barh</span><span class="p">(</span><span class="n">importance_plot</span><span class="p">[</span><span class="s2">"term"</span><span class="p">],</span> <span class="n">importance_plot</span><span class="p">[</span><span class="s2">"importance"</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Term importance"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Mean absolute contribution"</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s2">"Fit quality and additive explanation"</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">"bold"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
 <br/></pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/notebooks_01_gam_9_0.png" src="../_images/notebooks_01_gam_9_0.png" />
 </div>
 </div>
 </section>
@@ -930,8 +1201,8 @@
 </tbody>
 </table>
 <p>Tensor products construct marginal bases first and combine their columns and penalties. <code class="docutils literal notranslate"><span class="pre">te</span></code> is suitable for a whole surface; <code class="docutils literal notranslate"><span class="pre">ti</span></code> is useful when marginal main effects are already present.</p>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
 </pre></div>
 </div>
 <div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.gam</span><span class="w"> </span><span class="kn">import</span> <span class="n">GAM</span>
@@ -965,12 +1236,31 @@
 <br/></pre></div>
 </div>
 </div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[&#39;cubic&#39;,
+ &#39;cyclic&#39;,
+ &#39;factor_smooth&#39;,
+ &#39;p_spline&#39;,
+ &#39;random_effect&#39;,
+ &#39;shrinkage_cubic&#39;,
+ &#39;shrinkage_thin_plate&#39;,
+ &#39;sum_to_zero_factor_smooth&#39;,
+ &#39;tensor_interaction&#39;,
+ &#39;tensor_surface&#39;,
+ &#39;thin_plate&#39;]
+</pre></div></div>
+</div>
 </section>
 <section id="6.-Criteria-and-outer-optimizers">
 <h2>6. Criteria and outer optimizers<a class="headerlink" href="#6.-Criteria-and-outer-optimizers" title="Link to this heading"></a></h2>
 <p>The following objects demonstrate the supported public optimizer names. In practice, compare converged endpoints and diagnostics rather than choosing the optimizer with the smallest iteration count. <code class="docutils literal notranslate"><span class="pre">fixed</span></code> smoothing is also useful for reproducible sensitivity analysis and constructor-level parity work.</p>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
 </pre></div>
 </div>
 <div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">optimizer_models</span> <span class="o">=</span> <span class="p">{</span>
@@ -992,26 +1282,32 @@
     <span class="n">smoothing_params</span><span class="o">=</span><span class="p">[</span><span class="mf">0.7</span><span class="p">],</span>
 <span class="p">)</span>
 
-<span class="k">if</span> <span class="n">RUN_EXTENDED_FITS</span><span class="p">:</span>
-    <span class="n">fitted_optimizers</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="n">name</span><span class="p">:</span> <span class="n">candidate</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">candidate</span> <span class="ow">in</span> <span class="n">optimizer_models</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+<span class="n">fitted_optimizers</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">name</span><span class="p">:</span> <span class="n">candidate</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">candidate</span> <span class="ow">in</span> <span class="n">optimizer_models</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+<span class="p">}</span>
+<span class="n">optimizer_summary</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+    <span class="p">{</span>
+        <span class="s2">"optimizer"</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span>
+        <span class="s2">"criterion"</span><span class="p">:</span> <span class="n">candidate</span><span class="o">.</span><span class="n">fit_result</span><span class="p">(</span><span class="n">include_covariances</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">criterion_value</span><span class="p">,</span>
+        <span class="s2">"log_sp"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">candidate</span><span class="o">.</span><span class="n">fit_result</span><span class="p">(</span><span class="n">include_covariances</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">smoothing_params</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
     <span class="p">}</span>
-    <span class="n">optimizer_summary</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
-        <span class="p">{</span>
-            <span class="s2">"optimizer"</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span>
-            <span class="s2">"criterion"</span><span class="p">:</span> <span class="n">candidate</span><span class="o">.</span><span class="n">fit_result</span><span class="p">(</span><span class="n">include_covariances</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">criterion_value</span><span class="p">,</span>
-            <span class="s2">"log_sp"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">candidate</span><span class="o">.</span><span class="n">fit_result</span><span class="p">(</span><span class="n">include_covariances</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">smoothing_params</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
-        <span class="p">}</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">candidate</span> <span class="ow">in</span> <span class="n">fitted_optimizers</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-    <span class="p">)</span>
-    <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mf">10.5</span><span class="p">,</span> <span class="mf">3.6</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">optimizer_summary</span><span class="p">[</span><span class="s2">"optimizer"</span><span class="p">],</span> <span class="n">optimizer_summary</span><span class="p">[</span><span class="s2">"criterion"</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[:</span><span class="mi">4</span><span class="p">])</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Converged REML criterion"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Criterion"</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">optimizer_summary</span><span class="p">[</span><span class="s2">"optimizer"</span><span class="p">],</span> <span class="n">optimizer_summary</span><span class="p">[</span><span class="s2">"log_sp"</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[:</span><span class="mi">4</span><span class="p">])</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Selected smoothness"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"log smoothing parameter"</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">candidate</span> <span class="ow">in</span> <span class="n">fitted_optimizers</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+<span class="p">)</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mf">10.5</span><span class="p">,</span> <span class="mf">3.6</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">optimizer_summary</span><span class="p">[</span><span class="s2">"optimizer"</span><span class="p">],</span> <span class="n">optimizer_summary</span><span class="p">[</span><span class="s2">"criterion"</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[:</span><span class="mi">4</span><span class="p">])</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Converged REML criterion"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Criterion"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">optimizer_summary</span><span class="p">[</span><span class="s2">"optimizer"</span><span class="p">],</span> <span class="n">optimizer_summary</span><span class="p">[</span><span class="s2">"log_sp"</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[:</span><span class="mi">4</span><span class="p">])</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Selected smoothness"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"log smoothing parameter"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
 <br/></pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/notebooks_01_gam_13_0.png" src="../_images/notebooks_01_gam_13_0.png" />
 </div>
 </div>
 </section>
@@ -1061,8 +1357,8 @@
 </tbody>
 </table>
 <p>Family choice is not merely a transformation of <code class="docutils literal notranslate"><span class="pre">y</span></code>: it determines variance, deviance, likelihood, working weights, residuals, and sometimes additional parameters optimized jointly with smoothness.</p>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
 </pre></div>
 </div>
 <div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">family_models</span> <span class="o">=</span> <span class="p">{</span>
@@ -1114,32 +1410,38 @@
     <span class="p">),</span>
 <span class="p">}</span>
 
-<span class="k">if</span> <span class="n">RUN_EXTENDED_FITS</span><span class="p">:</span>
-    <span class="n">fitted_families</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="n">name</span><span class="p">:</span> <span class="n">candidate</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">candidate</span> <span class="ow">in</span> <span class="n">family_models</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-    <span class="p">}</span>
-    <span class="n">response_columns</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">"gaussian"</span><span class="p">:</span> <span class="s2">"demand"</span><span class="p">,</span>
-        <span class="s2">"poisson_offset"</span><span class="p">:</span> <span class="s2">"events"</span><span class="p">,</span>
-        <span class="s2">"binomial"</span><span class="p">:</span> <span class="s2">"alert"</span><span class="p">,</span>
-        <span class="s2">"gamma"</span><span class="p">:</span> <span class="s2">"cost"</span><span class="p">,</span>
-        <span class="s2">"negative_binomial"</span><span class="p">:</span> <span class="s2">"events"</span><span class="p">,</span>
-        <span class="s2">"tweedie"</span><span class="p">:</span> <span class="s2">"cost"</span><span class="p">,</span>
-        <span class="s2">"beta"</span><span class="p">:</span> <span class="s2">"efficiency"</span><span class="p">,</span>
-    <span class="p">}</span>
-    <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mf">6.5</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">ax</span><span class="p">,</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">candidate</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">axes</span><span class="o">.</span><span class="n">flat</span><span class="p">,</span> <span class="n">fitted_families</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-        <span class="n">observed</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">response_columns</span><span class="p">[</span><span class="n">name</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
-        <span class="n">fitted</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">candidate</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"response"</span><span class="p">))</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">observed</span><span class="p">,</span> <span class="n">fitted</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">18</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.55</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-        <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">observed</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">fitted</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span> <span class="nb">max</span><span class="p">(</span><span class="n">observed</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">fitted</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">([</span><span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">],</span> <span class="p">[</span><span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">],</span> <span class="s2">"--"</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#475569"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="n">name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"_"</span><span class="p">,</span> <span class="s2">" "</span><span class="p">),</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Observed"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Fitted"</span><span class="p">)</span>
-    <span class="n">axes</span><span class="o">.</span><span class="n">flat</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">"off"</span><span class="p">)</span>
-    <span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s2">"Response-scale checks across families"</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">"bold"</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+<span class="n">fitted_families</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">name</span><span class="p">:</span> <span class="n">candidate</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">candidate</span> <span class="ow">in</span> <span class="n">family_models</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+<span class="p">}</span>
+<span class="n">response_columns</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"gaussian"</span><span class="p">:</span> <span class="s2">"demand"</span><span class="p">,</span>
+    <span class="s2">"poisson_offset"</span><span class="p">:</span> <span class="s2">"events"</span><span class="p">,</span>
+    <span class="s2">"binomial"</span><span class="p">:</span> <span class="s2">"alert"</span><span class="p">,</span>
+    <span class="s2">"gamma"</span><span class="p">:</span> <span class="s2">"cost"</span><span class="p">,</span>
+    <span class="s2">"negative_binomial"</span><span class="p">:</span> <span class="s2">"events"</span><span class="p">,</span>
+    <span class="s2">"tweedie"</span><span class="p">:</span> <span class="s2">"cost"</span><span class="p">,</span>
+    <span class="s2">"beta"</span><span class="p">:</span> <span class="s2">"efficiency"</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mf">6.5</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">ax</span><span class="p">,</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">candidate</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">axes</span><span class="o">.</span><span class="n">flat</span><span class="p">,</span> <span class="n">fitted_families</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="n">observed</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">response_columns</span><span class="p">[</span><span class="n">name</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+    <span class="n">fitted</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">candidate</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"response"</span><span class="p">))</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">observed</span><span class="p">,</span> <span class="n">fitted</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">18</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.55</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">observed</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">fitted</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span> <span class="nb">max</span><span class="p">(</span><span class="n">observed</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">fitted</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">([</span><span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">],</span> <span class="p">[</span><span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">],</span> <span class="s2">"--"</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#475569"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="n">name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"_"</span><span class="p">,</span> <span class="s2">" "</span><span class="p">),</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Observed"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Fitted"</span><span class="p">)</span>
+<span class="n">axes</span><span class="o">.</span><span class="n">flat</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">"off"</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s2">"Response-scale checks across families"</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">"bold"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
 <br/></pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/notebooks_01_gam_15_0.png" src="../_images/notebooks_01_gam_15_0.png" />
 </div>
 </div>
 </section>
@@ -1147,8 +1449,8 @@
 <h2>8. Multi-linear-predictor GAMs<a class="headerlink" href="#8.-Multi-linear-predictor-GAMs" title="Link to this heading"></a></h2>
 <p>General families can own more than one additive predictor. For Gaussian location-scale modeling, NAMpy’s <code class="docutils literal notranslate"><span class="pre">gaulss</span></code> family uses one predictor for the conditional mean and another for the scale parameter. Each predictor has its own formula, design matrix, smooths, penalties, and offsets, while joint likelihood derivatives couple their estimation.</p>
 <p>This is different from fitting two unrelated GAMs: both predictors describe one response distribution and their covariance follows from one joint fit.</p>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
 </pre></div>
 </div>
 <div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">location_scale</span> <span class="o">=</span> <span class="n">GAM</span><span class="p">(</span>
@@ -1174,20 +1476,26 @@
     <span class="n">select</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="k">if</span> <span class="n">RUN_EXTENDED_FITS</span><span class="p">:</span>
-    <span class="n">location_scale</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
-    <span class="n">mean_and_scale</span><span class="p">,</span> <span class="n">mean_and_scale_se</span> <span class="o">=</span> <span class="n">location_scale</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span>
-        <span class="n">data</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"response"</span><span class="p">,</span> <span class="n">return_se</span><span class="o">=</span><span class="kc">True</span>
-    <span class="p">)</span>
-    <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">11</span><span class="p">,</span> <span class="mf">3.8</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"demand"</span><span class="p">],</span> <span class="n">mean_and_scale</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">s</span><span class="o">=</span><span class="mi">22</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Location predictor"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Observed demand"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Estimated mean"</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"temperature"</span><span class="p">],</span> <span class="n">mean_and_scale</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">s</span><span class="o">=</span><span class="mi">22</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Scale predictor"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Temperature"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Estimated scale"</span><span class="p">)</span>
-    <span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s2">"One response, two linked additive predictors"</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">"bold"</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+<span class="n">location_scale</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+<span class="n">mean_and_scale</span><span class="p">,</span> <span class="n">mean_and_scale_se</span> <span class="o">=</span> <span class="n">location_scale</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span>
+    <span class="n">data</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"response"</span><span class="p">,</span> <span class="n">return_se</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">)</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">11</span><span class="p">,</span> <span class="mf">3.8</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"demand"</span><span class="p">],</span> <span class="n">mean_and_scale</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">s</span><span class="o">=</span><span class="mi">22</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Location predictor"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Observed demand"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Estimated mean"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"temperature"</span><span class="p">],</span> <span class="n">mean_and_scale</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">s</span><span class="o">=</span><span class="mi">22</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Scale predictor"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Temperature"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Estimated scale"</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s2">"One response, two linked additive predictors"</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">"bold"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
 <br/></pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/notebooks_01_gam_17_0.png" src="../_images/notebooks_01_gam_17_0.png" />
 </div>
 </div>
 </section>
@@ -1195,8 +1503,8 @@
 <h2>9. Shape-constrained GAM: monotone saturation<a class="headerlink" href="#9.-Shape-constrained-GAM:-monotone-saturation" title="Link to this heading"></a></h2>
 <p>Engineering knowledge says the response in the dose experiment should never decrease. An unconstrained smooth can violate that assumption in sparse regions. The <code class="docutils literal notranslate"><span class="pre">mpi</span></code> basis uses a nonlinear coefficient transform whose positive increments enforce monotonic increase, while a P-spline penalty still controls roughness.</p>
 <p>Pya and Wood’s construction changes the coefficient parameterization rather than clipping predictions after fitting. Consequently, prediction, derivatives, covariance transport, and diagnostics operate on a genuinely shape-valid fitted function.</p>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
 </pre></div>
 </div>
 <div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">monotone_fixed</span> <span class="o">=</span> <span class="n">GAM</span><span class="p">(</span>
@@ -1215,89 +1523,139 @@
     <span class="n">smoothing_optimizer</span><span class="o">=</span><span class="s2">"bfgs"</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="k">if</span> <span class="n">RUN_EXTENDED_FITS</span><span class="p">:</span>
-    <span class="n">monotone_fixed</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
-    <span class="n">shape_derivative</span> <span class="o">=</span> <span class="n">monotone_fixed</span><span class="o">.</span><span class="n">derivative</span><span class="p">(</span><span class="n">smooth_number</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">deriv</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">shape_derivative</span><span class="o">.</span><span class="n">derivative</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="o">-</span><span class="mf">1e-7</span>
-    <span class="n">shape_fit</span><span class="p">,</span> <span class="n">shape_se</span> <span class="o">=</span> <span class="n">monotone_fixed</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"response"</span><span class="p">,</span> <span class="n">return_se</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">11</span><span class="p">,</span> <span class="mf">3.8</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"dose"</span><span class="p">],</span> <span class="n">data</span><span class="p">[</span><span class="s2">"shape_y"</span><span class="p">],</span> <span class="n">s</span><span class="o">=</span><span class="mi">18</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.4</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#64748B"</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"dose"</span><span class="p">],</span> <span class="n">shape_fit</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">2.2</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">fill_between</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"dose"</span><span class="p">],</span> <span class="n">shape_fit</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">shape_se</span><span class="p">,</span> <span class="n">shape_fit</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">shape_se</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.18</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Monotone fitted response"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Dose"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Response"</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"dose"</span><span class="p">],</span> <span class="n">shape_derivative</span><span class="o">.</span><span class="n">derivative</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">2.2</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#334155"</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">"--"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Estimated first derivative"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Dose"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Derivative"</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+<span class="n">monotone_fixed</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+<span class="n">shape_derivative</span> <span class="o">=</span> <span class="n">monotone_fixed</span><span class="o">.</span><span class="n">derivative</span><span class="p">(</span><span class="n">smooth_number</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">deriv</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">shape_derivative</span><span class="o">.</span><span class="n">derivative</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="o">-</span><span class="mf">1e-7</span>
+<span class="n">shape_fit</span><span class="p">,</span> <span class="n">shape_se</span> <span class="o">=</span> <span class="n">monotone_fixed</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"response"</span><span class="p">,</span> <span class="n">return_se</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">11</span><span class="p">,</span> <span class="mf">3.8</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"dose"</span><span class="p">],</span> <span class="n">data</span><span class="p">[</span><span class="s2">"shape_y"</span><span class="p">],</span> <span class="n">s</span><span class="o">=</span><span class="mi">18</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.4</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#64748B"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"dose"</span><span class="p">],</span> <span class="n">shape_fit</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">2.2</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">fill_between</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"dose"</span><span class="p">],</span> <span class="n">shape_fit</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">shape_se</span><span class="p">,</span> <span class="n">shape_fit</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">shape_se</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.18</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Monotone fitted response"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Dose"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Response"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"dose"</span><span class="p">],</span> <span class="n">shape_derivative</span><span class="o">.</span><span class="n">derivative</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">2.2</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#334155"</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">"--"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Estimated first derivative"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Dose"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Derivative"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
 <br/></pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/notebooks_01_gam_19_0.png" src="../_images/notebooks_01_gam_19_0.png" />
 </div>
 </div>
 </section>
 <section id="10.-Prediction,-inference,-and-diagnostics">
 <h2>10. Prediction, inference, and diagnostics<a class="headerlink" href="#10.-Prediction,-inference,-and-diagnostics" title="Link to this heading"></a></h2>
 <p>Use <code class="docutils literal notranslate"><span class="pre">standard_errors</span></code>, <code class="docutils literal notranslate"><span class="pre">lpmatrix</span></code>, <code class="docutils literal notranslate"><span class="pre">summary</span></code>, and <code class="docutils literal notranslate"><span class="pre">plot</span></code> for statistical inference and smooth inspection. The raw <code class="docutils literal notranslate"><span class="pre">GAM</span></code> surface additionally exposes prediction types, residuals, derivatives, ANOVA, <code class="docutils literal notranslate"><span class="pre">k_check</span></code>, <code class="docutils literal notranslate"><span class="pre">gam_check</span></code>, concurvity, covariance choices, and parity snapshots.</p>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
 </pre></div>
 </div>
-<div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">RUN_TRAINING</span><span class="p">:</span>
-    <span class="n">se</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">standard_errors</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-    <span class="n">Xp</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">lpmatrix</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-    <span class="n">terms</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"terms"</span><span class="p">)</span>
-    <span class="n">response_with_se</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"response"</span><span class="p">,</span> <span class="n">return_se</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">residuals</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">residuals</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">"deviance"</span><span class="p">)</span>
-    <span class="n">derivative_model</span> <span class="o">=</span> <span class="n">GAM</span><span class="p">(</span>
-        <span class="n">formula</span><span class="o">=</span><span class="s2">"demand ~ s(temperature, bs='ps', k=10)"</span><span class="p">,</span>
-        <span class="n">family</span><span class="o">=</span><span class="s2">"gaussian"</span><span class="p">,</span>
-        <span class="n">optimize_smoothing</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-        <span class="n">smoothing_method</span><span class="o">=</span><span class="s2">"fixed"</span><span class="p">,</span>
-        <span class="n">smoothing_params</span><span class="o">=</span><span class="p">[</span><span class="mf">0.7</span><span class="p">],</span>
-    <span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
-    <span class="n">derivative</span> <span class="o">=</span> <span class="n">derivative_model</span><span class="o">.</span><span class="n">derivative</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">smooth_number</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">deriv</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">summary</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
-    <span class="n">k_diagnostics</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">k_check</span><span class="p">()</span>
-    <span class="n">check_report</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">gam_check</span><span class="p">()</span>
-    <span class="n">concurvity</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">concurvity</span><span class="p">()</span>
-    <span class="n">covariance</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">vcov</span><span class="p">(</span><span class="n">freq</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">unconditional</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">snapshot</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">parity_snapshot</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-    <span class="n">plots</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">pages</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">se</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">se</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">standard_errors</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">Xp</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">lpmatrix</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">terms</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"terms"</span><span class="p">)</span>
+<span class="n">response_with_se</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"response"</span><span class="p">,</span> <span class="n">return_se</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">residuals</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">residuals</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">"deviance"</span><span class="p">)</span>
+<span class="n">derivative_model</span> <span class="o">=</span> <span class="n">GAM</span><span class="p">(</span>
+    <span class="n">formula</span><span class="o">=</span><span class="s2">"demand ~ s(temperature, bs='ps', k=10)"</span><span class="p">,</span>
+    <span class="n">family</span><span class="o">=</span><span class="s2">"gaussian"</span><span class="p">,</span>
+    <span class="n">optimize_smoothing</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">smoothing_method</span><span class="o">=</span><span class="s2">"fixed"</span><span class="p">,</span>
+    <span class="n">smoothing_params</span><span class="o">=</span><span class="p">[</span><span class="mf">0.7</span><span class="p">],</span>
+<span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+<span class="n">derivative</span> <span class="o">=</span> <span class="n">derivative_model</span><span class="o">.</span><span class="n">derivative</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">smooth_number</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">deriv</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">summary</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+<span class="n">k_diagnostics</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">k_check</span><span class="p">()</span>
+<span class="n">check_report</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">gam_check</span><span class="p">()</span>
+<span class="n">concurvity</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">concurvity</span><span class="p">()</span>
+<span class="n">covariance</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">vcov</span><span class="p">(</span><span class="n">freq</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">unconditional</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">snapshot</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">parity_snapshot</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">plots</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">pages</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">se</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-    <span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">stats</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">stats</span>
 
-    <span class="n">fitted</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">predictions</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">deviance_residuals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">residuals</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">fitted</span><span class="p">,</span> <span class="n">deviance_residuals</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">22</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.65</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#334155"</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">"--"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Deviance residuals"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Fitted"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Residual"</span><span class="p">)</span>
+<span class="n">fitted</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">predictions</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">deviance_residuals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">residuals</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">fitted</span><span class="p">,</span> <span class="n">deviance_residuals</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">22</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.65</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#334155"</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">"--"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Deviance residuals"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Fitted"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Residual"</span><span class="p">)</span>
 
-    <span class="n">stats</span><span class="o">.</span><span class="n">probplot</span><span class="p">(</span><span class="n">deviance_residuals</span><span class="p">,</span> <span class="n">dist</span><span class="o">=</span><span class="s2">"norm"</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"Normal Q–Q check"</span><span class="p">)</span>
+<span class="n">stats</span><span class="o">.</span><span class="n">probplot</span><span class="p">(</span><span class="n">deviance_residuals</span><span class="p">,</span> <span class="n">dist</span><span class="o">=</span><span class="s2">"norm"</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"Normal Q–Q check"</span><span class="p">)</span>
 
-    <span class="n">k_values</span> <span class="o">=</span> <span class="n">k_diagnostics</span><span class="p">[</span><span class="s2">"k_index"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">barh</span><span class="p">(</span><span class="n">k_diagnostics</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">),</span> <span class="n">k_values</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#334155"</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">"--"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Basis-dimension diagnostic"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"k-index"</span><span class="p">)</span>
+<span class="n">k_values</span> <span class="o">=</span> <span class="n">k_diagnostics</span><span class="p">[</span><span class="s2">"k_index"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">barh</span><span class="p">(</span><span class="n">k_diagnostics</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">),</span> <span class="n">k_values</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#334155"</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">"--"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Basis-dimension diagnostic"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"k-index"</span><span class="p">)</span>
 
-    <span class="n">concurvity_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">concurvity</span><span class="p">[</span><span class="s2">"values"</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-    <span class="n">image</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">concurvity_values</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">"magma"</span><span class="p">,</span> <span class="n">aspect</span><span class="o">=</span><span class="s2">"auto"</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">concurvity</span><span class="p">[</span><span class="s2">"labels"</span><span class="p">])),</span> <span class="n">concurvity</span><span class="p">[</span><span class="s2">"labels"</span><span class="p">],</span> <span class="n">rotation</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">"right"</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">concurvity</span><span class="p">[</span><span class="s2">"measure_names"</span><span class="p">])),</span> <span class="n">concurvity</span><span class="p">[</span><span class="s2">"measure_names"</span><span class="p">])</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"Concurvity"</span><span class="p">)</span>
-    <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.046</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mf">0.04</span><span class="p">)</span>
-    <span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s2">"GAM diagnostic dashboard"</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">"bold"</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+<span class="n">concurvity_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">concurvity</span><span class="p">[</span><span class="s2">"values"</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+<span class="n">image</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">concurvity_values</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">"magma"</span><span class="p">,</span> <span class="n">aspect</span><span class="o">=</span><span class="s2">"auto"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">concurvity</span><span class="p">[</span><span class="s2">"labels"</span><span class="p">])),</span> <span class="n">concurvity</span><span class="p">[</span><span class="s2">"labels"</span><span class="p">],</span> <span class="n">rotation</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">"right"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">concurvity</span><span class="p">[</span><span class="s2">"measure_names"</span><span class="p">])),</span> <span class="n">concurvity</span><span class="p">[</span><span class="s2">"measure_names"</span><span class="p">])</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"Concurvity"</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.046</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mf">0.04</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s2">"GAM diagnostic dashboard"</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">"bold"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
 <br/></pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+
+Family: gaussian
+Link function: identity
+
+Formula:
+demand ~ s(temperature, k=10, bs=&#39;cr&#39;) + s(hour, k=8, bs=&#39;cc&#39;) + site
+
+Parametric coefficients:
+                 Estimate   Std. Error      t value     Pr(&gt;|t|)
+(Intercept)        22.534     0.090328       249.47       &lt;2e-16 ***
+site[north]        1.3293      0.12433       10.691       &lt;2e-16 ***
+site[south]      -0.91813      0.13085      -7.0168    2.634e-11 ***
+---
+Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+
+Approximate significance of smooth terms:
+                                        edf       Ref.df            F      p-value
+s(temperature, k=10, bs=&#39;cr&#39;)        6.5526       7.6755       1119.3       &lt;2e-16 ***
+s(hour, k=8, bs=&#39;cc&#39;)                5.2013            6       157.61       &lt;2e-16 ***
+---
+Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+
+R-sq.(adj) = 0.976   Deviance explained = 97.7%
+-REML = 304.31  Scale est. = 0.62172  n = 240
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/notebooks_01_gam_21_1.png" src="../_images/notebooks_01_gam_21_1.png" />
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/notebooks_01_gam_21_2.png" src="../_images/notebooks_01_gam_21_2.png" />
 </div>
 </div>
 </section>
 <section id="11.-Direct-backend,-adapters,-and-classification">
 <h2>11. Direct backend, adapters, and classification<a class="headerlink" href="#11.-Direct-backend,-adapters,-and-classification" title="Link to this heading"></a></h2>
 <p>Use <code class="docutils literal notranslate"><span class="pre">nampy.gam.GAM</span></code> when you need the raw mgcv-shaped interface. The adapters are preferable for sklearn workflows. <code class="docutils literal notranslate"><span class="pre">GAMClassifier</span></code> supports binary targets and adds <code class="docutils literal notranslate"><span class="pre">predict_proba</span></code> and <code class="docutils literal notranslate"><span class="pre">decision_function</span></code>.</p>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
 </pre></div>
 </div>
 <div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">raw</span> <span class="o">=</span> <span class="n">GAM</span><span class="p">(</span>
@@ -1312,32 +1670,38 @@
     <span class="n">basis</span><span class="o">=</span><span class="s2">"cr"</span><span class="p">,</span>
     <span class="n">smoothing_method</span><span class="o">=</span><span class="s2">"reml"</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="k">if</span> <span class="n">RUN_TRAINING</span><span class="p">:</span>
-    <span class="n">raw</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
-    <span class="n">link</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"link"</span><span class="p">)</span>
-    <span class="n">raw_terms</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"terms"</span><span class="p">,</span> <span class="n">return_se</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">classifier</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">data</span><span class="p">[</span><span class="s2">"alert"</span><span class="p">])</span>
-    <span class="n">probabilities</span> <span class="o">=</span> <span class="n">classifier</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-    <span class="n">labels</span> <span class="o">=</span> <span class="n">classifier</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-    <span class="n">probability_frame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
-        <span class="p">{</span><span class="s2">"temperature"</span><span class="p">:</span> <span class="n">data</span><span class="p">[</span><span class="s2">"temperature"</span><span class="p">],</span> <span class="s2">"alert"</span><span class="p">:</span> <span class="n">data</span><span class="p">[</span><span class="s2">"alert"</span><span class="p">],</span> <span class="s2">"probability"</span><span class="p">:</span> <span class="n">probabilities</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]}</span>
-    <span class="p">)</span>
-    <span class="n">probability_frame</span><span class="p">[</span><span class="s2">"temperature_bin"</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">qcut</span><span class="p">(</span>
-        <span class="n">probability_frame</span><span class="p">[</span><span class="s2">"temperature"</span><span class="p">],</span> <span class="n">q</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">duplicates</span><span class="o">=</span><span class="s2">"drop"</span>
-    <span class="p">)</span>
-    <span class="n">calibration</span> <span class="o">=</span> <span class="n">probability_frame</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">"temperature_bin"</span><span class="p">,</span> <span class="n">observed</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">agg</span><span class="p">(</span>
-        <span class="n">temperature</span><span class="o">=</span><span class="p">(</span><span class="s2">"temperature"</span><span class="p">,</span> <span class="s2">"mean"</span><span class="p">),</span>
-        <span class="n">observed_rate</span><span class="o">=</span><span class="p">(</span><span class="s2">"alert"</span><span class="p">,</span> <span class="s2">"mean"</span><span class="p">),</span>
-        <span class="n">predicted_rate</span><span class="o">=</span><span class="p">(</span><span class="s2">"probability"</span><span class="p">,</span> <span class="s2">"mean"</span><span class="p">),</span>
-    <span class="p">)</span>
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mf">7.5</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">calibration</span><span class="p">[</span><span class="s2">"temperature"</span><span class="p">],</span> <span class="n">calibration</span><span class="p">[</span><span class="s2">"observed_rate"</span><span class="p">],</span> <span class="s2">"o-"</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Observed"</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">calibration</span><span class="p">[</span><span class="s2">"temperature"</span><span class="p">],</span> <span class="n">calibration</span><span class="p">[</span><span class="s2">"predicted_rate"</span><span class="p">],</span> <span class="s2">"o-"</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Predicted"</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Alert probability across temperature"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Temperature"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Probability"</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">frameon</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+<span class="n">raw</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+<span class="n">link</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"link"</span><span class="p">)</span>
+<span class="n">raw_terms</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"terms"</span><span class="p">,</span> <span class="n">return_se</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">classifier</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">data</span><span class="p">[</span><span class="s2">"alert"</span><span class="p">])</span>
+<span class="n">probabilities</span> <span class="o">=</span> <span class="n">classifier</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">labels</span> <span class="o">=</span> <span class="n">classifier</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">probability_frame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+    <span class="p">{</span><span class="s2">"temperature"</span><span class="p">:</span> <span class="n">data</span><span class="p">[</span><span class="s2">"temperature"</span><span class="p">],</span> <span class="s2">"alert"</span><span class="p">:</span> <span class="n">data</span><span class="p">[</span><span class="s2">"alert"</span><span class="p">],</span> <span class="s2">"probability"</span><span class="p">:</span> <span class="n">probabilities</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]}</span>
+<span class="p">)</span>
+<span class="n">probability_frame</span><span class="p">[</span><span class="s2">"temperature_bin"</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">qcut</span><span class="p">(</span>
+    <span class="n">probability_frame</span><span class="p">[</span><span class="s2">"temperature"</span><span class="p">],</span> <span class="n">q</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">duplicates</span><span class="o">=</span><span class="s2">"drop"</span>
+<span class="p">)</span>
+<span class="n">calibration</span> <span class="o">=</span> <span class="n">probability_frame</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">"temperature_bin"</span><span class="p">,</span> <span class="n">observed</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">agg</span><span class="p">(</span>
+    <span class="n">temperature</span><span class="o">=</span><span class="p">(</span><span class="s2">"temperature"</span><span class="p">,</span> <span class="s2">"mean"</span><span class="p">),</span>
+    <span class="n">observed_rate</span><span class="o">=</span><span class="p">(</span><span class="s2">"alert"</span><span class="p">,</span> <span class="s2">"mean"</span><span class="p">),</span>
+    <span class="n">predicted_rate</span><span class="o">=</span><span class="p">(</span><span class="s2">"probability"</span><span class="p">,</span> <span class="s2">"mean"</span><span class="p">),</span>
+<span class="p">)</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mf">7.5</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">calibration</span><span class="p">[</span><span class="s2">"temperature"</span><span class="p">],</span> <span class="n">calibration</span><span class="p">[</span><span class="s2">"observed_rate"</span><span class="p">],</span> <span class="s2">"o-"</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Observed"</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">calibration</span><span class="p">[</span><span class="s2">"temperature"</span><span class="p">],</span> <span class="n">calibration</span><span class="p">[</span><span class="s2">"predicted_rate"</span><span class="p">],</span> <span class="s2">"o-"</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Predicted"</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Alert probability across temperature"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Temperature"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Probability"</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">frameon</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
 <br/></pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/notebooks_01_gam_23_0.png" src="../_images/notebooks_01_gam_23_0.png" />
 </div>
 </div>
 </section>

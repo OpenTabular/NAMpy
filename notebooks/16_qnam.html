@@ -702,7 +702,7 @@ q_{\tau_1}(x)\le\cdots\le q_{\tau_K}(x).\]</div>
 <p>QNAM estimates several conditional quantiles with the pinball loss. Rather than fitting each level independently, it parameterizes ordered increments with a positive transform. Cumulative summation guarantees noncrossing quantiles for the intercept and every additive term, hence also for their total.</p>
 <p>The quantile dimension is part of the output contract. Wider intervals describe conditional outcome dispersion, not parameter uncertainty. Dense quantile grids increase output size, and the minimum-increment control trades strict separation against the ability of adjacent levels to coincide.</p>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
 </pre></div>
 </div>
 <div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
@@ -729,14 +729,11 @@ q_{\tau_1}(x)\le\cdots\le q_{\tau_K}(x).\]</div>
 <span class="n">X_train</span><span class="p">,</span> <span class="n">X_test</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">y_test</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span>
     <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">7</span>
 <span class="p">)</span>
-
-<span class="c1"># Set True to run the small fit and all fitted-model demonstrations.</span>
-<span class="n">RUN_TRAINING</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="nb">globals</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"RUN_TRAINING"</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
 <br/></pre></div>
 </div>
 </div>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
 </pre></div>
 </div>
 <div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">11</span><span class="p">,</span> <span class="mf">3.8</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -755,11 +752,18 @@ q_{\tau_1}(x)\le\cdots\le q_{\tau_K}(x).\]</div>
 <br/></pre></div>
 </div>
 </div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/notebooks_16_qnam_3_0.png" src="../_images/notebooks_16_qnam_3_0.png" />
+</div>
+</div>
 </section>
 <section id="Fit-the-model">
 <h2>Fit the model<a class="headerlink" href="#Fit-the-model" title="Link to this heading"></a></h2>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
 </pre></div>
 </div>
 <div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">QNAMLSS</span>
@@ -777,56 +781,224 @@ q_{\tau_1}(x)\le\cdots\le q_{\tau_K}(x).\]</div>
 <br/></pre></div>
 </div>
 </div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+{&#39;activation&#39;: torch.nn.modules.activation.ReLU,
+ &#39;batch_norm&#39;: False,
+ &#39;dropout&#39;: 0.0,
+ &#39;feature_dropout&#39;: 0.0,
+ &#39;interaction_degree&#39;: None,
+ &#39;interactions&#39;: None,
+ &#39;intercept&#39;: True,
+ &#39;layer_norm&#39;: False,
+ &#39;layer_sizes&#39;: [32, 16],
+ &#39;lr&#39;: 0.0001,
+ &#39;lr_factor&#39;: 0.1,
+ &#39;lr_patience&#39;: 10,
+ &#39;min_increment&#39;: 0.0,
+ &#39;monotone_transform&#39;: &#39;softplus&#39;,
+ &#39;norm&#39;: None,
+ &#39;skip_connections&#39;: False,
+ &#39;use_glu&#39;: False,
+ &#39;weight_decay&#39;: 1e-06,
+ &#39;feature_preprocessing&#39;: None,
+ &#39;n_bins&#39;: 64,
+ &#39;numerical_preprocessing&#39;: &#39;ple&#39;,
+ &#39;categorical_preprocessing&#39;: &#39;int&#39;,
+ &#39;use_decision_tree_bins&#39;: False,
+ &#39;binning_strategy&#39;: &#39;uniform&#39;,
+ &#39;task&#39;: &#39;regression&#39;,
+ &#39;cat_cutoff&#39;: 0.03,
+ &#39;treat_all_integers_as_numerical&#39;: False,
+ &#39;degree&#39;: 3,
+ &#39;scaling_strategy&#39;: &#39;minmax&#39;,
+ &#39;n_knots&#39;: 64,
+ &#39;use_decision_tree_knots&#39;: True,
+ &#39;knots_strategy&#39;: &#39;uniform&#39;,
+ &#39;spline_implementation&#39;: &#39;sklearn&#39;,
+ &#39;min_unique_vals&#39;: 5,
+ &#39;family&#39;: &#39;quantile&#39;,
+ &#39;distributional_kwargs&#39;: {&#39;quantiles&#39;: [0.1, 0.5, 0.9]}}
+</pre></div></div>
+</div>
 </section>
 <section id="Model-specific-controls">
 <h2>Model-specific controls<a class="headerlink" href="#Model-specific-controls" title="Link to this heading"></a></h2>
 <p>QNAM is intentionally distributional-only. Set quantile levels with the estimator’s <code class="docutils literal notranslate"><span class="pre">distributional_kwargs</span></code>; <code class="docutils literal notranslate"><span class="pre">predict</span></code> returns one ordered column per level.</p>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
 </pre></div>
 </div>
-<div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">RUN_TRAINING</span><span class="p">:</span>
-    <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
-        <span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span>
-        <span class="n">max_epochs</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
-        <span class="n">batch_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
-        <span class="n">random_state</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span>
-        <span class="n">logger</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-        <span class="n">enable_progress_bar</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-        <span class="n">enable_model_summary</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-    <span class="p">)</span>
-    <span class="n">predicted_quantiles</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
-    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">predicted_quantiles</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="o">-</span><span class="mf">1e-7</span><span class="p">)</span>
-    <span class="n">score</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_test</span><span class="p">))</span>
-    <span class="n">display</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_test</span><span class="p">)))</span>
-    <span class="n">components</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict_components</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
-    <span class="n">explanation</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">explain_terms</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">max_bins</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">importance</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">term_importance</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">display</span><span class="p">(</span><span class="n">importance</span><span class="p">)</span>
+<div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+    <span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span>
+    <span class="n">max_epochs</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">batch_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
+    <span class="n">random_state</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span>
+    <span class="n">logger</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">enable_progress_bar</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">enable_model_summary</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">predicted_quantiles</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">predicted_quantiles</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="o">-</span><span class="mf">1e-7</span><span class="p">)</span>
+<span class="n">score</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_test</span><span class="p">))</span>
+<span class="n">display</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_test</span><span class="p">)))</span>
+<span class="n">components</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict_components</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
+<span class="n">explanation</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">explain_terms</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">max_bins</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">importance</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">term_importance</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">display</span><span class="p">(</span><span class="n">importance</span><span class="p">)</span>
 
-    <span class="n">order</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">X_test</span><span class="p">[</span><span class="s2">"x1"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
-    <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
-        <span class="n">X_test</span><span class="p">[</span><span class="s2">"x1"</span><span class="p">],</span> <span class="n">y_test</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.45</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#64748B"</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Observed"</span>
+<span class="n">order</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">X_test</span><span class="p">[</span><span class="s2">"x1"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+    <span class="n">X_test</span><span class="p">[</span><span class="s2">"x1"</span><span class="p">],</span> <span class="n">y_test</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.45</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#64748B"</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Observed"</span>
+<span class="p">)</span>
+<span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="p">(</span><span class="n">quantile</span><span class="p">,</span> <span class="n">color</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">quantiles</span><span class="p">,</span> <span class="n">COLORS</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span><span class="p">)):</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span>
+        <span class="n">X_test</span><span class="p">[</span><span class="s2">"x1"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()[</span><span class="n">order</span><span class="p">],</span>
+        <span class="n">predicted_quantiles</span><span class="p">[</span><span class="n">order</span><span class="p">,</span> <span class="n">index</span><span class="p">],</span>
+        <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span>
+        <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">"q=</span><span class="si">{</span><span class="n">quantile</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="p">(</span><span class="n">quantile</span><span class="p">,</span> <span class="n">color</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">quantiles</span><span class="p">,</span> <span class="n">COLORS</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span><span class="p">)):</span>
-        <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span>
-            <span class="n">X_test</span><span class="p">[</span><span class="s2">"x1"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()[</span><span class="n">order</span><span class="p">],</span>
-            <span class="n">predicted_quantiles</span><span class="p">[</span><span class="n">order</span><span class="p">,</span> <span class="n">index</span><span class="p">],</span>
-            <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span>
-            <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-            <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">"q=</span><span class="si">{</span><span class="n">quantile</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
-        <span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Ordered conditional quantiles"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"x1"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"y"</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">frameon</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">ncol</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Ordered conditional quantiles"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"x1"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"y"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">frameon</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">ncol</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 
-    <span class="n">interval_width</span> <span class="o">=</span> <span class="n">predicted_quantiles</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">predicted_quantiles</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">interval_width</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.85</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"80</span><span class="si">% i</span><span class="s2">nterval width"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Upper − lower quantile"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Rows"</span><span class="p">)</span>
-    <span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s2">"Quantile fit and predictive spread"</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">"bold"</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+<span class="n">interval_width</span> <span class="o">=</span> <span class="n">predicted_quantiles</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">predicted_quantiles</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">interval_width</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.85</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"80</span><span class="si">% i</span><span class="s2">nterval width"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Upper − lower quantile"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Rows"</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s2">"Quantile fit and predictive spread"</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">"bold"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
 <br/></pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+GPU available: False, used: False
+TPU available: False, using: 0 TPU cores
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/site-packages/lightning/pytorch/core/module.py:522: You called `self.log(&#39;val_loss&#39;, ..., logger=True)` but have no logger configured. You can enable one by doing `Trainer(logger=ALogger(...))`
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/site-packages/lightning/pytorch/core/module.py:522: You called `self.log(&#39;train_loss&#39;, ..., logger=True)` but have no logger configured. You can enable one by doing `Trainer(logger=ALogger(...))`
+`Trainer.fit` stopped: `max_epochs=3` reached.
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+{&#39;NLL&#39;: 2.193822145462036,
+ &#39;Pinball Loss&#39;: 2.1938218548837938,
+ &#39;Median MAE&#39;: 2.3540994743571684}
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>term</th>
+      <th>term_type</th>
+      <th>output</th>
+      <th>importance</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>group</td>
+      <td>main</td>
+      <td>0</td>
+      <td>0.049896</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>x1</td>
+      <td>main</td>
+      <td>1</td>
+      <td>0.037216</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>group</td>
+      <td>main</td>
+      <td>2</td>
+      <td>0.034416</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>x1</td>
+      <td>main</td>
+      <td>2</td>
+      <td>0.029837</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>group</td>
+      <td>main</td>
+      <td>1</td>
+      <td>0.026434</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>x1</td>
+      <td>main</td>
+      <td>0</td>
+      <td>0.020507</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>x2</td>
+      <td>main</td>
+      <td>0</td>
+      <td>0.015574</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>x2</td>
+      <td>main</td>
+      <td>1</td>
+      <td>0.011534</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>x2</td>
+      <td>main</td>
+      <td>2</td>
+      <td>0.011107</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/notebooks_16_qnam_7_3.png" src="../_images/notebooks_16_qnam_7_3.png" />
 </div>
 </div>
 </section>
@@ -834,7 +1006,7 @@ q_{\tau_1}(x)\le\cdots\le q_{\tau_K}(x).\]</div>
 <h2>Supported task variants<a class="headerlink" href="#Supported-task-variants" title="Link to this heading"></a></h2>
 <p>QNAM exposes <code class="docutils literal notranslate"><span class="pre">QNAMLSS</span></code> only because its output contract is an ordered quantile distribution.</p>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
 </pre></div>
 </div>
 <div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">task_variants</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"distributional_quantiles"</span><span class="p">:</span> <span class="n">model</span><span class="p">}</span>

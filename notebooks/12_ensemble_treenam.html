@@ -701,7 +701,7 @@ f_j(x_j)=\frac{1}{M}\sum_{m=1}^{M}f_{mj}(x_j).\]</div>
 <p>This architecture places several complete TreeNAM learners inside one module and minimizes loss for their mean prediction. All learners see the same batches and are updated by one optimizer, so they may co-adapt; this is not equivalent to fitting independent estimators and averaging afterwards.</p>
 <p>Term contributions and tree penalties are averaged with the predictions. The construction can reduce sensitivity to one tree parameterization, but it does not by itself estimate between-fit uncertainty or create bootstrap diversity. Use <code class="docutils literal notranslate"><span class="pre">NeuralEnsemble(TreeNAMRegressor(...))</span></code> for independent or bagged members.</p>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
 </pre></div>
 </div>
 <div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
@@ -728,14 +728,11 @@ f_j(x_j)=\frac{1}{M}\sum_{m=1}^{M}f_{mj}(x_j).\]</div>
 <span class="n">X_train</span><span class="p">,</span> <span class="n">X_test</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">y_test</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span>
     <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">7</span>
 <span class="p">)</span>
-
-<span class="c1"># Set True to run the small fit and all fitted-model demonstrations.</span>
-<span class="n">RUN_TRAINING</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="nb">globals</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"RUN_TRAINING"</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
 <br/></pre></div>
 </div>
 </div>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
 </pre></div>
 </div>
 <div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">11</span><span class="p">,</span> <span class="mf">3.8</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -754,11 +751,18 @@ f_j(x_j)=\frac{1}{M}\sum_{m=1}^{M}f_{mj}(x_j).\]</div>
 <br/></pre></div>
 </div>
 </div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/notebooks_12_ensemble_treenam_3_0.png" src="../_images/notebooks_12_ensemble_treenam_3_0.png" />
+</div>
+</div>
 </section>
 <section id="Fit-the-model">
 <h2>Fit the model<a class="headerlink" href="#Fit-the-model" title="Link to this heading"></a></h2>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
 </pre></div>
 </div>
 <div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
@@ -776,126 +780,420 @@ f_j(x_j)=\frac{1}{M}\sum_{m=1}^{M}f_{mj}(x_j).\]</div>
 <br/></pre></div>
 </div>
 </div>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
 </pre></div>
 </div>
-<div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">RUN_TRAINING</span><span class="p">:</span>
-    <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
-        <span class="n">X_train</span><span class="p">,</span>
-        <span class="n">y_train</span><span class="p">,</span>
-        <span class="n">max_epochs</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
-        <span class="n">batch_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
-        <span class="n">random_state</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span>
-        <span class="n">logger</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-        <span class="n">enable_progress_bar</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-        <span class="n">enable_model_summary</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-    <span class="p">)</span>
-    <span class="n">predictions</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
-    <span class="n">r2</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span>
-    <span class="n">metrics</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span>
-    <span class="n">components</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict_components</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
-    <span class="n">explanation</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">explain_terms</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">max_bins</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">importance</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">term_importance</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">interaction_importance</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">interaction_importance</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">display</span><span class="p">({</span><span class="s2">"R2"</span><span class="p">:</span> <span class="n">r2</span><span class="p">,</span> <span class="o">**</span><span class="n">metrics</span><span class="p">})</span>
-    <span class="n">display</span><span class="p">(</span><span class="n">importance</span><span class="p">)</span>
-    <span class="n">display</span><span class="p">(</span><span class="n">explanation</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">12</span><span class="p">))</span>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+{&#39;aggregation&#39;: &#39;mean&#39;,
+ &#39;feature_dropout&#39;: 0.0,
+ &#39;interaction_degree&#39;: None,
+ &#39;interactions&#39;: None,
+ &#39;intercept&#39;: True,
+ &#39;lr&#39;: 0.001,
+ &#39;lr_factor&#39;: 0.1,
+ &#39;lr_patience&#39;: 10,
+ &#39;num_estimators&#39;: 3,
+ &#39;tree_depth&#39;: 3,
+ &#39;tree_lamda&#39;: 0.001,
+ &#39;tree_temperature&#39;: 1.0,
+ &#39;use_hard_routing_in_eval&#39;: False,
+ &#39;weight_decay&#39;: 1e-06,
+ &#39;feature_preprocessing&#39;: None,
+ &#39;n_bins&#39;: 64,
+ &#39;numerical_preprocessing&#39;: &#39;ple&#39;,
+ &#39;categorical_preprocessing&#39;: &#39;int&#39;,
+ &#39;use_decision_tree_bins&#39;: False,
+ &#39;binning_strategy&#39;: &#39;uniform&#39;,
+ &#39;task&#39;: &#39;regression&#39;,
+ &#39;cat_cutoff&#39;: 0.03,
+ &#39;treat_all_integers_as_numerical&#39;: False,
+ &#39;degree&#39;: 3,
+ &#39;scaling_strategy&#39;: &#39;minmax&#39;,
+ &#39;n_knots&#39;: 64,
+ &#39;use_decision_tree_knots&#39;: True,
+ &#39;knots_strategy&#39;: &#39;uniform&#39;,
+ &#39;spline_implementation&#39;: &#39;sklearn&#39;,
+ &#39;min_unique_vals&#39;: 5}
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+    <span class="n">X_train</span><span class="p">,</span>
+    <span class="n">y_train</span><span class="p">,</span>
+    <span class="n">max_epochs</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">batch_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
+    <span class="n">random_state</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span>
+    <span class="n">logger</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">enable_progress_bar</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">enable_model_summary</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">predictions</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
+<span class="n">r2</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span>
+<span class="n">metrics</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span>
+<span class="n">components</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict_components</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
+<span class="n">explanation</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">explain_terms</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">max_bins</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">importance</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">term_importance</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">interaction_importance</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">interaction_importance</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">display</span><span class="p">({</span><span class="s2">"R2"</span><span class="p">:</span> <span class="n">r2</span><span class="p">,</span> <span class="o">**</span><span class="n">metrics</span><span class="p">})</span>
+<span class="n">display</span><span class="p">(</span><span class="n">importance</span><span class="p">)</span>
+<span class="n">display</span><span class="p">(</span><span class="n">explanation</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">12</span><span class="p">))</span>
 <br/></pre></div>
 </div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+GPU available: False, used: False
+TPU available: False, using: 0 TPU cores
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/site-packages/lightning/pytorch/core/module.py:522: You called `self.log(&#39;val_loss&#39;, ..., logger=True)` but have no logger configured. You can enable one by doing `Trainer(logger=ALogger(...))`
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/site-packages/lightning/pytorch/core/module.py:522: You called `self.log(&#39;train_loss&#39;, ..., logger=True)` but have no logger configured. You can enable one by doing `Trainer(logger=ALogger(...))`
+`Trainer.fit` stopped: `max_epochs=3` reached.
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+{&#39;R2&#39;: -0.36848491444498843, &#39;Mean Squared Error&#39;: 0.9550767940123641}
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>term</th>
+      <th>term_type</th>
+      <th>output</th>
+      <th>importance</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>group</td>
+      <td>main</td>
+      <td>0</td>
+      <td>0.020963</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>x1</td>
+      <td>main</td>
+      <td>0</td>
+      <td>0.015693</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>x2</td>
+      <td>main</td>
+      <td>0</td>
+      <td>0.009088</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>term</th>
+      <th>term_type</th>
+      <th>output</th>
+      <th>value</th>
+      <th>contribution</th>
+      <th>count</th>
+      <th>importance</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>x1</td>
+      <td>main</td>
+      <td>0</td>
+      <td>-0.965</td>
+      <td>0.003774</td>
+      <td>2</td>
+      <td>0.015693</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>x1</td>
+      <td>main</td>
+      <td>0</td>
+      <td>-0.8895</td>
+      <td>0.000864</td>
+      <td>2</td>
+      <td>0.015693</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>x1</td>
+      <td>main</td>
+      <td>0</td>
+      <td>-0.7905</td>
+      <td>-0.011260</td>
+      <td>2</td>
+      <td>0.015693</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>x1</td>
+      <td>main</td>
+      <td>0</td>
+      <td>-0.6915</td>
+      <td>-0.014757</td>
+      <td>2</td>
+      <td>0.015693</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>x1</td>
+      <td>main</td>
+      <td>0</td>
+      <td>-0.58</td>
+      <td>-0.014434</td>
+      <td>2</td>
+      <td>0.015693</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>x1</td>
+      <td>main</td>
+      <td>0</td>
+      <td>-0.4875</td>
+      <td>-0.012393</td>
+      <td>2</td>
+      <td>0.015693</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>x1</td>
+      <td>main</td>
+      <td>0</td>
+      <td>-0.35</td>
+      <td>-0.011077</td>
+      <td>1</td>
+      <td>0.015693</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>x1</td>
+      <td>main</td>
+      <td>0</td>
+      <td>-0.209</td>
+      <td>-0.015071</td>
+      <td>2</td>
+      <td>0.015693</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>x1</td>
+      <td>main</td>
+      <td>0</td>
+      <td>-0.12505</td>
+      <td>-0.023076</td>
+      <td>2</td>
+      <td>0.015693</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>x1</td>
+      <td>main</td>
+      <td>0</td>
+      <td>-0.05205</td>
+      <td>-0.023425</td>
+      <td>2</td>
+      <td>0.015693</td>
+    </tr>
+    <tr>
+      <th>10</th>
+      <td>x1</td>
+      <td>main</td>
+      <td>0</td>
+      <td>0.02175</td>
+      <td>-0.025005</td>
+      <td>2</td>
+      <td>0.015693</td>
+    </tr>
+    <tr>
+      <th>11</th>
+      <td>x1</td>
+      <td>main</td>
+      <td>0</td>
+      <td>0.09875</td>
+      <td>-0.017125</td>
+      <td>2</td>
+      <td>0.015693</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
 </div>
 </section>
 <section id="Evaluate-and-explain">
 <h2>Evaluate and explain<a class="headerlink" href="#Evaluate-and-explain" title="Link to this heading"></a></h2>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
 </pre></div>
 </div>
-<div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">RUN_TRAINING</span><span class="p">:</span>
-    <span class="n">observed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_test</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">fitted</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">predictions</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">residual</span> <span class="o">=</span> <span class="n">observed</span> <span class="o">-</span> <span class="n">fitted</span>
+<div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">observed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_test</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">fitted</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">predictions</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">residual</span> <span class="o">=</span> <span class="n">observed</span> <span class="o">-</span> <span class="n">fitted</span>
 
-    <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mf">3.8</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">observed</span><span class="p">,</span> <span class="n">fitted</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">28</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.75</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-    <span class="n">lo</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">observed</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">fitted</span><span class="o">.</span><span class="n">min</span><span class="p">())</span>
-    <span class="n">hi</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">observed</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">fitted</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">([</span><span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">],</span> <span class="p">[</span><span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">],</span> <span class="s2">"--"</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#334155"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">1.2</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Observed vs predicted"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Observed"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Predicted"</span><span class="p">)</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mf">3.8</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">observed</span><span class="p">,</span> <span class="n">fitted</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">28</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.75</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="n">lo</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">observed</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">fitted</span><span class="o">.</span><span class="n">min</span><span class="p">())</span>
+<span class="n">hi</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">observed</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">fitted</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">([</span><span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">],</span> <span class="p">[</span><span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">],</span> <span class="s2">"--"</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#334155"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">1.2</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Observed vs predicted"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Observed"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Predicted"</span><span class="p">)</span>
 
-    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">fitted</span><span class="p">,</span> <span class="n">residual</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">28</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.75</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#334155"</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">"--"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">1.2</span><span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Residual pattern"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Predicted"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Residual"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">fitted</span><span class="p">,</span> <span class="n">residual</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">28</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.75</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#334155"</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">"--"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">1.2</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Residual pattern"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Predicted"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Residual"</span><span class="p">)</span>
 
-    <span class="n">importance_plot</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="n">importance</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">"term"</span><span class="p">,</span> <span class="n">as_index</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="s2">"importance"</span><span class="p">]</span>
-        <span class="o">.</span><span class="n">mean</span><span class="p">()</span>
-        <span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">"importance"</span><span class="p">)</span>
+<span class="n">importance_plot</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">importance</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">"term"</span><span class="p">,</span> <span class="n">as_index</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="s2">"importance"</span><span class="p">]</span>
+    <span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+    <span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">"importance"</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">barh</span><span class="p">(</span><span class="n">importance_plot</span><span class="p">[</span><span class="s2">"term"</span><span class="p">],</span> <span class="n">importance_plot</span><span class="p">[</span><span class="s2">"importance"</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Mean absolute contribution"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Link-scale importance"</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s2">"Predictive fit and global explanation"</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">"bold"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+
+<span class="n">main_effects</span> <span class="o">=</span> <span class="n">explanation</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
+    <span class="p">(</span><span class="n">explanation</span><span class="p">[</span><span class="s2">"term_type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"main"</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">explanation</span><span class="p">[</span><span class="s2">"output"</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+<span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="n">main_effects</span><span class="p">[</span><span class="s2">"numeric_value"</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">main_effects</span><span class="p">[</span><span class="s2">"value"</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">"coerce"</span><span class="p">)</span>
+<span class="n">main_effects</span> <span class="o">=</span> <span class="n">main_effects</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">"numeric_value"</span><span class="p">])</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="n">main_effects</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+    <span class="n">numeric_terms</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">main_effects</span><span class="p">[</span><span class="s2">"term"</span><span class="p">])</span>
+    <span class="n">top_term</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+        <span class="n">term</span>
+        <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">importance_plot</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">"importance"</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="s2">"term"</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">numeric_terms</span>
     <span class="p">)</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">barh</span><span class="p">(</span><span class="n">importance_plot</span><span class="p">[</span><span class="s2">"term"</span><span class="p">],</span> <span class="n">importance_plot</span><span class="p">[</span><span class="s2">"importance"</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
-    <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Mean absolute contribution"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"Link-scale importance"</span><span class="p">)</span>
-    <span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s2">"Predictive fit and global explanation"</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">"bold"</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+    <span class="n">curve</span> <span class="o">=</span> <span class="n">main_effects</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">main_effects</span><span class="p">[</span><span class="s2">"term"</span><span class="p">]</span> <span class="o">==</span> <span class="n">top_term</span><span class="p">]</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">"numeric_value"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">curve</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+        <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mf">7.5</span><span class="p">,</span> <span class="mf">3.8</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">curve</span><span class="p">[</span><span class="s2">"numeric_value"</span><span class="p">],</span> <span class="n">curve</span><span class="p">[</span><span class="s2">"contribution"</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">2.4</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">curve</span><span class="p">[</span><span class="s2">"numeric_value"</span><span class="p">],</span> <span class="n">curve</span><span class="p">[</span><span class="s2">"contribution"</span><span class="p">],</span> <span class="n">s</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#64748B"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Binned explanation: </span><span class="si">{</span><span class="n">top_term</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="n">top_term</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Contribution"</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
 
-    <span class="n">main_effects</span> <span class="o">=</span> <span class="n">explanation</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
-        <span class="p">(</span><span class="n">explanation</span><span class="p">[</span><span class="s2">"term_type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"main"</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">explanation</span><span class="p">[</span><span class="s2">"output"</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
-    <span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-    <span class="n">main_effects</span><span class="p">[</span><span class="s2">"numeric_value"</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">main_effects</span><span class="p">[</span><span class="s2">"value"</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">"coerce"</span><span class="p">)</span>
-    <span class="n">main_effects</span> <span class="o">=</span> <span class="n">main_effects</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">"numeric_value"</span><span class="p">])</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">main_effects</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
-        <span class="n">numeric_terms</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">main_effects</span><span class="p">[</span><span class="s2">"term"</span><span class="p">])</span>
-        <span class="n">top_term</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
-            <span class="n">term</span>
-            <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">importance_plot</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">"importance"</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="s2">"term"</span><span class="p">]</span>
-            <span class="k">if</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">numeric_terms</span>
-        <span class="p">)</span>
-        <span class="n">curve</span> <span class="o">=</span> <span class="n">main_effects</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">main_effects</span><span class="p">[</span><span class="s2">"term"</span><span class="p">]</span> <span class="o">==</span> <span class="n">top_term</span><span class="p">]</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">"numeric_value"</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">curve</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
-            <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mf">7.5</span><span class="p">,</span> <span class="mf">3.8</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">curve</span><span class="p">[</span><span class="s2">"numeric_value"</span><span class="p">],</span> <span class="n">curve</span><span class="p">[</span><span class="s2">"contribution"</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">2.4</span><span class="p">)</span>
-            <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">curve</span><span class="p">[</span><span class="s2">"numeric_value"</span><span class="p">],</span> <span class="n">curve</span><span class="p">[</span><span class="s2">"contribution"</span><span class="p">],</span> <span class="n">s</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
-            <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#64748B"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-            <span class="n">ax</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Binned explanation: </span><span class="si">{</span><span class="n">top_term</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="n">top_term</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Contribution"</span><span class="p">)</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
-
-    <span class="n">term_figures</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">plot_terms</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">rug</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">pages</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">interaction_terms</span> <span class="o">=</span> <span class="n">interaction_importance</span><span class="p">[</span><span class="s2">"term"</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-    <span class="n">interactions_are_raw_columns</span> <span class="o">=</span> <span class="nb">all</span><span class="p">(</span>
-        <span class="nb">all</span><span class="p">(</span>
-            <span class="n">part</span> <span class="ow">in</span> <span class="n">X_test</span><span class="o">.</span><span class="n">columns</span>
-            <span class="ow">and</span> <span class="n">pd</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">is_numeric_dtype</span><span class="p">(</span><span class="n">X_test</span><span class="p">[</span><span class="n">part</span><span class="p">])</span>
-            <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">term</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">":"</span><span class="p">)</span>
-        <span class="p">)</span>
-        <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">interaction_terms</span>
+<span class="n">term_figures</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">plot_terms</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">rug</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">pages</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">interaction_terms</span> <span class="o">=</span> <span class="n">interaction_importance</span><span class="p">[</span><span class="s2">"term"</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<span class="n">interactions_are_raw_columns</span> <span class="o">=</span> <span class="nb">all</span><span class="p">(</span>
+    <span class="nb">all</span><span class="p">(</span>
+        <span class="n">part</span> <span class="ow">in</span> <span class="n">X_test</span><span class="o">.</span><span class="n">columns</span>
+        <span class="ow">and</span> <span class="n">pd</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">is_numeric_dtype</span><span class="p">(</span><span class="n">X_test</span><span class="p">[</span><span class="n">part</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">term</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">":"</span><span class="p">)</span>
     <span class="p">)</span>
-    <span class="k">if</span> <span class="n">interaction_terms</span> <span class="ow">and</span> <span class="n">interactions_are_raw_columns</span><span class="p">:</span>
-        <span class="n">model</span><span class="o">.</span><span class="n">plot_interactions</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">interaction_terms</span>
+<span class="p">)</span>
+<span class="k">if</span> <span class="n">interaction_terms</span> <span class="ow">and</span> <span class="n">interactions_are_raw_columns</span><span class="p">:</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">plot_interactions</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
 <br/></pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/notebooks_12_ensemble_treenam_8_0.png" src="../_images/notebooks_12_ensemble_treenam_8_0.png" />
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/notebooks_12_ensemble_treenam_8_1.png" src="../_images/notebooks_12_ensemble_treenam_8_1.png" />
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/notebooks_12_ensemble_treenam_8_2.png" src="../_images/notebooks_12_ensemble_treenam_8_2.png" />
 </div>
 </div>
 </section>
 <section id="Model-specific-controls">
 <h2>Model-specific controls<a class="headerlink" href="#Model-specific-controls" title="Link to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">num_estimators</span></code> controls jointly trained learners. Use <code class="docutils literal notranslate"><span class="pre">NeuralEnsemble</span></code> instead when independently initialized or bootstrapped fitted models are required.</p>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
 </pre></div>
 </div>
-<div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">RUN_TRAINING</span><span class="p">:</span>
-    <span class="n">display</span><span class="p">({</span><span class="s2">"learners"</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">get_params</span><span class="p">(</span><span class="n">deep</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="s2">"num_estimators"</span><span class="p">]})</span>
-    <span class="n">components</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict_components</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
-    <span class="n">components</span><span class="o">.</span><span class="n">validate_additive_reconstruction</span><span class="p">(</span><span class="n">rtol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span>
+<div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">display</span><span class="p">({</span><span class="s2">"learners"</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">get_params</span><span class="p">(</span><span class="n">deep</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="s2">"num_estimators"</span><span class="p">]})</span>
+<span class="n">components</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict_components</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
+<span class="n">components</span><span class="o">.</span><span class="n">validate_additive_reconstruction</span><span class="p">(</span><span class="n">rtol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span>
 <br/></pre></div>
 </div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+{&#39;learners&#39;: 3}
+</pre></div></div>
 </div>
 </section>
 <section id="Supported-task-variants">
 <h2>Supported task variants<a class="headerlink" href="#Supported-task-variants" title="Link to this heading"></a></h2>
 <p>The joint ensemble is available for regression, classification, and LSS.</p>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
 </pre></div>
 </div>
 <div class="input_area highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">task_variants</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"regression"</span><span class="p">:</span> <span class="n">EnsembleTreeNAMRegressor</span><span class="p">(),</span> <span class="s2">"classification"</span><span class="p">:</span> <span class="n">EnsembleTreeNAMClassifier</span><span class="p">(),</span> <span class="s2">"distributional"</span><span class="p">:</span> <span class="n">EnsembleTreeNAMLSS</span><span class="p">()}</span>
