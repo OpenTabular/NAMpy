@@ -340,6 +340,19 @@ class TestPcParityFixed:
             rtol=1e-10,
         )
 
+    def test_te_same_feature_linked_id_pc_fixed_sp_matches_mgcv(self):
+        """Same-feature linked tensor point constraints remain supported upstream."""
+        data = _data_2d(n=70, seed=43)
+        formula = (
+            'y ~ te(x, z, bs=c("cr", "cr"), k=c(4, 4), id="g", '
+            'pc=c(0.2, -0.3), sp=c(1.1, 0.7)) + '
+            'te(x, z, bs=c("cr", "cr"), k=c(4, 4), id="g", '
+            'pc=c(0.2, -0.3), sp=c(1.1, 0.7))'
+        )
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
+        _exact_parity(actual, expected)
+
     @pytest.mark.parametrize("special", ["te", "ti"])
     def test_tensor_pc_zeroes_term_at_constraint_point(self, special):
         """The fitted tensor contribution passes through zero at pc=."""

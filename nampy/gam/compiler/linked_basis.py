@@ -77,17 +77,20 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
             raise ValueError(f"Smooth term {base_term.label!r} is missing smooth_spec.")
 
         group_terms = [term for _, _, term in items]
-        linked_tensor_pc = [
-            term
-            for term in group_terms
-            if term.smooth_spec is not None
+        has_tensor_pc = any(
+            term.smooth_spec is not None
             and str(term.smooth_spec.special).lower() in {"te", "ti"}
             and getattr(term.smooth_spec, "pc", None) is not None
-        ]
-        if linked_tensor_pc:
+            for term in group_terms
+        )
+        feature_tuples = {
+            tuple(str(f) for f in term.features) for term in group_terms
+        }
+        if has_tensor_pc and len(feature_tuples) > 1:
             raise NotImplementedError(
-                "pc= is not supported across multiple id-linked te()/ti() terms; "
-                "mgcv 1.9-4 fails while constructing the shared tensor basis."
+                "pc= is not supported across id-linked te()/ti() terms with "
+                "different feature sets; mgcv 1.9-4 fails while constructing "
+                "the shared tensor basis."
             )
         for term in group_terms[1:]:
             _clone_linked_smooth_spec(base_term, term)
