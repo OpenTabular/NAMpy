@@ -1,5 +1,5 @@
 # Usage:
-#   Rscript mgcv_general_family_preoptimization.R <csv_path> <output_json> <formula> <family> <method> <select> [sp_json]
+#   Rscript mgcv_general_family_preoptimization.R <csv_path> <output_json> <formula> <family> <method> <select> [sp_json] [no_repara]
 #
 # Fits an mgcv general family, re-creates the exact pre-optimization
 # `Sl.setup` / `Sl.initial.repara` / `ldetS` state at the fitted smoothing
@@ -84,6 +84,7 @@ sp_override <- if (length(args) >= 7 && nzchar(args[[7]]) && args[[7]] != "-") {
 } else {
   NULL
 }
+no_repara_flag <- length(args) >= 8 && tolower(args[[8]]) %in% c("true", "1", "yes")
 
 mgcv_lib <- Sys.getenv("MGCV_LIB_PATH", "")
 if (nzchar(mgcv_lib)) {
@@ -145,7 +146,7 @@ if (is.null(lpi)) {
   lpi <- list(seq_len(ncol(X_full)))
 }
 
-prefit$Sl <- mgcv:::Sl.setup(prefit)
+prefit$Sl <- mgcv:::Sl.setup(prefit, no.repara = no_repara_flag)
 X_initial <- mgcv:::Sl.initial.repara(
   prefit$Sl,
   X_full,
@@ -162,6 +163,15 @@ ld <- mgcv:::ldetS(
   np = ncol(X_full),
   root = FALSE,
   Stot = FALSE,
+  repara = TRUE
+)
+ld_full <- mgcv:::ldetS(
+  prefit$Sl,
+  rho = log_sp,
+  fixed = rep(FALSE, length(log_sp)),
+  np = ncol(X_full),
+  root = TRUE,
+  Stot = TRUE,
   repara = TRUE
 )
 
@@ -194,6 +204,8 @@ payload <- list(
   ldetS = serialize_optional(ld$ldetS),
   ldetS1 = serialize_optional(ld$ldet1),
   ldetS2 = serialize_optional(ld$ldet2),
+  ldet_root = serialize_optional(ld_full$E),
+  ldet_Stot = serialize_optional(ld_full$S),
   Mp = as.integer(Mp),
   score_type = if (tolower(method_name) == "laml") "REML" else toupper(method_name),
   Sl = list(

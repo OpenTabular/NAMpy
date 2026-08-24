@@ -270,11 +270,6 @@ def _sl_multi_penalty_block(
     repara: bool,
     penalty_indices: tuple[int, ...] = (),
 ) -> GeneralPenaltyBlock:
-    if not repara:
-        raise NotImplementedError(
-            "Non-reparameterized multi-penalty general-family Sl blocks are unsupported."
-        )
-
     S_work = [symmetrize_matrix(Si) for Si in S_local]
     St_sum = np.zeros_like(S_work[0], dtype=np.float64)
     for Si in S_work:
@@ -303,8 +298,9 @@ def _sl_multi_penalty_block(
         transformed.append(np.asarray(bob, dtype=np.float64))
         roots.append(_mroot_chol_local(bob, rank=int(rank_use)))
 
-    St = np.zeros_like(transformed[0], dtype=np.float64)
-    for Si in transformed:
+    block_penalties = transformed if repara else S_work
+    St = np.zeros_like(block_penalties[0], dtype=np.float64)
+    for Si in block_penalties:
         S_norm = r_matrix_norm_one(Si)
         if S_norm <= 0.0:
             raise RuntimeError(
@@ -317,9 +313,9 @@ def _sl_multi_penalty_block(
         start=int(start),
         stop=int(stop),
         rank=int(rank_use),
-        S=transformed,
-        lambda_=np.ones(len(transformed), dtype=np.float64),
-        repara=True,
+        S=[np.asarray(Si, dtype=np.float64) for Si in block_penalties],
+        lambda_=np.ones(len(block_penalties), dtype=np.float64),
+        repara=bool(repara),
         linear=True,
         ldet=0.0,
         ind=ind,
@@ -332,6 +328,16 @@ def _sl_multi_penalty_block(
 
 
 _GENERAL_FAMILY_NONLINEAR_SL_KEY = "general_family_nonlinear_sl"
+_GENERAL_FAMILY_SL_REPARA_KEY = "general_family_sl_repara"
+
+
+def _term_general_family_sl_repara(term) -> bool:
+    """Return the compiled smooth's upstream ``smooth$repara`` contract."""
+    constructor = dict(getattr(term, "constructor_metadata", {}) or {})
+    metadata = dict(getattr(term, "metadata", {}) or {})
+    if _GENERAL_FAMILY_SL_REPARA_KEY in metadata:
+        return bool(metadata[_GENERAL_FAMILY_SL_REPARA_KEY])
+    return bool(constructor.get("sl_repara", True))
 
 
 def _general_family_term_start_stop(
@@ -502,18 +508,36 @@ def _materialize_sl_attrs(
     lambda_values = []
 
     for block in blocks:
-        if len(block.S) <= 1:
+        if not bool(getattr(block, "linear", True)):
             lambda_values.extend(np.asarray(block.lambda_, dtype=np.float64).tolist())
-        else:
-            lambda_values.extend(
-                [
-                    1.0 / r_matrix_norm_one(np.asarray(Si, dtype=np.float64))
-                    for Si in block.S
-                ]
-            )
-        if not block.repara:
             continue
         if len(block.S) == 1:
+            if not block.repara:
+                root = general_newton._sl_single_original_root(block)
+                # R's default matrix ``norm()`` is type "O": maximum
+                # absolute column sum. The row/column distinction matters for
+                # this generally rectangular singleton root.
+                root_norm = float(np.linalg.norm(root, ord=1))
+                if root_norm <= 0.0:
+                    raise RuntimeError(
+                        "Encountered zero-norm singleton penalty in Sl.setup."
+                    )
+                base_ind = np.arange(block.start - 1, block.stop, dtype=int)
+                rows = np.arange(
+                    block.start - 1,
+                    block.start - 1 + root.shape[0],
+                    dtype=int,
+                )
+                E[np.ix_(rows, base_ind)] = root / root_norm
+                S[np.ix_(base_ind, base_ind)] = (
+                    np.asarray(block.S[0], dtype=np.float64) / (root_norm**2)
+                )
+                lambda_values.append(1.0 / (root_norm**2))
+                continue
+
+            lambda_values.extend(
+                np.asarray(block.lambda_, dtype=np.float64).tolist()
+            )
             ind = (
                 np.zeros(block.width, dtype=bool)
                 if block.ind is None
@@ -524,6 +548,12 @@ def _materialize_sl_attrs(
                 E[idx, idx] = 1.0
                 S[idx, idx] = 1.0
         else:
+            lambda_values.extend(
+                [
+                    1.0 / r_matrix_norm_one(np.asarray(Si, dtype=np.float64))
+                    for Si in block.S
+                ]
+            )
             St = np.zeros_like(
                 np.asarray(block.S[0], dtype=np.float64), dtype=np.float64
             )
@@ -600,6 +630,7 @@ def build_general_penalty_setup(
             continue
         used_penalties.update(term_penalty_idx)
         start, stop = _term_block_start_stop(term_penalty_idx)
+        repara = _term_general_family_sl_repara(term)
         local_penalties = [
             symmetrize_matrix(np.asarray(penalty_blocks[i].matrix, dtype=np.float64))
             for i in term_penalty_idx
@@ -619,7 +650,7 @@ def build_general_penalty_setup(
                     start=start,
                     stop=stop,
                     rank=local_ranks[0],
-                    repara=True,
+                    repara=repara,
                     penalty_indices=(int(term_penalty_idx[0]),),
                 )
             )
@@ -668,7 +699,7 @@ def build_general_penalty_setup(
                         start=start + sb_start[j],
                         stop=start + sb_stop[j],
                         rank=local_ranks[j],
-                        repara=True,
+                        repara=repara,
                         penalty_indices=(int(term_penalty_idx[j]),),
                     )
                 )
@@ -679,7 +710,7 @@ def build_general_penalty_setup(
                     start=start,
                     stop=stop,
                     rank=None,
-                    repara=True,
+                    repara=repara,
                     penalty_indices=tuple(int(v) for v in term_penalty_idx),
                 )
             )

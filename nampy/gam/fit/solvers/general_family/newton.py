@@ -1725,6 +1725,27 @@ def _sl_second_mult(
     return np.asarray(local, dtype=np.float64)
 
 
+def _sl_single_original_root(block: Any) -> np.ndarray:
+    """Return mgcv's row-root for a non-reparameterized singleton block."""
+    rank = int(block.rank)
+    Di = getattr(block, "Di", None)
+    if Di is not None:
+        return np.asarray(Di, dtype=np.float64)[:rank, :]
+
+    penalty = np.asarray(block.S[0], dtype=np.float64)
+    penalty = 0.5 * (penalty + penalty.T)
+    diagonal = np.asarray(np.diag(penalty), dtype=np.float64)
+    if np.sum(np.abs(penalty[np.triu_indices_from(penalty, k=1)])) == 0.0:
+        active = np.flatnonzero(diagonal > 0.0)[:rank]
+        root = np.zeros((active.size, penalty.shape[1]), dtype=np.float64)
+        root[np.arange(active.size), active] = np.sqrt(diagonal[active])
+        return root
+    return np.asarray(
+        positive_semidefinite_root(penalty, rank=rank, tol=0.0).T,
+        dtype=np.float64,
+    )
+
+
 def _sl_ldetS(
     Sl: Any,
     *,
@@ -1807,9 +1828,21 @@ def _sl_ldetS(
                 if S is not None and active.size > 0:
                     S[active, active] = np.exp(rho[k_sp])
             else:
-                raise NotImplementedError(
-                    "Non-reparameterized single-penalty general-family Sl blocks are unsupported."
-                )
+                root_local = _sl_single_original_root(block)
+                if E is not None:
+                    rows = np.arange(
+                        int(block.start) - 1,
+                        int(block.start) - 1 + root_local.shape[0],
+                        dtype=int,
+                    )
+                    E[np.ix_(rows, base_ind)] = (
+                        root_local * np.exp(rho[k_sp] * 0.5)
+                    )
+                if S is not None:
+                    S[np.ix_(base_ind, base_ind)] = (
+                        np.asarray(block.S[0], dtype=np.float64)
+                        * np.exp(rho[k_sp])
+                    )
 
             k_sp += 1
             continue
@@ -1818,7 +1851,6 @@ def _sl_ldetS(
         sp_ind = np.arange(k_sp, k_sp + m, dtype=int)
         grp = gam_reparam(block.rS, rho[sp_ind], deriv=deriv)
         block.lambda_ = np.exp(rho[sp_ind])
-        block.St = np.asarray(grp["S"], dtype=np.float64)
         block.Srp = [
             float(block.lambda_[i])
             * (
@@ -1838,18 +1870,19 @@ def _sl_ldetS(
                 d2[k_deriv : k_deriv + nd, k_deriv : k_deriv + nd] = d2_block
             k_deriv += nd
 
+        active = np.arange(int(block.start) - 1, int(block.stop), dtype=int)[
+            np.asarray(block.ind, dtype=bool)
+        ]
+        rp.append(
+            {
+                "block": b_idx,
+                "ind": np.asarray(active, dtype=int),
+                "Qs": np.asarray(grp["Qs"], dtype=np.float64),
+                "repara": bool(block.repara),
+            }
+        )
         if bool(block.repara):
-            active = np.arange(int(block.start) - 1, int(block.stop), dtype=int)[
-                np.asarray(block.ind, dtype=bool)
-            ]
-            rp.append(
-                {
-                    "block": b_idx,
-                    "ind": np.asarray(active, dtype=int),
-                    "Qs": np.asarray(grp["Qs"], dtype=np.float64),
-                    "repara": bool(block.repara),
-                }
-            )
+            block.St = np.asarray(grp["S"], dtype=np.float64)
             if E is not None:
                 grp_E = np.asarray(grp["E"], dtype=np.float64)
                 ir = np.arange(
@@ -1869,9 +1902,27 @@ def _sl_ldetS(
                 )
                 S[np.ix_(ir, ic)] = grp_S
         else:
-            raise NotImplementedError(
-                "Non-reparameterized multi-penalty general-family Sl blocks are unsupported."
+            block.St = np.zeros_like(
+                np.asarray(block.S[0], dtype=np.float64), dtype=np.float64
             )
+            for lam, Si in zip(block.lambda_, block.S, strict=True):
+                block.St += float(lam) * np.asarray(Si, dtype=np.float64)
+            block.St = 0.5 * (block.St + block.St.T)
+            if E is not None:
+                root_local = np.asarray(
+                    positive_semidefinite_root(
+                        block.St, rank=int(block.rank), tol=0.0
+                    ).T,
+                    dtype=np.float64,
+                )
+                rows = np.arange(
+                    int(block.start) - 1,
+                    int(block.start) - 1 + root_local.shape[0],
+                    dtype=int,
+                )
+                E[np.ix_(rows, base_ind)] = root_local
+            if S is not None:
+                S[np.ix_(base_ind, base_ind)] = block.St
 
         k_sp += m
 
