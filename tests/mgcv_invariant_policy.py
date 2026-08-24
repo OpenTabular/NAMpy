@@ -309,6 +309,17 @@ def _canonicalize_duchon_raw_state(state):
     return state
 
 
+def _canonicalize_gp_raw_state(state):
+    extra = state["extra"]
+    extra.pop("used_supplied_knots", False)
+    extra.pop("used_subsampling", False)
+    extra.pop("pure_knot", False)
+    state["S"] = [penalty_spectrum(S) for S in state["S"]]
+    state["X"] = matrix_self_gram(state["X"])
+    extra["UZ"] = stable_column_space_projector(extra["UZ"])
+    return state
+
+
 def _canonicalize_cs_raw_state(state):
     state["S"] = [penalty_spectrum(S) for S in state["S"]]
     return state
@@ -365,6 +376,8 @@ def canonicalize_raw_representation_state(state: dict[str, Any]) -> dict[str, An
         return _canonicalize_tprs_raw_state(state)
     if class_name == "duchon.spline":
         return _canonicalize_duchon_raw_state(state)
+    if class_name == "gp.smooth":
+        return _canonicalize_gp_raw_state(state)
     if class_name == "fs.interaction":
         return _canonicalize_fs_raw_state(state)
     if class_name == "sz.interaction":

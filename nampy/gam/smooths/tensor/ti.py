@@ -117,6 +117,12 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
 
         self._by_state = None
 
+    @property
+    def expected_linked_penalty_count(self):
+        if self.select:
+            return None
+        return int(np.sum(~np.asarray(self.fixed_flags, dtype=bool)))
+
     def fit(self, X, feature_names):
         self._set_by_state(X, feature_names)
 

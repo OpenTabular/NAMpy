@@ -15,6 +15,7 @@ from .smooth import (
     DerivativeBSplineSmoothSpec,
     DuchonSplineSmoothSpec,
     FactorSmoothInteractionSpec,
+    GaussianProcessSmoothSpec,
     PSplineSmoothSpec,
     RandomEffectSmoothSpec,
     ShapeConstrainedSmoothSpec,
@@ -129,6 +130,21 @@ def _build_s_ds(opts) -> DuchonSplineSmoothSpec:
     )
 
 
+def _build_s_gp(opts) -> GaussianProcessSmoothSpec:
+    return GaussianProcessSmoothSpec(
+        special="s",
+        k=opts["k"],
+        fx=opts["fx"],
+        select=opts["select"],
+        sp=opts["sp"],
+        knots=opts["knots"],
+        m=opts["m"],
+        xt=opts["xt"],
+        constraint_mode=opts["constraint_mode"],
+        pc=opts["pc"],
+    )
+
+
 def _build_s_shape(opts) -> ShapeConstrainedSmoothSpec:
     return ShapeConstrainedSmoothSpec(
         special="s",
@@ -219,6 +235,7 @@ _S_BASIS_SPEC_BUILDERS: dict[str, Callable[[dict[str, Any]], SmoothSpec]] = {
     "cp": _build_s_ps,
     "bs": _build_s_bs,
     "ds": _build_s_ds,
+    "gp": _build_s_gp,
     "tp": _build_s_tp,
     "ts": _build_s_ts,
     "re": _build_s_re,
@@ -318,6 +335,7 @@ _PC_SUPPORTED_S_BASES = {
     "cr",
     "cs",
     "ds",
+    "gp",
     "ps",
     "tp",
     "ts",
@@ -337,7 +355,7 @@ def _dispatch_smooth_spec_from_options(opts) -> SmoothSpec:
             raise NotImplementedError(
                 f"pc= is not supported for s(..., bs={merged['bs']!r}); "
                 "point constraints are only supported for bs in "
-                "{'bs', 'cc', 'cp', 'cr', 'cs', 'ds', 'ps', 'tp', 'ts'}."
+                "{'bs', 'cc', 'cp', 'cr', 'cs', 'ds', 'gp', 'ps', 'tp', 'ts'}."
             )
         return builder(merged)
     if has_pc and special_key not in {"te", "ti"}:
@@ -535,10 +553,10 @@ def _default_k_for_smooth(kind, basis, features, default_k):
         # mgcv::te()/ti() default k to 5^d per marginal. The current
         # Python tensor surface supports one feature per marginal, so d = 1.
         return [5] * len(features)
-    if str(basis).lower() in {"bs", "ds", "tp", "ts"}:
+    if str(basis).lower() in {"bs", "ds", "gp", "tp", "ts"}:
         # mgcv/R/smooth.r::s() leaves k = -1. The basis constructor then
         # resolves its dimension-dependent default (TP/TS use M + 8/27/100;
-        # DS uses M + 10/30/100). A flat default here would be wrong in more
+        # DS uses M + 10/30/100; GP uses d + 1 + 10/30/100). A flat default here would be wrong in more
         # than one dimension.
         return -1
     return _default_k_for_basis(basis, default_k)
