@@ -1608,6 +1608,11 @@ serialize_smooth <- function(sm) {
       knots = pack_vector(sm$knots, "numeric"),
       m = pack_vector(sm$m, "integer")
     ),
+    "Bspline.smooth" = list(
+      knots = pack_vector(sm$knots, "numeric"),
+      m = pack_vector(sm$m, "numeric"),
+      D = if (is.null(sm$D)) list() else lapply(sm$D, pack_matrix)
+    ),
     "tprs.smooth" = list(
       Xu = pack_matrix(sm$Xu),
       UZ = pack_matrix(sm$UZ),
@@ -1857,12 +1862,11 @@ def _run_mgcv_smoothcon_predict_matrix(
     knots: dict | None = None,
     absorb_cons: bool = True,
     scale_penalty: bool = True,
+    deriv: int | None = None,
 ):
     smooth_expr_r = _normalize_python_formula_text(smooth_expr)
     knots_payload = _normalize_raw_constructor_knots(knots)
-    _cache_key = _mgcv_fixture_key(
-        "smoothcon_predict_matrix",
-        {
+    cache_parts = {
             "version": _SMOOTHCON_PREDICT_MATRIX_FIXTURE_VERSION,
             "data": _df_fixture_repr(data),
             "newdata": _df_fixture_repr(newdata),
@@ -1870,8 +1874,10 @@ def _run_mgcv_smoothcon_predict_matrix(
             "knots": json.dumps(knots_payload, sort_keys=True, default=str),
             "absorb_cons": bool(absorb_cons),
             "scale_penalty": bool(scale_penalty),
-        },
-    )
+    }
+    if deriv is not None:
+        cache_parts["deriv"] = int(deriv)
+    _cache_key = _mgcv_fixture_key("smoothcon_predict_matrix", cache_parts)
     cached = _mgcv_fixture_load(_cache_key)
     if cached is not None:
         return _decode_packed_matrix_payload(cached)
@@ -1892,8 +1898,8 @@ for (nm in names(newd)) {
 }
 out <- args[[3]]
 kn <- NULL
-if (length(args) >= 8 && nzchar(args[[8]])) {
-  kraw <- fromJSON(args[[8]], simplifyVector = FALSE)
+if (length(args) >= 7 && nzchar(args[[7]])) {
+  kraw <- fromJSON(args[[7]], simplifyVector = FALSE)
   kn <- lapply(kraw, function(v) {
     if (is.null(v)) return(NULL)
     vals <- unlist(v, recursive = TRUE, use.names = FALSE)
@@ -1923,6 +1929,7 @@ sm <- smoothCon(
   absorb.cons = absorb_cons,
   scale.penalty = scale_penalty
 )[[1]]
+if (length(args) >= 8 && nzchar(args[[8]])) sm$deriv <- as.integer(args[[8]])
 pm <- PredictMat(sm, newd)
 write_json(
   list(X = pack_matrix(pm)),
@@ -1957,6 +1964,7 @@ write_json(
                 "true" if absorb_cons else "false",
                 "true" if scale_penalty else "false",
                 knots_json,
+                "" if deriv is None else str(int(deriv)),
             ),
             check=True,
             cwd=_REPO_ROOT,

@@ -236,6 +236,10 @@ def _infer_marks_from_text(texts: list[str]) -> set[str]:
     for token, mark in _SMOOTH_MARK_NAMES.items():
         if token in {"te", "ti"}:
             continue
+        if token == "bs":
+            if f'bs="{token}"' in joined or f"bs='{token}'" in joined:
+                marks.add(mark)
+            continue
         if (
             f'bs="{token}"' in joined
             or f"bs='{token}'" in joined
