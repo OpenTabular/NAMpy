@@ -11,10 +11,11 @@ def test_gam_public_import_does_not_initialize_neural_backend():
 import sys
 
 from nampy.gam import GAM
-from nampy import GAMRegressor
+from nampy import GAMLSS, GAMRegressor
 
 assert GAM.__module__.startswith("nampy.gam.")
 assert GAMRegressor.__module__ == "nampy.models.gam"
+assert GAMLSS.__module__ == "nampy.models.gamlss"
 assert "nampy.neural" not in sys.modules
 assert "torch" not in sys.modules
 assert "lightning" not in sys.modules

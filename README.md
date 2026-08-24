@@ -91,6 +91,30 @@ prediction = model.predict(X_test)
 standard_error = model.standard_errors(X_test)
 ```
 
+Use the dedicated `GAMLSS` estimator when multiple additive predictors jointly
+describe one response distribution:
+
+```python
+from nampy.models import GAMLSS
+
+model = GAMLSS(
+    family="normal",
+    formula={
+        "mu": "y ~ s(x0, bs='cr', k=10)",
+        "sigma": "~ s(x1, bs='cr', k=8)",
+    },
+).fit(data)
+
+parameters = model.predict(data)       # columns: mu, sigma
+point_prediction = model.predict_point(data)
+raw_predictors = model.predict(data, raw=True)
+```
+
+`GAMRegressor` accepts single-predictor regression families,
+`GAMClassifier` accepts binary binomial families, and `GAMLSS` accepts
+multi-parameter GAMLSS families. The low-level `nampy.gam.GAM` remains
+unrestricted and keeps its mgcv-shaped response conventions.
+
 NAMpy's GAM implementation covers the statistical model lifecycle from formula
 parsing and smooth construction through fitting, prediction, inference, and
 diagnostics. Ordinary and shape-constrained terms share the same formula,
@@ -136,7 +160,7 @@ Shape-constrained functionality includes fixed smoothing, the supported automati
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Ordinary families         | Gaussian, binomial, Poisson, and Gamma with the implemented canonical and noncanonical links                                                       |
 | Extended families         | negative binomial (`nb` and fixed-theta `negbin`), beta regression (`betar`), Tweedie (`tw`), and ordered categorical (`ocat`)                     |
-| Multi-predictor families  | `gaulss` and `gammals`                                                                                                                             |
+| Multi-predictor families  | `GAMLSS` with `normal`/`gaulss` and `gamma`/`gammals`; raw `GAM` also accepts the mgcv family names                                                  |
 | Smoothness criteria       | fixed smoothing, GCV/Cp, UBRE, ML, REML, and general-family LAML where the selected family and model combination supports them                     |
 | Smoothness optimizers     | outer Newton, BFGS, EFS, and guarded `optim`/L-BFGS-B routes                                                                                       |
 | Prediction                | link, response, terms, interaction terms, linear-predictor matrices, and pointwise standard errors                                                 |

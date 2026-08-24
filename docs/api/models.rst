@@ -71,6 +71,7 @@ Distributional Regression Models (LSS)
    EnsembleTreeNAMLSS
    SNAMLSS
    NodeGAMLSS
+   GAMLSS
 
 Other Models
 ------------

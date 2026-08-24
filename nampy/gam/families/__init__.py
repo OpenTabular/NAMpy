@@ -7,6 +7,7 @@ from .binomial import (
     BinomialProbitFamily,
 )
 from .family_base import BaseFamily, ExtendedFamily, GeneralFamily, GLMFamily
+from .gamlss._base import GamlssFamily
 from .gamlss.gammals import GammalsFamily, gammals
 from .gamlss.gaulss import GaulssFamily, gaulss
 from .gamma import GammaIdentityFamily, GammaInverseFamily, GammaLogFamily
@@ -41,6 +42,7 @@ __all__ = [
     "clone_gam_family",
     "make_gam_family",
     # GAMLSS families
+    "GamlssFamily",
     "GaulssFamily",
     "gaulss",
     "GammalsFamily",

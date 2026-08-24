@@ -10,6 +10,14 @@
       "fixture_namespace": "mgcv",
       "generator": "tests/mgcv_parity_utils.py"
     },
+    "gamlss": {
+      "package_version": "5.5-0",
+      "distribution_package_version": "6.1-1",
+      "mgcv_package_version": "1.9-4",
+      "fixture_namespace": "gamlss",
+      "generator": "tests/parity/gamlss_semantic_reference.R",
+      "scope": "Parametric natural-parameter and density semantics; mgcv remains the smooth-fit numerical authority"
+    },
     "scam": {
       "package_version": "1.2-22",
       "source_commit": "0e43f56b598cfff1b7915ae210bd9fc228025fc3",

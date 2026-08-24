@@ -79,6 +79,7 @@ class GaulssFamily(GamlssFamily):
     family_class = "general"
     nlp = 2
     n_linear_predictors = 2
+    parameter_names = ("mu", "sigma")
 
     supports_laml = True
     supports_ml = True
@@ -137,6 +138,39 @@ class GaulssFamily(GamlssFamily):
         self.tri = trind_generator(2)
         self.link_names = (link1_name, link2_name)
         self.link_name = f"({link1_name}, {link2_name})"
+
+    def distribution_parameters_from_eta(self, eta: np.ndarray) -> np.ndarray:
+        eta = np.asarray(eta, dtype=np.float64)
+        if eta.ndim != 2 or eta.shape[1] != 2:
+            raise ValueError(f"gaulss expected eta with shape (n, 2), got {eta.shape}.")
+        mu = np.asarray(self.linfo[0].linkinv(eta[:, 0]), dtype=np.float64)
+        tau = np.asarray(self.linfo[1].linkinv(eta[:, 1]), dtype=np.float64)
+        return np.column_stack([mu, 1.0 / tau])
+
+    def distribution_parameter_jacobian(self, eta: np.ndarray) -> np.ndarray:
+        eta = np.asarray(eta, dtype=np.float64)
+        if eta.ndim != 2 or eta.shape[1] != 2:
+            raise ValueError(f"gaulss expected eta with shape (n, 2), got {eta.shape}.")
+        d_mu = np.asarray(self.linfo[0].mu_eta(eta[:, 0]), dtype=np.float64)
+        tau = np.asarray(self.linfo[1].linkinv(eta[:, 1]), dtype=np.float64)
+        d_tau = np.asarray(self.linfo[1].mu_eta(eta[:, 1]), dtype=np.float64)
+        return np.column_stack([d_mu, -d_tau / np.square(tau)])
+
+    def logpdf_from_parameters(
+        self, y: np.ndarray, parameters: np.ndarray
+    ) -> np.ndarray:
+        y = np.asarray(y, dtype=np.float64).ravel()
+        params = np.asarray(parameters, dtype=np.float64)
+        if params.shape != (y.size, 2):
+            raise ValueError(
+                f"gaulss parameters must have shape ({y.size}, 2), got {params.shape}."
+            )
+        mu = params[:, 0]
+        sigma = params[:, 1]
+        if np.any(~np.isfinite(sigma)) or np.any(sigma <= 0.0):
+            raise ValueError("gaulss sigma parameters must be finite and > 0.")
+        standardized = (y - mu) / sigma
+        return -0.5 * np.log(2.0 * np.pi) - np.log(sigma) - 0.5 * standardized**2
 
     def ll(
         self,

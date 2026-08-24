@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pytest
+import torch
 from sklearn.base import clone
 from sklearn.metrics import accuracy_score
 
@@ -37,6 +38,7 @@ from nampy.models.spam import SPAMLSS, SPAMClassifier, SPAMRegressor
 from nampy.models.spline_nam import SplineNAMRegressor
 from nampy.models.treenam import TreeNAMClassifier, TreeNAMLSS, TreeNAMRegressor
 from nampy.neural import architectures, configs
+from nampy.neural.distributions.distributions import NormalDistribution
 
 ALL_NEURAL_ESTIMATORS = (
     NAMRegressor,
@@ -192,6 +194,15 @@ def test_lss_family_configuration_is_cloneable():
     assert cloned.family == "poisson"
     assert cloned.distributional_kwargs == {"eps": 1e-5}
     assert cloned.get_params(deep=False)["family"] == "poisson"
+
+
+def test_lss_predict_point_uses_family_conditional_point(monkeypatch):
+    estimator = NAMLSS()
+    estimator.family_ = NormalDistribution()
+    raw = torch.tensor([[1.5, -0.2], [-0.4, 0.7]], dtype=torch.float32)
+    monkeypatch.setattr(estimator, "_predict", lambda X, batch_size=None: {"output": raw})
+
+    np.testing.assert_allclose(estimator.predict_point([[0.0], [1.0]]), [1.5, -0.4])
 
 
 def test_qnam_constructor_owns_quantile_family():

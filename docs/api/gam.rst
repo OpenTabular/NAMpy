@@ -61,6 +61,7 @@ default to automatic REML smoothing selection (mgcv's ``gam()`` behavior).
 
    GAMRegressor
    GAMClassifier
+   GAMLSS
 
 .. code-block:: python
 
@@ -71,6 +72,21 @@ default to automatic REML smoothing selection (mgcv's ``gam()`` behavior).
    estimator.score(X, y)                     # R^2
    components = estimator.predict_components(X)
    se = estimator.standard_errors(X)
+
+Distributional GAMs use a distinct estimator because ``predict`` returns a
+matrix of natural distribution parameters rather than one regression response
+or class label:
+
+.. code-block:: python
+
+   from nampy.models import GAMLSS
+
+   estimator = GAMLSS(
+       family="normal",
+       formula={"mu": "y ~ s(x)", "sigma": "~ s(z)"},
+   ).fit(data)
+   parameters = estimator.predict(data)  # columns follow parameter_names_
+   point = estimator.predict_point(data)
 
 Fit core
 --------
