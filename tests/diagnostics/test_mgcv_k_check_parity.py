@@ -262,6 +262,14 @@ class TestKCheckParity:
                 1e-4,
             ),
             (
+                lambda: _make_gaussian_data(seed=601, n=180),
+                'y ~ s(x0, bs="cp", k=8) + s(x1, bs="cp", k=8)',
+                "gaussian",
+                "REML",
+                {"x0", "x1"},
+                1e-4,
+            ),
+            (
                 lambda: _make_gaussian_data(seed=123, n=180),
                 'y ~ te(x0, x1, bs=["cr","cr"], k=[5,5])',
                 "gaussian",
@@ -274,6 +282,7 @@ class TestKCheckParity:
             "gaussian_cr",
             "gaussian_cr_fixed",
             "gaussian_ps",
+            "gaussian_cp",
             "gaussian_te",
         ],
     )

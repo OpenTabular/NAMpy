@@ -29,7 +29,7 @@ te = TensorProductSplineTerm
 ti = InteractionTensorProductSplineTerm
 
 cr = cs = cc = CubicSplineTerm
-ps = PSplineTerm1D
+cp = ps = PSplineTerm1D
 tp = ts = ThinPlateSplineTerm
 fs = FSmoothInteractionTerm
 sz = SZSmoothInteractionTerm
@@ -68,6 +68,7 @@ __all__ = [
     "cr",
     "cs",
     "cc",
+    "cp",
     "ps",
     "tp",
     "ts",

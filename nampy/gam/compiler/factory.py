@@ -139,14 +139,15 @@ def instantiate_term(term_like: TermSpec | Any):
         )
 
     if isinstance(smooth_spec, PSplineSmoothSpec):
+        basis = str(smooth_spec.bs).lower()
         if len(features) != 1:
             raise NotImplementedError(
-                "Current runtime only materializes 1D s(..., bs='ps') terms."
+                f"Current runtime only materializes 1D s(..., bs={basis!r}) terms."
             )
         return PSplineTerm1D(
             feature=features[0],
             k=smooth_spec.k,
-            basis="ps",
+            basis=basis,
             m=smooth_spec.m,
             label=label,
             term_id=term_like.term_id,

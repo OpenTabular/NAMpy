@@ -86,6 +86,7 @@ def _build_s_cc(opts) -> CyclicCubicRegressionSmoothSpec:
 def _build_s_ps(opts) -> PSplineSmoothSpec:
     return PSplineSmoothSpec(
         special="s",
+        bs=str(opts["bs"]).lower(),
         k=opts["k"],
         fx=opts["fx"],
         select=opts["select"],
@@ -182,6 +183,7 @@ _S_BASIS_SPEC_BUILDERS: dict[str, Callable[[dict[str, Any]], SmoothSpec]] = {
     "cs": _build_s_cs,
     "cc": _build_s_cc,
     "ps": _build_s_ps,
+    "cp": _build_s_ps,
     "tp": _build_s_tp,
     "ts": _build_s_ts,
     "re": _build_s_re,
@@ -274,7 +276,7 @@ def _is_vector_fx(fx) -> bool:
     return fx is not None and not np.isscalar(fx)
 
 
-_PC_SUPPORTED_S_BASES = {"cc", "cr", "cs", "ps", "tp", "ts"}
+_PC_SUPPORTED_S_BASES = {"cc", "cp", "cr", "cs", "ps", "tp", "ts"}
 
 
 def _dispatch_smooth_spec_from_options(opts) -> SmoothSpec:
@@ -290,7 +292,7 @@ def _dispatch_smooth_spec_from_options(opts) -> SmoothSpec:
             raise NotImplementedError(
                 f"pc= is not supported for s(..., bs={merged['bs']!r}); "
                 "point constraints are only supported for bs in "
-                "{'cc', 'cr', 'cs', 'ps', 'tp', 'ts'}."
+                "{'cc', 'cp', 'cr', 'cs', 'ps', 'tp', 'ts'}."
             )
         return builder(merged)
     if has_pc and special_key not in {"te", "ti"}:

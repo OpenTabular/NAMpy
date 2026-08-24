@@ -38,6 +38,7 @@ from nampy.gam.splines.univariate.cr import (
     cyclic_cubic_predict_matrix,
 )
 from nampy.gam.splines.univariate.ps import (
+    cyclic_pspline_knots,
     pspline_knots,
 )
 from tests.mgcv_invariant_policy import canonicalize_raw_representation_state
@@ -146,6 +147,33 @@ def _pspline_supplied_knots(column: str, bs_dim: int, basis_order: int):
                 bs_dim=int(bs_dim),
                 basis_order=int(basis_order),
                 supplied_knots=None,
+            )
+        }
+
+    return _build
+
+
+def _cyclic_pspline_supplied_knots(column: str, bs_dim: int, basis_order: int):
+    def _build(data):
+        vals = np.asarray(data[column], dtype=np.float64)
+        return {
+            str(column): cyclic_pspline_knots(
+                vals,
+                bs_dim=int(bs_dim),
+                basis_order=int(basis_order),
+                supplied_knots=None,
+            )
+        }
+
+    return _build
+
+
+def _cyclic_irregular_unsorted_knots(column: str):
+    def _build(_data):
+        return {
+            str(column): np.asarray(
+                [6.4, 0.0, 0.15, 0.6, 1.4, 2.1, 3.8, 4.6, 5.9],
+                dtype=np.float64,
             )
         }
 
@@ -330,6 +358,56 @@ def _build_ps_case_matrix():
             _factory(_make_univariate_data, seed=48),
             'y ~ s(x, bs="ps", k=10, m=[2, 2])',
             knots_factory=_pspline_supplied_knots("x", bs_dim=10, basis_order=2),
+        ),
+    ]
+
+
+def _build_cp_case_matrix():
+    return [
+        _case(
+            "cp_default_k_default_m",
+            _factory(_make_cyclic_data, seed=133),
+            'y ~ s(x, bs="cp")',
+        ),
+        _case(
+            "cp_m_scalar_1",
+            _factory(_make_cyclic_data, seed=134),
+            'y ~ s(x, bs="cp", k=9, m=1)',
+        ),
+        _case(
+            "cp_m_ordered",
+            _factory(_make_cyclic_data, seed=135),
+            'y ~ s(x, bs="cp", k=10, m=[2, 3])',
+        ),
+        _case(
+            "cp_zero_order_penalty_metadata",
+            _factory(_make_cyclic_data, seed=138),
+            'y ~ s(x, bs="cp", k=7, m=[2, 0])',
+        ),
+        _case(
+            "cp_extra_m_entries_retained",
+            _factory(_make_cyclic_data, seed=139),
+            'y ~ s(x, bs="cp", k=8, m=[2, 1, 9])',
+        ),
+        _case(
+            "cp_endpoint_knots",
+            _factory(_make_cyclic_data, seed=136),
+            'y ~ s(x, bs="cp", k=8, m=[2, 2])',
+            knots_factory=_cyclic_endpoint_knots("x"),
+        ),
+        _case(
+            "cp_full_knots",
+            _factory(_make_cyclic_data, seed=137),
+            'y ~ s(x, bs="cp", k=8, m=[2, 2])',
+            knots_factory=_cyclic_pspline_supplied_knots(
+                "x", bs_dim=8, basis_order=2
+            ),
+        ),
+        _case(
+            "cp_irregular_unsorted_full_knots",
+            _factory(_make_cyclic_data, seed=140),
+            'y ~ s(x, bs="cp", k=8, m=[2, 2])',
+            knots_factory=_cyclic_irregular_unsorted_knots("x"),
         ),
     ]
 
@@ -523,6 +601,7 @@ def _build_factor_smooth_case_matrix():
         ("cs", "cs"),
         ("cc", "cc"),
         ("ps", {"bs": "ps", "m": 2, "k": 7}),
+        ("cp", {"bs": "cp", "m": 2, "k": 7}),
         ("ts", "ts"),
     ]
     for label, xt_spec in fs_xt_cases:
@@ -531,7 +610,7 @@ def _build_factor_smooth_case_matrix():
                 f"fs_base_{label}",
                 _make_fs_data,
                 f'y ~ s(f, x, bs="fs", xt={repr(xt_spec)})',
-                atol=1e-8 if label in {"ps", "ts"} else 1e-10,
+                atol=1e-8 if label in {"ps", "cp", "ts"} else 1e-10,
             )
         )
         cases.append(
@@ -539,7 +618,7 @@ def _build_factor_smooth_case_matrix():
                 f"sz_base_{label}",
                 _make_sz_data,
                 f'y ~ s(f1, f2, x, bs="sz", k=6, xt={repr(xt_spec)})',
-                atol=1e-8 if label in {"ps", "ts"} else 1e-10,
+                atol=1e-8 if label in {"ps", "cp", "ts"} else 1e-10,
             )
         )
 
@@ -600,6 +679,18 @@ def _build_tensor_case_matrix():
                 "te_ps_ps_m",
                 _factory(_make_gaussian_data, seed=803, n=90),
                 'y ~ te(x0, x1, bs=["ps", "ps"], k=[6, 6], m=[[2, 2], [2, 3]])',
+            ),
+            _case(
+                "te_cp_cp_m",
+                _factory(_make_gaussian_data, seed=818, n=90),
+                'y ~ te(x0, x1, bs=["cp", "cp"], k=[5, 6], m=[[2, 1], [2, 2]])',
+                atol=1e-8,
+            ),
+            _case(
+                "ti_cp_cp_m",
+                _factory(_make_gaussian_data, seed=819, n=90),
+                'y ~ ti(x0, x1, bs=["cp", "cp"], k=[5, 6], m=[[2, 1], [2, 2]])',
+                atol=1e-8,
             ),
             _case(
                 "te_tp_ts_m",
@@ -664,6 +755,7 @@ def _build_tensor_case_matrix():
 CASES = [
     *_build_cubic_case_matrix(),
     *_build_ps_case_matrix(),
+    *_build_cp_case_matrix(),
     *_build_tprs_case_matrix(),
     *_build_re_case_matrix(),
     *_build_factor_smooth_case_matrix(),
@@ -803,14 +895,22 @@ def _serialize_ps_raw(term):
     setup = term._setup
     B = np.asarray(setup.basis_train, dtype=np.float64)
     return _common_raw_state(
-        "pspline.smooth",
+        (
+            "cpspline.smooth"
+            if str(setup.basis_name).lower() == "cp"
+            else "pspline.smooth"
+        ),
         B,
         [np.asarray(setup.penalty, dtype=np.float64)],
         rank=int(setup.rank),
         null_space_dim=int(B.shape[1] - setup.rank),
         extra={
             "knots": np.asarray(setup.knots, dtype=np.float64),
-            "m": _scalar_or_list([int(setup.basis_order), int(setup.penalty_order)]),
+            "m": _scalar_or_list(
+                list(setup.orders)
+                if setup.orders
+                else [int(setup.basis_order), int(setup.penalty_order)]
+            ),
         },
     )
 
