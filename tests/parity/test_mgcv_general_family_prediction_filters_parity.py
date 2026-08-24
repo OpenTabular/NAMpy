@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from nampy.gam.inference.summary import summary_gam
 from tests.families.test_general_family_mgcv_parity import (
     _gaulss_by_data,
     _general_newdata,
@@ -15,6 +16,19 @@ _FORMULA = [
     'y ~ x + s(z, bs="cr", k=6, sp=0.8)',
     '~ z + s(x, bs="cr", k=6, sp=0.7)',
 ]
+
+
+def test_general_family_inference_uses_predictor_aware_term_labels():
+    """Formula-list parametric and smooth rows use mgcv's later-LP suffix."""
+    data = _gaulss_by_data(seed=270, n=120)
+    gam = _fit_nampy_model(data, _FORMULA, "gaulss", "fixed")
+
+    summary = summary_gam(gam)
+    assert list(summary.pterms_table["label"]) == ["x", "z.1"]
+    assert list(summary.s_table["label"]) == ["s(z)", "s.1(x)"]
+    anova = gam.anova()
+    assert list(anova.parametric_table["label"]) == ["x", "z.1"]
+    assert list(anova.smooth_table["label"]) == ["s(z)", "s.1(x)"]
 
 
 def test_general_family_terms_filter_values_labels_and_se_match_mgcv():

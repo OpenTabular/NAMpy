@@ -6,8 +6,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from nampy.gam.inference.summary import summary_gam
 from tests._mgcv_snapshot_parity_shared import (
     TestAdditionalScenarioParity as _SharedTestAdditionalScenarioParity,
+)
+from tests.families.test_general_family_mgcv_parity import (
+    GENERAL_MULTISMOOTH_FORMULA,
+    _gaulss_multismooth_data,
 )
 from tests.mgcv_parity_utils import (
     _assert_basic_mgcv_parity,
@@ -802,6 +807,118 @@ def test_general_family_gaulss_and_gammals_tensor_multi_smooth_predictions_match
                 atol=atol,
                 rtol=atol,
             )
+
+
+def test_general_family_multismooth_fit_inference_and_diagnostics_match_mgcv():
+    """Close the wrapped-block surface across both gaulss predictors."""
+    data = _gaulss_multismooth_data()
+    formula = GENERAL_MULTISMOOTH_FORMULA
+    expected = _run_mgcv_snapshot(data, formula, "gaulss", "ML")
+    model = _fit_nampy_model(data, formula, "gaulss", "ML")
+    core = model.gam_result_.fit_summary.core
+    expected_fit = expected["fit"]
+    diagnostics = expected["parity"]["diagnostics"]
+
+    np.testing.assert_allclose(
+        model.smoothing_params,
+        expected_fit["smoothing_params"],
+        atol=2e-5,
+        rtol=2e-6,
+    )
+    np.testing.assert_allclose(
+        core.coef_full, expected_fit["coef_full"], atol=5e-7, rtol=5e-7
+    )
+    for name in ("cov_bayes", "cov_freq", "cov_unconditional"):
+        np.testing.assert_allclose(
+            np.asarray(getattr(core, name), dtype=np.float64),
+            np.asarray(expected_fit[name], dtype=np.float64),
+            atol=5e-7,
+            rtol=5e-7,
+        )
+    assert model.smoothing_score_ == pytest.approx(
+        float(expected_fit["criterion_value"]), abs=1e-6
+    )
+    assert model.loglik() == pytest.approx(float(expected_fit["loglik"]), abs=1e-6)
+    assert model.aic() == pytest.approx(float(expected_fit["aic"]), abs=2e-6)
+    assert model.bic() == pytest.approx(float(diagnostics["bic"]), abs=3e-6)
+
+    np.testing.assert_allclose(
+        model.sp_vcov(edge_correct=False),
+        diagnostics["sp_vcov"],
+        atol=2e-6,
+        rtol=2e-6,
+    )
+    np.testing.assert_allclose(
+        model.one_se_rule(),
+        diagnostics["one_se_rule"],
+        atol=5e-5,
+        rtol=2e-6,
+    )
+    vcomp = model.gam_vcomp(rescale=False)
+    assert list(vcomp["names"]) == list(diagnostics["gam_vcomp_names"])
+    np.testing.assert_allclose(
+        vcomp["vc"], diagnostics["gam_vcomp"], atol=2e-6, rtol=2e-6
+    )
+
+    summary = summary_gam(model)
+    expected_summary = diagnostics["summary"]
+    assert list(summary.p_table.index) == list(expected_summary["p_table"]["labels"])
+    np.testing.assert_allclose(
+        summary.p_table.to_numpy(dtype=np.float64),
+        expected_summary["p_table"]["values"],
+        atol=2e-6,
+        rtol=2e-6,
+    )
+    expected_smooth = diagnostics["anova_smooth"]
+    assert list(summary.s_table["label"]) == list(expected_smooth["labels"])
+    np.testing.assert_allclose(
+        summary.s_table[["edf", "ref_df", "wald_stat", "p_value"]].to_numpy(
+            dtype=np.float64
+        ),
+        expected_smooth["values"],
+        atol=2e-5,
+        rtol=2e-6,
+    )
+    anova = model.anova()
+    assert list(anova.smooth_table["label"]) == list(expected_smooth["labels"])
+
+    expected_residuals = diagnostics["residuals"]
+    for residual_type in ("response", "pearson", "deviance"):
+        np.testing.assert_allclose(
+            model.residuals(type=residual_type),
+            expected_residuals[residual_type],
+            atol=2e-6,
+            rtol=2e-6,
+        )
+
+    full = model.concurvity(full=True)
+    assert list(full["labels"]) == list(diagnostics["concurvity_labels"])
+    # Two predictors contain smooths of the same covariates, making the
+    # function-space estimate nearly singular; the observed/worst rows remain
+    # tight while the estimate row is stable to about 0.7% across QR stacks.
+    np.testing.assert_allclose(
+        full["values"], diagnostics["concurvity_full"], atol=7e-3, rtol=0.0
+    )
+    pairwise = model.concurvity(full=False)
+    expected_pairwise = diagnostics["concurvity_pairwise"]
+    assert list(pairwise["labels"]) == list(expected_pairwise["labels"])
+    for name, values in pairwise["values"].items():
+        np.testing.assert_allclose(
+            values, expected_pairwise[name], atol=2e-7, rtol=2e-7
+        )
+
+    k_table = model.k_check(subsample=120, n_rep=8, seed=0)
+    expected_k = diagnostics["k_check"]
+    assert list(k_table.index) == list(expected_k["labels"])
+    actual_k = k_table[["k_prime", "edf", "k_index", "p_value"]].to_numpy(
+        dtype=np.float64
+    )
+    expected_k_values = np.asarray(expected_k["values"], dtype=np.float64)
+    np.testing.assert_allclose(actual_k[:, :2], expected_k_values[:, :2], atol=2e-6)
+    np.testing.assert_allclose(
+        actual_k[:, 2], expected_k_values[:, 2], atol=0.4, rtol=0.5
+    )
+    assert np.all((actual_k[:, 3] >= 0.0) & (actual_k[:, 3] <= 1.0))
 
 
 def _snapshot_matrix_assert(actual, expected, *, atol=1e-5):
