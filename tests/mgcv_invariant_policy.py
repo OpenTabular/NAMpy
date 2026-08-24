@@ -74,7 +74,9 @@ def gam_side_uses_invariant_transform(class_name: str) -> bool:
     return class_name in _GAM_SIDE_INVARIANT_CLASS_NAMES
 
 
-def final_fit_uses_exact_orientation_parity(model, *, skip_coef_comparison: bool) -> bool:
+def final_fit_uses_exact_orientation_parity(
+    model, *, skip_coef_comparison: bool
+) -> bool:
     """Return whether compiled terms have uniquely identified coefficient bases."""
     if skip_coef_comparison:
         return False
@@ -230,7 +232,15 @@ def _copy_raw_value(value):
 
 def _normalized_penalties(value):
     if isinstance(value, dict):
-        values = list(value.values())
+        keys = list(value)
+        if "S" in value:
+            keys = ["S"] + sorted(
+                (key for key in keys if key != "S"),
+                key=lambda key: (
+                    (0, int(key)) if str(key).isdigit() else (1, str(key))
+                ),
+            )
+        values = [value[key] for key in keys]
     else:
         values = list(value)
     return [np.asarray(v, dtype=np.float64) for v in values]
@@ -282,6 +292,17 @@ def _canonicalize_tprs_raw_state(state):
         extra["Xu"] = matrix_summary(Xu)
         return state
 
+    state["S"] = [penalty_spectrum(S) for S in state["S"]]
+    state["X"] = matrix_self_gram(state["X"])
+    extra["UZ"] = stable_column_space_projector(extra["UZ"])
+    return state
+
+
+def _canonicalize_duchon_raw_state(state):
+    extra = state["extra"]
+    extra.pop("used_supplied_knots", False)
+    extra.pop("used_subsampling", False)
+    extra.pop("pure_knot", False)
     state["S"] = [penalty_spectrum(S) for S in state["S"]]
     state["X"] = matrix_self_gram(state["X"])
     extra["UZ"] = stable_column_space_projector(extra["UZ"])
@@ -342,6 +363,8 @@ def canonicalize_raw_representation_state(state: dict[str, Any]) -> dict[str, An
         return _canonicalize_cs_raw_state(state)
     if class_name in {"tprs.smooth", "ts.smooth"}:
         return _canonicalize_tprs_raw_state(state)
+    if class_name == "duchon.spline":
+        return _canonicalize_duchon_raw_state(state)
     if class_name == "fs.interaction":
         return _canonicalize_fs_raw_state(state)
     if class_name == "sz.interaction":

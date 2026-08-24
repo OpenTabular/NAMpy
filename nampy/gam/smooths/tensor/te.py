@@ -115,7 +115,7 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         self._by_state = None
 
     def fit(self, X, feature_names):
-        marginal_shared_setups = self._linked_id_marginal_setups()
+        marginal_shared_setups = self._linked_id_marginal_setups(self.feature)
         marginals, _, _ = build_tensor_marginal_terms(
             feature=self.feature,
             k=self.k,

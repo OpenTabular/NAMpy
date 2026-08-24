@@ -47,6 +47,12 @@ def _sym_rank(S: np.ndarray) -> int:
     return int(np.sum(ev > tol))
 
 
+def _first_penalty(penalties):
+    if isinstance(penalties, dict):
+        return next(iter(penalties.values()))
+    return penalties[0]
+
+
 def _assert_sz_penalty_invariants(
     actual_design: np.ndarray,
     expected_design: np.ndarray,
@@ -995,6 +1001,74 @@ class TestDerivativeBSplineSmooth:
         )
         np.testing.assert_allclose(
             actual, expected["X"], atol=2e-10, rtol=2e-10
+        )
+
+
+class TestDuchonSplineSmooth:
+    """Duchon regression-spline smoothCon parity against mgcv."""
+
+    @staticmethod
+    def _make_data(seed=198, n=130):
+        rng = np.random.default_rng(seed)
+        x0 = rng.uniform(-2.0, 2.0, size=n)
+        x1 = rng.uniform(-1.5, 1.5, size=n)
+        y = np.sin(1.2 * x0) + 0.3 * x1**2 + rng.normal(scale=0.12, size=n)
+        return pd.DataFrame({"y": y, "x0": x0, "x1": x1})
+
+    def test_ds_1d_smoothcon_basis_and_penalty_match_mgcv(self):
+        data = self._make_data(seed=198)
+        formula = 'y ~ s(x0, bs="ds", k=11, sp=.7)'
+        expression = 's(x0, bs="ds", k=11, sp=.7)'
+        design = _compile_formula_design(data, formula)
+        expected_x = _run_mgcv_smoothcon_matrix(data, expression)
+        expected_s = _run_mgcv_smoothcon_penalties(
+            data, expression, absorb_cons=True, scale_penalty=True
+        )
+        actual_x = np.asarray(design.design_matrix, dtype=np.float64)
+        target_x = np.asarray(expected_x["X"], dtype=np.float64)
+        actual_s = np.asarray(design.compiled_penalties[0].matrix, dtype=np.float64)
+        target_s = np.asarray(_first_penalty(expected_s["S"]), dtype=np.float64)
+
+        _assert_allclose_up_to_column_sign(actual_x, target_x, atol=2e-8, rtol=2e-8)
+        np.testing.assert_allclose(
+            penalty_spectrum(actual_s),
+            penalty_spectrum(target_s),
+            atol=2e-8,
+            rtol=2e-8,
+        )
+        np.testing.assert_allclose(
+            penalized_response_operator(actual_x, [actual_s]),
+            penalized_response_operator(target_x, [target_s]),
+            atol=2e-8,
+            rtol=2e-8,
+        )
+
+    def test_ds_2d_custom_order_smoothcon_basis_and_penalty_match_mgcv(self):
+        data = self._make_data(seed=199)
+        formula = 'y ~ s(x0, x1, bs="ds", k=10, m=[1,.5], sp=.7)'
+        expression = 's(x0, x1, bs="ds", k=10, m=c(1,.5), sp=.7)'
+        design = _compile_formula_design(data, formula)
+        expected_x = _run_mgcv_smoothcon_matrix(data, expression)
+        expected_s = _run_mgcv_smoothcon_penalties(
+            data, expression, absorb_cons=True, scale_penalty=True
+        )
+        actual_x = np.asarray(design.design_matrix, dtype=np.float64)
+        target_x = np.asarray(expected_x["X"], dtype=np.float64)
+        actual_s = np.asarray(design.compiled_penalties[0].matrix, dtype=np.float64)
+        target_s = np.asarray(_first_penalty(expected_s["S"]), dtype=np.float64)
+
+        _assert_allclose_up_to_column_sign(actual_x, target_x, atol=2e-8, rtol=2e-8)
+        np.testing.assert_allclose(
+            penalty_spectrum(actual_s),
+            penalty_spectrum(target_s),
+            atol=2e-8,
+            rtol=2e-8,
+        )
+        np.testing.assert_allclose(
+            penalized_response_operator(actual_x, [actual_s]),
+            penalized_response_operator(target_x, [target_s]),
+            atol=2e-8,
+            rtol=2e-8,
         )
 
 

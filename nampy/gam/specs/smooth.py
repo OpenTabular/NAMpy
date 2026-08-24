@@ -59,6 +59,15 @@ class DerivativeBSplineSmoothSpec(BaseSmoothSpec):
 
 
 @dataclass(frozen=True)
+class DuchonSplineSmoothSpec(BaseSmoothSpec):
+    bs: str = "ds"
+    m: Any = None
+    xt: Any = None
+    constraint_mode: str = "auto"
+    pc: Any = None
+
+
+@dataclass(frozen=True)
 class ShapeConstrainedSmoothSpec(BaseSmoothSpec):
     """SCAM SCOP-spline specification for a named shape basis code."""
 
@@ -132,6 +141,7 @@ SmoothSpec = Union[
     CubicRegressionSmoothSpec,
     CyclicCubicRegressionSmoothSpec,
     DerivativeBSplineSmoothSpec,
+    DuchonSplineSmoothSpec,
     CubicShrinkageSmoothSpec,
     PSplineSmoothSpec,
     ShapeConstrainedSmoothSpec,

@@ -207,6 +207,7 @@ markers = [
     "smooth_cc: tests covering cyclic cubic smooths",
     "smooth_bs: tests covering integrated-derivative B-spline smooths",
     "smooth_cp: tests covering cyclic P-spline smooths",
+    "smooth_ds: tests covering Duchon regression spline smooths",
     "smooth_ps: tests covering P-spline smooths",
     "smooth_tp: tests covering thin plate smooths",
     "smooth_ts: tests covering shrinkage thin plate smooths",

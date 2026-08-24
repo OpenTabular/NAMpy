@@ -28,6 +28,7 @@ from nampy.gam.smooths.tensor.ti import (
 )
 from nampy.gam.smooths.univariate.bs import DerivativeBSplineTerm1D
 from nampy.gam.smooths.univariate.cr import CubicSplineTerm
+from nampy.gam.smooths.univariate.ds import DuchonSplineTerm
 from nampy.gam.smooths.univariate.ps import PSplineTerm1D
 from nampy.gam.smooths.univariate.tp import ThinPlateSplineTerm
 from nampy.gam.specs.build import build_formula_model
@@ -203,6 +204,18 @@ def _paired_feature_knots(columns, n_knots: int):
                 num=int(n_knots),
             )
         return out
+
+    return _build
+
+
+def _observed_row_knots(columns, n_knots: int):
+    cols = [str(col) for col in columns]
+
+    def _build(data):
+        return {
+            col: np.asarray(data[col], dtype=np.float64)[: int(n_knots)].copy()
+            for col in cols
+        }
 
     return _build
 
@@ -571,6 +584,61 @@ def _build_tprs_case_matrix():
     return cases
 
 
+def _build_duchon_case_matrix():
+    return [
+        _case(
+            "ds_1d_default_k",
+            _factory(_make_univariate_data, seed=150, n=90),
+            'y ~ s(x, bs="ds")',
+            atol=2e-8,
+        ),
+        _case(
+            "ds_2d_default_k",
+            _factory(_make_gaussian_data, seed=151, n=100),
+            'y ~ s(x0, x1, bs="ds")',
+            atol=2e-8,
+        ),
+        _case(
+            "ds_2d_custom_orders",
+            _factory(_make_gaussian_data, seed=152, n=90),
+            'y ~ s(x0, x1, bs="ds", k=10, m=[1.4, .74])',
+            atol=2e-8,
+        ),
+        _case(
+            "ds_2d_supplied_truncated",
+            _factory(_make_gaussian_data, seed=153, n=90),
+            'y ~ s(x0, x1, bs="ds", k=10, m=[1, .5])',
+            atol=2e-8,
+            knots_factory=_observed_row_knots(["x0", "x1"], 14),
+        ),
+        _case(
+            "ds_2d_supplied_pure_knot",
+            _factory(_make_gaussian_data, seed=154, n=90),
+            'y ~ s(x0, x1, bs="ds", k=10, m=[1, .5])',
+            atol=2e-8,
+            knots_factory=_observed_row_knots(["x0", "x1"], 10),
+        ),
+        _case(
+            "ds_2d_max_knots_xt",
+            _factory(_make_gaussian_data, seed=155, n=70),
+            'y ~ s(x0, x1, bs="ds", k=10, xt={"max.knots": 14, "seed": 7})',
+            atol=2e-8,
+        ),
+        _case(
+            "ds_3d_basic",
+            _factory(_make_gaussian_data_3col, seed=156, n=100),
+            'y ~ s(x0, x1, x2, bs="ds", k=15)',
+            atol=5e-8,
+        ),
+        _case(
+            "ds_3d_default_k",
+            _factory(_make_gaussian_data_3col, seed=157, n=120),
+            'y ~ s(x0, x1, x2, bs="ds")',
+            atol=2e-6,
+        ),
+    ]
+
+
 def _build_re_case_matrix():
     penalty_multi = {
         "S": [
@@ -708,7 +776,7 @@ def _build_factor_smooth_case_matrix():
         )
     )
 
-    for base_bs in ["tp", "ts"]:
+    for base_bs in ["tp", "ts", "ds"]:
         cases.append(
             _case(
                 f"fs_2d_base_{base_bs}",
@@ -725,6 +793,16 @@ def _build_factor_smooth_case_matrix():
                 atol=1e-7,
             )
         )
+
+    cases.append(
+        _case(
+            "fs_2d_base_ds_supplied_knots",
+            _factory(_make_factorized_gaussian_data, seed=171, n=96),
+            'y ~ s(f, x0, x1, bs="fs", xt="ds", k=10, m=[1, .5])',
+            atol=2e-7,
+            knots_factory=_observed_row_knots(["x0", "x1"], 14),
+        )
+    )
 
     return cases
 
@@ -813,6 +891,18 @@ def _build_tensor_case_matrix():
                 'y ~ te(x0, x1, x2, d=[2, 1], bs=["cr", "cr"], k=[10, 5])',
                 atol=1e-7,
             ),
+            _case(
+                "te_d_duchon_margin",
+                _factory(_make_gaussian_data_3col, seed=822, n=110),
+                'y ~ te(x0, x1, x2, d=[2, 1], bs=["ds", "cr"], k=[10, 5], m=[[1, .5], None])',
+                atol=2e-7,
+            ),
+            _case(
+                "ti_d_duchon_margin",
+                _factory(_make_gaussian_data_3col, seed=823, n=110),
+                'y ~ ti(x0, x1, x2, d=[2, 1], bs=["ds", "cr"], k=[10, 5], m=[[1, .5], None])',
+                atol=2e-7,
+            ),
             # Supplied knots on ti() (only te had a knots case before).
             _case(
                 "ti_knots_cr_cs",
@@ -839,6 +929,7 @@ CASES = [
     *_build_cp_case_matrix(),
     *_build_bs_case_matrix(),
     *_build_tprs_case_matrix(),
+    *_build_duchon_case_matrix(),
     *_build_re_case_matrix(),
     *_build_factor_smooth_case_matrix(),
     *_build_tensor_case_matrix(),
@@ -1031,6 +1122,27 @@ def _serialize_tprs_raw(term):
             "used_supplied_knots": bool(setup.used_supplied_knots),
             "used_subsampling": bool(setup.used_subsampling),
             "pure_knot": bool(setup.pure_knot),
+        },
+    )
+
+
+def _serialize_duchon_raw(term):
+    setup = term._setup
+    basis = np.asarray(setup.basis_train, dtype=np.float64)
+    return _common_raw_state(
+        "duchon.spline",
+        basis,
+        [np.asarray(setup.penalty, dtype=np.float64)],
+        rank=int(setup.rank),
+        null_space_dim=int(setup.null_space_dim),
+        extra={
+            "knt": np.asarray(setup.knots, dtype=np.float64),
+            "UZ": np.asarray(setup.UZ, dtype=np.float64),
+            "shift": np.asarray(setup.shift, dtype=np.float64),
+            "p_order": [int(setup.penalty_order), float(setup.shift_order)],
+            "used_supplied_knots": bool(setup.used_supplied_knots),
+            "used_subsampling": bool(setup.used_subsampling),
+            "pure_knot": bool(setup.knots.shape[0] == setup.bs_dim),
         },
     )
 
@@ -1260,6 +1372,8 @@ def _serialize_term_raw(term, X):
         return _serialize_ps_raw(term)
     if isinstance(term, ThinPlateSplineTerm):
         return _serialize_tprs_raw(term)
+    if isinstance(term, DuchonSplineTerm):
+        return _serialize_duchon_raw(term)
     if isinstance(term, RandomEffectTerm):
         return _serialize_re_raw(term)
     if isinstance(term, FSmoothInteractionTerm):

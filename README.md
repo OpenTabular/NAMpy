@@ -125,7 +125,7 @@ result, and prediction interfaces.
 
 | Formula surface    | Supported terms                                                                                      |
 | ------------------ | ---------------------------------------------------------------------------------------------------- |
-| Univariate smooths | `s(..., bs='bs')`, `cr`, `cs`, `cc`, `cp`, `ps`, `tp`, `ts`                                          |
+| Univariate smooths | `s(..., bs='bs')`, `cr`, `cs`, `cc`, `cp`, `ds`, `ps`, `tp`, `ts`                                    |
 | Structured smooths | random effects `re`, factor smooths `fs`, sum-to-zero factor smooths `sz`                            |
 | Tensor products    | `te(...)` and `ti(...)` over supported numeric marginals                                             |
 | Parametric terms   | numeric and factor terms, supported interactions, intercept policies, and formula offsets            |
