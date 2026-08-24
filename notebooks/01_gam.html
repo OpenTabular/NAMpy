@@ -1182,19 +1182,22 @@ site[south]  -0.918130    0.130848   -7.016791   2.633719e-11, pterms_table=  la
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ps</span></code></p></td>
 <td><p>P-spline with difference penalties</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">tp</span></code>, <code class="docutils literal notranslate"><span class="pre">ts</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">gp</span></code></p></td>
+<td><p>low-rank Gaussian-process smooth with spherical, power-exponential, or Matérn covariance</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">tp</span></code>, <code class="docutils literal notranslate"><span class="pre">ts</span></code></p></td>
 <td><p>thin-plate regression spline; <code class="docutils literal notranslate"><span class="pre">ts</span></code> adds shrinkage</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">te(...)</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">te(...)</span></code></p></td>
 <td><p>scale-invariant tensor product including main-effect directions</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ti(...)</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ti(...)</span></code></p></td>
 <td><p>tensor interaction with marginal main-effect directions removed</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">re</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">re</span></code></p></td>
 <td><p>random-effect/ridge-penalized factor block</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">fs</span></code>, <code class="docutils literal notranslate"><span class="pre">sz</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">fs</span></code>, <code class="docutils literal notranslate"><span class="pre">sz</span></code></p></td>
 <td><p>factor-specific smooths with different identifiability structures</p></td>
 </tr>
 </tbody>
@@ -1211,6 +1214,9 @@ site[south]  -0.918130    0.130848   -7.016791   2.633719e-11, pterms_table=  la
     <span class="s2">"shrinkage_cubic"</span><span class="p">:</span> <span class="n">GAM</span><span class="p">(</span><span class="n">formula</span><span class="o">=</span><span class="s2">"demand ~ s(temperature, bs='cs', k=10)"</span><span class="p">),</span>
     <span class="s2">"cyclic"</span><span class="p">:</span> <span class="n">GAM</span><span class="p">(</span><span class="n">formula</span><span class="o">=</span><span class="s2">"demand ~ s(hour, bs='cc', k=8)"</span><span class="p">),</span>
     <span class="s2">"p_spline"</span><span class="p">:</span> <span class="n">GAM</span><span class="p">(</span><span class="n">formula</span><span class="o">=</span><span class="s2">"demand ~ s(temperature, bs='ps', k=10)"</span><span class="p">),</span>
+    <span class="s2">"gaussian_process"</span><span class="p">:</span> <span class="n">GAM</span><span class="p">(</span>
+        <span class="n">formula</span><span class="o">=</span><span class="s2">"demand ~ s(temperature, humidity, bs='gp', k=20, m=[3, 1.0])"</span>
+    <span class="p">),</span>
     <span class="s2">"thin_plate"</span><span class="p">:</span> <span class="n">GAM</span><span class="p">(</span><span class="n">formula</span><span class="o">=</span><span class="s2">"demand ~ s(temperature, bs='tp', k=10)"</span><span class="p">),</span>
     <span class="s2">"shrinkage_thin_plate"</span><span class="p">:</span> <span class="n">GAM</span><span class="p">(</span><span class="n">formula</span><span class="o">=</span><span class="s2">"demand ~ s(temperature, bs='ts', k=10)"</span><span class="p">),</span>
     <span class="s2">"tensor_surface"</span><span class="p">:</span> <span class="n">GAM</span><span class="p">(</span>
@@ -1244,6 +1250,7 @@ site[south]  -0.918130    0.130848   -7.016791   2.633719e-11, pterms_table=  la
 [&#39;cubic&#39;,
  &#39;cyclic&#39;,
  &#39;factor_smooth&#39;,
+ &#39;gaussian_process&#39;,
  &#39;p_spline&#39;,
  &#39;random_effect&#39;,
  &#39;shrinkage_cubic&#39;,
