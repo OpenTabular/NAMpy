@@ -165,11 +165,8 @@ def test_build_general_penalty_setup_rejects_noncontiguous_fallback_penalty_bloc
         build_general_penalty_setup(model, layout)
 
 
-def test_sl_ldetS_rejects_nonreparameterized_single_penalty_blocks():
-    """
-    Owner-contract coverage verifying that sl ldetS rejects nonreparameterized single
-    penalty blocks.
-    """
+def test_sl_ldetS_supports_nonreparameterized_single_penalty_blocks():
+    """Singleton roots and penalties remain in their original coordinates."""
     block = SimpleNamespace(
         start=1,
         stop=2,
@@ -183,23 +180,25 @@ def test_sl_ldetS_rejects_nonreparameterized_single_penalty_blocks():
         rS=[],
     )
 
-    with pytest.raises(
-        NotImplementedError,
-        match="Non-reparameterized single-penalty general-family Sl blocks are unsupported",
-    ):
-        _sl_ldetS(
-            [block],
-            rho=np.array([0.0], dtype=np.float64),
-            fixed=np.array([False]),
-            np_=2,
-        )
+    state = _sl_ldetS(
+        [block],
+        rho=np.array([np.log(2.0)], dtype=np.float64),
+        fixed=np.array([False]),
+        np_=2,
+        root=True,
+        Stot=True,
+    )
+    assert state["ldetS"] == pytest.approx(2.0 * np.log(2.0), abs=1e-12)
+    np.testing.assert_allclose(state["ldet1"], [2.0], atol=1e-12)
+    np.testing.assert_allclose(state["ldet2"], [[0.0]], atol=1e-12)
+    np.testing.assert_allclose(state["E"].T @ state["E"], 2.0 * np.eye(2))
+    np.testing.assert_allclose(state["S"], 2.0 * np.eye(2))
+    np.testing.assert_allclose(state["Sl"][0].lambda_, [2.0])
+    assert state["rp"] == []
 
 
-def test_sl_ldetS_rejects_nonreparameterized_multi_penalty_blocks():
-    """
-    Owner-contract coverage verifying that sl ldetS rejects nonreparameterized multi
-    penalty blocks.
-    """
+def test_sl_ldetS_supports_nonreparameterized_multi_penalty_blocks():
+    """Multi-S determinants stabilize without transforming coefficients."""
     root = np.eye(2, dtype=np.float64)
     block = SimpleNamespace(
         start=1,
@@ -214,16 +213,29 @@ def test_sl_ldetS_rejects_nonreparameterized_multi_penalty_blocks():
         rS=[root, root],
     )
 
-    with pytest.raises(
-        NotImplementedError,
-        match="Non-reparameterized multi-penalty general-family Sl blocks are unsupported",
-    ):
-        _sl_ldetS(
-            [block],
-            rho=np.array([0.0, 0.1], dtype=np.float64),
-            fixed=np.array([False, False]),
-            np_=2,
-        )
+    rho = np.array([0.0, 0.1], dtype=np.float64)
+    state = _sl_ldetS(
+        [block],
+        rho=rho,
+        fixed=np.array([False, False]),
+        np_=2,
+        root=True,
+        Stot=True,
+    )
+    lam = np.exp(rho)
+    total = float(np.sum(lam))
+    expected_grad = 2.0 * lam / total
+    expected_hess = 2.0 * (
+        np.diag(lam / total) - np.outer(lam, lam) / (total**2)
+    )
+    assert state["ldetS"] == pytest.approx(2.0 * np.log(total), abs=1e-12)
+    np.testing.assert_allclose(state["ldet1"], expected_grad, atol=1e-12)
+    np.testing.assert_allclose(state["ldet2"], expected_hess, atol=1e-12)
+    np.testing.assert_allclose(state["E"].T @ state["E"], total * np.eye(2))
+    np.testing.assert_allclose(state["S"], total * np.eye(2))
+    np.testing.assert_allclose(state["Sl"][0].St, total * np.eye(2))
+    assert len(state["rp"]) == 1
+    assert state["rp"][0]["repara"] is False
 
 
 def test_predict_general_terms_rejects_raw_prediction_basis(monkeypatch):

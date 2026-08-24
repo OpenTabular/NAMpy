@@ -15,6 +15,8 @@ from nampy.gam.fit.selection.optimize.basics import (
 from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
     build_general_family_setup_state,
 )
+from nampy.gam.fit.solvers.general_family.newton import _sl_ldetS
+from nampy.gam.smooths.univariate.cr import CubicSplineTerm
 from tests._paths import PARITY_DIR, REPO_ROOT
 from tests.families.test_general_family_mgcv_parity import (
     GAULSS_FORMULA,
@@ -37,21 +39,24 @@ MGCV_INITIAL_SPG_SCRIPT = PARITY_DIR / "mgcv_initial_spg.R"
 
 
 def _run_mgcv_general_preoptimization(
-    data, formula, family, method, *, select=False, sp=None
+    data, formula, family, method, *, select=False, sp=None, no_repara=False
 ):
     family_nampy, family_token = _family_specs(family)
     del family_nampy
     sp_values = None if sp is None else np.asarray(sp, dtype=np.float64).tolist()
+    identity = {
+        "data": portable_dataframe_identity(data),
+        "formula": str(formula),
+        "family": family_token,
+        "method": method,
+        "select": select,
+        "sp": sp_values,
+    }
+    if no_repara:
+        identity["no_repara"] = True
     key = reference_key(
         "general_family_preoptimization",
-        {
-            "data": portable_dataframe_identity(data),
-            "formula": str(formula),
-            "family": family_token,
-            "method": method,
-            "select": select,
-            "sp": sp_values,
-        },
+        identity,
     )
     cached = load_reference("mgcv", key)
     if cached is not None:
@@ -72,8 +77,10 @@ def _run_mgcv_general_preoptimization(
             method,
             "true" if select else "false",
         ]
-        if sp is not None:
-            command.append(json.dumps(sp_values))
+        if sp is not None or no_repara:
+            command.append("-" if sp is None else json.dumps(sp_values))
+        if no_repara:
+            command.append("true")
         subprocess.run(
             command,
             check=True,
@@ -510,6 +517,85 @@ def test_gaulss_fs_fixed_sp_preoptimization_setup_matches_mgcv():
         actual,
         expected,
         compare_x_space_only=True,
+    )
+
+
+@pytest.mark.parametrize("select", [False, True], ids=["singleton", "multi"])
+def test_nonreparameterized_general_family_sl_matches_mgcv(select):
+    """Port ``Sl.setup(no.repara=TRUE)`` for singleton and multi-S blocks."""
+    data = _gaulss_data()
+    formula = ['y ~ s(x, bs="cr", k=6)', "~ 1"]
+    expected = _run_mgcv_general_preoptimization(
+        data,
+        formula,
+        "gaulss",
+        "ML",
+        select=select,
+        no_repara=True,
+    )
+    sp = np.asarray(expected["smoothing_params"], dtype=np.float64)
+    gam = _fit_nampy_model_fixed_sp(data, formula, "gaulss", sp, select=select)
+    for term in gam.gam_result_.compiled_model.compiled_terms:
+        term.metadata["general_family_sl_repara"] = False
+
+    actual = build_general_family_setup_state(gam, sp, score_type="ML")
+    _assert_general_fit5_setup_parity(
+        actual,
+        expected,
+        compare_x_space_only=True,
+    )
+    np.testing.assert_allclose(actual.X_initial, actual.X_full, atol=0.0, rtol=0.0)
+    assert all(not block.repara for block in actual.Sl)
+
+    ldet = _sl_ldetS(
+        actual.Sl,
+        rho=np.log(sp),
+        fixed=np.zeros_like(sp, dtype=bool),
+        np_=actual.X_full.shape[1],
+        root=True,
+        Stot=True,
+        deriv=2,
+    )
+    _assert_root_gram_equal(ldet["E"], expected["ldet_root"], atol=1e-9)
+    np.testing.assert_allclose(
+        ldet["S"], expected["ldet_Stot"], atol=1e-9, rtol=0.0
+    )
+    assert all(not item["repara"] for item in ldet["rp"])
+
+
+@pytest.mark.parametrize(
+    ("select", "sp"),
+    [(False, [0.7]), (True, [0.7, 0.9])],
+    ids=["singleton", "multi"],
+)
+def test_nonreparameterized_general_family_sl_runs_full_fit(
+    monkeypatch, select, sp
+):
+    """The complete fit5 route is invariant to the optional Sl coordinates."""
+    data = _gaulss_data()
+    formula = ['y ~ s(x, bs="cr", k=6)', "~ 1"]
+    sp = np.asarray(sp, dtype=np.float64)
+    baseline = _fit_nampy_model_fixed_sp(
+        data, formula, "gaulss", sp, select=select
+    )
+
+    monkeypatch.setattr(CubicSplineTerm, "repara", False)
+    actual = _fit_nampy_model_fixed_sp(
+        data, formula, "gaulss", sp, select=select
+    )
+    baseline_core = baseline.gam_result_.fit_summary.core
+    actual_core = actual.gam_result_.fit_summary.core
+    np.testing.assert_allclose(
+        actual_core.coef_full, baseline_core.coef_full, atol=2e-10, rtol=0.0
+    )
+    np.testing.assert_allclose(
+        actual_core.eta, baseline_core.eta, atol=2e-10, rtol=0.0
+    )
+    np.testing.assert_allclose(
+        actual_core.cov_bayes,
+        baseline_core.cov_bayes,
+        atol=2e-10,
+        rtol=0.0,
     )
 
 
