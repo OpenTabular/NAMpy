@@ -3,7 +3,8 @@
 #
 # Dump mgcv::gam(..., fit = FALSE) assembly payload:
 #   G$X, G$S, G$off, G$rank, G$L, G$lsp0, G$sp, G$smooth,
-#   G$P, G$cmX, G$assign, G$xlevels, G$offset, G$y.
+#   G$P, G$cmX, G$assign, G$xlevels, G$offset, G$y, and the
+#   component/linear-predictor index metadata used by multi-formula models.
 
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 6) {
@@ -221,9 +222,29 @@ Xp <- tryCatch(
   error = function(e) NULL
 )
 
+lpi <- attr(prefit$X, "lpi")
+nsdf <- prefit$nsdf
+
 payload <- list(
   X = unname(prefit$X),
   Xp = Xp,
+  lpi = serialize_integer_or_list(lpi),
+  lpi_overlap = if (is.null(lpi)) FALSE else isTRUE(attr(lpi, "overlap")),
+  nsdf = if (is.null(nsdf)) NULL else unname(as.integer(nsdf)),
+  pstart = if (is.null(nsdf)) NULL else {
+    value <- attr(nsdf, "pstart")
+    if (is.null(value)) NULL else unname(as.integer(value))
+  },
+  drop_ind = if (is.null(nsdf)) NULL else {
+    value <- attr(nsdf, "drop.ind")
+    if (is.null(value)) NULL else unname(as.integer(value))
+  },
+  term_names = if (is.null(prefit$term.names)) {
+    NULL
+  } else unname(as.character(prefit$term.names)),
+  coefficient_names = if (is.null(names(coef(fit_obj)))) {
+    NULL
+  } else unname(as.character(names(coef(fit_obj)))),
   S = lapply(prefit$S, function(Si) unname(Si)),
   off = unname(as.integer(prefit$off)),
   rank = unname(as.integer(prefit$rank)),

@@ -772,3 +772,78 @@ def test_gam_setup_assembly_matches_mgcv_for_transformed_formula_surfaces():
         "fixed",
         select=False,
     )
+
+
+def test_mgcv_shared_formula_component_setup_has_one_overlapping_block():
+    """Lock down upstream setup semantics before NAMpy enables shared components."""
+    rng = np.random.default_rng(20240824)
+    n = 96
+    x = np.linspace(-1.0, 1.0, n)
+    z = np.cos(np.linspace(0.0, 3.0 * np.pi, n))
+    y = rng.normal(0.4 + np.sin(np.pi * x) + 0.25 * z, 0.35, size=n)
+    data = pd.DataFrame({"y": y, "x": x, "z": z})
+    formula = [
+        'y ~ s(x, bs="cr", k=6)',
+        "~ 1",
+        '1 + 2 ~ s(z, bs="cr", k=5) - 1',
+    ]
+
+    expected = _run_mgcv_gam_setup_assembly(
+        data=data,
+        formula=formula,
+        family="gaulss",
+        method="REML",
+        select=False,
+    )
+
+    X = np.asarray(expected["X"], dtype=np.float64)
+    Xp = np.asarray(expected["Xp"], dtype=np.float64)
+    lpi = [
+        _coerce_int_array_1d(indices) - 1
+        for indices in (expected.get("lpi", []) or [])
+    ]
+
+    assert bool(expected["lpi_overlap"])
+    assert X.shape == Xp.shape == (n, 11)
+    assert len(lpi) == 2
+    np.testing.assert_array_equal(lpi[0], np.r_[0:6, 7:11])
+    np.testing.assert_array_equal(lpi[1], np.r_[6:11])
+    shared_indices = np.intersect1d(lpi[0], lpi[1])
+    np.testing.assert_array_equal(shared_indices, np.arange(7, 11))
+    np.testing.assert_array_equal(
+        np.unique(np.concatenate(lpi)), np.arange(X.shape[1])
+    )
+
+    np.testing.assert_array_equal(
+        _coerce_int_array_1d(expected.get("nsdf", None)),
+        np.array([1, 1, 0]),
+    )
+    np.testing.assert_array_equal(
+        _coerce_int_array_1d(expected.get("pstart", None)),
+        np.array([1, 7, 8]),
+    )
+    assert _coerce_int_array_1d(expected.get("drop_ind", None)).size == 0
+
+    smooth = expected.get("smooth", []) or []
+    assert len(smooth) == 2
+    assert [item["label"] for item in smooth] == ["s(x)", "s.2(z)"]
+    assert [int(item["n_penalties"]) for item in smooth] == [1, 1]
+    assert [int(item["first_para"]) for item in smooth] == [2, 8]
+    assert [int(item["last_para"]) for item in smooth] == [6, 11]
+    np.testing.assert_array_equal(
+        shared_indices,
+        np.arange(int(smooth[1]["first_para"]) - 1, int(smooth[1]["last_para"])),
+    )
+
+    assert len(expected.get("S", []) or []) == 2
+    assert _coerce_float_array_1d(expected.get("sp", None)).size == 2
+    assert _coerce_float_array_1d(expected.get("lsp0", None)).size == 2
+    assert expected["term_names"] == expected["coefficient_names"]
+    assert len(expected["coefficient_names"]) == X.shape[1]
+    assert len(set(expected["coefficient_names"])) == X.shape[1]
+    shared_coefficient_names = [
+        name
+        for name in expected["coefficient_names"]
+        if name.startswith("s.2(z).")
+    ]
+    assert len(shared_coefficient_names) == 4

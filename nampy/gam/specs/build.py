@@ -81,6 +81,8 @@ class FormulaBuildResult:
     offsets: np.ndarray | list[np.ndarray | None] | None
     preprocess_state: dict
     response_name: str | None
+    n_linear_predictors: int = 1
+    component_lpi: tuple[tuple[int, ...], ...] = ()
 
 
 def _is_bare_formula_name(expr: str | None) -> bool:
@@ -1080,6 +1082,8 @@ def _build_predictor_spec(
             "offset_name": extracted_predictor.offset_name,
             "response_name": extracted_predictor.response_name,
             "intercept": bool(extracted_predictor.intercept),
+            "lpi": tuple(int(v) for v in extracted_predictor.lpi),
+            "is_base_formula": bool(extracted_predictor.is_base_formula),
         },
     )
 
@@ -1253,7 +1257,30 @@ def build_formula_model(
     else:
         y_out = np.asarray(y).ravel()
 
-    offset_names = tuple(pred.offset_name for pred in predictor_specs)
+    component_lpi = tuple(
+        tuple(int(v) for v in (getattr(pred, "metadata", {}) or {}).get("lpi", (1,)))
+        for pred in predictor_specs
+    )
+    n_linear_predictors = max(
+        (max(indices) for indices in component_lpi if indices), default=1
+    )
+    shared_offsets = [
+        pred.offset_name
+        for pred, indices in zip(predictor_specs, component_lpi, strict=True)
+        if len(indices) > 1 and pred.offset_name is not None
+    ]
+    if shared_offsets:
+        raise ValueError("shared offsets not allowed")
+
+    # Offsets belong to base linear-predictor formulae, not to coefficient
+    # components.  Keep one slot per logical predictor even when extra shared
+    # components follow the base formulae.
+    offset_names_list: list[str | None] = [None] * n_linear_predictors
+    for pred, indices in zip(predictor_specs, component_lpi, strict=True):
+        metadata = dict(getattr(pred, "metadata", {}) or {})
+        if bool(metadata.get("is_base_formula", True)) and len(indices) == 1:
+            offset_names_list[int(indices[0]) - 1] = pred.offset_name
+    offset_names = tuple(offset_names_list)
     offset_out: np.ndarray | list[np.ndarray | None] | None = None
     if len(predictor_specs) <= 1:
         offset_name = offset_names[0] if offset_names else None
@@ -1297,6 +1324,8 @@ def build_formula_model(
         offsets=offset_out,
         preprocess_state=preprocess_state,
         response_name=response_name,
+        n_linear_predictors=n_linear_predictors,
+        component_lpi=component_lpi,
     )
 
 

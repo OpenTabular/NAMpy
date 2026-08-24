@@ -48,7 +48,7 @@ from ..model_state import (
     _fitted_eta,
     _fitted_mu,
     _intercept,
-    _predictor_full_slices,
+    _predictor_full_indices,
     _term_blocks_seq,
 )
 from ..predict import build_lpmatrix, predict_values
@@ -272,7 +272,7 @@ class GAM:
         offset = getattr(self, "offset_train_", None)
         if offset is None:
             return None
-        n_pred = len(_predictor_full_slices(self))
+        n_pred = len(_predictor_full_indices(self))
         if isinstance(offset, (list, tuple)):
             out = [
                 None if off is None else np.asarray(off, dtype=np.float64)
@@ -592,36 +592,53 @@ class GAM:
                 model=self, X=X_use, type="response", offset=offset_use
             )
         groups = _prediction_term_groups(self)
-        is_multi_predictor = len(_predictor_full_slices(self)) > 1
+        is_multi_predictor = len(_predictor_full_indices(self)) > 1
         for index, group in enumerate(groups):
             term = group["blocks"][0]
             term_key = str(getattr(term, "term_id", "") or group["label"])
             if is_multi_predictor:
-                term_key = f"{group['predictor_name']}:{term_key}"
-            out[term_key] = terms[:, index]
+                targets = tuple(getattr(term, "predictor_indices", ())) or (
+                    int(getattr(term, "predictor_index", 0)),
+                )
+                for target in targets:
+                    out[f"eta{int(target) + 1}:{term_key}"] = terms[:, index]
+            else:
+                out[term_key] = terms[:, index]
 
         if is_multi_predictor:
             compiled = self.gam_result_.require_compiled_model()
             coef_full = np.asarray(_coef_full(self), dtype=np.float64)
-            intercepts = {}
-            for predictor, predictor_slice in zip(
-                compiled.predictors,
-                compiled.predictor_full_slices,
-                strict=True,
+            intercepts = {
+                f"eta{index + 1}": 0.0
+                for index in range(len(compiled.predictor_full_indices))
+            }
+            for component_index, (predictor, predictor_slice) in enumerate(
+                zip(
+                    compiled.predictors,
+                    compiled.predictor_full_slices,
+                    strict=True,
+                )
             ):
                 if bool(predictor.prediction_has_intercept):
-                    intercepts[str(predictor.name)] = float(
-                        coef_full[int(predictor_slice.start)]
+                    value = float(coef_full[int(predictor_slice.start)])
+                    targets = tuple(
+                        int(target) - 1
+                        for target in (
+                            (getattr(predictor, "metadata", {}) or {}).get(
+                                "lpi", (component_index + 1,)
+                            )
+                            or (component_index + 1,)
+                        )
                     )
-            if intercepts:
+                    for target in targets:
+                        intercepts[f"eta{target + 1}"] += value
+            if any(value != 0.0 for value in intercepts.values()):
                 out["intercept"] = intercepts
             offset_list = general_family_prediction_offset(self, X_use, offset_use)
             if offset_list is not None:
                 out["offset"] = {
-                    str(predictor.name): np.asarray(offset_value, dtype=np.float64)
-                    for predictor, offset_value in zip(
-                        compiled.predictors, offset_list, strict=True
-                    )
+                    f"eta{index + 1}": np.asarray(offset_value, dtype=np.float64)
+                    for index, offset_value in enumerate(offset_list)
                     if offset_value is not None
                 }
         else:
@@ -778,8 +795,8 @@ class GAM:
                         "Sandwich covariance matrix is not available for this general family."
                     )
                 jj = [
-                    np.arange(sl.start, sl.stop, dtype=int)
-                    for sl in _predictor_full_slices(self)
+                    np.asarray(indices, dtype=int)
+                    for indices in _predictor_full_indices(self)
                 ]
                 offset = self._general_family_offset_list()
                 fill = np.asarray(

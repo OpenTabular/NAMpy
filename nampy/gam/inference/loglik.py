@@ -23,7 +23,7 @@ from ..model_state import (
     _fit_result,
     _fit_scale,
     _fit_state,
-    _predictor_full_slices,
+    _predictor_full_indices,
 )
 
 
@@ -242,8 +242,8 @@ def loglik_gam(model) -> float:
             return float(fit_result.loglik)
         X = np.asarray(_fit_state(model).X, dtype=np.float64)
         jj = [
-            np.arange(sl.start, sl.stop, dtype=int)
-            for sl in _predictor_full_slices(model)
+            np.asarray(indices, dtype=int)
+            for indices in _predictor_full_indices(model)
         ]
         weights = (
             np.ones_like(np.asarray(model.y_, dtype=np.float64), dtype=np.float64)
