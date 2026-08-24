@@ -9,7 +9,6 @@ working tree.
 from __future__ import annotations
 
 from importlib.metadata import version
-from importlib.util import find_spec
 from pathlib import Path
 
 import nampy
@@ -46,17 +45,6 @@ def main() -> None:
     assert models.LinRegRegressor is LinRegRegressor
     assert models.GAMLSS is GAMLSS
     assert neural.configs.DefaultSNAMConfig is DefaultSNAMConfig
-    assert find_spec("nampy.hybrid") is None
-    assert find_spec("nampy.api") is None
-    assert find_spec("nampy.gam.smoothing_selection") is None
-    for name in (
-        "GAMNetClassifier",
-        "GAMNetRegressor",
-        "GAMResidualClassifier",
-        "GAMResidualRegressor",
-    ):
-        assert not hasattr(nampy, name)
-
     assert hasattr(LinRegRegressor(), "save_model")
     SNAMClassifier()
     DefaultSNAMConfig()

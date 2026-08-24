@@ -40,7 +40,6 @@ from ..smooth_base import (
 )
 
 
-@register_smooth("spline_1d")
 @register_smooth("cr")
 @register_smooth("cs")
 @register_smooth("cc")

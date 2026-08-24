@@ -35,7 +35,6 @@ from .marginals import (
 
 
 @register_smooth("te")
-@register_smooth("tensor")
 class TensorProductSplineTerm(BaseSmoothTerm):
     term_type = "tensor_smooth"
     basis_name = "te"
