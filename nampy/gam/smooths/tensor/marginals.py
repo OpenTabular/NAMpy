@@ -10,11 +10,12 @@ from ..smooth_base import column_as_float
 from ..univariate.bs import DerivativeBSplineTerm1D
 from ..univariate.cr import CubicSplineTerm
 from ..univariate.ds import DuchonSplineTerm
+from ..univariate.gp import GaussianProcessTerm
 from ..univariate.ps import PSplineTerm1D
 from ..univariate.tp import ThinPlateSplineTerm
 
 TENSOR_MARGINAL_BASES = frozenset(
-    {"bs", "cr", "cs", "cc", "cp", "ds", "ps", "tp", "ts"}
+    {"bs", "cr", "cs", "cc", "cp", "ds", "gp", "ps", "tp", "ts"}
 )
 
 
@@ -116,6 +117,22 @@ def make_tensor_marginal_term(
 
     if basis == "ds":
         return DuchonSplineTerm(
+            feature=marginal_features,
+            k=k,
+            m=m,
+            xt=xt,
+            label=str(feature),
+            smoothing_id=None,
+            by=None,
+            select=False,
+            fixed=False,
+            constraint_mode=constraint_mode,
+            knots=knots,
+            metadata=metadata,
+        )
+
+    if basis == "gp":
+        return GaussianProcessTerm(
             feature=marginal_features,
             k=k,
             m=m,

@@ -18,6 +18,7 @@ from ..smooth_base import BaseSmoothTerm, by_values_from_new_data, column_as_obj
 from ..univariate.bs import DerivativeBSplineTerm1D
 from ..univariate.cr import CubicSplineTerm
 from ..univariate.ds import DuchonSplineTerm
+from ..univariate.gp import GaussianProcessTerm
 from ..univariate.ps import PSplineTerm1D
 from .categorical_utils import (
     as_object_1d,
@@ -109,7 +110,7 @@ def _build_base_smooth_term(
     Build the per-level base smooth used inside fs/sz.
 
     Supported base smooth classes in the current codebase:
-    bs, cr, cs, cc, cp, ds, ps, tp, ts
+    bs, cr, cs, cc, cp, ds, gp, ps, tp, ts
     """
     base_bs = str(base_bs).lower()
     metric_features = list(metric_features)
@@ -120,22 +121,23 @@ def _build_base_smooth_term(
     if mode == "fs" and base_bs in {"cs", "ts"}:
         raise NotImplementedError(_fs_full_rank_base_error(base_bs))
 
-    if len(metric_features) > 1 and base_bs not in {"ds", "tp", "ts"}:
+    if len(metric_features) > 1 and base_bs not in {"ds", "gp", "tp", "ts"}:
         raise NotImplementedError(
             f"Current {mode} implementation supports multivariate base smooths only "
-            f"for bs in {{'ds','tp','ts'}}, got base bs={base_bs!r}."
+            f"for bs in {{'ds','gp','tp','ts'}}, got base bs={base_bs!r}."
         )
 
     if xt_rest is not None and base_bs not in {
         "bs",
         "cp",
         "ds",
+        "gp",
         "ps",
         "tp",
         "ts",
     }:
         raise NotImplementedError(
-            "Extra xt options are currently only supported for bs/cp/ds/ps/tp/ts "
+            "Extra xt options are currently only supported for bs/cp/ds/gp/ps/tp/ts "
             "base smooths, "
             f"got xt={xt_rest!r} with base bs={base_bs!r}."
         )
@@ -220,6 +222,24 @@ def _build_base_smooth_term(
             metadata=metadata,
         )
 
+    if base_bs == "gp":
+        return GaussianProcessTerm(
+            feature=metric_features,
+            k=k,
+            m=outer_m,
+            label=label,
+            smoothing_id=None,
+            by=by,
+            sp=None,
+            select=bool(select),
+            fixed=bool(fixed),
+            constraint_mode=str(constraint_mode),
+            pc=None,
+            knots=knots,
+            xt=xt_rest,
+            metadata=metadata,
+        )
+
     if base_bs in {"tp", "ts"}:
         return make_smooth_term(
             base_bs,
@@ -242,7 +262,7 @@ def _build_base_smooth_term(
 
     raise NotImplementedError(
         f"Current {mode} implementation supports base bs in "
-        f"{{'bs','cr','cs','cc','cp','ds','ps','tp','ts'}}, got {base_bs!r}."
+        f"{{'bs','cr','cs','cc','cp','ds','gp','ps','tp','ts'}}, got {base_bs!r}."
     )
 
 
@@ -250,6 +270,8 @@ def _penalty_rank_from_base_term(base_term, basis_matrix, penalty_matrix) -> int
     if isinstance(base_term, DerivativeBSplineTerm1D):
         return int(base_term._setup.ranks[0])
     if isinstance(base_term, DuchonSplineTerm):
+        return int(base_term._setup.rank)
+    if isinstance(base_term, GaussianProcessTerm):
         return int(base_term._setup.rank)
     if isinstance(base_term, PSplineTerm1D) and len(base_term.penalties) > 0:
         if str(base_term.basis_name).lower() == "cp":

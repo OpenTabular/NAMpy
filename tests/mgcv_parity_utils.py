@@ -940,10 +940,11 @@ def _run_mgcv_snapshot(
     if cached is not None:
         return _normalize_snapshot_payload(cached)
 
+    formula_for_r = _normalize_python_formula_text(formula)
     if optimizer is not None:
         result = _run_mgcv_snapshot_single(
             data,
-            formula,
+            formula_for_r,
             family_token,
             method,
             select=select,
@@ -954,7 +955,7 @@ def _run_mgcv_snapshot(
         try:
             result = _run_mgcv_snapshot_batched(
                 data,
-                formula,
+                formula_for_r,
                 family_token,
                 method,
                 select=select,
@@ -963,7 +964,7 @@ def _run_mgcv_snapshot(
         except Exception:
             result = _run_mgcv_snapshot_single(
                 data,
-                formula,
+                formula_for_r,
                 family_token,
                 method,
                 select=select,
@@ -1630,6 +1631,12 @@ serialize_smooth <- function(sm) {
       UZ = pack_matrix(sm$UZ),
       shift = pack_vector(sm$shift, "numeric"),
       p_order = pack_vector(sm$p.order, "numeric")
+    ),
+    "gp.smooth" = list(
+      knt = pack_matrix(sm$knt),
+      UZ = pack_matrix(sm$UZ),
+      shift = pack_vector(sm$shift, "numeric"),
+      gp_defn = pack_vector(sm$gp.defn, "numeric")
     ),
     "random.effect" = list(
       C = pack_constraint(sm$C),
