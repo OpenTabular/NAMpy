@@ -137,7 +137,7 @@ def test_ar1_reml_rejects_missing_correlation_likelihood_terms():
         ).fit(data=data)
 
 
-@pytest.mark.parametrize("basis", ["ps", "cp"])
+@pytest.mark.parametrize("basis", ["bs", "ps", "cp"])
 def test_pspline_exposes_exact_derivative_provider_at_new_data(basis):
     x = np.linspace(-1.5, 2.0, 60)
     data = pd.DataFrame({"y": np.sin(x), "x": x})
@@ -165,7 +165,7 @@ def test_pspline_exposes_exact_derivative_provider_at_new_data(basis):
     assert derivative.derivative_matrix.shape[0] == len(new_data)
 
 
-@pytest.mark.parametrize("basis", ["ps", "cp", "cr", "cc"])
+@pytest.mark.parametrize("basis", ["bs", "ps", "cp", "cr", "cc"])
 def test_linear_functional_smooth_is_available_through_generic_by_contract(basis):
     rng = np.random.default_rng(91)
     locations = np.tile(np.linspace(-1.0, 1.0, 11), (28, 1))

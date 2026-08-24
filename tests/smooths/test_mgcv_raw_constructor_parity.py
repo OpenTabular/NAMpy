@@ -26,6 +26,7 @@ from nampy.gam.smooths.tensor.te import TensorProductSplineTerm
 from nampy.gam.smooths.tensor.ti import (
     InteractionTensorProductSplineTerm,
 )
+from nampy.gam.smooths.univariate.bs import DerivativeBSplineTerm1D
 from nampy.gam.smooths.univariate.cr import CubicSplineTerm
 from nampy.gam.smooths.univariate.ps import PSplineTerm1D
 from nampy.gam.smooths.univariate.tp import ThinPlateSplineTerm
@@ -176,6 +177,15 @@ def _cyclic_irregular_unsorted_knots(column: str):
                 dtype=np.float64,
             )
         }
+
+    return _build
+
+
+def _bspline_fixed_knots(column: str, values):
+    knots = np.asarray(values, dtype=np.float64)
+
+    def _build(_data):
+        return {str(column): knots.copy()}
 
     return _build
 
@@ -412,6 +422,64 @@ def _build_cp_case_matrix():
     ]
 
 
+def _build_bs_case_matrix():
+    return [
+        _case(
+            "bs_default_k_default_m",
+            _factory(_make_univariate_data, seed=141),
+            'y ~ s(x, bs="bs")',
+        ),
+        _case(
+            "bs_na_degree_inference",
+            _factory(_make_univariate_data, seed=142),
+            'y ~ s(x, bs="bs", k=8, m=c(NA, 1))',
+        ),
+        _case(
+            "bs_multi_derivative_penalties",
+            _factory(_make_univariate_data, seed=143),
+            'y ~ s(x, bs="bs", k=10, m=[3, 2, 1, 0])',
+        ),
+        _case(
+            "bs_two_limit_knots",
+            _factory(_make_univariate_data, seed=144),
+            'y ~ s(x, bs="bs", k=10, m=[3, 2])',
+            knots_factory=_bspline_fixed_knots("x", [-3.0, 3.0]),
+        ),
+        _case(
+            "bs_irregular_full_knots",
+            _factory(_make_univariate_data, seed=145),
+            'y ~ s(x, bs="bs", k=10, m=[3, 2, 0])',
+            knots_factory=_bspline_fixed_knots(
+                "x",
+                [
+                    -5.0,
+                    -4.0,
+                    -3.0,
+                    -2.5,
+                    -1.7,
+                    -1.0,
+                    -0.2,
+                    0.4,
+                    1.1,
+                    1.7,
+                    2.5,
+                    3.0,
+                    4.0,
+                    5.0,
+                ],
+            ),
+            atol=2e-9,
+        ),
+        _case(
+            "bs_special_four_knots",
+            _factory(_make_univariate_data, seed=146),
+            'y ~ s(x, bs="bs", k=10, m=[3, 1])',
+            knots_factory=_bspline_fixed_knots("x", [-3.0, -2.2, 2.2, 3.0]),
+            atol=2e-9,
+        ),
+    ]
+
+
 def _build_tprs_case_matrix():
     cases = []
     for basis, seed_base in [("tp", 60), ("ts", 80)]:
@@ -600,6 +668,7 @@ def _build_factor_smooth_case_matrix():
         ("cr", "cr"),
         ("cs", "cs"),
         ("cc", "cc"),
+        ("bs", "bs"),
         ("ps", {"bs": "ps", "m": 2, "k": 7}),
         ("cp", {"bs": "cp", "m": 2, "k": 7}),
         ("ts", "ts"),
@@ -610,7 +679,7 @@ def _build_factor_smooth_case_matrix():
                 f"fs_base_{label}",
                 _make_fs_data,
                 f'y ~ s(f, x, bs="fs", xt={repr(xt_spec)})',
-                atol=1e-8 if label in {"ps", "cp", "ts"} else 1e-10,
+                atol=1e-8 if label in {"bs", "ps", "cp", "ts"} else 1e-10,
             )
         )
         cases.append(
@@ -618,7 +687,7 @@ def _build_factor_smooth_case_matrix():
                 f"sz_base_{label}",
                 _make_sz_data,
                 f'y ~ s(f1, f2, x, bs="sz", k=6, xt={repr(xt_spec)})',
-                atol=1e-8 if label in {"ps", "cp", "ts"} else 1e-10,
+                atol=1e-8 if label in {"bs", "ps", "cp", "ts"} else 1e-10,
             )
         )
 
@@ -693,6 +762,18 @@ def _build_tensor_case_matrix():
                 atol=1e-8,
             ),
             _case(
+                "te_bs_bs_m",
+                _factory(_make_gaussian_data, seed=820, n=90),
+                'y ~ te(x0, x1, bs=["bs", "bs"], k=[5, 6], m=[[3, 2], [2, 1]])',
+                atol=1e-8,
+            ),
+            _case(
+                "ti_bs_bs_m",
+                _factory(_make_gaussian_data, seed=821, n=90),
+                'y ~ ti(x0, x1, bs=["bs", "bs"], k=[5, 6], m=[[3, 2], [2, 1]])',
+                atol=1e-8,
+            ),
+            _case(
                 "te_tp_ts_m",
                 _factory(_make_gaussian_data, seed=804, n=90),
                 'y ~ te(x0, x1, bs=["tp", "ts"], k=[10, 10], m=[3, 3])',
@@ -756,6 +837,7 @@ CASES = [
     *_build_cubic_case_matrix(),
     *_build_ps_case_matrix(),
     *_build_cp_case_matrix(),
+    *_build_bs_case_matrix(),
     *_build_tprs_case_matrix(),
     *_build_re_case_matrix(),
     *_build_factor_smooth_case_matrix(),
@@ -911,6 +993,22 @@ def _serialize_ps_raw(term):
                 if setup.orders
                 else [int(setup.basis_order), int(setup.penalty_order)]
             ),
+        },
+    )
+
+
+def _serialize_bs_raw(term):
+    setup = term._setup
+    return _common_raw_state(
+        "Bspline.smooth",
+        np.asarray(setup.basis_train, dtype=np.float64),
+        [np.asarray(S, dtype=np.float64) for S in setup.penalties],
+        rank=_scalar_or_list(list(setup.ranks)),
+        null_space_dim=int(setup.null_space_dim),
+        extra={
+            "knots": np.asarray(setup.knots, dtype=np.float64),
+            "m": _scalar_or_list(list(setup.orders)),
+            "D": [np.asarray(D, dtype=np.float64) for D in setup.penalty_roots],
         },
     )
 
@@ -1154,6 +1252,8 @@ def _serialize_ti_raw(term, X):
 
 
 def _serialize_term_raw(term, X):
+    if isinstance(term, DerivativeBSplineTerm1D):
+        return _serialize_bs_raw(term)
     if isinstance(term, CubicSplineTerm):
         return _serialize_cubic_raw(term, X)
     if isinstance(term, PSplineTerm1D):
