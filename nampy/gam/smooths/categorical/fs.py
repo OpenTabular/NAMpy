@@ -17,6 +17,7 @@ from ..registry import make_smooth_term
 from ..smooth_base import BaseSmoothTerm, by_values_from_new_data, column_as_object
 from ..univariate.bs import DerivativeBSplineTerm1D
 from ..univariate.cr import CubicSplineTerm
+from ..univariate.ds import DuchonSplineTerm
 from ..univariate.ps import PSplineTerm1D
 from .categorical_utils import (
     as_object_1d,
@@ -108,7 +109,7 @@ def _build_base_smooth_term(
     Build the per-level base smooth used inside fs/sz.
 
     Supported base smooth classes in the current codebase:
-    bs, cr, cs, cc, cp, ps, tp, ts
+    bs, cr, cs, cc, cp, ds, ps, tp, ts
     """
     base_bs = str(base_bs).lower()
     metric_features = list(metric_features)
@@ -119,16 +120,23 @@ def _build_base_smooth_term(
     if mode == "fs" and base_bs in {"cs", "ts"}:
         raise NotImplementedError(_fs_full_rank_base_error(base_bs))
 
-    if len(metric_features) > 1 and base_bs not in {"tp", "ts"}:
+    if len(metric_features) > 1 and base_bs not in {"ds", "tp", "ts"}:
         raise NotImplementedError(
             f"Current {mode} implementation supports multivariate base smooths only "
-            f"for bs in {{'tp','ts'}}, got base bs={base_bs!r}."
+            f"for bs in {{'ds','tp','ts'}}, got base bs={base_bs!r}."
         )
 
-    if xt_rest is not None and base_bs not in {"bs", "tp", "ts", "ps", "cp"}:
+    if xt_rest is not None and base_bs not in {
+        "bs",
+        "cp",
+        "ds",
+        "ps",
+        "tp",
+        "ts",
+    }:
         raise NotImplementedError(
-            "Extra xt options are currently only supported for bs/tp/ts/ps/cp base "
-            "smooths, "
+            "Extra xt options are currently only supported for bs/cp/ds/ps/tp/ts "
+            "base smooths, "
             f"got xt={xt_rest!r} with base bs={base_bs!r}."
         )
 
@@ -194,6 +202,24 @@ def _build_base_smooth_term(
             metadata=metadata,
         )
 
+    if base_bs == "ds":
+        return DuchonSplineTerm(
+            feature=metric_features,
+            k=k,
+            m=outer_m,
+            label=label,
+            smoothing_id=None,
+            by=by,
+            sp=None,
+            select=bool(select),
+            fixed=bool(fixed),
+            constraint_mode=str(constraint_mode),
+            pc=None,
+            knots=knots,
+            xt=xt_rest,
+            metadata=metadata,
+        )
+
     if base_bs in {"tp", "ts"}:
         return make_smooth_term(
             base_bs,
@@ -216,13 +242,15 @@ def _build_base_smooth_term(
 
     raise NotImplementedError(
         f"Current {mode} implementation supports base bs in "
-        f"{{'bs','cr','cs','cc','cp','ps','tp','ts'}}, got {base_bs!r}."
+        f"{{'bs','cr','cs','cc','cp','ds','ps','tp','ts'}}, got {base_bs!r}."
     )
 
 
 def _penalty_rank_from_base_term(base_term, basis_matrix, penalty_matrix) -> int:
     if isinstance(base_term, DerivativeBSplineTerm1D):
         return int(base_term._setup.ranks[0])
+    if isinstance(base_term, DuchonSplineTerm):
+        return int(base_term._setup.rank)
     if isinstance(base_term, PSplineTerm1D) and len(base_term.penalties) > 0:
         if str(base_term.basis_name).lower() == "cp":
             return int(base_term._setup.rank)
@@ -359,6 +387,28 @@ class _FactorSmoothBase(BaseSmoothTerm):
         self.skip_centering = True
 
     @property
+    def expected_linked_penalty_count(self):
+        # The number depends on the fitted base null space (fs) or factor
+        # combinations (sz), so defer linked-group sizing until compilation.
+        return None
+
+    def _metric_knots_for_base(self):
+        knots = self.knots
+        if knots is None or not isinstance(knots, (list, tuple)):
+            return knots
+        if len(knots) != len(self._feature_names or []):
+            return knots
+        metric_names = set(self._metric_feature_names or [])
+        selected = [
+            value
+            for name, value in zip(self._feature_names, knots, strict=True)
+            if name in metric_names
+        ]
+        if len(selected) == 1:
+            return selected[0]
+        return selected
+
+    @property
     def basis_train(self):
         if self._delegate_term is not None:
             return self._delegate_term.basis_train
@@ -464,7 +514,7 @@ class _FactorSmoothBase(BaseSmoothTerm):
                 label=self.label,
                 fixed=self.fixed,
                 by=self.by,
-                knots=self.knots,
+                knots=self._metric_knots_for_base(),
                 xt_rest=base_spec.xt_rest,
                 outer_m=self.m,
                 mode=mode,
@@ -587,7 +637,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             label=self.label,
             fixed=self.fixed,
             by=None,
-            knots=self.knots,
+            knots=self._metric_knots_for_base(),
             xt_rest=base_spec.xt_rest,
             outer_m=self.m,
             mode="fs",
@@ -603,12 +653,13 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             )
 
         self._base_term = base_term
-        B0, S0, _ = self._base_constructor_fit_matrices()
-        B0 = np.asarray(B0, dtype=np.float64)
+        B_setup, S0, _ = self._base_constructor_fit_matrices()
+        B_setup = np.asarray(B_setup, dtype=np.float64)
+        B0 = np.asarray(self._base_constructor_predict_matrix(X), dtype=np.float64)
         S0 = np.asarray(S0, dtype=np.float64)
 
-        base_rank = _penalty_rank_from_base_term(base_term, B0, S0)
-        null_d = int(B0.shape[1] - base_rank)
+        base_rank = _penalty_rank_from_base_term(base_term, B_setup, S0)
+        null_d = int(B_setup.shape[1] - base_rank)
         if null_d <= 0:
             raise NotImplementedError(_fs_full_rank_base_error(base_spec.bs))
 
@@ -637,13 +688,13 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         # mgcv uses nat.param(X, S, rank, type=1): eigendecompose R^{-T} S R^{-1}
         # (R from QR of X) and normalise the range space to an identity penalty.
         rp = nat_param_type1(
-            B0,
+            B_setup,
             S0,
             rank=base_rank,
             unit_fnorm=True,
         )
-        X_reparam = rp["X"]  # (n, p0) reparameterised basis
         P_coef = rp["P"]  # (p0, p0) transform: B0 @ P_coef = X_reparam
+        X_reparam = B0 @ P_coef
         r = rp["rank"]  # penalty rank
         D = rp["D"]  # scale^2 * ones(r) after type=1 + unit_fnorm
         null_d = B0.shape[1] - r
@@ -866,7 +917,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             label=self.label,
             fixed=self.fixed,
             by=None,
-            knots=self.knots,
+            knots=self._metric_knots_for_base(),
             xt_rest=base_spec.xt_rest,
             outer_m=self.m,
             mode="sz",
@@ -882,8 +933,8 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             )
 
         self._base_term = base_term
-        B0, S0, _ = self._base_constructor_fit_matrices()
-        B0 = np.asarray(B0, dtype=np.float64)
+        _B_setup, S0, _ = self._base_constructor_fit_matrices()
+        B0 = np.asarray(self._base_constructor_predict_matrix(X), dtype=np.float64)
         S0 = np.asarray(S0, dtype=np.float64)
 
         level_lists = []

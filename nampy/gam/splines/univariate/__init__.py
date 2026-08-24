@@ -16,6 +16,16 @@ from .cr import (
     cyclic_cubic_predict_matrix,
     place_knots_through_values,
 )
+from .ds import (
+    DuchonSplineSetup,
+    build_duchon_spline_setup,
+    default_duchon_k,
+    duchon_kernel,
+    duchon_null_space_dimension,
+    duchon_polynomial_basis,
+    normalize_duchon_orders,
+    predict_duchon_spline,
+)
 from .ps import (
     PSplineBasisSetup,
     bspline_design_matrix,
@@ -40,6 +50,14 @@ __all__ = [
     "derivative_penalty_root",
     "normalize_bspline_orders",
     "predict_derivative_bspline",
+    "DuchonSplineSetup",
+    "build_duchon_spline_setup",
+    "default_duchon_k",
+    "duchon_kernel",
+    "duchon_null_space_dimension",
+    "duchon_polynomial_basis",
+    "normalize_duchon_orders",
+    "predict_duchon_spline",
     "add_full_rank_shrinkage",
     "bspline_design_matrix",
     "cyclic_cubic_bd",

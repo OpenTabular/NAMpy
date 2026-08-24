@@ -285,7 +285,7 @@ def choose_tprs_setup_locations(X_shifted, knots=None, max_knots=2000, seed=1):
     return np.asarray(Xu, dtype=np.float64)
 
 
-def _top_eigensystem(E, k):
+def _top_eigensystem(E, k, *, tolerance_exponent=0.7):
     """
     mgcv-compatible top-k eigensystem for a symmetric matrix E.
 
@@ -304,7 +304,7 @@ def _top_eigensystem(E, k):
     if k > n:
         raise ValueError(f"k must be <= matrix dimension, got k={k}, n={n}.")
 
-    tol = float(np.finfo(np.float64).eps ** 0.7)
+    tol = float(np.finfo(np.float64).eps ** float(tolerance_exponent))
     # mgcv/src/mat.c::Rlanczos checks convergence every
     # min(max((m + lm) / 2, 10), floor(n / 10)) steps. For the tp/ts setup
     # here lm is always zero, so mirror the same cadence exactly.

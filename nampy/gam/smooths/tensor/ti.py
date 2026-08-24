@@ -121,7 +121,7 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
         self._set_by_state(X, feature_names)
 
         self._mc = _normalize_mc(self.mc, len(self.feature))
-        marginal_shared_setups = self._linked_id_marginal_setups()
+        marginal_shared_setups = self._linked_id_marginal_setups(self.feature)
         marginals, _, _ = build_tensor_marginal_terms(
             feature=self.feature,
             k=self.k,
