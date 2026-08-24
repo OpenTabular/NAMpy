@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>nampy.neural.architectures.QNAM &mdash; nampy 0.3.0 documentation</title>
+  <title>nampy.models.GAMLSS &mdash; nampy 0.3.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=ea57e989" />
@@ -21,8 +21,8 @@
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="nampy.neural.architectures.SNAM" href="nampy.neural.architectures.SNAM.html" />
-    <link rel="prev" title="nampy.neural.architectures.LinReg" href="nampy.neural.architectures.LinReg.html" /> 
+    <link rel="next" title="nampy.models.QNAMLSS" href="nampy.models.QNAMLSS.html" />
+    <link rel="prev" title="nampy.models.NodeGAMLSS" href="nampy.models.NodeGAMLSS.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -378,7 +378,7 @@
 </ul>
 </li>
 <li class="toctree-l1 current"><a class="reference internal" href="../index.html">API Reference</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="../models.html">Models</a><ul>
+<li class="toctree-l2 current"><a class="reference internal" href="../models.html">Models</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="../models.html#regression-models">Regression Models</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.NAMRegressor.html">nampy.models.NAMRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.SIANRegressor.html">nampy.models.SIANRegressor</a></li>
@@ -414,7 +414,7 @@
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.NodeGAMClassifier.html">nampy.models.NodeGAMClassifier</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../models.html#distributional-regression-models-lss">Distributional Regression Models (LSS)</a><ul>
+<li class="toctree-l3 current"><a class="reference internal" href="../models.html#distributional-regression-models-lss">Distributional Regression Models (LSS)</a><ul class="current">
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.NAMLSS.html">nampy.models.NAMLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.SIANLSS.html">nampy.models.SIANLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.GPNAMLSS.html">nampy.models.GPNAMLSS</a></li>
@@ -429,7 +429,7 @@
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.EnsembleTreeNAMLSS.html">nampy.models.EnsembleTreeNAMLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.SNAMLSS.html">nampy.models.SNAMLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.NodeGAMLSS.html">nampy.models.NodeGAMLSS</a></li>
-<li class="toctree-l4"><a class="reference internal" href="nampy.models.GAMLSS.html">nampy.models.GAMLSS</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">nampy.models.GAMLSS</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../models.html#other-models">Other Models</a><ul>
@@ -444,7 +444,7 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../gam.html">GAM (mgcv-parity backend)</a><ul>
+<li class="toctree-l2 current"><a class="reference internal" href="../gam.html">GAM (mgcv-parity backend)</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="../gam.html#high-level-model">High-level model</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="nampy.gam.GAM.html">nampy.gam.GAM</a></li>
 </ul>
@@ -453,10 +453,10 @@
 <li class="toctree-l4"><a class="reference internal" href="nampy.gam.diagnostics.SmoothDerivativeResult.html">nampy.gam.diagnostics.SmoothDerivativeResult</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../gam.html#scikit-learn-adapters">Scikit-learn adapters</a><ul>
+<li class="toctree-l3 current"><a class="reference internal" href="../gam.html#scikit-learn-adapters">Scikit-learn adapters</a><ul class="current">
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.GAMRegressor.html">nampy.models.GAMRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.GAMClassifier.html">nampy.models.GAMClassifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="nampy.models.GAMLSS.html">nampy.models.GAMLSS</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">nampy.models.GAMLSS</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../gam.html#fit-core">Fit core</a><ul>
@@ -472,13 +472,13 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2 current"><a class="reference internal" href="../basemodels.html">Base Models</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../basemodels.html">Base Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../basemodels.html#base-classes">Base Classes</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="nampy.neural.architectures.BaseModel.html">nampy.neural.architectures.BaseModel</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.neural.task.TaskModule.html">nampy.neural.task.TaskModule</a></li>
 </ul>
 </li>
-<li class="toctree-l3 current"><a class="reference internal" href="../basemodels.html#model-implementations">Model Implementations</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../basemodels.html#model-implementations">Model Implementations</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="nampy.neural.architectures.NAM.html">nampy.neural.architectures.NAM</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.neural.architectures.SIAN.html">nampy.neural.architectures.SIAN</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.neural.architectures.GPNAM.html">nampy.neural.architectures.GPNAM</a></li>
@@ -489,7 +489,7 @@
 <li class="toctree-l4"><a class="reference internal" href="nampy.neural.architectures.NATT.html">nampy.neural.architectures.NATT</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.neural.architectures.NAMformer.html">nampy.neural.architectures.NAMformer</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.neural.architectures.LinReg.html">nampy.neural.architectures.LinReg</a></li>
-<li class="toctree-l4 current"><a class="current reference internal" href="#">nampy.neural.architectures.QNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="nampy.neural.architectures.QNAM.html">nampy.neural.architectures.QNAM</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.neural.architectures.SNAM.html">nampy.neural.architectures.SNAM</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.neural.architectures.TreeNAM.html">nampy.neural.architectures.TreeNAM</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.neural.architectures.EnsembleTreeNAM.html">nampy.neural.architectures.EnsembleTreeNAM</a></li>
@@ -674,10 +674,10 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../index.html">API Reference</a></li>
-          <li class="breadcrumb-item"><a href="../basemodels.html">Base Models</a></li>
-      <li class="breadcrumb-item active">nampy.neural.architectures.QNAM</li>
+          <li class="breadcrumb-item"><a href="../models.html">Models</a></li>
+      <li class="breadcrumb-item active">nampy.models.GAMLSS</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../../_sources/api/generated/nampy.neural.architectures.QNAM.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../../_sources/api/generated/nampy.models.GAMLSS.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -685,43 +685,57 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="nampy-neural-architectures-qnam">
-<h1>nampy.neural.architectures.QNAM<a class="headerlink" href="#nampy-neural-architectures-qnam" title="Link to this heading"></a></h1>
+  <section id="nampy-models-gamlss">
+<h1>nampy.models.GAMLSS<a class="headerlink" href="#nampy-models-gamlss" title="Link to this heading"></a></h1>
 <dl class="py class">
-<dt class="sig sig-object py" id="nampy.neural.architectures.QNAM">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">nampy.neural.architectures.</span></span><span class="sig-name descname"><span class="pre">QNAM</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cat_feature_info</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_feature_info</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_classes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nampy/neural/architectures/qnam.html#QNAM"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.neural.architectures.QNAM" title="Link to this definition"></a></dt>
-<dd><p>Quantile Neural Additive Model (QNAM).</p>
-<p>This is a neural additive model whose outputs are constrained to be
-nondecreasing across the output dimension, which is interpreted as ordered
-quantiles.</p>
-<p>The constraint is enforced at the level of:
-- each main-effect feature contribution,
-- each interaction contribution,
-- the intercept.</p>
-<p>Therefore, the summed final output is also nondecreasing across quantiles.</p>
-<dl class="field-list simple">
-</dl>
+<dt class="sig sig-object py" id="nampy.models.GAMLSS">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">GAMLSS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">formula</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">family</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'normal'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">basis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'tp'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fit_intercept</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimize_smoothing</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">smoothing_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'reml'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">smoothing_optimizer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'outer_newton'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">smoothing_params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">select</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">knots</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_sp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_intercept</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">covariance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'bayes'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">score_gamma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_irls_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">200</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">irls_tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-07</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sp_log_bounds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-80.0,</span> <span class="pre">20.0)</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nampy/models/gamlss.html#GAMLSS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.GAMLSS" title="Link to this definition"></a></dt>
+<dd><p>Generalized additive location, scale, and shape estimator.</p>
+<p><code class="docutils literal notranslate"><span class="pre">predict</span></code> returns natural distribution parameters in columns named by
+<code class="docutils literal notranslate"><span class="pre">parameter_names_</span></code>. Use <code class="docutils literal notranslate"><span class="pre">predict(raw=True)</span></code> or <code class="docutils literal notranslate"><span class="pre">predict_link</span></code> for the
+additive linear predictors. In formula mode, a named formula mapping is
+preferred, for example <code class="docutils literal notranslate"><span class="pre">{&quot;mu&quot;:</span> <span class="pre">&quot;y</span> <span class="pre">~</span> <span class="pre">s(x)&quot;,</span> <span class="pre">&quot;sigma&quot;:</span> <span class="pre">&quot;~</span> <span class="pre">s(x)&quot;}</span></code>.</p>
 <dl class="py method">
-<dt class="sig sig-object py" id="nampy.neural.architectures.QNAM.forward">
-<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_features</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cat_features</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nampy/neural/architectures/qnam.html#QNAM.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.neural.architectures.QNAM.forward" title="Link to this definition"></a></dt>
-<dd><p>Forward pass of QNAM.</p>
+<dt class="sig sig-object py" id="nampy.models.GAMLSS.fit">
+<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">offset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nampy/models/gamlss.html#GAMLSS.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.GAMLSS.fit" title="Link to this definition"></a></dt>
+<dd><p>Fit distribution parameters in array or multi-formula mode.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.GAMLSS.predict">
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">offset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nampy/models/gamlss.html#GAMLSS.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.GAMLSS.predict" title="Link to this definition"></a></dt>
+<dd><p>Return natural parameters, or raw linear predictors with <code class="docutils literal notranslate"><span class="pre">raw=True</span></code>.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.GAMLSS.predict_point">
+<span class="sig-name descname"><span class="pre">predict_point</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">offset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nampy/models/gamlss.html#GAMLSS.predict_point"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.GAMLSS.predict_point" title="Link to this definition"></a></dt>
+<dd><p>Return the family-defined conditional mean prediction.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.GAMLSS.standard_errors">
+<span class="sig-name descname"><span class="pre">standard_errors</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'response'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">offset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nampy/models/gamlss.html#GAMLSS.standard_errors"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.GAMLSS.standard_errors" title="Link to this definition"></a></dt>
+<dd><p>Pointwise errors on the natural-parameter or link scale.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.GAMLSS.score">
+<span class="sig-name descname"><span class="pre">score</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nampy/models/gamlss.html#GAMLSS.score"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.GAMLSS.score" title="Link to this definition"></a></dt>
+<dd><p>Return weighted mean log likelihood (higher is better).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.GAMLSS.evaluate">
+<span class="sig-name descname"><span class="pre">evaluate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_true</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metrics</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nampy/models/gamlss.html#GAMLSS.evaluate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.GAMLSS.evaluate" title="Link to this definition"></a></dt>
+<dd><p>Evaluate natural parameters (default: mean negative log likelihood).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.GAMLSS.predict_components">
+<span class="sig-name descname"><span class="pre">predict_components</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">offset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nampy/models/gamlss.html#GAMLSS.predict_components"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.GAMLSS.predict_components" title="Link to this definition"></a></dt>
+<dd><p>Return zero-padded per-parameter contributions on the link scale.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>num_features</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code>) – Dictionary of numerical feature tensors.</p></li>
-<li><p><strong>cat_features</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code>) – Dictionary of categorical feature tensors.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Dictionary containing:
-- “output”: final quantile predictions [batch, num_classes]
-- one entry per feature contribution [batch, num_classes]
-- one entry per interaction contribution [batch, num_classes], if enabled
-- “intercept”: transformed monotone intercept [num_classes], if enabled</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></p>
-</dd>
 </dl>
 </dd></dl>
 
@@ -733,8 +747,8 @@ quantiles.</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="nampy.neural.architectures.LinReg.html" class="btn btn-neutral float-left" title="nampy.neural.architectures.LinReg" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="nampy.neural.architectures.SNAM.html" class="btn btn-neutral float-right" title="nampy.neural.architectures.SNAM" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="nampy.models.NodeGAMLSS.html" class="btn btn-neutral float-left" title="nampy.models.NodeGAMLSS" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="nampy.models.QNAMLSS.html" class="btn btn-neutral float-right" title="nampy.models.QNAMLSS" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

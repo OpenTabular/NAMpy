@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Published PreTab compatibility &mdash; nampy 0.3.0 documentation</title>
+  <title>Distributional GAMs and GAMLSS &mdash; nampy 0.3.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=ea57e989" />
@@ -21,8 +21,8 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Training Models" href="training.html" />
-    <link rel="prev" title="Preprocessing (PreTab)" href="preprocessing.html" /> 
+    <link rel="next" title="Custom Models" href="custom_models.html" />
+    <link rel="prev" title="Shape-constrained GAMs" href="shape_constrained_gams.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -257,19 +257,19 @@
 <li class="toctree-l3"><a class="reference internal" href="preprocessing.html#accessing-the-preprocessor">Accessing the preprocessor</a></li>
 </ul>
 </li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Published PreTab compatibility</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#supported-contract">Supported contract</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#removed-requirements">Removed requirements</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#model-impact">Model impact</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#nam">NAM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#nbm">NBM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#spam-and-nbm-spam">SPAM and NBM-SPAM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#nodegam">NodeGAM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#other-neural-models">Other neural models</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#gam-backend">GAM backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pretab_compatibility.html">Published PreTab compatibility</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pretab_compatibility.html#supported-contract">Supported contract</a></li>
+<li class="toctree-l3"><a class="reference internal" href="pretab_compatibility.html#removed-requirements">Removed requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="pretab_compatibility.html#model-impact">Model impact</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pretab_compatibility.html#nam">NAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pretab_compatibility.html#nbm">NBM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pretab_compatibility.html#spam-and-nbm-spam">SPAM and NBM-SPAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pretab_compatibility.html#nodegam">NodeGAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pretab_compatibility.html#other-neural-models">Other neural models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pretab_compatibility.html#gam-backend">GAM backend</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#behavioral-consequences">Behavioral consequences</a></li>
+<li class="toctree-l3"><a class="reference internal" href="pretab_compatibility.html#behavioral-consequences">Behavioral consequences</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="training.html">Training Models</a><ul>
@@ -321,10 +321,10 @@
 <li class="toctree-l3"><a class="reference internal" href="shape_constrained_gams.html#current-boundaries">Current boundaries</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="gamlss.html">Distributional GAMs and GAMLSS</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="gamlss.html#public-parameter-contract">Public parameter contract</a></li>
-<li class="toctree-l3"><a class="reference internal" href="gamlss.html#formula-and-array-modes">Formula and array modes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="gamlss.html#migration">Migration</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Distributional GAMs and GAMLSS</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#public-parameter-contract">Public parameter contract</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#formula-and-array-modes">Formula and array modes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#migration">Migration</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="custom_models.html">Custom Models</a><ul>
@@ -674,9 +674,9 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../user_guide.html">User Guide</a></li>
-      <li class="breadcrumb-item active">Published PreTab compatibility</li>
+      <li class="breadcrumb-item active">Distributional GAMs and GAMLSS</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../_sources/user_guide/pretab_compatibility.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/user_guide/gamlss.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -684,124 +684,98 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="published-pretab-compatibility">
-<h1>Published PreTab compatibility<a class="headerlink" href="#published-pretab-compatibility" title="Link to this heading"></a></h1>
-<p>NAMpy targets the public block-level preprocessing contract in the published
-PreTab <code class="docutils literal notranslate"><span class="pre">0.0.3</span></code> release. It does not require the experimental preprocessing
-extensions that were previously carried in NAMpy’s reference checkout of
-PreTab.</p>
-<p>This boundary is intentional. PreTab owns generic tabular preprocessing, while
-NAMpy owns the interpretation of the resulting feature blocks inside each
-neural architecture. The neural architecture implementations are not replaced
-or approximated as part of this change.</p>
-<section id="supported-contract">
-<h2>Supported contract<a class="headerlink" href="#supported-contract" title="Link to this heading"></a></h2>
-<p>NAMpy relies on the following published PreTab 0.0.3 behavior:</p>
+  <section id="distributional-gams-and-gamlss">
+<h1>Distributional GAMs and GAMLSS<a class="headerlink" href="#distributional-gams-and-gamlss" title="Link to this heading"></a></h1>
+<p>NAMpy exposes three statistical GAM estimators with distinct prediction
+contracts:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">Preprocessor.fit(X,</span> <span class="pre">y)</span></code> and <code class="docutils literal notranslate"><span class="pre">Preprocessor.transform(X)</span></code>;</p></li>
-<li><p>dictionary output with <code class="docutils literal notranslate"><span class="pre">num_&lt;feature&gt;</span></code> and <code class="docutils literal notranslate"><span class="pre">cat_&lt;feature&gt;</span></code> blocks;</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">get_feature_info(verbose=False)</span></code> metadata, particularly <code class="docutils literal notranslate"><span class="pre">dimension</span></code>,
-<code class="docutils literal notranslate"><span class="pre">categories</span></code>, and <code class="docutils literal notranslate"><span class="pre">preprocessing</span></code>;</p></li>
-<li><p>PreTab’s numerical-then-categorical block ordering;</p></li>
-<li><p>standard constructor options such as <code class="docutils literal notranslate"><span class="pre">numerical_preprocessing</span></code>,
-<code class="docutils literal notranslate"><span class="pre">categorical_preprocessing</span></code>, <code class="docutils literal notranslate"><span class="pre">feature_preprocessing</span></code>, <code class="docutils literal notranslate"><span class="pre">n_bins</span></code>,
-<code class="docutils literal notranslate"><span class="pre">n_knots</span></code>, <code class="docutils literal notranslate"><span class="pre">degree</span></code>, <code class="docutils literal notranslate"><span class="pre">scaling_strategy</span></code>, and <code class="docutils literal notranslate"><span class="pre">task</span></code>.</p></li>
+<li><p><a class="reference internal" href="../api/generated/nampy.models.GAMRegressor.html#nampy.models.GAMRegressor" title="nampy.models.GAMRegressor"><code class="xref py py-class docutils literal notranslate"><span class="pre">nampy.models.GAMRegressor</span></code></a> fits one response predictor and returns a
+one-dimensional numeric response.</p></li>
+<li><p><a class="reference internal" href="../api/generated/nampy.models.GAMClassifier.html#nampy.models.GAMClassifier" title="nampy.models.GAMClassifier"><code class="xref py py-class docutils literal notranslate"><span class="pre">nampy.models.GAMClassifier</span></code></a> fits a binary binomial predictor and
+returns labels or two-column probabilities.</p></li>
+<li><p><a class="reference internal" href="../api/generated/nampy.models.GAMLSS.html#nampy.models.GAMLSS" title="nampy.models.GAMLSS"><code class="xref py py-class docutils literal notranslate"><span class="pre">nampy.models.GAMLSS</span></code></a> jointly fits two or more distribution parameters
+and returns a parameter matrix.</p></li>
 </ul>
-<p>High-level NAMpy estimators discover the supported constructor parameters from
-the installed <code class="docutils literal notranslate"><span class="pre">Preprocessor</span></code>. Unsupported names continue to raise an explicit
-<code class="docutils literal notranslate"><span class="pre">TypeError</span></code> rather than being ignored.</p>
+<p>The low-level <a class="reference internal" href="../api/generated/nampy.gam.GAM.html#nampy.gam.GAM" title="nampy.gam.GAM"><code class="xref py py-class docutils literal notranslate"><span class="pre">nampy.gam.GAM</span></code></a> remains unrestricted. It deliberately
+keeps mgcv-shaped family names and response transformations for parity work.</p>
+<section id="public-parameter-contract">
+<h2>Public parameter contract<a class="headerlink" href="#public-parameter-contract" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">GAMLSS.predict</span></code> always returns natural distribution parameters. Columns
+follow <code class="docutils literal notranslate"><span class="pre">parameter_names_</span></code>. <code class="docutils literal notranslate"><span class="pre">predict(raw=True)</span></code> and <code class="docutils literal notranslate"><span class="pre">predict_link</span></code> return
+the additive linear predictors instead.</p>
+<table class="docutils align-default" id="id1">
+<caption><span class="caption-text">Built-in families</span><a class="headerlink" href="#id1" title="Link to this table"></a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Public aliases</p></th>
+<th class="head"><p><code class="docutils literal notranslate"><span class="pre">parameter_names_</span></code></p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">normal</span></code>, <code class="docutils literal notranslate"><span class="pre">gaussian</span></code>, <code class="docutils literal notranslate"><span class="pre">gaulss</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">(&quot;mu&quot;,</span> <span class="pre">&quot;sigma&quot;)</span></code></p></td>
+<td><p>Normal conditional mean and standard deviation</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">gamma</span></code>, <code class="docutils literal notranslate"><span class="pre">gammals</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">(&quot;mu&quot;,</span> <span class="pre">&quot;sigma&quot;)</span></code></p></td>
+<td><p>Gamma conditional mean and coefficient of variation, so
+<code class="docutils literal notranslate"><span class="pre">Var(Y</span> <span class="pre">|</span> <span class="pre">X)</span> <span class="pre">=</span> <span class="pre">mu**2</span> <span class="pre">*</span> <span class="pre">sigma**2</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<p><code class="docutils literal notranslate"><span class="pre">predict_point</span></code> returns the conditional mean. <code class="docutils literal notranslate"><span class="pre">score</span></code> returns mean log
+likelihood (higher is better), while the default <code class="docutils literal notranslate"><span class="pre">evaluate</span></code> result reports
+mean negative log likelihood.</p>
 </section>
-<section id="removed-requirements">
-<h2>Removed requirements<a class="headerlink" href="#removed-requirements" title="Link to this heading"></a></h2>
-<p>The following extended PreTab surfaces are no longer required or configured by
-NAMpy:</p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">output_granularity</span></code></dt><dd><p>NAMpy no longer asks PreTab to split every encoded output column into a
-separate dictionary entry. Multi-column representations remain grouped by
-source feature.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">output_order</span></code></dt><dd><p>NAMpy no longer requests categorical-first or original-input ordering. It
-consumes PreTab’s numerical-then-categorical block order.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">output_scaling</span></code> and <code class="docutils literal notranslate"><span class="pre">output_range</span></code></dt><dd><p>NAMpy no longer requests a second scaler over the fully encoded matrix.
-NAM, NBM, SPAM, and NBM-SPAM use PreTab’s supported numerical
-<code class="docutils literal notranslate"><span class="pre">scaling_strategy=&quot;minmax&quot;</span></code> preprocessing instead. This scaler maps numerical
-inputs to <code class="docutils literal notranslate"><span class="pre">[-1,</span> <span class="pre">1]</span></code>; categorical one-hot values remain <code class="docutils literal notranslate"><span class="pre">0</span></code> or <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p>
-</dd>
-<dt>Quantile fit controls</dt><dd><p><code class="docutils literal notranslate"><span class="pre">quantile_n_quantiles</span></code>, <code class="docutils literal notranslate"><span class="pre">quantile_output_distribution</span></code>, and
-<code class="docutils literal notranslate"><span class="pre">quantile_noise</span></code> are no longer exposed by NAMpy examples or required by
-its tests. <code class="docutils literal notranslate"><span class="pre">numerical_preprocessing=&quot;quantile&quot;</span></code> remains supported with
-PreTab’s own behavior.</p>
-</dd>
-<dt>Generic representation parameters</dt><dd><p>NAMpy no longer relies on <code class="docutils literal notranslate"><span class="pre">representation_params</span></code> or mapping-valued
-per-feature specifications such as
-<code class="docutils literal notranslate"><span class="pre">{&quot;x&quot;:</span> <span class="pre">{&quot;method&quot;:</span> <span class="pre">&quot;...&quot;,</span> <span class="pre">...}}</span></code>. PreTab’s supported
-<code class="docutils literal notranslate"><span class="pre">feature_preprocessing</span></code> form remains available.</p>
-</dd>
-<dt>TF-IDF categorical representation</dt><dd><p>The extended <code class="docutils literal notranslate"><span class="pre">tfidf</span></code> representation is no longer advertised or tested.
-Text features must use a representation supported by the published PreTab
-release or be prepared before they reach NAMpy.</p>
-</dd>
-<dt>Atomic transformed-column metadata</dt><dd><p>NAMpy no longer expects <code class="docutils literal notranslate"><span class="pre">output_index</span></code> metadata or synthesized metadata
-entries for individual encoded columns. Block dictionary order and each
-block’s <code class="docutils literal notranslate"><span class="pre">dimension</span></code> are the canonical layout contract.</p>
-</dd>
-</dl>
+<section id="formula-and-array-modes">
+<h2>Formula and array modes<a class="headerlink" href="#formula-and-array-modes" title="Link to this heading"></a></h2>
+<p>A named mapping is the preferred formula form. It prevents accidental changes
+to parameter order and requires secondary formulas to be one-sided:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">GAMLSS</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">GAMLSS</span><span class="p">(</span>
+    <span class="n">family</span><span class="o">=</span><span class="s2">"normal"</span><span class="p">,</span>
+    <span class="n">formula</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">"mu"</span><span class="p">:</span> <span class="s2">"y ~ s(age, bs='cr', k=10) + group"</span><span class="p">,</span>
+        <span class="s2">"sigma"</span><span class="p">:</span> <span class="s2">"~ s(age, bs='cr', k=8)"</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="n">smoothing_method</span><span class="o">=</span><span class="s2">"reml"</span><span class="p">,</span>
+<span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+<span class="n">parameters</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">standard_errors</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">standard_errors</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">components</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict_components</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">components</span><span class="o">.</span><span class="n">validate_additive_reconstruction</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>An ordered formula list remains supported for compatibility. Without a
+formula, each distribution parameter receives its own independently compiled
+copy of the configured main-effect smooths:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">GAMLSS</span><span class="p">(</span><span class="n">family</span><span class="o">=</span><span class="s2">"gamma"</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">basis</span><span class="o">=</span><span class="s2">"tp"</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Offsets must be a list or tuple with one entry per parameter. Contributions in
+<code class="docutils literal notranslate"><span class="pre">predict_components</span></code> are zero-padded matrices, so every term has the same
+<code class="docutils literal notranslate"><span class="pre">(n_samples,</span> <span class="pre">n_parameters)</span></code> shape as the link prediction.</p>
 </section>
-<section id="model-impact">
-<h2>Model impact<a class="headerlink" href="#model-impact" title="Link to this heading"></a></h2>
-<section id="nam">
-<h3>NAM<a class="headerlink" href="#nam" title="Link to this heading"></a></h3>
-<p>NAM creates one feature network per PreTab block. A numerical source
-feature normally produces a scalar block. A one-hot categorical source feature
-produces one multi-column block and therefore one network for the categorical
-feature as a whole. This differs from the earlier parity configuration, which
-created a separate network for every one-hot column, but it is a valid grouped
-categorical NAM and remains additively interpretable at source-feature level.</p>
-</section>
-<section id="nbm">
-<h3>NBM<a class="headerlink" href="#nbm" title="Link to this heading"></a></h3>
-<p>NBM already flattens block dimensions into scalar concepts internally. For
-example, a three-column <code class="docutils literal notranslate"><span class="pre">cat_group</span></code> block becomes the concepts
-<code class="docutils literal notranslate"><span class="pre">group[0]</span></code>, <code class="docutils literal notranslate"><span class="pre">group[1]</span></code>, and <code class="docutils literal notranslate"><span class="pre">group[2]</span></code>. Dense, sparse, Conv1D, einsum,
-and n-ary NBM implementations are unchanged. The removed surfaces affect input
-scaling, names, and ordering relative to the reference implementation, not the
-NBM basis-network core.</p>
-</section>
-<section id="spam-and-nbm-spam">
-<h3>SPAM and NBM-SPAM<a class="headerlink" href="#spam-and-nbm-spam" title="Link to this heading"></a></h3>
-<p>SPAM and NBM-SPAM use the same internal block flattening as NBM. Their
-polynomial cores, ranks, penalties, proximal behavior, and hybrid block
-assembly are unchanged. Terms now follow PreTab’s block order.</p>
-</section>
-<section id="nodegam">
-<h3>NodeGAM<a class="headerlink" href="#nodegam" title="Link to this heading"></a></h3>
-<p>NodeGAM can continue to select <code class="docutils literal notranslate"><span class="pre">numerical_preprocessing=&quot;quantile&quot;</span></code>. It no longer
-requests NODE-GAM-specific quantile noise or quantile-transform tuning through
-PreTab, so preprocessing will not reproduce the reference repository exactly.
-The differentiable tree architecture and its training controls are unchanged.</p>
-</section>
-<section id="other-neural-models">
-<h3>Other neural models<a class="headerlink" href="#other-neural-models" title="Link to this heading"></a></h3>
-<p>LinReg, SNAM, SIAN, GPNAM, IGANN, NATT, NAMformer, TreeNAM,
-EnsembleTreeNAM, QNAM, and SplineNAM already consume PreTab’s
-block-level contract. Their architecture implementations required no changes
-for this compatibility decision.</p>
-</section>
-<section id="gam-backend">
-<h3>GAM backend<a class="headerlink" href="#gam-backend" title="Link to this heading"></a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">nampy.gam</span></code> does not import or use PreTab and is completely unaffected.</p>
-</section>
-</section>
-<section id="behavioral-consequences">
-<h2>Behavioral consequences<a class="headerlink" href="#behavioral-consequences" title="Link to this heading"></a></h2>
-<p>This compatibility target guarantees that the supported neural estimators can
-be constructed, cloned, fitted, and used with published PreTab 0.0.3. It does
-not claim preprocessing parity with every model’s reference repository. In
-particular, encoded scaling, categorical NAM topology, transformed-column
-ordering, and optional quantile or TF-IDF representations can differ.</p>
-<p>Users needing an unsupported representation should request it in PreTab rather
-than adding a second generic preprocessing implementation to NAMpy.</p>
+<section id="migration">
+<h2>Migration<a class="headerlink" href="#migration" title="Link to this heading"></a></h2>
+<p>Code that previously placed <code class="docutils literal notranslate"><span class="pre">gaulss</span></code> or <code class="docutils literal notranslate"><span class="pre">gammals</span></code> inside
+<code class="docutils literal notranslate"><span class="pre">GAMRegressor</span></code> must move to <code class="docutils literal notranslate"><span class="pre">GAMLSS</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Before</span>
+<span class="n">GAMRegressor</span><span class="p">(</span><span class="n">family</span><span class="o">=</span><span class="s2">"gaulss"</span><span class="p">,</span> <span class="n">formula</span><span class="o">=</span><span class="p">[</span><span class="s2">"y ~ s(x)"</span><span class="p">,</span> <span class="s2">"~ s(z)"</span><span class="p">])</span>
+
+<span class="c1"># Now</span>
+<span class="n">GAMLSS</span><span class="p">(</span>
+    <span class="n">family</span><span class="o">=</span><span class="s2">"normal"</span><span class="p">,</span>
+    <span class="n">formula</span><span class="o">=</span><span class="p">{</span><span class="s2">"mu"</span><span class="p">:</span> <span class="s2">"y ~ s(x)"</span><span class="p">,</span> <span class="s2">"sigma"</span><span class="p">:</span> <span class="s2">"~ s(z)"</span><span class="p">},</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>This is an intentional role guard: a multi-parameter prediction is neither a
+single regression target nor a classification label. Direct <code class="docutils literal notranslate"><span class="pre">GAM</span></code> code does
+not need to migrate, but should remember that raw <code class="docutils literal notranslate"><span class="pre">type=&quot;response&quot;</span></code> follows
+mgcv’s internal parameterization rather than this natural-parameter contract.</p>
 </section>
 </section>
 
@@ -809,8 +783,8 @@ than adding a second generic preprocessing implementation to NAMpy.</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="preprocessing.html" class="btn btn-neutral float-left" title="Preprocessing (PreTab)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="training.html" class="btn btn-neutral float-right" title="Training Models" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="shape_constrained_gams.html" class="btn btn-neutral float-left" title="Shape-constrained GAMs" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="custom_models.html" class="btn btn-neutral float-right" title="Custom Models" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

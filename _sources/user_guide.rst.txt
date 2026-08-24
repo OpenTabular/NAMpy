@@ -12,6 +12,7 @@ live in :doc:`notebook_tutorials`.
    user_guide/pretab_compatibility
    user_guide/training
    user_guide/shape_constrained_gams
+   user_guide/gamlss
    user_guide/custom_models
    user_guide/interpretability
 
@@ -46,6 +47,13 @@ Shape-constrained GAMs
 :doc:`user_guide/shape_constrained_gams` is the authoritative list of supported
 shape bases, constraints, and current boundaries. The GAM notebook provides a
 narrative example rather than duplicating that support matrix.
+
+Distributional GAMs
+~~~~~~~~~~~~~~~~~~~
+
+:doc:`user_guide/gamlss` explains the estimator split, natural-parameter
+contract, formula mapping, family aliases, and migration from multi-predictor
+``GAMRegressor`` usage.
 
 Extending NAMpy
 ~~~~~~~~~~~~~~~

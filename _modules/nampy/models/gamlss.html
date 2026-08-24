@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>nampy.models.classifier &mdash; nampy 0.3.0 documentation</title>
+  <title>nampy.models.gamlss &mdash; nampy 0.3.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=ea57e989" />
@@ -671,7 +671,7 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
-      <li class="breadcrumb-item active">nampy.models.classifier</li>
+      <li class="breadcrumb-item active">nampy.models.gamlss</li>
       <li class="wy-breadcrumbs-aside">
       </li>
   </ul>
@@ -680,206 +680,301 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <h1>Source code for nampy.models.classifier</h1><div class="highlight"><pre>
-<span></span><span class="c1"># classifier.py</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+  <h1>Source code for nampy.models.gamlss</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""First-class sklearn-style GAMLSS estimator backed by :class:`nampy.gam.GAM`."""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Sequence</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">accuracy_score</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">LabelEncoder</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClassifierTags</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">..contracts</span><span class="w"> </span><span class="kn">import</span> <span class="n">AdditivePrediction</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">..neural.objectives</span><span class="w"> </span><span class="kn">import</span> <span class="n">classification_objective</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">._base</span><span class="w"> </span><span class="kn">import</span> <span class="n">NeuralEstimatorBase</span><span class="p">,</span> <span class="n">TrainingPlan</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..gam.families.gamlss</span><span class="w"> </span><span class="kn">import</span> <span class="n">GamlssFamily</span><span class="p">,</span> <span class="n">gammals</span><span class="p">,</span> <span class="n">gaulss</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.gam</span><span class="w"> </span><span class="kn">import</span> <span class="n">_GAMAdapterBase</span>
+
+<span class="n">_FAMILY_ALIASES</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"normal"</span><span class="p">:</span> <span class="n">gaulss</span><span class="p">,</span>
+    <span class="s2">"gaussian"</span><span class="p">:</span> <span class="n">gaulss</span><span class="p">,</span>
+    <span class="s2">"gaulss"</span><span class="p">:</span> <span class="n">gaulss</span><span class="p">,</span>
+    <span class="s2">"gamma"</span><span class="p">:</span> <span class="n">gammals</span><span class="p">,</span>
+    <span class="s2">"gammals"</span><span class="p">:</span> <span class="n">gammals</span><span class="p">,</span>
+<span class="p">}</span>
 
 
-<div class="viewcode-block" id="NeuralClassifier">
-<a class="viewcode-back" href="../../../api/generated/nampy.models.NeuralClassifier.html#nampy.models.NeuralClassifier">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">NeuralClassifier</span><span class="p">(</span><span class="n">NeuralEstimatorBase</span><span class="p">):</span>
-    <span class="n">_estimator_type</span> <span class="o">=</span> <span class="s2">"classifier"</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolve_gamlss_family</span><span class="p">(</span><span class="n">family</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GamlssFamily</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">family</span><span class="p">,</span> <span class="n">GamlssFamily</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">family</span>
+    <span class="n">key</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">family</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">factory</span> <span class="o">=</span> <span class="n">_FAMILY_ALIASES</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+    <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+        <span class="n">supported</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">_FAMILY_ALIASES</span><span class="p">))</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Unknown GAMLSS family </span><span class="si">{</span><span class="n">family</span><span class="si">!r}</span><span class="s2">. Supported aliases: </span><span class="si">{</span><span class="n">supported</span><span class="si">}</span><span class="s2">."</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+    <span class="k">return</span> <span class="n">factory</span><span class="p">()</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="n">requested_task</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"task"</span><span class="p">)</span>
-        <span class="n">kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">"task"</span><span class="p">,</span> <span class="s2">"classification"</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_estimator_parameters</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">data_module</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="k">if</span> <span class="n">requested_task</span> <span class="o">==</span> <span class="s2">"regression"</span><span class="p">:</span>
-            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="s2">"The task is set to 'regression'. The Classifier is designed for classification tasks."</span><span class="p">,</span>
-                <span class="ne">UserWarning</span><span class="p">,</span>
-                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-            <span class="p">)</span>
+<div class="viewcode-block" id="GAMLSS">
+<a class="viewcode-back" href="../../../api/generated/nampy.models.GAMLSS.html#nampy.models.GAMLSS">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">GAMLSS</span><span class="p">(</span><span class="n">_GAMAdapterBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Generalized additive location, scale, and shape estimator.</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">base_model</span> <span class="o">=</span> <span class="n">model</span>
+<span class="sd">    ``predict`` returns natural distribution parameters in columns named by</span>
+<span class="sd">    ``parameter_names_``. Use ``predict(raw=True)`` or ``predict_link`` for the</span>
+<span class="sd">    additive linear predictors. In formula mode, a named formula mapping is</span>
+<span class="sd">    preferred, for example ``{"mu": "y ~ s(x)", "sigma": "~ s(x)"}``.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">formula</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">family</span><span class="o">=</span><span class="s2">"normal"</span><span class="p">,</span>
+        <span class="n">k</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+        <span class="n">basis</span><span class="o">=</span><span class="s2">"tp"</span><span class="p">,</span>
+        <span class="n">fit_intercept</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">optimize_smoothing</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">smoothing_method</span><span class="o">=</span><span class="s2">"reml"</span><span class="p">,</span>
+        <span class="n">smoothing_optimizer</span><span class="o">=</span><span class="s2">"outer_newton"</span><span class="p">,</span>
+        <span class="n">smoothing_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">select</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">knots</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">min_sp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">drop_intercept</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">covariance</span><span class="o">=</span><span class="s2">"bayes"</span><span class="p">,</span>
+        <span class="n">score_gamma</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">max_irls_iter</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span>
+        <span class="n">irls_tol</span><span class="o">=</span><span class="mf">1e-7</span><span class="p">,</span>
+        <span class="n">sp_log_bounds</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">80.0</span><span class="p">,</span> <span class="mf">20.0</span><span class="p">),</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">formula</span><span class="o">=</span><span class="n">formula</span><span class="p">,</span>
+            <span class="n">family</span><span class="o">=</span><span class="n">family</span><span class="p">,</span>
+            <span class="n">k</span><span class="o">=</span><span class="n">k</span><span class="p">,</span>
+            <span class="n">basis</span><span class="o">=</span><span class="n">basis</span><span class="p">,</span>
+            <span class="n">fit_intercept</span><span class="o">=</span><span class="n">fit_intercept</span><span class="p">,</span>
+            <span class="n">optimize_smoothing</span><span class="o">=</span><span class="n">optimize_smoothing</span><span class="p">,</span>
+            <span class="n">smoothing_method</span><span class="o">=</span><span class="n">smoothing_method</span><span class="p">,</span>
+            <span class="n">smoothing_optimizer</span><span class="o">=</span><span class="n">smoothing_optimizer</span><span class="p">,</span>
+            <span class="n">smoothing_params</span><span class="o">=</span><span class="n">smoothing_params</span><span class="p">,</span>
+            <span class="n">select</span><span class="o">=</span><span class="n">select</span><span class="p">,</span>
+            <span class="n">knots</span><span class="o">=</span><span class="n">knots</span><span class="p">,</span>
+            <span class="n">min_sp</span><span class="o">=</span><span class="n">min_sp</span><span class="p">,</span>
+            <span class="n">drop_intercept</span><span class="o">=</span><span class="n">drop_intercept</span><span class="p">,</span>
+            <span class="n">covariance</span><span class="o">=</span><span class="n">covariance</span><span class="p">,</span>
+            <span class="n">score_gamma</span><span class="o">=</span><span class="n">score_gamma</span><span class="p">,</span>
+            <span class="n">max_irls_iter</span><span class="o">=</span><span class="n">max_irls_iter</span><span class="p">,</span>
+            <span class="n">irls_tol</span><span class="o">=</span><span class="n">irls_tol</span><span class="p">,</span>
+            <span class="n">sp_log_bounds</span><span class="o">=</span><span class="n">sp_log_bounds</span><span class="p">,</span>
+        <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">__sklearn_tags__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">tags</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__sklearn_tags__</span><span class="p">()</span>
-        <span class="n">tags</span><span class="o">.</span><span class="n">estimator_type</span> <span class="o">=</span> <span class="s2">"classifier"</span>
-        <span class="n">tags</span><span class="o">.</span><span class="n">classifier_tags</span> <span class="o">=</span> <span class="n">ClassifierTags</span><span class="p">()</span>
         <span class="n">tags</span><span class="o">.</span><span class="n">target_tags</span><span class="o">.</span><span class="n">required</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="k">return</span> <span class="n">tags</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_build_training_plan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">y_val</span><span class="p">):</span>
-        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"_fit_loss_fct"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">"Custom loss_fct is only supported for regression tasks."</span>
-            <span class="p">)</span>
-        <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_label_encoder</span> <span class="o">=</span> <span class="n">LabelEncoder</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">classes_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_label_encoder</span><span class="o">.</span><span class="n">classes_</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">classes_</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">"Classification targets must contain at least 2 classes; "</span>
-                <span class="sa">f</span><span class="s2">"got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">classes_</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
-            <span class="p">)</span>
-        <span class="n">y_encoded</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_label_encoder</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolved_family</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_resolve_gamlss_family</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">family</span><span class="p">)</span>
 
-        <span class="n">y_val_encoded</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">y_val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="c1"># transform() raises on labels unseen during fit.</span>
-            <span class="n">y_val_encoded</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_label_encoder</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_val</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">())</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_family_role</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">family</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">family</span><span class="p">,</span> <span class="n">GamlssFamily</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"GAMLSS requires a multi-predictor GamlssFamily; "</span>
+                <span class="sa">f</span><span class="s2">"got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">family</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">family</span><span class="o">.</span><span class="n">n_linear_predictors</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"GAMLSS families must define at least two predictors."</span><span class="p">)</span>
 
-        <span class="n">plan</span> <span class="o">=</span> <span class="n">TrainingPlan</span><span class="p">(</span>
-            <span class="n">objective</span><span class="o">=</span><span class="n">classification_objective</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">classes_</span><span class="p">)),</span>
-            <span class="n">stratify</span><span class="o">=</span><span class="n">y_encoded</span><span class="p">,</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolved_formula</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">family</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolved_family</span><span class="p">()</span>
+        <span class="n">names</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">family</span><span class="o">.</span><span class="n">parameter_names</span><span class="p">)</span>
+        <span class="n">formula</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">formula</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">formula</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
+            <span class="n">missing</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">names</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">formula</span><span class="p">)</span>
+            <span class="n">extra</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">formula</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">names</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">missing</span> <span class="ow">or</span> <span class="n">extra</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">"GAMLSS formula keys must exactly match the family parameters "</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">names</span><span class="si">}</span><span class="s2">; missing=</span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span><span class="si">}</span><span class="s2">, extra=</span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">extra</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
+                <span class="p">)</span>
+            <span class="n">formulas</span> <span class="o">=</span> <span class="p">[</span><span class="n">formula</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">formula</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">formula</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">formulas</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">formula</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">formulas</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"GAMLSS family </span><span class="si">{</span><span class="n">family</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> expects </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">)</span><span class="si">}</span><span class="s2"> formulas, "</span>
+                    <span class="sa">f</span><span class="s2">"got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">formulas</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">"GAMLSS formula must be a parameter-name mapping or an ordered "</span>
+                <span class="s2">"sequence of formulas."</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">formulas</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"Every GAMLSS formula must be a string."</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">formulas</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+            <span class="n">lhs</span><span class="p">,</span> <span class="n">separator</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s2">"~"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">separator</span> <span class="ow">or</span> <span class="n">lhs</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">"Only the first GAMLSS formula may contain a response; "</span>
+                    <span class="s2">"secondary parameter formulas must be one-sided ('~ ...')."</span>
+                <span class="p">)</span>
+        <span class="k">return</span> <span class="n">formulas</span>
+
+<div class="viewcode-block" id="GAMLSS.fit">
+<a class="viewcode-back" href="../../../api/generated/nampy.models.GAMLSS.html#nampy.models.GAMLSS.fit">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sample_weight</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Fit distribution parameters in array or multi-formula mode."""</span>
+        <span class="n">family</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolved_family</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">offset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">offset</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">"GAMLSS offset must be a list/tuple with one entry per "</span>
+                    <span class="s2">"distribution parameter."</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">offset</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">int</span><span class="p">(</span><span class="n">family</span><span class="o">.</span><span class="n">n_linear_predictors</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"GAMLSS family </span><span class="si">{</span><span class="n">family</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> expects "</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">family</span><span class="o">.</span><span class="n">n_linear_predictors</span><span class="si">}</span><span class="s2"> offsets, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">offset</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
+                <span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fit_gam</span><span class="p">(</span>
+            <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">sample_weight</span><span class="o">=</span><span class="n">sample_weight</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">offset</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="n">y_encoded</span><span class="p">,</span> <span class="n">y_val_encoded</span><span class="p">,</span> <span class="n">plan</span>
-
-<div class="viewcode-block" id="NeuralClassifier.predict">
-<a class="viewcode-back" href="../../../api/generated/nampy.models.NeuralClassifier.html#nampy.models.NeuralClassifier.predict">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="n">probabilities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">)</span>
-        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">probabilities</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">classes_</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parameter_names_</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">family</span><span class="o">.</span><span class="n">parameter_names</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span></div>
 
 
-<div class="viewcode-block" id="NeuralClassifier.predict_proba">
-<a class="viewcode-back" href="../../../api/generated/nampy.models.NeuralClassifier.html#nampy.models.NeuralClassifier.predict_proba">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">predict_proba</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""</span>
-<span class="sd">        Predict class probabilities for the given input samples.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        X : array-like or pd.DataFrame of shape (n_samples, n_features)</span>
-<span class="sd">            The input samples for which to predict class probabilities.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        probabilities : ndarray of shape (n_samples, n_classes)</span>
-<span class="sd">            Predicted class probabilities; columns follow ``self.classes_``.</span>
-<span class="sd">        """</span>
-        <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_predict</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">)[</span><span class="s2">"output"</span><span class="p">]</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">objective</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">output</span><span class="p">)</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span></div>
+<div class="viewcode-block" id="GAMLSS.predict">
+<a class="viewcode-back" href="../../../api/generated/nampy.models.GAMLSS.html#nampy.models.GAMLSS.predict">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">raw</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Return natural parameters, or raw linear predictors with ``raw=True``."""</span>
+        <span class="n">eta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">predict_link</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">raw</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">eta</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">family</span><span class="o">.</span><span class="n">distribution_parameters_from_eta</span><span class="p">(</span><span class="n">eta</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="NeuralClassifier.score">
-<a class="viewcode-back" href="../../../api/generated/nampy.models.NeuralClassifier.html#nampy.models.NeuralClassifier.score">[docs]</a>
+<div class="viewcode-block" id="GAMLSS.predict_point">
+<a class="viewcode-back" href="../../../api/generated/nampy.models.GAMLSS.html#nampy.models.GAMLSS.predict_point">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">predict_point</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Return the family-defined conditional mean prediction."""</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">family</span><span class="o">.</span><span class="n">point_prediction_from_parameters</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="GAMLSS.standard_errors">
+<a class="viewcode-back" href="../../../api/generated/nampy.models.GAMLSS.html#nampy.models.GAMLSS.standard_errors">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">standard_errors</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"response"</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Pointwise errors on the natural-parameter or link scale."""</span>
+        <span class="k">if</span> <span class="nb">type</span> <span class="o">==</span> <span class="s2">"link"</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">standard_errors</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"link"</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">type</span> <span class="o">!=</span> <span class="s2">"response"</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"type must be 'response' or 'link'."</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_fitted</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_X</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="n">eta</span><span class="p">,</span> <span class="n">eta_se</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span>
+            <span class="n">X</span><span class="p">,</span> <span class="n">return_se</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"link"</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">offset</span>
+        <span class="p">)</span>
+        <span class="n">jacobian</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">family</span><span class="o">.</span><span class="n">distribution_parameter_jacobian</span><span class="p">(</span><span class="n">eta</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">jacobian</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">eta_se</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="GAMLSS.score">
+<a class="viewcode-back" href="../../../api/generated/nampy.models.GAMLSS.html#nampy.models.GAMLSS.score">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">score</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">sample_weight</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""Return the mean accuracy on the given test data and labels."""</span>
-        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span>
-            <span class="n">accuracy_score</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="n">sample_weight</span><span class="o">=</span><span class="n">sample_weight</span><span class="p">)</span>
-        <span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="NeuralClassifier.predict_components">
-<a class="viewcode-back" href="../../../api/generated/nampy.models.NeuralClassifier.html#nampy.models.NeuralClassifier.predict_components">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">predict_components</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">X</span><span class="p">,</span>
-        <span class="o">*</span><span class="p">,</span>
-        <span class="n">center</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">reference_X</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">reference_weight</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">batch_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AdditivePrediction</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Return per-term logit-scale contributions (binary tasks only)."""</span>
-        <span class="n">pred_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_predict</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">)</span>
-        <span class="n">output</span> <span class="o">=</span> <span class="n">pred_dict</span><span class="p">[</span><span class="s2">"output"</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">output</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-                <span class="s2">"predict_components supports binary classifiers only; "</span>
-                <span class="s2">"multiclass outputs have one logit column per class."</span>
+<span class="w">        </span><span class="sd">"""Return weighted mean log likelihood (higher is better)."""</span>
+        <span class="n">logpdf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">family</span><span class="o">.</span><span class="n">logpdf_from_parameters</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">sample_weight</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">logpdf</span><span class="p">))</span>
+        <span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">sample_weight</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">weights</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">logpdf</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"sample_weight must have shape </span><span class="si">{</span><span class="n">logpdf</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="n">weights</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">."</span>
             <span class="p">)</span>
-        <span class="n">link</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
-        <span class="n">response</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">output</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
-        <span class="n">terms</span><span class="p">,</span> <span class="n">intercept</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_output_components</span><span class="p">(</span><span class="n">pred_dict</span><span class="p">)</span>
-        <span class="n">prediction</span> <span class="o">=</span> <span class="n">AdditivePrediction</span><span class="p">(</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">logpdf</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="GAMLSS.evaluate">
+<a class="viewcode-back" href="../../../api/generated/nampy.models.GAMLSS.html#nampy.models.GAMLSS.evaluate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y_true</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Evaluate natural parameters (default: mean negative log likelihood)."""</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">metrics</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logpdf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">family</span><span class="o">.</span><span class="n">logpdf_from_parameters</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">parameters</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">"Negative Log-Likelihood"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">logpdf</span><span class="p">))}</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">metric_name</span><span class="p">:</span> <span class="n">metric_func</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">parameters</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">metric_name</span><span class="p">,</span> <span class="n">metric_func</span> <span class="ow">in</span> <span class="n">metrics</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="GAMLSS.predict_components">
+<a class="viewcode-back" href="../../../api/generated/nampy.models.GAMLSS.html#nampy.models.GAMLSS.predict_components">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">predict_components</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AdditivePrediction</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Return zero-padded per-parameter contributions on the link scale."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_fitted</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_X</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="n">vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">predict_terms</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">)</span>
+        <span class="n">link</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">vals</span><span class="p">[</span><span class="s2">"output"</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">family</span><span class="o">.</span><span class="n">distribution_parameters_from_eta</span><span class="p">(</span><span class="n">link</span><span class="p">)</span>
+        <span class="n">n_samples</span><span class="p">,</span> <span class="n">n_parameters</span> <span class="o">=</span> <span class="n">link</span><span class="o">.</span><span class="n">shape</span>
+
+        <span class="n">compiled</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">gam_result_</span><span class="o">.</span><span class="n">require_compiled_model</span><span class="p">()</span>
+        <span class="n">predictor_index</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">predictor</span><span class="o">.</span><span class="n">name</span><span class="p">):</span> <span class="n">index</span>
+            <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">predictor</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">compiled</span><span class="o">.</span><span class="n">predictors</span><span class="p">)</span>
+        <span class="p">}</span>
+        <span class="n">label_map</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">term</span><span class="o">.</span><span class="n">predictor_name</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">term</span><span class="o">.</span><span class="n">term_id</span><span class="p">)):</span> <span class="nb">str</span><span class="p">(</span><span class="n">term</span><span class="o">.</span><span class="n">label</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">compiled</span><span class="o">.</span><span class="n">compiled_terms</span>
+        <span class="p">}</span>
+
+        <span class="n">terms</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">reserved</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"output"</span><span class="p">,</span> <span class="s2">"response"</span><span class="p">,</span> <span class="s2">"intercept"</span><span class="p">,</span> <span class="s2">"offset"</span><span class="p">}</span>
+        <span class="k">for</span> <span class="n">raw_key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">vals</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">raw_key</span> <span class="ow">in</span> <span class="n">reserved</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">predictor_name</span><span class="p">,</span> <span class="n">separator</span><span class="p">,</span> <span class="n">term_id</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">raw_key</span><span class="p">)</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s2">":"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">separator</span> <span class="ow">or</span> <span class="n">predictor_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">predictor_index</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unexpected multi-predictor term key </span><span class="si">{</span><span class="n">raw_key</span><span class="si">!r}</span><span class="s2">."</span><span class="p">)</span>
+            <span class="n">index</span> <span class="o">=</span> <span class="n">predictor_index</span><span class="p">[</span><span class="n">predictor_name</span><span class="p">]</span>
+            <span class="n">contribution</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_samples</span><span class="p">,</span> <span class="n">n_parameters</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+            <span class="n">contribution</span><span class="p">[:,</span> <span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="n">label_map</span><span class="o">.</span><span class="n">get</span><span class="p">((</span><span class="n">predictor_name</span><span class="p">,</span> <span class="n">term_id</span><span class="p">),</span> <span class="n">term_id</span><span class="p">)</span>
+            <span class="n">public_key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter_names_</span><span class="p">[</span><span class="n">index</span><span class="p">]</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">"</span>
+            <span class="k">if</span> <span class="n">public_key</span> <span class="ow">in</span> <span class="n">terms</span><span class="p">:</span>
+                <span class="n">public_key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter_names_</span><span class="p">[</span><span class="n">index</span><span class="p">]</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">term_id</span><span class="si">}</span><span class="s2">"</span>
+            <span class="n">terms</span><span class="p">[</span><span class="n">public_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">contribution</span>
+
+        <span class="n">intercept</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_parameters</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">raw_intercept</span> <span class="o">=</span> <span class="n">vals</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"intercept"</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">raw_intercept</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">predictor_name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">raw_intercept</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">intercept</span><span class="p">[</span><span class="n">predictor_index</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">predictor_name</span><span class="p">)]]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+        <span class="n">offset_array</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">raw_offset</span> <span class="o">=</span> <span class="n">vals</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"offset"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">raw_offset</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
+            <span class="n">offset_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_samples</span><span class="p">,</span> <span class="n">n_parameters</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">predictor_name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">raw_offset</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">offset_array</span><span class="p">[:,</span> <span class="n">predictor_index</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">predictor_name</span><span class="p">)]]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span>
+                    <span class="n">value</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span>
+                <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">AdditivePrediction</span><span class="p">(</span>
             <span class="n">response</span><span class="o">=</span><span class="n">response</span><span class="p">,</span>
             <span class="n">link</span><span class="o">=</span><span class="n">link</span><span class="p">,</span>
             <span class="n">terms</span><span class="o">=</span><span class="n">terms</span><span class="p">,</span>
             <span class="n">intercept</span><span class="o">=</span><span class="n">intercept</span><span class="p">,</span>
-            <span class="n">backend</span><span class="o">=</span><span class="s2">"neural"</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_center_components</span><span class="p">(</span>
-            <span class="n">prediction</span><span class="p">,</span>
-            <span class="n">center</span><span class="o">=</span><span class="n">center</span><span class="p">,</span>
-            <span class="n">reference_X</span><span class="o">=</span><span class="n">reference_X</span><span class="p">,</span>
-            <span class="n">reference_weight</span><span class="o">=</span><span class="n">reference_weight</span><span class="p">,</span>
+            <span class="n">backend</span><span class="o">=</span><span class="s2">"gam"</span><span class="p">,</span>
+            <span class="n">offset</span><span class="o">=</span><span class="n">offset_array</span><span class="p">,</span>
         <span class="p">)</span></div>
-
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_plot_series_labels</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_series</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">n_series</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">None</span>
-        <span class="k">return</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"Class </span><span class="si">{</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_series</span><span class="p">)]</span>
-
-<div class="viewcode-block" id="NeuralClassifier.evaluate">
-<a class="viewcode-back" href="../../../api/generated/nampy.models.NeuralClassifier.html#nampy.models.NeuralClassifier.evaluate">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y_true</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""</span>
-<span class="sd">        Evaluate the model on the given data using specified metrics.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        X : array-like or pd.DataFrame of shape (n_samples, n_features)</span>
-<span class="sd">            The input samples to predict.</span>
-<span class="sd">        y_true : array-like of shape (n_samples,)</span>
-<span class="sd">            The true class labels against which to evaluate the predictions.</span>
-<span class="sd">        metrics : dict</span>
-<span class="sd">            A dictionary where keys are metric names and values are tuples containing the metric function</span>
-<span class="sd">            and a boolean indicating whether the metric requires probability scores (True) or class labels (False).</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        scores : dict</span>
-<span class="sd">            A dictionary with metric names as keys and their corresponding scores as values.</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        This method uses either the `predict` or `predict_proba` method depending on the metric requirements.</span>
-<span class="sd">        """</span>
-        <span class="k">if</span> <span class="n">metrics</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">metrics</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"Accuracy"</span><span class="p">:</span> <span class="p">(</span><span class="n">accuracy_score</span><span class="p">,</span> <span class="kc">False</span><span class="p">)}</span>
-
-        <span class="n">scores</span> <span class="o">=</span> <span class="p">{}</span>
-
-        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">use_proba</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">use_proba</span> <span class="ow">in</span> <span class="n">metrics</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
-            <span class="n">probabilities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="ow">not</span> <span class="n">use_proba</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">use_proba</span> <span class="ow">in</span> <span class="n">metrics</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
-            <span class="n">predictions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
-
-        <span class="k">for</span> <span class="n">metric_name</span><span class="p">,</span> <span class="p">(</span><span class="n">metric_func</span><span class="p">,</span> <span class="n">use_proba</span><span class="p">)</span> <span class="ow">in</span> <span class="n">metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="k">if</span> <span class="n">use_proba</span><span class="p">:</span>
-                <span class="k">try</span><span class="p">:</span>
-                    <span class="n">scores</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric_func</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">probabilities</span><span class="p">)</span>
-                <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-                    <span class="c1"># Some binary metrics (e.g. roc_auc_score) expect p(class=1)</span>
-                    <span class="k">if</span> <span class="n">probabilities</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">probabilities</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-                        <span class="n">scores</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric_func</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">probabilities</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span>
-                    <span class="k">else</span><span class="p">:</span>
-                        <span class="k">raise</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">scores</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric_func</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">predictions</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">scores</span></div>
 </div>
 
+
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"GAMLSS"</span><span class="p">]</span>
 </pre></div>
 
            </div>

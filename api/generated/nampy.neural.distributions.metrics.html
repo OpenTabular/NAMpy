@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>nampy.neural.distributions.metrics &mdash; nampy 0.2.0 documentation</title>
+  <title>nampy.neural.distributions.metrics &mdash; nampy 0.3.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=ea57e989" />
@@ -14,7 +14,7 @@
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=938c9ccc"></script>
+      <script src="../../_static/documentation_options.js?v=e259d695"></script>
       <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
       <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
@@ -84,7 +84,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../notebooks/01_gam.html#5.-Smooth-construction-gallery">5. Smooth construction gallery</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../notebooks/01_gam.html#6.-Criteria-and-outer-optimizers">6. Criteria and outer optimizers</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../notebooks/01_gam.html#7.-Families-and-links-in-the-same-application">7. Families and links in the same application</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/01_gam.html#8.-Multi-linear-predictor-GAMs">8. Multi-linear-predictor GAMs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/01_gam.html#8.-Multi-linear-predictor-GAMLSS-models">8. Multi-linear-predictor GAMLSS models</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../notebooks/01_gam.html#9.-Shape-constrained-GAM:-monotone-saturation">9. Shape-constrained GAM: monotone saturation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../notebooks/01_gam.html#10.-Prediction,-inference,-and-diagnostics">10. Prediction, inference, and diagnostics</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../notebooks/01_gam.html#11.-Direct-backend,-adapters,-and-classification">11. Direct backend, adapters, and classification</a></li>
@@ -321,6 +321,12 @@
 <li class="toctree-l3"><a class="reference internal" href="../../user_guide/shape_constrained_gams.html#current-boundaries">Current boundaries</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="../../user_guide/gamlss.html">Distributional GAMs and GAMLSS</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../user_guide/gamlss.html#public-parameter-contract">Public parameter contract</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../user_guide/gamlss.html#formula-and-array-modes">Formula and array modes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../user_guide/gamlss.html#migration">Migration</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="../../user_guide/custom_models.html">Custom Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../user_guide/custom_models.html#overview">Overview</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../user_guide/custom_models.html#step-by-step-guide">Step-by-Step Guide</a><ul>
@@ -356,6 +362,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../user_guide.html#training">Training</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../user_guide.html#interpretation">Interpretation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../user_guide.html#shape-constrained-gams">Shape-constrained GAMs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../user_guide.html#distributional-gams">Distributional GAMs</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../user_guide.html#extending-nampy">Extending NAMpy</a></li>
 </ul>
 </li>
@@ -422,6 +429,7 @@
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.EnsembleTreeNAMLSS.html">nampy.models.EnsembleTreeNAMLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.SNAMLSS.html">nampy.models.SNAMLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.NodeGAMLSS.html">nampy.models.NodeGAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="nampy.models.GAMLSS.html">nampy.models.GAMLSS</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../models.html#other-models">Other Models</a><ul>
@@ -448,6 +456,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../gam.html#scikit-learn-adapters">Scikit-learn adapters</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.GAMRegressor.html">nampy.models.GAMRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.GAMClassifier.html">nampy.models.GAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="nampy.models.GAMLSS.html">nampy.models.GAMLSS</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../gam.html#fit-core">Fit core</a><ul>

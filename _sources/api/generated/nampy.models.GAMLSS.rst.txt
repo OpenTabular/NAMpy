@@ -1,0 +1,6 @@
+﻿nampy.models.GAMLSS
+===================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: GAMLSS
