@@ -1470,7 +1470,13 @@ def optimize_smoothing_params(
         )
         return model
 
-    if initial_smoothing_params is None:
+    if n_sp == 0:
+        # mgcv/R/mgcv.r::estimate.gam initializes ``lsp2`` to ``numeric(0)``
+        # when ``G$sp`` is empty.  Joint likelihood parameters, such as the
+        # unknown Gaussian REML scale, are appended afterwards and still run
+        # through the outer optimizer.
+        init_free = np.empty((0,), dtype=np.float64)
+    elif initial_smoothing_params is None:
         user_sp = getattr(getattr(model, "hparams", {}), "get", None)
         if callable(user_sp):
             user_sp = model.hparams.get("smoothing_params", None)
