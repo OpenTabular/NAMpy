@@ -16,6 +16,7 @@ from ..model_state import (
     _predictor_designs,
     _predictor_full_slices,
     _term_blocks_seq,
+    _term_full_coefficient_indices,
 )
 
 
@@ -130,7 +131,55 @@ def _general_family_covariance_for_prediction(model, cov):
     P = prediction_parameterization_map(model)
     if P is None:
         return np.asarray(V, dtype=np.float64)
-    return symmetrize_matrix(np.asarray(P, dtype=np.float64) @ np.asarray(V, dtype=np.float64) @ np.asarray(P, dtype=np.float64).T)
+    return symmetrize_matrix(
+        np.asarray(P, dtype=np.float64)
+        @ np.asarray(V, dtype=np.float64)
+        @ np.asarray(P, dtype=np.float64).T
+    )
+
+
+def _filtered_general_prediction_layout(
+    model,
+    layout,
+    groups,
+    selected,
+    *,
+    terms,
+    exclude,
+):
+    """Zero general-family coefficient blocks as predict.gam does."""
+    if terms is None and exclude is None:
+        return layout
+
+    lpmatrix = np.asarray(layout.lpmatrix, dtype=np.float64).copy()
+    for predictor, predictor_slice in zip(
+        _predictor_designs(model), layout.predictor_slices, strict=True
+    ):
+        if not bool(predictor.prediction_has_intercept):
+            continue
+        keep_intercept = (terms is None or "(Intercept)" in terms) and (
+            exclude is None or "(Intercept)" not in exclude
+        )
+        if not keep_intercept:
+            lpmatrix[:, int(predictor_slice.start)] = 0.0
+
+    for group, keep in zip(groups, selected, strict=True):
+        if keep:
+            continue
+        for term in group["blocks"]:
+            full_indices = _term_full_coefficient_indices(model, term)
+            lpmatrix[:, full_indices] = 0.0
+
+    return _GeneralPredictionLayout(
+        Z_new=layout.Z_new,
+        Xp_blocks=[
+            np.asarray(lpmatrix[:, predictor_slice], dtype=np.float64)
+            for predictor_slice in layout.predictor_slices
+        ],
+        predictor_slices=layout.predictor_slices,
+        jj=layout.jj,
+        lpmatrix=lpmatrix,
+    )
 
 
 def predict_general_values(
@@ -143,11 +192,6 @@ def predict_general_values(
     terms=None,
     exclude=None,
 ):
-    if terms is not None or exclude is not None:
-        raise NotImplementedError(
-            "terms/exclude prediction filters are not yet supported for "
-            "multi-predictor general-family models."
-        )
     pred_type = str(type).lower()
     if pred_type not in {"response", "link", "terms", "iterms", "lpmatrix"}:
         raise ValueError(
@@ -160,14 +204,15 @@ def predict_general_values(
         )
         pred_type = "terms"
     from .terms import (
+        _filtered_term_output_indices,
         _group_standard_error_rows,
         _group_term_contribution,
+        _prediction_group_selection,
         _prediction_term_groups,
     )
 
     if pred_type == "terms" and any(
-        _prediction_parameterization_wider(tb)
-        for tb in _term_blocks_seq(model)
+        _prediction_parameterization_wider(tb) for tb in _term_blocks_seq(model)
     ):
         raise NotImplementedError(
             "type='terms' is not supported for general-family models whose "
@@ -176,6 +221,20 @@ def predict_general_values(
 
     offset_list = general_family_prediction_offset(model, X, offset)
     layout = general_family_prediction_layout(model, X)
+    groups = _prediction_term_groups(model)
+    labels, selected = _prediction_group_selection(
+        groups,
+        terms=terms,
+        exclude=exclude,
+    )
+    layout = _filtered_general_prediction_layout(
+        model,
+        layout,
+        groups,
+        selected,
+        terms=terms,
+        exclude=exclude,
+    )
 
     eta = general_family_link_prediction_with_offset(model, layout, offset_list)
     Z_new = layout.Z_new
@@ -183,12 +242,28 @@ def predict_general_values(
     if pred_type == "lpmatrix":
         return layout.lpmatrix
     if pred_type == "terms":
-        groups = _prediction_term_groups(model)
-        terms = np.column_stack(
-            [_group_term_contribution(model, Z_new, group) for group in groups]
+        term_values = (
+            np.column_stack(
+                [
+                    (
+                        _group_term_contribution(model, Z_new, group)
+                        if keep
+                        else np.zeros(Z_new.shape[0], dtype=np.float64)
+                    )
+                    for group, keep in zip(groups, selected, strict=True)
+                ]
+            )
+            if groups
+            else np.empty((Z_new.shape[0], 0), dtype=np.float64)
         )
+        output_indices = _filtered_term_output_indices(
+            labels,
+            terms=terms,
+            exclude=exclude,
+        )
+        term_values = term_values[:, output_indices]
         if not return_se:
-            return terms
+            return term_values
         V = _general_family_covariance_for_prediction(model, cov)
         ses = []
         for group in groups:
@@ -207,15 +282,18 @@ def predict_general_values(
                 Vi = V[sl_full, sl_full]
                 var = np.einsum("ij,jk,ik->i", Xi, Vi, Xi)
             ses.append(np.sqrt(np.maximum(var, 0.0)))
-        return terms, np.column_stack(ses)
+        se_values = (
+            np.column_stack(ses)
+            if ses
+            else np.empty((layout.lpmatrix.shape[0], 0), dtype=np.float64)
+        )
+        return term_values, se_values[:, output_indices]
     if pred_type == "link":
         if not return_se:
             return eta
         V = _general_family_covariance_for_prediction(model, cov)
         se_cols = []
-        for Xp, sl in zip(
-            layout.Xp_blocks, layout.predictor_slices, strict=True
-        ):
+        for Xp, sl in zip(layout.Xp_blocks, layout.predictor_slices, strict=True):
             Vk = V[sl, sl]
             var = np.einsum("ij,jk,ik->i", Xp, Vk, Xp)
             se_cols.append(np.sqrt(np.maximum(var, 0.0)))
