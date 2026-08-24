@@ -801,9 +801,10 @@
             <span class="n">formulas</span> <span class="o">=</span> <span class="p">[</span><span class="n">formula</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">]</span>
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">formula</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">formula</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="n">formulas</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">formula</span><span class="p">)</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">formulas</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">formulas</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">"GAMLSS family </span><span class="si">{</span><span class="n">family</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> expects </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">)</span><span class="si">}</span><span class="s2"> formulas, "</span>
+                    <span class="sa">f</span><span class="s2">"GAMLSS family </span><span class="si">{</span><span class="n">family</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> expects </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">)</span><span class="si">}</span><span class="s2"> formulas "</span>
+                    <span class="s2">"or more when extra components have numeric predictor labels, "</span>
                     <span class="sa">f</span><span class="s2">"got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">formulas</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
                 <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -813,13 +814,23 @@
             <span class="p">)</span>
         <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">formulas</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"Every GAMLSS formula must be a string."</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">formulas</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+        <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">formulas</span><span class="p">[</span><span class="mi">1</span> <span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">)]:</span>
             <span class="n">lhs</span><span class="p">,</span> <span class="n">separator</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s2">"~"</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">separator</span> <span class="ow">or</span> <span class="n">lhs</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                     <span class="s2">"Only the first GAMLSS formula may contain a response; "</span>
                     <span class="s2">"secondary parameter formulas must be one-sided ('~ ...')."</span>
                 <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">formulas</span><span class="p">)</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">):</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">..gam.formula</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_numeric_response_labels</span>
+
+            <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">formulas</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">)</span> <span class="p">:]:</span>
+                <span class="n">labels</span> <span class="o">=</span> <span class="n">get_numeric_response_labels</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">"Extra GAMLSS formula components must use a numeric "</span>
+                        <span class="s2">"multi-predictor lhs such as '1 + 2 ~ s(x)'."</span>
+                    <span class="p">)</span>
         <span class="k">return</span> <span class="n">formulas</span>
 
 <div class="viewcode-block" id="GAMLSS.fit">
@@ -922,13 +933,17 @@
 
         <span class="n">compiled</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">gam_result_</span><span class="o">.</span><span class="n">require_compiled_model</span><span class="p">()</span>
         <span class="n">predictor_index</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="nb">str</span><span class="p">(</span><span class="n">predictor</span><span class="o">.</span><span class="n">name</span><span class="p">):</span> <span class="n">index</span>
-            <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">predictor</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">compiled</span><span class="o">.</span><span class="n">predictors</span><span class="p">)</span>
+            <span class="sa">f</span><span class="s2">"eta</span><span class="si">{</span><span class="n">index</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">"</span><span class="p">:</span> <span class="n">index</span> <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_parameters</span><span class="p">)</span>
         <span class="p">}</span>
-        <span class="n">label_map</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">term</span><span class="o">.</span><span class="n">predictor_name</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">term</span><span class="o">.</span><span class="n">term_id</span><span class="p">)):</span> <span class="nb">str</span><span class="p">(</span><span class="n">term</span><span class="o">.</span><span class="n">label</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">compiled</span><span class="o">.</span><span class="n">compiled_terms</span>
-        <span class="p">}</span>
+        <span class="n">label_map</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">compiled</span><span class="o">.</span><span class="n">compiled_terms</span><span class="p">:</span>
+            <span class="n">targets</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="s2">"predictor_indices"</span><span class="p">,</span> <span class="p">()))</span> <span class="ow">or</span> <span class="p">(</span>
+                <span class="nb">int</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="s2">"predictor_index"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)),</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">target</span> <span class="ow">in</span> <span class="n">targets</span><span class="p">:</span>
+                <span class="n">label_map</span><span class="p">[(</span><span class="sa">f</span><span class="s2">"eta</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">target</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">term</span><span class="o">.</span><span class="n">term_id</span><span class="p">))]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span>
+                    <span class="n">term</span><span class="o">.</span><span class="n">label</span>
+                <span class="p">)</span>
 
         <span class="n">terms</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">reserved</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"output"</span><span class="p">,</span> <span class="s2">"response"</span><span class="p">,</span> <span class="s2">"intercept"</span><span class="p">,</span> <span class="s2">"offset"</span><span class="p">}</span>

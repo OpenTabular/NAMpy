@@ -201,13 +201,7 @@
       "/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:434: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=3` in the `DataLoader` to improve performance.\n",
       "/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/site-packages/lightning/pytorch/core/module.py:522: You called `self.log('val_loss', ..., logger=True)` but have no logger configured. You can enable one by doing `Trainer(logger=ALogger(...))`\n",
       "/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:434: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=3` in the `DataLoader` to improve performance.\n",
-      "/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/site-packages/lightning/pytorch/core/module.py:522: You called `self.log('train_loss', ..., logger=True)` but have no logger configured. You can enable one by doing `Trainer(logger=ALogger(...))`\n"
-     ]
-    },
-    {
-     "name": "stderr",
-     "output_type": "stream",
-     "text": [
+      "/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/site-packages/lightning/pytorch/core/module.py:522: You called `self.log('train_loss', ..., logger=True)` but have no logger configured. You can enable one by doing `Trainer(logger=ALogger(...))`\n",
       "`Trainer.fit` stopped: `max_epochs=3` reached.\n"
      ]
     },
@@ -231,7 +225,13 @@
      "text": [
       "/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:434: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=3` in the `DataLoader` to improve performance.\n",
       "/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/site-packages/lightning/pytorch/core/module.py:522: You called `self.log('val_loss', ..., logger=True)` but have no logger configured. You can enable one by doing `Trainer(logger=ALogger(...))`\n",
-      "/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:434: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=3` in the `DataLoader` to improve performance.\n",
+      "/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:434: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=3` in the `DataLoader` to improve performance.\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
       "/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/site-packages/lightning/pytorch/core/module.py:522: You called `self.log('train_loss', ..., logger=True)` but have no logger configured. You can enable one by doing `Trainer(logger=ALogger(...))`\n",
       "`Trainer.fit` stopped: `max_epochs=3` reached.\n"
      ]
@@ -239,7 +239,7 @@
     {
      "data": {
       "text/plain": [
-       "{'R2': -0.08347085488525208, 'members': 3}"
+       "{'R2': -0.08347086395221104, 'members': 3}"
       ]
      },
      "metadata": {},
@@ -278,7 +278,7 @@
        "      <td>x2</td>\n",
        "      <td>main</td>\n",
        "      <td>0</td>\n",
-       "      <td>0.188732</td>\n",
+       "      <td>0.188731</td>\n",
        "    </tr>\n",
        "    <tr>\n",
        "      <th>1</th>\n",
@@ -300,7 +300,7 @@
       ],
       "text/plain": [
        "    term term_type  output  importance\n",
-       "0     x2      main       0    0.188732\n",
+       "0     x2      main       0    0.188731\n",
        "1  group      main       0    0.096435\n",
        "2     x1      main       0    0.089188"
       ]
@@ -485,9 +485,9 @@
     {
      "data": {
       "text/plain": [
-       "{'x1': 0.055166100876507015,\n",
-       " 'x2': 0.056939282081648224,\n",
-       " 'group': 0.033812978376621235}"
+       "{'x1': 0.05516610126874755,\n",
+       " 'x2': 0.056939280618060424,\n",
+       " 'group': 0.03381298506513926}"
       ]
      },
      "metadata": {},

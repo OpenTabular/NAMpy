@@ -731,7 +731,7 @@
     <span class="n">_fitted_eta</span><span class="p">,</span>
     <span class="n">_fitted_mu</span><span class="p">,</span>
     <span class="n">_intercept</span><span class="p">,</span>
-    <span class="n">_predictor_full_slices</span><span class="p">,</span>
+    <span class="n">_predictor_full_indices</span><span class="p">,</span>
     <span class="n">_term_blocks_seq</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">..predict</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_lpmatrix</span><span class="p">,</span> <span class="n">predict_values</span>
@@ -966,7 +966,7 @@
         <span class="n">offset</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"offset_train_"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">offset</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
-        <span class="n">n_pred</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">_predictor_full_slices</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
+        <span class="n">n_pred</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">_predictor_full_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">offset</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
             <span class="n">out</span> <span class="o">=</span> <span class="p">[</span>
                 <span class="kc">None</span> <span class="k">if</span> <span class="n">off</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">off</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
@@ -1300,36 +1300,53 @@
                 <span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="n">X_use</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"response"</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">offset_use</span>
             <span class="p">)</span>
         <span class="n">groups</span> <span class="o">=</span> <span class="n">_prediction_term_groups</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="n">is_multi_predictor</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">_predictor_full_slices</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">1</span>
+        <span class="n">is_multi_predictor</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">_predictor_full_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">1</span>
         <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">group</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">groups</span><span class="p">):</span>
             <span class="n">term</span> <span class="o">=</span> <span class="n">group</span><span class="p">[</span><span class="s2">"blocks"</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
             <span class="n">term_key</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="s2">"term_id"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="ow">or</span> <span class="n">group</span><span class="p">[</span><span class="s2">"label"</span><span class="p">])</span>
             <span class="k">if</span> <span class="n">is_multi_predictor</span><span class="p">:</span>
-                <span class="n">term_key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">group</span><span class="p">[</span><span class="s1">'predictor_name'</span><span class="p">]</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">term_key</span><span class="si">}</span><span class="s2">"</span>
-            <span class="n">out</span><span class="p">[</span><span class="n">term_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">terms</span><span class="p">[:,</span> <span class="n">index</span><span class="p">]</span>
+                <span class="n">targets</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="s2">"predictor_indices"</span><span class="p">,</span> <span class="p">()))</span> <span class="ow">or</span> <span class="p">(</span>
+                    <span class="nb">int</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="s2">"predictor_index"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)),</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">target</span> <span class="ow">in</span> <span class="n">targets</span><span class="p">:</span>
+                    <span class="n">out</span><span class="p">[</span><span class="sa">f</span><span class="s2">"eta</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">target</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">term_key</span><span class="si">}</span><span class="s2">"</span><span class="p">]</span> <span class="o">=</span> <span class="n">terms</span><span class="p">[:,</span> <span class="n">index</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">out</span><span class="p">[</span><span class="n">term_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">terms</span><span class="p">[:,</span> <span class="n">index</span><span class="p">]</span>
 
         <span class="k">if</span> <span class="n">is_multi_predictor</span><span class="p">:</span>
             <span class="n">compiled</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gam_result_</span><span class="o">.</span><span class="n">require_compiled_model</span><span class="p">()</span>
             <span class="n">coef_full</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">_coef_full</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
-            <span class="n">intercepts</span> <span class="o">=</span> <span class="p">{}</span>
-            <span class="k">for</span> <span class="n">predictor</span><span class="p">,</span> <span class="n">predictor_slice</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
-                <span class="n">compiled</span><span class="o">.</span><span class="n">predictors</span><span class="p">,</span>
-                <span class="n">compiled</span><span class="o">.</span><span class="n">predictor_full_slices</span><span class="p">,</span>
-                <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">intercepts</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="sa">f</span><span class="s2">"eta</span><span class="si">{</span><span class="n">index</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">"</span><span class="p">:</span> <span class="mf">0.0</span>
+                <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">compiled</span><span class="o">.</span><span class="n">predictor_full_indices</span><span class="p">))</span>
+            <span class="p">}</span>
+            <span class="k">for</span> <span class="n">component_index</span><span class="p">,</span> <span class="p">(</span><span class="n">predictor</span><span class="p">,</span> <span class="n">predictor_slice</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span>
+                <span class="nb">zip</span><span class="p">(</span>
+                    <span class="n">compiled</span><span class="o">.</span><span class="n">predictors</span><span class="p">,</span>
+                    <span class="n">compiled</span><span class="o">.</span><span class="n">predictor_full_slices</span><span class="p">,</span>
+                    <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="p">)</span>
             <span class="p">):</span>
                 <span class="k">if</span> <span class="nb">bool</span><span class="p">(</span><span class="n">predictor</span><span class="o">.</span><span class="n">prediction_has_intercept</span><span class="p">):</span>
-                    <span class="n">intercepts</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">predictor</span><span class="o">.</span><span class="n">name</span><span class="p">)]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span>
-                        <span class="n">coef_full</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">predictor_slice</span><span class="o">.</span><span class="n">start</span><span class="p">)]</span>
+                    <span class="n">value</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">coef_full</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">predictor_slice</span><span class="o">.</span><span class="n">start</span><span class="p">)])</span>
+                    <span class="n">targets</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+                        <span class="nb">int</span><span class="p">(</span><span class="n">target</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+                        <span class="k">for</span> <span class="n">target</span> <span class="ow">in</span> <span class="p">(</span>
+                            <span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">predictor</span><span class="p">,</span> <span class="s2">"metadata"</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                                <span class="s2">"lpi"</span><span class="p">,</span> <span class="p">(</span><span class="n">component_index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,)</span>
+                            <span class="p">)</span>
+                            <span class="ow">or</span> <span class="p">(</span><span class="n">component_index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,)</span>
+                        <span class="p">)</span>
                     <span class="p">)</span>
-            <span class="k">if</span> <span class="n">intercepts</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">target</span> <span class="ow">in</span> <span class="n">targets</span><span class="p">:</span>
+                        <span class="n">intercepts</span><span class="p">[</span><span class="sa">f</span><span class="s2">"eta</span><span class="si">{</span><span class="n">target</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">"</span><span class="p">]</span> <span class="o">+=</span> <span class="n">value</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">value</span> <span class="o">!=</span> <span class="mf">0.0</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">intercepts</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
                 <span class="n">out</span><span class="p">[</span><span class="s2">"intercept"</span><span class="p">]</span> <span class="o">=</span> <span class="n">intercepts</span>
             <span class="n">offset_list</span> <span class="o">=</span> <span class="n">general_family_prediction_offset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X_use</span><span class="p">,</span> <span class="n">offset_use</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">offset_list</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">out</span><span class="p">[</span><span class="s2">"offset"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-                    <span class="nb">str</span><span class="p">(</span><span class="n">predictor</span><span class="o">.</span><span class="n">name</span><span class="p">):</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">offset_value</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
-                    <span class="k">for</span> <span class="n">predictor</span><span class="p">,</span> <span class="n">offset_value</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
-                        <span class="n">compiled</span><span class="o">.</span><span class="n">predictors</span><span class="p">,</span> <span class="n">offset_list</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span>
-                    <span class="p">)</span>
+                    <span class="sa">f</span><span class="s2">"eta</span><span class="si">{</span><span class="n">index</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">offset_value</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">offset_value</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">offset_list</span><span class="p">)</span>
                     <span class="k">if</span> <span class="n">offset_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
                 <span class="p">}</span>
         <span class="k">else</span><span class="p">:</span>
@@ -1519,8 +1536,8 @@
                         <span class="s2">"Sandwich covariance matrix is not available for this general family."</span>
                     <span class="p">)</span>
                 <span class="n">jj</span> <span class="o">=</span> <span class="p">[</span>
-                    <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">sl</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="n">sl</span><span class="o">.</span><span class="n">stop</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
-                    <span class="k">for</span> <span class="n">sl</span> <span class="ow">in</span> <span class="n">_predictor_full_slices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">indices</span> <span class="ow">in</span> <span class="n">_predictor_full_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
                 <span class="p">]</span>
                 <span class="n">offset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_general_family_offset_list</span><span class="p">()</span>
                 <span class="n">fill</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span>
