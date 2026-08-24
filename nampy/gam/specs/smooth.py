@@ -51,6 +51,14 @@ class PSplineSmoothSpec(BaseSmoothSpec):
 
 
 @dataclass(frozen=True)
+class DerivativeBSplineSmoothSpec(BaseSmoothSpec):
+    bs: str = "bs"
+    m: Any = None
+    constraint_mode: str = "auto"
+    pc: Any = None
+
+
+@dataclass(frozen=True)
 class ShapeConstrainedSmoothSpec(BaseSmoothSpec):
     """SCAM SCOP-spline specification for a named shape basis code."""
 
@@ -86,6 +94,7 @@ class RandomEffectSmoothSpec(BaseSmoothSpec):
 @dataclass(frozen=True)
 class FactorSmoothInteractionSpec(BaseSmoothSpec):
     bs: str = "fs"
+    m: Any = None
     xt: Any = None
     constraint_mode: str = "auto"
 
@@ -93,6 +102,7 @@ class FactorSmoothInteractionSpec(BaseSmoothSpec):
 @dataclass(frozen=True)
 class SumToZeroFactorSmoothSpec(BaseSmoothSpec):
     bs: str = "sz"
+    m: Any = None
     xt: Any = None
     constraint_mode: str = "auto"
 
@@ -121,6 +131,7 @@ class TensorInteractionSmoothSpec(BaseSmoothSpec):
 SmoothSpec = Union[
     CubicRegressionSmoothSpec,
     CyclicCubicRegressionSmoothSpec,
+    DerivativeBSplineSmoothSpec,
     CubicShrinkageSmoothSpec,
     PSplineSmoothSpec,
     ShapeConstrainedSmoothSpec,

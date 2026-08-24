@@ -15,6 +15,7 @@ from ..smooths.parametric import LinearTerm
 from ..smooths.registry import make_smooth_term
 from ..smooths.shape.bivariate import BivariateShapePSplineTerm
 from ..smooths.shape.scop import ShapeConstrainedPSplineTerm
+from ..smooths.univariate.bs import DerivativeBSplineTerm1D
 from ..smooths.univariate.cr import CubicSplineTerm
 from ..smooths.univariate.ps import PSplineTerm1D
 from ..specs import LinearPredictorSpec, PenaltyGroupSpec, TermSpec
@@ -22,6 +23,7 @@ from ..specs.smooth import (
     CubicRegressionSmoothSpec,
     CubicShrinkageSmoothSpec,
     CyclicCubicRegressionSmoothSpec,
+    DerivativeBSplineSmoothSpec,
     FactorSmoothInteractionSpec,
     PSplineSmoothSpec,
     RandomEffectSmoothSpec,
@@ -162,6 +164,28 @@ def instantiate_term(term_like: TermSpec | Any):
             metadata=metadata,
         )
 
+    if isinstance(smooth_spec, DerivativeBSplineSmoothSpec):
+        if len(features) != 1:
+            raise NotImplementedError(
+                "Current runtime only materializes 1D s(..., bs='bs') terms."
+            )
+        return DerivativeBSplineTerm1D(
+            feature=features[0],
+            k=smooth_spec.k,
+            m=smooth_spec.m,
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            fixed=smooth_spec.fx,
+            constraint_mode=smooth_spec.constraint_mode,
+            pc=smooth_spec.pc,
+            knots=smooth_spec.knots,
+            metadata=metadata,
+        )
+
     if isinstance(smooth_spec, ShapeConstrainedSmoothSpec):
         if len(features) == 2:
             return BivariateShapePSplineTerm(
@@ -242,6 +266,7 @@ def instantiate_term(term_like: TermSpec | Any):
             by=by,
             sp=smooth_spec.sp,
             select=smooth_spec.select,
+            m=smooth_spec.m,
             xt=smooth_spec.xt,
             fixed=smooth_spec.fx,
             knots=smooth_spec.knots,
@@ -258,6 +283,7 @@ def instantiate_term(term_like: TermSpec | Any):
             by=by,
             sp=smooth_spec.sp,
             select=smooth_spec.select,
+            m=smooth_spec.m,
             xt=smooth_spec.xt,
             fixed=smooth_spec.fx,
             knots=smooth_spec.knots,
@@ -304,9 +330,15 @@ def _expected_penalty_group_size(runtime_term):
     if bool(getattr(runtime_term, "fixed", False)):
         return 0
 
+    if hasattr(runtime_term, "expected_linked_penalty_count"):
+        value = runtime_term.expected_linked_penalty_count
+        return None if value is None else int(value)
+
     fixed_flags = getattr(runtime_term, "fixed_flags", None)
     if fixed_flags is not None:
         n_penalties = int(np.sum(~np.asarray(fixed_flags, dtype=bool)))
+    elif getattr(runtime_term, "n_main_penalties", None) is not None:
+        n_penalties = int(runtime_term.n_main_penalties)
     else:
         term_type = str(getattr(runtime_term, "term_type", "smooth"))
         if term_type in {"tensor_smooth", "tensor_interaction"}:

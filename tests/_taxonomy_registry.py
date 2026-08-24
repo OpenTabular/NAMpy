@@ -14,6 +14,7 @@ def _leaf(leaf_id: str, *nodeid_parts: str) -> LeafCoverageExpectation:
 
 
 _SMOOTH_MARK_NAMES = {
+    "bs": "smooth_bs",
     "cr": "smooth_cr",
     "cs": "smooth_cs",
     "cc": "smooth_cc",
@@ -124,6 +125,11 @@ _SELECTION_CAPABLE_FILES = {
 }
 
 _PRIMARY_COVERAGE_BY_MARK = {
+    "smooth_bs": (
+        "tests/parity/test_mgcv_bs_combinations_parity.py",
+        "tests/smooths/test_mgcv_raw_constructor_parity.py",
+        "tests/smooths/test_mgcv_smoothcon_parity.py",
+    ),
     "smooth_cr": (
         "tests/parity/test_mgcv_snapshot_core_matrix.py",
         "tests/smooths/test_mgcv_smoothcon_parity.py",

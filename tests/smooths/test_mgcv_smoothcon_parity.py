@@ -15,6 +15,7 @@ from nampy.gam.compiler.compile_predictors import compile_predictors
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
 from nampy.gam.linalg import matrix_self_gram
 from nampy.gam.linalg import symmetric_spectrum as penalty_spectrum
+from nampy.gam.smooths.univariate.bs import DerivativeBSplineTerm1D
 from nampy.gam.smooths.univariate.cr import CubicSplineTerm
 from nampy.gam.specs.build import build_formula_model
 from tests._mgcv_snapshot_parity_shared import (
@@ -32,6 +33,7 @@ from tests.mgcv_parity_utils import (
     _run_mgcv_smoothcon_matrix,
     _run_mgcv_smoothcon_matrix_unscaled,
     _run_mgcv_smoothcon_penalties,
+    _run_mgcv_smoothcon_predict_matrix,
     _run_mgcv_snapshot,
 )
 
@@ -859,6 +861,140 @@ class TestCyclicPSplineSmooth:
             pred_rtol=2e-9,
             sp_log_atol=2e-8,
             criterion_atol=2e-8,
+        )
+
+
+class TestDerivativeBSplineSmooth:
+    """Integrated-derivative B-spline (bs='bs') constructor and fit parity."""
+
+    @staticmethod
+    def _make_data(seed=191, n=190):
+        rng = np.random.default_rng(seed)
+        x = rng.uniform(-2.0, 2.0, size=n)
+        y = np.sin(1.3 * x) + 0.2 * x**2 + rng.normal(scale=0.12, size=n)
+        return pd.DataFrame({"y": y, "x": x})
+
+    def test_bs_smoothcon_basis_and_multiple_penalties_match_mgcv(self):
+        data = self._make_data()
+        formula = 'y ~ s(x, bs="bs", k=10, m=[3,2,1,0])'
+        smooth_expr = 's(x, bs="bs", k=10, m=c(3,2,1,0))'
+        design = _compile_formula_design(data, formula)
+        expected_basis = _run_mgcv_smoothcon_matrix(data, smooth_expr)
+        expected_penalties = _run_mgcv_smoothcon_penalties(
+            data, smooth_expr, absorb_cons=True, scale_penalty=True
+        )
+
+        np.testing.assert_allclose(
+            design.design_matrix, expected_basis["X"], atol=2e-10, rtol=2e-10
+        )
+        actual = [pb.matrix for pb in design.compiled_penalties]
+        assert len(actual) == len(expected_penalties["S"]) == 3
+        for actual_penalty, expected_penalty in zip(
+            actual, expected_penalties["S"], strict=True
+        ):
+            np.testing.assert_allclose(
+                actual_penalty, expected_penalty, atol=2e-10, rtol=2e-10
+            )
+
+    def test_bs_point_constraint_matches_mgcv(self):
+        data = self._make_data(seed=192)
+        formula = 'y ~ s(x, bs="bs", k=9, pc=0.0, sp=0.6)'
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+        np.testing.assert_allclose(
+            actual["predictions"]["response"],
+            expected["predictions"]["response"],
+            atol=2e-9,
+            rtol=2e-9,
+        )
+
+    def test_bs_multiple_fixed_sp_fit_matches_mgcv(self):
+        data = self._make_data(seed=193)
+        formula = 'y ~ s(x, bs="bs", k=10, m=[3,2,0], sp=[0.7,0.9])'
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+        np.testing.assert_allclose(
+            actual["predictions"]["response"],
+            expected["predictions"]["response"],
+            atol=2e-9,
+            rtol=2e-9,
+        )
+        np.testing.assert_allclose(
+            actual["fit"]["cov_bayes"],
+            expected["fit"]["cov_bayes"],
+            atol=2e-9,
+            rtol=2e-9,
+        )
+
+    def test_bs_reml_fit_matches_mgcv(self):
+        data = self._make_data(seed=194, n=210)
+        formula = 'y ~ s(x, bs="bs", k=11, m=[3,2])'
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+        _assert_basic_mgcv_parity(
+            actual,
+            expected,
+            pred_atol=3e-8,
+            pred_rtol=3e-8,
+            sp_log_atol=3e-7,
+            criterion_atol=3e-8,
+        )
+
+    def test_bs_select_reml_matches_mgcv(self):
+        data = self._make_data(seed=195, n=210)
+        formula = 'y ~ s(x, bs="bs", k=10)'
+        actual = _fit_nampy_snapshot(
+            data, formula, "gaussian", "REML", select=True
+        )
+        expected = _run_mgcv_snapshot(
+            data, formula, "gaussian", "REML", select=True
+        )
+        assert len(actual["fit"]["smoothing_params"]) == 2
+        _assert_basic_mgcv_parity(
+            actual,
+            expected,
+            pred_atol=3e-8,
+            pred_rtol=3e-8,
+            sp_log_atol=4e-7,
+            criterion_atol=3e-8,
+        )
+
+    def test_bs_derivative_prediction_and_linear_tails_match_mgcv(self):
+        data = self._make_data(seed=196)
+        newdata = pd.DataFrame({"x": [-3.0, -1.0, 0.5, 3.0]})
+        term = DerivativeBSplineTerm1D(feature="x", k=10, m=(3, 2))
+        term.fit(data[["x"]].to_numpy(dtype=np.float64), ["x"])
+        for order in (1, 2):
+            actual = term.derivative_matrix(
+                newdata[["x"]].to_numpy(dtype=np.float64), order=order
+            )
+            expected = _run_mgcv_smoothcon_predict_matrix(
+                data,
+                newdata,
+                's(x, bs="bs", k=10, m=c(3,2))',
+                deriv=order,
+            )
+            np.testing.assert_allclose(
+                actual, expected["X"], atol=2e-10, rtol=2e-10
+            )
+
+    def test_bs_four_knot_prediction_interval_matches_mgcv(self):
+        data = self._make_data(seed=197)
+        knots = {"x": [-3.0, -2.2, 2.2, 3.0]}
+        newdata = pd.DataFrame({"x": [-4.0, -2.7, 0.0, 2.7, 4.0]})
+        term = DerivativeBSplineTerm1D(
+            feature="x", k=10, m=(3, 1), knots=knots["x"]
+        )
+        term.fit(data[["x"]].to_numpy(dtype=np.float64), ["x"])
+        actual = term.transform_new(newdata[["x"]].to_numpy(dtype=np.float64))
+        expected = _run_mgcv_smoothcon_predict_matrix(
+            data,
+            newdata,
+            's(x, bs="bs", k=10, m=c(3,1))',
+            knots=knots,
+        )
+        np.testing.assert_allclose(
+            actual, expected["X"], atol=2e-10, rtol=2e-10
         )
 
 

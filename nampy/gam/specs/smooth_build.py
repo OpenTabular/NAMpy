@@ -12,6 +12,7 @@ from .smooth import (
     CubicRegressionSmoothSpec,
     CubicShrinkageSmoothSpec,
     CyclicCubicRegressionSmoothSpec,
+    DerivativeBSplineSmoothSpec,
     FactorSmoothInteractionSpec,
     PSplineSmoothSpec,
     RandomEffectSmoothSpec,
@@ -98,6 +99,20 @@ def _build_s_ps(opts) -> PSplineSmoothSpec:
     )
 
 
+def _build_s_bs(opts) -> DerivativeBSplineSmoothSpec:
+    return DerivativeBSplineSmoothSpec(
+        special="s",
+        k=opts["k"],
+        fx=opts["fx"],
+        select=opts["select"],
+        sp=opts["sp"],
+        knots=opts["knots"],
+        m=opts["m"],
+        constraint_mode=opts["constraint_mode"],
+        pc=opts["pc"],
+    )
+
+
 def _build_s_shape(opts) -> ShapeConstrainedSmoothSpec:
     return ShapeConstrainedSmoothSpec(
         special="s",
@@ -162,6 +177,7 @@ def _build_s_fs(opts) -> FactorSmoothInteractionSpec:
         select=opts["select"],
         sp=opts["sp"],
         knots=opts["knots"],
+        m=opts["m"],
         xt=opts["xt"],
     )
 
@@ -174,6 +190,7 @@ def _build_s_sz(opts) -> SumToZeroFactorSmoothSpec:
         select=opts["select"],
         sp=opts["sp"],
         knots=opts["knots"],
+        m=opts["m"],
         xt=opts["xt"],
     )
 
@@ -184,6 +201,7 @@ _S_BASIS_SPEC_BUILDERS: dict[str, Callable[[dict[str, Any]], SmoothSpec]] = {
     "cc": _build_s_cc,
     "ps": _build_s_ps,
     "cp": _build_s_ps,
+    "bs": _build_s_bs,
     "tp": _build_s_tp,
     "ts": _build_s_ts,
     "re": _build_s_re,
@@ -276,7 +294,7 @@ def _is_vector_fx(fx) -> bool:
     return fx is not None and not np.isscalar(fx)
 
 
-_PC_SUPPORTED_S_BASES = {"cc", "cp", "cr", "cs", "ps", "tp", "ts"}
+_PC_SUPPORTED_S_BASES = {"bs", "cc", "cp", "cr", "cs", "ps", "tp", "ts"}
 
 
 def _dispatch_smooth_spec_from_options(opts) -> SmoothSpec:
@@ -292,7 +310,7 @@ def _dispatch_smooth_spec_from_options(opts) -> SmoothSpec:
             raise NotImplementedError(
                 f"pc= is not supported for s(..., bs={merged['bs']!r}); "
                 "point constraints are only supported for bs in "
-                "{'cc', 'cp', 'cr', 'cs', 'ps', 'tp', 'ts'}."
+                "{'bs', 'cc', 'cp', 'cr', 'cs', 'ps', 'tp', 'ts'}."
             )
         return builder(merged)
     if has_pc and special_key not in {"te", "ti"}:
@@ -490,7 +508,7 @@ def _default_k_for_smooth(kind, basis, features, default_k):
         # mgcv::te()/ti() default k to 5^d per marginal. The current
         # Python tensor surface supports one feature per marginal, so d = 1.
         return [5] * len(features)
-    if str(basis).lower() in {"tp", "ts"}:
+    if str(basis).lower() in {"bs", "tp", "ts"}:
         # mgcv/R/smooth.r::s() leaves k = -1; smooth.construct.tp.smooth.spec
         # resolves the d-dependent default M + c(8, 27, 100)[min(d, 3)] at
         # construction time (mgcv/R/smooth.r:1316-1318). A flat default here

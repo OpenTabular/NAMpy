@@ -15,6 +15,7 @@ from ...splines.basis.natparam import nat_param_type1
 from ..algebra import rowwise_kronecker
 from ..registry import make_smooth_term
 from ..smooth_base import BaseSmoothTerm, by_values_from_new_data, column_as_object
+from ..univariate.bs import DerivativeBSplineTerm1D
 from ..univariate.cr import CubicSplineTerm
 from ..univariate.ps import PSplineTerm1D
 from .categorical_utils import (
@@ -97,6 +98,7 @@ def _build_base_smooth_term(
     by,
     knots,
     xt_rest,
+    outer_m,
     mode,  # "fs" or "sz"
     select,
     constraint_mode,
@@ -106,7 +108,7 @@ def _build_base_smooth_term(
     Build the per-level base smooth used inside fs/sz.
 
     Supported base smooth classes in the current codebase:
-    cr, cs, cc, cp, ps, tp, ts
+    bs, cr, cs, cc, cp, ps, tp, ts
     """
     base_bs = str(base_bs).lower()
     metric_features = list(metric_features)
@@ -123,9 +125,9 @@ def _build_base_smooth_term(
             f"for bs in {{'tp','ts'}}, got base bs={base_bs!r}."
         )
 
-    if xt_rest is not None and base_bs not in {"tp", "ts", "ps", "cp"}:
+    if xt_rest is not None and base_bs not in {"bs", "tp", "ts", "ps", "cp"}:
         raise NotImplementedError(
-            "Extra xt options are currently only supported for tp/ts/ps/cp base "
+            "Extra xt options are currently only supported for bs/tp/ts/ps/cp base "
             "smooths, "
             f"got xt={xt_rest!r} with base bs={base_bs!r}."
         )
@@ -149,7 +151,9 @@ def _build_base_smooth_term(
         )
 
     if base_bs in {"ps", "cp"}:
-        ps_m = None if xt_rest is None else xt_rest.get("m", None)
+        ps_m = outer_m
+        if ps_m is None and xt_rest is not None:
+            ps_m = xt_rest.get("m", None)
         # For fs/sz, mgcv keeps the outer basis dimension and uses xt mainly to
         # choose the base smoother family / order parameters.
         ps_k = k
@@ -158,6 +162,26 @@ def _build_base_smooth_term(
             k=ps_k,
             basis=base_bs,
             m=ps_m,
+            label=label,
+            smoothing_id=None,
+            by=by,
+            sp=None,
+            select=bool(select),
+            fixed=bool(fixed),
+            constraint_mode=str(constraint_mode),
+            pc=None,
+            knots=knots,
+            metadata=metadata,
+        )
+
+    if base_bs == "bs":
+        bs_m = outer_m
+        if bs_m is None and xt_rest is not None:
+            bs_m = xt_rest.get("m", None)
+        return DerivativeBSplineTerm1D(
+            feature=metric_features[0],
+            k=k,
+            m=bs_m,
             label=label,
             smoothing_id=None,
             by=by,
@@ -192,11 +216,13 @@ def _build_base_smooth_term(
 
     raise NotImplementedError(
         f"Current {mode} implementation supports base bs in "
-        f"{{'cr','cs','cc','cp','ps','tp','ts'}}, got {base_bs!r}."
+        f"{{'bs','cr','cs','cc','cp','ps','tp','ts'}}, got {base_bs!r}."
     )
 
 
 def _penalty_rank_from_base_term(base_term, basis_matrix, penalty_matrix) -> int:
+    if isinstance(base_term, DerivativeBSplineTerm1D):
+        return int(base_term._setup.ranks[0])
     if isinstance(base_term, PSplineTerm1D) and len(base_term.penalties) > 0:
         if str(base_term.basis_name).lower() == "cp":
             return int(base_term._setup.rank)
@@ -286,6 +312,7 @@ class _FactorSmoothBase(BaseSmoothTerm):
         by=None,
         sp=None,
         select=False,
+        m=None,
         xt=None,
         fixed=False,
         knots=None,
@@ -307,6 +334,7 @@ class _FactorSmoothBase(BaseSmoothTerm):
         self.term_type = term_type
         self.k = int(k)
         self.select = bool(select)
+        self.m = m
         self.xt = xt
         self.fixed = bool(fixed)
         self.knots = knots
@@ -438,6 +466,7 @@ class _FactorSmoothBase(BaseSmoothTerm):
                 by=self.by,
                 knots=self.knots,
                 xt_rest=base_spec.xt_rest,
+                outer_m=self.m,
                 mode=mode,
                 select=self.select,
                 constraint_mode=("auto" if mode == "fs" else "never"),
@@ -504,6 +533,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         by=None,
         sp=None,
         select=False,
+        m=None,
         xt=None,
         fixed=False,
         knots=None,
@@ -520,6 +550,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             by=by,
             sp=sp,
             select=select,
+            m=m,
             xt=xt,
             fixed=fixed,
             knots=knots,
@@ -558,6 +589,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             by=None,
             knots=self.knots,
             xt_rest=base_spec.xt_rest,
+            outer_m=self.m,
             mode="fs",
             select=False,
             constraint_mode=base_constraint,
@@ -567,7 +599,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
 
         if len(base_term.penalties) > 1:
             raise NotImplementedError(
-                'bs="fs" currently requires a singly penalized base smooth.'
+                '"fs" smooth cannot use a multiply penalized basis (wrong basis in xt)'
             )
 
         self._base_term = base_term
@@ -789,6 +821,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         by=None,
         sp=None,
         select=False,
+        m=None,
         xt=None,
         fixed=False,
         knots=None,
@@ -805,6 +838,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             by=by,
             sp=sp,
             select=select,
+            m=m,
             xt=xt,
             fixed=fixed,
             knots=knots,
@@ -834,6 +868,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             by=None,
             knots=self.knots,
             xt_rest=base_spec.xt_rest,
+            outer_m=self.m,
             mode="sz",
             select=False,
             constraint_mode="never",
@@ -843,7 +878,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
 
         if len(base_term.penalties) > 1:
             raise NotImplementedError(
-                'bs="sz" currently requires a singly penalized base smooth.'
+                '"sz" smooth cannot use a multiply penalized basis (wrong basis in xt)'
             )
 
         self._base_term = base_term

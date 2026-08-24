@@ -7,11 +7,12 @@ import numpy as np
 from ...penalties.tensor import normalize_tensor_marginal_penalty
 from ..algebra import rowwise_kronecker
 from ..smooth_base import column_as_float
+from ..univariate.bs import DerivativeBSplineTerm1D
 from ..univariate.cr import CubicSplineTerm
 from ..univariate.ps import PSplineTerm1D
 from ..univariate.tp import ThinPlateSplineTerm
 
-TENSOR_MARGINAL_BASES = frozenset({"cr", "cs", "cc", "cp", "ps", "tp", "ts"})
+TENSOR_MARGINAL_BASES = frozenset({"bs", "cr", "cs", "cc", "cp", "ps", "tp", "ts"})
 
 
 def _as_marginal_features(feature):
@@ -82,6 +83,23 @@ def make_tensor_marginal_term(
             feature=marginal_features[0],
             k=k,
             basis=basis,
+            m=m,
+            label=str(feature),
+            smoothing_id=None,
+            by=None,
+            select=False,
+            fixed=False,
+            constraint_mode=constraint_mode,
+            knots=knots,
+            metadata=metadata,
+        )
+
+    if basis == "bs":
+        if len(marginal_features) != 1:
+            raise ValueError("Tensor marginal basis 'bs' only handles one feature.")
+        return DerivativeBSplineTerm1D(
+            feature=marginal_features[0],
+            k=k,
             m=m,
             label=str(feature),
             smoothing_id=None,

@@ -1,5 +1,14 @@
 """Canonical univariate spline setup surface."""
 
+from .bs import (
+    DerivativeBSplineSetup,
+    build_derivative_bspline_setup,
+    derivative_bspline_design,
+    derivative_bspline_knots,
+    derivative_penalty_root,
+    normalize_bspline_orders,
+    predict_derivative_bspline,
+)
 from .cr import (
     CubicSplines,
     add_full_rank_shrinkage,
@@ -24,6 +33,13 @@ from .ps import (
 from .tp import build_tprs_term_setup, predict_tprs_term
 
 __all__ = [
+    "DerivativeBSplineSetup",
+    "build_derivative_bspline_setup",
+    "derivative_bspline_design",
+    "derivative_bspline_knots",
+    "derivative_penalty_root",
+    "normalize_bspline_orders",
+    "predict_derivative_bspline",
     "add_full_rank_shrinkage",
     "bspline_design_matrix",
     "cyclic_cubic_bd",

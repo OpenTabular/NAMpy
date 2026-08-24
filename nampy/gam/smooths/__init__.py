@@ -19,6 +19,7 @@ from .smooth_base import (
 )
 from .tensor.te import TensorProductSplineTerm
 from .tensor.ti import InteractionTensorProductSplineTerm
+from .univariate.bs import DerivativeBSplineTerm1D
 from .univariate.cr import CubicSplineTerm
 from .univariate.ps import PSplineTerm1D
 from .univariate.tp import ThinPlateSplineTerm
@@ -28,6 +29,7 @@ from .univariate.tp import ThinPlateSplineTerm
 te = TensorProductSplineTerm
 ti = InteractionTensorProductSplineTerm
 
+bs = DerivativeBSplineTerm1D
 cr = cs = cc = CubicSplineTerm
 cp = ps = PSplineTerm1D
 tp = ts = ThinPlateSplineTerm
@@ -55,6 +57,7 @@ __all__ = [
     "sync_by_state_attributes",
     "build_penalty_definition",
     "CubicSplineTerm",
+    "DerivativeBSplineTerm1D",
     "PSplineTerm1D",
     "ThinPlateSplineTerm",
     "TensorProductSplineTerm",
@@ -65,6 +68,7 @@ __all__ = [
     "ShapeConstrainedPSplineTerm",
     "te",
     "ti",
+    "bs",
     "cr",
     "cs",
     "cc",
