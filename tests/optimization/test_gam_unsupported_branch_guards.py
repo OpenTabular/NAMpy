@@ -277,7 +277,7 @@ def test_pc_guard_raises_explicitly_for_unsupported_s_bases(formula, match):
 
 
 def test_pc_guard_raises_for_multiple_id_linked_tensor_terms():
-    """mgcv 1.9-4 itself cannot construct linked tensor terms with pc=."""
+    """mgcv cannot construct differently named linked tensor terms with pc=."""
     data = pd.DataFrame(
         {
             "y": [0.4, 0.9, 1.2, 1.8, 2.1, 2.4],
@@ -294,7 +294,10 @@ def test_pc_guard_raises_for_multiple_id_linked_tensor_terms():
 
     with pytest.raises(
         NotImplementedError,
-        match=r"pc= is not supported across multiple id-linked te\(\)/ti\(\) terms",
+        match=(
+            r"pc= is not supported across id-linked te\(\)/ti\(\) terms "
+            "with different feature sets"
+        ),
     ):
         built = _build_from_formula(formula, data)
         compile_predictors(built.X, built.feature_names, built.predictor_specs)
