@@ -138,7 +138,7 @@ class AdditivePrediction:
             expected = expected + aligned(term)
         if self.offset is not None:
             expected = expected + aligned(self.offset)
-        if not np.allclose(link, expected, rtol=rtol, atol=atol):
+        if not np.allclose(link, expected, rtol=rtol, atol=atol, equal_nan=True):
             raise ValueError("link is not reconstructed by intercept, terms, and offset.")
 
 

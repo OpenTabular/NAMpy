@@ -60,7 +60,7 @@ def general_family_prediction_offset(model, X_np, offset):
     return out
 
 
-def general_family_prediction_layout(model, X_np):
+def general_family_prediction_layout(model, X_np, *, skip_term_ids=()):
     Z_blocks = []
     Xp_blocks = []
     predictors = _predictor_designs(model)
@@ -76,11 +76,17 @@ def general_family_prediction_layout(model, X_np):
             getattr(pred, "prediction_has_intercept", pred.has_intercept)
         )
         Zp = (
-            np.asarray(pred.build_new_matrix(model.X_), dtype=np.float64)
+            np.asarray(
+                pred.build_new_matrix(model.X_, skip_term_ids=skip_term_ids),
+                dtype=np.float64,
+            )
             if X_np is None and use_training_prediction_matrix
             else np.asarray(pred.design_matrix, dtype=np.float64)
             if X_np is None
-            else np.asarray(pred.build_new_matrix(X_np), dtype=np.float64)
+            else np.asarray(
+                pred.build_new_matrix(X_np, skip_term_ids=skip_term_ids),
+                dtype=np.float64,
+            )
         )
         Z_blocks.append(Zp)
         if predict_has_intercept:
@@ -205,6 +211,7 @@ def predict_general_values(
     offset=None,
     terms=None,
     exclude=None,
+    skip_term_ids=(),
 ):
     pred_type = str(type).lower()
     if pred_type not in {"response", "link", "terms", "iterms", "lpmatrix"}:
@@ -234,7 +241,9 @@ def predict_general_values(
         )
 
     offset_list = general_family_prediction_offset(model, X, offset)
-    layout = general_family_prediction_layout(model, X)
+    layout = general_family_prediction_layout(
+        model, X, skip_term_ids=skip_term_ids
+    )
     groups = _prediction_term_groups(model)
     labels, selected = _prediction_group_selection(
         groups,

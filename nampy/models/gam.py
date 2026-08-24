@@ -154,17 +154,48 @@ class _GAMAdapterBase(BaseEstimator):
     # Shared prediction surface
     # ------------------------------------------------------------------
 
-    def predict_link(self, X=None, offset=None):
+    def predict_link(
+        self,
+        X=None,
+        offset=None,
+        *,
+        block_size=None,
+        newdata_guaranteed=False,
+        na_action="pass",
+    ):
         """Linear-predictor (link-scale) prediction."""
         self._check_fitted()
-        self._validate_X(X)
-        return self.gam_.predict(X, type="link", offset=offset)
+        if not newdata_guaranteed:
+            self._validate_X(X)
+        return self.gam_.predict(
+            X,
+            type="link",
+            offset=offset,
+            block_size=block_size,
+            newdata_guaranteed=newdata_guaranteed,
+            na_action=na_action,
+        )
 
-    def predict_components(self, X=None, offset=None) -> AdditivePrediction:
+    def predict_components(
+        self,
+        X=None,
+        offset=None,
+        *,
+        block_size=None,
+        newdata_guaranteed=False,
+        na_action="pass",
+    ) -> AdditivePrediction:
         """Per-term link-scale contributions as a backend-neutral result."""
         self._check_fitted()
-        self._validate_X(X)
-        vals = self.gam_.predict_terms(X, offset=offset)
+        if not newdata_guaranteed:
+            self._validate_X(X)
+        vals = self.gam_.predict_terms(
+            X,
+            offset=offset,
+            block_size=block_size,
+            newdata_guaranteed=newdata_guaranteed,
+            na_action=na_action,
+        )
 
         link = np.asarray(vals["output"], dtype=np.float64)
         response = vals.get("response")
@@ -231,18 +262,51 @@ class _GAMAdapterBase(BaseEstimator):
             return {}
         return dict(zip(ids, labels, strict=True))
 
-    def standard_errors(self, X=None, type="response", offset=None):
+    def standard_errors(
+        self,
+        X=None,
+        type="response",
+        offset=None,
+        *,
+        block_size=None,
+        newdata_guaranteed=False,
+        na_action="pass",
+        unconditional=False,
+    ):
         """Pointwise prediction standard errors."""
         self._check_fitted()
-        self._validate_X(X)
-        _, se = self.gam_.predict(X, return_se=True, type=type, offset=offset)
+        if not newdata_guaranteed:
+            self._validate_X(X)
+        _, se = self.gam_.predict(
+            X,
+            return_se=True,
+            type=type,
+            offset=offset,
+            block_size=block_size,
+            newdata_guaranteed=newdata_guaranteed,
+            na_action=na_action,
+            unconditional=unconditional,
+        )
         return se
 
-    def lpmatrix(self, X):
+    def lpmatrix(
+        self,
+        X,
+        *,
+        block_size=None,
+        newdata_guaranteed=False,
+        na_action="pass",
+    ):
         """Linear-predictor matrix for new data."""
         self._check_fitted()
-        self._validate_X(X)
-        return self.gam_.lpmatrix(X)
+        if not newdata_guaranteed:
+            self._validate_X(X)
+        return self.gam_.lpmatrix(
+            X,
+            block_size=block_size,
+            newdata_guaranteed=newdata_guaranteed,
+            na_action=na_action,
+        )
 
     def summary(self, **kwargs):
         """Print and return the mgcv-style model summary."""
@@ -334,11 +398,27 @@ class GAMRegressor(_GAMAdapterBase):
             X, y, data=data, sample_weight=sample_weight, offset=offset
         )
 
-    def predict(self, X=None, offset=None):
+    def predict(
+        self,
+        X=None,
+        offset=None,
+        *,
+        block_size=None,
+        newdata_guaranteed=False,
+        na_action="pass",
+    ):
         """Response-scale prediction."""
         self._check_fitted()
-        self._validate_X(X)
-        return self.gam_.predict(X, type="response", offset=offset)
+        if not newdata_guaranteed:
+            self._validate_X(X)
+        return self.gam_.predict(
+            X,
+            type="response",
+            offset=offset,
+            block_size=block_size,
+            newdata_guaranteed=newdata_guaranteed,
+            na_action=na_action,
+        )
 
     def score(self, X, y, sample_weight=None):
         """Return the coefficient of determination R^2 of the prediction."""
@@ -434,23 +514,68 @@ class GAMClassifier(_GAMAdapterBase):
         y01 = self._label_encoder.transform(y).astype(np.float64)
         return self._fit_gam(X, y01, sample_weight=sample_weight, offset=offset)
 
-    def predict_proba(self, X=None, offset=None):
+    def predict_proba(
+        self,
+        X=None,
+        offset=None,
+        *,
+        block_size=None,
+        newdata_guaranteed=False,
+        na_action="pass",
+    ):
         """Class probabilities; columns follow ``self.classes_``."""
         self._check_fitted()
-        self._validate_X(X)
+        if not newdata_guaranteed:
+            self._validate_X(X)
         p1 = np.asarray(
-            self.gam_.predict(X, type="response", offset=offset), dtype=np.float64
+            self.gam_.predict(
+                X,
+                type="response",
+                offset=offset,
+                block_size=block_size,
+                newdata_guaranteed=newdata_guaranteed,
+                na_action=na_action,
+            ),
+            dtype=np.float64,
         )
         return np.column_stack([1.0 - p1, p1])
 
-    def predict(self, X=None, offset=None):
+    def predict(
+        self,
+        X=None,
+        offset=None,
+        *,
+        block_size=None,
+        newdata_guaranteed=False,
+        na_action="pass",
+    ):
         """Predicted class labels (original label dtype)."""
-        p1 = self.predict_proba(X, offset=offset)[:, 1]
+        p1 = self.predict_proba(
+            X,
+            offset=offset,
+            block_size=block_size,
+            newdata_guaranteed=newdata_guaranteed,
+            na_action=na_action,
+        )[:, 1]
         return self.classes_[(p1 >= 0.5).astype(int)]
 
-    def decision_function(self, X=None, offset=None):
+    def decision_function(
+        self,
+        X=None,
+        offset=None,
+        *,
+        block_size=None,
+        newdata_guaranteed=False,
+        na_action="pass",
+    ):
         """Link-scale (logit) decision values."""
-        return self.predict_link(X, offset=offset)
+        return self.predict_link(
+            X,
+            offset=offset,
+            block_size=block_size,
+            newdata_guaranteed=newdata_guaranteed,
+            na_action=na_action,
+        )
 
     def score(self, X, y, sample_weight=None):
         """Return the mean accuracy on the given test data and labels."""

@@ -107,6 +107,26 @@ def test_regressor_score_components_and_errors():
     assert lp.shape[0] == len(X)
 
 
+def test_adapter_prediction_row_and_memory_options_are_forwarded():
+    X, y = _regression_frame(n=70, seed=9)
+    estimator = _fixed_regressor().fit(X, y)
+    newdata = X.iloc[:9].copy()
+    newdata.loc[3, "x0"] = np.nan
+
+    prediction = estimator.predict(newdata, block_size=2, na_action="pass")
+    assert prediction.shape == (9,)
+    assert np.isnan(prediction[3])
+    assert estimator.predict(newdata, na_action="omit").shape == (8,)
+
+    components = estimator.predict_components(
+        newdata, block_size=2, na_action="pass"
+    )
+    components.validate_additive_reconstruction()
+    assert np.isnan(components.link[3])
+    assert estimator.standard_errors(newdata, block_size=2).shape == (9,)
+    assert estimator.lpmatrix(newdata, block_size=1).shape[0] == 9
+
+
 def test_schema_validation_rejects_renamed_columns():
     X, y = _regression_frame()
     estimator = _fixed_regressor().fit(X, y)

@@ -243,12 +243,21 @@ class CompiledPredictor:
                 return False
         return True
 
-    def build_new_matrix(self, X_new):
+    def build_new_matrix(self, X_new, *, skip_term_ids=()):
         if len(self.compiled_terms) == 0:
             return np.empty((len(X_new), 0), dtype=np.float64)
 
         blocks = []
+        skipped = {str(value) for value in skip_term_ids}
         for term in self.compiled_terms:
+            if str(getattr(term, "term_id", "")) in skipped:
+                blocks.append(
+                    np.zeros(
+                        (len(X_new), np.asarray(term.basis_train).shape[1]),
+                        dtype=np.float64,
+                    )
+                )
+                continue
             use_raw = bool(
                 getattr(term, "metadata", {}).get("expose_raw_prediction_basis")
             )
@@ -330,12 +339,15 @@ class CompiledModel:
                 f"{self.observation_transform.size}, expected {n_obs}."
             )
 
-    def build_new_matrix(self, X_new):
+    def build_new_matrix(self, X_new, *, skip_term_ids=()):
         if len(self.predictors) == 0:
             return np.empty((len(X_new), 0), dtype=np.float64)
 
         blocks = [
-            np.asarray(pred.build_new_matrix(X_new), dtype=np.float64)
+            np.asarray(
+                pred.build_new_matrix(X_new, skip_term_ids=skip_term_ids),
+                dtype=np.float64,
+            )
             for pred in self.predictors
         ]
         return (

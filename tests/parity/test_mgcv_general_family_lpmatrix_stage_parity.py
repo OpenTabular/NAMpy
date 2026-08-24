@@ -226,8 +226,8 @@ def test_general_family_factor_level_lpmatrix_matches_mgcv():
     )
 
 
-def test_general_family_lpmatrix_rejects_numeric_na_newdata_explicitly():
-    """Verify that general family lpmatrix rejects numeric na new-data explicitly."""
+def test_general_family_lpmatrix_preserves_or_omits_numeric_na_rows():
+    """General-family lpmatrices apply predict.gam's newdata NA policy."""
     data = _gaulss_factor_data(seed=245)
     gam = _fit_nampy_model(
         data,
@@ -238,5 +238,12 @@ def test_general_family_lpmatrix_rejects_numeric_na_newdata_explicitly():
     bad_newdata = data.head(5).copy()
     bad_newdata.loc[bad_newdata.index[0], "x"] = np.nan
 
-    with pytest.raises(ValueError, match="X contains NaN or Inf"):
-        gam.predict(bad_newdata, type="lpmatrix")
+    passed = np.asarray(gam.predict(bad_newdata, type="lpmatrix"))
+    assert passed.shape[0] == len(bad_newdata)
+    assert np.isnan(passed[0]).all()
+    assert np.isfinite(passed[1:]).all()
+
+    omitted = np.asarray(
+        gam.predict(bad_newdata, type="lpmatrix", na_action="omit")
+    )
+    np.testing.assert_allclose(omitted, passed[1:], atol=0.0, rtol=0.0)

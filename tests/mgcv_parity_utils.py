@@ -1980,15 +1980,17 @@ def _run_mgcv_predict_on_newdata(
     optimizer: str | None = None,
     terms=None,
     exclude=None,
+    block_size=None,
+    newdata_guaranteed=False,
+    na_action=None,
+    iterms_type=None,
     allow_live_run: bool = False,
 ):
     _family_nampy_unused, family_token = _family_specs(family)
     fit_method = "REML" if str(method).lower() == "fixed" else method
     formula_r = _normalize_python_formula_text(formula)
 
-    _cache_key = _mgcv_fixture_key(
-        "predict_on_newdata",
-        {
+    cache_payload = {
             "version": _PREDICT_ON_NEWDATA_FIXTURE_VERSION,
             "data": _df_fixture_repr(data),
             "newdata": _df_fixture_repr(newdata),
@@ -2003,8 +2005,20 @@ def _run_mgcv_predict_on_newdata(
             "optimizer": optimizer,
             "terms": terms,
             "exclude": exclude,
-        },
-    )
+        }
+    if (
+        block_size is not None
+        or bool(newdata_guaranteed)
+        or na_action is not None
+        or iterms_type is not None
+    ):
+        cache_payload["prediction_args"] = {
+            "block_size": block_size,
+            "newdata_guaranteed": bool(newdata_guaranteed),
+            "na_action": na_action,
+            "iterms_type": iterms_type,
+        }
+    _cache_key = _mgcv_fixture_key("predict_on_newdata", cache_payload)
     try:
         cached = _mgcv_fixture_load(_cache_key)
     except RuntimeError:
@@ -2031,6 +2045,10 @@ weights_column <- args[[10]]
 optimizer_name <- tolower(args[[11]])
 terms_filter <- fromJSON(args[[12]])
 exclude_filter <- fromJSON(args[[13]])
+block_size <- if (tolower(args[[14]]) %in% c("none", "null", "")) NULL else as.integer(args[[14]])
+newdata_guaranteed <- identical(tolower(args[[15]]), "true")
+na_action_name <- tolower(args[[16]])
+iterms_type <- if (tolower(args[[17]]) %in% c("none", "null", "")) NULL else as.integer(args[[17]])
 coerce_formula <- function(x) {
   obj <- eval(parse(text = x))
   if (is.character(obj)) {
@@ -2115,9 +2133,7 @@ if (!(optimizer_name %in% c("none", "null", ""))) {
   }
 }
 fit <- do.call(gam, gam_args)
-pred <- do.call(
-  predict,
-  list(
+pred_args <- list(
     object = fit,
     newdata = newd,
     type = pred_type,
@@ -2125,8 +2141,21 @@ pred <- do.call(
     unconditional = want_unconditional,
     terms = terms_filter,
     exclude = exclude_filter
-  )
 )
+if (!is.null(block_size)) pred_args$block.size <- block_size
+if (newdata_guaranteed) pred_args$newdata.guaranteed <- TRUE
+if (!(na_action_name %in% c("none", "null", ""))) {
+  pred_args$na.action <- switch(
+    na_action_name,
+    pass = na.pass,
+    omit = na.omit,
+    exclude = na.exclude,
+    fail = na.fail,
+    stop(sprintf("unsupported na.action: %s", na_action_name))
+  )
+}
+if (!is.null(iterms_type)) pred_args$iterms.type <- iterms_type
+pred <- do.call(predict, pred_args)
 out <- list()
 if (pred_type %in% c("terms", "iterms")) {
   if (want_se) {
@@ -2150,7 +2179,7 @@ if (pred_type %in% c("terms", "iterms")) {
 }
 write_json(
   out,
-  args[[14]],
+  args[[18]],
   auto_unbox = TRUE,
   digits = 17
 )
@@ -2181,6 +2210,10 @@ write_json(
                 "NULL" if optimizer is None else str(optimizer),
                 json.dumps(terms),
                 json.dumps(exclude),
+                "NULL" if block_size is None else str(int(block_size)),
+                "true" if newdata_guaranteed else "false",
+                "NULL" if na_action is None else str(na_action),
+                "NULL" if iterms_type is None else str(int(iterms_type)),
                 str(json_path),
             ),
             check=True,
