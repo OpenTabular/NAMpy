@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 [![Development status: Beta](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/Ananyapam7/NAMpy)
 
-NAMpy offering a suite of interpretable models for regression, classification, and distributional regression tasks for tabular data offering **generalized additive models (GAMs)** with statistical inference, automatic smoothness selection, diagnostics, shape constraints etc. along with **neural additive models** (such as NAM, NBM, IGANN, GPNAM, SIAN, SPAM, NodeGAM, and related architectures). The models are available for `regression`, `classification` and distributional regression, denoted by `LSS`. Hence, they are available as e.g. `NAMRegressor`, `NAMClassifier` or `NAMLSS`. NAMpy models adhere to scikit-learn's `BaseEstimator` interface, making them highly compatible with the familiar scikit-learn ecosystem.
+NAMpy is a suite of interpretable models for regression, classification, and distributional regression tasks for tabular data offering **generalized additive models (GAMs)** with statistical inference, automatic smoothness selection, diagnostics, shape constraints etc. along with **neural additive models** (such as NAM, NBM, IGANN, GPNAM, SIAN, SPAM, NodeGAM, and related architectures). The models are available for `regression`, `classification` and distributional regression, denoted by `LSS`. Hence, they are available as e.g. `NAMRegressor`, `NAMClassifier` or `NAMLSS`. NAMpy models adhere to scikit-learn's `BaseEstimator` interface, making them highly compatible with the familiar scikit-learn ecosystem.
 
 ## Installation
 

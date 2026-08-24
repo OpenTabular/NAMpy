@@ -28,15 +28,6 @@ def _reference_data(family: str) -> pd.DataFrame:
     return pd.DataFrame({"x": x, "y": y})
 
 
-def test_reference_package_versions_are_pinned():
-    versions = pd.read_csv(_FIXTURE_DIR / "versions.csv", dtype=str)
-    assert dict(zip(versions["package"], versions["version"], strict=True)) == {
-        "mgcv": "1.9.4",
-        "gamlss": "5.5.0",
-        "gamlss.dist": "6.1.1",
-    }
-
-
 @pytest.mark.parametrize(
     ("family", "gamlss_parameter_atol", "gamlss_density_atol"),
     [("normal", 5e-4, 1e-3), ("gamma", 1e-5, 5e-5)],

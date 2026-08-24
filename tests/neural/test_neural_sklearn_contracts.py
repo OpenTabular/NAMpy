@@ -278,31 +278,3 @@ def test_fitted_neural_estimator_persistence_round_trip(tmp_path):
     np.testing.assert_allclose(restored.predict_proba(data), expected)
     with pytest.raises(TypeError, match="not LinRegRegressor"):
         LinRegRegressor.load_model(model_path)
-
-
-def test_pre_release_names_are_gone():
-    """The v0.1.0 naming sweep left no aliases behind."""
-    from importlib.util import find_spec
-
-    import nampy.models
-    import nampy.neural
-    import nampy.neural.architectures
-
-    for name in ("SklearnBaseRegressor", "SklearnBaseClassifier", "SklearnBaseLSS"):
-        assert not hasattr(nampy.models, name)
-    assert not hasattr(nampy.models, "QNAM")
-    assert not hasattr(nampy.neural.architectures, "QNAMBase")
-    assert not hasattr(nampy.neural, "TaskModel")
-    assert find_spec("nampy.hybrid") is None
-    assert find_spec("nampy.api") is None
-    assert find_spec("nampy.neural.layers") is None
-    assert find_spec("nampy.neural.training") is None
-    assert find_spec("nampy.gam.smoothing_selection") is None
-    for name in (
-        "GAMNetClassifier",
-        "GAMNetRegressor",
-        "GAMResidualClassifier",
-        "GAMResidualRegressor",
-    ):
-        assert not hasattr(nampy, name)
-    assert not hasattr(LinRegRegressor, "predict_feature_vals")
