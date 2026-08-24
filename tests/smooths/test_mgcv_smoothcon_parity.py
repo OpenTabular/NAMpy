@@ -185,6 +185,35 @@ class TestParitySnapshotAPI:
         for got, want in zip(actual, target, strict=True):
             np.testing.assert_allclose(got, want, atol=1e-10, rtol=1e-10)
 
+    def test_te_pc_smoothcon_basis_and_penalties_match_mgcv(self):
+        """te pc= uses the upstream point-evaluation constraint coordinates."""
+        data = _make_gaussian_data(seed=17, n=80)
+        smooth_expr_r = (
+            'te(x0, x1, bs=c("cr", "cr"), k=c(5, 5), '
+            'pc=c(0.2, -0.3), sp=c(0.7, 1.3))'
+        )
+        design = _compile_formula_design(
+            data,
+            'y ~ te(x0, x1, bs=["cr", "cr"], k=[5, 5], '
+            'pc=[0.2, -0.3], sp=[0.7, 1.3])',
+        )
+        expected_x = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
+        expected_s = _run_mgcv_smoothcon_penalties(
+            data, smooth_expr_r, absorb_cons=True, scale_penalty=True
+        )
+
+        np.testing.assert_allclose(
+            np.asarray(design.design_matrix, dtype=np.float64),
+            np.asarray(expected_x["X"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+        actual = [np.asarray(p.matrix) for p in design.compiled_penalties]
+        target = [np.asarray(S) for S in expected_s["S"]]
+        assert len(actual) == len(target) == 2
+        for got, want in zip(actual, target, strict=True):
+            np.testing.assert_allclose(got, want, atol=1e-10, rtol=1e-10)
+
     def test_te_ps_nested_margin_orders_match_scalar_margin_orders(self):
         """Verify that te ps nested margin orders match scalar margin orders."""
         data = _make_gaussian_data(seed=19, n=80)
@@ -546,6 +575,35 @@ class TestParitySnapshotAPI:
         ]
         target = [np.asarray(S, dtype=np.float64) for S in expected["S"]]
 
+        assert len(actual) == len(target) == 2
+        for got, want in zip(actual, target, strict=True):
+            np.testing.assert_allclose(got, want, atol=1e-10, rtol=1e-10)
+
+    def test_ti_pc_smoothcon_basis_and_penalties_match_mgcv(self):
+        """ti pc= is applied after marginal centering and tensor construction."""
+        data = _make_gaussian_data(seed=21, n=80)
+        smooth_expr_r = (
+            'ti(x0, x1, bs=c("cr", "ps"), k=c(5, 6), '
+            'pc=c(0.2, -0.3), sp=c(0.7, 1.3))'
+        )
+        design = _compile_formula_design(
+            data,
+            'y ~ ti(x0, x1, bs=["cr", "ps"], k=[5, 6], '
+            'pc=[0.2, -0.3], sp=[0.7, 1.3])',
+        )
+        expected_x = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
+        expected_s = _run_mgcv_smoothcon_penalties(
+            data, smooth_expr_r, absorb_cons=True, scale_penalty=True
+        )
+
+        np.testing.assert_allclose(
+            np.asarray(design.design_matrix, dtype=np.float64),
+            np.asarray(expected_x["X"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+        actual = [np.asarray(p.matrix) for p in design.compiled_penalties]
+        target = [np.asarray(S) for S in expected_s["S"]]
         assert len(actual) == len(target) == 2
         for got, want in zip(actual, target, strict=True):
             np.testing.assert_allclose(got, want, atol=1e-10, rtol=1e-10)

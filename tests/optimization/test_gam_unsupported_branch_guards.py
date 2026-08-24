@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from nampy.gam import GAM
+from nampy.gam.compiler.compile_predictors import compile_predictors
 from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
     _GeneralPredictorLayout,
     build_general_penalty_setup,
@@ -255,14 +256,12 @@ def test_t2_smooth_guard_raises_explicitly():
 @pytest.mark.parametrize(
     ("formula", "match"),
     [
-        ("y ~ te(x, z, pc=c(0, 0))", r"pc= is not supported for te\(\.\.\.\) smooths"),
-        ("y ~ ti(x, z, pc=c(0, 0))", r"pc= is not supported for ti\(\.\.\.\) smooths"),
         ('y ~ s(f, bs="re", pc=0)', r"pc= is not supported for s\(\.\.\., bs='re'\)"),
         ('y ~ s(x, f, bs="fs", pc=0)', r"pc= is not supported for s\(\.\.\., bs='fs'\)"),
         ('y ~ s(x, f, bs="sz", pc=0)', r"pc= is not supported for s\(\.\.\., bs='sz'\)"),
     ],
 )
-def test_pc_guard_raises_explicitly_outside_supported_univariate_bases(formula, match):
+def test_pc_guard_raises_explicitly_for_unsupported_s_bases(formula, match):
     """pc= must fail loudly wherever the point constraint is not implemented."""
     data = pd.DataFrame(
         {
@@ -275,6 +274,30 @@ def test_pc_guard_raises_explicitly_outside_supported_univariate_bases(formula, 
 
     with pytest.raises(NotImplementedError, match=match):
         _build_from_formula(formula, data)
+
+
+def test_pc_guard_raises_for_multiple_id_linked_tensor_terms():
+    """mgcv 1.9-4 itself cannot construct linked tensor terms with pc=."""
+    data = pd.DataFrame(
+        {
+            "y": [0.4, 0.9, 1.2, 1.8, 2.1, 2.4],
+            "x": [-1.0, -0.6, -0.2, 0.2, 0.6, 1.0],
+            "z": [0.0, 0.4, 0.8, 1.2, 1.6, 2.0],
+            "w": [-0.5, 0.1, 0.8, -0.2, 0.4, 1.1],
+            "v": [0.2, -0.3, 0.6, 1.0, -0.8, 0.5],
+        }
+    )
+    formula = (
+        'y ~ te(x, z, k=c(3, 3), id="g", pc=c(0, 0)) + '
+        'te(w, v, k=c(3, 3), id="g", pc=c(0, 0))'
+    )
+
+    with pytest.raises(
+        NotImplementedError,
+        match=r"pc= is not supported across multiple id-linked te\(\)/ti\(\) terms",
+    ):
+        built = _build_from_formula(formula, data)
+        compile_predictors(built.X, built.feature_names, built.predictor_specs)
 
 
 def test_gam_unknown_constructor_arguments_raise_explicitly():

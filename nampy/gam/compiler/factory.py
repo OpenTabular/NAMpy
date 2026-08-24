@@ -283,6 +283,7 @@ def instantiate_term(term_like: TermSpec | Any):
             "select": smooth_spec.select,
             "fixed": smooth_spec.fx,
             "knots": _tensor_group_knots(smooth_spec.knots, features, groups),
+            "pc": smooth_spec.pc,
             "metadata": metadata,
         }
 

@@ -20,7 +20,6 @@ from ..smooth_base import (
     _normalize_knots,
     _normalize_mc,
     build_penalty_definition,
-    by_values_from_new_data,
 )
 from .marginals import (
     build_tensor_marginal_terms,
@@ -55,6 +54,7 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
         fixed=False,
         null_penalty_tol=1e-10,
         knots=None,
+        pc=None,
         metadata=None,
     ):
         features = list(feature) if not isinstance(feature, (str, int)) else [feature]
@@ -103,6 +103,7 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
         self.fixed = bool(all(self.fixed_flags))
         self.null_penalty_tol = float(null_penalty_tol)
         self.knots = _normalize_knots(knots, features)
+        self.pc = pc
 
         self._mc = None
         self._feature_indices = None
@@ -160,7 +161,30 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
             B_ti_setup, S_ti, return_scales=True
         )
 
-        B_ti = self._apply_cached_by(B_ti_raw)
+        if self.pc is not None:
+            max_index = max(feature_indices)
+
+            def point_basis_fn(point):
+                point_data = np.zeros((point.shape[0], max_index + 1), dtype=np.float64)
+                point_data[:, feature_indices] = point
+                return tensor_predict_matrix(
+                    marginals,
+                    point_data,
+                    centered=use_centered,
+                    np_transforms=marginal_np_transforms,
+                )
+
+            B_ti, S_ti, C_ti, _ = self._apply_point_constraint(
+                B_ti_raw,
+                S_ti,
+                self.pc,
+                feature_names=feature_names_resolved,
+                point_basis_fn=point_basis_fn,
+                fixed=False,
+            )
+        else:
+            B_ti = self._apply_cached_by(B_ti_raw)
+            C_ti = None
 
         self._marginals = marginals
         self._marginal_np_transforms = marginal_np_transforms
@@ -185,7 +209,11 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
                 if keep
             ]
         )
-        self._record_constraint_result(None, None, absorbed_by=None)
+        self._record_constraint_result(
+            "pc" if C_ti is not None else None,
+            C_ti,
+            absorbed_by=("runtime" if C_ti is not None else None),
+        )
 
         self.basis_name = "ti(" + ",".join(self.basis) + ")"
         return self
@@ -254,5 +282,4 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
             centered=self._marginal_is_centered,
             np_transforms=self._marginal_np_transforms,
         )
-        z = by_values_from_new_data(X_new, self._by_state)
-        return self._apply_by_scale(B, z)
+        return self._apply_constraint_transform_and_by(B, X_new)

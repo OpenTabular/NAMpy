@@ -104,6 +104,7 @@ class TensorProductSmoothSpec(BaseSmoothSpec):
     m: Any = None
     xt: Any = None
     d: Any = None
+    pc: Any = None
 
 
 @dataclass(frozen=True)
@@ -114,6 +115,7 @@ class TensorInteractionSmoothSpec(BaseSmoothSpec):
     xt: Any = None
     mc: Any = None
     d: Any = None
+    pc: Any = None
 
 
 SmoothSpec = Union[
