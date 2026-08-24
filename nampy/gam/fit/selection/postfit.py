@@ -12,7 +12,9 @@ from ...model_state import (
     _n_smoothing_params,
     _penalty_blocks_seq,
     _require_fitted,
+    _term_blocks_seq,
 )
+from ...term_labels import multi_predictor_term_label
 from .criteria.dispatch import criterion_gradient, criterion_hessian, criterion_value
 from .criteria.ml_reml import resolve_ml_reml_scoring_backend
 
@@ -131,6 +133,7 @@ def _gam_vcomp_names(model) -> list[str]:
         return []
 
     names: list[str | None] = [None] * n_sp
+    terms = list(_term_blocks_seq(model))
     for pb in _penalty_blocks_seq(model):
         idx = int(getattr(pb, "smoothing_index", -1))
         if idx < 0 or idx >= n_sp or names[idx] is not None:
@@ -141,7 +144,16 @@ def _gam_vcomp_names(model) -> list[str]:
             label = meta.get("label", None)
         if label is None:
             label = getattr(pb, "label", None)
-        names[idx] = _normalize_vcomp_label(label)
+        normalized = _normalize_vcomp_label(label)
+        term_index = int(getattr(pb, "term_index", -1))
+        if normalized is not None and 0 <= term_index < len(terms):
+            owner = terms[term_index]
+            normalized = multi_predictor_term_label(
+                normalized,
+                predictor_index=int(getattr(owner, "predictor_index", 0)),
+                term_type=str(getattr(owner, "term_type", "")),
+            )
+        names[idx] = normalized
 
     return [name if name is not None else f"sp_{i}" for i, name in enumerate(names)]
 

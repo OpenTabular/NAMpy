@@ -84,4 +84,38 @@ def normalize_mgcv_term_label(label):
     return text
 
 
-__all__ = ["normalize_mgcv_term_label"]
+def multi_predictor_term_label(
+    label: str, *, predictor_index: int, term_type: str
+) -> str:
+    """Apply mgcv's formula-list suffix to later-predictor term labels."""
+    if int(predictor_index) <= 0:
+        return str(label)
+    if str(term_type) == "parametric":
+        return f"{label}.{int(predictor_index)}"
+    open_index = str(label).find("(")
+    if open_index < 0:
+        return f"{label}.{int(predictor_index)}"
+    return f"{label[:open_index]}.{int(predictor_index)}{label[open_index:]}"
+
+
+def mgcv_term_display_label(term, *, formula_parametric: bool = False) -> str:
+    """Return a compiled term's predictor-aware public mgcv label."""
+    term_type = str(getattr(term, "term_type", ""))
+    label = str(getattr(term, "label", ""))
+    if term_type == "parametric" and formula_parametric:
+        metadata = dict(getattr(term, "metadata", {}) or {})
+        label = str(metadata.get("formula_term", label))
+    elif term_type != "parametric":
+        label = str(normalize_mgcv_term_label(label))
+    return multi_predictor_term_label(
+        label,
+        predictor_index=int(getattr(term, "predictor_index", 0)),
+        term_type=term_type,
+    )
+
+
+__all__ = [
+    "mgcv_term_display_label",
+    "multi_predictor_term_label",
+    "normalize_mgcv_term_label",
+]

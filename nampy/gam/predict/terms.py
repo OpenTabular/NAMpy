@@ -17,25 +17,13 @@ from ..model_state import (
     _term_blocks_seq,
     _term_full_coefficient_indices,
 )
-from ..term_labels import normalize_mgcv_term_label
+from ..term_labels import multi_predictor_term_label, normalize_mgcv_term_label
 
 
 def _parametric_formula_term(term) -> str | None:
     metadata = dict(getattr(term, "metadata", {}) or {})
     formula_term = metadata.get("formula_term", None)
     return None if formula_term is None else str(formula_term)
-
-
-def _multi_predictor_term_label(label: str, *, predictor_index: int, term_type: str):
-    """Apply mgcv's formula-list suffix to later-predictor term labels."""
-    if predictor_index <= 0:
-        return label
-    if term_type == "parametric":
-        return f"{label}.{predictor_index}"
-    open_index = label.find("(")
-    if open_index < 0:
-        return f"{label}.{predictor_index}"
-    return f"{label[:open_index]}.{predictor_index}{label[open_index:]}"
 
 
 def _prediction_term_groups(model):
@@ -47,7 +35,7 @@ def _prediction_term_groups(model):
         predictor_name = str(getattr(term, "predictor_name", "predictor_0"))
         if term_type == "parametric":
             formula_term = _parametric_formula_term(term)
-            group_label = _multi_predictor_term_label(
+            group_label = multi_predictor_term_label(
                 formula_term or str(getattr(term, "label", "")),
                 predictor_index=predictor_index,
                 term_type=term_type,
@@ -76,7 +64,7 @@ def _prediction_term_groups(model):
             )
             continue
 
-        group_label = _multi_predictor_term_label(
+        group_label = multi_predictor_term_label(
             str(normalize_mgcv_term_label(getattr(term, "label", ""))),
             predictor_index=predictor_index,
             term_type=term_type,

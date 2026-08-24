@@ -12,6 +12,7 @@ from ..model_state import (
     _term_blocks_seq,
     _term_full_coefficient_indices,
 )
+from ..term_labels import mgcv_term_display_label
 
 
 @dataclass(frozen=True)
@@ -65,7 +66,7 @@ def smooth_derivative(model, *, X=None, smooth_number: int = 1, deriv: int = 1):
         derivative=values,
         se=np.sqrt(np.maximum(variance, 0.0)),
         derivative_matrix=Xd,
-        term_label=str(term.label),
+        term_label=mgcv_term_display_label(term),
         order=deriv,
     )
 

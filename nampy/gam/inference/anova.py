@@ -34,6 +34,7 @@ from ..model_state import (
     _term_blocks_seq,
     _term_full_coefficient_indices,
 )
+from ..term_labels import mgcv_term_display_label
 from .chi_square_mixtures import psum_chisq
 
 
@@ -45,9 +46,7 @@ def _scale_estimated(model) -> bool:
 
 
 def _formula_term_label(tb) -> str:
-    metadata = dict(getattr(tb, "metadata", {}) or {})
-    formula_term = metadata.get("formula_term", None)
-    return str(getattr(tb, "label", "")) if formula_term is None else str(formula_term)
+    return mgcv_term_display_label(tb, formula_parametric=True)
 
 
 def _parametric_term_groups(model):
@@ -56,7 +55,7 @@ def _parametric_term_groups(model):
         if str(getattr(tb, "term_type", "")) != "parametric":
             continue
         label = _formula_term_label(tb)
-        key = ("parametric", label)
+        key = ("parametric", int(getattr(tb, "predictor_index", 0)), label)
         if groups and groups[-1]["key"] == key:
             groups[-1]["blocks"].append(tb)
             continue
@@ -620,7 +619,7 @@ def _term_table(
         )
         smooth_rows.append(
             {
-                "label": str(tb.label),
+                "label": mgcv_term_display_label(tb),
                 "edf": edf_i,
                 "ref_df": ref_df,
                 "wald_stat": stat_out,
