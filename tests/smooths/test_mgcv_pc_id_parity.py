@@ -1,6 +1,6 @@
 """
 mgcv parity tests for:
-  1. pc= point-constraint smooths (cr, cs, cc, ps, tp, ts)
+  1. pc= point-constraint smooths (cr, cs, cc, ps, tp, ts, te, ti)
   2. Linked-basis id= smooths (compatible k, incompatible-k harmonisation)
 
 Every test here runs the SAME formula through both NAMpy and mgcv (via
@@ -278,6 +278,104 @@ class TestPcParityFixed:
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
         _exact_parity(actual, expected, atol=5e-4)
 
+    @pytest.mark.parametrize(
+        "formula",
+        [
+            'y ~ te(x, z, bs=c("cr", "cr"), k=c(6, 5), '
+            'pc=c(0.2, -0.3), sp=c(1.1, 0.7))',
+            'y ~ ti(x, z, bs=c("cr", "ps"), k=c(6, 5), '
+            'pc=c(0.2, -0.3), sp=c(1.1, 0.7))',
+        ],
+    )
+    def test_tensor_pc_fixed_sp_matches_mgcv(self, formula):
+        """te/ti point constraints mirror smooth.construct3 and smoothCon."""
+        data = _data_2d()
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
+        _exact_parity(actual, expected)
+
+    def test_te_numeric_by_pc_fixed_sp_matches_mgcv(self):
+        """Tensor point constraints are absorbed before numeric-by scaling."""
+        data = _data_numeric_by_2d()
+        formula = (
+            'y ~ te(x, w, by=z, bs=c("cr", "cr"), k=c(6, 5), '
+            'pc=c(0.2, -0.3), sp=c(1.1, 0.7))'
+        )
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
+        _exact_parity(actual, expected)
+
+    def test_te_factor_by_pc_fixed_sp_matches_mgcv(self):
+        """Factor-by tensor replicas retain the requested point constraint."""
+        data = _data_2d(seed=37)
+        data["f"] = pd.Categorical(
+            np.where(
+                data["x"].to_numpy() < -0.2,
+                "a",
+                np.where(data["x"] > 0.4, "c", "b"),
+            )
+        )
+        formula = (
+            'y ~ f + te(x, z, by=f, bs=c("cr", "cr"), k=c(6, 5), '
+            'pc=c(0.2, -0.3), sp=c(1.1, 0.7))'
+        )
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
+        np.testing.assert_allclose(
+            actual["predictions"]["response"],
+            expected["predictions"]["response"],
+            atol=1e-10,
+            rtol=1e-10,
+        )
+        np.testing.assert_allclose(
+            actual["fit"]["edf_by_term"][-3:],
+            expected["fit"]["edf_by_term"],
+            atol=1e-10,
+            rtol=1e-10,
+        )
+        np.testing.assert_allclose(
+            actual["fit"]["deviance"],
+            expected["fit"]["deviance"],
+            atol=1e-10,
+            rtol=1e-10,
+        )
+
+    @pytest.mark.parametrize("special", ["te", "ti"])
+    def test_tensor_pc_zeroes_term_at_constraint_point(self, special):
+        """The fitted tensor contribution passes through zero at pc=."""
+        from nampy.gam import GAM
+
+        data = _data_2d(seed=29)
+        formula = (
+            f'y ~ {special}(x, z, bs=c("cr", "cr"), k=c(6, 5), '
+            'pc=c(0.2, -0.3))'
+        )
+        gam = GAM(
+            formula=formula,
+            optimize_smoothing=False,
+            smoothing_method="fixed",
+            smoothing_params=[1.1, 0.7],
+        ).fit(data=data)
+        probe = pd.DataFrame({"x": [0.2], "z": [-0.3]})
+        terms = np.asarray(gam.predict(probe, type="terms"), dtype=np.float64)
+        np.testing.assert_allclose(terms, 0.0, atol=1e-12, rtol=0.0)
+
+    def test_tensor_pc_requires_one_value_per_variable(self):
+        """te() mirrors its upstream validation for underspecified pc=."""
+        from nampy.gam import GAM
+
+        data = _data_2d(seed=31)
+        with pytest.raises(
+            ValueError,
+            match="supply a value for each variable for a point constraint",
+        ):
+            GAM(
+                formula='y ~ te(x, z, k=c(6, 5), pc=0.2)',
+                optimize_smoothing=False,
+                smoothing_method="fixed",
+                smoothing_params=[1.1, 0.7],
+            ).fit(data=data)
+
 # ===========================================================================
 # pc= parity -- REML
 # ===========================================================================
@@ -429,6 +527,18 @@ class TestPcParityREML:
             pred_rtol=1e-10,
             sp_log_atol=1e-8,
         )
+
+    @pytest.mark.parametrize("special", ["te", "ti"])
+    def test_tensor_pc_reml_matches_mgcv(self, special):
+        """Automatic smoothing selection preserves tensor pc coordinates."""
+        data = _data_2d(seed=23)
+        formula = (
+            f'y ~ {special}(x, z, bs=c("cr", "cr"), k=c(6, 5), '
+            'pc=c(0.2, -0.3))'
+        )
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+        _assert_exact_mgcv_snapshot_parity(actual, expected)
 
 
 # ===========================================================================
