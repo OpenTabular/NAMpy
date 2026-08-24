@@ -56,6 +56,7 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         fixed=False,
         null_penalty_tol=1e-10,
         knots=None,
+        pc=None,
         metadata=None,
     ):
         features = list(feature) if not isinstance(feature, (str, int)) else [feature]
@@ -101,6 +102,7 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         self.fixed = bool(all(self.fixed_flags))
         self.null_penalty_tol = float(null_penalty_tol)
         self.knots = _normalize_knots(knots, features)
+        self.pc = pc
 
         self._feature_indices = None
         self._feature_names = None
@@ -162,7 +164,29 @@ class TensorProductSplineTerm(BaseSmoothTerm):
             isinstance(self.metadata, dict)
             and self.metadata.get("factor_by", None) is not None
         )
-        if self._by_state.is_constant or factor_by_meta:
+        if self.pc is not None:
+            max_index = max(feature_indices)
+
+            def point_basis_fn(point):
+                point_data = np.zeros((point.shape[0], max_index + 1), dtype=np.float64)
+                point_data[:, feature_indices] = point
+                return tensor_predict_matrix(
+                    marginals,
+                    point_data,
+                    centered=False,
+                    np_transforms=marginal_np_transforms,
+                )
+
+            B_te, S_te, C_te, _ = self._apply_point_constraint(
+                B_raw,
+                S_raw,
+                self.pc,
+                feature_names=feature_names_resolved,
+                point_basis_fn=point_basis_fn,
+                fixed=False,
+            )
+            constraint_kind = "pc"
+        elif self._by_state.is_constant or factor_by_meta:
             if self._linked_id_setup() is None:
                 B_te, S_te, C_te = full_term_sum_to_zero_constraint(B_raw, S_raw)
             else:
@@ -170,8 +194,12 @@ class TensorProductSplineTerm(BaseSmoothTerm):
                 B_te = B_raw @ C_te
         else:
             B_te, S_te, C_te = B_raw, S_raw, None
+            constraint_kind = None
 
-        B_te = self._apply_cached_by(B_te)
+        if self.pc is None:
+            B_te = self._apply_cached_by(B_te)
+            if C_te is not None:
+                constraint_kind = "sum_to_zero"
 
         self._marginals = marginals
         self._marginal_np_transforms = marginal_np_transforms
@@ -196,7 +224,7 @@ class TensorProductSplineTerm(BaseSmoothTerm):
             ]
         )
         self._record_constraint_result(
-            "sum_to_zero" if C_te is not None else None,
+            constraint_kind,
             C_te,
             absorbed_by=("runtime" if C_te is not None else None),
         )

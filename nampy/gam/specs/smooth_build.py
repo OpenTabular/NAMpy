@@ -243,6 +243,7 @@ def _build_te(opts) -> TensorProductSmoothSpec:
         sp=opts["sp"],
         knots=opts["knots"],
         d=opts["d"],
+        pc=opts["pc"],
     )
 
 
@@ -259,6 +260,7 @@ def _build_ti(opts) -> TensorInteractionSmoothSpec:
         knots=opts["knots"],
         mc=opts["mc"],
         d=opts["d"],
+        pc=opts["pc"],
     )
 
 
@@ -291,7 +293,7 @@ def _dispatch_smooth_spec_from_options(opts) -> SmoothSpec:
                 "{'cc', 'cr', 'cs', 'ps', 'tp', 'ts'}."
             )
         return builder(merged)
-    if has_pc:
+    if has_pc and special_key not in {"te", "ti"}:
         raise NotImplementedError(
             f"pc= is not supported for {special_key}(...) smooths."
         )

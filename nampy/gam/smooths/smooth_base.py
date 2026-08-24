@@ -344,18 +344,14 @@ def _normalize_point_constraint_vector(pc, feature_names):
         return np.asarray([_normalize_point_constraint(pc, names[0])], dtype=np.float64)
     if isinstance(pc, dict):
         missing = [name for name in names if name not in pc]
-        extra = [name for name in pc.keys() if str(name) not in names]
-        if missing or extra:
+        if missing:
             raise ValueError(
-                f"pc dict must provide exactly one value for each feature {names}; "
-                f"missing={missing}, extra={extra}."
+                "supply a value for each variable for a point constraint"
             )
         return np.asarray([float(pc[name]) for name in names], dtype=np.float64)
     vals = np.asarray(pc, dtype=np.float64).ravel()
     if vals.size < n:
-        raise ValueError(
-            f"pc must supply {n} values for features {names}, got {vals.size}."
-        )
+        raise ValueError("supply a value for each variable for a point constraint")
     if vals.size > n:
         vals = vals[:n]
     return vals.astype(np.float64, copy=False)
