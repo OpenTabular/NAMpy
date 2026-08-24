@@ -1270,8 +1270,8 @@ def test_stage_7_structured_term_newdata_response_matches_mgcv(formula):
     )
 
 
-def test_stage_7_prediction_rejects_unseen_factor_levels_and_nan_explicitly():
-    """Unsupported newdata values fail at prediction rather than degrading silently."""
+def test_stage_7_prediction_rejects_unseen_levels_and_passes_nan_rows():
+    """Unseen factors fail while default na.pass preserves missing rows."""
     data = _formula_data(seed=914, n=75)
     formula = 'y ~ f + s(x0, by=f, bs="cr", k=6, sp=0.8)'
     gam = GAM(family="gaussian", formula=formula).fit(data=data)
@@ -1283,8 +1283,9 @@ def test_stage_7_prediction_rejects_unseen_factor_levels_and_nan_explicitly():
 
     with_nan = data.iloc[:3].drop(columns=["y"]).copy()
     with_nan.loc[with_nan.index[0], "x0"] = np.nan
-    with pytest.raises(ValueError, match="NaN|Inf"):
-        gam.predict(with_nan, type="response")
+    predicted = gam.predict(with_nan, type="response")
+    assert np.isnan(predicted[0])
+    assert np.isfinite(predicted[1:]).all()
 
 
 def test_stage_7_fit_diagnostics_snapshot_and_persistence_roundtrip(tmp_path):

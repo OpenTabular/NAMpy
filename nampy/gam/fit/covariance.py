@@ -14,6 +14,8 @@ Two covariance estimates are provided for each fitted model:
   fixed penalty rather than a prior.
 """
 
+import warnings
+
 import numpy as np
 
 from ..linalg import symmetrize_matrix
@@ -66,3 +68,20 @@ def select_covariance_matrix(model, cov=None):
         cov_freq = _cov_freq(model)
         return None if cov_freq is None else np.asarray(cov_freq, dtype=np.float64)
     raise ValueError("cov must be 'bayes' or 'freq'.")
+
+
+def select_prediction_covariance_matrix(model, cov=None, *, unconditional=False):
+    """Select predict.gam's conditional or smoothness-corrected covariance."""
+    if unconditional:
+        from ..model_state import _cov_bayes, _cov_unconditional
+
+        corrected = _cov_unconditional(model)
+        if corrected is not None:
+            return np.asarray(corrected, dtype=np.float64)
+        warnings.warn(
+            "Smoothness uncertainty corrected covariance not available",
+            stacklevel=3,
+        )
+        fallback = _cov_bayes(model)
+        return None if fallback is None else np.asarray(fallback, dtype=np.float64)
+    return select_covariance_matrix(model, cov=cov)

@@ -6,12 +6,19 @@ import numpy as np
 import pandas as pd
 
 
-def coerce_X(model, X, *, allow_missing_non_numeric: bool = False):
+def coerce_X(
+    model,
+    X,
+    *,
+    allow_missing_non_numeric: bool = False,
+    allow_missing_numeric: bool = False,
+):
     if isinstance(X, pd.DataFrame):
         feature_names = list(X.columns)
         X_np = dataframe_to_feature_matrix(
             X,
             allow_missing_non_numeric=allow_missing_non_numeric,
+            allow_missing_numeric=allow_missing_numeric,
         )
     else:
         X_np = np.asarray(X)
@@ -23,7 +30,7 @@ def coerce_X(model, X, *, allow_missing_non_numeric: bool = False):
         feature_names = [f"x{i}" for i in range(X_np.shape[1])]
         if X_np.dtype != object:
             X_num = np.asarray(X_np, dtype=np.float64)
-            if not np.isfinite(X_num).all():
+            if not bool(allow_missing_numeric) and not np.isfinite(X_num).all():
                 raise ValueError("X contains NaN or Inf")
             X_np = X_num
 
@@ -109,7 +116,10 @@ def knots_for_feature(model, feature_name, *, knots=None):
 
 
 def dataframe_to_feature_matrix(
-    X_df: pd.DataFrame, *, allow_missing_non_numeric: bool = False
+    X_df: pd.DataFrame,
+    *,
+    allow_missing_non_numeric: bool = False,
+    allow_missing_numeric: bool = False,
 ):
     non_numeric = [
         c for c in X_df.columns if not pd.api.types.is_numeric_dtype(X_df[c])
@@ -117,7 +127,7 @@ def dataframe_to_feature_matrix(
 
     if len(non_numeric) == 0:
         X_np = X_df.to_numpy(dtype=np.float64)
-        if not np.isfinite(X_np).all():
+        if not bool(allow_missing_numeric) and not np.isfinite(X_np).all():
             raise ValueError("X contains NaN or Inf")
         return X_np
 
@@ -125,7 +135,7 @@ def dataframe_to_feature_matrix(
         s = X_df[c]
         if pd.api.types.is_numeric_dtype(s):
             vals = np.asarray(s, dtype=np.float64)
-            if not np.isfinite(vals).all():
+            if not bool(allow_missing_numeric) and not np.isfinite(vals).all():
                 raise ValueError(f"Numeric column {c!r} contains NaN or Inf.")
         elif s.isna().any() and not bool(allow_missing_non_numeric):
             raise ValueError(
@@ -136,7 +146,9 @@ def dataframe_to_feature_matrix(
     return X_df.to_numpy(dtype=object)
 
 
-def coerce_formula_predict_inputs(model, X):
+def coerce_formula_predict_inputs(
+    model, X, *, allowed_missing_features=(), allow_missing_numeric=False
+):
     from .specs.preprocess import apply_formula_preprocess_to_new_data
 
     if not model.formula_mode_:
@@ -148,16 +160,47 @@ def coerce_formula_predict_inputs(model, X):
             "Prediction for formula-based GAMs currently requires a pandas DataFrame."
         )
 
-    X_work = apply_formula_preprocess_to_new_data(X, model.formula_preprocess_state_)
+    result = getattr(model, "gam_result_", None)
+    compiled = None if result is None else getattr(result, "compiled_model", None)
+    for term in tuple(getattr(compiled, "compiled_terms", ()) or ()):
+        factor_info = (getattr(term, "metadata", {}) or {}).get(
+            "factor_levels_by_feature", {}
+        )
+        for feature, info in factor_info.items():
+            if feature not in X.columns:
+                continue
+            allowed = list(info.get("levels", ()))
+            observed = [value for value in pd.unique(X[feature]) if not pd.isna(value)]
+            unseen = [value for value in observed if value not in allowed]
+            if unseen:
+                raise ValueError(
+                    f"Prediction factor column {feature!r} contains unseen levels: "
+                    f"{unseen}. Training levels are {allowed}."
+                )
+
+    allowed_missing = {str(value) for value in allowed_missing_features}
+    X_work = apply_formula_preprocess_to_new_data(
+        X,
+        model.formula_preprocess_state_,
+        skip_output_columns=allowed_missing,
+    )
     feature_columns = getattr(model, "formula_feature_columns_", None)
     if feature_columns is None:
         feature_columns = model.formula_used_columns_
+    missing = [c for c in feature_columns if c not in X_work.columns]
+    for name in [value for value in missing if value in allowed_missing]:
+        X_work[name] = np.zeros(len(X_work), dtype=np.float64)
     missing = [c for c in feature_columns if c not in X_work.columns]
     if missing:
         raise KeyError(f"Prediction data is missing formula columns: {missing}")
 
     X_df = X_work[feature_columns]
-    X_np, _ = coerce_X(model, X_df, allow_missing_non_numeric=True)
+    X_np, _ = coerce_X(
+        model,
+        X_df,
+        allow_missing_non_numeric=True,
+        allow_missing_numeric=allow_missing_numeric,
+    )
 
     offset_names = getattr(model, "formula_offset_names_", None)
     offset = None

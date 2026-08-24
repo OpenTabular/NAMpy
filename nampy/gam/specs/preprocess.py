@@ -8,7 +8,9 @@ import pandas as pd
 from .build import _evaluate_formula_numeric_expression, numeric_1d_values
 
 
-def apply_formula_preprocess_to_new_data(data, preprocess_state):
+def apply_formula_preprocess_to_new_data(
+    data, preprocess_state, *, skip_output_columns=()
+):
     if preprocess_state is None:
         return data
 
@@ -18,6 +20,7 @@ def apply_formula_preprocess_to_new_data(data, preprocess_state):
         )
 
     out = data.copy()
+    skipped_outputs = {str(value) for value in skip_output_columns}
 
     def validate_factor_levels(source, allowed_levels):
         values = out[source]
@@ -38,10 +41,14 @@ def apply_formula_preprocess_to_new_data(data, preprocess_state):
             )
 
     for item in preprocess_state.get("formula_expression_columns", []):
+        if str(item["hidden_name"]) in skipped_outputs:
+            continue
         values, _src_vars = _evaluate_formula_numeric_expression(item["expr"], out)
         out[item["hidden_name"]] = values
 
     for item in preprocess_state.get("parametric_expansions", []):
+        if str(item["hidden_name"]) in skipped_outputs:
+            continue
         vals = np.ones(len(out), dtype=np.float64)
         for comp in item["recipe"]:
             src = comp["var"]
@@ -65,6 +72,10 @@ def apply_formula_preprocess_to_new_data(data, preprocess_state):
 
     for item in preprocess_state.get("factor_by_expansions", []):
         src = item["source_by"]
+        if str(item["hidden_by"]) in skipped_outputs:
+            if src in out.columns:
+                validate_factor_levels(src, item["all_levels"])
+            continue
         if src not in out.columns:
             raise KeyError(
                 f"Prediction data is missing factor by-variable {src!r} "

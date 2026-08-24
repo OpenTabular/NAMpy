@@ -177,12 +177,18 @@ def test_missing_offset_column_raises_key_error():
         gam.predict(newdata, type="link")
 
 
-def test_nonfinite_numeric_newdata_raises_value_error():
-    """NaN/Inf in numeric prediction columns raise explicitly."""
+def test_numeric_nan_defaults_to_na_pass_while_inf_remains_invalid():
+    """predict.gam's default pass restores NaN rows; Inf remains invalid."""
     data = _make_gaussian_data()
     gam = _fixed_gaussian_fit(data)
     newdata = data.iloc[:5].drop(columns=["y"]).reset_index(drop=True)
     newdata.loc[newdata.index[2], "x0"] = np.nan
+    predicted = gam.predict(newdata, type="link")
+    assert predicted.shape == (5,)
+    assert np.isnan(predicted[2])
+    assert np.isfinite(np.delete(predicted, 2)).all()
+
+    newdata.loc[newdata.index[2], "x0"] = np.inf
     with pytest.raises(ValueError, match="NaN or Inf"):
         gam.predict(newdata, type="link")
 
