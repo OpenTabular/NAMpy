@@ -32,6 +32,7 @@ from ..model_state import (
     _term_blocks_seq,
     _term_full_coefficient_indices,
 )
+from ..term_labels import mgcv_term_display_label
 from .anova import (
     _parametric_term_groups,
     _residual_df,
@@ -116,12 +117,13 @@ def _parametric_coefficient_indices(model) -> tuple[list[int], list[str]]:
     for group in _parametric_term_groups(model):
         for tb in group["blocks"]:
             full_indices = _term_full_coefficient_indices(model, tb)
+            term_label = mgcv_term_display_label(tb)
             for j, full_index in enumerate(full_indices):
                 indices.append(int(full_index))
                 names.append(
-                    str(tb.label)
+                    term_label
                     if full_indices.size == 1
-                    else f"{tb.label}.{j}"
+                    else f"{term_label}.{j}"
                 )
     return indices, names
 

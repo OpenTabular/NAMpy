@@ -37,7 +37,7 @@ from ..model_state import (
     _term_full_coefficient_indices,
 )
 from ..predict.terms import _prediction_term_groups
-from ..term_labels import normalize_mgcv_term_label
+from ..term_labels import mgcv_term_display_label, normalize_mgcv_term_label
 
 
 def _as_pred_or_scalar_array(value):
@@ -430,7 +430,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
                 continue
             smooth_blocks.append(tb)
             full_idx = _term_full_coefficient_indices(core, tb)
-            smooth_labels.append(_normalize_reference_term_label(tb.label))
+            smooth_labels.append(mgcv_term_display_label(tb))
             if _cov_bayes(core) is not None:
                 smooth_cov_bayes.append(
                     np.asarray(

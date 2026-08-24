@@ -15,6 +15,7 @@ from ..model_state import (
     _term_full_coefficient_indices,
 )
 from ..predict.linear_predictor_matrix import build_lpmatrix
+from ..term_labels import mgcv_term_display_label
 
 
 def _term_indices_for_concurvity(model, n_coef: int):
@@ -37,7 +38,7 @@ def _term_indices_for_concurvity(model, n_coef: int):
         if idx.size == 0:
             continue
         smooth_starts.append(int(np.min(idx)))
-        blocks.append((str(tb.label), idx))
+        blocks.append((mgcv_term_display_label(tb), idx))
 
     if len(blocks) == 0:
         raise ValueError("No smooth or parametric components available for concurvity.")

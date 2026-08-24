@@ -53,6 +53,22 @@ def _gaulss_tensor_data(seed=22, n=160):
     return pd.DataFrame({"y": y, "x0": x0, "x1": x1})
 
 
+GENERAL_MULTISMOOTH_FORMULA = [
+    'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)',
+    '~ s(x0, bs="cr", k=7) + s(x1, bs="cr", k=7)',
+]
+
+
+def _gaulss_multismooth_data(seed=1501, n=220):
+    rng = np.random.default_rng(seed)
+    x0 = rng.uniform(-1.5, 1.5, size=n)
+    x1 = rng.uniform(-1.5, 1.5, size=n)
+    mu = 0.3 + 1.8 * np.sin(2.5 * x0) + 1.1 * np.cos(3.0 * x1)
+    sigma = np.exp(-1.0 + 0.45 * np.sin(2.0 * x0) - 0.35 * np.cos(2.5 * x1))
+    y = rng.normal(mu, sigma, size=n)
+    return pd.DataFrame({"y": y, "x0": x0, "x1": x1})
+
+
 def _gammals_data(n=100, seed=2):
     rng = np.random.default_rng(seed)
     x = rng.uniform(-1.0, 1.0, n)

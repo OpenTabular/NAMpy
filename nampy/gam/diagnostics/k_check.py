@@ -13,6 +13,7 @@ from ..model_state import (
     _term_blocks_seq,
 )
 from ..predict.linear_predictor_matrix import build_lpmatrix
+from ..term_labels import mgcv_term_display_label
 from .residuals import residuals_gam
 
 
@@ -177,7 +178,7 @@ def k_check(model, subsample: int = 5000, n_rep: int = 400, seed: int | None = N
         edf_by_term = edf_all
     perm_col = 0
     for i, tb in enumerate(term_blocks):
-        label = str(tb.label)
+        label = mgcv_term_display_label(tb)
         X_term = _numeric_feature_block(model, tb, row_idx)
         k_prime = int(tb.coef_slice.stop - tb.coef_slice.start)
         edf = float(edf_by_term[i])

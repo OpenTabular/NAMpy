@@ -36,7 +36,7 @@ from ..predict.linear_predictor_matrix import build_lpmatrix
 from ..predict.predictions import _term_has_absorbed_constraint
 from ..predict.terms import _prediction_term_groups
 from ..smooths.categorical import factor_levels_from_metadata
-from ..term_labels import normalize_mgcv_term_label
+from ..term_labels import mgcv_term_display_label
 from .residuals import _prior_weights
 
 __all__ = [
@@ -462,7 +462,8 @@ def prepare_plot_gam_data(
 
     pd_list = []
     for i, tb in enumerate(smooth_blocks):
-        label = _sub_edf(str(tb.label), edf_map.get(id(tb), float("nan")))
+        display_label = mgcv_term_display_label(tb)
+        label = _sub_edf(display_label, edf_map.get(id(tb), float("nan")))
         P = _prepare_smooth(
             model,
             tb,
@@ -535,7 +536,7 @@ def prepare_plot_gam_data(
             P["se"] = False
 
         if partial_resids:
-            normalized = str(normalize_mgcv_term_label(str(tb.label)))
+            normalized = display_label
             group_index = None
             for gi, glabel in enumerate(term_group_labels):
                 if glabel == normalized:

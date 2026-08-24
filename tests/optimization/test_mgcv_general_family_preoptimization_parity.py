@@ -20,10 +20,12 @@ from nampy.gam.smooths.univariate.cr import CubicSplineTerm
 from tests._paths import PARITY_DIR, REPO_ROOT
 from tests.families.test_general_family_mgcv_parity import (
     GAULSS_FORMULA,
+    GENERAL_MULTISMOOTH_FORMULA,
     _gammals_by_data,
     _gammals_data,
     _gaulss_by_data,
     _gaulss_data,
+    _gaulss_multismooth_data,
 )
 from tests.mgcv_parity_utils import _family_specs, _fit_nampy_model_fixed_sp
 from tests.reference_fixtures import (
@@ -404,6 +406,15 @@ def _assert_general_fit5_setup_parity(
 
 GENERAL_PREOPT_CASES = [
     ("gaulss_cr", "gaulss", GAULSS_FORMULA, _gaulss_data, "ML", False, True),
+    (
+        "gaulss_multi_smooth_both_predictors",
+        "gaulss",
+        GENERAL_MULTISMOOTH_FORMULA,
+        _gaulss_multismooth_data,
+        "ML",
+        False,
+        True,
+    ),
     (
         "gaulss_fs",
         "gaulss",
