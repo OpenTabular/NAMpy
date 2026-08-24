@@ -888,9 +888,9 @@ site[south]      -0.91813      0.13085      -7.0168    2.634e-11 ***
 Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 
 Approximate significance of smooth terms:
-                                        edf       Ref.df            F      p-value
-s(temperature, k=10, bs=&#39;cr&#39;)        6.5526       7.6755       1119.3       &lt;2e-16 ***
-s(hour, k=8, bs=&#39;cc&#39;)                5.2013            6       157.61       &lt;2e-16 ***
+                         edf       Ref.df            F      p-value
+s(temperature)        6.5526       7.6755       1119.3       &lt;2e-16 ***
+s(hour)               5.2013            6       157.61       &lt;2e-16 ***
 ---
 Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 
@@ -910,13 +910,13 @@ GAMSummary(family_name=&#39;gaussian&#39;, link_name=&#39;identity&#39;, formula
 (Intercept)  22.534346    0.090328  249.471714  3.917107e-277
 site[north]   1.329303    0.124333   10.691452   7.633620e-22
 site[south]  -0.918130    0.130848   -7.016791   2.633719e-11, pterms_table=  label   df   wald_stat       p_value test covariance  dispersion
-0  site  2.0  161.053047  3.727986e-44    F      bayes    0.621716, s_table=                           label       edf    ref_df    wald_stat  p_value  \
-0  s(temperature, k=10, bs=&#39;cr&#39;)  6.552618  7.675521  1119.307876      0.0
-1          s(hour, k=8, bs=&#39;cc&#39;)  5.201306  6.000000   157.613828      0.0
+0  site  2.0  161.053047  3.727986e-44    F      bayes    0.621716, s_table=            label       edf    ref_df    wald_stat  p_value test term_type  \
+0  s(temperature)  6.552618  7.675521  1119.307876      0.0    F    smooth
+1         s(hour)  5.201306  6.000000   157.613828      0.0    F    smooth
 
-  test term_type basis_name covariance  dispersion
-0    F    smooth         cr      bayes    0.621716
-1    F    smooth         cc      bayes    0.621716  , residual_df=225.24607625201773, m=2, scale=0.6217162949854625, dispersion=0.6217162949854625, scale_estimated=True, r_sq=0.97599862344129, dev_expl=0.9773798498138219, null_deviance=6190.903015002372, deviance=140.0391559874174, n=240, np=18, rank=18, method=&#39;-REML&#39;, sp_criterion=304.3075403577923, covariance=&#39;bayes&#39;, edf_total=14.75392374798226, metadata={})
+  basis_name covariance  dispersion
+0         cr      bayes    0.621716
+1         cc      bayes    0.621716  , residual_df=225.24607625201773, m=2, scale=0.6217162949854625, dispersion=0.6217162949854625, scale_estimated=True, r_sq=0.97599862344129, dev_expl=0.9773798498138219, null_deviance=6190.903015002372, deviance=140.0391559874174, n=240, np=18, rank=18, method=&#39;-REML&#39;, sp_criterion=304.3075403577923, covariance=&#39;bayes&#39;, edf_total=14.75392374798226, metadata={})
 </pre></div></div>
 </div>
 <div class="nboutput docutils container">
@@ -1624,9 +1624,9 @@ site[south]      -0.91813      0.13085      -7.0168    2.634e-11 ***
 Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 
 Approximate significance of smooth terms:
-                                        edf       Ref.df            F      p-value
-s(temperature, k=10, bs=&#39;cr&#39;)        6.5526       7.6755       1119.3       &lt;2e-16 ***
-s(hour, k=8, bs=&#39;cc&#39;)                5.2013            6       157.61       &lt;2e-16 ***
+                         edf       Ref.df            F      p-value
+s(temperature)        6.5526       7.6755       1119.3       &lt;2e-16 ***
+s(hour)               5.2013            6       157.61       &lt;2e-16 ***
 ---
 Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 
