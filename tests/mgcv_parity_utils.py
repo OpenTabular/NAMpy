@@ -1625,6 +1625,12 @@ serialize_smooth <- function(sm) {
       shift = pack_vector(sm$shift, "numeric"),
       drop_null = isTRUE(sm$drop.null != 0)
     ),
+    "duchon.spline" = list(
+      knt = pack_matrix(sm$knt),
+      UZ = pack_matrix(sm$UZ),
+      shift = pack_vector(sm$shift, "numeric"),
+      p_order = pack_vector(sm$p.order, "numeric")
+    ),
     "random.effect" = list(
       C = pack_constraint(sm$C),
       random = isTRUE(sm$random),

@@ -604,24 +604,43 @@ class BaseSmoothTerm(abc.ABC):
             X_shared[:, feature_names.index(str(name))] = col
         return X_shared
 
-    def _linked_id_marginal_setups(self):
+    def _linked_id_marginal_setups(self, feature_groups=None):
         cols = self._linked_id_pooled_columns()
         setup = self._linked_id_setup()
         if cols is None or setup is None:
             return None
-        return [
-            {
-                "mode": "linked_id",
-                "id": str(setup.get("id")),
-                "pooled_feature_names": [str(name)],
-                "pooled_feature_values": [np.asarray(col, dtype=object).copy()],
-                "n_linked_terms": int(setup.get("n_linked_terms", 0)),
-                "linked_term_labels": list(setup.get("linked_term_labels", [])),
-            }
-            for name, col in zip(
-                setup.get("pooled_feature_names", []), cols, strict=True
+        pooled_names = [str(name) for name in setup.get("pooled_feature_names", [])]
+        if feature_groups is None:
+            groups = [(name,) for name in pooled_names]
+        else:
+            groups = [
+                tuple(group) if isinstance(group, (list, tuple)) else (group,)
+                for group in feature_groups
+            ]
+        column_by_name = {
+            name: np.asarray(column, dtype=object).copy()
+            for name, column in zip(pooled_names, cols, strict=True)
+        }
+        out = []
+        for group in groups:
+            names = [str(name) for name in group]
+            missing = [name for name in names if name not in column_by_name]
+            if missing:
+                raise KeyError(
+                    f"Linked tensor marginal features {missing!r} are absent from "
+                    "the pooled basis setup."
+                )
+            out.append(
+                {
+                    "mode": "linked_id",
+                    "id": str(setup.get("id")),
+                    "pooled_feature_names": names,
+                    "pooled_feature_values": [column_by_name[name] for name in names],
+                    "n_linked_terms": int(setup.get("n_linked_terms", 0)),
+                    "linked_term_labels": list(setup.get("linked_term_labels", [])),
+                }
             )
-        ]
+        return out
 
     @abc.abstractmethod
     def fit(self, X, feature_names):
