@@ -1443,14 +1443,14 @@ differences. A cubic regression spline estimates the temperature shape; a
 cyclic cubic spline forces midnight and the end of the day to join smoothly;
 the categorical site enters parametrically.
 
-`GAMRegressor` and `GAMClassifier` provide sklearn-style methods while exposing
-the fitted parity backend as `gam_`.
+`GAMRegressor`, `GAMClassifier`, and `GAMLSS` provide task-specific
+sklearn-style methods while exposing the fitted parity backend as `gam_`.
 """,
                 "gam-adapter-title",
             ),
             code(
                 r"""
-from nampy.models import GAMClassifier, GAMRegressor
+from nampy.models import GAMClassifier, GAMLSS, GAMRegressor
 
 model = GAMRegressor(
     formula=(
@@ -1715,13 +1715,13 @@ if RUN_EXTENDED_FITS:
                 "gam-families",
             ),
             markdown(
-                r"""## 8. Multi-linear-predictor GAMs
+                r"""## 8. Multi-linear-predictor GAMLSS models
 
-General families can own more than one additive predictor. For Gaussian
-location-scale modeling, NAMpy's `gaulss` family uses one predictor for the
-conditional mean and another for the scale parameter. Each predictor has its
-own formula, design matrix, smooths, penalties, and offsets, while joint
-likelihood derivatives couple their estimation.
+`GAMLSS` owns statistical models with more than one additive predictor. For
+Gaussian location-scale modeling, the `normal` family uses one predictor for
+the conditional mean and another for the standard deviation. Each predictor
+has its own formula, design matrix, smooths, penalties, and offsets, while
+joint likelihood derivatives couple their estimation.
 
 This is different from fitting two unrelated GAMs: both predictors describe
 one response distribution and their covariance follows from one joint fit.
@@ -1730,23 +1730,23 @@ one response distribution and their covariance follows from one joint fit.
             ),
             code(
                 r"""
-location_scale = GAM(
-    formula=[
-        "demand ~ s(temperature, bs='cr', k=9) + s(hour, bs='cc', k=8) + site",
-        "~ s(temperature, bs='cr', k=7)",
-    ],
-    family="gaulss",
+location_scale = GAMLSS(
+    formula={
+        "mu": "demand ~ s(temperature, bs='cr', k=9) + s(hour, bs='cc', k=8) + site",
+        "sigma": "~ s(temperature, bs='cr', k=7)",
+    },
+    family="normal",
     optimize_smoothing=True,
     smoothing_method="ml",
     smoothing_optimizer="outer_newton",
 )
 
-gamma_location_scale = GAM(
-    formula=[
-        "cost ~ s(temperature, bs='cr', k=8) + s(humidity, bs='ps', k=8)",
-        "~ 1",
-    ],
-    family="gammals",
+gamma_location_scale = GAMLSS(
+    formula={
+        "mu": "cost ~ s(temperature, bs='cr', k=8) + s(humidity, bs='ps', k=8)",
+        "sigma": "~ 1",
+    },
+    family="gamma",
     optimize_smoothing=True,
     smoothing_method="ml",
     smoothing_optimizer="outer_newton",
@@ -1754,10 +1754,9 @@ gamma_location_scale = GAM(
 )
 
 if RUN_EXTENDED_FITS:
-    location_scale.fit(data=data)
-    mean_and_scale, mean_and_scale_se = location_scale.predict(
-        data, type="response", return_se=True
-    )
+    location_scale.fit(data)
+    mean_and_scale = location_scale.predict(data)
+    mean_and_scale_se = location_scale.standard_errors(data)
     fig, axes = plt.subplots(1, 2, figsize=(11, 3.8), constrained_layout=True)
     axes[0].scatter(data["demand"], mean_and_scale[:, 0], s=22, alpha=0.6, color=COLORS[0])
     axes[0].set(title="Location predictor", xlabel="Observed demand", ylabel="Estimated mean")
@@ -1888,8 +1887,10 @@ if RUN_TRAINING:
                 """## 11. Direct backend, adapters, and classification
 
 Use `nampy.gam.GAM` when you need the raw mgcv-shaped interface. The adapters
-are preferable for sklearn workflows. `GAMClassifier` supports binary targets
-and adds `predict_proba` and `decision_function`.
+are preferable for sklearn workflows. `GAMRegressor` owns single-response
+regression, `GAMClassifier` owns binary binomial classification and adds
+`predict_proba` and `decision_function`, and `GAMLSS` owns multi-parameter
+distributional regression.
 """,
                 "gam-variants-title",
             ),

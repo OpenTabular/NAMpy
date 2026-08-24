@@ -114,6 +114,7 @@ class GammalsFamily(GamlssFamily):
     family_class = "general"
     nlp = 2
     n_linear_predictors = 2
+    parameter_names = ("mu", "sigma")
 
     supports_laml = True
     supports_ml = True
@@ -154,6 +155,61 @@ class GammalsFamily(GamlssFamily):
         self.tri = trind_generator(2)
         self.link_names = (link1_name, link2_name)
         self.link_name = f"({link1_name}, {link2_name})"
+
+    def distribution_parameters_from_eta(self, eta: np.ndarray) -> np.ndarray:
+        eta = np.asarray(eta, dtype=np.float64)
+        if eta.ndim != 2 or eta.shape[1] != 2:
+            raise ValueError(f"gammals expected eta with shape (n, 2), got {eta.shape}.")
+        mu = np.exp(eta[:, 0])
+        log_dispersion = np.asarray(
+            self.linfo[1].linkinv(eta[:, 1]), dtype=np.float64
+        )
+        sigma = np.exp(0.5 * log_dispersion)
+        return np.column_stack([mu, sigma])
+
+    def distribution_parameter_jacobian(self, eta: np.ndarray) -> np.ndarray:
+        eta = np.asarray(eta, dtype=np.float64)
+        if eta.ndim != 2 or eta.shape[1] != 2:
+            raise ValueError(f"gammals expected eta with shape (n, 2), got {eta.shape}.")
+        mu = np.exp(eta[:, 0])
+        log_dispersion = np.asarray(
+            self.linfo[1].linkinv(eta[:, 1]), dtype=np.float64
+        )
+        sigma = np.exp(0.5 * log_dispersion)
+        d_log_dispersion = np.asarray(
+            self.linfo[1].mu_eta(eta[:, 1]), dtype=np.float64
+        )
+        return np.column_stack([mu, 0.5 * sigma * d_log_dispersion])
+
+    def logpdf_from_parameters(
+        self, y: np.ndarray, parameters: np.ndarray
+    ) -> np.ndarray:
+        y = np.asarray(y, dtype=np.float64).ravel()
+        params = np.asarray(parameters, dtype=np.float64)
+        if params.shape != (y.size, 2):
+            raise ValueError(
+                f"gammals parameters must have shape ({y.size}, 2), got {params.shape}."
+            )
+        mu = params[:, 0]
+        sigma = params[:, 1]
+        if np.any(y <= 0.0):
+            raise ValueError("gammals requires strictly positive response y > 0.")
+        if (
+            np.any(~np.isfinite(mu))
+            or np.any(mu <= 0.0)
+            or np.any(~np.isfinite(sigma))
+            or np.any(sigma <= 0.0)
+        ):
+            raise ValueError("gammals mu and sigma parameters must be finite and > 0.")
+        dispersion = np.square(sigma)
+        shape = 1.0 / dispersion
+        scale = mu * dispersion
+        return (
+            (shape - 1.0) * np.log(y)
+            - y / scale
+            - gammaln(shape)
+            - shape * np.log(scale)
+        )
 
     def validate_y(self, y):
         y = np.asarray(y, dtype=np.float64).ravel()

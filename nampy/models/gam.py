@@ -31,6 +31,7 @@ _GAM_CONSTRUCTOR_PARAMS = (
     "fit_intercept",
     "optimize_smoothing",
     "smoothing_method",
+    "smoothing_optimizer",
     "smoothing_params",
     "select",
     "knots",
@@ -56,6 +57,7 @@ class _GAMAdapterBase(BaseEstimator):
         fit_intercept=True,
         optimize_smoothing=True,
         smoothing_method="reml",
+        smoothing_optimizer="outer_newton",
         smoothing_params=None,
         select=False,
         knots=None,
@@ -74,6 +76,7 @@ class _GAMAdapterBase(BaseEstimator):
         self.fit_intercept = fit_intercept
         self.optimize_smoothing = optimize_smoothing
         self.smoothing_method = smoothing_method
+        self.smoothing_optimizer = smoothing_optimizer
         self.smoothing_params = smoothing_params
         self.select = select
         self.knots = knots
@@ -92,10 +95,17 @@ class _GAMAdapterBase(BaseEstimator):
     def _resolved_family(self):
         return self.family
 
+    def _resolved_formula(self):
+        return self.formula
+
+    def _validate_family_role(self, family) -> None:
+        """Validate the fitted family's public estimator role."""
+        return None
+
     def _build_gam(self) -> GAM:
         hparams = {name: getattr(self, name) for name in _GAM_CONSTRUCTOR_PARAMS}
         if self.formula is not None:
-            hparams["formula"] = self.formula
+            hparams["formula"] = self._resolved_formula()
         return GAM(family=self._resolved_family(), **hparams)
 
     def _fit_gam(self, X, y, *, data=None, sample_weight=None, offset=None):
@@ -103,6 +113,7 @@ class _GAMAdapterBase(BaseEstimator):
             frame = data if data is not None else X
             self.schema_ = None
             self.gam_ = self._build_gam()
+            self._validate_family_role(self.gam_.family)
             self.gam_.fit(
                 data=frame, y=y, sample_weight=sample_weight, offset=offset
             )
@@ -113,6 +124,7 @@ class _GAMAdapterBase(BaseEstimator):
                 X if hasattr(X, "columns") else np.asarray(X)
             )
             self.gam_ = self._build_gam()
+            self._validate_family_role(self.gam_.family)
             self.gam_.fit(X, y, sample_weight=sample_weight, offset=offset)
 
         self.n_features_in_ = (
@@ -304,6 +316,17 @@ class GAMRegressor(_GAMAdapterBase):
         tags.target_tags.required = True
         return tags
 
+    def _validate_family_role(self, family) -> None:
+        name = str(getattr(family, "name", "")).lower()
+        n_predictors = int(getattr(family, "n_linear_predictors", 1))
+        if n_predictors != 1 or name in {"binomial", "ocat"}:
+            raise ValueError(
+                "GAMRegressor requires a single-predictor regression family; "
+                f"got {name!r} with {n_predictors} linear predictor(s). Use "
+                "GAMClassifier for binary binomial models or GAMLSS for "
+                "multi-parameter distributional models."
+            )
+
     def fit(self, X, y=None, *, data=None, sample_weight=None, offset=None):
         """Fit the GAM. Array mode: ``fit(X, y)``. Formula mode: pass
         ``formula=`` to the constructor and a DataFrame as ``X`` or ``data``."""
@@ -350,6 +373,7 @@ class GAMClassifier(_GAMAdapterBase):
         fit_intercept=True,
         optimize_smoothing=True,
         smoothing_method="reml",
+        smoothing_optimizer="outer_newton",
         smoothing_params=None,
         select=False,
         knots=None,
@@ -369,6 +393,7 @@ class GAMClassifier(_GAMAdapterBase):
             fit_intercept=fit_intercept,
             optimize_smoothing=optimize_smoothing,
             smoothing_method=smoothing_method,
+            smoothing_optimizer=smoothing_optimizer,
             smoothing_params=smoothing_params,
             select=select,
             knots=knots,
@@ -387,6 +412,15 @@ class GAMClassifier(_GAMAdapterBase):
         tags.classifier_tags = ClassifierTags()
         tags.target_tags.required = True
         return tags
+
+    def _validate_family_role(self, family) -> None:
+        name = str(getattr(family, "name", "")).lower()
+        n_predictors = int(getattr(family, "n_linear_predictors", 1))
+        if name != "binomial" or n_predictors != 1:
+            raise ValueError(
+                "GAMClassifier supports binary binomial families only; "
+                f"got {name!r} with {n_predictors} linear predictor(s)."
+            )
 
     def fit(self, X, y, *, sample_weight=None, offset=None):
         y = np.asarray(y).ravel()

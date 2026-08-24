@@ -165,6 +165,39 @@ class GamlssFamily(GeneralFamily):
     supports_analytic_outer_hessian = False
 
     n_linear_predictors: int = 1
+    parameter_names: tuple[str, ...] = ()
+
+    def distribution_parameters_from_eta(self, eta: np.ndarray) -> np.ndarray:
+        """Return public natural distribution parameters for each eta row."""
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not define public distribution parameters."
+        )
+
+    def distribution_parameter_jacobian(self, eta: np.ndarray) -> np.ndarray:
+        """Return diagonal ``d parameter / d eta`` values with shape ``(n, K)``."""
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not define parameter derivatives."
+        )
+
+    def logpdf_from_parameters(
+        self, y: np.ndarray, parameters: np.ndarray
+    ) -> np.ndarray:
+        """Return one unweighted log-density value per observation."""
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not define a public log density."
+        )
+
+    def point_prediction_from_parameters(
+        self, parameters: np.ndarray
+    ) -> np.ndarray:
+        """Return the family-defined conditional point prediction."""
+        params = np.asarray(parameters, dtype=np.float64)
+        if params.ndim != 2 or params.shape[1] != int(self.nlp):
+            raise ValueError(
+                f"Expected parameters with shape (n, {int(self.nlp)}), got "
+                f"{params.shape}."
+            )
+        return np.asarray(params[:, 0], dtype=np.float64)
 
     def validate_y(self, y):
         return np.asarray(y, dtype=np.float64).ravel()
