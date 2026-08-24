@@ -424,6 +424,7 @@ class BaseSmoothTerm(abc.ABC):
     term_type = "smooth"
     basis_name = "unknown"
     supports_tensor_marginal = False
+    repara = True
     select: bool
 
     def __init__(

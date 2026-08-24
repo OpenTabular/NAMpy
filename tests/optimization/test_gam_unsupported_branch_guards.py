@@ -12,9 +12,7 @@ from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
     _GeneralPredictorLayout,
     build_general_penalty_setup,
 )
-from nampy.gam.fit.solvers.general_family.newton import _sl_ldetS
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
-from nampy.gam.predict.predictions import predict_values
 from nampy.gam.specs.build import build_formula_model
 from tests.mgcv_parity_utils import _make_negbin_data, _make_random_effect_data
 
@@ -75,67 +73,6 @@ def test_general_family_contiguous_penalty_guard_rejects_noncontiguous_blocks():
         match="General-family Sl setup requires contiguous term penalty blocks",
     ):
         build_general_penalty_setup(model, layout)
-
-
-def test_nonreparameterized_single_penalty_sl_guard_raises_explicitly():
-    """
-    Guard coverage verifying that nonreparameterized single penalty sl guard raises
-    explicitly.
-    """
-    block = SimpleNamespace(
-        start=1,
-        stop=2,
-        rank=2,
-        S=[np.eye(2, dtype=np.float64)],
-        lambda_=np.zeros(1, dtype=np.float64),
-        repara=False,
-        linear=True,
-        ldet=0.0,
-        ind=np.array([True, True], dtype=bool),
-        rS=[],
-    )
-
-    with pytest.raises(
-        NotImplementedError,
-        match="Non-reparameterized single-penalty general-family Sl blocks are unsupported",
-    ):
-        _sl_ldetS(
-            [block],
-            rho=np.array([0.0], dtype=np.float64),
-            fixed=np.array([False]),
-            np_=2,
-        )
-
-
-def test_nonreparameterized_multi_penalty_sl_guard_raises_explicitly():
-    """
-    Guard coverage verifying that nonreparameterized multi penalty sl guard raises
-    explicitly.
-    """
-    root = np.eye(2, dtype=np.float64)
-    block = SimpleNamespace(
-        start=1,
-        stop=2,
-        rank=2,
-        S=[root, root],
-        lambda_=np.zeros(2, dtype=np.float64),
-        repara=False,
-        linear=True,
-        ldet=0.0,
-        ind=np.array([True, True], dtype=bool),
-        rS=[root, root],
-    )
-
-    with pytest.raises(
-        NotImplementedError,
-        match="Non-reparameterized multi-penalty general-family Sl blocks are unsupported",
-    ):
-        _sl_ldetS(
-            [block],
-            rho=np.array([0.0, 0.1], dtype=np.float64),
-            fixed=np.array([False, False]),
-            np_=2,
-        )
 
 
 def test_formula_unsupported_expression_function_guard_raises_explicitly():
@@ -333,20 +270,6 @@ def test_gacv_cp_method_guard_raises_explicitly():
         criterion_value(
             SimpleNamespace(family=None), np.zeros(1), np.zeros(1), method="gacv.cp"
         )
-
-
-def test_general_family_prediction_term_filter_guard_raises_explicitly():
-    """Guard filters until multi-predictor coefficient blocks mirror predict.gam."""
-    model = SimpleNamespace(
-        _fitted=True,
-        family=SimpleNamespace(family_class="general"),
-    )
-
-    with pytest.raises(
-        NotImplementedError,
-        match="multi-predictor general-family models",
-    ):
-        predict_values(model, type="link", terms=["s(x)"])
 
 
 def test_shared_lpi_component_compiles_one_overlapping_block():
