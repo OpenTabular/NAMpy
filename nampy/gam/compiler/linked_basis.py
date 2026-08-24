@@ -92,6 +92,17 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
                 "different feature sets; mgcv 1.9-4 fails while constructing "
                 "the shared tensor basis."
             )
+        has_scalar_pc = any(
+            term.smooth_spec is not None
+            and str(term.smooth_spec.special).lower() == "s"
+            and getattr(term.smooth_spec, "pc", None) is not None
+            for term in group_terms
+        )
+        if has_scalar_pc and len(feature_tuples) > 1:
+            raise NotImplementedError(
+                "pc= is not supported across id-linked s() terms with different "
+                "feature sets; mgcv 1.9-4 fails while constructing the shared basis."
+            )
         for term in group_terms[1:]:
             _clone_linked_smooth_spec(base_term, term)
 

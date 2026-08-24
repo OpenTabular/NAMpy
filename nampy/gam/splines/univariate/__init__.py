@@ -26,6 +26,15 @@ from .ds import (
     normalize_duchon_orders,
     predict_duchon_spline,
 )
+from .gp import (
+    GaussianProcessSetup,
+    build_gaussian_process_setup,
+    default_gp_k,
+    gp_kernel,
+    gp_polynomial_basis,
+    normalize_gp_definition,
+    predict_gaussian_process,
+)
 from .ps import (
     PSplineBasisSetup,
     bspline_design_matrix,
@@ -58,6 +67,13 @@ __all__ = [
     "duchon_polynomial_basis",
     "normalize_duchon_orders",
     "predict_duchon_spline",
+    "GaussianProcessSetup",
+    "build_gaussian_process_setup",
+    "default_gp_k",
+    "gp_kernel",
+    "gp_polynomial_basis",
+    "normalize_gp_definition",
+    "predict_gaussian_process",
     "add_full_rank_shrinkage",
     "bspline_design_matrix",
     "cyclic_cubic_bd",

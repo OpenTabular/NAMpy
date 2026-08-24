@@ -114,6 +114,12 @@ class TensorProductSplineTerm(BaseSmoothTerm):
 
         self._by_state = None
 
+    @property
+    def expected_linked_penalty_count(self):
+        if self.select:
+            return None
+        return int(np.sum(~np.asarray(self.fixed_flags, dtype=bool)))
+
     def fit(self, X, feature_names):
         marginal_shared_setups = self._linked_id_marginal_setups(self.feature)
         marginals, _, _ = build_tensor_marginal_terms(

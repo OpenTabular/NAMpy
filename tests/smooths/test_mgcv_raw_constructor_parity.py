@@ -29,6 +29,7 @@ from nampy.gam.smooths.tensor.ti import (
 from nampy.gam.smooths.univariate.bs import DerivativeBSplineTerm1D
 from nampy.gam.smooths.univariate.cr import CubicSplineTerm
 from nampy.gam.smooths.univariate.ds import DuchonSplineTerm
+from nampy.gam.smooths.univariate.gp import GaussianProcessTerm
 from nampy.gam.smooths.univariate.ps import PSplineTerm1D
 from nampy.gam.smooths.univariate.tp import ThinPlateSplineTerm
 from nampy.gam.specs.build import build_formula_model
@@ -639,6 +640,86 @@ def _build_duchon_case_matrix():
     ]
 
 
+def _build_gp_case_matrix():
+    return [
+        _case(
+            "gp_1d_default_k",
+            _factory(_make_univariate_data, seed=160, n=90),
+            'y ~ s(x, bs="gp")',
+            atol=2e-8,
+        ),
+        _case(
+            "gp_2d_default_k",
+            _factory(_make_gaussian_data, seed=161, n=100),
+            'y ~ s(x0, x1, bs="gp")',
+            atol=2e-8,
+        ),
+        _case(
+            "gp_2d_spherical",
+            _factory(_make_gaussian_data, seed=162, n=90),
+            'y ~ s(x0, x1, bs="gp", k=10, m=[1, .7])',
+            atol=2e-8,
+        ),
+        _case(
+            "gp_2d_stationary_spherical",
+            _factory(_make_gaussian_data, seed=163, n=90),
+            'y ~ s(x0, x1, bs="gp", k=10, m=[-1, .7])',
+            atol=2e-8,
+        ),
+        _case(
+            "gp_2d_power_exponential",
+            _factory(_make_gaussian_data, seed=164, n=90),
+            'y ~ s(x0, x1, bs="gp", k=10, m=[2, .8, 1.5])',
+            atol=2e-8,
+        ),
+        _case(
+            "gp_2d_matern_35",
+            _factory(_make_gaussian_data, seed=165, n=90),
+            'y ~ s(x0, x1, bs="gp", k=10, m=[5, .9])',
+            atol=2e-8,
+        ),
+        _case(
+            "gp_2d_supplied_truncated",
+            _factory(_make_gaussian_data, seed=166, n=90),
+            'y ~ s(x0, x1, bs="gp", k=10, m=[4, .8])',
+            atol=2e-8,
+            knots_factory=_observed_row_knots(["x0", "x1"], 14),
+        ),
+        _case(
+            "gp_2d_supplied_pure_knot",
+            _factory(_make_gaussian_data, seed=167, n=90),
+            'y ~ s(x0, x1, bs="gp", k=10, m=[3, .8])',
+            atol=2e-8,
+            knots_factory=_observed_row_knots(["x0", "x1"], 7),
+        ),
+        _case(
+            "gp_2d_stationary_pure_knot",
+            _factory(_make_gaussian_data, seed=168, n=90),
+            'y ~ s(x0, x1, bs="gp", k=10, m=[-3, .8])',
+            atol=2e-8,
+            knots_factory=_observed_row_knots(["x0", "x1"], 9),
+        ),
+        _case(
+            "gp_2d_max_knots_xt",
+            _factory(_make_gaussian_data, seed=169, n=70),
+            'y ~ s(x0, x1, bs="gp", k=10, xt={"max.knots": 14, "seed": 7})',
+            atol=2e-8,
+        ),
+        _case(
+            "gp_3d_basic",
+            _factory(_make_gaussian_data_3col, seed=170, n=100),
+            'y ~ s(x0, x1, x2, bs="gp", k=15)',
+            atol=5e-8,
+        ),
+        _case(
+            "gp_3d_default_k",
+            _factory(_make_gaussian_data_3col, seed=173, n=120),
+            'y ~ s(x0, x1, x2, bs="gp")',
+            atol=2e-6,
+        ),
+    ]
+
+
 def _build_re_case_matrix():
     penalty_multi = {
         "S": [
@@ -729,6 +810,18 @@ def _build_factor_smooth_case_matrix():
             "sz_grid_3x3_shared_id",
             _factory(_make_sz_data_3x3, seed=84),
             'y ~ s(f1, f2, x, bs="sz", k=6, id="shared")',
+            atol=2e-8,
+        ),
+        _case(
+            "fs_base_gp_multivariate",
+            _factory(_make_factorized_gaussian_data, seed=171, n=96),
+            'y ~ s(f, x0, x1, bs="fs", xt="gp", k=10, m=[1, .6])',
+            atol=2e-8,
+        ),
+        _case(
+            "sz_base_gp_multivariate",
+            _factory(_make_sz_metric2d_data, seed=172, n=90),
+            'y ~ s(f1, f2, x0, x1, bs="sz", xt="gp", k=10, m=[1, .6])',
             atol=2e-8,
         ),
     ]
@@ -930,6 +1023,7 @@ CASES = [
     *_build_bs_case_matrix(),
     *_build_tprs_case_matrix(),
     *_build_duchon_case_matrix(),
+    *_build_gp_case_matrix(),
     *_build_re_case_matrix(),
     *_build_factor_smooth_case_matrix(),
     *_build_tensor_case_matrix(),
@@ -1143,6 +1237,27 @@ def _serialize_duchon_raw(term):
             "used_supplied_knots": bool(setup.used_supplied_knots),
             "used_subsampling": bool(setup.used_subsampling),
             "pure_knot": bool(setup.knots.shape[0] == setup.bs_dim),
+        },
+    )
+
+
+def _serialize_gp_raw(term):
+    setup = term._setup
+    basis = np.asarray(setup.basis_train, dtype=np.float64)
+    return _common_raw_state(
+        "gp.smooth",
+        basis,
+        [np.asarray(setup.penalty, dtype=np.float64)],
+        rank=int(setup.rank),
+        null_space_dim=int(setup.null_space_dim),
+        extra={
+            "knt": np.asarray(setup.knots, dtype=np.float64),
+            "UZ": np.asarray(setup.UZ, dtype=np.float64),
+            "shift": np.asarray(setup.shift, dtype=np.float64),
+            "gp_defn": np.asarray(setup.definition, dtype=np.float64),
+            "used_supplied_knots": bool(setup.used_supplied_knots),
+            "used_subsampling": bool(setup.used_subsampling),
+            "pure_knot": bool(setup.knots.shape[0] == setup.rank),
         },
     )
 
@@ -1374,6 +1489,8 @@ def _serialize_term_raw(term, X):
         return _serialize_tprs_raw(term)
     if isinstance(term, DuchonSplineTerm):
         return _serialize_duchon_raw(term)
+    if isinstance(term, GaussianProcessTerm):
+        return _serialize_gp_raw(term)
     if isinstance(term, RandomEffectTerm):
         return _serialize_re_raw(term)
     if isinstance(term, FSmoothInteractionTerm):

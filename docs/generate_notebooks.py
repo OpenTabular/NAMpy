@@ -1514,6 +1514,7 @@ generic tuning label.
 | `cr`, `cs` | cubic regression spline; `cs` adds null-space shrinkage |
 | `cc` | cyclic cubic spline for periodic covariates |
 | `ps` | P-spline with difference penalties |
+| `gp` | low-rank Gaussian-process smooth with spherical, power-exponential, or Matérn covariance |
 | `tp`, `ts` | thin-plate regression spline; `ts` adds shrinkage |
 | `te(...)` | scale-invariant tensor product including main-effect directions |
 | `ti(...)` | tensor interaction with marginal main-effect directions removed |
@@ -1535,6 +1536,9 @@ smooth_examples = {
     "shrinkage_cubic": GAM(formula="demand ~ s(temperature, bs='cs', k=10)"),
     "cyclic": GAM(formula="demand ~ s(hour, bs='cc', k=8)"),
     "p_spline": GAM(formula="demand ~ s(temperature, bs='ps', k=10)"),
+    "gaussian_process": GAM(
+        formula="demand ~ s(temperature, humidity, bs='gp', k=20, m=[3, 1.0])"
+    ),
     "thin_plate": GAM(formula="demand ~ s(temperature, bs='tp', k=10)"),
     "shrinkage_thin_plate": GAM(formula="demand ~ s(temperature, bs='ts', k=10)"),
     "tensor_surface": GAM(

@@ -20,6 +20,7 @@ _SMOOTH_MARK_NAMES = {
     "cc": "smooth_cc",
     "cp": "smooth_cp",
     "ds": "smooth_ds",
+    "gp": "smooth_gp",
     "ps": "smooth_ps",
     "tp": "smooth_tp",
     "ts": "smooth_ts",
@@ -140,6 +141,11 @@ _PRIMARY_COVERAGE_BY_MARK = {
     ),
     "smooth_ds": (
         "tests/parity/test_mgcv_ds_combinations_parity.py",
+        "tests/smooths/test_mgcv_raw_constructor_parity.py",
+        "tests/smooths/test_mgcv_smoothcon_parity.py",
+    ),
+    "smooth_gp": (
+        "tests/parity/test_mgcv_gp_combinations_parity.py",
         "tests/smooths/test_mgcv_raw_constructor_parity.py",
         "tests/smooths/test_mgcv_smoothcon_parity.py",
     ),
