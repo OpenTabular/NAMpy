@@ -200,7 +200,7 @@ def test_stage_1_supported_numeric_factor_interactions_rebuild_on_newdata_like_m
     np.testing.assert_allclose(actual_se, np.asarray(expected["se"]).ravel(), atol=2e-8, rtol=2e-8)
 
 
-@pytest.mark.parametrize("basis", ["cr", "cs", "cc", "ps", "tp", "ts"])
+@pytest.mark.parametrize("basis", ["cr", "cs", "cc", "cp", "ps", "tp", "ts"])
 def test_stage_2_univariate_runtime_boundary_predictions_and_se_match_mgcv(basis):
     """Every supported univariate runtime matches behavior at and beyond fit bounds."""
     data = _formula_data(seed=903, n=90)[["y", "x0"]].rename(columns={"x0": "x"})

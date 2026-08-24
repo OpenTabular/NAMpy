@@ -42,7 +42,7 @@ def make_predictor_specs(model, feature_names, *, knots=None):
                     metadata={},
                 )
             )
-        elif basis == "ps":
+        elif basis in {"ps", "cp"}:
             main_terms.append(
                 TermSpec(
                     kind="smooth",
@@ -50,7 +50,7 @@ def make_predictor_specs(model, feature_names, *, knots=None):
                     by_variable=None,
                     smooth_spec=build_smooth_spec(
                         special="s",
-                        bs="ps",
+                        bs=basis,
                         k=model.k,
                         m=None,
                         sp=None,
@@ -105,7 +105,7 @@ def make_predictor_specs(model, feature_names, *, knots=None):
         else:
             raise NotImplementedError(
                 "Automatic main-effect construction currently supports "
-                "{'cr','cs','cc','ps','tp','ts','re'}, "
+                "{'cr','cs','cc','cp','ps','tp','ts','re'}, "
                 f"got {model.basis!r}."
             )
 
