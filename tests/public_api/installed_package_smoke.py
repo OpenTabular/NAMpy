@@ -16,7 +16,7 @@ import nampy
 import nampy.gam as gam
 import nampy.models as models
 import nampy.neural as neural
-from nampy import LinRegRegressor, SNAMClassifier
+from nampy import GAMLSS, LinRegRegressor, SNAMClassifier
 from nampy.neural.configs import DefaultSNAMConfig
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -44,6 +44,7 @@ def main() -> None:
     assert nampy.models is models
     assert nampy.neural is neural
     assert models.LinRegRegressor is LinRegRegressor
+    assert models.GAMLSS is GAMLSS
     assert neural.configs.DefaultSNAMConfig is DefaultSNAMConfig
     assert find_spec("nampy.hybrid") is None
     assert find_spec("nampy.api") is None

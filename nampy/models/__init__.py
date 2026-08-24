@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 _EXPORT_MODULES = {
     "GAMClassifier": ".gam",
     "GAMRegressor": ".gam",
+    "GAMLSS": ".gamlss",
     "NAMClassifier": ".nam",
     "NAMLSS": ".nam",
     "NAMRegressor": ".nam",
@@ -70,6 +71,7 @@ if TYPE_CHECKING:
         EnsembleTreeNAMRegressor,
     )
     from .gam import GAMClassifier, GAMRegressor
+    from .gamlss import GAMLSS
     from .gpnam import GPNAMLSS, GPNAMClassifier, GPNAMRegressor
     from .igann import IGANNLSS, IGANNClassifier, IGANNRegressor
     from .linreg import LinRegClassifier, LinRegLSS, LinRegRegressor

@@ -122,6 +122,13 @@ class NeuralLSS(NeuralEstimatorBase):
         else:
             return predictions.cpu().numpy()
 
+    def predict_point(self, X, *, batch_size=None):
+        """Return the family-defined conditional point prediction."""
+        predictions = self._predict(X, batch_size=batch_size)["output"]
+        with torch.no_grad():
+            point = self.family_.predict_point(predictions, transformed=False)
+        return point.cpu().numpy()
+
     def score(self, X, y, sample_weight=None):
         """Return the negative mean NLL of ``y`` under the predicted parameters.
 

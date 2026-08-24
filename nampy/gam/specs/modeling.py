@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import copy
+
 from ..data import knots_for_feature
 from ..formula import extract_formula_terms, parse_gam_formula
 from . import LinearPredictorSpec, TermSpec, build_smooth_spec
@@ -109,12 +111,22 @@ def make_predictor_specs(model, feature_names, *, knots=None):
 
     terms.extend(main_terms)
 
+    n_predictors = int(getattr(model.family, "n_linear_predictors", 1))
+    parameter_names = tuple(getattr(model.family, "parameter_names", ()) or ())
+    if parameter_names and len(parameter_names) != n_predictors:
+        raise ValueError(
+            f"Family {model.family.name!r} declares {len(parameter_names)} parameter "
+            f"name(s) for {n_predictors} predictor(s)."
+        )
+
     return [
         LinearPredictorSpec(
-            name="eta",
-            terms=terms,
+            name=("eta" if n_predictors == 1 else f"eta{i + 1}"),
+            terms=copy.deepcopy(terms),
             has_intercept=bool(model.fit_intercept),
+            parameter_name=(parameter_names[i] if parameter_names else None),
         )
+        for i in range(n_predictors)
     ]
 
 

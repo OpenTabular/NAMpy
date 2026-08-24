@@ -19,7 +19,7 @@ Three family tiers are defined here:
 
 :class:`GeneralFamily`
     Multi-linear-predictor families (e.g. GAMLSS-style location-scale models).
-    Not yet implemented.
+    Fitted through the general-family Newton/LAML backend.
 """
 
 import abc
