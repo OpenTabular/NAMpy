@@ -147,41 +147,32 @@ class GeneralFamilySetupState:
 
 def _build_general_predictor_layout(model) -> _GeneralPredictorLayout:
     blocks = []
-    jj: list[np.ndarray] = []
-    predictor_full_slices: list[slice] = []
-    reduced_to_full: list[int] = []
+    from ....model_state import _compiled_model, _predictor_full_indices
+
+    predictor_full_slices: list[np.ndarray] = []
     full_start = 0
 
     for pred in _predictor_designs(model):
         Z = np.asarray(pred.design_matrix, dtype=np.float64)
-        if bool(pred.has_intercept):
+        if bool(pred.prediction_has_intercept):
             Xp = np.column_stack([np.ones(Z.shape[0], dtype=np.float64), Z])
-            local_idx = np.arange(full_start, full_start + Z.shape[1] + 1, dtype=int)
-            reduced_to_full.extend(
-                list(
-                    np.arange(
-                        full_start + 1,
-                        full_start + 1 + Z.shape[1],
-                        dtype=int,
-                    )
-                )
-            )
         else:
             Xp = Z
-            local_idx = np.arange(full_start, full_start + Z.shape[1], dtype=int)
-            reduced_to_full.extend(
-                list(np.arange(full_start, full_start + Z.shape[1], dtype=int))
-            )
         blocks.append(Xp)
-        jj.append(local_idx)
-        predictor_full_slices.append(slice(full_start, full_start + Xp.shape[1]))
         full_start += Xp.shape[1]
 
     X_full = np.column_stack(blocks) if blocks else np.empty((model.n_samples_, 0))
+    compiled = _compiled_model(model)
+    if compiled is None:
+        raise RuntimeError("General-family layout requires a compiled model.")
+    jj = [np.asarray(indices, dtype=int) for indices in _predictor_full_indices(model)]
+    predictor_full_slices.extend(jj)
     return _GeneralPredictorLayout(
         X_full=np.asarray(X_full, dtype=np.float64),
         jj=jj,
-        reduced_to_full_idx=np.asarray(reduced_to_full, dtype=int),
+        reduced_to_full_idx=np.asarray(
+            compiled.coef_reduced_to_full_idx, dtype=int
+        ),
         predictor_full_slices=predictor_full_slices,
     )
 
@@ -1292,7 +1283,12 @@ def solve_general_family_fit(model, y, smoothing_params, weights=None):
         model._summary_R_ = np.asarray(post["R"], dtype=np.float64).copy()
 
     beta = np.asarray(coef_full[setup.reduced_to_full_idx], dtype=np.float64)
-    intercept = float(coef_full[0]) if setup.predictor_full_slices else 0.0
+    intercept = (
+        float(coef_full[int(setup.predictor_full_slices[0][0])])
+        if setup.predictor_full_slices
+        and np.asarray(setup.predictor_full_slices[0]).size
+        else 0.0
+    )
     deviance = float(-2.0 * float(fit["l"]))
 
     return FitCoreSolution.from_dict(

@@ -85,13 +85,7 @@ def _compile_formula(data: pd.DataFrame, formula, *, select: bool = False):
 
 
 def test_stage_1_formula_list_combines_shared_terms_transforms_offsets_and_intercepts():
-    """Formula-list preprocessing keeps predictor-local contracts; shared guarded.
-
-    Per-predictor offsets, transformed offsets, and intercept policies are the
-    supported formula-list surface. Shared '1 + 2 ~ ...' components are guarded
-    at extraction: mgcv shares one coefficient block across the labelled
-    predictors, which the former duplicate-terms expansion did not implement.
-    """
+    """Formula-list preprocessing retains base and shared component ownership."""
     data = _formula_data()
     data = data.assign(o2=np.exp(0.2 + data["off"]))
     formula = [
@@ -126,11 +120,16 @@ def test_stage_1_formula_list_combines_shared_terms_transforms_offsets_and_inter
         "~ 1",
         '1 + 2 ~ I(z**2) + s(x0, bs="cr", k=6, sp=0.7)',
     ]
-    with pytest.raises(
-        NotImplementedError,
-        match="Shared linear-predictor components",
-    ):
-        extract_formula_terms(parse_gam_formula(shared_formula))
+    shared = build_formula_model(
+        extract_formula_terms(parse_gam_formula(shared_formula)), data=data
+    )
+    assert shared.n_linear_predictors == 2
+    assert shared.component_lpi == ((1,), (2,), (1, 2))
+    assert len(shared.predictor_specs) == 3
+    assert [term.kind for term in shared.predictor_specs[2].terms] == [
+        "parametric",
+        "smooth",
+    ]
 
 
 def test_stage_1_api_routes_weights_knots_min_sp_drop_intercept_and_fit_offset():

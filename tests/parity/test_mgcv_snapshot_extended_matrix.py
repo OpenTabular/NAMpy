@@ -12,6 +12,7 @@ from tests._mgcv_snapshot_parity_shared import (
 from tests.mgcv_parity_utils import (
     _assert_basic_mgcv_parity,
     _assert_exact_mgcv_snapshot_parity,
+    _fit_nampy_model,
     _fit_nampy_model_fixed_sp,
     _fit_nampy_snapshot,
     _make_binomial_data,
@@ -932,3 +933,78 @@ def test_whitelisted_formula_transforms_match_mgcv_exactly(transform):
             atol=1e-10,
             rtol=1e-10,
         )
+
+
+def test_gaulss_shared_formula_component_reml_matches_mgcv(tmp_path):
+    """One coefficient block contributes to both gaulss predictors."""
+    rng = np.random.default_rng(11)
+    n = 100
+    x = rng.uniform(-1.0, 1.0, size=n)
+    z = rng.uniform(-1.0, 1.0, size=n)
+    y = rng.normal(np.sin(x) + 0.2 * z, 0.5, size=n)
+    data = pd.DataFrame({"y": y, "x": x, "z": z})
+    formula = [
+        'y ~ s(x, bs="cr", k=6)',
+        "~ 1",
+        '1 + 2 ~ s(z, bs="cr", k=5) - 1',
+    ]
+
+    model = _fit_nampy_model(data, formula, "gaulss", "REML")
+    actual = model.parity_snapshot(X=data, include_covariances=True)
+    expected = _run_mgcv_snapshot(data, formula, "gaulss", "REML")
+
+    for key in ("coef_full", "deviance", "edf_total"):
+        np.testing.assert_allclose(
+            np.asarray(actual["fit"][key], dtype=np.float64),
+            np.asarray(expected["fit"][key], dtype=np.float64),
+            atol=3e-8,
+            rtol=3e-8,
+        )
+    for key in ("link", "response", "se_link", "se_response"):
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"][key], dtype=np.float64),
+            np.asarray(expected["predictions"][key], dtype=np.float64),
+            atol=1e-8,
+            rtol=1e-8,
+        )
+    expected_terms = np.asarray(expected["predictions"]["terms"], dtype=np.float64)
+    actual_terms = np.asarray(actual["predictions"]["terms"], dtype=np.float64)
+    np.testing.assert_allclose(
+        actual_terms.reshape(expected_terms.shape, order="F"),
+        expected_terms,
+        atol=1e-8,
+        rtol=1e-8,
+    )
+
+    compiled = model.gam_result_.require_compiled_model()
+    assert len(compiled.predictors) == 3
+    assert len(compiled.compiled_terms) == 2
+    assert len(compiled.compiled_penalties) == 2
+    assert [term.predictor_indices for term in compiled.compiled_terms] == [
+        (0,),
+        (0, 1),
+    ]
+    np.testing.assert_array_equal(
+        np.intersect1d(*compiled.predictor_full_indices), np.arange(7, 11)
+    )
+    assert model.predict(data, type="lpmatrix").shape == (n, 11)
+    assert model.predict(data, type="terms").shape == (n, 2)
+    summary = model.summary()
+    assert summary.p_table.shape[0] == 2
+    assert summary.s_table.shape[0] == 2
+    assert model.anova().smooth_table.shape[0] == 2
+    assert model.sp_vcov(edge_correct=False).shape == (2, 2)
+
+    path = model.save_model(tmp_path / "shared-gaulss.pkl")
+    restored = type(model).load_model(path)
+    np.testing.assert_array_equal(
+        restored.predict(data, type="lpmatrix"),
+        model.predict(data, type="lpmatrix"),
+    )
+    np.testing.assert_array_equal(
+        restored.predict(data, type="link"), model.predict(data, type="link")
+    )
+    assert [
+        term.predictor_indices
+        for term in restored.gam_result_.require_compiled_model().compiled_terms
+    ] == [(0,), (0, 1)]

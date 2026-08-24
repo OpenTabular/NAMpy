@@ -8,7 +8,7 @@ import numpy as np
 
 from ..families import clone_gam_family
 
-GAM_STATE_SCHEMA_VERSION = 1
+GAM_STATE_SCHEMA_VERSION = 2
 _SCHEMA_KEY = "_gam_state_schema_version"
 
 
@@ -26,6 +26,11 @@ def _restore_compiled_term_coordinates(model: Any) -> None:
     if compiled is None:
         return
     predictors = tuple(getattr(compiled, "predictors", ()) or ())
+    if not getattr(compiled, "predictor_full_indices", None):
+        compiled.predictor_full_indices = tuple(
+            np.arange(int(sl.start), int(sl.stop), dtype=int)
+            for sl in tuple(getattr(compiled, "predictor_full_slices", ()) or ())
+        )
     reduced_to_full = np.asarray(
         getattr(compiled, "coef_reduced_to_full_idx", ()), dtype=int
     ).reshape(-1)
@@ -49,6 +54,8 @@ def _restore_compiled_term_coordinates(model: Any) -> None:
         )
         predictor = predictors[predictor_index] if predictors else None
         term.predictor_index = int(predictor_index)
+        if "predictor_indices" not in getattr(term, "__dict__", {}):
+            term.predictor_indices = (int(predictor_index),)
         term.predictor_name = (
             "predictor_0" if predictor is None else str(predictor.name)
         )

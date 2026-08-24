@@ -349,14 +349,8 @@ def test_general_family_prediction_term_filter_guard_raises_explicitly():
         predict_values(model, type="link", terms=["s(x)"])
 
 
-def test_shared_lpi_component_guard_raises_explicitly():
-    """Shared '1 + 2 ~ ...' formula-list components fail loudly at fit.
-
-    mgcv shares one coefficient block across the labelled predictors
-    (?mgcv::formula.gam: "with the same coefficients"); NAMpy's former
-    expansion cloned the terms with independent coefficients — a different
-    model — so the surface is guarded until coefficient sharing is ported.
-    """
+def test_shared_lpi_component_compiles_one_overlapping_block():
+    """Shared formula components fit once and target both predictors."""
     rng = np.random.default_rng(31)
     n = 80
     x = np.linspace(-1.0, 1.0, n)
@@ -373,10 +367,38 @@ def test_shared_lpi_component_guard_raises_explicitly():
         ],
         optimize_smoothing=False,
         smoothing_method="fixed",
-        smoothing_params=[1.0, 1.0, 1.0],
-    )
-    with pytest.raises(
-        NotImplementedError,
-        match="Shared linear-predictor components",
+        smoothing_params=[1.0, 1.0],
+    ).fit(data=data)
+    compiled = gam.gam_result_.require_compiled_model()
+    assert len(compiled.compiled_terms) == 2
+    assert len(compiled.compiled_penalties) == 2
+    assert compiled.compiled_terms[1].predictor_indices == (0, 1)
+    assert len(compiled.predictor_full_indices) == 2
+
+
+def test_shared_lpi_olid_drops_one_redundant_parametric_column():
+    rng = np.random.default_rng(32)
+    n = 80
+    x = rng.normal(size=n)
+    data = pd.DataFrame({"y": rng.normal(0.2 * x, 0.7, size=n), "x": x})
+
+    with pytest.warns(
+        UserWarning, match="dropping unidentifiable parametric terms from model"
     ):
-        gam.fit(data=data)
+        gam = GAM(
+            family="gaulss",
+            formula=["y ~ x", "~ x", "1 + 2 ~ x - 1"],
+            optimize_smoothing=False,
+            smoothing_method="fixed",
+        ).fit(data=data)
+
+    compiled = gam.gam_result_.require_compiled_model()
+    assert [term.basis_train.shape[1] for term in compiled.compiled_terms] == [
+        0,
+        1,
+        1,
+    ]
+    assert compiled.compiled_terms[2].predictor_indices == (0, 1)
+    assert compiled.predictor_full_indices[0].size == 2
+    assert compiled.predictor_full_indices[1].size == 3
+    assert gam.predict(data, type="lpmatrix").shape == (n, 4)

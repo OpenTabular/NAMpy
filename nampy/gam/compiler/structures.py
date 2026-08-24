@@ -54,6 +54,7 @@ class CompiledTerm:
     # several linear predictors.
     predictor_index: int = 0
     predictor_name: str = "predictor_0"
+    predictor_indices: tuple[int, ...] = (0,)
     full_coef_indices: np.ndarray | None = None
     predict_fn: Callable[..., np.ndarray] | None = field(
         default=None, repr=False, compare=False
@@ -273,6 +274,7 @@ class CompiledModel:
     n_smoothing_params: int
     predictor_full_slices: tuple[slice, ...]
     coef_reduced_to_full_idx: np.ndarray
+    predictor_full_indices: tuple[np.ndarray, ...] = ()
     smoothing_override_modes: list[str | None] = field(default_factory=list)
     smoothing_override_values: np.ndarray | None = None
     side_condition_reports: tuple[dict[str, Any], ...] | None = None
@@ -298,6 +300,16 @@ class CompiledModel:
                 f"{mask.shape}, expected {(width,)}."
             )
         self.positive_coefficient_mask = mask.copy()
+        if not self.predictor_full_indices:
+            self.predictor_full_indices = tuple(
+                np.arange(int(sl.start), int(sl.stop), dtype=int)
+                for sl in self.predictor_full_slices
+            )
+        else:
+            self.predictor_full_indices = tuple(
+                np.asarray(indices, dtype=int).reshape(-1).copy()
+                for indices in self.predictor_full_indices
+            )
         if self.coefficient_transform is None:
             self.coefficient_transform = (
                 IdentityCoefficientTransform(width)

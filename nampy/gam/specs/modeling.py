@@ -144,6 +144,15 @@ def prepare_formula_inputs(
         default_basis=model.basis,
         default_select=model.select,
     )
+    # Specs remain component-owned; this metadata lets the compiler create
+    # overlapping logical predictor index arrays without duplicating blocks.
+    for spec, lpi in zip(
+        build_result.predictor_specs, build_result.component_lpi, strict=True
+    ):
+        spec.metadata["lpi"] = tuple(int(v) for v in lpi)
+        spec.metadata["n_linear_predictors"] = int(
+            build_result.n_linear_predictors
+        )
     return (
         parsed,
         build_result.predictor_specs,

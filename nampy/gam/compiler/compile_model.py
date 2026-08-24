@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import replace
 
 import numpy as np
@@ -17,6 +18,162 @@ from ..linalg.qr import r_linpack_qr_r as _r_linpack_qr_R
 from ..linalg.qr import r_linpack_qy as _r_linpack_qy
 from .compile_predictors import compile_predictors
 from .structures import CompiledModel
+
+
+def _apply_overlapping_parametric_identifiability(
+    compiled_predictors,
+    component_lpi,
+    *,
+    n_linear_predictors: int,
+    tol: float,
+):
+    """Port the unpenalized-column role of ``mgcv::olid``.
+
+    A pivoted LAPACK QR is applied after expansion over the logical predictor
+    rows, matching ``olid``. Dependent parametric columns are removed from
+    their one owning component; smooth columns are never candidates.
+    """
+    n_obs = int(compiled_predictors[0].design_matrix.shape[0])
+    expanded_columns = []
+    owners: list[tuple[int, int | None, int | None]] = []
+    keep_by_component: list[dict[int, np.ndarray]] = [
+        {} for _ in compiled_predictors
+    ]
+    keep_intercept = [bool(predictor.has_intercept) for predictor in compiled_predictors]
+
+    def append_column(column, targets, owner):
+        expanded = np.zeros(n_obs * n_linear_predictors, dtype=np.float64)
+        for target in targets:
+            start = int(target) * n_obs
+            expanded[start : start + n_obs] = np.asarray(column, dtype=np.float64)
+        expanded_columns.append(expanded)
+        owners.append(owner)
+
+    for component_index, (predictor, targets) in enumerate(
+        zip(compiled_predictors, component_lpi, strict=True)
+    ):
+        if bool(predictor.has_intercept):
+            append_column(
+                np.ones(n_obs, dtype=np.float64),
+                targets,
+                (component_index, None, None),
+            )
+        for term_index, term in enumerate(predictor.compiled_terms):
+            if str(getattr(term, "term_type", "")) != "parametric":
+                continue
+            basis = np.asarray(term.basis_train, dtype=np.float64)
+            keep_by_component[component_index][term_index] = np.ones(
+                basis.shape[1], dtype=bool
+            )
+            for column_index in range(basis.shape[1]):
+                append_column(
+                    basis[:, column_index],
+                    targets,
+                    (component_index, term_index, column_index),
+                )
+
+    if not expanded_columns:
+        return list(compiled_predictors)
+    Xp = np.column_stack(expanded_columns)
+    _Q, R, pivot = scipy_qr(Xp, mode="economic", pivoting=True)
+    rank = upper_triangular_rrank(R, tol=tol)
+    dropped = np.asarray(pivot[rank:], dtype=int)
+    for drop_index in dropped:
+        component_index, term_index, column_index = owners[int(drop_index)]
+        if term_index is None:
+            keep_intercept[component_index] = False
+        else:
+            keep_by_component[component_index][term_index][int(column_index)] = False
+
+    if dropped.size == 0:
+        return list(compiled_predictors)
+
+    warnings.warn(
+        "dropping unidentifiable parametric terms from model",
+        stacklevel=3,
+    )
+    adjusted = []
+    for component_index, (predictor, component_keep) in enumerate(
+        zip(compiled_predictors, keep_by_component, strict=True)
+    ):
+        terms = []
+        start = 0
+        dropped_local: list[int] = []
+        for term_index, term in enumerate(predictor.compiled_terms):
+            basis = np.asarray(term.basis_train, dtype=np.float64)
+            keep = component_keep.get(
+                term_index, np.ones(basis.shape[1], dtype=bool)
+            )
+            kept_indices = np.flatnonzero(keep)
+            selection = np.eye(basis.shape[1], dtype=np.float64)[:, kept_indices]
+            metadata = dict(getattr(term, "metadata", {}) or {})
+            if kept_indices.size != basis.shape[1]:
+                metadata["olid_deleted_columns"] = np.flatnonzero(~keep).tolist()
+                dropped_local.extend(
+                    (int(term.coef_slice.start) + np.flatnonzero(~keep)).tolist()
+                )
+            predict_map = getattr(term, "predict_coefficient_map", None)
+            basis_transform = getattr(term, "basis_transform", None)
+            if basis_transform is not None:
+                basis_transform = (
+                    np.asarray(basis_transform, dtype=np.float64) @ selection
+                )
+            elif kept_indices.size != basis.shape[1]:
+                predict_map = (
+                    selection
+                    if predict_map is None
+                    else np.asarray(predict_map, dtype=np.float64) @ selection
+                )
+            width = int(kept_indices.size)
+            terms.append(
+                replace(
+                    term,
+                    coef_slice=slice(start, start + width),
+                    basis_train=basis[:, kept_indices],
+                    predict_coefficient_map=predict_map,
+                    basis_transform=basis_transform,
+                    kept_columns=kept_indices,
+                    deleted_columns=np.flatnonzero(~keep),
+                    full_coef_indices=None,
+                    metadata=metadata,
+                    positive_coefficient_mask=np.asarray(
+                        term.positive_coefficient_mask, dtype=bool
+                    )[kept_indices],
+                    coefficient_transform=None,
+                )
+            )
+            start += width
+
+        penalties = tuple(
+            replace(penalty, coef_slice=terms[int(penalty.term_index)].coef_slice)
+            for penalty in predictor.compiled_penalties
+        )
+        design = (
+            np.column_stack([term.basis_train for term in terms])
+            if terms
+            else np.empty((n_obs, 0), dtype=np.float64)
+        )
+        metadata = dict(getattr(predictor, "metadata", {}) or {})
+        metadata["olid_deleted_columns"] = dropped_local
+        adjusted.append(
+            replace(
+                predictor,
+                design_matrix=design,
+                compiled_terms=tuple(terms),
+                compiled_penalties=penalties,
+                has_intercept=bool(keep_intercept[component_index]),
+                n_coef=start,
+                side_condition_Q=np.eye(start, dtype=np.float64),
+                metadata=metadata,
+                positive_coefficient_mask=(
+                    np.concatenate([term.positive_coefficient_mask for term in terms])
+                    if terms
+                    else np.zeros(0, dtype=bool)
+                ),
+                coefficient_transform=None,
+            )
+        )
+    return adjusted
 
 
 def _block_diagonal_matrix(blocks: list[np.ndarray]) -> np.ndarray:
@@ -177,6 +334,28 @@ def compile_model(
     apply_side_conditions: bool = True,
     side_condition_tol: float = 1e-10,
 ):
+    predictor_specs = list(predictor_specs)
+    has_explicit_component_lpi = any(
+        "lpi" in (getattr(spec, "metadata", {}) or {}) for spec in predictor_specs
+    )
+    component_lpi = tuple(
+        tuple(
+            int(value) - 1
+            for value in (
+                (getattr(spec, "metadata", {}) or {}).get(
+                    "lpi", (component_index + 1,)
+                )
+                or (component_index + 1,)
+            )
+        )
+        if has_explicit_component_lpi
+        else (component_index,)
+        for component_index, spec in enumerate(predictor_specs)
+    )
+    n_linear_predictors = max(
+        (max(indices) for indices in component_lpi if indices), default=0
+    ) + 1
+
     compiled_predictors = compile_predictors(
         X=X,
         feature_names=feature_names,
@@ -198,6 +377,14 @@ def compile_model(
             reports.append(report)
         compiled_predictors = adjusted
 
+    if any(len(indices) > 1 for indices in component_lpi):
+        compiled_predictors = _apply_overlapping_parametric_identifiability(
+            compiled_predictors,
+            component_lpi,
+            n_linear_predictors=n_linear_predictors,
+            tol=side_condition_tol,
+        )
+
     pred_param_map = _model_parameterization_map(compiled_predictors, X)
     predictor_prediction_widths = [
         int(_full_predictor_matrix(predictor, X)[1].shape[1])
@@ -212,6 +399,7 @@ def compile_model(
                 term,
                 predictor_index=0,
                 predictor_name=str(predictor.name),
+                predictor_indices=tuple(component_lpi[0]),
                 full_coef_indices=(
                     np.arange(
                         int(term.coef_slice.start),
@@ -237,6 +425,9 @@ def compile_model(
             n_coef=int(predictor.n_coef),
             n_smoothing_params=int(predictor.n_smoothing_params),
             predictor_full_slices=(slice(0, predictor_prediction_widths[0]),),
+            predictor_full_indices=(
+                np.arange(0, predictor_prediction_widths[0], dtype=int),
+            ),
             coef_reduced_to_full_idx=np.arange(int(predictor.n_coef), dtype=int)
             + (1 if bool(predictor.has_intercept) else 0),
             smoothing_override_modes=list(predictor.smoothing_override_modes or []),
@@ -281,6 +472,7 @@ def compile_model(
     coef_shift = 0
     sp_shift = 0
     full_shift = 0
+    component_full_indices = []
 
     for predictor_index, predictor in enumerate(compiled_predictors):
         combined_blocks.append(np.asarray(predictor.design_matrix, dtype=np.float64))
@@ -312,6 +504,13 @@ def compile_model(
                 slice(full_shift, full_shift + pred_full_width)
             )
             full_shift += pred_full_width
+        component_full_indices.append(
+            np.arange(
+                predictor_full_start,
+                predictor_full_start + pred_full_width,
+                dtype=int,
+            )
+        )
 
         for term in predictor.compiled_terms:
             global_terms.append(
@@ -319,6 +518,7 @@ def compile_model(
                     term,
                     predictor_index=int(predictor_index),
                     predictor_name=str(predictor.name),
+                    predictor_indices=tuple(component_lpi[predictor_index]),
                     coef_slice=slice(
                         coef_shift + int(term.coef_slice.start),
                         coef_shift + int(term.coef_slice.stop),
@@ -378,6 +578,17 @@ def compile_model(
         coef_shift += int(predictor.n_coef)
         sp_shift += int(predictor.n_smoothing_params)
 
+    logical_full_indices = tuple(
+        np.concatenate(
+            [
+                component_full_indices[component_index]
+                for component_index, indices in enumerate(component_lpi)
+                if predictor_index in indices
+            ]
+        ).astype(int, copy=False)
+        for predictor_index in range(n_linear_predictors)
+    )
+
     return CompiledModel(
         predictors=tuple(compiled_predictors),
         design_matrix=(
@@ -402,6 +613,7 @@ def compile_model(
         n_coef=coef_shift,
         n_smoothing_params=sp_shift,
         predictor_full_slices=tuple(predictor_full_slices),
+        predictor_full_indices=logical_full_indices,
         coef_reduced_to_full_idx=np.asarray(reduced_to_full, dtype=int),
         smoothing_override_modes=list(override_modes),
         smoothing_override_values=np.asarray(override_values, dtype=np.float64),

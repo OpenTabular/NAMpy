@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..model_state import _n_smoothing_params, _predictor_designs
+from ..model_state import _n_smoothing_params, _predictor_full_indices
 from .capabilities import (
     needs_exact_gaussian_reparameterization,
 )
@@ -47,7 +47,7 @@ def compile_designs(model, X, feature_names):
     model.gam_result_ = current.with_compiled_model(
         compiled_model
     )
-    model.family.validate_predictor_count(len(_predictor_designs(model)))
+    model.family.validate_predictor_count(len(_predictor_full_indices(model)))
     model.min_sp_ = resolve_min_sp(model, model.min_sp)
     model.smoothing_params = resolve_smoothing_params(model, _n_smoothing_params(model))
 

@@ -143,14 +143,9 @@ def test_build_formula_model_reuses_transformed_offset_columns_across_predictors
         np.testing.assert_allclose(np.asarray(off, dtype=np.float64), expected)
 
 
-def test_build_formula_model_rejects_shared_component_pending_port():
+def test_build_formula_model_preserves_one_shared_component_block():
     """
-    Owner-contract coverage: shared '1 + 2 ~ ...' components fail loudly.
-
-    mgcv shares one coefficient block across the labelled predictors; the
-    former NAMpy expansion duplicated the terms with independent coefficients,
-    which is a different model. Guarded at extraction until the
-    overlapping-coefficient sharing is ported.
+    Component specs own coefficients and carry their overlapping LP indices.
     """
     data = pd.DataFrame(
         {
@@ -161,18 +156,21 @@ def test_build_formula_model_rejects_shared_component_pending_port():
         }
     )
 
-    with pytest.raises(
-        NotImplementedError,
-        match="Shared linear-predictor components",
-    ):
-        _build_from_formula(
-            [
-                "y1 ~ -1",
-                "y2 ~ -1",
-                '1 + 2 ~ s(x, k=5, bs="cr") + I(z**2)',
-            ],
-            data,
-        )
+    built = _build_from_formula(
+        [
+            "y1 ~ -1",
+            "y2 ~ -1",
+            '1 + 2 ~ s(x, k=5, bs="cr") + I(z**2)',
+        ],
+        data,
+    )
+    assert built.n_linear_predictors == 2
+    assert built.component_lpi == ((1,), (2,), (1, 2))
+    assert len(built.predictor_specs) == 3
+    assert [term.kind for term in built.predictor_specs[2].terms] == [
+        "parametric",
+        "smooth",
+    ]
 
 
 def test_single_formula_multiple_offsets_keep_first_with_mgcv_warning():
@@ -240,10 +238,7 @@ def test_extract_formula_terms_rejects_multiple_offsets_for_one_predictor():
     parsed = parse_gam_formula(formula)
 
     assert parsed.predictors[0].offset_names == ("o1", "o2")
-    with pytest.raises(
-        NotImplementedError,
-        match="Multiple offset\\(\\.\\.\\.\\) terms per predictor are not yet supported",
-    ):
+    with pytest.raises(ValueError, match="shared offsets not allowed"):
         extract_formula_terms(parsed)
 
 
