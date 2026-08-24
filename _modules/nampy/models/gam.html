@@ -837,17 +837,48 @@
     <span class="c1"># Shared prediction surface</span>
     <span class="c1"># ------------------------------------------------------------------</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">predict_link</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">predict_link</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">X</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">block_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">newdata_guaranteed</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">na_action</span><span class="o">=</span><span class="s2">"pass"</span><span class="p">,</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Linear-predictor (link-scale) prediction."""</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_check_fitted</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_X</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"link"</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">newdata_guaranteed</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_validate_X</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span>
+            <span class="n">X</span><span class="p">,</span>
+            <span class="nb">type</span><span class="o">=</span><span class="s2">"link"</span><span class="p">,</span>
+            <span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">,</span>
+            <span class="n">block_size</span><span class="o">=</span><span class="n">block_size</span><span class="p">,</span>
+            <span class="n">newdata_guaranteed</span><span class="o">=</span><span class="n">newdata_guaranteed</span><span class="p">,</span>
+            <span class="n">na_action</span><span class="o">=</span><span class="n">na_action</span><span class="p">,</span>
+        <span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">predict_components</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AdditivePrediction</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">predict_components</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">X</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">block_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">newdata_guaranteed</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">na_action</span><span class="o">=</span><span class="s2">"pass"</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AdditivePrediction</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""Per-term link-scale contributions as a backend-neutral result."""</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_check_fitted</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_X</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
-        <span class="n">vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">predict_terms</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">newdata_guaranteed</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_validate_X</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="n">vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">predict_terms</span><span class="p">(</span>
+            <span class="n">X</span><span class="p">,</span>
+            <span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">,</span>
+            <span class="n">block_size</span><span class="o">=</span><span class="n">block_size</span><span class="p">,</span>
+            <span class="n">newdata_guaranteed</span><span class="o">=</span><span class="n">newdata_guaranteed</span><span class="p">,</span>
+            <span class="n">na_action</span><span class="o">=</span><span class="n">na_action</span><span class="p">,</span>
+        <span class="p">)</span>
 
         <span class="n">link</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">vals</span><span class="p">[</span><span class="s2">"output"</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
         <span class="n">response</span> <span class="o">=</span> <span class="n">vals</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"response"</span><span class="p">)</span>
@@ -914,18 +945,51 @@
             <span class="k">return</span> <span class="p">{}</span>
         <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">ids</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">standard_errors</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"response"</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">standard_errors</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">X</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="s2">"response"</span><span class="p">,</span>
+        <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">block_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">newdata_guaranteed</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">na_action</span><span class="o">=</span><span class="s2">"pass"</span><span class="p">,</span>
+        <span class="n">unconditional</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Pointwise prediction standard errors."""</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_check_fitted</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_X</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
-        <span class="n">_</span><span class="p">,</span> <span class="n">se</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">return_se</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">type</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">newdata_guaranteed</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_validate_X</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">se</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span>
+            <span class="n">X</span><span class="p">,</span>
+            <span class="n">return_se</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="nb">type</span><span class="o">=</span><span class="nb">type</span><span class="p">,</span>
+            <span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">,</span>
+            <span class="n">block_size</span><span class="o">=</span><span class="n">block_size</span><span class="p">,</span>
+            <span class="n">newdata_guaranteed</span><span class="o">=</span><span class="n">newdata_guaranteed</span><span class="p">,</span>
+            <span class="n">na_action</span><span class="o">=</span><span class="n">na_action</span><span class="p">,</span>
+            <span class="n">unconditional</span><span class="o">=</span><span class="n">unconditional</span><span class="p">,</span>
+        <span class="p">)</span>
         <span class="k">return</span> <span class="n">se</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">lpmatrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">lpmatrix</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">X</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">block_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">newdata_guaranteed</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">na_action</span><span class="o">=</span><span class="s2">"pass"</span><span class="p">,</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Linear-predictor matrix for new data."""</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_check_fitted</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_X</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">lpmatrix</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">newdata_guaranteed</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_validate_X</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">lpmatrix</span><span class="p">(</span>
+            <span class="n">X</span><span class="p">,</span>
+            <span class="n">block_size</span><span class="o">=</span><span class="n">block_size</span><span class="p">,</span>
+            <span class="n">newdata_guaranteed</span><span class="o">=</span><span class="n">newdata_guaranteed</span><span class="p">,</span>
+            <span class="n">na_action</span><span class="o">=</span><span class="n">na_action</span><span class="p">,</span>
+        <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">summary</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Print and return the mgcv-style model summary."""</span>
@@ -1024,11 +1088,27 @@
 
 <div class="viewcode-block" id="GAMRegressor.predict">
 <a class="viewcode-back" href="../../../api/generated/nampy.models.GAMRegressor.html#nampy.models.GAMRegressor.predict">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">X</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">block_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">newdata_guaranteed</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">na_action</span><span class="o">=</span><span class="s2">"pass"</span><span class="p">,</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Response-scale prediction."""</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_check_fitted</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_X</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"response"</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">)</span></div>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">newdata_guaranteed</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_validate_X</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span>
+            <span class="n">X</span><span class="p">,</span>
+            <span class="nb">type</span><span class="o">=</span><span class="s2">"response"</span><span class="p">,</span>
+            <span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">,</span>
+            <span class="n">block_size</span><span class="o">=</span><span class="n">block_size</span><span class="p">,</span>
+            <span class="n">newdata_guaranteed</span><span class="o">=</span><span class="n">newdata_guaranteed</span><span class="p">,</span>
+            <span class="n">na_action</span><span class="o">=</span><span class="n">na_action</span><span class="p">,</span>
+        <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="GAMRegressor.score">
@@ -1139,29 +1219,74 @@
 
 <div class="viewcode-block" id="GAMClassifier.predict_proba">
 <a class="viewcode-back" href="../../../api/generated/nampy.models.GAMClassifier.html#nampy.models.GAMClassifier.predict_proba">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">predict_proba</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">predict_proba</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">X</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">block_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">newdata_guaranteed</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">na_action</span><span class="o">=</span><span class="s2">"pass"</span><span class="p">,</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Class probabilities; columns follow ``self.classes_``."""</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_check_fitted</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_X</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">newdata_guaranteed</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_validate_X</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
         <span class="n">p1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"response"</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span>
+                <span class="n">X</span><span class="p">,</span>
+                <span class="nb">type</span><span class="o">=</span><span class="s2">"response"</span><span class="p">,</span>
+                <span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">,</span>
+                <span class="n">block_size</span><span class="o">=</span><span class="n">block_size</span><span class="p">,</span>
+                <span class="n">newdata_guaranteed</span><span class="o">=</span><span class="n">newdata_guaranteed</span><span class="p">,</span>
+                <span class="n">na_action</span><span class="o">=</span><span class="n">na_action</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">p1</span><span class="p">,</span> <span class="n">p1</span><span class="p">])</span></div>
 
 
 <div class="viewcode-block" id="GAMClassifier.predict">
 <a class="viewcode-back" href="../../../api/generated/nampy.models.GAMClassifier.html#nampy.models.GAMClassifier.predict">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">X</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">block_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">newdata_guaranteed</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">na_action</span><span class="o">=</span><span class="s2">"pass"</span><span class="p">,</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Predicted class labels (original label dtype)."""</span>
-        <span class="n">p1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">)[:,</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">p1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span>
+            <span class="n">X</span><span class="p">,</span>
+            <span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">,</span>
+            <span class="n">block_size</span><span class="o">=</span><span class="n">block_size</span><span class="p">,</span>
+            <span class="n">newdata_guaranteed</span><span class="o">=</span><span class="n">newdata_guaranteed</span><span class="p">,</span>
+            <span class="n">na_action</span><span class="o">=</span><span class="n">na_action</span><span class="p">,</span>
+        <span class="p">)[:,</span> <span class="mi">1</span><span class="p">]</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">classes_</span><span class="p">[(</span><span class="n">p1</span> <span class="o">&gt;=</span> <span class="mf">0.5</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)]</span></div>
 
 
 <div class="viewcode-block" id="GAMClassifier.decision_function">
 <a class="viewcode-back" href="../../../api/generated/nampy.models.GAMClassifier.html#nampy.models.GAMClassifier.decision_function">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">decision_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">decision_function</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">X</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">block_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">newdata_guaranteed</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">na_action</span><span class="o">=</span><span class="s2">"pass"</span><span class="p">,</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Link-scale (logit) decision values."""</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict_link</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict_link</span><span class="p">(</span>
+            <span class="n">X</span><span class="p">,</span>
+            <span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">,</span>
+            <span class="n">block_size</span><span class="o">=</span><span class="n">block_size</span><span class="p">,</span>
+            <span class="n">newdata_guaranteed</span><span class="o">=</span><span class="n">newdata_guaranteed</span><span class="p">,</span>
+            <span class="n">na_action</span><span class="o">=</span><span class="n">na_action</span><span class="p">,</span>
+        <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="GAMClassifier.score">
