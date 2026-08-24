@@ -18,9 +18,6 @@ Standard errors are optionally returned alongside predictions when
 or the frequentist sandwich covariance.
 """
 
-import re
-import warnings
-
 import numpy as np
 
 from ..fit.offsets import resolve_prediction_offset
@@ -31,12 +28,13 @@ from ..model_state import (
     _term_blocks_seq,
     _term_full_coefficient_indices,
 )
-from ..term_labels import normalize_mgcv_term_label
 from .general import predict_general_values
 from .linear_predictor_matrix import _build_prediction_matrices
 from .terms import (
+    _filtered_term_output_indices,
     _group_standard_error_rows,
     _group_term_contribution,
+    _prediction_group_selection,
     _prediction_term_groups,
 )
 
@@ -53,27 +51,6 @@ def _coerce_prediction_term_filter(values, *, name):
     if not all(isinstance(value, str) for value in out):
         raise TypeError(f"{name} must contain only strings.")
     return out
-
-
-def _term_filter_key(value):
-    """Canonicalize inconsequential deparse spacing in mgcv term filters."""
-    normalized = str(normalize_mgcv_term_label(value))
-    return re.sub(r",\s*", ",", normalized)
-
-
-def _prediction_group_selection(groups, *, terms, exclude):
-    labels = tuple(str(group["label"]) for group in groups)
-    label_keys = tuple(_term_filter_key(label) for label in labels)
-    term_keys = None if terms is None else {_term_filter_key(term) for term in terms}
-    exclude_keys = (
-        None if exclude is None else {_term_filter_key(term) for term in exclude}
-    )
-    selected = np.ones(len(groups), dtype=bool)
-    if term_keys is not None:
-        selected &= np.asarray([key in term_keys for key in label_keys], dtype=bool)
-    if exclude_keys is not None:
-        selected &= np.asarray([key not in exclude_keys for key in label_keys], dtype=bool)
-    return labels, selected
 
 
 def _filtered_prediction_matrix(model, Xp, groups, selected, *, terms, exclude):
@@ -94,42 +71,6 @@ def _filtered_prediction_matrix(model, Xp, groups, selected, *, terms, exclude):
             full_indices = _term_full_coefficient_indices(model, tb)
             Xp_filtered[:, full_indices] = 0.0
     return Xp_filtered
-
-
-def _filtered_term_output_indices(labels, *, terms, exclude):
-    indices = list(range(len(labels)))
-    label_keys = [_term_filter_key(label) for label in labels]
-    if terms is not None:
-        term_keys = [_term_filter_key(label) for label in terms]
-        missing = [
-            label
-            for label, key in zip(terms, term_keys, strict=True)
-            if key not in label_keys
-        ]
-        if missing:
-            warnings.warn(
-                "non-existent terms requested - ignoring",
-                stacklevel=3,
-            )
-        else:
-            indices = [label_keys.index(key) for key in term_keys]
-    if exclude is not None:
-        exclude_keys = [_term_filter_key(label) for label in exclude]
-        missing = [
-            label
-            for label, key in zip(exclude, exclude_keys, strict=True)
-            if key not in label_keys
-        ]
-        if missing:
-            warnings.warn(
-                "non-existent exclude terms requested - ignoring",
-                stacklevel=3,
-            )
-        else:
-            indices = [
-                index for index in indices if label_keys[index] not in exclude_keys
-            ]
-    return np.asarray(indices, dtype=int)
 
 
 def _prediction_parameterization_wider(tb) -> bool:
@@ -165,9 +106,7 @@ def _group_iterm_standard_error_rows(model, Xp, group, cmX):
     ):
         return _group_standard_error_rows(model, Xp, group, type="iterms")
 
-    X1 = np.broadcast_to(
-        np.asarray(cmX, dtype=np.float64), Xp.shape
-    ).copy()
+    X1 = np.broadcast_to(np.asarray(cmX, dtype=np.float64), Xp.shape).copy()
     for tb in group["blocks"]:
         full_indices = _term_full_coefficient_indices(model, tb)
         X1[:, full_indices] = Xp[:, full_indices]
@@ -229,8 +168,7 @@ def predict_values(
 
     if type in {"terms", "iterms"}:
         if any(
-            _prediction_parameterization_wider(tb)
-            for tb in _term_blocks_seq(model)
+            _prediction_parameterization_wider(tb) for tb in _term_blocks_seq(model)
         ):
             raise NotImplementedError(
                 "type='terms' is not supported for models whose prediction "
@@ -267,9 +205,7 @@ def predict_values(
         ses = []
         for group in groups:
             if type == "iterms":
-                Xi, sl_full = _group_iterm_standard_error_rows(
-                    model, Xp, group, cmX
-                )
+                Xi, sl_full = _group_iterm_standard_error_rows(model, Xp, group, cmX)
             else:
                 Xi, sl_full = _group_standard_error_rows(
                     model,
@@ -309,9 +245,7 @@ def predict_values(
     response_from_eta = getattr(model.family, "response_from_eta", None)
     if callable(response_from_eta):
         if return_se:
-            response_se_from_eta = getattr(
-                model.family, "response_se_from_eta", None
-            )
+            response_se_from_eta = getattr(model.family, "response_se_from_eta", None)
             if not callable(response_se_from_eta):
                 raise NotImplementedError(
                     f"Predictive standard errors are not implemented for "
