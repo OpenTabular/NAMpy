@@ -197,3 +197,33 @@ def test_persistence_round_trip(tmp_path):
 
     assert restored.parameter_names_ == ("mu", "sigma")
     assert_array_equal(restored.predict(X), estimator.predict(X))
+
+
+def test_shared_formula_component_is_exposed_for_each_target_parameter():
+    X, y = _normal_data(n=70)
+    data = X.assign(y=y)
+    estimator = GAMLSS(
+        formula=[
+            "y ~ x0",
+            "~ 1",
+            '1 + 2 ~ s(x1, bs="cr", k=6, sp=0.8) - 1',
+        ],
+        optimize_smoothing=False,
+        smoothing_method="fixed",
+    ).fit(data)
+
+    components = estimator.predict_components(data)
+    shared_keys = [key for key in components.terms if "s(x1" in key]
+    assert shared_keys == [
+        'mu:s(x1, bs="cr", k=6, sp=0.8)',
+        'sigma:s(x1, bs="cr", k=6, sp=0.8)',
+    ]
+    np.testing.assert_array_equal(components.terms[shared_keys[0]][:, 1], 0.0)
+    np.testing.assert_array_equal(components.terms[shared_keys[1]][:, 0], 0.0)
+    np.testing.assert_allclose(
+        components.terms[shared_keys[0]][:, 0],
+        components.terms[shared_keys[1]][:, 1],
+        atol=0.0,
+        rtol=0.0,
+    )
+    components.validate_additive_reconstruction()

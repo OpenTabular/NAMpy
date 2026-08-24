@@ -42,28 +42,20 @@ class ExtractedPredictor:
     terms: tuple[ExtractedTerm, ...]
     offset_name: str | None = None
     raw_formula: str = ""
+    lpi: tuple[int, ...] = ()
+    is_base_formula: bool = True
 
 
 def extract_formula_terms(
     parsed: ParsedGAMFormula, *, drop_intercept=None
 ) -> list[ExtractedPredictor]:
-    for component in getattr(parsed, "components", ()) or ():
-        if len(getattr(component, "lpi", ())) > 1:
-            # mgcv's `1 + 2 ~ ...` shares ONE coefficient block across the
-            # labelled predictors ("with the same coefficients",
-            # ?mgcv::formula.gam). NAMpy's aggregation would duplicate the
-            # terms with independent coefficients — a different model — so
-            # this must fail loudly until the overlapping-lpi coefficient
-            # sharing is ported. Parsing (interpret.gam parity) still works.
-            raise NotImplementedError(
-                "Shared linear-predictor components ('1 + 2 ~ ...') are not "
-                "supported yet: mgcv shares a single coefficient block across "
-                "the labelled predictors, which NAMpy does not implement. "
-                "Repeat the terms in each predictor's own formula if "
-                "independent coefficients are intended."
-            )
-
-    n_pred = len(parsed.predictors)
+    # Formula-list components, rather than the aggregated predictor views,
+    # own coefficient blocks in mgcv.  In particular ``1 + 2 ~ s(x)`` is one
+    # block referenced by both linear predictors.  For an ordinary formula
+    # the sole parsed component has an empty lpi; normalize it to predictor 1.
+    components = list(getattr(parsed, "components", ()) or ())
+    source = components if components else list(parsed.predictors)
+    n_pred = len(source)
     if drop_intercept is None:
         flags = [False] * n_pred
     elif np.isscalar(drop_intercept):
@@ -77,7 +69,11 @@ def extract_formula_terms(
             )
 
     extracted = []
-    for i, (pf, drop_flag) in enumerate(zip(parsed.predictors, flags, strict=True)):
+    for i, (pf, drop_flag) in enumerate(zip(source, flags, strict=True)):
+        if not bool(getattr(pf, "is_base_formula", True)) and len(
+            getattr(pf, "offset_names", ()) or ()
+        ) > 0:
+            raise ValueError("shared offsets not allowed")
         if len(getattr(pf, "offset_names", ())) > 1:
             raise NotImplementedError(
                 "Multiple offset(...) terms per predictor are not yet supported "
@@ -118,6 +114,8 @@ def extract_formula_terms(
                 terms=tuple(terms),
                 offset_name=pf.offset_name,
                 raw_formula=pf.raw_formula,
+                lpi=tuple(int(v) for v in (getattr(pf, "lpi", ()) or (1,))),
+                is_base_formula=bool(getattr(pf, "is_base_formula", True)),
             )
         )
 

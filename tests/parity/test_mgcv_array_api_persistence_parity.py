@@ -226,10 +226,12 @@ def test_legacy_pickle_state_migrates_family_and_term_coordinates():
     state.pop("_gam_state_schema_version")
     state.pop("_family_template")
     compiled = state["gam_result_"].compiled_model
+    compiled.__dict__.pop("predictor_full_indices", None)
     for term in compiled.compiled_terms:
         term.__dict__.pop("predictor_index", None)
         term.__dict__.pop("predictor_name", None)
         term.__dict__.pop("full_coef_indices", None)
+        term.__dict__.pop("predictor_indices", None)
 
     restored = GAM.__new__(GAM)
     restored.__setstate__(state)
@@ -240,6 +242,7 @@ def test_legacy_pickle_state_migrates_family_and_term_coordinates():
             term.coef_slice.start : term.coef_slice.stop
         ]
         np.testing.assert_array_equal(term.full_coef_indices, mapped)
+        assert term.predictor_indices == (term.predictor_index,)
     np.testing.assert_array_equal(
         restored.predict(data.drop(columns=["y"]), type="link"),
         expected,

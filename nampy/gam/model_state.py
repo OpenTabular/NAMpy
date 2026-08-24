@@ -126,6 +126,19 @@ def _predictor_full_slices(obj: Any):
     return getattr(compiled_model, "predictor_full_slices", ())
 
 
+def _predictor_full_indices(obj: Any):
+    compiled_model = _compiled_model(obj)
+    if compiled_model is None:
+        return ()
+    explicit = getattr(compiled_model, "predictor_full_indices", ())
+    if explicit:
+        return tuple(np.asarray(indices, dtype=int) for indices in explicit)
+    return tuple(
+        np.arange(int(sl.start), int(sl.stop), dtype=int)
+        for sl in getattr(compiled_model, "predictor_full_slices", ())
+    )
+
+
 def _n_coef(obj: Any) -> int:
     compiled_model = _compiled_model(obj)
     if compiled_model is None:

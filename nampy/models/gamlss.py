@@ -116,9 +116,10 @@ class GAMLSS(_GAMAdapterBase):
             formulas = [formula[name] for name in names]
         elif isinstance(formula, Sequence) and not isinstance(formula, str):
             formulas = list(formula)
-            if len(formulas) != len(names):
+            if len(formulas) < len(names):
                 raise ValueError(
-                    f"GAMLSS family {family.name!r} expects {len(names)} formulas, "
+                    f"GAMLSS family {family.name!r} expects {len(names)} formulas "
+                    "or more when extra components have numeric predictor labels, "
                     f"got {len(formulas)}."
                 )
         else:
@@ -128,13 +129,23 @@ class GAMLSS(_GAMAdapterBase):
             )
         if any(not isinstance(value, str) for value in formulas):
             raise TypeError("Every GAMLSS formula must be a string.")
-        for value in formulas[1:]:
+        for value in formulas[1 : len(names)]:
             lhs, separator, _ = value.partition("~")
             if not separator or lhs.strip():
                 raise ValueError(
                     "Only the first GAMLSS formula may contain a response; "
                     "secondary parameter formulas must be one-sided ('~ ...')."
                 )
+        if len(formulas) > len(names):
+            from ..gam.formula import get_numeric_response_labels
+
+            for value in formulas[len(names) :]:
+                labels = get_numeric_response_labels(value)
+                if len(labels) < 2:
+                    raise ValueError(
+                        "Extra GAMLSS formula components must use a numeric "
+                        "multi-predictor lhs such as '1 + 2 ~ s(x)'."
+                    )
         return formulas
 
     def fit(self, X, y=None, *, data=None, sample_weight=None, offset=None):
@@ -217,13 +228,17 @@ class GAMLSS(_GAMAdapterBase):
 
         compiled = self.gam_.gam_result_.require_compiled_model()
         predictor_index = {
-            str(predictor.name): index
-            for index, predictor in enumerate(compiled.predictors)
+            f"eta{index + 1}": index for index in range(n_parameters)
         }
-        label_map = {
-            (str(term.predictor_name), str(term.term_id)): str(term.label)
-            for term in compiled.compiled_terms
-        }
+        label_map = {}
+        for term in compiled.compiled_terms:
+            targets = tuple(getattr(term, "predictor_indices", ())) or (
+                int(getattr(term, "predictor_index", 0)),
+            )
+            for target in targets:
+                label_map[(f"eta{int(target) + 1}", str(term.term_id))] = str(
+                    term.label
+                )
 
         terms = {}
         reserved = {"output", "response", "intercept", "offset"}

@@ -298,15 +298,9 @@ class TestMGCVFormulaParseParity:
         expected_component = _normalize_mgcv_component(expected["components"][0])
         assert actual_component == expected_component
 
-    def test_extract_formula_terms_rejects_shared_component_pending_port(self):
+    def test_extract_formula_terms_preserves_shared_component_ownership(self):
         """
-        Shared '1 + 2 ~ ...' components must fail loudly at extraction.
-
-        mgcv shares a single coefficient block across the labelled predictors
-        ("with the same coefficients", ?mgcv::formula.gam). NAMpy's old
-        expansion duplicated the terms with independent coefficients — a
-        different model — so building is guarded until coefficient sharing is
-        ported. Parsing itself stays interpret.gam-parity-tested above.
+        Shared ``1 + 2 ~ ...`` remains one component with overlapping LP ids.
         """
         parsed = parse_gam_formula(
             [
@@ -316,11 +310,15 @@ class TestMGCVFormulaParseParity:
             ]
         )
 
-        with pytest.raises(
-            NotImplementedError,
-            match="Shared linear-predictor components",
-        ):
-            extract_formula_terms(parsed)
+        extracted = extract_formula_terms(parsed)
+        assert len(extracted) == 3
+        assert [component.lpi for component in extracted] == [(1,), (2,), (1, 2)]
+        assert [component.is_base_formula for component in extracted] == [
+            True,
+            True,
+            False,
+        ]
+        assert len(extracted[2].terms) == 1
 
     def test_build_formula_model_accepts_transformed_parametric_terms(self):
         """Verify that build formula model accepts transformed parametric terms."""
@@ -596,13 +594,11 @@ class TestMGCVFormulaParseParity:
         )
         parsed = parse_gam_formula(formula)
 
-        # The shared-label variant trips the shared-component guard at
-        # extraction; the others reach build_formula_model's dot rejection.
         with pytest.raises(
             NotImplementedError,
             match=(
                 "Data-aware '\\.' shorthand is unsupported for formula-list / "
-                "multi-predictor models|Shared linear-predictor components"
+                "multi-predictor models"
             ),
         ):
             extracted = extract_formula_terms(parsed)

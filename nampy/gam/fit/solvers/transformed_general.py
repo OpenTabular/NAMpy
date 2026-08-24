@@ -194,8 +194,9 @@ def solve_transformed_general_family_fit(
     mu = np.asarray(model.family.predict(eta=eta), dtype=np.float64)
     reduced = np.asarray(beta[setup.reduced_to_full_idx], dtype=np.float64)
     intercept = (
-        float(beta[setup.predictor_full_slices[0].start])
+        float(beta[int(np.asarray(setup.predictor_full_slices[0], dtype=int)[0])])
         if setup.predictor_full_slices
+        and np.asarray(setup.predictor_full_slices[0]).size
         else 0.0
     )
     sign, logdet = np.linalg.slogdet(penalized_hessian)

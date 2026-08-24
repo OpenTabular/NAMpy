@@ -14,7 +14,7 @@ from ..linalg import symmetrize_matrix
 from ..model_state import (
     _coef_full,
     _predictor_designs,
-    _predictor_full_slices,
+    _predictor_full_indices,
     _term_blocks_seq,
     _term_full_coefficient_indices,
 )
@@ -40,7 +40,7 @@ def _prediction_parameterization_wider(tb) -> bool:
 
 def general_family_prediction_offset(model, X_np, offset):
     n_rows = model.n_samples_ if X_np is None else int(X_np.shape[0])
-    n_pred = len(_predictor_full_slices(model))
+    n_pred = len(_predictor_full_indices(model))
     offset_value = resolve_prediction_offset(model, X_np, offset)
     if offset_value is None:
         return None
@@ -64,7 +64,9 @@ def general_family_prediction_layout(model, X_np):
     Z_blocks = []
     Xp_blocks = []
     predictors = _predictor_designs(model)
-    predictor_slices = tuple(_predictor_full_slices(model))
+    predictor_slices = tuple(_predictor_full_indices(model))
+    component_full_indices = []
+    full_start = 0
     for pred in predictors:
         use_training_prediction_matrix = any(
             bool(getattr(tb, "metadata", {}).get("expose_raw_prediction_basis"))
@@ -82,11 +84,16 @@ def general_family_prediction_layout(model, X_np):
         )
         Z_blocks.append(Zp)
         if predict_has_intercept:
-            Xp_blocks.append(
-                np.column_stack([np.ones(Zp.shape[0], dtype=np.float64), Zp])
+            component_block = np.column_stack(
+                [np.ones(Zp.shape[0], dtype=np.float64), Zp]
             )
         else:
-            Xp_blocks.append(Zp)
+            component_block = Zp
+        Xp_blocks.append(component_block)
+        component_full_indices.append(
+            np.arange(full_start, full_start + component_block.shape[1], dtype=int)
+        )
+        full_start += component_block.shape[1]
     Z_new = (
         np.column_stack(Z_blocks)
         if Z_blocks
@@ -99,9 +106,12 @@ def general_family_prediction_layout(model, X_np):
     )
     return _GeneralPredictionLayout(
         Z_new=Z_new,
-        Xp_blocks=Xp_blocks,
+        Xp_blocks=[
+            np.asarray(lpmatrix[:, indices], dtype=np.float64)
+            for indices in predictor_slices
+        ],
         predictor_slices=predictor_slices,
-        jj=[np.arange(sl.start, sl.stop, dtype=int) for sl in predictor_slices],
+        jj=[np.asarray(indices, dtype=int) for indices in predictor_slices],
         lpmatrix=lpmatrix,
     )
 
@@ -152,16 +162,20 @@ def _filtered_general_prediction_layout(
         return layout
 
     lpmatrix = np.asarray(layout.lpmatrix, dtype=np.float64).copy()
-    for predictor, predictor_slice in zip(
-        _predictor_designs(model), layout.predictor_slices, strict=True
-    ):
+    full_start = 0
+    for predictor in _predictor_designs(model):
+        width = int(predictor.build_new_matrix(model.X_[:1]).shape[1]) + int(
+            bool(predictor.prediction_has_intercept)
+        )
         if not bool(predictor.prediction_has_intercept):
+            full_start += width
             continue
         keep_intercept = (terms is None or "(Intercept)" in terms) and (
             exclude is None or "(Intercept)" not in exclude
         )
         if not keep_intercept:
-            lpmatrix[:, int(predictor_slice.start)] = 0.0
+            lpmatrix[:, full_start] = 0.0
+        full_start += width
 
     for group, keep in zip(groups, selected, strict=True):
         if keep:
@@ -173,8 +187,8 @@ def _filtered_general_prediction_layout(
     return _GeneralPredictionLayout(
         Z_new=layout.Z_new,
         Xp_blocks=[
-            np.asarray(lpmatrix[:, predictor_slice], dtype=np.float64)
-            for predictor_slice in layout.predictor_slices
+            np.asarray(lpmatrix[:, predictor_indices], dtype=np.float64)
+            for predictor_indices in layout.predictor_slices
         ],
         predictor_slices=layout.predictor_slices,
         jj=layout.jj,
@@ -294,7 +308,7 @@ def predict_general_values(
         V = _general_family_covariance_for_prediction(model, cov)
         se_cols = []
         for Xp, sl in zip(layout.Xp_blocks, layout.predictor_slices, strict=True):
-            Vk = V[sl, sl]
+            Vk = V[np.ix_(sl, sl)]
             var = np.einsum("ij,jk,ik->i", Xp, Vk, Xp)
             se_cols.append(np.sqrt(np.maximum(var, 0.0)))
         return eta, np.column_stack(se_cols)
