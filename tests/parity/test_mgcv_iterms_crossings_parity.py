@@ -159,7 +159,7 @@ def test_iterms_with_unconditional_covariance_matches_mgcv():
         newdata,
         type="iterms",
         return_se=True,
-        cov=gam.vcov(unconditional=True),
+        unconditional=True,
     )
     expected = _run_mgcv_predict_on_newdata(
         data,

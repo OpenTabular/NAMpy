@@ -168,28 +168,86 @@ class GAMLSS(_GAMAdapterBase):
         self.parameter_names_ = tuple(self.gam_.family.parameter_names)
         return result
 
-    def predict(self, X=None, raw=False, offset=None):
+    def predict(
+        self,
+        X=None,
+        raw=False,
+        offset=None,
+        *,
+        block_size=None,
+        newdata_guaranteed=False,
+        na_action="pass",
+    ):
         """Return natural parameters, or raw linear predictors with ``raw=True``."""
-        eta = np.asarray(self.predict_link(X, offset=offset), dtype=np.float64)
+        eta = np.asarray(
+            self.predict_link(
+                X,
+                offset=offset,
+                block_size=block_size,
+                newdata_guaranteed=newdata_guaranteed,
+                na_action=na_action,
+            ),
+            dtype=np.float64,
+        )
         if raw:
             return eta
         return self.gam_.family.distribution_parameters_from_eta(eta)
 
-    def predict_point(self, X=None, offset=None):
+    def predict_point(
+        self,
+        X=None,
+        offset=None,
+        *,
+        block_size=None,
+        newdata_guaranteed=False,
+        na_action="pass",
+    ):
         """Return the family-defined conditional mean prediction."""
-        parameters = self.predict(X, offset=offset)
+        parameters = self.predict(
+            X,
+            offset=offset,
+            block_size=block_size,
+            newdata_guaranteed=newdata_guaranteed,
+            na_action=na_action,
+        )
         return self.gam_.family.point_prediction_from_parameters(parameters)
 
-    def standard_errors(self, X=None, type="response", offset=None):
+    def standard_errors(
+        self,
+        X=None,
+        type="response",
+        offset=None,
+        *,
+        block_size=None,
+        newdata_guaranteed=False,
+        na_action="pass",
+        unconditional=False,
+    ):
         """Pointwise errors on the natural-parameter or link scale."""
         if type == "link":
-            return super().standard_errors(X, type="link", offset=offset)
+            return super().standard_errors(
+                X,
+                type="link",
+                offset=offset,
+                block_size=block_size,
+                newdata_guaranteed=newdata_guaranteed,
+                na_action=na_action,
+                unconditional=unconditional,
+            )
         if type != "response":
             raise ValueError("type must be 'response' or 'link'.")
         self._check_fitted()
-        self._validate_X(X)
+        if not newdata_guaranteed:
+            self._validate_X(X)
         eta, eta_se = self.gam_.predict(
-            X, return_se=True, type="link", offset=offset
+            X,
+            return_se=True,
+            type="link",
+            offset=offset,
+            block_size=block_size,
+            newdata_guaranteed=newdata_guaranteed,
+            na_action=na_action,
+            unconditional=unconditional,
         )
         jacobian = self.gam_.family.distribution_parameter_jacobian(eta)
         return np.abs(jacobian) * np.asarray(eta_se, dtype=np.float64)
@@ -217,11 +275,26 @@ class GAMLSS(_GAMAdapterBase):
             for metric_name, metric_func in metrics.items()
         }
 
-    def predict_components(self, X=None, offset=None) -> AdditivePrediction:
+    def predict_components(
+        self,
+        X=None,
+        offset=None,
+        *,
+        block_size=None,
+        newdata_guaranteed=False,
+        na_action="pass",
+    ) -> AdditivePrediction:
         """Return zero-padded per-parameter contributions on the link scale."""
         self._check_fitted()
-        self._validate_X(X)
-        vals = self.gam_.predict_terms(X, offset=offset)
+        if not newdata_guaranteed:
+            self._validate_X(X)
+        vals = self.gam_.predict_terms(
+            X,
+            offset=offset,
+            block_size=block_size,
+            newdata_guaranteed=newdata_guaranteed,
+            na_action=na_action,
+        )
         link = np.asarray(vals["output"], dtype=np.float64)
         response = self.gam_.family.distribution_parameters_from_eta(link)
         n_samples, n_parameters = link.shape

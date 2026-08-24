@@ -1,6 +1,7 @@
 """User-facing mgcv-aligned GAM model."""
 
 import pickle
+from numbers import Integral
 from pathlib import Path
 
 import numpy as np
@@ -24,6 +25,7 @@ from ..diagnostics import (
 )
 from ..families import clone_gam_family, make_gam_family
 from ..fit import fit_model_core, select_covariance_matrix
+from ..fit.covariance import select_prediction_covariance_matrix
 from ..fit.offsets import coerce_offset_array
 from ..fit.result_builders import build_gam_result, copy_fit_result
 from ..fit.selection import gam_vcomp, one_se_rule, sp_vcov
@@ -51,13 +53,109 @@ from ..model_state import (
     _predictor_full_indices,
     _term_blocks_seq,
 )
-from ..predict import build_lpmatrix, predict_values
-from ..predict.general import general_family_prediction_offset
+from ..predict import (
+    predict_values,
+    prediction_guaranteed_skip_contract,
+)
 from ..predict.terms import _prediction_term_groups
 from ..results.snapshots import build_snapshot
 from ..specs.modeling import make_predictor_specs, prepare_formula_inputs
 from .persistence import gam_pickle_state, restore_gam_pickle_state
 from .session import FitSession
+
+
+def _normalize_prediction_na_action(value):
+    if value is None:
+        return None
+    key = str(value).lower().replace("_", ".")
+    if key.startswith("na."):
+        key = key[3:]
+    if key not in {"pass", "omit", "exclude", "fail"}:
+        raise ValueError(
+            "na_action must be one of {'pass', 'omit', 'exclude', 'fail', None}."
+        )
+    return key
+
+
+def _normalize_prediction_block_size(value, *, n_rows, explicit_newdata, pred_type):
+    if str(pred_type).lower() == "lpmatrix":
+        return max(int(n_rows), 1)
+    if value is None:
+        return 1000 if explicit_newdata else max(int(n_rows), 1)
+    if isinstance(value, (bool, np.bool_)) or not isinstance(value, Integral):
+        raise TypeError("block_size must be an integer or None.")
+    size = int(value)
+    return max(int(n_rows), 1) if size < 1 else size
+
+
+def _slice_prediction_value(value, rows):
+    if value is None:
+        return None
+    if isinstance(value, (list, tuple)):
+        return [
+            None if item is None else np.asarray(item)[rows] for item in value
+        ]
+    return np.asarray(value)[rows]
+
+
+def _prediction_complete_rows(model, X):
+    if isinstance(X, pd.DataFrame):
+        if bool(getattr(model, "formula_mode_", False)):
+            required = list(getattr(model, "formula_used_columns_", ()) or ())
+            columns = [name for name in required if name in X.columns]
+        else:
+            columns = list(X.columns)
+        if not columns:
+            return np.ones(len(X), dtype=bool)
+        return ~X[columns].isna().any(axis=1).to_numpy(dtype=bool)
+    array = np.asarray(X)
+    if array.ndim == 1:
+        array = array.reshape(-1, 1)
+    return ~pd.isna(array).any(axis=1)
+
+
+def _prediction_offset_complete_rows(offset, n_rows):
+    complete = np.ones(int(n_rows), dtype=bool)
+    if offset is None:
+        return complete
+    values = offset if isinstance(offset, (list, tuple)) else (offset,)
+    for value in values:
+        if value is None:
+            continue
+        array = np.asarray(value).reshape(-1)
+        if array.shape != (int(n_rows),):
+            raise ValueError(
+                f"offset must have shape ({int(n_rows)},), got {array.shape}."
+            )
+        complete &= ~pd.isna(array)
+    return complete
+
+
+def _concatenate_prediction_blocks(blocks):
+    first = blocks[0]
+    if isinstance(first, tuple):
+        return tuple(
+            _concatenate_prediction_blocks([block[index] for block in blocks])
+            for index in range(len(first))
+        )
+    return np.concatenate([np.asarray(block) for block in blocks], axis=0)
+
+
+def _empty_prediction_result(value):
+    if isinstance(value, tuple):
+        return tuple(_empty_prediction_result(item) for item in value)
+    return np.asarray(value)[:0]
+
+
+def _restore_prediction_na_rows(value, retained_rows, n_rows):
+    if isinstance(value, tuple):
+        return tuple(
+            _restore_prediction_na_rows(item, retained_rows, n_rows) for item in value
+        )
+    array = np.asarray(value)
+    out = np.full((int(n_rows), *array.shape[1:]), np.nan, dtype=np.float64)
+    out[np.asarray(retained_rows, dtype=int)] = np.asarray(array, dtype=np.float64)
+    return out
 
 _GAM_HPARAM_KEYS = frozenset(
     {
@@ -522,10 +620,34 @@ class GAM:
         offset=None,
         terms=None,
         exclude=None,
+        block_size=None,
+        newdata_guaranteed=False,
+        na_action="pass",
+        unconditional=False,
+        iterms_type=1,
     ):
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
+        if bool(unconditional) and cov is not None:
+            raise ValueError("cov and unconditional=True cannot be used together.")
+        if bool(newdata_guaranteed) and X is None:
+            raise ValueError("newdata_guaranteed=True requires explicit newdata.")
+        cov_use = cov
+        unconditional_core = bool(unconditional)
+        if unconditional_core:
+            cov_use = select_prediction_covariance_matrix(
+                self, unconditional=True
+            )
+            unconditional_core = False
+        skip_term_ids = frozenset()
+        allowed_missing_features = frozenset()
+        if bool(newdata_guaranteed):
+            skip_term_ids, allowed_missing_features = (
+                prediction_guaranteed_skip_contract(
+                    self, terms=terms, exclude=exclude
+                )
+            )
 
         if X is None:
             offset_use = None
@@ -534,62 +656,139 @@ class GAM:
             return predict_values(
                 X=None,
                 return_se=return_se,
-                cov=cov,
+                cov=cov_use,
                 type=type,
                 offset=offset_use,
                 model=self,
                 terms=terms,
                 exclude=exclude,
+                unconditional=unconditional_core,
+                iterms_type=iterms_type,
+                skip_term_ids=skip_term_ids,
+            )
+
+        n_original = len(X)
+        action = None if bool(newdata_guaranteed) else _normalize_prediction_na_action(
+            na_action
+        )
+        complete = _prediction_complete_rows(self, X)
+        complete &= _prediction_offset_complete_rows(offset, n_original)
+        if bool(newdata_guaranteed) and not bool(np.all(complete)):
+            raise ValueError("newdata_guaranteed=True requires complete prediction data.")
+        if action == "fail" and not bool(np.all(complete)):
+            raise ValueError("missing values in prediction data")
+        restore_missing = action == "pass" and not bool(np.all(complete))
+        if action in {"pass", "omit", "exclude"}:
+            retained_rows = np.flatnonzero(complete)
+            X_input = X.iloc[retained_rows] if isinstance(X, pd.DataFrame) else np.asarray(X)[retained_rows]
+            offset_input = _slice_prediction_value(offset, retained_rows)
+        else:
+            retained_rows = np.arange(n_original, dtype=int)
+            X_input = X
+            offset_input = offset
+        allow_missing_numeric = action is None
+
+        if len(retained_rows) == 0:
+            probe_offset = None
+            if offset is not None:
+                if isinstance(offset, (list, tuple)):
+                    probe_offset = [
+                        None if item is None else np.zeros(1, dtype=np.float64)
+                        for item in offset
+                    ]
+                else:
+                    probe_offset = np.zeros(1, dtype=np.float64)
+            probe = predict_values(
+                X=np.asarray(self.X_)[:1],
+                return_se=return_se,
+                cov=cov_use,
+                type=type,
+                offset=probe_offset,
+                model=self,
+                terms=terms,
+                exclude=exclude,
+                unconditional=unconditional_core,
+                iterms_type=iterms_type,
+                skip_term_ids=skip_term_ids,
+                allow_missing_numeric=allow_missing_numeric,
+            )
+            empty = _empty_prediction_result(probe)
+            return (
+                _restore_prediction_na_rows(empty, retained_rows, n_original)
+                if restore_missing
+                else empty
             )
 
         if self.formula_mode_:
-            X_np, _, offset_formula = coerce_formula_predict_inputs(self, X)
+            X_np, _, offset_formula = coerce_formula_predict_inputs(
+                self,
+                X_input,
+                allowed_missing_features=allowed_missing_features,
+                allow_missing_numeric=allow_missing_numeric,
+            )
             offset_use = combine_offsets(
                 offset_formula,
-                self._coerce_api_offset(offset, X_np.shape[0]),
+                self._coerce_api_offset(offset_input, X_np.shape[0]),
             )
         else:
-            X_np, _ = coerce_X(self, X)
-            offset_use = self._coerce_api_offset(offset, X_np.shape[0])
+            X_np, _ = coerce_X(
+                self, X_input, allow_missing_numeric=allow_missing_numeric
+            )
+            offset_use = self._coerce_api_offset(offset_input, X_np.shape[0])
 
-        return predict_values(
-            X=X_np,
-            return_se=return_se,
-            cov=cov,
-            type=type,
-            offset=offset_use,
-            model=self,
-            terms=terms,
-            exclude=exclude,
+        size = _normalize_prediction_block_size(
+            block_size,
+            n_rows=X_np.shape[0],
+            explicit_newdata=True,
+            pred_type=type,
         )
+        blocks = []
+        for start in range(0, X_np.shape[0], size):
+            stop = min(start + size, X_np.shape[0])
+            blocks.append(
+                predict_values(
+                    X=X_np[start:stop],
+                    return_se=return_se,
+                    cov=cov_use,
+                    type=type,
+                    offset=_slice_prediction_value(offset_use, slice(start, stop)),
+                    model=self,
+                    terms=terms,
+                    exclude=exclude,
+                    unconditional=unconditional_core,
+                    iterms_type=iterms_type,
+                    skip_term_ids=skip_term_ids,
+                    allow_missing_numeric=allow_missing_numeric,
+                )
+            )
+        result = _concatenate_prediction_blocks(blocks)
+        if restore_missing:
+            result = _restore_prediction_na_rows(result, retained_rows, n_original)
+        return result
 
-    def predict_terms(self, X=None, offset=None):
+    def predict_terms(
+        self,
+        X=None,
+        offset=None,
+        *,
+        block_size=None,
+        newdata_guaranteed=False,
+        na_action="pass",
+    ):
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
-        if X is None:
-            offset_use = None
-            if offset is not None:
-                offset_use = self._coerce_api_offset(offset, self.X_.shape[0])
-            X_use = None
-        elif self.formula_mode_:
-            X_np, _, offset_formula = coerce_formula_predict_inputs(self, X)
-            offset_use = combine_offsets(
-                offset_formula,
-                self._coerce_api_offset(offset, X_np.shape[0]),
-            )
-            X_use = X_np
-        else:
-            X_np, _ = coerce_X(self, X)
-            offset_use = self._coerce_api_offset(offset, X_np.shape[0])
-            X_use = X_np
-
-        eta = predict_values(model=self, X=X_use, type="link", offset=offset_use)
-        terms = predict_values(model=self, X=X_use, type="terms", offset=offset_use)
+        prediction_args = {
+            "block_size": block_size,
+            "newdata_guaranteed": newdata_guaranteed,
+            "na_action": na_action,
+        }
+        eta = self.predict(X, type="link", offset=offset, **prediction_args)
+        terms = self.predict(X, type="terms", offset=offset, **prediction_args)
         out = {"output": eta}
         if self.family.name != "gaussian":
-            out["response"] = predict_values(
-                model=self, X=X_use, type="response", offset=offset_use
+            out["response"] = self.predict(
+                X, type="response", offset=offset, **prediction_args
             )
         groups = _prediction_term_groups(self)
         is_multi_predictor = len(_predictor_full_indices(self)) > 1
@@ -634,31 +833,59 @@ class GAM:
                         intercepts[f"eta{target + 1}"] += value
             if any(value != 0.0 for value in intercepts.values()):
                 out["intercept"] = intercepts
-            offset_list = general_family_prediction_offset(self, X_use, offset_use)
-            if offset_list is not None:
-                out["offset"] = {
-                    f"eta{index + 1}": np.asarray(offset_value, dtype=np.float64)
-                    for index, offset_value in enumerate(offset_list)
-                    if offset_value is not None
-                }
         else:
             if self.fit_intercept:
                 out["intercept"] = np.array(_intercept(self), dtype=np.float64)
-            if offset_use is not None:
-                out["offset"] = np.asarray(offset_use, dtype=np.float64)
+
+        has_formula_offset = any(
+            name is not None for name in (self.formula_offset_names_ or ())
+        )
+        if offset is not None or has_formula_offset:
+            eta_array = np.asarray(eta, dtype=np.float64)
+            reconstruction = np.zeros_like(eta_array, dtype=np.float64)
+            if is_multi_predictor:
+                for name, value in out.get("intercept", {}).items():
+                    reconstruction[:, int(str(name)[3:]) - 1] += float(value)
+                for key, value in out.items():
+                    if key in {"output", "response", "intercept", "offset"}:
+                        continue
+                    predictor_name, separator, _term_id = str(key).partition(":")
+                    if separator:
+                        reconstruction[:, int(predictor_name[3:]) - 1] += np.asarray(
+                            value, dtype=np.float64
+                        )
+                residual = eta_array - reconstruction
+                out["offset"] = {
+                    f"eta{index + 1}": residual[:, index]
+                    for index in range(residual.shape[1])
+                }
+            else:
+                reconstruction = reconstruction + float(out.get("intercept", 0.0))
+                for key, value in out.items():
+                    if key not in {"output", "response", "intercept", "offset"}:
+                        reconstruction += np.asarray(value, dtype=np.float64)
+                out["offset"] = eta_array - reconstruction
         return out
 
-    def lpmatrix(self, X):
+    def lpmatrix(
+        self,
+        X,
+        *,
+        block_size=None,
+        newdata_guaranteed=False,
+        na_action="pass",
+    ):
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
 
-        if self.formula_mode_:
-            X_np, _, _ = coerce_formula_predict_inputs(self, X)
-        else:
-            X_np, _ = coerce_X(self, X)
-
-        return build_lpmatrix(self, X_new=X_np)
+        return self.predict(
+            X,
+            type="lpmatrix",
+            block_size=block_size,
+            newdata_guaranteed=newdata_guaranteed,
+            na_action=na_action,
+        )
 
     def plot(self, **kwargs):
         """mgcv ``plot.gam``-shaped term plots (mgcv/R/plots.r:1271-1565).

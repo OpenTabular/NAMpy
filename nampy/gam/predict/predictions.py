@@ -20,6 +20,7 @@ or the frequentist sandwich covariance.
 
 import numpy as np
 
+from ..fit.covariance import select_prediction_covariance_matrix
 from ..fit.offsets import resolve_prediction_offset
 from ..model_state import (
     _coef_column_offset,
@@ -81,6 +82,35 @@ def _prediction_parameterization_wider(tb) -> bool:
     )
 
 
+def prediction_guaranteed_skip_contract(model, *, terms=None, exclude=None):
+    """Return constructor ids and feature columns safe to omit on newdata."""
+    terms_filter = _coerce_prediction_term_filter(terms, name="terms")
+    exclude_filter = _coerce_prediction_term_filter(exclude, name="exclude")
+    groups = _prediction_term_groups(model)
+    _labels, selected = _prediction_group_selection(
+        groups, terms=terms_filter, exclude=exclude_filter
+    )
+    skipped_ids = set()
+    skipped_features = set()
+    active_features = set()
+    for group, keep in zip(groups, selected, strict=True):
+        for term in group["blocks"]:
+            feature_names = {
+                str(value)
+                for value in getattr(term.feature_info, "feature_names", ())
+            }
+            by_name = getattr(term.by_variable_info, "name", None)
+            if by_name is not None:
+                feature_names.add(str(by_name))
+            can_skip = not keep and group["term_type"] != "parametric"
+            if can_skip:
+                skipped_ids.add(str(term.term_id))
+                skipped_features.update(feature_names)
+            else:
+                active_features.update(feature_names)
+    return frozenset(skipped_ids), frozenset(skipped_features - active_features)
+
+
 def _term_has_absorbed_constraint(tb) -> bool:
     metadata = dict(getattr(tb, "constructor_metadata", {}) or {})
     n_constraints = metadata.get("n_constraints_absorbed", None)
@@ -122,24 +152,39 @@ def predict_values(
     offset=None,
     terms=None,
     exclude=None,
+    unconditional=False,
+    iterms_type=1,
+    skip_term_ids=(),
+    allow_missing_numeric=False,
 ):
     _require_fitted(model)
     terms_filter = _coerce_prediction_term_filter(terms, name="terms")
     exclude_filter = _coerce_prediction_term_filter(exclude, name="exclude")
+    prediction_cov = None
+    if unconditional or return_se:
+        prediction_cov = select_prediction_covariance_matrix(
+            model, cov=cov, unconditional=bool(unconditional)
+        )
     if getattr(model.family, "family_class", "") == "general":
         return predict_general_values(
             model,
             X=X,
             return_se=return_se,
-            cov=cov,
+            cov=prediction_cov if prediction_cov is not None else cov,
             type=type,
             offset=offset,
             terms=terms_filter,
             exclude=exclude_filter,
+            skip_term_ids=skip_term_ids,
         )
 
     type = str(type).lower()
-    Z_new, Xp = _build_prediction_matrices(model, X_new=X)
+    Z_new, Xp = _build_prediction_matrices(
+        model,
+        X_new=X,
+        skip_term_ids=skip_term_ids,
+        allow_missing_numeric=allow_missing_numeric,
+    )
     groups = _prediction_term_groups(model)
     labels, selected = _prediction_group_selection(
         groups,
@@ -197,11 +242,16 @@ def predict_values(
         if not return_se:
             return term_values
 
-        V = model._select_cov(cov)
+        V = prediction_cov
         cmX = None
         if type == "iterms":
             _Z_train, Xp_train = _build_prediction_matrices(model, X_new=None)
             cmX = np.mean(np.asarray(Xp_train, dtype=np.float64), axis=0)
+            if int(iterms_type) == 2:
+                cmX = np.asarray(cmX, dtype=np.float64).copy()
+                for term in _term_blocks_seq(model):
+                    if str(getattr(term, "term_type", "")) != "parametric":
+                        cmX[_term_full_coefficient_indices(model, term)] = 0.0
         ses = []
         for group in groups:
             if type == "iterms":
@@ -232,7 +282,7 @@ def predict_values(
     if type == "link":
         if not return_se:
             return eta
-        V = model._select_cov(cov)
+        V = prediction_cov
         var_eta = np.einsum("ij,jk,ik->i", Xp, V, Xp)
         se_eta = np.sqrt(np.maximum(var_eta, 0.0))
         return eta, se_eta
@@ -251,7 +301,7 @@ def predict_values(
                     f"Predictive standard errors are not implemented for "
                     f"family={model.family.name!r}."
                 )
-            V = model._select_cov(cov)
+            V = prediction_cov
             var_eta = np.einsum("ij,jk,ik->i", Xp, V, Xp)
             se_eta = np.sqrt(np.maximum(var_eta, 0.0))
             return response_from_eta(eta), response_se_from_eta(eta, se_eta)
@@ -260,11 +310,11 @@ def predict_values(
     if not return_se:
         return mu
 
-    V = model._select_cov(cov)
+    V = prediction_cov
     var_eta = np.einsum("ij,jk,ik->i", Xp, V, Xp)
     se_eta = np.sqrt(np.maximum(var_eta, 0.0))
     se_mu = np.abs(model.family.mu_eta(eta)) * se_eta
     return mu, se_mu
 
 
-__all__ = ["predict_values"]
+__all__ = ["predict_values", "prediction_guaranteed_skip_contract"]

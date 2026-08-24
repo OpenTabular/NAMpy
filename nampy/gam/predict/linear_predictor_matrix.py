@@ -21,7 +21,9 @@ from ..model_state import (
 from .general import build_general_lpmatrix
 
 
-def _build_prediction_matrices(model, X_new=None):
+def _build_prediction_matrices(
+    model, X_new=None, *, skip_term_ids=(), allow_missing_numeric=False
+):
     _require_fitted(model)
     _require_design(model)
     compiled_model = _compiled_model(model)
@@ -39,8 +41,15 @@ def _build_prediction_matrices(model, X_new=None):
         else:
             Z_new = np.asarray(_design_matrix(model), dtype=np.float64)
     else:
-        X_new = _coerce_feature_matrix(model, X_new, none_is_training=False)
-        Z_new = compiled_model.build_new_matrix(X_new)
+        if allow_missing_numeric:
+            X_new = np.asarray(X_new)
+            if X_new.ndim != 2:
+                raise ValueError("X must be a 2D feature matrix.")
+        else:
+            X_new = _coerce_feature_matrix(model, X_new, none_is_training=False)
+        Z_new = compiled_model.build_new_matrix(
+            X_new, skip_term_ids=skip_term_ids
+        )
 
     if _fit_intercept(model):
         Xp = np.column_stack([np.ones(Z_new.shape[0], dtype=np.float64), Z_new])
