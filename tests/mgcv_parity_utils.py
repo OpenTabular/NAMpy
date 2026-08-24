@@ -1604,6 +1604,10 @@ serialize_smooth <- function(sm) {
       knots = pack_vector(sm$knots, "numeric"),
       m = pack_vector(sm$m, "integer")
     ),
+    "cpspline.smooth" = list(
+      knots = pack_vector(sm$knots, "numeric"),
+      m = pack_vector(sm$m, "integer")
+    ),
     "tprs.smooth" = list(
       Xu = pack_matrix(sm$Xu),
       UZ = pack_matrix(sm$UZ),

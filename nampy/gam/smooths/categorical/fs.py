@@ -106,7 +106,7 @@ def _build_base_smooth_term(
     Build the per-level base smooth used inside fs/sz.
 
     Supported base smooth classes in the current codebase:
-    cr, cs, cc, ps, tp, ts
+    cr, cs, cc, cp, ps, tp, ts
     """
     base_bs = str(base_bs).lower()
     metric_features = list(metric_features)
@@ -123,9 +123,10 @@ def _build_base_smooth_term(
             f"for bs in {{'tp','ts'}}, got base bs={base_bs!r}."
         )
 
-    if xt_rest is not None and base_bs not in {"tp", "ts", "ps"}:
+    if xt_rest is not None and base_bs not in {"tp", "ts", "ps", "cp"}:
         raise NotImplementedError(
-            f"Extra xt options are currently only supported for tp/ts/ps base smooths, "
+            "Extra xt options are currently only supported for tp/ts/ps/cp base "
+            "smooths, "
             f"got xt={xt_rest!r} with base bs={base_bs!r}."
         )
 
@@ -147,7 +148,7 @@ def _build_base_smooth_term(
             metadata=metadata,
         )
 
-    if base_bs == "ps":
+    if base_bs in {"ps", "cp"}:
         ps_m = None if xt_rest is None else xt_rest.get("m", None)
         # For fs/sz, mgcv keeps the outer basis dimension and uses xt mainly to
         # choose the base smoother family / order parameters.
@@ -155,7 +156,7 @@ def _build_base_smooth_term(
         return PSplineTerm1D(
             feature=metric_features[0],
             k=ps_k,
-            basis="ps",
+            basis=base_bs,
             m=ps_m,
             label=label,
             smoothing_id=None,
@@ -191,12 +192,14 @@ def _build_base_smooth_term(
 
     raise NotImplementedError(
         f"Current {mode} implementation supports base bs in "
-        f"{{'cr','cs','cc','ps','tp','ts'}}, got {base_bs!r}."
+        f"{{'cr','cs','cc','cp','ps','tp','ts'}}, got {base_bs!r}."
     )
 
 
 def _penalty_rank_from_base_term(base_term, basis_matrix, penalty_matrix) -> int:
     if isinstance(base_term, PSplineTerm1D) and len(base_term.penalties) > 0:
+        if str(base_term.basis_name).lower() == "cp":
+            return int(base_term._setup.rank)
         # mgcv::smooth.construct.ps.smooth.spec uses rank <- bs.dim - m[2].
         penalty_order = int(base_term.m[1])
         return max(0, int(basis_matrix.shape[1]) - penalty_order)

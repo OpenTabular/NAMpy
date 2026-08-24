@@ -1,11 +1,9 @@
 """
-P-spline smooth term (``bs='ps'``).
+P-spline smooth terms (``bs='ps'`` and cyclic ``bs='cp'``).
 
 Implements the :class:`BaseSmoothTerm` interface for a P-spline: a B-spline
-basis with a discrete difference penalty on adjacent coefficients.  Unlike
-regression splines, P-splines do not require a set of knots to be chosen
-ahead of time; instead, many equally-spaced knots are used and the smoothness
-is controlled entirely by the penalty order and the smoothing parameter.
+basis with a discrete coefficient-difference penalty. Cyclic P-splines use a
+wrapped basis, a circular difference penalty, and periodic newdata mapping.
 """
 
 import numpy as np
@@ -15,7 +13,7 @@ from ...penalties.algebra import penalty_rescale_factor, scale_penalty
 from ...splines.univariate.ps import (
     build_pspline_term_setup,
     predict_pspline_term,
-    pspline_predict_matrix,
+    predict_pspline_term_derivative,
 )
 from ..registry import register_smooth
 from ..smooth_base import (
@@ -29,6 +27,7 @@ from ..smooth_base import (
 
 
 @register_smooth("ps")
+@register_smooth("cp")
 class PSplineTerm1D(BaseSmoothTerm):
     term_type = "smooth"
     basis_name = "ps"
@@ -71,22 +70,36 @@ class PSplineTerm1D(BaseSmoothTerm):
         self.knots = knots
         self.null_penalty_tol = float(null_penalty_tol)
 
+        def normalize_order(value):
+            if value is None or (isinstance(value, float) and np.isnan(value)):
+                return 2
+            numeric = float(value)
+            if not np.isfinite(numeric) or numeric != np.rint(numeric):
+                raise ValueError(
+                    f"For bs={self.basis_name!r}, m entries must be integers or NA."
+                )
+            return int(numeric)
+
         if m is None:
             self.m = (2, 2)
         elif np.isscalar(m):
-            self.m = (int(m), int(m))
+            value = normalize_order(m)
+            self.m = (value, value)
         else:
-            vals = tuple(int(v) for v in m)
+            vals = tuple(normalize_order(v) for v in m)
             if len(vals) == 1:
                 self.m = (vals[0], vals[0])
-            elif len(vals) == 2:
+            elif len(vals) == 2 or (self.basis_name == "cp" and len(vals) > 2):
                 self.m = vals
             else:
-                raise ValueError("For bs='ps', m must have length 1 or 2.")
+                raise ValueError(
+                    f"For bs={self.basis_name!r}, m must have length 1 or 2."
+                )
 
-        if self.basis_name != "ps":
+        if self.basis_name not in {"ps", "cp"}:
             raise NotImplementedError(
-                f"PSplineTerm1D currently supports only basis='ps', got {basis!r}."
+                "PSplineTerm1D supports only basis in {'ps', 'cp'}, "
+                f"got {basis!r}."
             )
         if self.select and self.fixed:
             raise ValueError("select=True and fixed=True are incompatible.")
@@ -131,9 +144,11 @@ class PSplineTerm1D(BaseSmoothTerm):
         else:
             x_setup_values = np.asarray(xj, dtype=np.float64).reshape(-1)
 
-        basis_order, penalty_order = self.m
+        basis_order, penalty_order = self.m[:2]
         if basis_order < 0 or penalty_order < 0:
-            raise ValueError("For bs='ps', m entries must be >= 0.")
+            raise ValueError(
+                f"For bs={self.basis_name!r}, m entries must be >= 0."
+            )
 
         shared_X = self._linked_id_setup_matrix(feature_names)
         if shared_X is not None:
@@ -149,6 +164,7 @@ class PSplineTerm1D(BaseSmoothTerm):
                 bs_dim=self.k,
                 m=self.m,
                 knots=self.knots,
+                basis=self.basis_name,
             )
             setup_base = np.asarray(self._setup.basis_train, dtype=np.float64)
             base = np.asarray(predict_pspline_term(xj, self._setup), dtype=np.float64)
@@ -163,6 +179,7 @@ class PSplineTerm1D(BaseSmoothTerm):
                 bs_dim=self.k,
                 m=self.m,
                 knots=self.knots,
+                basis=self.basis_name,
             )
             point_base = np.asarray(self._setup.basis_train, dtype=np.float64)
             if self._linear_functional:
@@ -309,12 +326,7 @@ class PSplineTerm1D(BaseSmoothTerm):
             )
         source = self._X_train if X_new is None else X_new
         xj = column_as_numeric_array(source, self._feature_index)
-        B = pspline_predict_matrix(
-            xj,
-            self._setup.knots,
-            basis_order=self._setup.basis_order,
-            deriv=order,
-        )
+        B = predict_pspline_term_derivative(xj, self._setup, deriv=order)
         return self._apply_constraint_transform_and_by(B, source)
 
     def tensor_marginal_fit_matrices(

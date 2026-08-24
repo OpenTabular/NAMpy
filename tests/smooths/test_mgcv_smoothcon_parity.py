@@ -788,6 +788,80 @@ class TestCyclicCubicSmooth:
 # ---------------------------------------------------------------------------
 
 
+class TestCyclicPSplineSmooth:
+    """Cyclic P-spline (bs='cp') constructor and fit parity."""
+
+    @staticmethod
+    def _make_data(seed=181, n=190):
+        rng = np.random.default_rng(seed)
+        x = rng.uniform(0.0, 2.0 * np.pi, size=n)
+        y = np.sin(x) + 0.25 * np.cos(2.0 * x) + rng.normal(scale=0.12, size=n)
+        return pd.DataFrame({"y": y, "x": x})
+
+    def test_cp_smoothcon_basis_and_penalty_match_mgcv(self):
+        data = self._make_data()
+        formula = 'y ~ s(x, bs="cp", k=11, m=[2,1])'
+        smooth_expr = 's(x, bs="cp", k=11, m=c(2,1))'
+        design = _compile_formula_design(data, formula)
+        expected_basis = _run_mgcv_smoothcon_matrix(data, smooth_expr)
+        expected_penalties = _run_mgcv_smoothcon_penalties(
+            data, smooth_expr, absorb_cons=True, scale_penalty=True
+        )
+
+        np.testing.assert_allclose(
+            design.design_matrix, expected_basis["X"], atol=1e-10, rtol=1e-10
+        )
+        actual = [pb.matrix for pb in design.compiled_penalties]
+        assert len(actual) == len(expected_penalties["S"]) == 1
+        np.testing.assert_allclose(
+            actual[0], expected_penalties["S"][0], atol=1e-10, rtol=1e-10
+        )
+
+    def test_cp_point_constraint_matches_mgcv(self):
+        data = self._make_data(seed=182)
+        formula = 'y ~ s(x, bs="cp", k=9, pc=0.0, sp=0.6)'
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+        np.testing.assert_allclose(
+            actual["predictions"]["response"],
+            expected["predictions"]["response"],
+            atol=2e-10,
+            rtol=2e-10,
+        )
+
+    def test_cp_fixed_sp_fit_matches_mgcv(self):
+        data = self._make_data(seed=183)
+        formula = 'y ~ s(x, bs="cp", k=10, m=[2,2], sp=0.7)'
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+        np.testing.assert_allclose(
+            actual["predictions"]["response"],
+            expected["predictions"]["response"],
+            atol=2e-10,
+            rtol=2e-10,
+        )
+        np.testing.assert_allclose(
+            actual["fit"]["cov_bayes"],
+            expected["fit"]["cov_bayes"],
+            atol=2e-10,
+            rtol=2e-10,
+        )
+
+    def test_cp_reml_fit_matches_mgcv(self):
+        data = self._make_data(seed=184, n=210)
+        formula = 'y ~ s(x, bs="cp", k=11, m=[2,2])'
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+        _assert_basic_mgcv_parity(
+            actual,
+            expected,
+            pred_atol=2e-9,
+            pred_rtol=2e-9,
+            sp_log_atol=2e-8,
+            criterion_atol=2e-8,
+        )
+
+
 class TestPSplineSmooth(_SharedTestPSplineSmooth):
     """P-spline (bs='ps') standalone parity against mgcv."""
 

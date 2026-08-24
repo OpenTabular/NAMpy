@@ -11,7 +11,7 @@ from ..univariate.cr import CubicSplineTerm
 from ..univariate.ps import PSplineTerm1D
 from ..univariate.tp import ThinPlateSplineTerm
 
-TENSOR_MARGINAL_BASES = frozenset({"cr", "cs", "cc", "ps", "tp", "ts"})
+TENSOR_MARGINAL_BASES = frozenset({"cr", "cs", "cc", "cp", "ps", "tp", "ts"})
 
 
 def _as_marginal_features(feature):
@@ -72,11 +72,11 @@ def make_tensor_marginal_term(
             metadata=metadata,
         )
 
-    if basis == "ps":
+    if basis in {"ps", "cp"}:
         if len(marginal_features) != 1:
             raise ValueError(
-                "Tensor marginal basis 'ps' only handles one feature; mgcv coerces "
-                "multivariate ps marginals to tp before construction."
+                f"Tensor marginal basis {basis!r} only handles one feature; mgcv "
+                "coerces multivariate ps/cp marginals to tp before construction."
             )
         return PSplineTerm1D(
             feature=marginal_features[0],
