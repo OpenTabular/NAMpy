@@ -32,6 +32,7 @@ from nampy.gam.smooths.univariate.cr import CubicSplineTerm
 from nampy.gam.smooths.univariate.ds import DuchonSplineTerm
 from nampy.gam.smooths.univariate.gp import GaussianProcessTerm
 from nampy.gam.smooths.univariate.ps import PSplineTerm1D
+from nampy.gam.smooths.univariate.sos import SphericalSplineTerm
 from nampy.gam.smooths.univariate.tp import ThinPlateSplineTerm
 from nampy.gam.specs.build import build_formula_model
 from nampy.gam.splines.basis.cr import cr_exact_null_basis_from_knots
@@ -148,6 +149,17 @@ def _make_numeric_mrf_factor_data(seed=906, n=100):
     group = np.resize(np.asarray(["u", "v"], dtype=object), n)
     y = 0.15 * region + 0.2 * (group == "v") + rng.normal(scale=0.1, size=n)
     return pd.DataFrame({"y": y, "region": region, "group": group})
+
+
+def _make_spherical_data(seed=911, n=100):
+    rng = np.random.default_rng(seed)
+    longitude = rng.uniform(-180.0, 180.0, size=n)
+    latitude = np.rad2deg(np.arcsin(rng.uniform(-1.0, 1.0, size=n)))
+    y = (
+        np.sin(np.deg2rad(longitude)) * np.cos(np.deg2rad(latitude - 15.0))
+        + rng.normal(scale=0.1, size=n)
+    )
+    return pd.DataFrame({"y": y, "la": latitude, "lo": longitude})
 
 
 def _mrf_knots_with_unobserved(_data):
@@ -827,6 +839,49 @@ def _build_gp_case_matrix():
     ]
 
 
+def _build_sos_case_matrix():
+    cases = [
+        _case(
+            f"sos_order_{order}",
+            _factory(_make_spherical_data, seed=920 + order, n=90),
+            f'y ~ s(la, lo, bs="sos", k=12, m={order})',
+            atol=2e-7,
+        )
+        for order in (-2, -1, 0, 1, 2, 3, 4)
+    ]
+    cases.extend(
+        [
+            _case(
+                "sos_default_k",
+                _factory(_make_spherical_data, seed=930, n=90),
+                'y ~ s(la, lo, bs="sos")',
+                atol=5e-7,
+            ),
+            _case(
+                "sos_supplied_truncated",
+                _factory(_make_spherical_data, seed=931, n=90),
+                'y ~ s(la, lo, bs="sos", k=12, m=2)',
+                atol=2e-7,
+                knots_factory=_observed_row_knots(["la", "lo"], 20),
+            ),
+            _case(
+                "sos_supplied_full",
+                _factory(_make_spherical_data, seed=932, n=90),
+                'y ~ s(la, lo, bs="sos", k=12, m=-1)',
+                atol=2e-7,
+                knots_factory=_observed_row_knots(["la", "lo"], 12),
+            ),
+            _case(
+                "sos_max_knots_xt",
+                _factory(_make_spherical_data, seed=933, n=100),
+                'y ~ s(la, lo, bs="sos", k=12, xt={"max.knots":25,"seed":7})',
+                atol=2e-7,
+            ),
+        ]
+    )
+    return cases
+
+
 def _build_re_case_matrix():
     penalty_multi = {
         "S": [
@@ -1131,6 +1186,7 @@ CASES = [
     *_build_tprs_case_matrix(),
     *_build_duchon_case_matrix(),
     *_build_gp_case_matrix(),
+    *_build_sos_case_matrix(),
     *_build_mrf_case_matrix(),
     *_build_re_case_matrix(),
     *_build_factor_smooth_case_matrix(),
@@ -1366,6 +1422,25 @@ def _serialize_gp_raw(term):
             "used_supplied_knots": bool(setup.used_supplied_knots),
             "used_subsampling": bool(setup.used_subsampling),
             "pure_knot": bool(setup.knots.shape[0] == setup.rank),
+        },
+    )
+
+
+def _serialize_sos_raw(term):
+    setup = term._setup
+    return _common_raw_state(
+        "sos.smooth",
+        np.asarray(setup.basis_train, dtype=np.float64),
+        [np.asarray(setup.penalty, dtype=np.float64)],
+        rank=int(setup.rank),
+        null_space_dim=int(setup.null_space_dim),
+        extra={
+            "knt": np.concatenate([setup.knots[:, 0], setup.knots[:, 1]]),
+            "UZ": np.asarray(setup.UZ, dtype=np.float64),
+            "p_order": int(setup.order),
+            "xc_scale": np.asarray(setup.column_scale, dtype=np.float64),
+            "used_supplied_knots": bool(setup.used_supplied_knots),
+            "used_subsampling": bool(setup.used_subsampling),
         },
     )
 
@@ -1616,6 +1691,8 @@ def _serialize_term_raw(term, X):
         return _serialize_duchon_raw(term)
     if isinstance(term, GaussianProcessTerm):
         return _serialize_gp_raw(term)
+    if isinstance(term, SphericalSplineTerm):
+        return _serialize_sos_raw(term)
     if isinstance(term, MarkovRandomFieldTerm):
         return _serialize_mrf_raw(term)
     if isinstance(term, RandomEffectTerm):

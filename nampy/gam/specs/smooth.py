@@ -77,6 +77,15 @@ class GaussianProcessSmoothSpec(BaseSmoothSpec):
 
 
 @dataclass(frozen=True)
+class SphericalSplineSmoothSpec(BaseSmoothSpec):
+    bs: str = "sos"
+    m: Any = None
+    xt: Any = None
+    constraint_mode: str = "auto"
+    pc: Any = None
+
+
+@dataclass(frozen=True)
 class MarkovRandomFieldSmoothSpec(BaseSmoothSpec):
     bs: str = "mrf"
     xt: Any = None
@@ -159,6 +168,7 @@ SmoothSpec = Union[
     DerivativeBSplineSmoothSpec,
     DuchonSplineSmoothSpec,
     GaussianProcessSmoothSpec,
+    SphericalSplineSmoothSpec,
     MarkovRandomFieldSmoothSpec,
     CubicShrinkageSmoothSpec,
     PSplineSmoothSpec,

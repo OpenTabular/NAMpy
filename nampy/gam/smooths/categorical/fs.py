@@ -20,6 +20,7 @@ from ..univariate.cr import CubicSplineTerm
 from ..univariate.ds import DuchonSplineTerm
 from ..univariate.gp import GaussianProcessTerm
 from ..univariate.ps import PSplineTerm1D
+from ..univariate.sos import SphericalSplineTerm
 from .categorical_utils import (
     as_object_1d,
     factor_indicator_matrix,
@@ -111,7 +112,7 @@ def _build_base_smooth_term(
     Build the per-level base smooth used inside fs/sz.
 
     Supported base smooth classes in the current codebase:
-    bs, cr, cs, cc, cp, ds, gp, mrf, ps, tp, ts
+    bs, cr, cs, cc, cp, ds, gp, mrf, ps, sos, tp, ts
     """
     base_bs = str(base_bs).lower()
     metric_features = list(metric_features)
@@ -122,10 +123,10 @@ def _build_base_smooth_term(
     if mode == "fs" and base_bs in {"cs", "ts"}:
         raise NotImplementedError(_fs_full_rank_base_error(base_bs))
 
-    if len(metric_features) > 1 and base_bs not in {"ds", "gp", "tp", "ts"}:
+    if len(metric_features) > 1 and base_bs not in {"ds", "gp", "sos", "tp", "ts"}:
         raise NotImplementedError(
             f"Current {mode} implementation supports multivariate base smooths only "
-            f"for bs in {{'ds','gp','tp','ts'}}, got base bs={base_bs!r}."
+            f"for bs in {{'ds','gp','sos','tp','ts'}}, got base bs={base_bs!r}."
         )
 
     if xt_rest is not None and base_bs not in {
@@ -135,11 +136,12 @@ def _build_base_smooth_term(
         "gp",
         "mrf",
         "ps",
+        "sos",
         "tp",
         "ts",
     }:
         raise NotImplementedError(
-            "Extra xt options are currently only supported for bs/cp/ds/gp/mrf/ps/tp/ts "
+            "Extra xt options are currently only supported for bs/cp/ds/gp/mrf/ps/sos/tp/ts "
             "base smooths, "
             f"got xt={xt_rest!r} with base bs={base_bs!r}."
         )
@@ -242,6 +244,24 @@ def _build_base_smooth_term(
             metadata=metadata,
         )
 
+    if base_bs == "sos":
+        return SphericalSplineTerm(
+            feature=metric_features,
+            k=k,
+            m=outer_m,
+            label=label,
+            smoothing_id=None,
+            by=by,
+            sp=None,
+            select=bool(select),
+            fixed=bool(fixed),
+            constraint_mode=str(constraint_mode),
+            pc=None,
+            knots=knots,
+            xt=xt_rest,
+            metadata=metadata,
+        )
+
     if base_bs == "mrf":
         return MarkovRandomFieldTerm(
             feature=metric_features[0],
@@ -280,7 +300,7 @@ def _build_base_smooth_term(
 
     raise NotImplementedError(
         f"Current {mode} implementation supports base bs in "
-        f"{{'bs','cr','cs','cc','cp','ds','gp','mrf','ps','tp','ts'}}, got {base_bs!r}."
+        f"{{'bs','cr','cs','cc','cp','ds','gp','mrf','ps','sos','tp','ts'}}, got {base_bs!r}."
     )
 
 
@@ -290,6 +310,8 @@ def _penalty_rank_from_base_term(base_term, basis_matrix, penalty_matrix) -> int
     if isinstance(base_term, DuchonSplineTerm):
         return int(base_term._setup.rank)
     if isinstance(base_term, GaussianProcessTerm):
+        return int(base_term._setup.rank)
+    if isinstance(base_term, SphericalSplineTerm):
         return int(base_term._setup.rank)
     if isinstance(base_term, MarkovRandomFieldTerm):
         return int(base_term._setup.rank)
@@ -697,6 +719,15 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             )
 
         self._base_term = base_term
+        if (
+            isinstance(base_term, SphericalSplineTerm)
+            and int(base_term._setup.null_space_dim) > 1
+        ):
+            raise NotImplementedError(
+                "bs='fs' with an SOS m=-1 base is not enabled: mgcv's four-way "
+                "repeated null eigenspace receives separate penalties whose "
+                "orientation is LAPACK-dependent. Use another SOS order."
+            )
         if (
             isinstance(base_term, MarkovRandomFieldTerm)
             and base_term._setup.used_low_rank

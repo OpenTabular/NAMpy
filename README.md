@@ -125,11 +125,17 @@ result, and prediction interfaces.
 
 | Formula surface    | Supported terms                                                                                      |
 | ------------------ | ---------------------------------------------------------------------------------------------------- |
-| Univariate smooths | `s(..., bs='bs')`, `cr`, `cs`, `cc`, `cp`, `ds`, `gp`, `ps`, `tp`, `ts`                              |
+| Metric smooths     | `s(..., bs='bs')`, `cr`, `cs`, `cc`, `cp`, `ds`, `gp`, `ps`, `sos`, `tp`, `ts`                       |
 | Structured smooths | Markov random fields `mrf`, random effects `re`, factor smooths `fs`, sum-to-zero factor smooths `sz` |
-| Tensor products    | `te(...)` and `ti(...)` over supported numeric or MRF marginals                                      |
+| Tensor products    | `te(...)` and `ti(...)` over supported metric or MRF marginals                                       |
 | Parametric terms   | numeric and factor terms, supported interactions, intercept policies, and formula offsets            |
 | Shared smoothing   | supported `id=` groups, fixed/free smoothing parameters, `select=True`, and `pc=` on supported bases |
+
+For spherical splines, write
+`s(latitude, longitude, bs='sos')`: coordinates are degrees in latitude-first,
+longitude-second order. A spherical marginal inside `te()` or `ti()` needs
+`d=2`. Because the array API creates one smooth per input column, joint SOS
+terms use the formula interface.
 
 
 ### Shape-constrained functionality

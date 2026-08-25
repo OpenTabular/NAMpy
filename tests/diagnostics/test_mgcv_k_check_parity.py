@@ -13,6 +13,7 @@ NAMpy runs:     model.k_check(subsample=120, n_rep=8, seed=0).
 from __future__ import annotations
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from tests.mgcv_parity_utils import (
@@ -231,6 +232,15 @@ def _assert_k_check_parity(
 # --------------------------------------------------------------------------- #
 
 
+def _make_sos_kcheck_data(seed=603, n=180):
+    rng = np.random.default_rng(seed)
+    lo = rng.uniform(-180.0, 180.0, size=n)
+    la = np.rad2deg(np.arcsin(rng.uniform(-1.0, 1.0, size=n)))
+    y = np.sin(np.deg2rad(lo)) * np.cos(np.deg2rad(la - 12.0))
+    y += rng.normal(scale=0.12, size=n)
+    return pd.DataFrame({"y": y, "la": la, "lo": lo})
+
+
 class TestKCheckParity:
     """Compare k_check() output against mgcv::k.check() for each smooth type."""
 
@@ -278,6 +288,14 @@ class TestKCheckParity:
                 1e-4,
             ),
             (
+                _make_sos_kcheck_data,
+                'y ~ s(la, lo, bs="sos", k=12)',
+                "gaussian",
+                "REML",
+                {"la", "lo"},
+                1e-4,
+            ),
+            (
                 lambda: _make_gaussian_data(seed=123, n=180),
                 'y ~ te(x0, x1, bs=["cr","cr"], k=[5,5])',
                 "gaussian",
@@ -292,6 +310,7 @@ class TestKCheckParity:
             "gaussian_ps",
             "gaussian_cp",
             "gaussian_bs",
+            "gaussian_sos",
             "gaussian_te",
         ],
     )
