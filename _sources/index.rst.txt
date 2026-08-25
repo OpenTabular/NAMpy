@@ -61,6 +61,7 @@ do not repeat tutorials.
    license
    faq
    development/reference_sources
+   development/mgcv_optimizer_boundaries
 
 Indices and tables
 ==================

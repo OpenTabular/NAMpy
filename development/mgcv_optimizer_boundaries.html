@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Model Catalog &mdash; nampy 0.3.0 documentation</title>
+  <title>mgcv and SCAM optimizer coverage &mdash; nampy 0.3.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=ea57e989" />
@@ -21,8 +21,7 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="User Guide" href="../user_guide.html" />
-    <link rel="prev" title="NeuralEnsemble: independent fitted-model ensembles" href="../notebooks/18_neural_ensemble.html" /> 
+    <link rel="prev" title="Local upstream references" href="reference_sources.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -46,7 +45,7 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Learn and use NAMpy</span></p>
-<ul class="current">
+<ul>
 <li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../installation.html#requirements">Requirements</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../installation.html#installation-methods">Installation Methods</a><ul>
@@ -243,11 +242,11 @@
 <li class="toctree-l2"><a class="reference internal" href="../notebook_tutorials.html#run-locally">Run locally</a></li>
 </ul>
 </li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Model Catalog</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#statistical-model">Statistical model</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#neural-architectures">Neural architectures</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#ensembling">Ensembling</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#task-availability">Task availability</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../models/index.html">Model Catalog</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../models/index.html#statistical-model">Statistical model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../models/index.html#neural-architectures">Neural architectures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../models/index.html#ensembling">Ensembling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../models/index.html#task-availability">Task availability</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../user_guide.html">User Guide</a><ul>
@@ -587,7 +586,7 @@
 </li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Project information</span></p>
-<ul>
+<ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../architecture.html">Architecture</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../architecture.html#neural-architecture-contract">Neural architecture contract</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../architecture.html#optional-training-and-inference-contracts">Optional training and inference contracts</a></li>
@@ -653,13 +652,13 @@
 <li class="toctree-l2"><a class="reference internal" href="../faq.html#still-have-questions">Still Have Questions?</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../development/reference_sources.html">Local upstream references</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../development/reference_sources.html#fixture-policy">Fixture policy</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../development/reference_sources.html#refresh-workflow">Refresh workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference_sources.html">Local upstream references</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="reference_sources.html#fixture-policy">Fixture policy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference_sources.html#refresh-workflow">Refresh workflow</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../development/mgcv_optimizer_boundaries.html">mgcv and SCAM optimizer coverage</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../development/mgcv_optimizer_boundaries.html#intentional-upstream-boundaries">Intentional upstream boundaries</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">mgcv and SCAM optimizer coverage</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#intentional-upstream-boundaries">Intentional upstream boundaries</a></li>
 </ul>
 </li>
 </ul>
@@ -678,9 +677,9 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Model Catalog</li>
+      <li class="breadcrumb-item active">mgcv and SCAM optimizer coverage</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../_sources/models/index.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/development/mgcv_optimizer_boundaries.md.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -688,126 +687,48 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="model-catalog">
-<h1>Model Catalog<a class="headerlink" href="#model-catalog" title="Link to this heading"></a></h1>
-<p>This page helps choose a model. Mathematical derivations, supported task
-variants, model-specific controls, interpretation examples, limitations, and
-primary references live in the <a class="reference internal" href="../notebook_tutorials.html"><span class="doc">Notebook Tutorials</span></a>. Constructor and
-method signatures live in <a class="reference internal" href="../api/index.html"><span class="doc">API Reference</span></a>.</p>
-<section id="statistical-model">
-<h2>Statistical model<a class="headerlink" href="#statistical-model" title="Link to this heading"></a></h2>
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 18.0%" />
-<col style="width: 38.0%" />
-<col style="width: 44.0%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Model</p></th>
-<th class="head"><p>Main inductive bias</p></th>
-<th class="head"><p>Start here</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>GAM</p></td>
-<td><p>Penalized regression splines with <code class="docutils literal notranslate"><span class="pre">mgcv</span></code>-aligned fitting and inference</p></td>
-<td><p><a class="reference internal" href="../notebooks/01_gam.html"><span class="doc">GAM: theory, fitting, inference, and constrained effects</span></a></p></td>
-</tr>
-</tbody>
-</table>
-</section>
-<section id="neural-architectures">
-<h2>Neural architectures<a class="headerlink" href="#neural-architectures" title="Link to this heading"></a></h2>
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 18.0%" />
-<col style="width: 48.0%" />
-<col style="width: 34.0%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Model</p></th>
-<th class="head"><p>Best fit for</p></th>
-<th class="head"><p>Tutorial</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>LinReg</p></td>
-<td><p>An additive linear baseline</p></td>
-<td><p><a class="reference internal" href="../notebooks/02_linreg.html"><span class="doc">LinReg: Additive linear baseline</span></a></p></td>
-</tr>
-<tr class="row-odd"><td><p>NAM</p></td>
-<td><p>Independent neural shape functions and optional explicit interactions</p></td>
-<td><p><a class="reference internal" href="../notebooks/03_nam.html"><span class="doc">NAM: Neural Additive Model</span></a></p></td>
-</tr>
-<tr class="row-even"><td><p>SNAM</p></td>
-<td><p>Sparse additive fitting and feature selection</p></td>
-<td><p><a class="reference internal" href="../notebooks/04_snam.html"><span class="doc">SNAM: Sparse Neural Additive Model</span></a></p></td>
-</tr>
-<tr class="row-odd"><td><p>SIAN</p></td>
-<td><p>Data-driven sparse higher-order interaction discovery</p></td>
-<td><p><a class="reference internal" href="../notebooks/05_sian.html"><span class="doc">SIAN: Sparse Interaction Additive Network</span></a></p></td>
-</tr>
-<tr class="row-even"><td><p>GPNAM</p></td>
-<td><p>Smooth fixed random-Fourier-feature additive effects</p></td>
-<td><p><a class="reference internal" href="../notebooks/06_gpnam.html"><span class="doc">GPNAM: Gaussian-process-inspired additive model</span></a></p></td>
-</tr>
-<tr class="row-odd"><td><p>IGANN</p></td>
-<td><p>Fast boosted ELM shape functions initialized by a sparse linear model</p></td>
-<td><p><a class="reference internal" href="../notebooks/07_igann.html"><span class="doc">IGANN: Interpretable Generalized Additive Neural Network</span></a></p></td>
-</tr>
-<tr class="row-even"><td><p>NBM</p></td>
-<td><p>Shared learned basis functions for unary or n-ary concepts</p></td>
-<td><p><a class="reference internal" href="../notebooks/08_nbm.html"><span class="doc">NBM: Neural Basis Model</span></a></p></td>
-</tr>
-<tr class="row-odd"><td><p>SPAM</p></td>
-<td><p>Low-rank polynomial additive effects</p></td>
-<td><p><a class="reference internal" href="../notebooks/09_spam.html"><span class="doc">SPAM: Scalable Polynomial Additive Model</span></a></p></td>
-</tr>
-<tr class="row-even"><td><p>NBM-SPAM</p></td>
-<td><p>Polynomial heads over learned NBM concept scores</p></td>
-<td><p><a class="reference internal" href="../notebooks/10_nbm_spam.html"><span class="doc">NBM-SPAM: Learned unary bases with low-rank polynomial heads</span></a></p></td>
-</tr>
-<tr class="row-odd"><td><p>TreeNAM</p></td>
-<td><p>Piecewise additive effects learned with differentiable trees</p></td>
-<td><p><a class="reference internal" href="../notebooks/11_treenam.html"><span class="doc">TreeNAM: Additive differentiable trees</span></a></p></td>
-</tr>
-<tr class="row-even"><td><p>NodeGAM</p></td>
-<td><p>Additive ensembles of differentiable oblivious trees</p></td>
-<td><p><a class="reference internal" href="../notebooks/13_nodegam.html"><span class="doc">NodeGAM: Additive oblivious decision trees</span></a></p></td>
-</tr>
-<tr class="row-odd"><td><p>NATT</p></td>
-<td><p>Attention-based tabular modeling when strict additivity is not required</p></td>
-<td><p><a class="reference internal" href="../notebooks/14_natt.html"><span class="doc">NATT: Neural attentive tabular additive model</span></a></p></td>
-</tr>
-<tr class="row-even"><td><p>NAMformer</p></td>
-<td><p>Transformer-style representations with additive term extraction</p></td>
-<td><p><a class="reference internal" href="../notebooks/15_namformer.html"><span class="doc">NAMformer: Transformer-enhanced additive model</span></a></p></td>
-</tr>
-<tr class="row-odd"><td><p>QNAM</p></td>
-<td><p>Ordered conditional quantiles through distributional regression</p></td>
-<td><p><a class="reference internal" href="../notebooks/16_qnam.html"><span class="doc">QNAM: Noncrossing additive quantile regression</span></a></p></td>
-</tr>
-<tr class="row-even"><td><p>SplineNAM</p></td>
-<td><p>Neural additive effects represented by learnable spline bases</p></td>
-<td><p><a class="reference internal" href="../notebooks/17_spline_nam.html"><span class="doc">SplineNAM: Additive cubic spline network</span></a></p></td>
-</tr>
-</tbody>
-</table>
-</section>
-<section id="ensembling">
-<h2>Ensembling<a class="headerlink" href="#ensembling" title="Link to this heading"></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">EnsembleTreeNAM</span></code> is the jointly trained multi-TreeNAM architecture; it is
-documented as a TreeNAM variant in <a class="reference internal" href="../notebooks/12_ensemble_treenam.html"><span class="doc">EnsembleTreeNAM: Jointly trained TreeNAM ensemble</span></a>.
-<code class="docutils literal notranslate"><span class="pre">NeuralEnsemble</span></code> is the independent bootstrap/seed ensemble wrapper that can
-be applied to supported neural estimators; see
-<a class="reference internal" href="../notebooks/18_neural_ensemble.html"><span class="doc">NeuralEnsemble: independent fitted-model ensembles</span></a>.</p>
-</section>
-<section id="task-availability">
-<h2>Task availability<a class="headerlink" href="#task-availability" title="Link to this heading"></a></h2>
-<p>The notebook for each architecture constructs every supported estimator
-surface: regression, classification, and/or distributional regression. The
-<a class="reference internal" href="../api/models.html"><span class="doc">Models</span></a> page is the authoritative list of public estimator
-classes.</p>
+  <section id="mgcv-and-scam-optimizer-coverage">
+<h1>mgcv and SCAM optimizer coverage<a class="headerlink" href="#mgcv-and-scam-optimizer-coverage" title="Link to this heading"></a></h1>
+<p>NAMpy ports the following smoothing-selection routes from the vendored mgcv
+1.9-4 and SCAM sources:</p>
+<ul class="simple">
+<li><p>GCV, GACV, UBRE/Cp, ML, REML, P-ML, P-REML, LAML, NCV, and QNCV;</p></li>
+<li><p>outer Newton, BFGS, EFS, <code class="docutils literal notranslate"><span class="pre">optim</span></code>, <code class="docutils literal notranslate"><span class="pre">nlm</span></code>, and Gaussian performance iteration
+(<code class="docutils literal notranslate"><span class="pre">magic</span></code>);</p></li>
+<li><p>known-scale Gaussian and Gamma UBRE/Cp through <code class="docutils literal notranslate"><span class="pre">GAM(scale=...)</span></code>;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gam.control</span></code>-style solver settings through <code class="docutils literal notranslate"><span class="pre">gam_control()</span></code>;</p></li>
+<li><p>Tweedie EFS and <code class="docutils literal notranslate"><span class="pre">min_sp</span></code> handling;</p></li>
+<li><p>SCAM EFS, <code class="docutils literal notranslate"><span class="pre">optim</span></code>, <code class="docutils literal notranslate"><span class="pre">nlm</span></code>, <code class="docutils literal notranslate"><span class="pre">nlm.fd</span></code>, and coefficient BFGS; and</p></li>
+<li><p>the Gaussian identity, unknown-scale AR(1) ML/REML/LAML determinant
+correction from <code class="docutils literal notranslate"><span class="pre">bam</span></code>.</p></li>
+</ul>
+<p>The Python implementation uses SciPy for the R <code class="docutils literal notranslate"><span class="pre">optim</span></code>/<code class="docutils literal notranslate"><span class="pre">nlm</span></code> numerical engine.
+It uses the upstream objective, analytic derivatives, bounds, and mapped
+tolerance controls while preserving the public optimizer identity. It does not
+claim identical stopping codes or iteration-by-iteration traces from R’s
+numerical routines.</p>
+<section id="intentional-upstream-boundaries">
+<h2>Intentional upstream boundaries<a class="headerlink" href="#intentional-upstream-boundaries" title="Link to this heading"></a></h2>
+<p>These combinations remain guarded rather than approximated:</p>
+<ul class="simple">
+<li><p>SCAM automatic ML/REML/LAML selection. Upstream SCAM does not supply the
+combined transformed-coefficient likelihood route; SCAM GCV/UBRE remains
+supported.</p></li>
+<li><p>Automatic smoothing for transformed models with multiple linear predictors.
+Fixed smoothing is supported, but the required transformed Laplace
+derivatives are not supplied by the upstream combined model.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nlm.fd</span></code> for ordinary mgcv GAMs. This spelling is exposed by SCAM only.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">magic</span></code> outside Gaussian GCV/UBRE/Cp performance iteration.</p></li>
+<li><p>AR(1) likelihood selection outside Gaussian identity models with unknown
+scale. The supported route uses the <code class="docutils literal notranslate"><span class="pre">bam</span></code> determinant correction, not a GCV
+response-transform heuristic.</p></li>
+<li><p>NCV/QNCV for general or extended families, and the optional post-fit
+jackknife pass when <code class="docutils literal notranslate"><span class="pre">nei=</span></code> is used with another criterion. The ordinary GLM
+neighborhood-deletion route is implemented.</p></li>
+</ul>
+<p>Controls without a Python or native-kernel analogue are retained as metadata or
+documented no-ops. In particular, <code class="docutils literal notranslate"><span class="pre">nthreads</span></code> and <code class="docutils literal notranslate"><span class="pre">ncv_threads</span></code> do not create
+parallel native kernels.</p>
 </section>
 </section>
 
@@ -815,8 +736,7 @@ classes.</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="../notebooks/18_neural_ensemble.html" class="btn btn-neutral float-left" title="NeuralEnsemble: independent fitted-model ensembles" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="../user_guide.html" class="btn btn-neutral float-right" title="User Guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="reference_sources.html" class="btn btn-neutral float-left" title="Local upstream references" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
     </div>
 
   <hr/>

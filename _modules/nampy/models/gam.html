@@ -655,6 +655,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../development/reference_sources.html#refresh-workflow">Refresh workflow</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../../../development/mgcv_optimizer_boundaries.html">mgcv and SCAM optimizer coverage</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../development/mgcv_optimizer_boundaries.html#intentional-upstream-boundaries">Intentional upstream boundaries</a></li>
+</ul>
+</li>
 </ul>
 
         </div>
@@ -726,6 +730,11 @@
     <span class="s2">"max_irls_iter"</span><span class="p">,</span>
     <span class="s2">"irls_tol"</span><span class="p">,</span>
     <span class="s2">"sp_log_bounds"</span><span class="p">,</span>
+    <span class="s2">"scale"</span><span class="p">,</span>
+    <span class="s2">"control"</span><span class="p">,</span>
+    <span class="s2">"nei"</span><span class="p">,</span>
+    <span class="s2">"coefficient_optimizer"</span><span class="p">,</span>
+    <span class="s2">"optim_method"</span><span class="p">,</span>
 <span class="p">)</span>
 
 
@@ -752,6 +761,11 @@
         <span class="n">max_irls_iter</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span>
         <span class="n">irls_tol</span><span class="o">=</span><span class="mf">1e-7</span><span class="p">,</span>
         <span class="n">sp_log_bounds</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">80.0</span><span class="p">,</span> <span class="mf">20.0</span><span class="p">),</span>
+        <span class="n">scale</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+        <span class="n">control</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">nei</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">coefficient_optimizer</span><span class="o">=</span><span class="s2">"newton"</span><span class="p">,</span>
+        <span class="n">optim_method</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">formula</span> <span class="o">=</span> <span class="n">formula</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">family</span> <span class="o">=</span> <span class="n">family</span>
@@ -771,6 +785,11 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">max_irls_iter</span> <span class="o">=</span> <span class="n">max_irls_iter</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">irls_tol</span> <span class="o">=</span> <span class="n">irls_tol</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sp_log_bounds</span> <span class="o">=</span> <span class="n">sp_log_bounds</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scale</span> <span class="o">=</span> <span class="n">scale</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">control</span> <span class="o">=</span> <span class="n">control</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nei</span> <span class="o">=</span> <span class="n">nei</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">coefficient_optimizer</span> <span class="o">=</span> <span class="n">coefficient_optimizer</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">optim_method</span> <span class="o">=</span> <span class="n">optim_method</span>
 
     <span class="c1"># ------------------------------------------------------------------</span>
     <span class="c1"># Fitting</span>
@@ -798,9 +817,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">schema_</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_gam</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_validate_family_role</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">family</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
-                <span class="n">data</span><span class="o">=</span><span class="n">frame</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="p">,</span> <span class="n">sample_weight</span><span class="o">=</span><span class="n">sample_weight</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">offset</span>
-            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">frame</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="p">,</span> <span class="n">sample_weight</span><span class="o">=</span><span class="n">sample_weight</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">X</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"X is required when no formula is given."</span><span class="p">)</span>
@@ -829,9 +846,7 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_validate_X</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">X</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"schema_"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">schema_</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span>
-                <span class="n">X</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="s2">"columns"</span><span class="p">)</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
-            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">schema_</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">X</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="s2">"columns"</span><span class="p">)</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">X</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">X</span>
 
     <span class="c1"># ------------------------------------------------------------------</span>
@@ -1165,6 +1180,11 @@
         <span class="n">max_irls_iter</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span>
         <span class="n">irls_tol</span><span class="o">=</span><span class="mf">1e-7</span><span class="p">,</span>
         <span class="n">sp_log_bounds</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">80.0</span><span class="p">,</span> <span class="mf">20.0</span><span class="p">),</span>
+        <span class="n">scale</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+        <span class="n">control</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">nei</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">coefficient_optimizer</span><span class="o">=</span><span class="s2">"newton"</span><span class="p">,</span>
+        <span class="n">optim_method</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="n">formula</span><span class="o">=</span><span class="n">formula</span><span class="p">,</span>
@@ -1185,6 +1205,11 @@
             <span class="n">max_irls_iter</span><span class="o">=</span><span class="n">max_irls_iter</span><span class="p">,</span>
             <span class="n">irls_tol</span><span class="o">=</span><span class="n">irls_tol</span><span class="p">,</span>
             <span class="n">sp_log_bounds</span><span class="o">=</span><span class="n">sp_log_bounds</span><span class="p">,</span>
+            <span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">,</span>
+            <span class="n">control</span><span class="o">=</span><span class="n">control</span><span class="p">,</span>
+            <span class="n">nei</span><span class="o">=</span><span class="n">nei</span><span class="p">,</span>
+            <span class="n">coefficient_optimizer</span><span class="o">=</span><span class="n">coefficient_optimizer</span><span class="p">,</span>
+            <span class="n">optim_method</span><span class="o">=</span><span class="n">optim_method</span><span class="p">,</span>
         <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">__sklearn_tags__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -1294,9 +1319,7 @@
 <a class="viewcode-back" href="../../../api/generated/nampy.models.GAMClassifier.html#nampy.models.GAMClassifier.score">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">score</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">sample_weight</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Return the mean accuracy on the given test data and labels."""</span>
-        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span>
-            <span class="n">accuracy_score</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="n">sample_weight</span><span class="o">=</span><span class="n">sample_weight</span><span class="p">)</span>
-        <span class="p">)</span></div>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">accuracy_score</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="n">sample_weight</span><span class="o">=</span><span class="n">sample_weight</span><span class="p">))</span></div>
 </div>
 
 </pre></div>
