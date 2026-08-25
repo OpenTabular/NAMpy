@@ -1455,6 +1455,13 @@ def _normalize_raw_constructor_knots(knots):
         if value is None:
             out[str(key)] = None
             continue
+        if isinstance(value, pd.Categorical):
+            out[str(key)] = {
+                "__factor__": True,
+                "values": np.asarray(value, dtype=object).ravel().tolist(),
+                "levels": np.asarray(value.categories, dtype=object).ravel().tolist(),
+            }
+            continue
         arr = np.asarray(value, dtype=object).ravel()
         out[str(key)] = arr.tolist()
     return out
@@ -1521,6 +1528,12 @@ if (length(args) >= 4 && nzchar(args[[4]])) {
   kraw <- fromJSON(args[[4]], simplifyVector = FALSE)
   kn <- lapply(kraw, function(v) {
     if (is.null(v)) return(NULL)
+    if (is.list(v) && isTRUE(v$`__factor__`)) {
+      return(factor(
+        unlist(v$values, recursive = TRUE, use.names = FALSE),
+        levels = unlist(v$levels, recursive = TRUE, use.names = FALSE)
+      ))
+    }
     vals <- unlist(v, recursive = TRUE, use.names = FALSE)
     if (is.numeric(vals)) return(unname(as.numeric(vals)))
     if (is.integer(vals)) return(unname(as.integer(vals)))
@@ -1637,6 +1650,12 @@ serialize_smooth <- function(sm) {
       UZ = pack_matrix(sm$UZ),
       shift = pack_vector(sm$shift, "numeric"),
       gp_defn = pack_vector(sm$gp.defn, "numeric")
+    ),
+    "mrf.smooth" = list(
+      P = pack_matrix(sm$P),
+      knots = pack_vector(sm$knots, "character"),
+      plot_me = isTRUE(sm$plot.me),
+      noterp = isTRUE(sm$noterp)
     ),
     "random.effect" = list(
       C = pack_constraint(sm$C),

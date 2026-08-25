@@ -1,4 +1,5 @@
 from .categorical.fs import FSmoothInteractionTerm, SZSmoothInteractionTerm
+from .categorical.mrf import MarkovRandomFieldTerm
 from .categorical.re import RandomEffectTerm
 from .registry import make_smooth_term, register_smooth
 from .shape.scop import ShapeConstrainedPSplineTerm
@@ -35,6 +36,7 @@ bs = DerivativeBSplineTerm1D
 cr = cs = cc = CubicSplineTerm
 ds = DuchonSplineTerm
 gp = GaussianProcessTerm
+mrf = MarkovRandomFieldTerm
 cp = ps = PSplineTerm1D
 tp = ts = ThinPlateSplineTerm
 fs = FSmoothInteractionTerm
@@ -63,6 +65,7 @@ __all__ = [
     "CubicSplineTerm",
     "DuchonSplineTerm",
     "GaussianProcessTerm",
+    "MarkovRandomFieldTerm",
     "DerivativeBSplineTerm1D",
     "PSplineTerm1D",
     "ThinPlateSplineTerm",
@@ -80,6 +83,7 @@ __all__ = [
     "cc",
     "ds",
     "gp",
+    "mrf",
     "cp",
     "ps",
     "tp",

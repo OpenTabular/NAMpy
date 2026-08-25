@@ -6,6 +6,7 @@ import numpy as np
 
 from ...penalties.tensor import normalize_tensor_marginal_penalty
 from ..algebra import rowwise_kronecker
+from ..categorical.mrf import MarkovRandomFieldTerm
 from ..smooth_base import column_as_float
 from ..univariate.bs import DerivativeBSplineTerm1D
 from ..univariate.cr import CubicSplineTerm
@@ -15,7 +16,7 @@ from ..univariate.ps import PSplineTerm1D
 from ..univariate.tp import ThinPlateSplineTerm
 
 TENSOR_MARGINAL_BASES = frozenset(
-    {"bs", "cr", "cs", "cc", "cp", "ds", "gp", "ps", "tp", "ts"}
+    {"bs", "cr", "cs", "cc", "cp", "ds", "gp", "mrf", "ps", "tp", "ts"}
 )
 
 
@@ -46,16 +47,15 @@ def make_tensor_marginal_term(
     knots=None,
     centered=False,
     shared_basis_setup=None,
+    metadata=None,
 ):
     basis = str(basis).lower()
     validate_tensor_marginal_bases([basis])
     constraint_mode = "always" if centered else "never"
     marginal_features = _as_marginal_features(feature)
-    metadata = (
-        None
-        if shared_basis_setup is None
-        else {"shared_basis_setup": shared_basis_setup}
-    )
+    metadata = dict(metadata or {})
+    if shared_basis_setup is not None:
+        metadata["shared_basis_setup"] = shared_basis_setup
     if basis in {"cr", "cs", "cc"}:
         if len(marginal_features) != 1:
             raise ValueError(
@@ -136,6 +136,23 @@ def make_tensor_marginal_term(
             feature=marginal_features,
             k=k,
             m=m,
+            xt=xt,
+            label=str(feature),
+            smoothing_id=None,
+            by=None,
+            select=False,
+            fixed=False,
+            constraint_mode=constraint_mode,
+            knots=knots,
+            metadata=metadata,
+        )
+
+    if basis == "mrf":
+        if len(marginal_features) != 1:
+            raise ValueError("Tensor marginal basis 'mrf' only handles one feature.")
+        return MarkovRandomFieldTerm(
+            feature=marginal_features[0],
+            k=k,
             xt=xt,
             label=str(feature),
             smoothing_id=None,
@@ -281,6 +298,7 @@ def build_tensor_marginal_terms(
     knots=None,
     centered=False,
     shared_basis_setups=None,
+    metadata=None,
 ):
     features = list(feature) if not isinstance(feature, (str, int)) else [feature]
     k_list = [int(k)] * len(features) if np.isscalar(k) else [int(v) for v in k]
@@ -343,6 +361,7 @@ def build_tensor_marginal_terms(
             knots=knots_i,
             centered=center_i,
             shared_basis_setup=shared_i,
+            metadata=metadata,
         )
         marginals.append(term)
         feature_ids.append(feat)
@@ -372,6 +391,7 @@ def build_tensor_product_components(
         x_train = (
             column_as_float(X, marginal_indices[0])
             if len(marginal_indices) == 1
+            and str(getattr(m, "basis_name", "")).lower() != "mrf"
             else None
         )
         shared_setup = getattr(m, "shared_basis_setup", None)
@@ -380,7 +400,11 @@ def build_tensor_product_components(
             and str(shared_setup.get("mode", "")).lower() == "linked_id"
             and shared_setup.get("pooled_feature_values")
         )
-        if use_linked_id_predict_path and len(marginal_indices) == 1:
+        if (
+            use_linked_id_predict_path
+            and len(marginal_indices) == 1
+            and str(getattr(m, "basis_name", "")).lower() != "mrf"
+        ):
             x_train = np.asarray(
                 shared_setup["pooled_feature_values"][0], dtype=np.float64
             ).ravel()
@@ -478,7 +502,7 @@ def _tensor_marginal_eval_from_x(term, x, *, centered=False):
 
 
 def _tensor_np_reparameterization(term, x_train, basis_dim, *, centered=False):
-    if str(getattr(term, "basis_name", "")).lower() in {"cr", "cs", "cc"}:
+    if str(getattr(term, "basis_name", "")).lower() in {"cr", "cs", "cc", "mrf"}:
         return None
     if x_train is None:
         return None

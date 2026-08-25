@@ -27,6 +27,7 @@ from .categorical_utils import (
     is_factor_like_vector,
     stable_unique_levels,
 )
+from .mrf import MarkovRandomFieldTerm
 from .re import RandomEffectTerm
 
 
@@ -110,7 +111,7 @@ def _build_base_smooth_term(
     Build the per-level base smooth used inside fs/sz.
 
     Supported base smooth classes in the current codebase:
-    bs, cr, cs, cc, cp, ds, gp, ps, tp, ts
+    bs, cr, cs, cc, cp, ds, gp, mrf, ps, tp, ts
     """
     base_bs = str(base_bs).lower()
     metric_features = list(metric_features)
@@ -132,12 +133,13 @@ def _build_base_smooth_term(
         "cp",
         "ds",
         "gp",
+        "mrf",
         "ps",
         "tp",
         "ts",
     }:
         raise NotImplementedError(
-            "Extra xt options are currently only supported for bs/cp/ds/gp/ps/tp/ts "
+            "Extra xt options are currently only supported for bs/cp/ds/gp/mrf/ps/tp/ts "
             "base smooths, "
             f"got xt={xt_rest!r} with base bs={base_bs!r}."
         )
@@ -240,6 +242,22 @@ def _build_base_smooth_term(
             metadata=metadata,
         )
 
+    if base_bs == "mrf":
+        return MarkovRandomFieldTerm(
+            feature=metric_features[0],
+            k=k,
+            label=label,
+            smoothing_id=None,
+            by=by,
+            sp=None,
+            select=bool(select),
+            fixed=bool(fixed),
+            constraint_mode=str(constraint_mode),
+            knots=knots,
+            xt=xt_rest,
+            metadata=metadata,
+        )
+
     if base_bs in {"tp", "ts"}:
         return make_smooth_term(
             base_bs,
@@ -262,7 +280,7 @@ def _build_base_smooth_term(
 
     raise NotImplementedError(
         f"Current {mode} implementation supports base bs in "
-        f"{{'bs','cr','cs','cc','cp','ds','gp','ps','tp','ts'}}, got {base_bs!r}."
+        f"{{'bs','cr','cs','cc','cp','ds','gp','mrf','ps','tp','ts'}}, got {base_bs!r}."
     )
 
 
@@ -272,6 +290,8 @@ def _penalty_rank_from_base_term(base_term, basis_matrix, penalty_matrix) -> int
     if isinstance(base_term, DuchonSplineTerm):
         return int(base_term._setup.rank)
     if isinstance(base_term, GaussianProcessTerm):
+        return int(base_term._setup.rank)
+    if isinstance(base_term, MarkovRandomFieldTerm):
         return int(base_term._setup.rank)
     if isinstance(base_term, PSplineTerm1D) and len(base_term.penalties) > 0:
         if str(base_term.basis_name).lower() == "cp":
@@ -668,6 +688,8 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             metadata=dict(self.metadata),
         )
         base_term.fit(X, feature_names)
+        if isinstance(base_term, MarkovRandomFieldTerm):
+            self.metadata = dict(base_term.metadata)
 
         if len(base_term.penalties) > 1:
             raise NotImplementedError(
@@ -675,6 +697,15 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             )
 
         self._base_term = base_term
+        if (
+            isinstance(base_term, MarkovRandomFieldTerm)
+            and base_term._setup.used_low_rank
+        ):
+            raise NotImplementedError(
+                "mgcv 1.9-4 cannot predict an fs smooth with a reduced-rank "
+                "MRF base because its factor-smooth P matrix is dimensionally "
+                "incompatible with the full region indicator."
+            )
         B_setup, S0, _ = self._base_constructor_fit_matrices()
         B_setup = np.asarray(B_setup, dtype=np.float64)
         B0 = np.asarray(self._base_constructor_predict_matrix(X), dtype=np.float64)
@@ -722,6 +753,15 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         null_d = B0.shape[1] - r
 
         self._base_transform = P_coef
+        if isinstance(base_term, MarkovRandomFieldTerm):
+            # The raw prediction callback below deliberately exposes mgcv's
+            # double-P MRF/fs prediction surface. Tell the compiler which
+            # inverse block map recovers the constructor matrix solely for its
+            # fit-vs-prediction parameterization audit; actual prediction does
+            # not apply this metadata map.
+            self.metadata["prediction_basis_map"] = np.kron(
+                np.eye(n_levels, dtype=np.float64), np.linalg.inv(P_coef)
+            )
         self._base_range_penalty_diag = np.concatenate(
             [D, np.zeros(null_d, dtype=np.float64)]
         )
@@ -801,6 +841,13 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         )
         if self._base_transform is not None:
             B0_new = B0_new @ self._base_transform
+            if isinstance(self._base_term, MarkovRandomFieldTerm):
+                # Upstream Predict.matrix.fs.interaction changes the object back
+                # to class mrf.smooth after overwriting object$P with the fs
+                # natural-parameter transform. Predict.matrix.mrf.smooth applies
+                # that P once and the fs wrapper applies it a second time. Preserve
+                # this observable mgcv 1.9-4 prediction parameterization exactly.
+                B0_new = B0_new @ self._base_transform
 
         B_new = rowwise_kronecker([Ifac, B0_new])
         z = by_values_from_new_data(X_new, self._by_state)
@@ -948,6 +995,8 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             metadata=dict(self.metadata),
         )
         base_term.fit(X, feature_names)
+        if isinstance(base_term, MarkovRandomFieldTerm):
+            self.metadata = dict(base_term.metadata)
 
         if len(base_term.penalties) > 1:
             raise NotImplementedError(

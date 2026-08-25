@@ -477,7 +477,7 @@ def _fs_by_without_factor_feature_base_spec(smooth_spec: FactorSmoothInteraction
 
     if base_bs == "ps":
         kwargs["m"] = None if xt_rest is None else xt_rest.get("m", None)
-    elif base_bs in {"ds", "gp", "tp", "ts"}:
+    elif base_bs in {"ds", "gp", "mrf", "tp", "ts"}:
         if base_bs in {"ds", "gp"}:
             kwargs["m"] = smooth_spec.m
         kwargs["xt"] = xt_rest

@@ -10,6 +10,7 @@ from ..smooths.categorical.fs import (
     FSmoothInteractionTerm,
     SZSmoothInteractionTerm,
 )
+from ..smooths.categorical.mrf import MarkovRandomFieldTerm
 from ..smooths.categorical.re import RandomEffectTerm
 from ..smooths.parametric import LinearTerm
 from ..smooths.registry import make_smooth_term
@@ -29,6 +30,7 @@ from ..specs.smooth import (
     DuchonSplineSmoothSpec,
     FactorSmoothInteractionSpec,
     GaussianProcessSmoothSpec,
+    MarkovRandomFieldSmoothSpec,
     PSplineSmoothSpec,
     RandomEffectSmoothSpec,
     ShapeConstrainedSmoothSpec,
@@ -223,6 +225,23 @@ def instantiate_term(term_like: TermSpec | Any):
             fixed=smooth_spec.fx,
             constraint_mode=smooth_spec.constraint_mode,
             pc=smooth_spec.pc,
+            knots=smooth_spec.knots,
+            xt=smooth_spec.xt,
+            metadata=metadata,
+        )
+
+    if isinstance(smooth_spec, MarkovRandomFieldSmoothSpec):
+        return MarkovRandomFieldTerm(
+            feature=features,
+            k=smooth_spec.k,
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            fixed=smooth_spec.fx,
+            constraint_mode=smooth_spec.constraint_mode,
             knots=smooth_spec.knots,
             xt=smooth_spec.xt,
             metadata=metadata,

@@ -8,11 +8,13 @@ from .categorical_utils import (
     try_numeric_1d,
 )
 from .fs import FSmoothInteractionTerm, SZSmoothInteractionTerm
+from .mrf import MarkovRandomFieldTerm
 from .re import RandomEffectTerm
 
 fs = FSmoothInteractionTerm
 sz = SZSmoothInteractionTerm
 re = RandomEffectTerm
+mrf = MarkovRandomFieldTerm
 
 __all__ = [
     "as_object_1d",
@@ -23,9 +25,11 @@ __all__ = [
     "factor_indicator_matrix",
     "factor_levels_from_metadata",
     "RandomEffectTerm",
+    "MarkovRandomFieldTerm",
     "FSmoothInteractionTerm",
     "SZSmoothInteractionTerm",
     "fs",
     "sz",
     "re",
+    "mrf",
 ]

@@ -174,6 +174,7 @@ _GAM_HPARAM_KEYS = frozenset(
         "covariance",
         "select",
         "knots",
+        "xt",
         "min_sp",
         "drop_intercept",
         "formula",
@@ -240,6 +241,7 @@ class GAM:
         self.covariance = str(self.hparams.get("covariance", "bayes")).lower()
         self.select = bool(self.hparams.get("select", False))
         self.knots = self.hparams.get("knots", None)
+        self.xt = self.hparams.get("xt", None)
         self.min_sp = self.hparams.get("min_sp", None)
         self.drop_intercept = self.hparams.get("drop_intercept", None)
         self.positive_transform = str(

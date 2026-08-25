@@ -21,6 +21,19 @@ def make_predictor_specs(model, feature_names, *, knots=None):
 
     for name in feature_names:
         term_knots = knots_for_feature(model, name, knots=knots)
+        model_xt = getattr(model, "xt", None)
+        is_global_mrf_xt = (
+            basis == "mrf"
+            and isinstance(model_xt, dict)
+            and bool({"penalty", "nb", "polys"}.intersection(model_xt))
+        )
+        term_xt = (
+            model_xt.get(str(name))
+            if isinstance(model_xt, dict)
+            and str(name) in model_xt
+            and not is_global_mrf_xt
+            else model_xt
+        )
 
         if basis in {"cr", "cs", "cc"}:
             main_terms.append(
@@ -42,7 +55,7 @@ def make_predictor_specs(model, feature_names, *, knots=None):
                     metadata={},
                 )
             )
-        elif basis in {"bs", "ds", "gp", "ps", "cp"}:
+        elif basis in {"bs", "ds", "gp", "mrf", "ps", "cp"}:
             main_terms.append(
                 TermSpec(
                     kind="smooth",
@@ -57,6 +70,7 @@ def make_predictor_specs(model, feature_names, *, knots=None):
                         fx=False,
                         select=bool(model.select),
                         knots=term_knots,
+                        xt=term_xt,
                     ),
                     smoothing_id=None,
                     label=name,
@@ -105,7 +119,7 @@ def make_predictor_specs(model, feature_names, *, knots=None):
         else:
             raise NotImplementedError(
                 "Automatic main-effect construction currently supports "
-                "{'bs','cr','cs','cc','cp','ds','gp','ps','tp','ts','re'}, "
+                "{'bs','cr','cs','cc','cp','ds','gp','mrf','ps','tp','ts','re'}, "
                 f"got {model.basis!r}."
             )
 
@@ -150,9 +164,7 @@ def prepare_formula_inputs(
         build_result.predictor_specs, build_result.component_lpi, strict=True
     ):
         spec.metadata["lpi"] = tuple(int(v) for v in lpi)
-        spec.metadata["n_linear_predictors"] = int(
-            build_result.n_linear_predictors
-        )
+        spec.metadata["n_linear_predictors"] = int(build_result.n_linear_predictors)
     return (
         parsed,
         build_result.predictor_specs,

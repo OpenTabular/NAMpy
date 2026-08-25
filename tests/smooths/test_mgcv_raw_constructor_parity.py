@@ -20,6 +20,7 @@ from nampy.gam.smooths.categorical.fs import (
     SZSmoothInteractionTerm,
     _block_penalty_for_group,
 )
+from nampy.gam.smooths.categorical.mrf import MarkovRandomFieldTerm
 from nampy.gam.smooths.categorical.re import RandomEffectTerm
 from nampy.gam.smooths.tensor.marginals import build_tensor_product_components
 from nampy.gam.smooths.tensor.te import TensorProductSplineTerm
@@ -121,6 +122,37 @@ def _make_random_effect_numeric_pair_data():
             "x1": [0.5, 0.75, 1.5, 1.0, 1.25, 1.75],
         }
     )
+
+
+def _make_mrf_data(seed=901, n=90, levels=("a", "b", "c", "d", "e")):
+    rng = np.random.default_rng(seed)
+    region = np.resize(np.asarray(levels, dtype=object), n)
+    effects = dict(
+        zip(levels, np.linspace(-0.5, 0.5, len(levels)), strict=True)
+    )
+    y = np.asarray([effects[value] for value in region]) + rng.normal(
+        scale=0.1, size=n
+    )
+    return pd.DataFrame({"y": y, "region": region})
+
+
+def _make_mrf_tensor_data(seed=905, n=90):
+    data = _make_mrf_data(seed=seed, n=n)
+    data["x"] = np.random.default_rng(seed + 1).uniform(-1.0, 1.0, size=n)
+    return data
+
+
+def _make_numeric_mrf_factor_data(seed=906, n=100):
+    rng = np.random.default_rng(seed)
+    region = np.resize(np.arange(1, 6, dtype=np.float64), n)
+    group = np.resize(np.asarray(["u", "v"], dtype=object), n)
+    y = 0.15 * region + 0.2 * (group == "v") + rng.normal(scale=0.1, size=n)
+    return pd.DataFrame({"y": y, "region": region, "group": group})
+
+
+def _mrf_knots_with_unobserved(_data):
+    levels = ["a", "b", "c", "d", "e"]
+    return {"region": pd.Categorical(levels, categories=levels)}
 
 
 def _factory(fn, **kwargs):
@@ -338,6 +370,81 @@ def _build_cubic_case_matrix():
         ]
     )
     return cases
+
+
+def _build_mrf_case_matrix():
+    nb_names = '{"a":["b"],"b":["a","c"],"c":["b","d"],"d":["c","e"],"e":["d"]}'
+    nb_indices = '{"a":[2],"b":[1,3],"c":[2,4],"d":[3,5],"e":[4]}'
+    full_rank_penalty = (
+        "[[2,-1,0,0,0],[-1,3,-1,0,0],[0,-1,3,-1,0],"
+        "[0,0,-1,3,-1],[0,0,0,-1,2]]"
+    )
+    disconnected = '{"a":["b"],"b":["a"],"c":["d"],"d":["c"],"e":[]}'
+    numeric_nb = '{"1":["2"],"2":["1","3"],"3":["2","4"],"4":["3","5"],"5":["4"]}'
+    polygons = (
+        '{"a":[[0,0],[1,0],[1,1],[0,1]],'
+        '"b":[[1,0],[2,0],[2,1],[1,1]],'
+        '"c":[[2,0],[3,0],[3,1],[2,1]]}'
+    )
+    return [
+        _case(
+            "mrf_full_named_nb",
+            _factory(_make_mrf_data, seed=901),
+            f'y ~ s(region, bs="mrf", xt={{"nb":{nb_names}}})',
+        ),
+        _case(
+            "mrf_reduced_numeric_nb",
+            _factory(_make_mrf_data, seed=902),
+            f'y ~ s(region, bs="mrf", k=3, xt={{"nb":{nb_indices}}})',
+            atol=2e-8,
+        ),
+        _case(
+            "mrf_supplied_full_rank_penalty",
+            _factory(_make_mrf_data, seed=903),
+            f'y ~ s(region, bs="mrf", xt={{"penalty":{full_rank_penalty}}})',
+        ),
+        _case(
+            "mrf_unobserved_region_knots",
+            _factory(_make_mrf_data, seed=904, levels=("a", "b", "c", "d")),
+            f'y ~ s(region, bs="mrf", k=3, xt={{"nb":{nb_names}}})',
+            atol=2e-8,
+            knots_factory=_mrf_knots_with_unobserved,
+        ),
+        _case(
+            "mrf_disconnected_graph",
+            _factory(_make_mrf_data, seed=905),
+            f'y ~ s(region, bs="mrf", xt={{"nb":{disconnected}}})',
+        ),
+        _case(
+            "mrf_polygon_adjacency",
+            _factory(_make_mrf_data, seed=906, levels=("a", "b", "c")),
+            f'y ~ s(region, bs="mrf", xt={{"polys":{polygons}}})',
+        ),
+        _case(
+            "mrf_te_margin",
+            _factory(_make_mrf_tensor_data, seed=907),
+            f'y ~ te(region, x, bs=["mrf","cr"], k=[3,5], xt=[{{"nb":{nb_names}}},None])',
+            atol=2e-8,
+        ),
+        _case(
+            "mrf_ti_margin",
+            _factory(_make_mrf_tensor_data, seed=908),
+            f'y ~ ti(region, x, bs=["mrf","cr"], k=[3,5], xt=[{{"nb":{nb_names}}},None])',
+            atol=2e-8,
+        ),
+        _case(
+            "mrf_fs_numeric_base",
+            _factory(_make_numeric_mrf_factor_data, seed=909),
+            f'y ~ s(group, region, bs="fs", k=5, xt={{"bs":"mrf","nb":{numeric_nb}}})',
+            atol=2e-8,
+        ),
+        _case(
+            "mrf_sz_numeric_base",
+            _factory(_make_numeric_mrf_factor_data, seed=910),
+            f'y ~ s(group, region, bs="sz", k=5, xt={{"bs":"mrf","nb":{numeric_nb}}})',
+            atol=2e-8,
+        ),
+    ]
 
 
 def _build_ps_case_matrix():
@@ -1024,6 +1131,7 @@ CASES = [
     *_build_tprs_case_matrix(),
     *_build_duchon_case_matrix(),
     *_build_gp_case_matrix(),
+    *_build_mrf_case_matrix(),
     *_build_re_case_matrix(),
     *_build_factor_smooth_case_matrix(),
     *_build_tensor_case_matrix(),
@@ -1262,6 +1370,23 @@ def _serialize_gp_raw(term):
     )
 
 
+def _serialize_mrf_raw(term):
+    setup = term._setup
+    return _common_raw_state(
+        "mrf.smooth",
+        np.asarray(setup.basis_train, dtype=np.float64),
+        [np.asarray(setup.penalty, dtype=np.float64)],
+        rank=int(setup.rank),
+        null_space_dim=int(setup.null_space_dim),
+        extra={
+            "P": None if setup.P is None else np.asarray(setup.P, dtype=np.float64),
+            "knots": list(setup.levels),
+            "plot_me": bool(setup.plot_me),
+            "noterp": True,
+        },
+    )
+
+
 def _serialize_re_raw(term):
     B = np.asarray(term._basis_train, dtype=np.float64)
     q = int(B.shape[1])
@@ -1491,6 +1616,8 @@ def _serialize_term_raw(term, X):
         return _serialize_duchon_raw(term)
     if isinstance(term, GaussianProcessTerm):
         return _serialize_gp_raw(term)
+    if isinstance(term, MarkovRandomFieldTerm):
+        return _serialize_mrf_raw(term)
     if isinstance(term, RandomEffectTerm):
         return _serialize_re_raw(term)
     if isinstance(term, FSmoothInteractionTerm):

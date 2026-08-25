@@ -237,4 +237,49 @@ def nat_param_type1(X, S, rank=None, tol=None, unit_fnorm=True):
     }
 
 
-__all__ = ["nat_param_type1"]
+def nat_param_type0(X, S, rank=None, tol=None, unit_fnorm=True):
+    """Python implementation of ``mgcv::nat.param(X, S, type=0)``.
+
+    Unlike type 1, the positive natural-parameter penalty eigenvalues are
+    retained rather than normalized to one.  MRF reduced-rank construction
+    uses this exact parameterization before keeping the least penalized
+    columns.
+    """
+    X = np.asarray(X, dtype=np.float64)
+    S = np.asarray(S, dtype=np.float64)
+    tol = np.finfo(float).eps**0.8 if tol is None else float(tol)
+
+    Q, R = _r_linpack_qr(X, tol)
+    if matrix_is_rank_deficient(R):
+        raise ValueError(
+            "Model matrix is not full rank in natural-parameter construction."
+        )
+
+    tmp = _r_triangular_solve(R.T, S.T, lower=True)
+    RSR = _r_triangular_solve(R.T, tmp.T, lower=True)
+    evals, U = _r_symmetric_eigh_descending(RSR)
+
+    if rank is None or rank < 1 or rank > S.shape[0]:
+        max_eval = np.max(evals) if evals.size else 0.0
+        rank = int(np.sum(evals > max_eval * tol))
+    rank = max(0, min(int(rank), S.shape[0]))
+
+    D = np.asarray(evals[:rank], dtype=np.float64).copy()
+    Xn = np.asarray(Q @ U, dtype=np.float64)
+    P = _r_triangular_solve(R, U, lower=False)
+
+    if unit_fnorm:
+        if rank > 0:
+            scale = 1.0 / np.sqrt(np.mean(Xn[:, :rank] ** 2))
+            Xn[:, :rank] *= scale
+            P[:, :rank] *= scale
+            D *= scale**2
+        if rank < Xn.shape[1]:
+            scalef = 1.0 / np.sqrt(np.mean(Xn[:, rank:] ** 2))
+            Xn[:, rank:] *= scalef
+            P[:, rank:] *= scalef
+
+    return {"X": Xn, "D": D, "P": P, "rank": int(rank)}
+
+
+__all__ = ["nat_param_type0", "nat_param_type1"]
