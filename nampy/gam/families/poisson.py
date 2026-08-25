@@ -19,7 +19,7 @@ class PoissonLogFamily(GLMFamily):
     supports_ubre = True
     supports_ml = True
     supports_reml = True
-    supports_laml = False
+    supports_laml = True
     supports_exact_pirls_first_derivatives = True
     supports_exact_pirls_second_derivatives = True
 

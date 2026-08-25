@@ -36,11 +36,13 @@ line-by-line where practical - treat upstream as the specification before
 restructuring anything inside them.
 """
 
+from .control import GAMControl, gam_control
 from .fit import (
     FitCoreSolution,
     fit_model_core,
     solve_fit,
 )
+from .fit.selection.criteria.ncv import normalize_nei
 from .model import GAM
 
 __all__ = [
@@ -48,4 +50,7 @@ __all__ = [
     "fit_model_core",
     "solve_fit",
     "FitCoreSolution",
+    "GAMControl",
+    "gam_control",
+    "normalize_nei",
 ]

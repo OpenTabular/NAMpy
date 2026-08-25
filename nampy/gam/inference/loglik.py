@@ -25,6 +25,7 @@ from ..model_state import (
     _fit_state,
     _predictor_full_indices,
 )
+from ..observations import ar1_log_determinant_correction
 
 
 def loglik_effective_df(model) -> float:
@@ -49,6 +50,7 @@ def loglik_effective_df(model) -> float:
     if family_class == "extended" and n_theta is not None:
         p += float(n_theta)
     return p
+
 
 def loglik_value_and_effective_df(model) -> tuple[float, float]:
     """
@@ -75,6 +77,7 @@ def loglik_value_and_effective_df(model) -> tuple[float, float]:
     if family_class == "extended" and n_theta is not None:
         p_df += float(n_theta)
     return p_val, p_df
+
 
 def object_aic(model) -> float | None:
     """
@@ -106,9 +109,7 @@ def object_aic(model) -> float | None:
         n_true = getattr(model, "n_true_", None)
         n_eff = (
             None
-            if n_true is None
-            or not np.isfinite(float(n_true))
-            or float(n_true) <= 0.0
+            if n_true is None or not np.isfinite(float(n_true)) or float(n_true) <= 0.0
             else float(n_true)
         )
         nobs, sum_log_scaled = gaussian_reml_weighted_degrees_and_log_weight_term(
@@ -124,6 +125,9 @@ def object_aic(model) -> float | None:
             + 2.0
             - float(sum_log_scaled)
         )
+        # `bam` corrects the raw Gaussian AIC by minus twice the log
+        # determinant of the inverse-root AR transform.
+        raw_aic += 2.0 * ar1_log_determinant_correction(model)
         return float(raw_aic + 2.0 * float(_edf_total(model)))
 
     y = np.asarray(model.y_, dtype=np.float64)
@@ -155,14 +159,12 @@ def object_aic(model) -> float | None:
             dispersion_scale = float(np.exp(float(joint_log_phi)))
         if dispersion_scale is None:
             fit_method = str(getattr(model, "smoothing_method", "")).lower()
-            if fit_method == "fixed" and getattr(model.family, "known_scale", None) is None:
-
-                penalty = float(
-                    getattr(fit_result, "penalty_quadratic", 0.0) or 0.0
-                )
-                mp = float(
-                    _static_penalty_null_dim(model) + _coef_column_offset(model)
-                )
+            if (
+                fit_method == "fixed"
+                and getattr(model.family, "known_scale", None) is None
+            ):
+                penalty = float(getattr(fit_result, "penalty_quadratic", 0.0) or 0.0)
+                mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
                 init_scale = _fit_scale(model)
                 if init_scale is None or not np.isfinite(float(init_scale)):
                     init_scale = 1.0
@@ -183,9 +185,7 @@ def object_aic(model) -> float | None:
             if dispersion_scale is None:
                 fit_scale_value = _fit_scale(model)
                 dispersion_scale = (
-                    None
-                    if fit_scale_value is None
-                    else float(fit_scale_value)
+                    None if fit_scale_value is None else float(fit_scale_value)
                 )
         if (
             dispersion_scale is None
@@ -218,6 +218,7 @@ def object_aic(model) -> float | None:
 
     return None
 
+
 def loglik_gam(model) -> float:
     """
     Unpenalized fitted log-likelihood at penalized MLE.
@@ -242,8 +243,7 @@ def loglik_gam(model) -> float:
             return float(fit_result.loglik)
         X = np.asarray(_fit_state(model).X, dtype=np.float64)
         jj = [
-            np.asarray(indices, dtype=int)
-            for indices in _predictor_full_indices(model)
+            np.asarray(indices, dtype=int) for indices in _predictor_full_indices(model)
         ]
         weights = (
             np.ones_like(np.asarray(model.y_, dtype=np.float64), dtype=np.float64)

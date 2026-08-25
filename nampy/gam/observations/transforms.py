@@ -47,7 +47,11 @@ class IdentityObservationTransform:
     def transform_system(self, design, response, offset=None):
         X = self.apply(design)
         y = self.apply(response)
-        off = np.zeros(self.size, dtype=np.float64) if offset is None else self.apply(offset)
+        off = (
+            np.zeros(self.size, dtype=np.float64)
+            if offset is None
+            else self.apply(offset)
+        )
         return X, y, off
 
 
@@ -72,7 +76,9 @@ class AR1ObservationTransform:
             else np.asarray(self.starts, dtype=bool).reshape(-1).copy()
         )
         if starts.shape != (size,):
-            raise ValueError(f"AR1 starts must have shape ({size},), got {starts.shape}.")
+            raise ValueError(
+                f"AR1 starts must have shape ({size},), got {starts.shape}."
+            )
         starts.setflags(write=False)
         object.__setattr__(self, "size", size)
         object.__setattr__(self, "rho", rho)
@@ -119,9 +125,27 @@ def make_observation_transform(*, size: int, ar1_rho=0.0, ar_start=None):
     return AR1ObservationTransform(size=size, rho=rho, starts=ar_start)
 
 
+def ar1_log_determinant_correction(model) -> float:
+    """Return the ``bam`` AR(1) correction to a negative log likelihood.
+
+    ``bam`` applies ``-(n - df) * log(1 / sqrt(1-rho^2))`` to its
+    ML/REML criterion, where ``df`` is one for a single series or the number
+    of true ``AR.start`` entries for multiple independent series.
+    """
+    rho = float(getattr(model, "ar1_rho", 0.0))
+    if rho == 0.0:
+        return 0.0
+    n = int(getattr(model, "n_samples_", 0) or 0)
+    starts = getattr(model, "ar_start_", None)
+    n_series = 1 if starts is None else int(np.sum(np.asarray(starts, dtype=bool)))
+    log_ld = float(np.log(1.0 / np.sqrt(1.0 - rho * rho)))
+    return -float(max(n - n_series, 0)) * log_ld
+
+
 __all__ = [
     "AR1ObservationTransform",
     "IdentityObservationTransform",
     "ObservationTransform",
+    "ar1_log_determinant_correction",
     "make_observation_transform",
 ]

@@ -155,8 +155,7 @@ def test_random_effect_linked_id_guard_raises_explicitly():
         gam.fit(data=data)
 
 
-def test_negbin_estimated_theta_ml_optim_guard_raises_explicitly():
-    """Guard the R/SciPy L-BFGS-B mismatch at the flat joint-ML boundary."""
+def test_negbin_estimated_theta_ml_optim_runs_at_flat_boundary():
     data = _make_negbin_data()
     gam = GAM(
         family={"name": "negbin", "theta": 1.8, "estimate_theta": True},
@@ -166,11 +165,11 @@ def test_negbin_estimated_theta_ml_optim_guard_raises_explicitly():
         smoothing_optimizer="optim",
     )
 
-    with pytest.raises(
-        NotImplementedError,
-        match=r"exact R stats::optim L-BFGS-B boundary behavior is ported",
-    ):
-        gam.fit(data=data)
+    gam.fit(data=data)
+    assert gam._optim_result is not None
+    assert gam._optim_result.success
+    assert gam.smoothing_params[0] > 1e6
+    assert np.isfinite(gam.family.theta) and gam.family.theta > 0.0
 
 
 def test_t2_smooth_builds_a_distinct_tensor_spec():
@@ -194,8 +193,14 @@ def test_t2_smooth_builds_a_distinct_tensor_spec():
     ("formula", "match"),
     [
         ('y ~ s(f, bs="re", pc=0)', r"pc= is not supported for s\(\.\.\., bs='re'\)"),
-        ('y ~ s(x, f, bs="fs", pc=0)', r"pc= is not supported for s\(\.\.\., bs='fs'\)"),
-        ('y ~ s(x, f, bs="sz", pc=0)', r"pc= is not supported for s\(\.\.\., bs='sz'\)"),
+        (
+            'y ~ s(x, f, bs="fs", pc=0)',
+            r"pc= is not supported for s\(\.\.\., bs='fs'\)",
+        ),
+        (
+            'y ~ s(x, f, bs="sz", pc=0)',
+            r"pc= is not supported for s\(\.\.\., bs='sz'\)",
+        ),
     ],
 )
 def test_pc_guard_raises_explicitly_for_unsupported_s_bases(formula, match):
@@ -262,14 +267,13 @@ def test_gam_unknown_constructor_arguments_raise_explicitly():
     assert gam.fit_result() is not None
 
 
-def test_gacv_cp_method_guard_raises_explicitly():
-    """mgcv maps GACV.Cp to the GACV criterion, which NAMpy does not implement."""
-    from nampy.gam.fit.selection.criteria.dispatch import criterion_value
+def test_gacv_cp_method_resolves_to_gacv_for_unknown_scale():
+    from nampy.gam.fit.selection.criteria.dispatch import _normalize_criterion_method
 
-    with pytest.raises(ValueError, match="method must be one of"):
-        criterion_value(
-            SimpleNamespace(family=None), np.zeros(1), np.zeros(1), method="gacv.cp"
-        )
+    family = SimpleNamespace(name="gaussian", family_class="glm", known_scale=None)
+    assert (
+        _normalize_criterion_method(SimpleNamespace(family=family), "gacv.cp") == "gacv"
+    )
 
 
 def test_shared_lpi_component_compiles_one_overlapping_block():

@@ -123,7 +123,9 @@ def criterion_gradient_transformed(model, y, log_sp, method="gcv") -> np.ndarray
     )
     transform = coefficient_transform(model)
     if transform.size != beta.size:
-        raise RuntimeError("Compiled coefficient transform does not match fitted state.")
+        raise RuntimeError(
+            "Compiled coefficient transform does not match fitted state."
+        )
     d1 = transform.derivative(beta, order=1)
     d2 = transform.derivative(beta, order=2)
     d3 = transform.derivative(beta, order=3)
@@ -137,9 +139,7 @@ def criterion_gradient_transformed(model, y, log_sp, method="gcv") -> np.ndarray
     d2link = np.asarray(family.d2link(mu), dtype=np.float64)
     d3link = np.asarray(family.d3link(mu), dtype=np.float64)
     w1 = prior / (variance * g_deriv**2)
-    alpha = 1.0 + residual * (
-        dvar / variance + d2link / g_deriv
-    )
+    alpha = 1.0 + residual * (dvar / variance + d2link / g_deriv)
     working_weight = w1 * alpha
     fisher_cross = X1.T @ (w1[:, None] * X1)
     transform_v = w1 * g_deriv * residual
@@ -149,14 +149,12 @@ def criterion_gradient_transformed(model, y, log_sp, method="gcv") -> np.ndarray
     d2link_dlink = d2link / g_deriv
     a2 = w1**2 * (dvar * g_deriv + 2.0 * variance * d2link)
     dvar_var = dvar / variance
-    alpha1 = -(
-        dvar_var + d2link_dlink
-    ) / g_deriv - residual * (
-        dvar_var**2
-        + d2link_dlink**2
-        - d2var / variance
-        - d3link / g_deriv
-    ) / g_deriv
+    alpha1 = (
+        -(dvar_var + d2link_dlink) / g_deriv
+        - residual
+        * (dvar_var**2 + d2link_dlink**2 - d2var / variance - d3link / g_deriv)
+        / g_deriv
+    )
 
     components = _penalty_components(model)
     fixed_mask = (
@@ -165,22 +163,18 @@ def criterion_gradient_transformed(model, y, log_sp, method="gcv") -> np.ndarray
         else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
     )
     free_indices = np.flatnonzero(~fixed_mask)
-    deviance_gradient_beta = X1.T @ (
-        -2.0 * residual / (variance * g_deriv)
-    )
+    deviance_gradient_beta = X1.T @ (-2.0 * residual / (variance * g_deriv))
     trace = float(solution["trace_H"])
     deviance = float(solution["deviance"])
     n = float(model.n_samples_)
     gamma = float(model.score_gamma)
     gradient = np.empty(free_indices.size, dtype=np.float64)
+    deviance_gradient = np.empty(free_indices.size, dtype=np.float64)
+    trace_gradient = np.empty(free_indices.size, dtype=np.float64)
 
     for out_index, penalty_index in enumerate(free_indices):
-        penalty_component = np.asarray(
-            components[penalty_index], dtype=np.float64
-        )
-        dbeta = -sp[penalty_index] * (
-            hessian_inv @ (penalty_component @ beta)
-        )
+        penalty_component = np.asarray(components[penalty_index], dtype=np.float64)
+        dbeta = -sp[penalty_index] * (hessian_inv @ (penalty_component @ beta))
         deta = X1 @ dbeta
         dX1 = X * (d2 * dbeta)[None, :]
         dw1 = -a2 * deta
@@ -189,13 +183,9 @@ def criterion_gradient_transformed(model, y, log_sp, method="gcv") -> np.ndarray
         dmu = deta / g_deriv
         dg_deriv = d2link * dmu
         dtransform_v = (
-            dw1 * g_deriv * residual
-            + w1 * dg_deriv * residual
-            - w1 * g_deriv * dmu
+            dw1 * g_deriv * residual + w1 * dg_deriv * residual - w1 * g_deriv * dmu
         )
-        de_diag = (d3 * dbeta) * (X.T @ transform_v) + d2 * (
-            X.T @ dtransform_v
-        )
+        de_diag = (d3 * dbeta) * (X.T @ transform_v) + d2 * (X.T @ dtransform_v)
         d_hessian = (
             dX1.T @ (working_weight[:, None] * X1)
             + X1.T @ (dworking_weight[:, None] * X1)
@@ -215,26 +205,29 @@ def criterion_gradient_transformed(model, y, log_sp, method="gcv") -> np.ndarray
             )
         )
         d_deviance = float(deviance_gradient_beta @ dbeta)
+        deviance_gradient[out_index] = d_deviance
+        trace_gradient[out_index] = d_trace
         if method == "gcv":
             denominator = n - gamma * trace
-            gradient[out_index] = n * (
-                d_deviance * denominator
-                + 2.0 * gamma * deviance * d_trace
-            ) / denominator**3
+            gradient[out_index] = (
+                n
+                * (d_deviance * denominator + 2.0 * gamma * deviance * d_trace)
+                / denominator**3
+            )
         elif method in {"ubre", "aic", "ubreaic"}:
             scale = getattr(model.family, "known_scale", None)
             if scale is None:
                 raise ValueError(
                     "Transformed-coefficient UBRE requires a family with known scale."
                 )
-            gradient[out_index] = (
-                d_deviance / n + 2.0 * gamma * d_trace * scale / n
-            )
+            gradient[out_index] = d_deviance / n + 2.0 * gamma * d_trace * scale / n
         else:
             raise ValueError(
                 "Transformed-coefficient smoothing selection supports only "
                 "GCV or UBRE/AIC."
             )
+    state["deviance_gradient"] = deviance_gradient.copy()
+    state["trace_gradient"] = trace_gradient.copy()
     return gradient
 
 

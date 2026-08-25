@@ -9,8 +9,10 @@ from .derivatives import (
     _gdi_pk_setup,
     criterion_gradient_gcv_ubre_pirls_exact,
     criterion_gradient_ml_reml_pirls_exact,
+    criterion_gradient_p_ml_reml_pirls_exact,
     criterion_hessian_gcv_ubre_pirls_exact,
     criterion_hessian_ml_reml_pirls_exact,
+    criterion_hessian_p_ml_reml_pirls_exact,
 )
 from .family_betar import (
     criterion_gradient_ml_reml_pirls_betar_joint,
@@ -56,8 +58,10 @@ from .tweedie import (
 )
 from .value import (
     _pirls_ml_reml_objective_from_solution,
+    criterion_gacv_pirls,
     criterion_ml_reml_pirls,
     criterion_ml_reml_pirls_dynamic,
+    criterion_p_ml_reml_pirls,
     expand_smoothing_params_from_log,
     solve_pirls_given_smoothing,
 )
@@ -86,6 +90,7 @@ def criterion_ubre_pirls(model, y, log_sp):
     edf = sol["trace_H"]
     return (sol["deviance"] / n) - scale + (2.0 * model.score_gamma * scale * edf / n)
 
+
 __all__ = [
     "_gamma_profile_objective_curvature",
     "_gdi1_ift1_state",
@@ -100,7 +105,9 @@ __all__ = [
     "_prior_weights",
     "_solve_gamma_profile_scale",
     "criterion_gcv_pirls",
+    "criterion_gacv_pirls",
     "criterion_gradient_gcv_ubre_pirls_exact",
+    "criterion_gradient_p_ml_reml_pirls_exact",
     "criterion_gradient_ml_reml_pirls_exact",
     "criterion_gradient_ml_reml_pirls_gaussian_joint",
     "criterion_gradient_ml_reml_pirls_gamma_joint",
@@ -109,6 +116,7 @@ __all__ = [
     "criterion_gradient_ml_reml_pirls_ocat_joint",
     "criterion_gradient_ml_reml_pirls_tweedie_joint",
     "criterion_hessian_gcv_ubre_pirls_exact",
+    "criterion_hessian_p_ml_reml_pirls_exact",
     "criterion_hessian_ml_reml_pirls_exact",
     "criterion_hessian_ml_reml_pirls_gaussian_joint",
     "criterion_hessian_ml_reml_pirls_gamma_joint",
@@ -117,6 +125,7 @@ __all__ = [
     "criterion_hessian_ml_reml_pirls_ocat_joint",
     "criterion_hessian_ml_reml_pirls_tweedie_joint",
     "criterion_ml_reml_pirls",
+    "criterion_p_ml_reml_pirls",
     "criterion_ml_reml_pirls_dynamic",
     "criterion_ml_reml_pirls_frozen_negbin",
     "criterion_ml_reml_pirls_gaussian_joint",

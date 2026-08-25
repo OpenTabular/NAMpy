@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 from scipy.linalg import solve
-from scipy.optimize import lsq_linear
+from scipy.optimize import lsq_linear, minimize
 
 from ...model_state import (
     _compiled_model,
@@ -145,11 +145,14 @@ def _newton_candidate(state, beta, S) -> tuple[np.ndarray, str]:
         # scam/R/scam.r switches to an SVD step when the pivoted augmented
         # system is rank deficient, retaining singular values above
         # max(d) * .Machine$double.eps^.5.
-        step = np.linalg.pinv(
-            hessian,
-            rcond=np.sqrt(np.finfo(np.float64).eps),
-            hermitian=True,
-        ) @ state["gradient"]
+        step = (
+            np.linalg.pinv(
+                hessian,
+                rcond=np.sqrt(np.finfo(np.float64).eps),
+                hermitian=True,
+            )
+            @ state["gradient"]
+        )
         return np.asarray(beta - step, dtype=np.float64), "newton_svd"
 
     fisher = state["X1"].T @ (state["w1"][:, None] * state["X1"]) + S
@@ -163,11 +166,14 @@ def _newton_candidate(state, beta, S) -> tuple[np.ndarray, str]:
         step = solve(fisher, state["gradient"], assume_a="sym")
         kind = "fisher"
     else:
-        step = np.linalg.pinv(
-            fisher,
-            rcond=np.sqrt(np.finfo(np.float64).eps),
-            hermitian=True,
-        ) @ state["gradient"]
+        step = (
+            np.linalg.pinv(
+                fisher,
+                rcond=np.sqrt(np.finfo(np.float64).eps),
+                hermitian=True,
+            )
+            @ state["gradient"]
+        )
         kind = "fisher_svd"
     return np.asarray(beta - step, dtype=np.float64), kind
 
@@ -236,8 +242,7 @@ def solve_transformed_coefficient_fit(
     if not obs_transform.is_identity:
         if (
             str(getattr(model.family, "name", "")).lower() != "gaussian"
-            or str(getattr(model.family, "link_name", "identity")).lower()
-            != "identity"
+            or str(getattr(model.family, "link_name", "identity")).lower() != "identity"
         ):
             raise ValueError(
                 "AR(1) residual correlation is available only for Gaussian identity models."
@@ -258,13 +263,63 @@ def solve_transformed_coefficient_fit(
     converged = False
     max_iter = int(getattr(model, "max_irls_iter", 200))
     tol = (
-        float(getattr(model, "irls_tol", 1e-7))
+        float(getattr(model.control, "scam_devtol_fit", 1e-7))
         if tolerance is None
         else float(tolerance)
     )
-    max_halves = max(int(getattr(model, "max_step_halving", 25)), 100)
+    max_halves = int(getattr(model.control, "scam_max_half", 30))
 
-    for iteration in range(1, max_iter + 1):
+    coefficient_bfgs = (
+        str(getattr(model, "coefficient_optimizer", "newton")).lower() == "bfgs"
+    )
+    if coefficient_bfgs:
+        history = []
+
+        def _objective(beta_value):
+            fit_state = _working_state(
+                model, X, y, prior, offset, S, transform, beta_value
+            )
+            history.append(float(fit_state["penalized_deviance"]))
+            return 0.5 * float(fit_state["penalized_deviance"])
+
+        def _gradient(beta_value):
+            return np.asarray(
+                _working_state(model, X, y, prior, offset, S, transform, beta_value)[
+                    "gradient"
+                ],
+                dtype=np.float64,
+            )
+
+        bfgs_control = dict(getattr(model.control, "scam_bfgs", {}) or {})
+        bfgs_result = minimize(
+            _objective,
+            beta,
+            jac=_gradient,
+            method="BFGS",
+            options={
+                "gtol": float(bfgs_control.get("gradtol_bfgs", 1e-6)),
+                "maxiter": max_iter,
+                "xrtol": float(bfgs_control.get("steptol_bfgs", 1e-7)),
+            },
+        )
+        beta = np.asarray(bfgs_result.x, dtype=np.float64)
+        state = _working_state(model, X, y, prior, offset, S, transform, beta)
+        converged = bool(bfgs_result.success)
+        iteration = int(getattr(bfgs_result, "nit", 0))
+        trace = [
+            {
+                "iter": int(index + 1),
+                "deviance": np.nan,
+                "penalized_deviance": float(value),
+                "grad_inf_norm": np.nan,
+                "step_halvings": 0,
+                "step_kind": "bfgs",
+                "converged_here": bool(converged and index == len(history) - 1),
+            }
+            for index, value in enumerate(history)
+        ]
+
+    for iteration in range(1, max_iter + 1) if not coefficient_bfgs else ():
         candidate, step_kind = _newton_candidate(state, beta, S)
         trial = None
         for _halvings in range(max_halves + 1):
@@ -282,8 +337,7 @@ def solve_transformed_coefficient_fit(
             if (
                 trial is not None
                 and np.isfinite(trial["penalized_deviance"])
-                and trial["penalized_deviance"]
-                - state["penalized_deviance"]
+                and trial["penalized_deviance"] - state["penalized_deviance"]
                 <= threshold
             ):
                 break
@@ -318,15 +372,12 @@ def solve_transformed_coefficient_fit(
 
     if not converged:
         raise RuntimeError(
-            "Transformed-coefficient Newton solver did not converge in "
-            f"{max_iter} iterations."
+            f"Transformed-coefficient solver did not converge in {max_iter} iterations."
         )
 
     fit_hessian = np.asarray(state["hessian"], dtype=np.float64)
     fit_hessian_inv = np.linalg.pinv(fit_hessian, hermitian=True)
-    fit_fisher_cross = state["X1"].T @ (
-        state["w1"][:, None] * state["X1"]
-    )
+    fit_fisher_cross = state["X1"].T @ (state["w1"][:, None] * state["X1"])
     fit_edf = float(np.trace(fit_hessian_inv @ fit_fisher_cross))
     post_state = state
     if ar1_rho != 0.0:
@@ -351,9 +402,7 @@ def solve_transformed_coefficient_fit(
     # scam.fit.post computes F = P %*% KtILQ1R. Algebraically this is the
     # inverse observed penalized Hessian applied to the expected (Fisher)
     # data Hessian X1' W1 X1; alpha belongs to the observed Hessian only.
-    fisher_cross = post_state["X1"].T @ (
-        post_state["w1"][:, None] * post_state["X1"]
-    )
+    fisher_cross = post_state["X1"].T @ (post_state["w1"][:, None] * post_state["X1"])
     hat_coef = np.asarray(hessian_inv @ fisher_cross, dtype=np.float64)
     post_edf = float(np.trace(hat_coef))
     edf = fit_edf if ar1_rho != 0.0 else post_edf
@@ -429,9 +478,7 @@ def solve_transformed_coefficient_fit(
         "penalty_matrix": S,
         "working_weights": post_state["working_weights"],
         "fisher_weights": post_state["w1"],
-        "working_response": post_state["g_deriv"] * (
-            y_original - post_state["mu"]
-        )
+        "working_response": post_state["g_deriv"] * (y_original - post_state["mu"])
         + post_state["X1"] @ beta,
         "offset": offset,
         "penalized_system_rank": int(np.linalg.matrix_rank(hessian)),

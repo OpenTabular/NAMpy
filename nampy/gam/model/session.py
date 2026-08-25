@@ -69,6 +69,7 @@ class FitSession:
         template = getattr(model, "_family_template", model.family)
         working._family_template = clone_gam_family(template)
         working.family = clone_gam_family(working._family_template)
+        working._apply_configured_scale()
         working._ws = FitWorkspace()
 
         # ``smoothing_params`` is both a constructor input and a fitted output.

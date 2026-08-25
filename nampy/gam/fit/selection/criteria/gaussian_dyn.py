@@ -4,6 +4,7 @@ import numpy as np
 
 from ...._mgcv_constants import LOG_GUARD_MIN
 from ....model_state import _coef_column_offset, _n_smoothing_params
+from ....observations import ar1_log_determinant_correction
 from ...backends import solve_gaussian_given_smoothing
 from ...smoothing_params import expand_smoothing_params_from_log
 from ..reparam import (
@@ -209,6 +210,7 @@ def criterion_ml_reml_gaussian_dynamic_joint(
         (rss_bSb / (2.0 * sigma2) - ls0) / gamma
         + det_term
         - reml_ind * (Mp / 2.0) * (np.log(2.0 * np.pi * sigma2) - np.log(gamma))
+        + ar1_log_determinant_correction(model)
     )
 
 

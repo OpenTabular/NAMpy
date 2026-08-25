@@ -103,10 +103,16 @@ def raise_ml_reml_backend_error(model, method):
     method = str(method).lower()
     capabilities = model_fit_capabilities(model)
     if capabilities.transformed_observations:
+        if (
+            capabilities.observation_transform_family_supported
+            and method in {"ml", "reml", "laml"}
+            and getattr(model.family, "known_scale", None) is None
+        ):
+            return
         raise NotImplementedError(
             f"Automatic smoothing selection with method={method!r} and an "
-            "observation transform requires correlation-determinant likelihood "
-            "terms that are not implemented. Use fixed smoothing or GCV."
+            "observation transform is outside the determinant-corrected "
+            "Gaussian bam route. Use fixed smoothing or GCV."
         )
     if capabilities.transformed_coefficients:
         if capabilities.multiple_linear_predictors or capabilities.general_family:

@@ -35,15 +35,23 @@ def _saturated_loglik(model, y, *, scale):
             if np.isfinite(n_true) and n_true > 0.0 and nobs > 0.0
             else 1.0
         )
-    return float(
-        fac
-        * model.family.saturated_loglik(
+    saturated = getattr(model.family, "saturated_loglik", None)
+    if callable(saturated):
+        value = saturated(
             y_arr,
             weights=weights,
             n=len(y_arr),
             scale=scale,
         )
-    )
+    else:
+        # Extended families expose mgcv's ``family$ls`` hook rather than the
+        # GLM ``saturated_loglik`` convenience method.  Fixed-theta extended
+        # routes (notably ``ocat``) still require this term for LAML/REML.
+        theta_getter = getattr(model.family, "getTheta", None)
+        theta = theta_getter(False) if callable(theta_getter) else None
+        ls = model.family.ls(y_arr, weights, theta=theta, scale=scale)
+        value = ls["ls"] if isinstance(ls, dict) else np.asarray(ls).ravel()[0]
+    return float(fac * value)
 
 
 def criterion_gcv_pirls(model, y, log_sp):
@@ -54,6 +62,25 @@ def criterion_gcv_pirls(model, y, log_sp):
     if not np.isfinite(den) or den == 0.0:
         return np.inf
     return (sol["deviance"] / n) / (den**2)
+
+
+def criterion_gacv_pirls(model, y, log_sp):
+    """Generalized approximate CV from ``gam.fit3``."""
+    from .derivatives import _gdi1_kernel
+
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    sol = solve_pirls_given_smoothing(model, y, sp)
+    criterion_y = np.asarray(sol.get("criterion_response", y), dtype=np.float64)
+    kernel = _gdi1_kernel(model, criterion_y, sol, sp, method="GCV")
+    nobs = float(model.n_samples_)
+    delta = nobs - float(model.score_gamma) * float(kernel.trA)
+    if not np.isfinite(delta) or delta == 0.0:
+        return np.inf
+    dev = float(sol.get("criterion_deviance", sol["deviance"]))
+    return float(
+        dev / nobs
+        + kernel.P * 2.0 * float(model.score_gamma) * kernel.trA / (delta * nobs)
+    )
 
 
 def criterion_ubre_pirls(model, y, log_sp):
@@ -147,6 +174,44 @@ def criterion_ml_reml_pirls(model, y, log_sp, method):
     return _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method)
 
 
+def criterion_p_ml_reml_pirls(model, y, log_sp, method):
+    """Pearson-scale Laplace ML/REML from ``gam.fit3``."""
+    from .derivatives import _gdi1_kernel
+
+    method = str(method).upper()
+    if method not in {"P-ML", "P-REML"}:
+        raise ValueError("method must be 'P-ML' or 'P-REML'.")
+    if getattr(model.family, "known_scale", None) is not None:
+        return criterion_ml_reml_pirls(
+            model, y, log_sp, "ML" if method == "P-ML" else "REML"
+        )
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    sol = solve_pirls_given_smoothing(model, y, sp)
+    branch = "ML" if method == "P-ML" else "REML"
+    kernel = _gdi1_kernel(model, y, sol, sp, method=branch)
+    mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
+    nobs = float(len(np.asarray(y)))
+    ntrue = float(getattr(model, "n_true_", nobs) or nobs)
+    denom = ntrue - mp
+    if denom <= 0.0:
+        return np.inf
+    phi = float(kernel.P / denom)
+    if not np.isfinite(phi) or phi <= 0.0:
+        return np.inf
+    weights = _prior_weights(model, np.asarray(y, dtype=np.float64))
+    ls = np.asarray(model.family.ls(y, weights, len(y), phi), dtype=np.float64)
+    if nobs > 0.0 and ntrue != nobs:
+        ls *= ntrue / nobs
+    dp = float(sol["deviance"]) + float(kernel.bSb)
+    reml_ind = 1.0 if method == "P-REML" else 0.0
+    return float(
+        dp / (2.0 * phi)
+        - float(ls[0])
+        + float(kernel.K)
+        - 0.5 * mp * np.log(2.0 * np.pi * phi) * reml_ind
+    )
+
+
 def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
     method = str(method).upper()
     scale = float(sol["scale"])
@@ -204,13 +269,9 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
             )
             if n_eff != nobs and nobs > 0.0:
                 ls *= n_eff / nobs
-            objective = (Dp / (2.0 * phi) - float(ls[0])) / gamma + float(
-                kernel.K
-            )
+            objective = (Dp / (2.0 * phi) - float(ls[0])) / gamma + float(kernel.K)
             if method == "REML":
-                objective -= 0.5 * mp * (
-                    np.log(2.0 * np.pi * phi) - np.log(gamma)
-                )
+                objective -= 0.5 * mp * (np.log(2.0 * np.pi * phi) - np.log(gamma))
             return float(objective)
         if family_name == "gamma":
             from .family_gamma import (

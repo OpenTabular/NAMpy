@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from ..control import gam_control
 from ..data import (
     coerce_formula_predict_inputs,
     coerce_optional_offset,
@@ -92,9 +93,7 @@ def _slice_prediction_value(value, rows):
     if value is None:
         return None
     if isinstance(value, (list, tuple)):
-        return [
-            None if item is None else np.asarray(item)[rows] for item in value
-        ]
+        return [None if item is None else np.asarray(item)[rows] for item in value]
     return np.asarray(value)[rows]
 
 
@@ -157,6 +156,7 @@ def _restore_prediction_na_rows(value, retained_rows, n_rows):
     out[np.asarray(retained_rows, dtype=int)] = np.asarray(array, dtype=np.float64)
     return out
 
+
 _GAM_HPARAM_KEYS = frozenset(
     {
         "k",
@@ -187,6 +187,11 @@ _GAM_HPARAM_KEYS = frozenset(
         "start",  # transformed-coefficient solver
         "ar1_rho",  # generic Gaussian-identity residual correlation
         "ar_start",  # starts of independent AR1 sections
+        "scale",
+        "control",
+        "nei",
+        "coefficient_optimizer",
+        "optim_method",
     }
 )
 
@@ -219,9 +224,12 @@ class GAM:
         self.k = int(self.hparams.get("k", 10))
         self.basis = self.hparams.get("basis", "tp")
         self.fit_intercept = bool(self.hparams.get("fit_intercept", True))
-        self.max_irls_iter = int(self.hparams.get("max_irls_iter", 200))
-        self.irls_tol = float(self.hparams.get("irls_tol", 1e-7))
-        self.max_step_halving = int(self.hparams.get("max_step_halving", 25))
+        self.control = gam_control(self.hparams.get("control", None))
+        self.max_irls_iter = int(self.hparams.get("max_irls_iter", self.control.maxit))
+        self.irls_tol = float(self.hparams.get("irls_tol", self.control.epsilon))
+        self.max_step_halving = int(
+            self.hparams.get("max_step_halving", self.control.mgcv_half)
+        )
         self.ar1_rho = float(self.hparams.get("ar1_rho", 0.0))
         if not -1.0 < self.ar1_rho < 1.0:
             raise ValueError("ar1_rho must be strictly between -1 and 1.")
@@ -236,6 +244,13 @@ class GAM:
         self.smoothing_optimizer = str(
             self.hparams.get("smoothing_optimizer", "outer_newton")
         ).lower()
+        self._smoothing_optimizer_user_supplied = "smoothing_optimizer" in self.hparams
+        self.coefficient_optimizer = str(
+            self.hparams.get("coefficient_optimizer", "newton")
+        ).lower()
+        if self.coefficient_optimizer not in {"newton", "bfgs"}:
+            raise ValueError("coefficient_optimizer must be 'newton' or 'bfgs'.")
+        self.optim_method = self.hparams.get("optim_method", None)
         self.sp_log_bounds = tuple(self.hparams.get("sp_log_bounds", (-80.0, 20.0)))
         self.score_gamma = float(self.hparams.get("score_gamma", 1.0))
         self.covariance = str(self.hparams.get("covariance", "bayes")).lower()
@@ -243,21 +258,28 @@ class GAM:
         self.knots = self.hparams.get("knots", None)
         self.xt = self.hparams.get("xt", None)
         self.min_sp = self.hparams.get("min_sp", None)
+        self.scale = float(self.hparams.get("scale", 0.0))
+        if not np.isfinite(self.scale):
+            raise ValueError("scale must be finite.")
+        self.nei = self.hparams.get("nei", None)
         self.drop_intercept = self.hparams.get("drop_intercept", None)
         self.positive_transform = str(
             self.hparams.get("positive_transform", "exp")
         ).lower()
         if self.positive_transform not in {"exp", "softplus"}:
             raise ValueError("positive_transform must be 'exp' or 'softplus'.")
-        self.softplus_beta = float(self.hparams.get("softplus_beta", 1.0))
+        self.softplus_beta = float(
+            self.hparams.get("softplus_beta", self.control.scam_b_notexp)
+        )
         self.softplus_threshold = float(
-            self.hparams.get("softplus_threshold", 20.0)
+            self.hparams.get("softplus_threshold", self.control.scam_threshold_notexp)
         )
         self.start = self.hparams.get("start", None)
 
         resolved_family = make_gam_family(family)
         self._family_template = clone_gam_family(resolved_family)
         self.family = clone_gam_family(self._family_template)
+        self._apply_configured_scale()
 
         self._device = "cpu"
 
@@ -283,6 +305,23 @@ class GAM:
         self.reparam_state_ = None
         self.sl_blocks_ = None
         self._fitted = False
+
+    def _apply_configured_scale(self):
+        """Apply upstream ``scale=`` semantics to the per-fit family clone."""
+        family_name = str(getattr(self.family, "name", "")).lower()
+        fixed_one = family_name in {
+            "binomial",
+            "poisson",
+            "negbin",
+            "betar",
+            "ocat",
+        }
+        if self.scale > 0.0:
+            self.family.known_scale = float(self.scale)
+        elif fixed_one:
+            self.family.known_scale = 1.0
+        else:
+            self.family.known_scale = None
         self._optim_method = None
         self._optim_result = None
         self._optim_trace = None
@@ -434,6 +473,7 @@ class GAM:
         knots=None,
         drop_intercept=None,
     ):
+        self._apply_configured_scale()
         formula = self.formula if formula is None else formula
         knots = self.knots if knots is None else knots
         min_sp = self.min_sp if min_sp is None else min_sp
@@ -555,7 +595,6 @@ class GAM:
         self.min_sp = min_sp
         self.gam_result_ = None
 
-
         fit_model_core(
             X=X_np,
             feature_names=feature_names,
@@ -580,7 +619,6 @@ class GAM:
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
         if self.gam_result_ is None or self.gam_result_.fit_summary is None:
-
             self.gam_result_ = build_gam_result(self, prefer_cached_summary=False)
         return copy_fit_result(
             self.gam_result_.require_fit_summary(),
@@ -639,17 +677,13 @@ class GAM:
         cov_use = cov
         unconditional_core = bool(unconditional)
         if unconditional_core:
-            cov_use = select_prediction_covariance_matrix(
-                self, unconditional=True
-            )
+            cov_use = select_prediction_covariance_matrix(self, unconditional=True)
             unconditional_core = False
         skip_term_ids = frozenset()
         allowed_missing_features = frozenset()
         if bool(newdata_guaranteed):
             skip_term_ids, allowed_missing_features = (
-                prediction_guaranteed_skip_contract(
-                    self, terms=terms, exclude=exclude
-                )
+                prediction_guaranteed_skip_contract(self, terms=terms, exclude=exclude)
             )
 
         if X is None:
@@ -671,19 +705,27 @@ class GAM:
             )
 
         n_original = len(X)
-        action = None if bool(newdata_guaranteed) else _normalize_prediction_na_action(
-            na_action
+        action = (
+            None
+            if bool(newdata_guaranteed)
+            else _normalize_prediction_na_action(na_action)
         )
         complete = _prediction_complete_rows(self, X)
         complete &= _prediction_offset_complete_rows(offset, n_original)
         if bool(newdata_guaranteed) and not bool(np.all(complete)):
-            raise ValueError("newdata_guaranteed=True requires complete prediction data.")
+            raise ValueError(
+                "newdata_guaranteed=True requires complete prediction data."
+            )
         if action == "fail" and not bool(np.all(complete)):
             raise ValueError("missing values in prediction data")
         restore_missing = action == "pass" and not bool(np.all(complete))
         if action in {"pass", "omit", "exclude"}:
             retained_rows = np.flatnonzero(complete)
-            X_input = X.iloc[retained_rows] if isinstance(X, pd.DataFrame) else np.asarray(X)[retained_rows]
+            X_input = (
+                X.iloc[retained_rows]
+                if isinstance(X, pd.DataFrame)
+                else np.asarray(X)[retained_rows]
+            )
             offset_input = _slice_prediction_value(offset, retained_rows)
         else:
             retained_rows = np.arange(n_original, dtype=int)
@@ -917,9 +959,7 @@ class GAM:
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
-        return print_summary(
-            self, dispersion=dispersion, freq=freq, re_test=re_test
-        )
+        return print_summary(self, dispersion=dispersion, freq=freq, re_test=re_test)
 
     def residuals(self, type="deviance", *, setseed=None):
 
@@ -939,9 +979,7 @@ class GAM:
             raise RuntimeError(
                 "AR(1)-standardized residuals require a fit with non-zero ar1_rho."
             )
-        return np.asarray(
-            self.ar1_standardized_residuals_, dtype=np.float64
-        ).copy()
+        return np.asarray(self.ar1_standardized_residuals_, dtype=np.float64).copy()
 
     def derivative(self, X=None, smooth_number=1, deriv=1):
         """Return a term-owned univariate smooth derivative and Bayesian SE."""
@@ -1090,7 +1128,6 @@ class GAM:
     def loglik(self) -> float:
         """Unpenalized fitted log-likelihood at penalized MLE (mgcv logLik.gam)."""
         return loglik_gam(self)
-
 
     def aic(self) -> float:
         """mgcv-style conditional AIC based on effective df."""

@@ -20,7 +20,7 @@ class NegativeBinomialLogFamily(ExtendedFamily):
     supports_ubre = True
     supports_ml = True
     supports_reml = True
-    supports_laml = False
+    supports_laml = True
     supports_exact_pirls_first_derivatives = True
     supports_exact_pirls_second_derivatives = True
     joint_outer_strategy = JointOuterStrategy.NEGBIN_THETA
@@ -351,9 +351,9 @@ class NegativeBinomialLogFamily(ExtendedFamily):
         denom = np.clip(th + mu, self.eps, None)
         alpha = 1.0 + (y - mu) / denom
         alpha_deriv = -mu_eta * (th + y) / np.clip(denom**2, self.eps, None)
-        alpha_second = -(th + y) * mu_eta2 / np.clip(
-            denom**2, self.eps, None
-        ) + 2.0 * (th + y) * (mu_eta**2) / np.clip(denom**3, self.eps, None)
+        alpha_second = -(th + y) * mu_eta2 / np.clip(denom**2, self.eps, None) + 2.0 * (
+            th + y
+        ) * (mu_eta**2) / np.clip(denom**3, self.eps, None)
         fisher_weight = (mu_eta**2) / var
         fisher_deriv = 2.0 * mu_eta * mu_eta2 / var - (mu_eta**3) * dvar / np.clip(
             var**2, self.eps, None

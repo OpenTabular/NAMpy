@@ -42,6 +42,11 @@ _GAM_CONSTRUCTOR_PARAMS = (
     "max_irls_iter",
     "irls_tol",
     "sp_log_bounds",
+    "scale",
+    "control",
+    "nei",
+    "coefficient_optimizer",
+    "optim_method",
 )
 
 
@@ -68,6 +73,11 @@ class _GAMAdapterBase(BaseEstimator):
         max_irls_iter=200,
         irls_tol=1e-7,
         sp_log_bounds=(-80.0, 20.0),
+        scale=0.0,
+        control=None,
+        nei=None,
+        coefficient_optimizer="newton",
+        optim_method=None,
     ):
         self.formula = formula
         self.family = family
@@ -87,6 +97,11 @@ class _GAMAdapterBase(BaseEstimator):
         self.max_irls_iter = max_irls_iter
         self.irls_tol = irls_tol
         self.sp_log_bounds = sp_log_bounds
+        self.scale = scale
+        self.control = control
+        self.nei = nei
+        self.coefficient_optimizer = coefficient_optimizer
+        self.optim_method = optim_method
 
     # ------------------------------------------------------------------
     # Fitting
@@ -114,9 +129,7 @@ class _GAMAdapterBase(BaseEstimator):
             self.schema_ = None
             self.gam_ = self._build_gam()
             self._validate_family_role(self.gam_.family)
-            self.gam_.fit(
-                data=frame, y=y, sample_weight=sample_weight, offset=offset
-            )
+            self.gam_.fit(data=frame, y=y, sample_weight=sample_weight, offset=offset)
         else:
             if X is None:
                 raise ValueError("X is required when no formula is given.")
@@ -145,9 +158,7 @@ class _GAMAdapterBase(BaseEstimator):
 
     def _validate_X(self, X):
         if X is not None and getattr(self, "schema_", None) is not None:
-            self.schema_.validate(
-                X if hasattr(X, "columns") else np.asarray(X)
-            )
+            self.schema_.validate(X if hasattr(X, "columns") else np.asarray(X))
         return X
 
     # ------------------------------------------------------------------
@@ -464,6 +475,11 @@ class GAMClassifier(_GAMAdapterBase):
         max_irls_iter=200,
         irls_tol=1e-7,
         sp_log_bounds=(-80.0, 20.0),
+        scale=0.0,
+        control=None,
+        nei=None,
+        coefficient_optimizer="newton",
+        optim_method=None,
     ):
         super().__init__(
             formula=formula,
@@ -484,6 +500,11 @@ class GAMClassifier(_GAMAdapterBase):
             max_irls_iter=max_irls_iter,
             irls_tol=irls_tol,
             sp_log_bounds=sp_log_bounds,
+            scale=scale,
+            control=control,
+            nei=nei,
+            coefficient_optimizer=coefficient_optimizer,
+            optim_method=optim_method,
         )
 
     def __sklearn_tags__(self):
@@ -579,6 +600,4 @@ class GAMClassifier(_GAMAdapterBase):
 
     def score(self, X, y, sample_weight=None):
         """Return the mean accuracy on the given test data and labels."""
-        return float(
-            accuracy_score(y, self.predict(X), sample_weight=sample_weight)
-        )
+        return float(accuracy_score(y, self.predict(X), sample_weight=sample_weight))

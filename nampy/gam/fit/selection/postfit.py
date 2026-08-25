@@ -196,6 +196,22 @@ def _postfit_hessian(model, method: str, *, edge_correct: bool) -> np.ndarray | 
     ):
         return H
 
+    if method_key in {"p-ml", "p-reml"}:
+        x = _free_log_smoothing_params(model)
+        try:
+            H_recomputed = fit_criterion_hessian(
+                model,
+                model.y_,
+                x,
+                method=method_key,
+            )
+        except Exception:
+            H_recomputed = None
+        expected_size = int(x.size) if int(x.size) > 0 else None
+        H_recomputed = _finite_square_matrix(H_recomputed, size=expected_size)
+        if H_recomputed is not None:
+            return H_recomputed
+
     if method_key in {"ml", "reml", "laml"}:
         try:
             backend = resolve_ml_reml_scoring_backend(model, method=method_key)
@@ -224,7 +240,7 @@ def sp_vcov(model, edge_correct: bool = True, reg: float = 1e-3):
     _require_fitted(model)
 
     method = str(getattr(model, "_optim_method", "")).lower()
-    if method not in {"ml", "reml", "laml"}:
+    if method not in {"ml", "reml", "p-ml", "p-reml", "laml"}:
         return None
 
     H, edge_used = _stored_outer_hessian(model, edge_correct=edge_correct)
@@ -283,7 +299,7 @@ def gam_vcomp(model, *, rescale: bool = True, conf_lev: float = 0.95):
     sd = np.sqrt(vc)
     names = _gam_vcomp_names(model)
     method = str(getattr(model, "_optim_method", "")).lower()
-    if method not in {"ml", "reml", "laml"}:
+    if method not in {"ml", "reml", "p-ml", "p-reml", "laml"}:
         return {
             "vc": sd,
             "names": _vcomp_name_payload(names),
@@ -380,9 +396,7 @@ def one_se_rule(model, candidate_indices: list[int] | None = None) -> np.ndarray
                     "one_se_rule requires positive smoothing-parameter standard errors."
                 )
             alpha = float(np.sqrt(2.0 * len(d)) / (d @ np.linalg.solve(V, d)))
-            result: np.ndarray = np.exp(
-                np.resize(log_sp_free, V.shape[0]) + alpha * d
-            )
+            result: np.ndarray = np.exp(np.resize(log_sp_free, V.shape[0]) + alpha * d)
             return result
 
         sub_idx = np.arange(free_idx.size, dtype=int)

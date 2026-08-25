@@ -30,16 +30,19 @@ def _current_scale_estimate(objective) -> float:
     return float(solution.get("deviance", np.nan)) / denominator
 
 
-def optimize_shape_bfgs(objective, x0) -> OptimizeResult:
+def optimize_shape_bfgs(
+    objective, x0, *, control=None, max_steps=200
+) -> OptimizeResult:
     rho = np.asarray(x0, dtype=np.float64).reshape(-1).copy()
+    control = dict(control or {})
     n_penalties = rho.size
     typical_x = np.ones(n_penalties, dtype=np.float64)
     scaling = 1.0 / typical_x
-    max_newton_step = 5.0
-    gradient_tolerance = 1e-6
-    step_tolerance = 1e-7
-    max_halves = 30
-    max_steps = 200
+    max_newton_step = float(control.get("max_n_step", 5.0))
+    gradient_tolerance = float(control.get("gradtol_bfgs", 1e-6))
+    step_tolerance = float(control.get("steptol_bfgs", 1e-7))
+    max_halves = int(control.get("max_half", 30))
+    max_steps = int(max_steps)
     c1 = 1e-4
     c2 = 0.9
 
@@ -50,7 +53,7 @@ def optimize_shape_bfgs(objective, x0) -> OptimizeResult:
 
     # Upstream uses a one-sided difference of the exact gradient only to seed
     # the inverse Hessian, then forces that seed positive definite.
-    finite_step = 1e-4
+    finite_step = float(control.get("del", 1e-4))
     hessian = np.zeros((n_penalties, n_penalties), dtype=np.float64)
     for index in range(n_penalties):
         shifted = rho.copy()
@@ -93,19 +96,14 @@ def optimize_shape_bfgs(objective, x0) -> OptimizeResult:
         return_code = 2
         initial_slope = float(newton_step @ gradient)
         relative_length = float(
-            np.max(
-                np.abs(newton_step)
-                / np.maximum(np.abs(rho), 1.0 / scaling)
-            )
+            np.max(np.abs(newton_step) / np.maximum(np.abs(rho), 1.0 / scaling))
         )
         alpha_min = (
             np.inf if relative_length == 0.0 else step_tolerance / relative_length
         )
-        alpha_max = (
-            np.inf if newton_length == 0.0 else max_newton_step / newton_length
-        )
+        alpha_max = np.inf if newton_length == 0.0 else max_newton_step / newton_length
         max_component = float(np.max(np.abs(newton_step)))
-        if max_component - max_newton_step > np.finfo(np.float64).eps**0.9:
+        if max_component - max_newton_step > np.finfo(np.float64).eps ** 0.9:
             alpha = max_newton_step / max_component
             alpha_max = alpha * 1.05
         else:
@@ -127,9 +125,7 @@ def optimize_shape_bfgs(objective, x0) -> OptimizeResult:
             trial_rho = rho + alpha * newton_step
             trial_score = float(objective.fun(trial_rho))
             if trial_score <= score + c1 * alpha * initial_slope:
-                trial_gradient = np.asarray(
-                    objective.jac(trial_rho), dtype=np.float64
-                )
+                trial_gradient = np.asarray(objective.jac(trial_rho), dtype=np.float64)
                 new_slope = float(trial_gradient @ newton_step)
                 curvature_condition = True
                 if new_slope < c2 * initial_slope:
@@ -152,15 +148,11 @@ def optimize_shape_bfgs(objective, x0) -> OptimizeResult:
                             ):
                                 break
 
-                    needs_interpolation = (
-                        alpha != 1.0
-                        and (
-                            alpha < 1.0
-                            or (
-                                alpha > 1.0
-                                and trial_score
-                                > score + c1 * alpha * initial_slope
-                            )
+                    needs_interpolation = alpha != 1.0 and (
+                        alpha < 1.0
+                        or (
+                            alpha > 1.0
+                            and trial_score > score + c1 * alpha * initial_slope
                         )
                     )
                     if needs_interpolation:
@@ -172,8 +164,7 @@ def optimize_shape_bfgs(objective, x0) -> OptimizeResult:
                             score_low, score_high = old_trial_score, trial_score
                         for _ in range(40):
                             denominator = 2.0 * (
-                                score_high
-                                - (score_low + new_slope * alpha_difference)
+                                score_high - (score_low + new_slope * alpha_difference)
                             )
                             increment = (
                                 -new_slope * alpha_difference**2 / denominator
@@ -218,9 +209,7 @@ def optimize_shape_bfgs(objective, x0) -> OptimizeResult:
                 return_code = 1
                 trial_rho = rho.copy()
                 trial_score = float(objective.fun(trial_rho))
-                trial_gradient = np.asarray(
-                    objective.jac(trial_rho), dtype=np.float64
-                )
+                trial_gradient = np.asarray(objective.jac(trial_rho), dtype=np.float64)
             else:
                 halvings += 1
                 if alpha == 1.0:
@@ -248,9 +237,9 @@ def optimize_shape_bfgs(objective, x0) -> OptimizeResult:
                     if cubic == 0.0:
                         alpha_temp = -initial_slope / quadratic / 2.0
                     else:
-                        alpha_temp = (
-                            -quadratic + np.sqrt(max(discriminant, 0.0))
-                        ) / (3.0 * cubic)
+                        alpha_temp = (-quadratic + np.sqrt(max(discriminant, 0.0))) / (
+                            3.0 * cubic
+                        )
                     alpha_temp = min(alpha_temp, 0.5 * alpha)
                 old_alpha = alpha
                 old_trial_score = trial_score
@@ -305,12 +294,12 @@ def optimize_shape_bfgs(objective, x0) -> OptimizeResult:
             term_code = 1 if relative_gradient <= gradient_tolerance * 6.0554 else 3
         elif relative_gradient <= gradient_tolerance * 6.0554:
             term_code = 1
-        elif float(
-            np.max(
-                np.abs(rho - old_rho)
-                / np.maximum(np.abs(rho), 1.0 / scaling)
+        elif (
+            float(
+                np.max(np.abs(rho - old_rho) / np.maximum(np.abs(rho), 1.0 / scaling))
             )
-        ) <= step_tolerance:
+            <= step_tolerance
+        ):
             term_code = 2
         elif iteration == max_steps:
             term_code = 4
@@ -352,6 +341,7 @@ def optimize_shape_bfgs(objective, x0) -> OptimizeResult:
     )
     result.score_hist = np.asarray(score_history, dtype=np.float64)
     result.outer_info = {
+        "optimizer": "bfgs",
         "termcode": term_code,
         "conv": str(result.message),
         "iterations": iteration,
@@ -362,9 +352,11 @@ def optimize_shape_bfgs(objective, x0) -> OptimizeResult:
     return result
 
 
-def optimize_transformed_bfgs(objective, x0) -> OptimizeResult:
+def optimize_transformed_bfgs(
+    objective, x0, *, control=None, max_steps=200
+) -> OptimizeResult:
     """Generic name for the exact transformed GCV/UBRE BFGS policy."""
-    return optimize_shape_bfgs(objective, x0)
+    return optimize_shape_bfgs(objective, x0, control=control, max_steps=max_steps)
 
 
 __all__ = ["optimize_shape_bfgs", "optimize_transformed_bfgs"]

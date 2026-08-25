@@ -23,10 +23,15 @@ from .ml_reml import (
     criterion_ml_reml,
     resolve_ml_reml_scoring_backend,
 )
+from .ncv import criterion_gradient_ncv_pirls, criterion_ncv_pirls
 from .pirls import (
+    criterion_gacv_pirls,
     criterion_gcv_pirls,
     criterion_gradient_gcv_ubre_pirls_exact,
+    criterion_gradient_p_ml_reml_pirls_exact,
     criterion_hessian_gcv_ubre_pirls_exact,
+    criterion_hessian_p_ml_reml_pirls_exact,
+    criterion_p_ml_reml_pirls,
     criterion_ubre_pirls,
 )
 from .pirls.derivatives import (
@@ -55,26 +60,25 @@ from .shape import (
 
 
 def _normalize_criterion_method(model, method):
-    method = str(method).lower()
-    if method != "gcv.cp":
-        # "gacv.cp" is intentionally not accepted: mgcv maps it to the GACV
-        # criterion, which NAMpy does not implement; it must fail loudly.
+    method = str(method).strip().lower().replace("_", "-")
+    aliases = {"p.ml": "p-ml", "p.reml": "p-reml"}
+    method = aliases.get(method, method)
+    if (
+        method in {"p-ml", "p-reml"}
+        and getattr(model.family, "known_scale", None) is not None
+    ):
+        return "ml" if method == "p-ml" else "reml"
+    if method not in {"gcv.cp", "gacv.cp"}:
         return method
 
     family = getattr(model, "family", None)
-    family_name = str(getattr(family, "name", "")).lower()
     family_class = str(getattr(family, "family_class", "")).lower()
 
-    if family_class == "extended":
+    if family_class in {"extended", "general"}:
         return "reml"
-    if (
-        family_name in {"binomial", "poisson"}
-        and getattr(family, "known_scale", None) is not None
-    ):
+    if getattr(family, "known_scale", None) is not None:
         return "aic"
-    if family_name == "negbin":
-        return "reml"
-    return "gcv"
+    return "gacv" if method == "gacv.cp" else "gcv"
 
 
 def criterion_value(model, y, log_sp, method="gcv"):
@@ -90,6 +94,10 @@ def criterion_value(model, y, log_sp, method="gcv"):
         if uses_closed_form_solver(model):
             return criterion_gcv_gaussian(model, y, log_sp)
         return criterion_gcv_pirls(model, y, log_sp)
+    if method == "gacv":
+        return criterion_gacv_pirls(model, y, log_sp)
+    if method in {"ncv", "qncv"}:
+        return criterion_ncv_pirls(model, y, log_sp, qapprox=method == "qncv")
     if method in {"ubre", "aic", "ubreaic"}:
         return criterion_ubre_pirls(model, y, log_sp)
     if method == "ml":
@@ -114,9 +122,12 @@ def criterion_value(model, y, log_sp, method="gcv"):
         if handler is not None:
             return handler.value(model, y, log_sp, "REML")
         return criterion_ml_reml(model, y, log_sp, method)
+    if method in {"p-ml", "p-reml"}:
+        return criterion_p_ml_reml_pirls(model, y, log_sp, method.upper())
     raise ValueError(
         "method must be one of "
-        "{'gcv', 'ubre', 'aic', 'ubreaic', 'ml', 'reml', 'laml'}"
+        "{'gcv', 'gacv', 'ubre', 'aic', 'ubreaic', 'ml', 'reml', "
+        "'p-ml', 'p-reml', 'ncv', 'qncv', 'laml'}"
     )
 
 
@@ -201,8 +212,12 @@ def criterion_gradient(
         "ubreaic",
     }:
         return criterion_gradient_transformed(model, y, log_sp, method=method)
-    if method in {"gcv", "ubre", "aic", "ubreaic"}:
+    if method in {"gcv", "gacv", "ubre", "aic", "ubreaic"}:
         return criterion_gradient_gcv_ubre_pirls_exact(model, y, log_sp, method)
+    if method in {"p-ml", "p-reml"}:
+        return criterion_gradient_p_ml_reml_pirls_exact(model, y, log_sp, method)
+    if method in {"ncv", "qncv"}:
+        return criterion_gradient_ncv_pirls(model, y, log_sp, qapprox=method == "qncv")
     if method in {"ml", "reml", "laml"}:
         handler = get_joint_outer_handler(model.family)
         if handler is not None:
@@ -341,8 +356,10 @@ def criterion_hessian(
     eps_rel=1e-3,
 ):
     method = _normalize_criterion_method(model, method)
-    if method in {"gcv", "ubre", "aic", "ubreaic"}:
+    if method in {"gcv", "gacv", "ubre", "aic", "ubreaic"}:
         return criterion_hessian_gcv_ubre_pirls_exact(model, y, log_sp, method)
+    if method in {"p-ml", "p-reml"}:
+        return criterion_hessian_p_ml_reml_pirls_exact(model, y, log_sp, method)
     if method in {"ml", "reml", "laml"}:
         handler = get_joint_outer_handler(model.family)
         if handler is not None:
@@ -366,9 +383,7 @@ def criterion_hessian(
             )
         ):
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
-            return criterion_hessian_ml_reml_pirls_exact(
-                model, y, log_sp, exact_method
-            )
+            return criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, exact_method)
         if backend in {"gaussian_exact", "gaussian_dynamic"}:
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
             out = _gaussian_dynamic_reml_derivative_terms(

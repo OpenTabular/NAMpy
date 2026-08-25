@@ -12,7 +12,12 @@ from .....linalg.reindexing import (
     permute_rows,
     restore_dropped_rows,
 )
-from .....model_state import _fit_workspace, _n_smoothing_params, _penalty_blocks_seq
+from .....model_state import (
+    _coef_column_offset,
+    _fit_workspace,
+    _n_smoothing_params,
+    _penalty_blocks_seq,
+)
 from ....backends import (
     solve_gaussian_given_smoothing,
     solve_pirls_given_smoothing,
@@ -25,6 +30,7 @@ from ....solvers.stacked_qr import (
 from ...reparam import (
     _full_design_matrix,
     _stable_penalty_logdet_derivatives,
+    _static_penalty_null_dim,
     build_penalty_reparameterization_state,
     can_use_simple_ml_reml_structure,
 )
@@ -81,22 +87,21 @@ def _fit3_gcv_ubre_kernel(model, y, log_sp):
             )
         sol = solve_pirls_given_smoothing(model, y, sp)
 
-    criterion_y = np.asarray(
-        sol.get("criterion_response", y), dtype=np.float64
-    )
+    criterion_y = np.asarray(sol.get("criterion_response", y), dtype=np.float64)
     kernel = _gdi1_kernel(model, criterion_y, sol, sp, method="GCV")
     return sol, kernel, free_mask
 
 
 def _fit3_gcv_ubre_full_derivatives(model, y, log_sp, method):
     method = str(method).lower()
-    if method not in {"gcv", "ubre", "aic", "ubreaic"}:
+    if method not in {"gcv", "gacv", "ubre", "aic", "ubreaic"}:
         raise ValueError(f"Unsupported gam.fit3 GCV/UBRE method {method!r}.")
 
     sol, kernel, free_mask = _fit3_gcv_ubre_kernel(model, y, log_sp)
     if kernel is None:
         empty = np.empty((0,), dtype=np.float64)
         return empty, np.empty((0, 0), dtype=np.float64), free_mask
+    _fit_workspace(model).pirls_outer_scale_est = float(sol["scale"])
 
     gamma = float(model.score_gamma)
     if not np.isfinite(gamma) or gamma <= 0.0:
@@ -120,21 +125,28 @@ def _fit3_gcv_ubre_full_derivatives(model, y, log_sp, method):
         delta4 = delta2 * delta2
         grad = nobs * D1 / delta2 + 2.0 * nobs * dev * trA1 * gamma / delta3
         hess = (
-            2.0
-            * gamma
-            * nobs
-            * (np.outer(trA1, D1) + np.outer(D1, trA1))
-            / delta3
-            + 6.0
-            * nobs
-            * dev
-            * gamma
-            * gamma
-            * np.outer(trA1, trA1)
-            / delta4
+            2.0 * gamma * nobs * (np.outer(trA1, D1) + np.outer(D1, trA1)) / delta3
+            + 6.0 * nobs * dev * gamma * gamma * np.outer(trA1, trA1) / delta4
             + nobs * D2 / delta2
             + 2.0 * nobs * dev * gamma * trA2 / delta3
         )
+    elif method == "gacv":
+        P = float(kernel.P)
+        P1 = np.asarray(kernel.P1, dtype=np.float64)
+        P2 = np.asarray(kernel.P2, dtype=np.float64)
+        delta = nobs - gamma * trA
+        grad = D1 / nobs + 2.0 * P * trA1 / (delta * delta)
+        grad += 2.0 * gamma * trA * P1 / (delta * nobs)
+        hess = D2 / nobs + 4.0 * P * np.outer(trA1, trA1) / (delta**3)
+        hess += 2.0 * P * trA2 / (delta * delta)
+        hess += 2.0 * np.outer(trA1, P1) / (delta * delta)
+        hess += (
+            2.0
+            * np.outer(P1, trA1)
+            * (1.0 / (delta * nobs) + trA / (nobs * delta * delta))
+        )
+        hess += 2.0 * trA * P2 / (delta * nobs)
+        hess = 0.5 * (hess + hess.T)
     else:
         scale = getattr(model.family, "known_scale", None)
         if scale is None:
@@ -164,6 +176,57 @@ def criterion_hessian_gcv_ubre_pirls_exact(model, y, log_sp, method):
     _grad, hess, free_mask = _fit3_gcv_ubre_full_derivatives(model, y, log_sp, method)
     free_idx = np.flatnonzero(free_mask)
     return np.asarray(hess[np.ix_(free_idx, free_idx)], dtype=np.float64)
+
+
+def _fit3_p_ml_reml_full_derivatives(model, y, log_sp, method):
+    """Exact Pearson-Laplace derivatives from ``gam.fit3``."""
+    method = str(method).lower()
+    branch = "ML" if method == "p-ml" else "REML"
+    free_mask = _free_smoothing_mask(model)
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    sol = solve_pirls_given_smoothing(model, y, sp)
+    kernel = _gdi1_kernel(model, y, sol, sp, method=branch)
+    mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
+    nobs = float(len(np.asarray(y)))
+    ntrue = float(getattr(model, "n_true_", nobs) or nobs)
+    denom = ntrue - mp
+    phi = float(kernel.P / denom)
+    _fit_workspace(model).pirls_outer_scale_est = phi
+    phi1 = np.asarray(kernel.P1, dtype=np.float64) / denom
+    phi2 = np.asarray(kernel.P2, dtype=np.float64) / denom
+    weights = _prior_weights(model, np.asarray(y, dtype=np.float64))
+    ls = np.asarray(model.family.ls(y, weights, len(y), phi), dtype=np.float64)
+    if nobs > 0.0 and ntrue != nobs:
+        ls *= ntrue / nobs
+    dp = float(sol["deviance"]) + float(kernel.bSb)
+    dp1 = np.asarray(kernel.D1 + kernel.bSb1, dtype=np.float64)
+    dp2 = np.asarray(kernel.D2 + kernel.bSb2, dtype=np.float64)
+    reml_ind = 1.0 if method == "p-reml" else 0.0
+    grad = (
+        dp1 / (2.0 * phi)
+        - phi1 * (dp / (2.0 * phi * phi) + mp * reml_ind / (2.0 * phi) + ls[1])
+        + kernel.K1
+    )
+    hess = (
+        dp2 / (2.0 * phi)
+        - (np.outer(dp1, phi1) + np.outer(phi1, dp1)) / (2.0 * phi * phi)
+        + (dp / phi**3 - ls[2] + mp * reml_ind / (2.0 * phi * phi))
+        * np.outer(phi1, phi1)
+        - (dp / (2.0 * phi * phi) + ls[1] + mp * reml_ind / (2.0 * phi)) * phi2
+        + kernel.K2
+    )
+    return grad, 0.5 * (hess + hess.T), free_mask
+
+
+def criterion_gradient_p_ml_reml_pirls_exact(model, y, log_sp, method):
+    grad, _hess, free_mask = _fit3_p_ml_reml_full_derivatives(model, y, log_sp, method)
+    return np.asarray(grad[free_mask], dtype=np.float64)
+
+
+def criterion_hessian_p_ml_reml_pirls_exact(model, y, log_sp, method):
+    _grad, hess, free_mask = _fit3_p_ml_reml_full_derivatives(model, y, log_sp, method)
+    idx = np.flatnonzero(free_mask)
+    return np.asarray(hess[np.ix_(idx, idx)], dtype=np.float64)
 
 
 @dataclass
@@ -211,6 +274,9 @@ class _GDI1Kernel:
     ift: _GDI1IFTState
     D1: np.ndarray
     D2: np.ndarray
+    P: float
+    P1: np.ndarray
+    P2: np.ndarray
     bSb: float
     bSb1: np.ndarray
     bSb2: np.ndarray
@@ -224,6 +290,41 @@ class _GDI1Kernel:
     K1: np.ndarray
     K2: np.ndarray
     dVkk: np.ndarray
+
+
+def _gdi1_pearson_terms(model, y, sol, current, ift):
+    """Port ``mgcv/src/gdi.c::pearson2`` to smoothing coordinates."""
+    y = np.asarray(y, dtype=np.float64)
+    mu = np.asarray(sol["mu"], dtype=np.float64)
+    weights = _prior_weights(model, y)
+    variance = np.asarray(model.family.variance(mu), dtype=np.float64)
+    v1 = np.asarray(model.family.dvar(mu), dtype=np.float64) / variance
+    v2 = np.asarray(model.family.d2var(mu), dtype=np.float64) / variance
+    eta = np.asarray(sol["eta"], dtype=np.float64)
+    g1 = 1.0 / np.asarray(model.family.mu_eta(eta), dtype=np.float64)
+    g2 = np.asarray(model.family.d2link(mu), dtype=np.float64)
+    residual = y - mu
+    xx = residual * weights / variance
+    P = float(np.sum(xx * residual))
+    pe1 = -xx * (2.0 + residual * v1) / g1
+    pe2 = -pe1 * g2 / g1 + (
+        2.0 * weights / variance
+        + 2.0 * xx * v1
+        - pe1 * v1 * g1
+        - xx * residual * (v2 - v1 * v1)
+    ) / (g1 * g1)
+    nsp = len(ift.deta)
+    P1 = np.empty(nsp, dtype=np.float64)
+    P2 = np.empty((nsp, nsp), dtype=np.float64)
+    for i in range(nsp):
+        deta_i = np.asarray(ift.deta[i], dtype=np.float64)
+        P1[i] = float(np.sum(pe1 * deta_i))
+        for j in range(i, nsp):
+            deta_j = np.asarray(ift.deta[j], dtype=np.float64)
+            d2eta = np.asarray(current.X @ ift.d2beta_mat[i][j], dtype=np.float64)
+            value = float(np.sum(pe1 * d2eta + pe2 * deta_i * deta_j))
+            P2[i, j] = P2[j, i] = value
+    return P, P1, P2
 
 
 @dataclass
@@ -490,9 +591,7 @@ def _family_ddeta_logtheta(family, y, mu, weights, *, deriv):
     out["Deta4"] = (
         np.asarray(dd["Dmu4"], dtype=np.float64) * (ig12**2)
         - 6.0 * np.asarray(dd["Dmu3"], dtype=np.float64) * (ig1**3) * g2g
-        + np.asarray(dd["Dmu2"], dtype=np.float64)
-        * (15.0 * g2g**2 - 4.0 * g3g)
-        * ig12
+        + np.asarray(dd["Dmu2"], dtype=np.float64) * (15.0 * g2g**2 - 4.0 * g3g) * ig12
         - np.asarray(dd["Dmu"], dtype=np.float64)
         * (15.0 * g2g**3 - 10.0 * g2g * g3g + g4g)
         * ig1
@@ -525,9 +624,7 @@ def _gdi_pk_setup(model, sol, sp, *, deriv, rank_tol=None):
     )
     if X_source.ndim != 2:
         raise ValueError("mgcv setup design matrix must be two-dimensional.")
-    canonical = build_penalty_reparameterization_state(
-        model, X_source, sp, deriv=deriv
-    )
+    canonical = build_penalty_reparameterization_state(model, X_source, sp, deriv=deriv)
     X = np.asarray(X_source, dtype=np.float64) @ np.asarray(
         canonical.T, dtype=np.float64
     )
@@ -770,9 +867,7 @@ def _gdi1_ift1_state(model, y, sol, sp, current, pk_state):
         dW_eta = 0.5 * np.asarray(dd["Deta3"], dtype=np.float64)
         d2W_eta = 0.5 * np.asarray(dd["Deta4"], dtype=np.float64)
     else:
-        dW_eta, d2W_eta = _working_weight_derivatives_wrt_linpred(
-            model, y, eta, mu, W
-        )
+        dW_eta, d2W_eta = _working_weight_derivatives_wrt_linpred(model, y, eta, mu, W)
 
     dbeta_matrix = np.zeros((rank, n_sp), dtype=np.float64, order="F")
     for j, root in enumerate(root_blocks):
@@ -915,13 +1010,7 @@ def _gdi1_deviance_terms(model, y, sol, current, ift):
     residual = np.asarray(y, dtype=np.float64) - mu
     v1 = np.empty_like(residual, dtype=np.float64)
     for row in range(residual.size):
-        v1[row] = (
-            -2.0
-            * prior_weights[row]
-            * residual[row]
-            * mu1[row]
-            / variance[row]
-        )
+        v1[row] = -2.0 * prior_weights[row] * residual[row] * mu1[row] / variance[row]
     dev_grad = np.asarray(
         _mgcv_dgemm(current.X, v1, transpose_left=True),
         dtype=np.float64,
@@ -931,9 +1020,7 @@ def _gdi1_deviance_terms(model, y, sol, current, ift):
     # Preserve that upstream path instead of reconstructing the same matrix
     # from X, since the two forms cease to be numerically interchangeable when
     # the penalized deviance derivatives are nearly singular.
-    dev_hess = 2.0 * np.asarray(
-        current.deviance_hessian_half, dtype=np.float64
-    )
+    dev_hess = 2.0 * np.asarray(current.deviance_hessian_half, dtype=np.float64)
     return _deviance_chained_to_smoothing(dev_grad, dev_hess, ift.dbeta, ift.d2beta_mat)
 
 
@@ -979,9 +1066,7 @@ def _gdi1_bsb_terms(current, ift, sp):
 
     for m in range(n_sp):
         work1 = np.asarray(_mgcv_dgemm(E, ift.dbeta[m]), dtype=np.float64)
-        work = np.asarray(
-            _mgcv_dgemm(E, work1, transpose_left=True), dtype=np.float64
-        )
+        work = np.asarray(_mgcv_dgemm(E, work1, transpose_left=True), dtype=np.float64)
         for k in range(m, n_sp):
             xx = 0.0
             for row in range(beta.size):
@@ -1005,9 +1090,7 @@ def _gdi1_bsb_terms(current, ift, sp):
             bSb2[m, k] = val
 
     b1_matrix = np.asfortranarray(np.column_stack(ift.dbeta))
-    work = np.asarray(
-        _mgcv_dgemm(b1_matrix, Sb, transpose_left=True), dtype=np.float64
-    )
+    work = np.asarray(_mgcv_dgemm(b1_matrix, Sb, transpose_left=True), dtype=np.float64)
     for j in range(n_sp):
         bSb1[j] += 2.0 * work[j]
     return bSb, bSb1, bSb2
@@ -1321,6 +1404,7 @@ def _gdi1_kernel(model, y, sol, sp, *, method, rank_tol=None):
     pk_state = setup.pk
     ift = _gdi1_ift1_state(model, y, sol, sp, current, pk_state)
     D1, D2 = _gdi1_deviance_terms(model, y, sol, current, ift)
+    P, P1, P2 = _gdi1_pearson_terms(model, y, sol, current, ift)
     bSb, bSb1, bSb2 = _gdi1_bsb_terms(current, ift, sp)
     det1, det2, trA, trA1, trA2, K, K1, K2, dVkk = _gdi1_det_terms(
         model, sp, current, ift, pk_state, method=method
@@ -1330,6 +1414,9 @@ def _gdi1_kernel(model, y, sol, sp, *, method, rank_tol=None):
         ift=ift,
         D1=np.asarray(D1, dtype=np.float64),
         D2=np.asarray(D2, dtype=np.float64),
+        P=float(P),
+        P1=np.asarray(P1, dtype=np.float64),
+        P2=np.asarray(P2, dtype=np.float64),
         bSb=float(bSb),
         bSb1=np.asarray(bSb1, dtype=np.float64),
         bSb2=np.asarray(bSb2, dtype=np.float64),
@@ -1410,9 +1497,7 @@ def _gdi2_penalty_terms(model, sp, current, dA, d2A_mat, pk_state, *, n_theta, m
     return K + C, K1 + C1, K2 + C2
 
 
-def _gdi2_ift2_state_theta(
-    model, y, sol, sp, current, pk_state, *, include_theta=True
-):
+def _gdi2_ift2_state_theta(model, y, sol, sp, current, pk_state, *, include_theta=True):
     """
     Port of ``mgcv::ift2()`` for a theta-capable family on canonical state.
 
@@ -1439,10 +1524,9 @@ def _gdi2_ift2_state_theta(
     )
     ntot = ntheta + len(P_sp)
     zeroP = np.zeros_like(np.asarray(current.P, dtype=np.float64))
-    P_derivs = (
-        ([zeroP.copy() for _ in range(ntheta)] if include_theta else [])
-        + [np.asarray(Pj, dtype=np.float64) for Pj in P_sp]
-    )
+    P_derivs = ([zeroP.copy() for _ in range(ntheta)] if include_theta else []) + [
+        np.asarray(Pj, dtype=np.float64) for Pj in P_sp
+    ]
 
     dbeta = [None] * ntot
     deta = [None] * ntot
@@ -1527,13 +1611,11 @@ def _gdi2_ift2_state_theta(
             )
             if i < ntheta:
                 d2W_ik += 0.5 * (
-                    _theta_column("Deta3th", i)
-                    * np.asarray(deta[k], dtype=np.float64)
+                    _theta_column("Deta3th", i) * np.asarray(deta[k], dtype=np.float64)
                 )
             if k < ntheta:
                 d2W_ik += 0.5 * (
-                    _theta_column("Deta3th", k)
-                    * np.asarray(deta[i], dtype=np.float64)
+                    _theta_column("Deta3th", k) * np.asarray(deta[i], dtype=np.float64)
                 )
             if i < ntheta and k < ntheta:
                 d2W_ik += 0.5 * _theta_pair_column("Deta2th2", i, k)
@@ -1597,8 +1679,7 @@ def _gdi2_deviance_derivatives(current, ift, dd, *, include_theta, need_hessian)
                     d_eta2
                     * np.asarray(ift.deta[i], dtype=np.float64)
                     * np.asarray(ift.deta[k], dtype=np.float64)
-                    + d_eta
-                    * (current.X @ np.asarray(ift.d2beta_mat[i][k]))
+                    + d_eta * (current.X @ np.asarray(ift.d2beta_mat[i][k]))
                 )
             )
             if i < ntheta:
@@ -1748,9 +1829,7 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
     }:
         from .joint_kernels import gdi2_joint_kernel
 
-        gdi2 = gdi2_joint_kernel(
-            model, y, sol, sp, method=method, need_hessian=False
-        )
+        gdi2 = gdi2_joint_kernel(model, y, sol, sp, method=method, need_hessian=False)
         _fit_workspace(model).pirls_reml_gamma_state = {
             "K": float(kernel.K),
             "K1": np.asarray(kernel.K1, dtype=np.float64),
@@ -1820,9 +1899,7 @@ def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
     if getattr(model.family, "known_scale", None) is None:
         from .joint_kernels import gdi2_joint_kernel
 
-        gdi2 = gdi2_joint_kernel(
-            model, y, sol, sp, method=method, need_hessian=True
-        )
+        gdi2 = gdi2_joint_kernel(model, y, sol, sp, method=method, need_hessian=True)
         joint_grad = kernel.K1 + gdi2.Dp1 / (2.0 * gdi2.phi * gamma)
         cross = -gdi2.Dp1 / (2.0 * gdi2.phi * gamma)
         full_grad = joint_grad

@@ -112,8 +112,9 @@ def _gaussian_exact_unconditional_postfit(
     """
     Mirror mgcv::gam.fit3.post.proc() EDF2 / unconditional covariance assembly.
 
-    This applies only to Gaussian ML/REML/LAML fits after the final solve, where
-    mgcv recomputes `edf2` from the fitted-model outer Hessian plus `Vb.corr()`.
+    This applies only to Gaussian ML/REML/P-ML/P-REML/LAML fits after the final
+    solve, where mgcv recomputes `edf2` from the fitted-model outer Hessian plus
+    `Vb.corr()`.
     """
     if str(getattr(getattr(model, "family", None), "name", "")).lower() != "gaussian":
         return None, None, FIT_PARAMETER_SPACE
@@ -121,7 +122,7 @@ def _gaussian_exact_unconditional_postfit(
         return None, None, FIT_PARAMETER_SPACE
 
     method = str(getattr(model, "_optim_method", "")).lower()
-    if method not in {"ml", "reml", "laml"}:
+    if method not in {"ml", "reml", "p-ml", "p-reml", "laml"}:
         return None, None, FIT_PARAMETER_SPACE
 
     if (
@@ -591,7 +592,7 @@ def _pirls_exact_unconditional_postfit(
         return None, None, FIT_PARAMETER_SPACE
 
     method = str(getattr(model, "_optim_method", "")).lower()
-    if method not in {"ml", "reml", "laml"}:
+    if method not in {"ml", "reml", "p-ml", "p-reml", "laml"}:
         return None, None, FIT_PARAMETER_SPACE
 
     if (
@@ -641,17 +642,11 @@ def _pirls_exact_unconditional_postfit(
         if np.all(np.isfinite(Hsp_outer)):
             if Hsp_outer.shape == (free_idx.size, free_idx.size):
                 Hsp_fit = Hsp_outer
-            elif (
-                Hsp_outer.shape == (free_idx.size + 1, free_idx.size + 1)
-            ):
+            elif Hsp_outer.shape == (free_idx.size + 1, free_idx.size + 1):
                 joint_log_scale = getattr(optim_result, "joint_log_phi", None)
                 if joint_log_scale is None:
-                    joint_log_scale = getattr(
-                        optim_result, "joint_log_sigma2", None
-                    )
-                if joint_log_scale is not None and np.isfinite(
-                    float(joint_log_scale)
-                ):
+                    joint_log_scale = getattr(optim_result, "joint_log_sigma2", None)
+                if joint_log_scale is not None and np.isfinite(float(joint_log_scale)):
                     Hsp_fit = Hsp_outer
                     rho_fit = np.concatenate([rho_fit, [float(joint_log_scale)]])
     if Hsp_fit is None:
@@ -670,7 +665,7 @@ def _pirls_exact_unconditional_postfit(
         model.y_,
         sol,
         sp,
-        method=("REML" if method in {"reml", "laml"} else "ML"),
+        method=("REML" if method in {"reml", "p-reml", "laml"} else "ML"),
     )
 
     db_cols = [

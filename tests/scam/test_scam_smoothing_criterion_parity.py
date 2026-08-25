@@ -59,9 +59,7 @@ def test_shape_smoothing_criterion_and_gradient_match_scam(
         start=start,
     )
     score_key = "gcv_score" if method == "gcv" else "ubre_score"
-    np.testing.assert_allclose(
-        actual_value, expected[score_key], rtol=4e-8, atol=4e-10
-    )
+    np.testing.assert_allclose(actual_value, expected[score_key], rtol=4e-8, atol=4e-10)
 
     step = 1e-5
     expected_minus = run_scam_fixed_sp_fit(
@@ -102,9 +100,7 @@ def test_shape_smoothing_criterion_and_gradient_match_scam(
         pytest.param("poisson", "poisson", "ubre", id="poisson-ubre"),
     ],
 )
-def test_shape_bfgs_smoothing_selection_matches_scam(
-    python_family, r_family, method
-):
+def test_shape_bfgs_smoothing_selection_matches_scam(python_family, r_family, method):
     rng = np.random.default_rng(2513)
     x = np.sort(rng.uniform(-1.7, 2.5, size=180))
     signal = -0.7 + 1.8 / (1.0 + np.exp(-1.4 * x))
@@ -140,7 +136,7 @@ def test_shape_bfgs_smoothing_selection_matches_scam(
     np.testing.assert_allclose(model.smoothing_score_, expected["score"], rtol=2e-5)
 
 
-def test_shape_smoothing_selection_rejects_non_scam_outer_optimizer():
+def test_shape_smoothing_selection_supports_scam_optim_route():
     x = np.linspace(-1.0, 1.0, 40)
     data = pd.DataFrame({"x": x, "y": np.exp(x)})
     model = GAM(
@@ -150,5 +146,6 @@ def test_shape_smoothing_selection_rejects_non_scam_outer_optimizer():
         smoothing_optimizer="optim",
         optimize_smoothing=True,
     )
-    with pytest.raises(NotImplementedError, match="bfgs_gcv.ubre"):
-        model.fit(data=data)
+    fitted = model.fit(data=data)
+    assert fitted._optim_result is not None
+    assert fitted._optim_result.scam_optim_method[0] == "Nelder-Mead"

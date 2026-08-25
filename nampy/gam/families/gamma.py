@@ -17,7 +17,7 @@ class GammaLogFamily(_GammaBase):
     supports_ubre = True
     supports_ml = True
     supports_reml = True
-    supports_laml = False
+    supports_laml = True
     # Exact PIRLS derivatives for Gamma now rely on analytic working-weight
     # expressions that depend on the observations.
     supports_exact_pirls_first_derivatives = True
@@ -79,7 +79,7 @@ class GammaIdentityFamily(_GammaBase):
     supports_ubre = True
     supports_ml = True
     supports_reml = True
-    supports_laml = False
+    supports_laml = True
     supports_exact_pirls_first_derivatives = True
     supports_exact_pirls_second_derivatives = True
 
@@ -139,7 +139,7 @@ class GammaInverseFamily(_GammaBase):
     supports_ubre = True
     supports_ml = True
     supports_reml = True
-    supports_laml = False
+    supports_laml = True
     supports_exact_pirls_first_derivatives = True
     supports_exact_pirls_second_derivatives = True
 

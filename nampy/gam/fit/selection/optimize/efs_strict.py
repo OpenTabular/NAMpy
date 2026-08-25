@@ -64,9 +64,7 @@ def _base_penalty_matrices(model):
     for pb in _penalty_blocks_seq(model):
         idx = int(pb.smoothing_index)
         full_idx = _coefficient_slice_full_indices(model, pb.coef_slice)
-        mats[idx][np.ix_(full_idx, full_idx)] += np.asarray(
-            pb.matrix, dtype=np.float64
-        )
+        mats[idx][np.ix_(full_idx, full_idx)] += np.asarray(pb.matrix, dtype=np.float64)
     return mats
 
 
@@ -81,10 +79,14 @@ def _expand_smoothing_params_from_log(model, log_free_sp):
     sp = np.asarray(
         getattr(model, "smoothing_params", np.ones(n_sp)), dtype=np.float64
     ).copy()
-    sp[~fixed_mask] = np.exp(log_free_sp)
+    free = ~fixed_mask
     min_sp = getattr(model, "min_sp_", None)
-    if min_sp is not None:
-        sp = np.maximum(sp, np.asarray(min_sp, dtype=np.float64))
+    floor = (
+        np.zeros(n_sp, dtype=np.float64)
+        if min_sp is None
+        else np.asarray(min_sp, dtype=np.float64)
+    )
+    sp[free] = floor[free] + np.exp(log_free_sp)
     return sp
 
 
@@ -232,9 +234,15 @@ def _general_family_b_sb_from_run(run):
 
 def _solve_efs_step(model, y, sp, *, coef_start):
     prev = {
-        "eval_coef": _copy_state_vector(_fit_workspace(model).get("pirls_eval_start", None)),
-        "eval_eta": _copy_state_vector(_fit_workspace(model).get("pirls_eval_eta_start", None)),
-        "eval_mu": _copy_state_vector(_fit_workspace(model).get("pirls_eval_mu_start", None)),
+        "eval_coef": _copy_state_vector(
+            _fit_workspace(model).get("pirls_eval_start", None)
+        ),
+        "eval_eta": _copy_state_vector(
+            _fit_workspace(model).get("pirls_eval_eta_start", None)
+        ),
+        "eval_mu": _copy_state_vector(
+            _fit_workspace(model).get("pirls_eval_mu_start", None)
+        ),
         "lock": bool(_fit_workspace(model).get("pirls_lock_start", False)),
         "coef": _copy_state_vector(_fit_workspace(model).get("pirls_coef_start", None)),
         "eta": _copy_state_vector(_fit_workspace(model).get("pirls_eta_start", None)),
@@ -262,7 +270,32 @@ def _solve_efs_step(model, y, sp, *, coef_start):
             fit = solve_fit(
                 model, np.asarray(y, dtype=np.float64), sp, weights=model.prior_weights_
             )
-            coef_out = _copy_state_vector(_fit_workspace(model).get("pirls_last_coef", None))
+            coef_out = _copy_state_vector(
+                _fit_workspace(model).get("pirls_last_coef", None)
+            )
+            if str(getattr(model.family, "name", "")).lower() == "tw" and bool(
+                getattr(model.family, "estimate_theta", False)
+            ):
+                for _ in range(10):
+                    theta0 = float(model.family.getTheta(False))
+                    _estimate_tweedie_theta_efs(
+                        model.family,
+                        np.asarray(y, dtype=np.float64),
+                        np.asarray(fit.fit_result.mu, dtype=np.float64),
+                        getattr(model, "prior_weights_", None),
+                        init_scale=float(fit.fit_result.scale),
+                    )
+                    if abs(float(model.family.getTheta(False)) - theta0) <= 1e-7:
+                        break
+                    fit = solve_fit(
+                        model,
+                        np.asarray(y, dtype=np.float64),
+                        sp,
+                        weights=model.prior_weights_,
+                    )
+                    coef_out = _copy_state_vector(
+                        _fit_workspace(model).get("pirls_last_coef", None)
+                    )
     finally:
         _fit_workspace(model).pirls_eval_start = prev["eval_coef"]
         _fit_workspace(model).pirls_eval_eta_start = prev["eval_eta"]
@@ -272,6 +305,78 @@ def _solve_efs_step(model, y, sp, *, coef_start):
         _fit_workspace(model).pirls_eta_start = prev["eta"]
         _fit_workspace(model).pirls_mu_start = prev["mu"]
     return fit, coef_out
+
+
+def _estimate_tweedie_theta_efs(family, y, mu, weights, *, init_scale):
+    """Port the Tweedie case of ``efam.r::estimate.theta``."""
+    wt = np.ones_like(y) if weights is None else np.asarray(weights, dtype=np.float64)
+    theta = np.array(
+        [
+            float(family.getTheta(False)),
+            np.log(max(float(init_scale), LOG_GUARD_MIN)),
+        ],
+        dtype=np.float64,
+    )
+
+    def state(value, deriv=2):
+        th, log_scale = float(value[0]), float(value[1])
+        scale = float(np.exp(log_scale))
+        previous = float(family.getTheta(False))
+        family.putTheta(th)
+        try:
+            dev_raw = float(family.deviance(y, mu, weights=wt))
+            ls = family.ls(y, wt, theta=th, scale=scale)
+            nll = dev_raw / (2.0 * scale) - float(ls["ls"])
+            if deriv == 0:
+                return nll, None, None
+            dd = family.Dd(y, mu, theta=th, wt=wt, level=deriv)
+            g1 = float(np.sum(np.asarray(dd["Dth"], dtype=np.float64))) / (2.0 * scale)
+            grad = np.array([g1, -dev_raw / (2.0 * scale)]) - np.asarray(
+                ls["lsth1"], dtype=np.float64
+            )
+            if deriv == 1:
+                return nll, grad, None
+            h11 = float(np.sum(np.asarray(dd["Dth2"], dtype=np.float64))) / (
+                2.0 * scale
+            )
+            hess = np.array(
+                [[h11, -g1], [-g1, dev_raw / (2.0 * scale)]],
+                dtype=np.float64,
+            ) - np.asarray(ls["lsth2"], dtype=np.float64)
+            return nll, grad, 0.5 * (hess + hess.T)
+        finally:
+            family.putTheta(previous)
+
+    nll, grad, hess = state(theta, 2)
+    for _ in range(100):
+        active = np.abs(grad) > 1e-7 * (abs(nll) + 1.0)
+        if not np.any(active):
+            break
+        values, vectors = np.linalg.eigh(hess[np.ix_(active, active)])
+        if np.any(values <= 0.0):
+            values = np.abs(values)
+            threshold = max(float(np.max(values)) * 1e-5, np.finfo(float).eps)
+            values = np.maximum(values, threshold)
+        step_active = -(vectors @ ((vectors.T @ grad[active]) / values))
+        if np.max(np.abs(step_active)) > 4.0:
+            step_active *= 4.0 / np.max(np.abs(step_active))
+        step = np.zeros_like(theta)
+        step[active] = step_active
+        trial = theta + step
+        trial_nll, _, _ = state(trial, 0)
+        halves = 0
+        while trial_nll - nll > np.finfo(float).eps ** 0.75 * abs(nll):
+            step *= 0.5
+            trial = theta + step
+            trial_nll, _, _ = state(trial, 0)
+            halves += 1
+            if halves > 25 or np.array_equal(theta, trial):
+                family.putTheta(float(theta[0]))
+                return float(np.exp(theta[1]))
+        theta = trial
+        nll, grad, hess = state(theta, 2)
+    family.putTheta(float(theta[0]))
+    return float(np.exp(theta[1]))
 
 
 def _optimize_outer_efs_strict(

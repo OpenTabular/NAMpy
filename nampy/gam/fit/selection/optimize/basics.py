@@ -36,12 +36,23 @@ def _initial_gaussian_scale_as_sp(model, y) -> float:
 
 def supports_criterion_gradient(model, method):
     method = str(method).lower()
-    if method in {"gcv", "ubre", "aic", "ubreaic"}:
+    if method in {"gcv", "gacv", "ubre", "aic", "ubreaic"}:
         if is_transformed_coefficient_model(model):
             return True
         return bool(
             uses_closed_form_solver(model)
             or getattr(model.family, "supports_exact_pirls_first_derivatives", False)
+        )
+    if method in {"p-ml", "p-reml"}:
+        return bool(
+            getattr(model.family, "known_scale", None) is None
+            and str(getattr(model.family, "family_class", "")).lower() == "glm"
+            and getattr(model.family, "supports_exact_pirls_first_derivatives", False)
+        )
+    if method in {"ncv", "qncv"}:
+        return bool(
+            str(getattr(model.family, "family_class", "")).lower() == "glm"
+            and getattr(model.family, "supports_exact_pirls_first_derivatives", False)
         )
     if method not in {"ml", "reml", "laml"}:
         return False
@@ -66,13 +77,21 @@ def supports_criterion_gradient(model, method):
 
 def supports_criterion_hessian(model, method):
     method = str(method).lower()
-    if method in {"gcv", "ubre", "aic", "ubreaic"}:
+    if method in {"gcv", "gacv", "ubre", "aic", "ubreaic"}:
         if is_transformed_coefficient_model(model):
             return False
         return bool(
             uses_closed_form_solver(model)
             or getattr(model.family, "supports_exact_pirls_second_derivatives", False)
         )
+    if method in {"p-ml", "p-reml"}:
+        return bool(
+            getattr(model.family, "known_scale", None) is None
+            and str(getattr(model.family, "family_class", "")).lower() == "glm"
+            and getattr(model.family, "supports_exact_pirls_second_derivatives", False)
+        )
+    if method in {"ncv", "qncv"}:
+        return False
     if method not in {"ml", "reml", "laml"}:
         return False
     backend = resolve_ml_reml_scoring_backend(model, method=method)
@@ -127,9 +146,7 @@ def _initial_smoothing_params_from_packed_penalties(
     penalized = np.zeros_like(ldxx, dtype=bool)
     def_sp = np.zeros(len(penalties), dtype=np.float64)
 
-    for i, (S_i, off_i) in enumerate(
-        zip(penalties, offsets_1based, strict=True)
-    ):
+    for i, (S_i, off_i) in enumerate(zip(penalties, offsets_1based, strict=True)):
         S_i = np.asarray(S_i, dtype=np.float64)
         if S_i.ndim != 2 or S_i.shape[0] != S_i.shape[1] or S_i.size == 0:
             return None

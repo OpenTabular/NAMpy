@@ -27,6 +27,7 @@ class FitWorkspace:
     pirls_reml_gaussian_state: Any = _UNSET
     pirls_reml_negbin_state: Any = _UNSET
     pirls_reml_derivative_kernel_state: Any = _UNSET
+    pirls_outer_scale_est: Any = _UNSET
     pirls_disable_theta_efs: Any = _UNSET
     general_family_outer_eval_cache: Any = _UNSET
     penalty_subspace_cache: Any = _UNSET

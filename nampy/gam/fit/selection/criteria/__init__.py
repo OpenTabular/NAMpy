@@ -37,7 +37,9 @@ from .gaussian_reml_algebra import (
     quadratic_form_penalty,
 )
 from .ml_reml import criterion_ml_reml, resolve_ml_reml_scoring_backend
+from .ncv import criterion_gradient_ncv_pirls, criterion_ncv_pirls, normalize_nei
 from .pirls import (
+    criterion_gacv_pirls,
     criterion_gcv_pirls,
     criterion_gradient_ml_reml_pirls_betar_joint,
     criterion_gradient_ml_reml_pirls_exact,
@@ -46,6 +48,7 @@ from .pirls import (
     criterion_gradient_ml_reml_pirls_negbin_joint,
     criterion_gradient_ml_reml_pirls_ocat_joint,
     criterion_gradient_ml_reml_pirls_tweedie_joint,
+    criterion_gradient_p_ml_reml_pirls_exact,
     criterion_hessian_ml_reml_pirls_betar_joint,
     criterion_hessian_ml_reml_pirls_exact,
     criterion_hessian_ml_reml_pirls_gamma_joint,
@@ -53,6 +56,7 @@ from .pirls import (
     criterion_hessian_ml_reml_pirls_negbin_joint,
     criterion_hessian_ml_reml_pirls_ocat_joint,
     criterion_hessian_ml_reml_pirls_tweedie_joint,
+    criterion_hessian_p_ml_reml_pirls_exact,
     criterion_ml_reml_pirls,
     criterion_ml_reml_pirls_betar,
     criterion_ml_reml_pirls_betar_joint,
@@ -64,12 +68,14 @@ from .pirls import (
     criterion_ml_reml_pirls_ocat,
     criterion_ml_reml_pirls_ocat_joint,
     criterion_ml_reml_pirls_tweedie_joint,
+    criterion_p_ml_reml_pirls,
     criterion_ubre_pirls,
 )
 
 __all__ = [
     "criterion_gcv_gaussian",
     "criterion_gcv_pirls",
+    "criterion_gacv_pirls",
     "criterion_gradient",
     "criterion_gradient_ml_reml_gaussian_dynamic_joint",
     "criterion_gradient_ml_reml_pirls_gaussian_joint",
@@ -79,7 +85,9 @@ __all__ = [
     "criterion_gradient_ml_reml_pirls_betar_joint",
     "criterion_gradient_ml_reml_pirls_tweedie_joint",
     "criterion_gradient_ml_reml_pirls_exact",
+    "criterion_gradient_p_ml_reml_pirls_exact",
     "criterion_gradient_numerical",
+    "criterion_gradient_ncv_pirls",
     "criterion_hessian",
     "criterion_hessian_ml_reml_gaussian_dynamic_joint",
     "criterion_hessian_ml_reml_pirls_gaussian_joint",
@@ -89,8 +97,10 @@ __all__ = [
     "criterion_hessian_ml_reml_pirls_betar_joint",
     "criterion_hessian_ml_reml_pirls_tweedie_joint",
     "criterion_hessian_ml_reml_pirls_exact",
+    "criterion_hessian_p_ml_reml_pirls_exact",
     "criterion_hessian_numerical",
     "criterion_ml_reml",
+    "criterion_ncv_pirls",
     "criterion_ml_reml_exact",
     "criterion_ml_reml_exact_dynamic",
     "criterion_ml_reml_gaussian_dynamic_joint",
@@ -106,6 +116,7 @@ __all__ = [
     "criterion_ml_reml_pirls_frozen_betar",
     "criterion_ml_reml_pirls_tweedie_joint",
     "criterion_ml_reml_pirls",
+    "criterion_p_ml_reml_pirls",
     "criterion_ubre_pirls",
     "criterion_value",
     "gcv_score_gaussian",
@@ -120,4 +131,5 @@ __all__ = [
     "profiled_gaussian_reml_variance",
     "quadratic_form_penalty",
     "resolve_ml_reml_scoring_backend",
+    "normalize_nei",
 ]

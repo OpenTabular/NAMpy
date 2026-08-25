@@ -293,18 +293,14 @@ def _tweedious2(y, eps, th, rho, a, b):
             p = (b + a * exp_th) / x
             x1 = x * x
             dpth1 = exp_th * (b - a) / x1
-            dpth2 = ((a - b) * exp_th + (b - a) * exp_th * exp_th) / (
-                x1 * x
-            )
+            dpth2 = ((a - b) * exp_th + (b - a) * exp_th * exp_th) / (x1 * x)
         else:
             exp_th = math.exp(thi)
             x = exp_th + 1.0
             p = (b * exp_th + a) / x
             x1 = x * x
             dpth1 = exp_th * (b - a) / x1
-            dpth2 = ((a - b) * exp_th * exp_th + (b - a) * exp_th) / (
-                x * x1
-            )
+            dpth2 = ((a - b) * exp_th * exp_th + (b - a) * exp_th) / (x * x1)
 
         phi = math.exp(rhoi)
         x = yi ** (2.0 - p) / (phi * (2.0 - p))
@@ -334,12 +330,7 @@ def _tweedious2(y, eps, th, rho, a, b):
 
         j = j_max
         lgamma_j1 = math.lgamma(j + 1.0)
-        wmax = (
-            j * w_base
-            - lgamma_j1
-            - math.lgamma(-j * alpha)
-            - j * alpha_log_y
-        )
+        wmax = j * w_base - lgamma_j1 - math.lgamma(-j * alpha) - j * alpha_log_y
         wmin = wmax + log_eps
 
         wi = w1i = w2i = wdlogwdp = wdW2d2W = dWpp = 0.0
@@ -426,9 +417,9 @@ def ldTweedie(
         if a >= b or a <= 1.0 or b >= 2.0:
             raise ValueError("1<a<b<2 (strict) required")
         work_param = True
-        theta_arr = np.broadcast_to(
-            np.asarray(theta, dtype=np.float64), (n,)
-        ).astype(np.float64)
+        theta_arr = np.broadcast_to(np.asarray(theta, dtype=np.float64), (n,)).astype(
+            np.float64
+        )
         rho_arr = np.broadcast_to(np.asarray(rho, dtype=np.float64), (n,)).astype(
             np.float64
         )
@@ -479,7 +470,9 @@ def ldTweedie(
         shape = 1.0 / phi[ind]
         rate = 1.0 / (phi[ind] * mu[ind])
         ld[ind, 0] = (
-            shape * np.log(rate) - gammaln(shape) + (shape - 1.0) * np.log(y[ind])
+            shape * np.log(rate)
+            - gammaln(shape)
+            + (shape - 1.0) * np.log(y[ind])
             - rate * y[ind]
         )
         ld[ind, 1] = (
@@ -497,20 +490,20 @@ def ldTweedie(
     if np.sum(ind):  # It's Poisson like
         ratio = y[ind] / phi[ind]
         if not np.allclose(ratio, np.round(ratio)):
-            raise ValueError(
-                "y must be an integer multiple of phi for Tweedie(p=1)"
-            )
+            raise ValueError("y must be an integer multiple of phi for Tweedie(p=1)")
         indi = (y[ind] != 0.0) | (mu[ind] != 0.0)
         bkt = np.zeros_like(y[ind])
-        bkt[indi] = (y[ind])[indi] * np.log(
-            (mu[ind] / phi[ind])[indi]
-        ) - (mu[ind])[indi]
+        bkt[indi] = (
+            (y[ind])[indi] * np.log((mu[ind] / phi[ind])[indi]) - (mu[ind])[indi]
+        )
         dig = digamma(y[ind] / phi[ind] + 1.0)
         trig = polygamma(1, y[ind] / phi[ind] + 1.0)
         ld[ind, 0] = bkt / phi[ind] - gammaln(y[ind] / phi[ind] + 1.0)
         ld[ind, 1] = (-bkt - y[ind] + dig * y[ind]) / (phi[ind] ** 2)
         ld[ind, 2] = (
-            2.0 * bkt + 3.0 * y[ind] - 2.0 * dig * y[ind]
+            2.0 * bkt
+            + 3.0 * y[ind]
+            - 2.0 * dig * y[ind]
             - trig * y[ind] ** 2 / phi[ind]
         ) / (phi[ind] ** 3)
 
@@ -522,13 +515,11 @@ def ldTweedie(
         mu_ind = mu[ind]
         p_ind = p[ind]
         phii = phi[ind]
-        ld[ind, 0] = -mu_ind ** (2.0 - p_ind) / (phii * (2.0 - p_ind))
+        ld[ind, 0] = -(mu_ind ** (2.0 - p_ind)) / (phii * (2.0 - p_ind))
         ld[ind, 1] = -ld[ind, 0] / phii
         ld[ind, 2] = -2.0 * ld[ind, 1] / phii
         ld[ind, 3] = -ld[ind, 0] * (np.log(mu_ind) - 1.0 / (2.0 - p_ind))
-        ld[ind, 4] = 2.0 * ld[ind, 3] / (2.0 - p_ind) + ld[ind, 0] * np.log(
-            mu_ind
-        ) ** 2
+        ld[ind, 4] = 2.0 * ld[ind, 3] / (2.0 - p_ind) + ld[ind, 0] * np.log(mu_ind) ** 2
         ld[ind, 5] = -ld[ind, 3] / phii
         if work_param and all_derivs:
             mup = mu_ind**p_ind
@@ -572,8 +563,7 @@ def ldTweedie(
                 ow1 = ow2 = ow1p = ow2p = ow2pp = np.full(ind.size, np.nan)
             else:
                 warnings.warn(
-                    "Tweedie density may be unreliable - "
-                    "series not fully converged",
+                    "Tweedie density may be unreliable - series not fully converged",
                     stacklevel=2,
                 )
         phii = phi[ind]
@@ -596,9 +586,10 @@ def ldTweedie(
         ld[ind, 0] = l_base - np.log(y_i)
         ld[ind, 1] = -l_base / phii
         ld[ind, 2] = 2.0 * l_base / (phii**2)
-        xterm = theta_i * y_i * (1.0 / onep - log_mu) / phii + k_theta * (
-            log_mu - 1.0 / twop
-        ) / phii
+        xterm = (
+            theta_i * y_i * (1.0 / onep - log_mu) / phii
+            + k_theta * (log_mu - 1.0 / twop) / phii
+        )
         ld[ind, 3] = xterm
         ld[ind, 4] = (
             theta_i * y_i * (log_mu**2 - 2.0 * log_mu / onep + 2.0 / onep**2) / phii
@@ -671,7 +662,7 @@ class TweedieTwFamily(ExtendedFamily):
     supports_ubre = False
     supports_ml = True
     supports_reml = True
-    supports_laml = False
+    supports_laml = True
     supports_exact_pirls_first_derivatives = True
     supports_exact_pirls_second_derivatives = True
     joint_outer_strategy = JointOuterStrategy.TWEEDIE
@@ -694,8 +685,7 @@ class TweedieTwFamily(ExtendedFamily):
         link_key = str(link).lower()
         if link_key not in {"log", "identity", "sqrt", "inverse"}:
             raise ValueError(
-                "tw link must be one of 'log', 'identity', 'sqrt', or "
-                "'inverse'."
+                "tw link must be one of 'log', 'identity', 'sqrt', or 'inverse'."
             )
         self._link_key = link_key
         self.link_name = link_key
@@ -902,19 +892,14 @@ class TweedieTwFamily(ExtendedFamily):
             r["Dmu2th"] = (
                 2.0
                 * wt
-                * (
-                    mup1 * y * (1.0 - p * logmu)
-                    - (logmu * (1.0 - p) + 1.0) / mup
-                )
+                * (mup1 * y * (1.0 - p * logmu) - (logmu * (1.0 - p) + 1.0) / mup)
                 * dpth1
             )
             r["EDmu3"] = -2.0 * wt * p * mup1
             r["EDmu2th"] = -2.0 * wt * logmu / mup * dpth1
         if level > 1:
             mup2 = mup1 / mu
-            r["Dmu4"] = (
-                2.0 * wt * mup2 * p * (p + 1.0) * (y * (p + 2.0) / mu + 1.0 - p)
-            )
+            r["Dmu4"] = 2.0 * wt * mup2 * p * (p + 1.0) * (y * (p + 2.0) / mu + 1.0 - p)
             y2plogy = y ** (2.0 - p) * np.log(y1)
             y2plog2y = y2plogy * np.log(y1)
             r["Dth2"] = (
@@ -927,16 +912,13 @@ class TweedieTwFamily(ExtendedFamily):
                         + 2.0 * (y2plogy - mu2p * logmu) / (2.0 - p) ** 2
                         + 2.0 * (y * mu1p * logmu - y2plogy) / (1.0 - p) ** 2
                         + 2.0 * (mu2p - y ** (2.0 - p)) / (2.0 - p) ** 3
-                        + 2.0 * (y ** (2.0 - p) - y * mu ** (1.0 - p))
-                        / (1.0 - p) ** 3
+                        + 2.0 * (y ** (2.0 - p) - y * mu ** (1.0 - p)) / (1.0 - p) ** 3
                     )
                     * dpth1**2
                 )
             ) + r["Dth"] * dpth2 / dpth1
             r["Dmuth2"] = (
-                2.0
-                * wt
-                * ((mu1p * logmu**2 - logmu**2 * ymupi) * dpth1**2)
+                2.0 * wt * ((mu1p * logmu**2 - logmu**2 * ymupi) * dpth1**2)
             ) + r["Dmuth"] * dpth2 / dpth1
             r["Dmu2th2"] = (
                 2.0
@@ -980,9 +962,7 @@ class TweedieTwFamily(ExtendedFamily):
         )
         LS = Ls.sum(axis=0)
         lsth1 = np.array([LS[3], LS[1]], dtype=np.float64)
-        lsth2 = np.array(
-            [[LS[4], LS[5]], [LS[5], LS[2]]], dtype=np.float64
-        )
+        lsth2 = np.array([[LS[4], LS[5]], [LS[5], LS[2]]], dtype=np.float64)
         return {
             "ls": float(LS[0]),
             "lsth1": lsth1,

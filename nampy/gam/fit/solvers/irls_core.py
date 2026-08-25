@@ -91,8 +91,7 @@ def _strictly_additive_gaussian_identity(family: Any) -> bool:
 def _use_exact_extended_family_terms(family: Any) -> bool:
     return (
         str(getattr(family, "family_class", "")).lower() == "extended"
-        and str(getattr(family, "name", "")).lower()
-        in {"negbin", "betar", "ocat"}
+        and str(getattr(family, "name", "")).lower() in {"negbin", "betar", "ocat"}
         and callable(getattr(family, "Dd", None))
     )
 
@@ -121,6 +120,7 @@ def irls_core(
     # default.
     rank_tol: float = float(np.finfo(np.float64).eps) * 100.0,
     scale_reference: float | None = None,
+    scale_est_method: str = "fletcher",
     trace: bool = False,
 ) -> dict[str, Any]:
     if _family_is_general(family):
@@ -232,10 +232,7 @@ def irls_core(
             rank_tol=rank_tol,
         )
         qr_state = None
-        if (
-            penalty_sqrt.shape[0] > 0
-            and penalty_rank_rows.shape[0] > 0
-        ):
+        if penalty_sqrt.shape[0] > 0 and penalty_rank_rows.shape[0] > 0:
             qr_state = build_penalized_qr_state_nonnegative(
                 X_curr,
                 z_curr,
@@ -386,7 +383,12 @@ def irls_core(
         known_scale = getattr(family, "known_scale", None)
         if known_scale is not None:
             return float(known_scale)
-        if hasattr(family, "estimate_dispersion"):
+        method = str(scale_est_method).lower()
+        if method == "deviance":
+            w_sum = float(np.sum(weights))
+            denom = max(w_sum - float(edf_curr), float(np.finfo(np.float64).eps))
+            scale_curr = float(_weighted_deviance(mu_curr) / denom)
+        elif hasattr(family, "estimate_dispersion"):
             scale_curr = float(
                 family.estimate_dispersion(y, mu_curr, edf=edf_curr, weights=weights)
             )
@@ -395,16 +397,16 @@ def irls_core(
             denom = max(w_sum - float(edf_curr), float(np.finfo(np.float64).eps))
             scale_curr = float(_weighted_deviance(mu_curr) / denom)
 
-        if not bool(getattr(family, "use_fletcher_scale_estimate", True)):
+        if method != "fletcher" or not bool(
+            getattr(family, "use_fletcher_scale_estimate", True)
+        ):
             return scale_curr
         dvar = getattr(family, "dvar", None)
         if not callable(dvar):
             return scale_curr
         var = np.asarray(family.variance(mu_curr), dtype=np.float64)
         with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
-            s_terms = (
-                np.asarray(dvar(mu_curr), dtype=np.float64) * (y - mu_curr) / var
-            )
+            s_terms = np.asarray(dvar(mu_curr), dtype=np.float64) * (y - mu_curr) / var
             s_bar_raw = float(np.mean(s_terms))
         if np.isfinite(s_bar_raw):
             s_bar = max(-0.9, s_bar_raw)
@@ -751,15 +753,17 @@ def irls_core(
     if _use_exact_extended_family_terms(family):
         final_terms = _working_response_terms(eta, mu)
         if final_terms is None:
-            raise RuntimeError("No valid exact extended-family PIRLS terms at solution.")
+            raise RuntimeError(
+                "No valid exact extended-family PIRLS terms at solution."
+            )
         good = np.asarray(final_terms["good"], dtype=bool)
         W_full = np.asarray(final_terms["w_full"], dtype=np.float64)
         z_full = np.asarray(final_terms["z_full"], dtype=np.float64)
-        dd_final = family.Dd(
-            y, mu, family.getTheta(False), weights, level=0
-        )
+        dd_final = family.Dd(y, mu, family.getTheta(False), weights, level=0)
         ig1_final = np.asarray(family.mu_eta(eta), dtype=np.float64)
-        fisher_full = 0.5 * np.asarray(dd_final["EDmu2"], dtype=np.float64) * ig1_final**2
+        fisher_full = (
+            0.5 * np.asarray(dd_final["EDmu2"], dtype=np.float64) * ig1_final**2
+        )
         mu_eta = ig1_final
         var = np.asarray(family.variance(mu), dtype=np.float64)
         W_g = W_full[good]
@@ -1039,6 +1043,10 @@ def fit_irls_from_model(
         null_coef=null_coef,
         penalty_sqrt_E=np.asarray(canonical.Sr, dtype=np.float64),
         penalty_rank_rows=np.asarray(canonical.Eb, dtype=np.float64),
+        scale_est_method=str(
+            getattr(getattr(model, "control", None), "scale_est", "fletcher")
+        ),
+        trace=bool(getattr(getattr(model, "control", None), "trace", False)),
     )
     out = _pirls_gdi_report_state(
         model,

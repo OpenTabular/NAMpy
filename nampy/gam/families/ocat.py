@@ -76,7 +76,7 @@ class OrderedCategoricalFamily(ExtendedFamily):
     supports_ubre = True
     supports_ml = True
     supports_reml = True
-    supports_laml = False
+    supports_laml = True
     supports_exact_pirls_first_derivatives = True
     supports_exact_pirls_second_derivatives = True
     joint_outer_strategy = JointOuterStrategy.OCAT_THETA
@@ -253,8 +253,7 @@ class OrderedCategoricalFamily(ExtendedFamily):
             deviance = self.deviance_obs(y, mu, weights=weights)
             return sign * np.sqrt(np.maximum(deviance, 0.0))
         raise ValueError(
-            "ocat residuals type must be one of "
-            "{'deviance', 'working', 'response'}."
+            "ocat residuals type must be one of {'deviance', 'working', 'response'}."
         )
 
     def loglik_obs(self, y, mu, scale=1.0):
@@ -345,14 +344,55 @@ class OrderedCategoricalFamily(ExtendedFamily):
 
         d = d1 - d0
         f2 = f**2
-        out["Dmu4"] = 2.0 * wt * ((3.0 * b**2 + 4.0 * a * c) / f + a2 * (6.0 * a2 / f - 12.0 * b) / f2 - d) / f
-        Dmu3a0 = 2.0 * ((a0 * c + 3.0 * c0 * a + 3.0 * b0 * b) / f - d0 + 6.0 * a * (a0 * a2 / f - b0 * a - a0 * b) / f2) / f
-        Dmu3a1 = 2.0 * (d1 - (a1 * c + 3.0 * (c1 * a + b1 * b)) / f + 6.0 * a * (b1 * a - a1 * a2 / f + a1 * b) / f2) / f
+        out["Dmu4"] = (
+            2.0
+            * wt
+            * ((3.0 * b**2 + 4.0 * a * c) / f + a2 * (6.0 * a2 / f - 12.0 * b) / f2 - d)
+            / f
+        )
+        Dmu3a0 = (
+            2.0
+            * (
+                (a0 * c + 3.0 * c0 * a + 3.0 * b0 * b) / f
+                - d0
+                + 6.0 * a * (a0 * a2 / f - b0 * a - a0 * b) / f2
+            )
+            / f
+        )
+        Dmu3a1 = (
+            2.0
+            * (
+                d1
+                - (a1 * c + 3.0 * (c1 * a + b1 * b)) / f
+                + 6.0 * a * (b1 * a - a1 * a2 / f + a1 * b) / f2
+            )
+            / f
+        )
         Dmua0a0 = 2.0 * (c0 + (2.0 * a0 * (b0 - a0 * a / f) - b0 * a) / f) / f
         Dmua1a1 = 2.0 * ((b1 * a + 2.0 * a1 * (b1 - a1 * a / f)) / f - c1) / f
         Dmua0a1 = 2.0 * (a0 * (2.0 * a1 * a / f - b1) - b0 * a1) / f2
-        Dmu2a0a0 = 2.0 * (d0 + (b0 * (2.0 * b0 - b) + 2.0 * c0 * (a0 - a)) / f + 2.0 * (b0 * a2 + a0 * (3.0 * a0 * a2 / f - 4.0 * b0 * a - a0 * b)) / f2) / f
-        Dmu2a1a1 = 2.0 * ((2.0 * c1 * (a + a1) + b1 * (2.0 * b1 + b)) / f + 2.0 * (a1 * (3.0 * a1 * a2 / f - a1 * b) - b1 * a * (a + 4.0 * a1)) / f2 - d1) / f
+        Dmu2a0a0 = (
+            2.0
+            * (
+                d0
+                + (b0 * (2.0 * b0 - b) + 2.0 * c0 * (a0 - a)) / f
+                + 2.0
+                * (b0 * a2 + a0 * (3.0 * a0 * a2 / f - 4.0 * b0 * a - a0 * b))
+                / f2
+            )
+            / f
+        )
+        Dmu2a1a1 = (
+            2.0
+            * (
+                (2.0 * c1 * (a + a1) + b1 * (2.0 * b1 + b)) / f
+                + 2.0
+                * (a1 * (3.0 * a1 * a2 / f - a1 * b) - b1 * a * (a + 4.0 * a1))
+                / f2
+                - d1
+            )
+            / f
+        )
         Dmu2a0a1 = np.zeros_like(a)
         Da0a0 = 2.0 * (b0 + a0**2 / f) / f
         Da1a1 = -2.0 * (b1 - a1**2 / f) / f
@@ -377,7 +417,9 @@ class OrderedCategoricalFamily(ExtendedFamily):
                 ekj[(y > k + 1) & (y < self.R)] = np.exp(theta[k])
                 ekj1[y > k + 2] = np.exp(theta[k])
                 ind = y >= j + 1
-                out["Dmu3th"][ind, k] = wt[ind] * (Dmu3a1[ind] * ek[ind] + Dmu3a0[ind] * ek1[ind])
+                out["Dmu3th"][ind, k] = wt[ind] * (
+                    Dmu3a1[ind] * ek[ind] + Dmu3a0[ind] * ek1[ind]
+                )
             out["Dth2"][:, pair_index] = wt * (
                 Da1a1 * ek * ej
                 + Da0a1 * ek * ej1

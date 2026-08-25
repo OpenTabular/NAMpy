@@ -484,9 +484,6 @@ def _optimize_outer_newton_strict(
             np.abs(grad2) > score_scale * conv_tol * 0.1
         )
         converged = not bool(indef)
-        if str(score_type).upper() not in {"REML", "P-REML", "ML", "P-ML"}:
-            if np.any(uconv):
-                converged = False
         if np.any(np.abs(grad) > score_scale * conv_tol * 5.0):
             converged = False
         if abs(old_score - score) > score_scale * conv_tol:
@@ -611,7 +608,8 @@ def _optimize_outer_newton_strict(
             edge_corrected = True
             model = getattr(objective, "model", None)
             if model is not None and isinstance(
-                _fit_workspace(model).get("pirls_reml_derivative_kernel_state", None), dict
+                _fit_workspace(model).get("pirls_reml_derivative_kernel_state", None),
+                dict,
             ):
                 drv = _fit_workspace(model).pirls_reml_derivative_kernel_state
                 # `db.drho`/`dw.drho`/`rp` are not yet carried through Python's

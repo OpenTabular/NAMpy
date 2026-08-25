@@ -130,17 +130,23 @@ class BaseFamily(metaclass=_FamilyMeta):
         attr_map = {
             "fixed": None,
             "gcv": "supports_gcv",
+            "gacv": "supports_gcv",
             "ubre": "supports_ubre",
             "aic": "supports_ubre",
             "ubreaic": "supports_ubre",
             "ml": "supports_ml",
             "reml": "supports_reml",
+            "p-ml": "supports_ml",
+            "p-reml": "supports_reml",
             "laml": "supports_laml",
+            "ncv": "supports_pirls",
+            "qncv": "supports_pirls",
         }
         if method not in attr_map:
             raise ValueError(
                 "method must be one of "
-                "{'fixed', 'gcv', 'ubre', 'aic', 'ubreaic', 'ml', 'reml', 'laml'}"
+                "{'fixed', 'gcv', 'gacv', 'ubre', 'aic', 'ubreaic', 'ml', "
+                "'p-ml', 'p-reml', 'reml', 'ncv', 'qncv', 'laml'}"
             )
         attr = attr_map[method]
         if attr is None:

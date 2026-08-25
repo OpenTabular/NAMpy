@@ -226,13 +226,19 @@ def optimize_outer_newton_indefinite_hessian(
                 score_eval = float(objective._last_fun)
 
             coef_eval = (
-                _fit_workspace(model).get("pirls_last_coef", None) if model is not None else None
+                _fit_workspace(model).get("pirls_last_coef", None)
+                if model is not None
+                else None
             )
             eta_eval = (
-                _fit_workspace(model).get("pirls_last_eta", None) if model is not None else None
+                _fit_workspace(model).get("pirls_last_eta", None)
+                if model is not None
+                else None
             )
             mu_eval = (
-                _fit_workspace(model).get("pirls_last_mu", None) if model is not None else None
+                _fit_workspace(model).get("pirls_last_mu", None)
+                if model is not None
+                else None
             )
             if model is not None:
                 if coef_eval is not None:
@@ -254,7 +260,16 @@ def optimize_outer_newton_indefinite_hessian(
             )
             scale_est = None
 
-            if isinstance(gamma_state, dict):
+            if model is not None:
+                scale_obj = _fit_workspace(model).get("pirls_outer_scale_est", None)
+                if (
+                    scale_obj is not None
+                    and np.isfinite(scale_obj)
+                    and float(scale_obj) > 0.0
+                ):
+                    scale_est = float(scale_obj)
+
+            if scale_est is None and isinstance(gamma_state, dict):
                 scale_obj = gamma_state.get("scale_est", None)
                 if (
                     scale_obj is not None
@@ -299,7 +314,9 @@ def optimize_outer_newton_indefinite_hessian(
                             coef_eval, dtype=np.float64
                         ).copy()
                     if mu_eval is not None:
-                        _fit_workspace(model).pirls_mu_start = np.asarray(mu_eval, dtype=np.float64).copy()
+                        _fit_workspace(model).pirls_mu_start = np.asarray(
+                            mu_eval, dtype=np.float64
+                        ).copy()
                 _fit_workspace(model).pirls_eval_start = None
                 _fit_workspace(model).pirls_eval_eta_start = None
                 _fit_workspace(model).pirls_eval_mu_start = None

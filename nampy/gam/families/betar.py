@@ -48,9 +48,7 @@ def _beta_saturated_loglik(y, weights, theta, eps):
         expeta[positive] = np.exp(-etav[positive])
         expeta[~positive] = np.exp(etav[~positive])
         mu = np.empty_like(etav)
-        mu[positive] = (local_a * expeta[positive] + local_b) / (
-            1.0 + expeta[positive]
-        )
+        mu[positive] = (local_a * expeta[positive] + local_b) / (1.0 + expeta[positive])
         mu[~positive] = (local_a + local_b * expeta[~positive]) / (
             1.0 + expeta[~positive]
         )
@@ -64,14 +62,15 @@ def _beta_saturated_loglik(y, weights, theta, eps):
             - digamma(mu * theta)
             + digamma((1.0 - mu) * theta)
         )
-        hess_mu = -theta**2 * (
+        hess_mu = -(theta**2) * (
             polygamma(1, mu * theta) + polygamma(1, (1.0 - mu) * theta)
         )
         dmu_deta = expeta * (local_b - local_a) / (1.0 + expeta) ** 2
-        d2mu_deta2 = np.sign(etav) * (
-            (local_a - local_b) * expeta
-            + (local_b - local_a) * expeta**2
-        ) / (1.0 + expeta) ** 3
+        d2mu_deta2 = (
+            np.sign(etav)
+            * ((local_a - local_b) * expeta + (local_b - local_a) * expeta**2)
+            / (1.0 + expeta) ** 3
+        )
         hess_eta = hess_mu * dmu_deta**2 + grad_mu * d2mu_deta2
         return log_density, grad_mu * dmu_deta, hess_eta, mu
 
@@ -95,9 +94,7 @@ def _beta_saturated_loglik(y, weights, theta, eps):
         h = np.maximum(h, hmin)
         delta = grad / h
         delta = np.clip(delta, -2.0, 2.0)
-        trial_log_density, _, _, _ = gbh(
-            y, eta + delta, False, local_a=eps / 10.0
-        )
+        trial_log_density, _, _, _ = gbh(y, eta + delta, False, local_a=eps / 10.0)
         failed = trial_log_density < log_density
         for _ in range(20):
             if not np.any(failed):
@@ -130,7 +127,7 @@ class BetaRegressionFamily(ExtendedFamily):
     supports_ubre = True
     supports_ml = True
     supports_reml = True
-    supports_laml = False
+    supports_laml = True
     supports_exact_pirls_first_derivatives = True
     supports_exact_pirls_second_derivatives = True
     joint_outer_strategy = JointOuterStrategy.BETAR_THETA
@@ -148,8 +145,7 @@ class BetaRegressionFamily(ExtendedFamily):
         link_key = str(link).lower()
         if link_key not in {"logit", "probit", "cloglog", "cauchit"}:
             raise ValueError(
-                "betar link must be one of 'logit', 'probit', 'cloglog', or "
-                "'cauchit'."
+                "betar link must be one of 'logit', 'probit', 'cloglog', or 'cauchit'."
             )
         self.link_name = link_key
         self.link = LINK_REGISTRY[link_key](eps=self.eps)
@@ -226,14 +222,18 @@ class BetaRegressionFamily(ExtendedFamily):
         wt = self._check_weights(y, weights)
         theta_value = self._theta_value(theta)
         muth = mu * theta_value
-        return 2.0 * wt * (
-            -gammaln(theta_value)
-            + gammaln(muth)
-            + gammaln(theta_value - muth)
-            - muth * (np.log(y) - np.log1p(-y))
-            - theta_value * np.log1p(-y)
-            + np.log(y)
-            + np.log1p(-y)
+        return (
+            2.0
+            * wt
+            * (
+                -gammaln(theta_value)
+                + gammaln(muth)
+                + gammaln(theta_value - muth)
+                - muth * (np.log(y) - np.log1p(-y))
+                - theta_value * np.log1p(-y)
+                + np.log(y)
+                + np.log1p(-y)
+            )
         )
 
     def deviance(self, y, mu, weights=None):
@@ -356,19 +356,21 @@ class BetaRegressionFamily(ExtendedFamily):
         log_yoney = np.log(y) - np.log1p(-y)
         out = {
             "Dmu": 2.0 * wt * theta_value * (psi0_muth - psi0_onemuth - log_yoney),
-            "Dmu2": 2.0
-            * wt
-            * theta_value**2
-            * (psi1_muth + psi1_onemuth),
+            "Dmu2": 2.0 * wt * theta_value**2 * (psi1_muth + psi1_onemuth),
             "EDmu2": 2.0 * wt * theta_value**2 * (psi1_muth + psi1_onemuth),
         }
         if level > 0:
-            out["Dth"] = 2.0 * wt * theta_value * (
-                -mu * log_yoney
-                - np.log1p(-y)
-                + mu * psi0_muth
-                + onemu * psi0_onemuth
-                - psi0_th
+            out["Dth"] = (
+                2.0
+                * wt
+                * theta_value
+                * (
+                    -mu * log_yoney
+                    - np.log1p(-y)
+                    + mu * psi0_muth
+                    + onemu * psi0_onemuth
+                    - psi0_th
+                )
             )
             out["Dmuth"] = out["Dmu"] + 2.0 * wt * theta_value**2 * (
                 mu * psi1_muth - onemu * psi1_onemuth
@@ -379,9 +381,7 @@ class BetaRegressionFamily(ExtendedFamily):
             )
             out["EDmu2th"] = out["Dmu2th"]
         if level > 1:
-            out["Dmu4"] = 2.0 * wt * theta_value**4 * (
-                psi3_muth + psi3_onemuth
-            )
+            out["Dmu4"] = 2.0 * wt * theta_value**4 * (psi3_muth + psi3_onemuth)
             out["Dth2"] = out["Dth"] + 2.0 * wt * theta_value**2 * (
                 mu**2 * psi1_muth + onemu**2 * psi1_onemuth - psi1_th
             )

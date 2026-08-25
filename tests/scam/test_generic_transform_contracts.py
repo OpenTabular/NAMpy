@@ -112,9 +112,7 @@ def test_ordinary_gaussian_ar1_gcv_gradient_uses_transformed_criterion_state():
 
 
 def test_observation_transform_rejects_unsupported_likelihoods_explicitly():
-    data = pd.DataFrame(
-        {"y": np.arange(24) % 2, "x": np.linspace(-1.0, 1.0, 24)}
-    )
+    data = pd.DataFrame({"y": np.arange(24) % 2, "x": np.linspace(-1.0, 1.0, 24)})
     with pytest.raises(NotImplementedError, match="Gaussian family"):
         GAM(
             formula="y ~ x",
@@ -123,18 +121,20 @@ def test_observation_transform_rejects_unsupported_likelihoods_explicitly():
         ).fit(data=data)
 
 
-def test_ar1_reml_rejects_missing_correlation_likelihood_terms():
+@pytest.mark.parametrize("method", ["ml", "reml", "laml"])
+def test_ar1_likelihood_routes_use_bam_correlation_determinant_terms(method):
     data = pd.DataFrame(
         {"y": np.linspace(-0.3, 0.8, 30), "x": np.linspace(-1.0, 1.0, 30)}
     )
-    with pytest.raises(NotImplementedError, match="correlation-determinant"):
-        GAM(
-            formula='y ~ s(x, bs="ps", k=7)',
-            family="gaussian",
-            ar1_rho=0.2,
-            smoothing_method="reml",
-            optimize_smoothing=True,
-        ).fit(data=data)
+    model = GAM(
+        formula='y ~ s(x, bs="ps", k=7)',
+        family="gaussian",
+        ar1_rho=0.2,
+        smoothing_method=method,
+        optimize_smoothing=True,
+    ).fit(data=data)
+    assert np.isfinite(model.smoothing_score_)
+    assert model._optim_method == method
 
 
 @pytest.mark.parametrize("basis", ["bs", "ps", "cp"])
@@ -216,9 +216,7 @@ def test_shape_coefficient_transform_composes_across_lss_predictors(tmp_path):
     assert result.eta.shape == (len(data), 2)
 
     expected = model.predict(data.iloc[:12], type="response")
-    term_values, term_se = model.predict(
-        data.iloc[:12], type="terms", return_se=True
-    )
+    term_values, term_se = model.predict(data.iloc[:12], type="terms", return_se=True)
     assert term_values.shape == term_se.shape
     assert np.all(np.isfinite(term_values))
     assert np.all(np.isfinite(term_se))

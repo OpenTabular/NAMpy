@@ -18,7 +18,7 @@ class BinomialLogitFamily(_BinomialBase):
     supports_ubre = True
     supports_ml = True
     supports_reml = True
-    supports_laml = False
+    supports_laml = True
     supports_exact_pirls_first_derivatives = True
     supports_exact_pirls_second_derivatives = True
 
@@ -63,7 +63,7 @@ class BinomialProbitFamily(_BinomialBase):
     supports_ubre = True
     supports_ml = True
     supports_reml = True
-    supports_laml = False
+    supports_laml = True
     supports_exact_pirls_first_derivatives = True
     # mgcv's REML/Newton outer loop uses exact probit d2link/d3link/d4link
     # derivatives from fix.family.link.family() in gam.fit3.r.
@@ -108,7 +108,7 @@ class BinomialCloglogFamily(_BinomialBase):
     supports_ubre = True
     supports_ml = True
     supports_reml = True
-    supports_laml = False
+    supports_laml = True
     supports_exact_pirls_first_derivatives = True
     # mgcv::fix.family.link.family() defines d2link/d3link/d4link for cloglog.
     supports_exact_pirls_second_derivatives = True
@@ -153,7 +153,7 @@ class BinomialCauchitFamily(_BinomialBase):
     supports_ubre = True
     supports_ml = True
     supports_reml = True
-    supports_laml = False
+    supports_laml = True
     supports_exact_pirls_first_derivatives = True
     # mgcv::fix.family.link.family() defines d2link/d3link/d4link for cauchit.
     supports_exact_pirls_second_derivatives = True
@@ -189,7 +189,7 @@ class BinomialLogFamily(_BinomialBase):
     supports_ubre = True
     supports_ml = True
     supports_reml = True
-    supports_laml = False
+    supports_laml = True
     supports_exact_pirls_first_derivatives = True
     supports_exact_pirls_second_derivatives = True
 
