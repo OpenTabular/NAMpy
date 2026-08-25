@@ -857,6 +857,7 @@
         <span class="s2">"covariance"</span><span class="p">,</span>
         <span class="s2">"select"</span><span class="p">,</span>
         <span class="s2">"knots"</span><span class="p">,</span>
+        <span class="s2">"xt"</span><span class="p">,</span>
         <span class="s2">"min_sp"</span><span class="p">,</span>
         <span class="s2">"drop_intercept"</span><span class="p">,</span>
         <span class="s2">"formula"</span><span class="p">,</span>
@@ -925,6 +926,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">covariance</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hparams</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"covariance"</span><span class="p">,</span> <span class="s2">"bayes"</span><span class="p">))</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">select</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hparams</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"select"</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">knots</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hparams</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"knots"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hparams</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"xt"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">min_sp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hparams</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"min_sp"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">drop_intercept</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hparams</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"drop_intercept"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">positive_transform</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span>
