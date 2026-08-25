@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 from scipy.linalg import solve_triangular
 
+from ..linalg.qr import r_linpack_qr_no_pivot, r_linpack_qr_r
 from ..model_state import (
     _coef,
     _coef_column_offset,
@@ -15,7 +16,7 @@ from ..model_state import (
     _term_full_coefficient_indices,
 )
 from ..predict.linear_predictor_matrix import build_lpmatrix
-from ..term_labels import mgcv_term_display_label
+from ..term_labels import compiled_term_display_label, mgcv_term_display_label
 
 
 def _term_indices_for_concurvity(model, n_coef: int):
@@ -38,7 +39,18 @@ def _term_indices_for_concurvity(model, n_coef: int):
         if idx.size == 0:
             continue
         smooth_starts.append(int(np.min(idx)))
-        blocks.append((mgcv_term_display_label(tb), idx))
+        # mgcv's general-family matrices carry predictor-aware compact labels.
+        # Ordinary NAMpy diagnostics have historically exposed the compiled
+        # formula identity, including basis and dimension arguments.
+        family_class = str(
+            getattr(getattr(model, "family", None), "family_class", "")
+        ).lower()
+        label = (
+            mgcv_term_display_label(tb)
+            if family_class == "general"
+            else compiled_term_display_label(tb)
+        )
+        blocks.append((label, idx))
 
     if len(blocks) == 0:
         raise ValueError("No smooth or parametric components available for concurvity.")
@@ -73,7 +85,11 @@ def _qr_R(X: np.ndarray) -> np.ndarray:
         raise ValueError("Concurvity QR input must be two-dimensional.")
     if X.shape[1] == 0:
         return np.zeros((0, 0), dtype=np.float64)
-    return np.linalg.qr(X, mode="reduced")[1]
+    # concurvity() explicitly requests base R's non-LAPACK, non-pivoted
+    # ``qr(..., tol=0)`` at every stage.  A legal LAPACK QR has noticeably
+    # different rounding for the nearly dependent multi-predictor spaces.
+    packed, _qraux = r_linpack_qr_no_pivot(X)
+    return r_linpack_qr_r(packed)
 
 
 def _concurvity_measures(

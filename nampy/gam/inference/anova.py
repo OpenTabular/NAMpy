@@ -19,6 +19,7 @@ from ..linalg.qr import r_linpack_qr_no_pivot, r_linpack_qr_r
 from ..model_state import (
     _coef,
     _coef_full,
+    _compiled_model,
     _cov_bayes,
     _cov_unconditional,
     _deviance,
@@ -34,7 +35,7 @@ from ..model_state import (
     _term_blocks_seq,
     _term_full_coefficient_indices,
 )
-from ..term_labels import mgcv_term_display_label
+from ..term_labels import compiled_term_display_label, mgcv_term_display_label
 from .chi_square_mixtures import psum_chisq
 
 
@@ -47,6 +48,33 @@ def _scale_estimated(model) -> bool:
 
 def _formula_term_label(tb) -> str:
     return mgcv_term_display_label(tb, formula_parametric=True)
+
+
+def _smooth_term_label(model, tb) -> str:
+    """Choose the public label owned by this inference surface.
+
+    Compact mgcv labels are required when a genuine multi-linear-predictor
+    layout has smooths beyond its first predictor.  Single-predictor smooths
+    and transformed coefficient layouts retain the compiled constructor label;
+    the latter are NAMpy extensions rather than an upstream combined model.
+    """
+    family_class = str(getattr(model.family, "family_class", "")).lower()
+    blocks = tuple(_term_blocks_seq(model))
+    has_later_smooth = any(
+        str(getattr(block, "term_type", "")) != "parametric"
+        and int(getattr(block, "predictor_index", 0)) > 0
+        for block in blocks
+    )
+    compiled = _compiled_model(model)
+    transform = None if compiled is None else compiled.coefficient_transform
+    transformed = transform is not None and not bool(transform.is_identity)
+    if transformed:
+        # There is no upstream transformed multi-predictor smoothing surface;
+        # retain the exact compiled labels without claiming mgcv suffix parity.
+        return str(getattr(tb, "label", ""))
+    if family_class == "general" and not has_later_smooth:
+        return compiled_term_display_label(tb)
+    return mgcv_term_display_label(tb)
 
 
 def _parametric_term_groups(model):
@@ -314,7 +342,9 @@ def _comparison_residual_deviance(model) -> float:
         return float(_deviance(model))
 
     prior_weights = model.prior_weights_
-    weights = None if prior_weights is None else np.asarray(prior_weights, dtype=np.float64)
+    weights = (
+        None if prior_weights is None else np.asarray(prior_weights, dtype=np.float64)
+    )
     try:
         return float(
             model.family.deviance(
@@ -619,7 +649,7 @@ def _term_table(
         )
         smooth_rows.append(
             {
-                "label": mgcv_term_display_label(tb),
+                "label": _smooth_term_label(model, tb),
                 "edf": edf_i,
                 "ref_df": ref_df,
                 "wald_stat": stat_out,

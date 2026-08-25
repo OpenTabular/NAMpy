@@ -163,6 +163,13 @@ def coerce_formula_predict_inputs(
     result = getattr(model, "gam_result_", None)
     compiled = None if result is None else getattr(result, "compiled_model", None)
     for term in tuple(getattr(compiled, "compiled_terms", ()) or ()):
+        # The upstream structured constructors own their new-level semantics:
+        # re maps an unseen level to a zero design row, while fs/sz map it to
+        # an NA row.  Their transform_new implementations reproduce this and
+        # must see the original value rather than being stopped by the generic
+        # formula-factor guard.
+        if str(getattr(term, "basis_name", "")).lower() in {"re", "fs", "sz"}:
+            continue
         factor_info = (getattr(term, "metadata", {}) or {}).get(
             "factor_levels_by_feature", {}
         )

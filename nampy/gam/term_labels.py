@@ -114,7 +114,22 @@ def mgcv_term_display_label(term, *, formula_parametric: bool = False) -> str:
     )
 
 
+def compiled_term_display_label(term) -> str:
+    """Return the predictor-aware label retained by the compiled NAMpy term.
+
+    Unlike :func:`mgcv_term_display_label`, this deliberately keeps constructor
+    arguments.  Some diagnostics expose the compiled formula identity rather
+    than the compact column names returned by ``predict.gam(type="terms")``.
+    """
+    return multi_predictor_term_label(
+        str(getattr(term, "label", "")),
+        predictor_index=int(getattr(term, "predictor_index", 0)),
+        term_type=str(getattr(term, "term_type", "")),
+    )
+
+
 __all__ = [
+    "compiled_term_display_label",
     "mgcv_term_display_label",
     "multi_predictor_term_label",
     "normalize_mgcv_term_label",

@@ -31,6 +31,9 @@ def test_public_gam_package_exports_contract():
         "fit_model_core",
         "solve_fit",
         "FitCoreSolution",
+        "GAMControl",
+        "gam_control",
+        "normalize_nei",
     ]
     assert gam_package.GAM is GAM
     assert not hasattr(nampy, "GAM")
@@ -55,9 +58,7 @@ def test_plot_gam_port_prepares_and_renders_real_model_terms():
             "x1": rng.uniform(-1.0, 1.0, n),
         }
     )
-    data["y"] = (
-        np.sin(1.3 * data["x0"]) + 0.3 * data["x1"] ** 2 + rng.normal(0, 0.1, n)
-    )
+    data["y"] = np.sin(1.3 * data["x0"]) + 0.3 * data["x1"] ** 2 + rng.normal(0, 0.1, n)
     gam = GAM(
         family="gaussian",
         formula='y ~ s(x0, bs="cr", k=6) + s(x1, bs="cr", k=6)',
