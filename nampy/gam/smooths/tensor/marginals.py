@@ -4,21 +4,13 @@ import warnings
 
 import numpy as np
 
+from ...basis_registry import get_basis_descriptor, tensor_basis_names
 from ...penalties.tensor import normalize_tensor_marginal_penalty
 from ..algebra import rowwise_kronecker
-from ..categorical.mrf import MarkovRandomFieldTerm
+from ..registry import make_basis_term
 from ..smooth_base import column_as_float
-from ..univariate.bs import DerivativeBSplineTerm1D
-from ..univariate.cr import CubicSplineTerm
-from ..univariate.ds import DuchonSplineTerm
-from ..univariate.gp import GaussianProcessTerm
-from ..univariate.ps import PSplineTerm1D
-from ..univariate.sos import SphericalSplineTerm
-from ..univariate.tp import ThinPlateSplineTerm
 
-TENSOR_MARGINAL_BASES = frozenset(
-    {"bs", "cr", "cs", "cc", "cp", "ds", "gp", "mrf", "ps", "sos", "tp", "ts"}
-)
+TENSOR_MARGINAL_BASES = tensor_basis_names()
 
 
 def _as_marginal_features(feature):
@@ -54,156 +46,29 @@ def make_tensor_marginal_term(
     validate_tensor_marginal_bases([basis])
     constraint_mode = "always" if centered else "never"
     marginal_features = _as_marginal_features(feature)
+    descriptor = get_basis_descriptor(basis)
+    if descriptor is None or not descriptor.supports_tensor:
+        raise RuntimeError(f"Missing tensor descriptor for basis {basis!r}.")
+    descriptor.validate_feature_count(len(marginal_features), context="Tensor marginal")
     metadata = dict(metadata or {})
     if shared_basis_setup is not None:
         metadata["shared_basis_setup"] = shared_basis_setup
-    if basis in {"cr", "cs", "cc"}:
-        if len(marginal_features) != 1:
-            raise ValueError(
-                f"Tensor marginal basis {basis!r} only handles one feature; "
-                "mgcv coerces multivariate cr/cs/ps/cp marginals to tp before construction."
-            )
-        return CubicSplineTerm(
-            feature=marginal_features[0],
-            k=k,
-            basis=basis,
-            label=str(feature),
-            smoothing_id=None,
-            by=None,
-            select=False,
-            fixed=False,
-            constraint_mode=constraint_mode,
-            shared_basis_setup=shared_basis_setup,
-            knots=knots,
-            metadata=metadata,
-        )
-
-    if basis in {"ps", "cp"}:
-        if len(marginal_features) != 1:
-            raise ValueError(
-                f"Tensor marginal basis {basis!r} only handles one feature; mgcv "
-                "coerces multivariate ps/cp marginals to tp before construction."
-            )
-        return PSplineTerm1D(
-            feature=marginal_features[0],
-            k=k,
-            basis=basis,
-            m=m,
-            label=str(feature),
-            smoothing_id=None,
-            by=None,
-            select=False,
-            fixed=False,
-            constraint_mode=constraint_mode,
-            knots=knots,
-            metadata=metadata,
-        )
-
-    if basis == "bs":
-        if len(marginal_features) != 1:
-            raise ValueError("Tensor marginal basis 'bs' only handles one feature.")
-        return DerivativeBSplineTerm1D(
-            feature=marginal_features[0],
-            k=k,
-            m=m,
-            label=str(feature),
-            smoothing_id=None,
-            by=None,
-            select=False,
-            fixed=False,
-            constraint_mode=constraint_mode,
-            knots=knots,
-            metadata=metadata,
-        )
-
-    if basis == "ds":
-        return DuchonSplineTerm(
-            feature=marginal_features,
-            k=k,
-            m=m,
-            xt=xt,
-            label=str(feature),
-            smoothing_id=None,
-            by=None,
-            select=False,
-            fixed=False,
-            constraint_mode=constraint_mode,
-            knots=knots,
-            metadata=metadata,
-        )
-
-    if basis == "gp":
-        return GaussianProcessTerm(
-            feature=marginal_features,
-            k=k,
-            m=m,
-            xt=xt,
-            label=str(feature),
-            smoothing_id=None,
-            by=None,
-            select=False,
-            fixed=False,
-            constraint_mode=constraint_mode,
-            knots=knots,
-            metadata=metadata,
-        )
-
-    if basis == "sos":
-        if len(marginal_features) != 2:
-            raise ValueError(
-                "Tensor marginal basis 'sos' requires a two-feature group "
-                "(latitude, longitude); supply d=2 for that marginal."
-            )
-        return SphericalSplineTerm(
-            feature=marginal_features,
-            k=k,
-            m=m,
-            xt=xt,
-            label=str(feature),
-            smoothing_id=None,
-            by=None,
-            select=False,
-            fixed=False,
-            constraint_mode=constraint_mode,
-            knots=knots,
-            metadata=metadata,
-        )
-
-    if basis == "mrf":
-        if len(marginal_features) != 1:
-            raise ValueError("Tensor marginal basis 'mrf' only handles one feature.")
-        return MarkovRandomFieldTerm(
-            feature=marginal_features[0],
-            k=k,
-            xt=xt,
-            label=str(feature),
-            smoothing_id=None,
-            by=None,
-            select=False,
-            fixed=False,
-            constraint_mode=constraint_mode,
-            knots=knots,
-            metadata=metadata,
-        )
-
-    if basis in {"tp", "ts"}:
-        return ThinPlateSplineTerm(
-            feature=marginal_features,
-            k=k,
-            basis=basis,
-            m=m,
-            xt=xt,
-            label=str(feature),
-            smoothing_id=None,
-            by=None,
-            select=False,
-            fixed=False,
-            constraint_mode=constraint_mode,
-            knots=knots,
-            metadata=metadata,
-        )
-
-    raise RuntimeError(f"Unexpected tensor marginal basis {basis!r}.")
+    return make_basis_term(
+        basis,
+        feature=marginal_features,
+        k=k,
+        m=m,
+        xt=xt,
+        knots=knots,
+        shared_basis_setup=shared_basis_setup,
+        label=str(feature),
+        smoothing_id=None,
+        by=None,
+        select=False,
+        fixed=False,
+        constraint_mode=constraint_mode,
+        metadata=metadata,
+    )
 
 
 def _normalize_bool_list(x, n: int):

@@ -35,7 +35,6 @@ from ..smooth_base import (
 class ThinPlateSplineTerm(BaseSmoothTerm):
     term_type = "smooth"
     basis_name = "tp"
-    supports_tensor_marginal = False
 
     def __init__(
         self,

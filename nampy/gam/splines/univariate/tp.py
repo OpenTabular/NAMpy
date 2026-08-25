@@ -6,6 +6,7 @@ import numpy as np
 from scipy.spatial import distance_matrix
 
 from ...linalg import constant_null_space_shrinkage
+from .._low_rank import top_eigensystem
 from ..basis.tp import eta, tp_T
 
 
@@ -285,146 +286,6 @@ def choose_tprs_setup_locations(X_shifted, knots=None, max_knots=2000, seed=1):
     return np.asarray(Xu, dtype=np.float64)
 
 
-def _top_eigensystem(E, k, *, tolerance_exponent=0.7):
-    """
-    mgcv-compatible top-k eigensystem for a symmetric matrix E.
-
-    This mirrors `Rlanczos(..., lm=-1)` in `mgcv/src/mat.c` closely enough
-    to reproduce the same eigenvalue ordering and eigenvector signs used by
-    `tprs_setup()`. Using a dense eigendecomposition directly gets the same
-    invariant subspace, but not the same deterministic orientation that the
-    parity tests require.
-    """
-    E = np.asarray(E, dtype=np.float64)
-    n = E.shape[0]
-    k = int(k)
-
-    if k <= 0 or n == 0:
-        return np.zeros(0, dtype=np.float64), np.zeros((n, 0), dtype=np.float64)
-    if k > n:
-        raise ValueError(f"k must be <= matrix dimension, got k={k}, n={n}.")
-
-    tol = float(np.finfo(np.float64).eps ** float(tolerance_exponent))
-    # mgcv/src/mat.c::Rlanczos checks convergence every
-    # min(max((m + lm) / 2, 10), floor(n / 10)) steps. For the tp/ts setup
-    # here lm is always zero, so mirror the same cadence exactly.
-    f_check = max(10, k // 2)
-    f_check = min(f_check, max(1, n // 10))
-
-    # mgcv uses a fixed linear congruential generator to build the start vector.
-    jran = 1
-    ia = 106
-    ic = 1283
-    im = 6075
-    q = []
-    q0 = np.empty(n, dtype=np.float64)
-    for i in range(n):
-        jran = (jran * ia + ic) % im
-        q0[i] = float(jran) / float(im) - 0.5
-    q0 /= np.linalg.norm(q0)
-    q.append(q0)
-
-    a = np.zeros(n, dtype=np.float64)
-    b = np.zeros(n, dtype=np.float64)
-    err = np.full(n, 1e300, dtype=np.float64)
-
-    d = None
-    vecs = None
-    j_final = n
-    m_keep = k
-    lm_keep = 0
-
-    for j in range(n):
-        z = E @ q[j]
-        a[j] = float(q[j] @ z)
-
-        if j == 0:
-            z = z - a[j] * q[j]
-        else:
-            z = z - a[j] * q[j] - b[j - 1] * q[j - 1]
-
-            # Full re-orthogonalization, repeated exactly as in mgcv.
-            for i in range(j + 1):
-                xx = -float(z @ q[i])
-                z = z + xx * q[i]
-            for i in range(j + 1):
-                xx = -float(z @ q[i])
-                z = z + xx * q[i]
-
-        b[j] = float(np.linalg.norm(z))
-        if j < n - 1:
-            if b[j] == 0.0:
-                raise np.linalg.LinAlgError(
-                    "Lanczos breakdown in thin-plate eigensystem."
-                )
-            q.append(z / b[j])
-
-        if ((j >= k) and (j % f_check == 0)) or (j == n - 1):
-            # mgcv/src/mat.c::mgcv_trisymeig() uses the divide-and-conquer
-            # tridiagonal solver DSTEDC. SciPy's tridiagonal convenience path
-            # selects DSTEMR instead; its different basis for clustered Ritz
-            # values changes the independent null-space penalties of an `fs`
-            # smooth and therefore changes fitted behavior. A dense symmetric
-            # solve stays in the divide-and-conquer family used by mgcv.
-            Tj = np.diag(a[: j + 1].copy())
-            if j > 0:
-                off_diag = b[:j].copy()
-                Tj += np.diag(off_diag, 1) + np.diag(off_diag, -1)
-            d_asc, vecs_asc = np.linalg.eigh(Tj)
-
-            # mgcv/src/mat.c::mgcv_trisymeig returns descending order.
-            d = np.asarray(d_asc[::-1], dtype=np.float64)
-            vecs = np.asarray(vecs_asc[:, ::-1], dtype=np.float64)
-
-            norm_tj = max(abs(d[0]), abs(d[j]))
-            err[: j + 1] = np.abs(b[j] * vecs[-1, :])
-
-            if j >= k:
-                max_err = norm_tj * tol
-                pi = 0
-                ni = 0
-                converged = True
-                while pi + ni < k:
-                    if abs(d[pi]) >= abs(d[j - ni]):
-                        if err[pi] > max_err:
-                            converged = False
-                            break
-                        pi += 1
-                    else:
-                        if err[ni] > max_err:
-                            converged = False
-                            break
-                        ni += 1
-                if converged:
-                    m_keep = pi
-                    lm_keep = ni
-                    j_final = j + 1
-                    break
-
-    if d is None or vecs is None:
-        raise np.linalg.LinAlgError("Failed to compute thin-plate eigensystem.")
-
-    U = np.zeros((n, k), dtype=np.float64)
-    for col in range(m_keep):
-        coeff = vecs[:j_final, col]
-        for q_idx in range(j_final):
-            U[:, col] += q[q_idx] * coeff[q_idx]
-
-    for col in range(m_keep, m_keep + lm_keep):
-        kk = j_final - (lm_keep + m_keep - col)
-        coeff = vecs[:j_final, kk]
-        for q_idx in range(j_final):
-            U[:, col] += q[q_idx] * coeff[q_idx]
-
-    evals = np.zeros(k, dtype=np.float64)
-    evals[:m_keep] = d[:m_keep]
-    for col in range(m_keep, m_keep + lm_keep):
-        kk = j_final - (lm_keep + m_keep - col)
-        evals[col] = d[kk]
-
-    return evals, U
-
-
 def thin_plate_raw_model_matrix(X_shifted, Xu, penalty_order, UZ):
     """
     Evaluate the raw low-rank thin-plate regression spline model matrix.
@@ -555,7 +416,7 @@ def construct_tprs_basis(
         UZ_full = np.zeros((Xu.shape[0] + M, k), dtype=np.float64)
         UZ_full[: Xu.shape[0], :] = Q_full
     else:
-        evals, U = _top_eigensystem(E, k)
+        evals, U = top_eigensystem(E, k)
         TU = T.T @ U
         Z_house, _ = householder_qr_rowspace(TU, full_q=False)
         UZ_pen = apply_householder_reflectors(U.copy(), Z_house, p=0, t=0)[:, : k - M]

@@ -324,7 +324,6 @@ def predict_markov_random_field(values, setup: MarkovRandomFieldSetup) -> np.nda
 class MarkovRandomFieldTerm(BaseSmoothTerm):
     term_type = "smooth"
     basis_name = "mrf"
-    supports_tensor_marginal = True
 
     def __init__(
         self,
@@ -508,6 +507,30 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
         if centered:
             return super().tensor_marginal_fit_matrices(centered=True)
         return setup_base, setup_penalty, None
+
+    def factor_smooth_penalty_rank(self) -> int:
+        self._require_fitted()
+        return int(self._setup.rank)
+
+    def validate_factor_smooth_base(self, mode: str) -> None:
+        self._require_fitted()
+        if str(mode).lower() == "fs" and self._setup.used_low_rank:
+            raise NotImplementedError(
+                "mgcv 1.9-4 cannot predict an fs smooth with a reduced-rank "
+                "MRF base because its factor-smooth P matrix is dimensionally "
+                "incompatible with the full region indicator."
+            )
+
+    def factor_smooth_reparameterize_prediction(self, basis, transform):
+        """Preserve mgcv's observable double MRF transform inside ``fs``."""
+        transform = np.asarray(transform, dtype=np.float64)
+        return np.asarray(basis, dtype=np.float64) @ transform @ transform
+
+    def factor_smooth_prediction_basis_map(self, transform, n_levels: int):
+        transform = np.asarray(transform, dtype=np.float64)
+        return np.kron(
+            np.eye(int(n_levels), dtype=np.float64), np.linalg.inv(transform)
+        )
 
     def tensor_marginal_predict_matrix(
         self, X_new, *, centered=False, np_transform=None

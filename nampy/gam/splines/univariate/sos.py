@@ -8,13 +8,13 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.special import spence
 
-from ...linalg.qr import r_linpack_qr_no_pivot
-from .ds import (
-    _duchon_setup_locations,
-    _normalize_duchon_knots,
-    _r_linpack_qty,
+from ...linalg.qr import r_linpack_qr_no_pivot, r_linpack_qty
+from .._low_rank import (
+    low_rank_setup_locations,
+    normalize_coordinate_knots,
+    parse_low_rank_xt,
+    top_eigensystem,
 )
-from .tp import _top_eigensystem
 
 
 def normalize_spherical_order(m) -> int:
@@ -159,25 +159,6 @@ def spherical_spline_kernel(X, knots, order=0):
     )
 
 
-def _parse_spherical_xt(xt):
-    max_knots = 2000
-    seed = 1
-    if xt is None:
-        return max_knots, seed
-    if not isinstance(xt, dict):
-        raise NotImplementedError(
-            "For bs='sos', xt must be None or a dict with optional keys "
-            "{'max.knots', 'seed'}."
-        )
-    if xt.get("max.knots") is not None:
-        max_knots = int(xt["max.knots"])
-    if xt.get("seed") is not None:
-        seed = int(xt["seed"])
-    if max_knots < 1:
-        raise ValueError("For bs='sos', xt['max.knots'] must be positive.")
-    return max_knots, seed
-
-
 @dataclass
 class SphericalSplineSetup:
     knots: np.ndarray
@@ -212,7 +193,7 @@ def build_spherical_spline_setup(X, *, k=-1, m=None, knots=None, xt=None):
             f"For bs='sos' with m={order}, k must be at least {null_space_dim + 2}."
         )
 
-    supplied = _normalize_duchon_knots(knots, 2)
+    supplied = normalize_coordinate_knots(knots, 2)
     if supplied is not None and supplied.shape[0] == 0:
         supplied = None
     if supplied is not None and supplied.shape[0] > n_obs:
@@ -221,8 +202,8 @@ def build_spherical_spline_setup(X, *, k=-1, m=None, knots=None, xt=None):
             stacklevel=2,
         )
         supplied = None
-    max_knots, seed = _parse_spherical_xt(xt)
-    setup_knots, used_subsampling = _duchon_setup_locations(
+    max_knots, seed = parse_low_rank_xt(xt, basis_name="sos")
+    setup_knots, used_subsampling = low_rank_setup_locations(
         values,
         np.zeros(2, dtype=np.float64),
         supplied,
@@ -240,7 +221,7 @@ def build_spherical_spline_setup(X, *, k=-1, m=None, knots=None, xt=None):
         setup_knots, setup_knots, order
     )
     if bs_dim < n_knots:
-        eigenvalues, eigenvectors = _top_eigensystem(
+        eigenvalues, eigenvectors = top_eigensystem(
             radial,
             bs_dim,
             tolerance_exponent=0.5,
@@ -253,8 +234,8 @@ def build_spherical_spline_setup(X, *, k=-1, m=None, knots=None, xt=None):
         constraint = constraint_tail
 
     packed_qr, qraux = r_linpack_qr_no_pivot(constraint)
-    first = _r_linpack_qty(packed_qr, qraux, diagonal_penalty)
-    reduced = _r_linpack_qty(
+    first = r_linpack_qty(packed_qr, qraux, diagonal_penalty)
+    reduced = r_linpack_qty(
         packed_qr,
         qraux,
         first[null_space_dim:, :].T,
@@ -262,7 +243,7 @@ def build_spherical_spline_setup(X, *, k=-1, m=None, knots=None, xt=None):
     penalty = np.zeros((bs_dim, bs_dim), dtype=np.float64)
     rank = int(bs_dim - null_space_dim)
     penalty[:rank, :rank] = reduced
-    UZ = _r_linpack_qty(
+    UZ = r_linpack_qty(
         packed_qr,
         qraux,
         eigenvectors.T,

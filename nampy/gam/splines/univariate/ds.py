@@ -9,9 +9,15 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.spatial import distance_matrix
 
-from ...linalg.qr import r_linpack_qr_no_pivot
+from ...linalg.qr import r_linpack_qr_no_pivot, r_linpack_qty
+from .._low_rank import (
+    low_rank_setup_locations,
+    normalize_coordinate_knots,
+    ordered_unique_numeric_rows,
+    parse_low_rank_xt,
+    top_eigensystem,
+)
 from ..basis.tp import tp_T
-from .tp import _top_eigensystem
 
 
 def normalize_duchon_orders(m, dimension: int) -> tuple[int, float]:
@@ -114,166 +120,6 @@ def duchon_kernel(x, knots, penalty_order: int, shift_order: float):
     return np.asarray(kernel * sign, dtype=np.float64)
 
 
-def _r_linpack_qty(packed_qr, qraux, values):
-    """Apply ``t(Q)`` from base R's LINPACK QR representation."""
-    packed = np.asarray(packed_qr, dtype=np.float64)
-    aux = np.asarray(qraux, dtype=np.float64)
-    out = np.asarray(values, dtype=np.float64).copy()
-    if out.ndim == 1:
-        out = out.reshape(-1, 1)
-    for j in range(min(aux.size, packed.shape[1])):
-        if aux[j] == 0.0:
-            continue
-        reflector = packed[j:, j].copy()
-        reflector[0] = aux[j]
-        denominator = float(reflector[0])
-        for column in range(out.shape[1]):
-            step = -float(np.dot(reflector, out[j:, column])) / denominator
-            out[j:, column] += step * reflector
-    return np.asarray(out, dtype=np.float64)
-
-
-def _parse_duchon_xt(xt):
-    max_knots = 2000
-    seed = 1
-    if xt is None:
-        return max_knots, seed
-    if not isinstance(xt, dict):
-        raise NotImplementedError(
-            "For bs='ds', xt must be None or a dict with optional keys "
-            "{'max.knots', 'seed'}."
-        )
-    if xt.get("max.knots") is not None:
-        max_knots = int(xt["max.knots"])
-    if xt.get("seed") is not None:
-        seed = int(xt["seed"])
-    if max_knots < 1:
-        raise ValueError("For bs='ds', xt['max.knots'] must be positive.")
-    return max_knots, seed
-
-
-def _normalize_duchon_knots(knots, dimension: int):
-    """Collect per-coordinate knot vectors like the upstream constructor."""
-    if knots is None:
-        return None
-
-    dimension = int(dimension)
-    if isinstance(knots, (list, tuple)):
-        if dimension == 1 and (not knots or np.isscalar(knots[0])):
-            return np.asarray(knots, dtype=np.float64).reshape(-1, 1)
-        if len(knots) != dimension or any(value is None for value in knots):
-            return None
-        columns = [np.asarray(value, dtype=np.float64).ravel() for value in knots]
-        if any(column.size != columns[0].size for column in columns[1:]):
-            raise ValueError(
-                "components of knots relating to a single smooth must be of same length"
-            )
-        return np.asarray(np.column_stack(columns), dtype=np.float64)
-
-    values = np.asarray(knots, dtype=np.float64)
-    if values.ndim == 1:
-        if dimension != 1:
-            return None
-        return values.reshape(-1, 1)
-    if values.ndim != 2 or values.shape[1] != dimension:
-        return None
-    return np.asarray(values, dtype=np.float64)
-
-
-def _duchon_unique_rows(values):
-    """Mirror ``uniquecombs(x, ordered=TRUE)`` for numeric matrices."""
-    matrix = np.asarray(values, dtype=np.float64)
-    if matrix.ndim == 1:
-        matrix = matrix.reshape(-1, 1)
-    if matrix.shape[1] == 1:
-        return np.unique(matrix[:, 0]).reshape(-1, 1)
-
-    first_by_key = {}
-    for row in matrix:
-        key = "*".join(format(float(value), ".15g") for value in row)
-        first_by_key.setdefault(key, np.asarray(row, dtype=np.float64).copy())
-    return np.vstack([first_by_key[key] for key in sorted(first_by_key)])
-
-
-class _RMersenneTwister:
-    """Minimal R-compatible MT19937 stream used by ``temp.seed``/``sample``."""
-
-    def __init__(self, seed):
-        state = int(seed) & 0xFFFFFFFF
-        for _ in range(50):
-            state = (69069 * state + 1) & 0xFFFFFFFF
-        state = (69069 * state + 1) & 0xFFFFFFFF  # R stores 624 in this slot.
-        self._state = []
-        for _ in range(624):
-            state = (69069 * state + 1) & 0xFFFFFFFF
-            self._state.append(state)
-        self._index = 624
-
-    def _twist(self):
-        for index in range(624):
-            word = (self._state[index] & 0x80000000) | (
-                self._state[(index + 1) % 624] & 0x7FFFFFFF
-            )
-            self._state[index] = (
-                self._state[(index + 397) % 624]
-                ^ (word >> 1)
-                ^ (0x9908B0DF if word & 1 else 0)
-            )
-        self._index = 0
-
-    def uniform(self):
-        if self._index >= 624:
-            self._twist()
-        word = self._state[self._index]
-        self._index += 1
-        word ^= word >> 11
-        word ^= (word << 7) & 0x9D2C5680
-        word ^= (word << 15) & 0xEFC60000
-        word ^= word >> 18
-        return float(word & 0xFFFFFFFF) / float(2**32)
-
-    def uniform_index(self, size):
-        size = int(size)
-        bits = int(math.ceil(math.log2(size)))
-        mask = (1 << bits) - 1
-        while True:
-            value = 0
-            for _ in range(0, bits + 1, 16):
-                value = 65536 * value + math.floor(self.uniform() * 65536)
-            value &= mask
-            if value < size:
-                return int(value)
-
-
-def _r_sample_without_replacement(size, sample_size, seed):
-    """Mirror modern R ``sample.int(..., replace=FALSE)`` rejection sampling."""
-    available = list(range(int(size)))
-    remaining = int(size)
-    rng = _RMersenneTwister(seed)
-    selected = []
-    for _ in range(int(sample_size)):
-        index = rng.uniform_index(remaining)
-        selected.append(available[index])
-        remaining -= 1
-        available[index] = available[remaining]
-    return np.asarray(selected, dtype=np.intp)
-
-
-def _duchon_setup_locations(values, shift, knots, *, max_knots, seed):
-    values = np.asarray(values, dtype=np.float64)
-    if knots is not None:
-        return np.asarray(knots, dtype=np.float64), False
-    unique = _duchon_unique_rows(values) - np.asarray(shift, dtype=np.float64)[None, :]
-    if values.shape[0] > int(max_knots) and unique.shape[0] > int(max_knots):
-        indices = _r_sample_without_replacement(
-            unique.shape[0],
-            int(max_knots),
-            int(seed),
-        )
-        return np.asarray(unique[indices, :], dtype=np.float64), True
-    return np.asarray(unique, dtype=np.float64), False
-
-
 @dataclass
 class DuchonSplineSetup:
     shift: np.ndarray
@@ -308,7 +154,7 @@ def build_duchon_spline_setup(X, *, k=-1, m=None, knots=None, xt=None):
         bs_dim = null_space_dim + 1
         warnings.warn("basis dimension reset to minimum possible", stacklevel=2)
 
-    unique = _duchon_unique_rows(values)
+    unique = ordered_unique_numeric_rows(values)
     if unique.shape[0] < bs_dim:
         raise ValueError(
             "A term has fewer unique covariate combinations than specified "
@@ -316,7 +162,7 @@ def build_duchon_spline_setup(X, *, k=-1, m=None, knots=None, xt=None):
         )
 
     shift = np.mean(values, axis=0)
-    supplied = _normalize_duchon_knots(knots, dimension)
+    supplied = normalize_coordinate_knots(knots, dimension)
     if supplied is not None and supplied.shape[0] == 0:
         supplied = None
     if supplied is not None and supplied.shape[0] > n_obs:
@@ -328,8 +174,8 @@ def build_duchon_spline_setup(X, *, k=-1, m=None, knots=None, xt=None):
     if supplied is not None:
         supplied = supplied - shift[None, :]
 
-    max_knots, seed = _parse_duchon_xt(xt)
-    setup_knots, used_subsampling = _duchon_setup_locations(
+    max_knots, seed = parse_low_rank_xt(xt, basis_name="ds")
+    setup_knots, used_subsampling = low_rank_setup_locations(
         values,
         shift,
         supplied,
@@ -346,7 +192,7 @@ def build_duchon_spline_setup(X, *, k=-1, m=None, knots=None, xt=None):
     E = duchon_kernel(setup_knots, setup_knots, penalty_order, shift_order)
     T = duchon_polynomial_basis(setup_knots, penalty_order)
     if bs_dim < n_knots:
-        eigenvalues, eigenvectors = _top_eigensystem(
+        eigenvalues, eigenvectors = top_eigensystem(
             E,
             bs_dim,
             tolerance_exponent=0.5,
@@ -359,8 +205,8 @@ def build_duchon_spline_setup(X, *, k=-1, m=None, knots=None, xt=None):
         constraint = np.asarray(T, dtype=np.float64)
 
     packed_qr, qraux = r_linpack_qr_no_pivot(constraint)
-    first = _r_linpack_qty(packed_qr, qraux, diagonal_penalty)
-    reduced = _r_linpack_qty(
+    first = r_linpack_qty(packed_qr, qraux, diagonal_penalty)
+    reduced = r_linpack_qty(
         packed_qr,
         qraux,
         first[null_space_dim:, :].T,
@@ -368,7 +214,7 @@ def build_duchon_spline_setup(X, *, k=-1, m=None, knots=None, xt=None):
     penalty = np.zeros((bs_dim, bs_dim), dtype=np.float64)
     penalty[: bs_dim - null_space_dim, : bs_dim - null_space_dim] = reduced
 
-    UZ = _r_linpack_qty(
+    UZ = r_linpack_qty(
         packed_qr,
         qraux,
         eigenvectors.T,

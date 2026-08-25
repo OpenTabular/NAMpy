@@ -35,7 +35,6 @@ from ..smooth_base import (
 class DerivativeBSplineTerm1D(BaseSmoothTerm):
     term_type = "smooth"
     basis_name = "bs"
-    supports_tensor_marginal = False
 
     def __init__(
         self,
@@ -334,6 +333,10 @@ class DerivativeBSplineTerm1D(BaseSmoothTerm):
         if centered:
             return super().tensor_marginal_fit_matrices(centered=True)
         return setup_base, raw_penalty, None
+
+    def factor_smooth_penalty_rank(self) -> int:
+        self._require_fitted()
+        return int(self._setup.ranks[0])
 
     def tensor_marginal_predict_matrix(
         self, X_new, *, centered=False, np_transform=None

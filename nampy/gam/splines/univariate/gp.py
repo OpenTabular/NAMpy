@@ -7,12 +7,13 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .ds import (
-    _duchon_setup_locations,
-    _duchon_unique_rows,
-    _normalize_duchon_knots,
+from .._low_rank import (
+    low_rank_setup_locations,
+    normalize_coordinate_knots,
+    ordered_unique_numeric_rows,
+    parse_low_rank_xt,
+    top_eigensystem,
 )
-from .tp import _top_eigensystem
 
 
 def normalize_gp_definition(m) -> tuple[np.ndarray, bool]:
@@ -125,25 +126,6 @@ def default_gp_k(dimension: int) -> int:
     return dimension + 1 + (10, 30, 100)[dimension - 1]
 
 
-def _parse_gp_xt(xt):
-    max_knots = 2000
-    seed = 1
-    if xt is None:
-        return max_knots, seed
-    if not isinstance(xt, dict):
-        raise NotImplementedError(
-            "For bs='gp', xt must be None or a dict with optional keys "
-            "{'max.knots', 'seed'}."
-        )
-    if xt.get("max.knots") is not None:
-        max_knots = int(xt["max.knots"])
-    if xt.get("seed") is not None:
-        seed = int(xt["seed"])
-    if max_knots < 1:
-        raise ValueError("For bs='gp', xt['max.knots'] must be positive.")
-    return max_knots, seed
-
-
 @dataclass
 class GaussianProcessSetup:
     shift: np.ndarray
@@ -171,14 +153,14 @@ def build_gaussian_process_setup(X, *, k=-1, m=None, knots=None, xt=None):
     raw_definition, stationary = normalize_gp_definition(m)
     requested_k = int(k)
 
-    unique = _duchon_unique_rows(values)
+    unique = ordered_unique_numeric_rows(values)
     if requested_k >= 0 and unique.shape[0] < requested_k:
         raise ValueError(
             "A term has fewer unique covariate combinations than specified "
             "maximum degrees of freedom"
         )
 
-    supplied = _normalize_duchon_knots(knots, dimension)
+    supplied = normalize_coordinate_knots(knots, dimension)
     if supplied is not None and supplied.shape[0] == 0:
         supplied = None
     if supplied is not None and supplied.shape[0] > n_obs:
@@ -191,8 +173,8 @@ def build_gaussian_process_setup(X, *, k=-1, m=None, knots=None, xt=None):
     shift = np.mean(values, axis=0)
     if supplied is not None:
         supplied = supplied - shift[None, :]
-    max_knots, seed = _parse_gp_xt(xt)
-    setup_knots, used_subsampling = _duchon_setup_locations(
+    max_knots, seed = parse_low_rank_xt(xt, basis_name="gp")
+    setup_knots, used_subsampling = low_rank_setup_locations(
         values,
         shift,
         supplied,
@@ -217,7 +199,7 @@ def build_gaussian_process_setup(X, *, k=-1, m=None, knots=None, xt=None):
 
     penalty = np.zeros((bs_dim, bs_dim), dtype=np.float64)
     if rank < n_knots:
-        eigenvalues, eigenvectors = _top_eigensystem(
+        eigenvalues, eigenvectors = top_eigensystem(
             covariance,
             rank,
             tolerance_exponent=0.5,

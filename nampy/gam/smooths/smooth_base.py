@@ -28,6 +28,7 @@ from typing import Any
 
 import numpy as np
 
+from .._mgcv_constants import EIG_TOL_POWER
 from ..constraints.absorption import apply_linear_constraint
 from ..penalties import (
     PenaltySpec,
@@ -710,6 +711,39 @@ class BaseSmoothTerm(abc.ABC):
         if np_transform is not None:
             B = B @ np.asarray(np_transform, dtype=np.float64)
         return B
+
+    def factor_smooth_penalty_rank(self) -> int:
+        """Return the constructor penalty rank used by ``fs``/``sz``."""
+        _basis, penalty, _transform = self.tensor_marginal_fit_matrices(
+            centered=False
+        )
+        symmetric = 0.5 * (
+            np.asarray(penalty, dtype=np.float64)
+            + np.asarray(penalty, dtype=np.float64).T
+        )
+        eigenvalues = np.linalg.eigvalsh(symmetric)
+        largest = float(np.max(np.abs(eigenvalues))) if eigenvalues.size else 0.0
+        tolerance = largest * (np.finfo(np.float64).eps**EIG_TOL_POWER)
+        return int(np.sum(eigenvalues > tolerance))
+
+    def validate_factor_smooth_base(self, mode: str) -> None:
+        """Validate basis-specific composition boundaries before duplication."""
+        del mode
+
+    def factor_smooth_reparameterize_prediction(self, basis, transform):
+        """Map raw base predictions into the factor-smooth coefficient space."""
+        return np.asarray(basis, dtype=np.float64) @ np.asarray(
+            transform, dtype=np.float64
+        )
+
+    def factor_smooth_prediction_basis_map(self, transform, n_levels: int):
+        """Return an optional compiler audit map for factor-smooth prediction."""
+        del transform, n_levels
+        return None
+
+    def factor_smooth_metadata(self) -> dict[str, Any]:
+        """Return metadata that a factor-smooth wrapper should retain."""
+        return dict(self.metadata or {})
 
     def _normalized_term_sp(self, n_penalties):
         if n_penalties <= 0:

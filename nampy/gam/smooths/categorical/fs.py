@@ -5,7 +5,7 @@ from typing import Any
 
 import numpy as np
 
-from ..._mgcv_constants import EIG_TOL_POWER
+from ...basis_registry import get_basis_descriptor
 from ...penalties import (
     PenaltySpec,
     penalty_id_for_local_index,
@@ -13,14 +13,8 @@ from ...penalties import (
 )
 from ...splines.basis.natparam import nat_param_type1
 from ..algebra import rowwise_kronecker
-from ..registry import make_smooth_term
+from ..registry import make_basis_term
 from ..smooth_base import BaseSmoothTerm, by_values_from_new_data, column_as_object
-from ..univariate.bs import DerivativeBSplineTerm1D
-from ..univariate.cr import CubicSplineTerm
-from ..univariate.ds import DuchonSplineTerm
-from ..univariate.gp import GaussianProcessTerm
-from ..univariate.ps import PSplineTerm1D
-from ..univariate.sos import SphericalSplineTerm
 from .categorical_utils import (
     as_object_1d,
     factor_indicator_matrix,
@@ -28,7 +22,6 @@ from .categorical_utils import (
     is_factor_like_vector,
     stable_unique_levels,
 )
-from .mrf import MarkovRandomFieldTerm
 from .re import RandomEffectTerm
 
 
@@ -116,221 +109,42 @@ def _build_base_smooth_term(
     """
     base_bs = str(base_bs).lower()
     metric_features = list(metric_features)
-
-    if len(metric_features) == 0:
-        raise ValueError("At least one metric feature is required for the base smooth.")
-
-    if mode == "fs" and base_bs in {"cs", "ts"}:
+    descriptor = get_basis_descriptor(base_bs)
+    if descriptor is None or not descriptor.supports_factor_smooth:
+        raise NotImplementedError(
+            f"Current {mode} implementation does not support base bs={base_bs!r}."
+        )
+    if mode == "fs" and not descriptor.supports_fs:
         raise NotImplementedError(_fs_full_rank_base_error(base_bs))
-
-    if len(metric_features) > 1 and base_bs not in {"ds", "gp", "sos", "tp", "ts"}:
-        raise NotImplementedError(
-            f"Current {mode} implementation supports multivariate base smooths only "
-            f"for bs in {{'ds','gp','sos','tp','ts'}}, got base bs={base_bs!r}."
-        )
-
-    if xt_rest is not None and base_bs not in {
-        "bs",
-        "cp",
-        "ds",
-        "gp",
-        "mrf",
-        "ps",
-        "sos",
-        "tp",
-        "ts",
-    }:
-        raise NotImplementedError(
-            "Extra xt options are currently only supported for bs/cp/ds/gp/mrf/ps/sos/tp/ts "
-            "base smooths, "
-            f"got xt={xt_rest!r} with base bs={base_bs!r}."
-        )
-
-    if base_bs in {"cr", "cs", "cc"}:
-        return CubicSplineTerm(
-            feature=metric_features[0],
-            k=k,
-            basis=base_bs,
-            label=label,
-            smoothing_id=None,
-            by=by,
-            sp=None,
-            select=bool(select),
-            fixed=bool(fixed),
-            constraint_mode=str(constraint_mode),
-            shared_basis_setup=None,
-            pc=None,
-            knots=knots,
-            metadata=metadata,
-        )
-
-    if base_bs in {"ps", "cp"}:
-        ps_m = outer_m
-        if ps_m is None and xt_rest is not None:
-            ps_m = xt_rest.get("m", None)
-        # For fs/sz, mgcv keeps the outer basis dimension and uses xt mainly to
-        # choose the base smoother family / order parameters.
-        ps_k = k
-        return PSplineTerm1D(
-            feature=metric_features[0],
-            k=ps_k,
-            basis=base_bs,
-            m=ps_m,
-            label=label,
-            smoothing_id=None,
-            by=by,
-            sp=None,
-            select=bool(select),
-            fixed=bool(fixed),
-            constraint_mode=str(constraint_mode),
-            pc=None,
-            knots=knots,
-            metadata=metadata,
-        )
-
-    if base_bs == "bs":
-        bs_m = outer_m
-        if bs_m is None and xt_rest is not None:
-            bs_m = xt_rest.get("m", None)
-        return DerivativeBSplineTerm1D(
-            feature=metric_features[0],
-            k=k,
-            m=bs_m,
-            label=label,
-            smoothing_id=None,
-            by=by,
-            sp=None,
-            select=bool(select),
-            fixed=bool(fixed),
-            constraint_mode=str(constraint_mode),
-            pc=None,
-            knots=knots,
-            metadata=metadata,
-        )
-
-    if base_bs == "ds":
-        return DuchonSplineTerm(
-            feature=metric_features,
-            k=k,
-            m=outer_m,
-            label=label,
-            smoothing_id=None,
-            by=by,
-            sp=None,
-            select=bool(select),
-            fixed=bool(fixed),
-            constraint_mode=str(constraint_mode),
-            pc=None,
-            knots=knots,
-            xt=xt_rest,
-            metadata=metadata,
-        )
-
-    if base_bs == "gp":
-        return GaussianProcessTerm(
-            feature=metric_features,
-            k=k,
-            m=outer_m,
-            label=label,
-            smoothing_id=None,
-            by=by,
-            sp=None,
-            select=bool(select),
-            fixed=bool(fixed),
-            constraint_mode=str(constraint_mode),
-            pc=None,
-            knots=knots,
-            xt=xt_rest,
-            metadata=metadata,
-        )
-
-    if base_bs == "sos":
-        return SphericalSplineTerm(
-            feature=metric_features,
-            k=k,
-            m=outer_m,
-            label=label,
-            smoothing_id=None,
-            by=by,
-            sp=None,
-            select=bool(select),
-            fixed=bool(fixed),
-            constraint_mode=str(constraint_mode),
-            pc=None,
-            knots=knots,
-            xt=xt_rest,
-            metadata=metadata,
-        )
-
-    if base_bs == "mrf":
-        return MarkovRandomFieldTerm(
-            feature=metric_features[0],
-            k=k,
-            label=label,
-            smoothing_id=None,
-            by=by,
-            sp=None,
-            select=bool(select),
-            fixed=bool(fixed),
-            constraint_mode=str(constraint_mode),
-            knots=knots,
-            xt=xt_rest,
-            metadata=metadata,
-        )
-
-    if base_bs in {"tp", "ts"}:
-        return make_smooth_term(
-            base_bs,
-            feature=metric_features,
-            k=k,
-            basis=base_bs,
-            m=None,
-            label=label,
-            smoothing_id=None,
-            by=by,
-            sp=None,
-            select=bool(select),
-            fixed=bool(fixed),
-            constraint_mode=str(constraint_mode),
-            pc=None,
-            knots=knots,
-            xt=xt_rest,
-            metadata=metadata,
-        )
-
-    raise NotImplementedError(
-        f"Current {mode} implementation supports base bs in "
-        f"{{'bs','cr','cs','cc','cp','ds','gp','mrf','ps','sos','tp','ts'}}, got {base_bs!r}."
+    descriptor.validate_feature_count(
+        len(metric_features), context=f"{mode} base smooth"
     )
+    if xt_rest is not None and not descriptor.factor_accepts_xt:
+        raise NotImplementedError(
+            f"Extra xt options are not supported for {mode} base bs={base_bs!r}; "
+            f"got xt={xt_rest!r}."
+        )
 
-
-def _penalty_rank_from_base_term(base_term, basis_matrix, penalty_matrix) -> int:
-    if isinstance(base_term, DerivativeBSplineTerm1D):
-        return int(base_term._setup.ranks[0])
-    if isinstance(base_term, DuchonSplineTerm):
-        return int(base_term._setup.rank)
-    if isinstance(base_term, GaussianProcessTerm):
-        return int(base_term._setup.rank)
-    if isinstance(base_term, SphericalSplineTerm):
-        return int(base_term._setup.rank)
-    if isinstance(base_term, MarkovRandomFieldTerm):
-        return int(base_term._setup.rank)
-    if isinstance(base_term, PSplineTerm1D) and len(base_term.penalties) > 0:
-        if str(base_term.basis_name).lower() == "cp":
-            return int(base_term._setup.rank)
-        # mgcv::smooth.construct.ps.smooth.spec uses rank <- bs.dim - m[2].
-        penalty_order = int(base_term.m[1])
-        return max(0, int(basis_matrix.shape[1]) - penalty_order)
-
-    base_rank = int(getattr(base_term, "rank", 0) or 0)
-    if base_rank > 0:
-        return base_rank
-
-    evals = np.linalg.eigvalsh(0.5 * (penalty_matrix + penalty_matrix.T))
-    tol = (np.max(evals) if evals.size else 0.0) * (
-        np.finfo(np.float64).eps ** EIG_TOL_POWER
+    base_m = outer_m if descriptor.factor_forwards_m else None
+    if base_m is None and xt_rest is not None and base_bs in {"bs", "cp", "ps"}:
+        base_m = xt_rest.get("m", None)
+    return make_basis_term(
+        base_bs,
+        feature=metric_features,
+        k=k,
+        m=base_m,
+        xt=xt_rest,
+        label=label,
+        smoothing_id=None,
+        by=by,
+        sp=None,
+        select=bool(select),
+        fixed=bool(fixed),
+        constraint_mode=str(constraint_mode),
+        pc=None,
+        knots=knots,
+        metadata=metadata,
     )
-    return int(np.sum(evals > tol))
 
 
 def _fs_full_rank_base_error(base_bs: str) -> str:
@@ -710,8 +524,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             metadata=dict(self.metadata),
         )
         base_term.fit(X, feature_names)
-        if isinstance(base_term, MarkovRandomFieldTerm):
-            self.metadata = dict(base_term.metadata)
+        self.metadata = base_term.factor_smooth_metadata()
 
         if len(base_term.penalties) > 1:
             raise NotImplementedError(
@@ -719,30 +532,13 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             )
 
         self._base_term = base_term
-        if (
-            isinstance(base_term, SphericalSplineTerm)
-            and int(base_term._setup.null_space_dim) > 1
-        ):
-            raise NotImplementedError(
-                "bs='fs' with an SOS m=-1 base is not enabled: mgcv's four-way "
-                "repeated null eigenspace receives separate penalties whose "
-                "orientation is LAPACK-dependent. Use another SOS order."
-            )
-        if (
-            isinstance(base_term, MarkovRandomFieldTerm)
-            and base_term._setup.used_low_rank
-        ):
-            raise NotImplementedError(
-                "mgcv 1.9-4 cannot predict an fs smooth with a reduced-rank "
-                "MRF base because its factor-smooth P matrix is dimensionally "
-                "incompatible with the full region indicator."
-            )
+        base_term.validate_factor_smooth_base("fs")
         B_setup, S0, _ = self._base_constructor_fit_matrices()
         B_setup = np.asarray(B_setup, dtype=np.float64)
         B0 = np.asarray(self._base_constructor_predict_matrix(X), dtype=np.float64)
         S0 = np.asarray(S0, dtype=np.float64)
 
-        base_rank = _penalty_rank_from_base_term(base_term, B_setup, S0)
+        base_rank = base_term.factor_smooth_penalty_rank()
         null_d = int(B_setup.shape[1] - base_rank)
         if null_d <= 0:
             raise NotImplementedError(_fs_full_rank_base_error(base_spec.bs))
@@ -784,15 +580,11 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         null_d = B0.shape[1] - r
 
         self._base_transform = P_coef
-        if isinstance(base_term, MarkovRandomFieldTerm):
-            # The raw prediction callback below deliberately exposes mgcv's
-            # double-P MRF/fs prediction surface. Tell the compiler which
-            # inverse block map recovers the constructor matrix solely for its
-            # fit-vs-prediction parameterization audit; actual prediction does
-            # not apply this metadata map.
-            self.metadata["prediction_basis_map"] = np.kron(
-                np.eye(n_levels, dtype=np.float64), np.linalg.inv(P_coef)
-            )
+        prediction_basis_map = base_term.factor_smooth_prediction_basis_map(
+            P_coef, n_levels
+        )
+        if prediction_basis_map is not None:
+            self.metadata["prediction_basis_map"] = prediction_basis_map
         self._base_range_penalty_diag = np.concatenate(
             [D, np.zeros(null_d, dtype=np.float64)]
         )
@@ -871,14 +663,9 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             self._base_constructor_predict_matrix(X_new), dtype=np.float64
         )
         if self._base_transform is not None:
-            B0_new = B0_new @ self._base_transform
-            if isinstance(self._base_term, MarkovRandomFieldTerm):
-                # Upstream Predict.matrix.fs.interaction changes the object back
-                # to class mrf.smooth after overwriting object$P with the fs
-                # natural-parameter transform. Predict.matrix.mrf.smooth applies
-                # that P once and the fs wrapper applies it a second time. Preserve
-                # this observable mgcv 1.9-4 prediction parameterization exactly.
-                B0_new = B0_new @ self._base_transform
+            B0_new = self._base_term.factor_smooth_reparameterize_prediction(
+                B0_new, self._base_transform
+            )
 
         B_new = rowwise_kronecker([Ifac, B0_new])
         z = by_values_from_new_data(X_new, self._by_state)
@@ -1026,8 +813,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             metadata=dict(self.metadata),
         )
         base_term.fit(X, feature_names)
-        if isinstance(base_term, MarkovRandomFieldTerm):
-            self.metadata = dict(base_term.metadata)
+        self.metadata = base_term.factor_smooth_metadata()
 
         if len(base_term.penalties) > 1:
             raise NotImplementedError(
@@ -1035,6 +821,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             )
 
         self._base_term = base_term
+        base_term.validate_factor_smooth_base("sz")
         _B_setup, S0, _ = self._base_constructor_fit_matrices()
         B0 = np.asarray(self._base_constructor_predict_matrix(X), dtype=np.float64)
         S0 = np.asarray(S0, dtype=np.float64)

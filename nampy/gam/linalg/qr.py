@@ -84,6 +84,27 @@ def r_linpack_qy(
     return np.asarray(out, dtype=np.float64)
 
 
+def r_linpack_qty(
+    packed_qr: np.ndarray, qraux: np.ndarray, values: np.ndarray
+) -> np.ndarray:
+    """Apply ``t(Q)`` from the base-R LINPACK Householder representation."""
+    packed_qr = np.asarray(packed_qr, dtype=np.float64)
+    qraux = np.asarray(qraux, dtype=np.float64)
+    out = np.asarray(values, dtype=np.float64).copy()
+    if out.ndim == 1:
+        out = out.reshape(-1, 1)
+    for index in range(min(qraux.size, packed_qr.shape[1])):
+        if qraux[index] == 0.0:
+            continue
+        reflector = packed_qr[index:, index].copy()
+        reflector[0] = qraux[index]
+        denominator = float(reflector[0])
+        for column in range(out.shape[1]):
+            step = -float(np.dot(reflector, out[index:, column])) / denominator
+            out[index:, column] += step * reflector
+    return np.asarray(out, dtype=np.float64)
+
+
 def mgcv_pqr_r(matrix: np.ndarray) -> np.ndarray:
     """Mirror ``mgcv:::pqr.R(pqr(matrix))`` in natural column order.
 
@@ -127,5 +148,6 @@ __all__ = [
     "mgcv_pqr_r",
     "r_linpack_qr_no_pivot",
     "r_linpack_qr_r",
+    "r_linpack_qty",
     "r_linpack_qy",
 ]

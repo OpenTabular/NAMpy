@@ -31,7 +31,6 @@ from ..smooth_base import (
 class PSplineTerm1D(BaseSmoothTerm):
     term_type = "smooth"
     basis_name = "ps"
-    supports_tensor_marginal = False
 
     def __init__(
         self,
@@ -356,6 +355,10 @@ class PSplineTerm1D(BaseSmoothTerm):
             np.asarray(self._setup.penalty, dtype=np.float64),
             None,
         )
+
+    def factor_smooth_penalty_rank(self) -> int:
+        self._require_fitted()
+        return int(self._setup.rank)
 
     def tensor_marginal_predict_matrix(
         self, X_new, *, centered=False, np_transform=None

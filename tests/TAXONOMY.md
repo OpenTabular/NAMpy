@@ -12,7 +12,7 @@ The GAM test suite is intentionally overlapping. The goal is fast subset runs an
 - `tests/`: shared helpers, marker inference, taxonomy registry, static reference fixtures, and parity-generation R scripts
 
 ## Taxonomy Axes
-- `smooth_<name>`: `bs`, `cr`, `cs`, `cc`, `cp`, `ds`, `gp`, `mrf`, `ps`, `tp`, `ts`, `te`, `ti`, `fs`, `sz`, `re`
+- `smooth_<name>`: `bs`, `cr`, `cs`, `cc`, `cp`, `ds`, `gp`, `mrf`, `ps`, `sos`, `tp`, `ts`, `te`, `ti`, `fs`, `sz`, `re`
 - `family_<name>`: `gaussian`, `binomial`, `poisson`, `gamma`, `negbin`, `gaulss`, `gammals`, `general`
 - `method_<name>`: `fixed`, `reml`, `ml`, `laml`, `gcv`, `ubre`
 - `link_<name>`: `identity`, `log`, `inverse`, `logit`, `probit`, `cloglog`, `cauchit`, `sqrt`

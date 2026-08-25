@@ -8,6 +8,11 @@ from typing import Any, Callable
 import numpy as np
 import pandas as pd
 
+from ..basis_registry import (
+    basis_descriptors,
+    basis_spec_builder,
+    get_basis_descriptor,
+)
 from .smooth import (
     CubicRegressionSmoothSpec,
     CubicShrinkageSmoothSpec,
@@ -46,6 +51,7 @@ _SMOOTH_SPEC_DEFAULTS: dict[str, object] = {
     "d": None,
 }
 
+@basis_spec_builder("cr")
 def _build_s_cr(opts) -> CubicRegressionSmoothSpec:
     return CubicRegressionSmoothSpec(
         special="s",
@@ -60,6 +66,7 @@ def _build_s_cr(opts) -> CubicRegressionSmoothSpec:
     )
 
 
+@basis_spec_builder("cs")
 def _build_s_cs(opts) -> CubicShrinkageSmoothSpec:
     return CubicShrinkageSmoothSpec(
         special="s",
@@ -74,6 +81,7 @@ def _build_s_cs(opts) -> CubicShrinkageSmoothSpec:
     )
 
 
+@basis_spec_builder("cc")
 def _build_s_cc(opts) -> CyclicCubicRegressionSmoothSpec:
     return CyclicCubicRegressionSmoothSpec(
         special="s",
@@ -88,6 +96,7 @@ def _build_s_cc(opts) -> CyclicCubicRegressionSmoothSpec:
     )
 
 
+@basis_spec_builder("ps", "cp")
 def _build_s_ps(opts) -> PSplineSmoothSpec:
     return PSplineSmoothSpec(
         special="s",
@@ -103,6 +112,7 @@ def _build_s_ps(opts) -> PSplineSmoothSpec:
     )
 
 
+@basis_spec_builder("bs")
 def _build_s_bs(opts) -> DerivativeBSplineSmoothSpec:
     return DerivativeBSplineSmoothSpec(
         special="s",
@@ -117,6 +127,7 @@ def _build_s_bs(opts) -> DerivativeBSplineSmoothSpec:
     )
 
 
+@basis_spec_builder("ds")
 def _build_s_ds(opts) -> DuchonSplineSmoothSpec:
     return DuchonSplineSmoothSpec(
         special="s",
@@ -132,6 +143,7 @@ def _build_s_ds(opts) -> DuchonSplineSmoothSpec:
     )
 
 
+@basis_spec_builder("gp")
 def _build_s_gp(opts) -> GaussianProcessSmoothSpec:
     return GaussianProcessSmoothSpec(
         special="s",
@@ -147,6 +159,7 @@ def _build_s_gp(opts) -> GaussianProcessSmoothSpec:
     )
 
 
+@basis_spec_builder("sos")
 def _build_s_sos(opts) -> SphericalSplineSmoothSpec:
     return SphericalSplineSmoothSpec(
         special="s",
@@ -162,6 +175,7 @@ def _build_s_sos(opts) -> SphericalSplineSmoothSpec:
     )
 
 
+@basis_spec_builder("mrf")
 def _build_s_mrf(opts) -> MarkovRandomFieldSmoothSpec:
     return MarkovRandomFieldSmoothSpec(
         special="s",
@@ -175,6 +189,49 @@ def _build_s_mrf(opts) -> MarkovRandomFieldSmoothSpec:
     )
 
 
+@basis_spec_builder(
+    "mpi",
+    "mpd",
+    "mdcv",
+    "mdcx",
+    "micv",
+    "micx",
+    "cv",
+    "cx",
+    "po",
+    "dpo",
+    "ipo",
+    "miso",
+    "mifo",
+    "mpiby",
+    "mpdby",
+    "mdcvby",
+    "mdcxby",
+    "micvby",
+    "micxby",
+    "cvby",
+    "cxby",
+    "cpop",
+    "lmpi",
+    "lipl",
+    "tedmi",
+    "tedmd",
+    "temicx",
+    "temicv",
+    "tedecv",
+    "tedecx",
+    "tecvcv",
+    "tecxcx",
+    "tecxcv",
+    "tescv",
+    "tescx",
+    "tesmi1",
+    "tesmd1",
+    "tesmi2",
+    "tesmd2",
+    "tismi",
+    "tismd",
+)
 def _build_s_shape(opts) -> ShapeConstrainedSmoothSpec:
     return ShapeConstrainedSmoothSpec(
         special="s",
@@ -189,6 +246,7 @@ def _build_s_shape(opts) -> ShapeConstrainedSmoothSpec:
     )
 
 
+@basis_spec_builder("tp")
 def _build_s_tp(opts) -> ThinPlateSmoothSpec:
     return ThinPlateSmoothSpec(
         special="s",
@@ -204,6 +262,7 @@ def _build_s_tp(opts) -> ThinPlateSmoothSpec:
     )
 
 
+@basis_spec_builder("ts")
 def _build_s_ts(opts) -> ThinPlateShrinkageSmoothSpec:
     return ThinPlateShrinkageSmoothSpec(
         special="s",
@@ -219,6 +278,7 @@ def _build_s_ts(opts) -> ThinPlateShrinkageSmoothSpec:
     )
 
 
+@basis_spec_builder("re")
 def _build_s_re(opts) -> RandomEffectSmoothSpec:
     return RandomEffectSmoothSpec(
         special="s",
@@ -231,6 +291,7 @@ def _build_s_re(opts) -> RandomEffectSmoothSpec:
     )
 
 
+@basis_spec_builder("fs")
 def _build_s_fs(opts) -> FactorSmoothInteractionSpec:
     return FactorSmoothInteractionSpec(
         special="s",
@@ -244,6 +305,7 @@ def _build_s_fs(opts) -> FactorSmoothInteractionSpec:
     )
 
 
+@basis_spec_builder("sz")
 def _build_s_sz(opts) -> SumToZeroFactorSmoothSpec:
     return SumToZeroFactorSmoothSpec(
         special="s",
@@ -255,66 +317,6 @@ def _build_s_sz(opts) -> SumToZeroFactorSmoothSpec:
         m=opts["m"],
         xt=opts["xt"],
     )
-
-
-_S_BASIS_SPEC_BUILDERS: dict[str, Callable[[dict[str, Any]], SmoothSpec]] = {
-    "cr": _build_s_cr,
-    "cs": _build_s_cs,
-    "cc": _build_s_cc,
-    "ps": _build_s_ps,
-    "cp": _build_s_ps,
-    "bs": _build_s_bs,
-    "ds": _build_s_ds,
-    "gp": _build_s_gp,
-    "sos": _build_s_sos,
-    "mrf": _build_s_mrf,
-    "tp": _build_s_tp,
-    "ts": _build_s_ts,
-    "re": _build_s_re,
-    "fs": _build_s_fs,
-    "sz": _build_s_sz,
-    "mpi": _build_s_shape,
-    "mpd": _build_s_shape,
-    "mdcv": _build_s_shape,
-    "mdcx": _build_s_shape,
-    "micv": _build_s_shape,
-    "micx": _build_s_shape,
-    "cv": _build_s_shape,
-    "cx": _build_s_shape,
-    "po": _build_s_shape,
-    "dpo": _build_s_shape,
-    "ipo": _build_s_shape,
-    "miso": _build_s_shape,
-    "mifo": _build_s_shape,
-    "mpiby": _build_s_shape,
-    "mpdby": _build_s_shape,
-    "mdcvby": _build_s_shape,
-    "mdcxby": _build_s_shape,
-    "micvby": _build_s_shape,
-    "micxby": _build_s_shape,
-    "cvby": _build_s_shape,
-    "cxby": _build_s_shape,
-    "cpop": _build_s_shape,
-    "lmpi": _build_s_shape,
-    "lipl": _build_s_shape,
-    "tedmi": _build_s_shape,
-    "tedmd": _build_s_shape,
-    "temicx": _build_s_shape,
-    "temicv": _build_s_shape,
-    "tedecv": _build_s_shape,
-    "tedecx": _build_s_shape,
-    "tecvcv": _build_s_shape,
-    "tecxcx": _build_s_shape,
-    "tecxcv": _build_s_shape,
-    "tescv": _build_s_shape,
-    "tescx": _build_s_shape,
-    "tesmi1": _build_s_shape,
-    "tesmd1": _build_s_shape,
-    "tesmi2": _build_s_shape,
-    "tesmd2": _build_s_shape,
-    "tismi": _build_s_shape,
-    "tismd": _build_s_shape,
-}
 
 
 def _build_te(opts) -> TensorProductSmoothSpec:
@@ -360,35 +362,24 @@ def _is_vector_fx(fx) -> bool:
     return fx is not None and not np.isscalar(fx)
 
 
-_PC_SUPPORTED_S_BASES = {
-    "bs",
-    "cc",
-    "cp",
-    "cr",
-    "cs",
-    "ds",
-    "gp",
-    "sos",
-    "ps",
-    "tp",
-    "ts",
-}
-
-
 def _dispatch_smooth_spec_from_options(opts) -> SmoothSpec:
     merged = {**_SMOOTH_SPEC_DEFAULTS, **dict(opts)}
     special_key = str(merged["special"]).lower()
     has_pc = merged.get("pc") is not None
     if special_key == "s":
         bs_key = str(merged["bs"]).lower()
-        builder = _S_BASIS_SPEC_BUILDERS.get(bs_key)
-        if builder is None:
+        descriptor = get_basis_descriptor(bs_key)
+        builder = None if descriptor is None else descriptor.spec_builder
+        if descriptor is None or builder is None:
             raise NotImplementedError(f"Unsupported s() basis {merged['bs']!r}.")
-        if has_pc and bs_key not in _PC_SUPPORTED_S_BASES:
+        if has_pc and not descriptor.supports_pc:
+            supported = sorted(
+                item.name for item in basis_descriptors() if item.supports_pc
+            )
             raise NotImplementedError(
                 f"pc= is not supported for s(..., bs={merged['bs']!r}); "
                 "point constraints are only supported for bs in "
-                "{'bs', 'cc', 'cp', 'cr', 'cs', 'ds', 'gp', 'ps', 'tp', 'ts'}."
+                f"{supported}."
             )
         return builder(merged)
     if has_pc and special_key not in {"te", "ti"}:
@@ -586,7 +577,8 @@ def _default_k_for_smooth(kind, basis, features, default_k):
         # mgcv::te()/ti() default k to 5^d per marginal. The current
         # Python tensor surface supports one feature per marginal, so d = 1.
         return [5] * len(features)
-    if str(basis).lower() in {"bs", "ds", "gp", "mrf", "sos", "tp", "ts"}:
+    descriptor = get_basis_descriptor(str(basis).lower())
+    if descriptor is not None and descriptor.dynamic_default_k:
         # mgcv/R/smooth.r::s() leaves k = -1. The basis constructor then
         # resolves its dimension-dependent default (TP/TS use M + 8/27/100;
         # DS uses M + 10/30/100; GP uses d + 1 + 10/30/100). A flat default here would be wrong in more

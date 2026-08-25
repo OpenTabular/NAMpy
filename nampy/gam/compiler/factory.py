@@ -6,41 +6,24 @@ from typing import Any
 
 import numpy as np
 
+from ..basis_registry import get_basis_descriptor
 from ..smooths.categorical.fs import (
     FSmoothInteractionTerm,
     SZSmoothInteractionTerm,
 )
-from ..smooths.categorical.mrf import MarkovRandomFieldTerm
 from ..smooths.categorical.re import RandomEffectTerm
 from ..smooths.parametric import LinearTerm
-from ..smooths.registry import make_smooth_term
+from ..smooths.registry import make_basis_term, make_smooth_term
 from ..smooths.shape.bivariate import BivariateShapePSplineTerm
 from ..smooths.shape.scop import ShapeConstrainedPSplineTerm
-from ..smooths.univariate.bs import DerivativeBSplineTerm1D
-from ..smooths.univariate.cr import CubicSplineTerm
-from ..smooths.univariate.ds import DuchonSplineTerm
-from ..smooths.univariate.gp import GaussianProcessTerm
-from ..smooths.univariate.ps import PSplineTerm1D
-from ..smooths.univariate.sos import SphericalSplineTerm
 from ..specs import LinearPredictorSpec, PenaltyGroupSpec, TermSpec
 from ..specs.smooth import (
-    CubicRegressionSmoothSpec,
-    CubicShrinkageSmoothSpec,
-    CyclicCubicRegressionSmoothSpec,
-    DerivativeBSplineSmoothSpec,
-    DuchonSplineSmoothSpec,
     FactorSmoothInteractionSpec,
-    GaussianProcessSmoothSpec,
-    MarkovRandomFieldSmoothSpec,
-    PSplineSmoothSpec,
     RandomEffectSmoothSpec,
     ShapeConstrainedSmoothSpec,
-    SphericalSplineSmoothSpec,
     SumToZeroFactorSmoothSpec,
     TensorInteractionSmoothSpec,
     TensorProductSmoothSpec,
-    ThinPlateShrinkageSmoothSpec,
-    ThinPlateSmoothSpec,
     tensor_basis_list,
 )
 
@@ -117,88 +100,18 @@ def instantiate_term(term_like: TermSpec | Any):
     smoothing_id = term_like.smoothing_id
     label = term_like.label
 
-    if isinstance(
-        smooth_spec,
-        (
-            CubicRegressionSmoothSpec,
-            CubicShrinkageSmoothSpec,
-            CyclicCubicRegressionSmoothSpec,
-        ),
-    ):
-        bs = str(smooth_spec.bs).lower()
-        if len(features) != 1:
-            raise NotImplementedError(
-                f"Current runtime only materializes 1D s(..., bs={bs!r}) terms."
-            )
-        return CubicSplineTerm(
-            feature=features[0],
-            k=smooth_spec.k,
-            basis=bs,
-            label=label,
-            term_id=term_like.term_id,
-            smoothing_id=smoothing_id,
-            by=by,
-            sp=smooth_spec.sp,
-            select=smooth_spec.select,
-            fixed=smooth_spec.fx,
-            constraint_mode=smooth_spec.constraint_mode,
-            shared_basis_setup=smooth_spec.shared_basis_setup,
-            pc=smooth_spec.pc,
-            knots=smooth_spec.knots,
-            metadata=metadata,
-        )
-
-    if isinstance(smooth_spec, PSplineSmoothSpec):
-        basis = str(smooth_spec.bs).lower()
-        if len(features) != 1:
-            raise NotImplementedError(
-                f"Current runtime only materializes 1D s(..., bs={basis!r}) terms."
-            )
-        return PSplineTerm1D(
-            feature=features[0],
-            k=smooth_spec.k,
-            basis=basis,
-            m=smooth_spec.m,
-            label=label,
-            term_id=term_like.term_id,
-            smoothing_id=smoothing_id,
-            by=by,
-            sp=smooth_spec.sp,
-            select=smooth_spec.select,
-            fixed=smooth_spec.fx,
-            constraint_mode=smooth_spec.constraint_mode,
-            pc=smooth_spec.pc,
-            knots=smooth_spec.knots,
-            metadata=metadata,
-        )
-
-    if isinstance(smooth_spec, DerivativeBSplineSmoothSpec):
-        if len(features) != 1:
-            raise NotImplementedError(
-                "Current runtime only materializes 1D s(..., bs='bs') terms."
-            )
-        return DerivativeBSplineTerm1D(
-            feature=features[0],
-            k=smooth_spec.k,
-            m=smooth_spec.m,
-            label=label,
-            term_id=term_like.term_id,
-            smoothing_id=smoothing_id,
-            by=by,
-            sp=smooth_spec.sp,
-            select=smooth_spec.select,
-            fixed=smooth_spec.fx,
-            constraint_mode=smooth_spec.constraint_mode,
-            pc=smooth_spec.pc,
-            knots=smooth_spec.knots,
-            metadata=metadata,
-        )
-
-    if isinstance(smooth_spec, DuchonSplineSmoothSpec):
-        return DuchonSplineTerm(
+    basis_name = str(getattr(smooth_spec, "bs", "")).lower()
+    descriptor = get_basis_descriptor(basis_name)
+    if descriptor is not None and descriptor.direct_runtime:
+        return make_basis_term(
+            basis_name,
             feature=features,
             k=smooth_spec.k,
-            m=smooth_spec.m,
+            m=getattr(smooth_spec, "m", None),
+            xt=getattr(smooth_spec, "xt", None),
+            pc=getattr(smooth_spec, "pc", None),
+            knots=smooth_spec.knots,
+            shared_basis_setup=getattr(smooth_spec, "shared_basis_setup", None),
             label=label,
             term_id=term_like.term_id,
             smoothing_id=smoothing_id,
@@ -206,65 +119,7 @@ def instantiate_term(term_like: TermSpec | Any):
             sp=smooth_spec.sp,
             select=smooth_spec.select,
             fixed=smooth_spec.fx,
-            constraint_mode=smooth_spec.constraint_mode,
-            pc=smooth_spec.pc,
-            knots=smooth_spec.knots,
-            xt=smooth_spec.xt,
-            metadata=metadata,
-        )
-
-    if isinstance(smooth_spec, GaussianProcessSmoothSpec):
-        return GaussianProcessTerm(
-            feature=features,
-            k=smooth_spec.k,
-            m=smooth_spec.m,
-            label=label,
-            term_id=term_like.term_id,
-            smoothing_id=smoothing_id,
-            by=by,
-            sp=smooth_spec.sp,
-            select=smooth_spec.select,
-            fixed=smooth_spec.fx,
-            constraint_mode=smooth_spec.constraint_mode,
-            pc=smooth_spec.pc,
-            knots=smooth_spec.knots,
-            xt=smooth_spec.xt,
-            metadata=metadata,
-        )
-
-    if isinstance(smooth_spec, SphericalSplineSmoothSpec):
-        return SphericalSplineTerm(
-            feature=features,
-            k=smooth_spec.k,
-            m=smooth_spec.m,
-            label=label,
-            term_id=term_like.term_id,
-            smoothing_id=smoothing_id,
-            by=by,
-            sp=smooth_spec.sp,
-            select=smooth_spec.select,
-            fixed=smooth_spec.fx,
-            constraint_mode=smooth_spec.constraint_mode,
-            pc=smooth_spec.pc,
-            knots=smooth_spec.knots,
-            xt=smooth_spec.xt,
-            metadata=metadata,
-        )
-
-    if isinstance(smooth_spec, MarkovRandomFieldSmoothSpec):
-        return MarkovRandomFieldTerm(
-            feature=features,
-            k=smooth_spec.k,
-            label=label,
-            term_id=term_like.term_id,
-            smoothing_id=smoothing_id,
-            by=by,
-            sp=smooth_spec.sp,
-            select=smooth_spec.select,
-            fixed=smooth_spec.fx,
-            constraint_mode=smooth_spec.constraint_mode,
-            knots=smooth_spec.knots,
-            xt=smooth_spec.xt,
+            constraint_mode=getattr(smooth_spec, "constraint_mode", "auto"),
             metadata=metadata,
         )
 
@@ -301,27 +156,6 @@ def instantiate_term(term_like: TermSpec | Any):
             select=smooth_spec.select,
             fixed=smooth_spec.fx,
             knots=smooth_spec.knots,
-            metadata=metadata,
-        )
-
-    if isinstance(smooth_spec, (ThinPlateSmoothSpec, ThinPlateShrinkageSmoothSpec)):
-        return make_smooth_term(
-            str(smooth_spec.bs).lower(),
-            feature=features,
-            k=smooth_spec.k,
-            basis=str(smooth_spec.bs).lower(),
-            m=smooth_spec.m,
-            label=label,
-            term_id=term_like.term_id,
-            smoothing_id=smoothing_id,
-            by=by,
-            sp=smooth_spec.sp,
-            select=smooth_spec.select,
-            fixed=smooth_spec.fx,
-            constraint_mode=smooth_spec.constraint_mode,
-            pc=smooth_spec.pc,
-            knots=smooth_spec.knots,
-            xt=smooth_spec.xt,
             metadata=metadata,
         )
 

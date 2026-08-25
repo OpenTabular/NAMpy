@@ -193,6 +193,7 @@ model_checkpoints/
 /paper_list.md
 /*review*.md
 /plan_claude.md
+/nampy_notes/
 
 # Local development probes and maintenance tooling
 /debug/

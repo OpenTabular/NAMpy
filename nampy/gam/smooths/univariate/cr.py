@@ -46,7 +46,6 @@ from ..smooth_base import (
 class CubicSplineTerm(BaseSmoothTerm):
     term_type = "smooth"
     basis_name = "cr"
-    supports_tensor_marginal = True
 
     def __init__(
         self,
