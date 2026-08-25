@@ -4,6 +4,7 @@ from .base import TermSpec
 from .build import build_smooth_spec, smooth_spec_from_basis_options
 from .predictors import LinearPredictorSpec, PenaltyGroupSpec
 from .smooth import (
+    AlternativeTensorProductSmoothSpec,
     BaseSmoothSpec,
     CubicRegressionSmoothSpec,
     CubicShrinkageSmoothSpec,
@@ -31,6 +32,7 @@ __all__ = [
     "LinearPredictorSpec",
     "PenaltyGroupSpec",
     "BaseSmoothSpec",
+    "AlternativeTensorProductSmoothSpec",
     "CubicRegressionSmoothSpec",
     "CubicShrinkageSmoothSpec",
     "CyclicCubicRegressionSmoothSpec",

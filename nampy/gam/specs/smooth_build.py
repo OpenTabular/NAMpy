@@ -14,6 +14,7 @@ from ..basis_registry import (
     get_basis_descriptor,
 )
 from .smooth import (
+    AlternativeTensorProductSmoothSpec,
     CubicRegressionSmoothSpec,
     CubicShrinkageSmoothSpec,
     CyclicCubicRegressionSmoothSpec,
@@ -49,6 +50,8 @@ _SMOOTH_SPEC_DEFAULTS: dict[str, object] = {
     "shared_basis_setup": None,
     "mc": None,
     "d": None,
+    "full": False,
+    "ord": None,
 }
 
 @basis_spec_builder("cr")
@@ -352,9 +355,28 @@ def _build_ti(opts) -> TensorInteractionSmoothSpec:
     )
 
 
+def _build_t2(opts) -> AlternativeTensorProductSmoothSpec:
+    return AlternativeTensorProductSmoothSpec(
+        special="t2",
+        bs=opts["bs"],
+        k=opts["k"],
+        fx=False,
+        select=opts["select"],
+        m=opts["m"],
+        xt=opts["xt"],
+        sp=opts["sp"],
+        knots=opts["knots"],
+        d=opts["d"],
+        pc=opts["pc"],
+        full=bool(opts["full"]),
+        ord=opts["ord"],
+    )
+
+
 _SPECIAL_SMOOTH_BUILDERS: dict[str, Callable[[dict[str, Any]], SmoothSpec]] = {
     "te": _build_te,
     "ti": _build_ti,
+    "t2": _build_t2,
 }
 
 
@@ -382,7 +404,7 @@ def _dispatch_smooth_spec_from_options(opts) -> SmoothSpec:
                 f"{supported}."
             )
         return builder(merged)
-    if has_pc and special_key not in {"te", "ti"}:
+    if has_pc and special_key not in {"te", "ti", "t2"}:
         raise NotImplementedError(
             f"pc= is not supported for {special_key}(...) smooths."
         )
@@ -408,6 +430,8 @@ def build_smooth_spec(
     shared_basis_setup=None,
     mc=None,
     d=None,
+    full=False,
+    ord=None,
 ) -> SmoothSpec:
     return _dispatch_smooth_spec_from_options(locals())
 
@@ -573,7 +597,7 @@ def _factor_smooth_base_basis_from_xt(xt):
 
 def _default_k_for_smooth(kind, basis, features, default_k):
     kind_key = str(kind).lower()
-    if kind_key in {"te", "ti"}:
+    if kind_key in {"te", "ti", "t2"}:
         # mgcv::te()/ti() default k to 5^d per marginal. The current
         # Python tensor surface supports one feature per marginal, so d = 1.
         return [5] * len(features)

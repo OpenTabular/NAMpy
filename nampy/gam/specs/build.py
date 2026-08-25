@@ -240,7 +240,7 @@ def _expand_rhs_dot_outside_smooth_calls(rhs: str, dot_rhs: str) -> tuple[str, b
     paren_stack: list[bool] = []
     quote: str | None = None
     changed = False
-    smooth_names = {"s", "te", "ti"}
+    smooth_names = {"s", "te", "ti", "t2"}
     boundary = set("~+-(), \t\r\n")
 
     i = 0
@@ -685,9 +685,9 @@ def _expand_factor_by_term(
         raise ValueError(f"Smooth term {term.label!r} is missing smooth_spec.")
 
     special_key = str(smooth_spec.special)
-    if special_key not in {"s", "te", "ti"}:
+    if special_key not in {"s", "te", "ti", "t2"}:
         raise NotImplementedError(
-            f"Factor `by` expansion is implemented for s(...), te(...), and ti(...) only in this step, "
+            f"Factor `by` expansion is implemented for s(...), te(...), ti(...), and t2(...) only in this step, "
             f"not for {smooth_spec.special}(...)."
         )
 
@@ -991,13 +991,13 @@ def _build_predictor_spec(
         )
         kind_key = str(kind).lower()
         d = kw.pop("d", None)
-        if kind_key in {"te", "ti"}:
+        if kind_key in {"te", "ti", "t2"}:
             d = _normalize_tensor_dimensions(d, len(features))
             basis = _normalize_tensor_basis(basis, d)
         if "k" in kw:
             k = kw.pop("k")
         else:
-            if kind_key in {"te", "ti"}:
+            if kind_key in {"te", "ti", "t2"}:
                 k = [int(5**di) for di in d]
             else:
                 k_basis = basis
@@ -1018,12 +1018,16 @@ def _build_predictor_spec(
             ):
                 raise KeyError(f"by column {by!r} not found in available data columns.")
         smoothing_id = kw.pop("id", kw.pop("smoothing_id", None))
-        fixed = _coerce_fx(
-            kw.pop("fx", False),
-            kind=kind,
-            n_features=(len(d) if kind_key in {"te", "ti"} else len(features)),
-        )
-        # mgcv's s()/te()/ti() take no select argument (mgcv/R/smooth.r:614);
+        if kind_key == "t2":
+            # Unlike te()/ti(), upstream t2() has no fx argument.
+            fixed = False
+        else:
+            fixed = _coerce_fx(
+                kw.pop("fx", False),
+                kind=kind,
+                n_features=(len(d) if kind_key in {"te", "ti"} else len(features)),
+            )
+        # mgcv's s()/te()/ti()/t2() take no select argument;
         # per-term select therefore falls through to the unsupported-argument
         # guard below. Selection penalties come only from the model-level
         # select flag, exactly as gam(select=TRUE).
@@ -1034,10 +1038,12 @@ def _build_predictor_spec(
         sp = kw.pop("sp", None)
         pc = kw.pop("pc", None)
 
-        mc = kw.pop("mc", None)
+        mc = kw.pop("mc", None) if kind_key == "ti" else None
+        full = kw.pop("full", False) if kind_key == "t2" else False
+        ord_value = kw.pop("ord", None) if kind_key == "t2" else None
         if kind_key == "s":
             k = _normalize_univariate_smooth_k(k)
-        elif kind_key in {"te", "ti"}:
+        elif kind_key in {"te", "ti", "t2"}:
             k = _normalize_tensor_k(k, d)
         smoothing_id = _normalize_smooth_id(smoothing_id)
 
@@ -1067,6 +1073,8 @@ def _build_predictor_spec(
                     shared_basis_setup=None,
                     mc=mc,
                     d=d,
+                    full=full,
+                    ord=ord_value,
                 ),
                 smoothing_id=smoothing_id,
                 label=term.raw_label,

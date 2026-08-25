@@ -18,6 +18,7 @@ from .smooth_base import (
     resolve_by_state,
     sync_by_state_attributes,
 )
+from .tensor.t2 import AlternativeTensorProductSplineTerm
 from .tensor.te import TensorProductSplineTerm
 from .tensor.ti import InteractionTensorProductSplineTerm
 from .univariate.bs import DerivativeBSplineTerm1D
@@ -32,6 +33,7 @@ from .univariate.tp import ThinPlateSplineTerm
 # the old module-level compatibility facades.
 te = TensorProductSplineTerm
 ti = InteractionTensorProductSplineTerm
+t2 = AlternativeTensorProductSplineTerm
 
 bs = DerivativeBSplineTerm1D
 cr = cs = cc = CubicSplineTerm
@@ -74,12 +76,14 @@ __all__ = [
     "ThinPlateSplineTerm",
     "TensorProductSplineTerm",
     "InteractionTensorProductSplineTerm",
+    "AlternativeTensorProductSplineTerm",
     "FSmoothInteractionTerm",
     "SZSmoothInteractionTerm",
     "RandomEffectTerm",
     "ShapeConstrainedPSplineTerm",
     "te",
     "ti",
+    "t2",
     "bs",
     "cr",
     "cs",

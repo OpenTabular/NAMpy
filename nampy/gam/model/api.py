@@ -604,6 +604,7 @@ class GAM:
             if str(getattr(tb, "term_type", "")).lower() in {
                 "tensor_smooth",
                 "tensor_interaction",
+                "tensor_t2",
             }:
                 return True
         return False

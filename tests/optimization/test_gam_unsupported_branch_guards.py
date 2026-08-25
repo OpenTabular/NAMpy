@@ -173,8 +173,8 @@ def test_negbin_estimated_theta_ml_optim_guard_raises_explicitly():
         gam.fit(data=data)
 
 
-def test_t2_smooth_guard_raises_explicitly():
-    """Guard coverage verifying that t2(...) smooths raise a clear error."""
+def test_t2_smooth_builds_a_distinct_tensor_spec():
+    """t2(...) is parsed as its own alternative tensor construction."""
     data = pd.DataFrame(
         {
             "y": [1.0, 2.0, 3.0, 4.0],
@@ -183,11 +183,11 @@ def test_t2_smooth_guard_raises_explicitly():
         }
     )
 
-    with pytest.raises(
-        NotImplementedError,
-        match=r"t2\(\.\.\.\) tensor product smooths are not supported",
-    ):
-        _build_from_formula("y ~ t2(x, z)", data)
+    built = _build_from_formula("y ~ t2(x, z, full=True, ord=[1, 2])", data)
+    term = built.predictor_specs[0].terms[0]
+    assert term.smooth_spec.special == "t2"
+    assert term.smooth_spec.full is True
+    assert term.smooth_spec.ord == [1, 2]
 
 
 @pytest.mark.parametrize(

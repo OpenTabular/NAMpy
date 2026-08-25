@@ -79,7 +79,7 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
         group_terms = [term for _, _, term in items]
         has_tensor_pc = any(
             term.smooth_spec is not None
-            and str(term.smooth_spec.special).lower() in {"te", "ti"}
+            and str(term.smooth_spec.special).lower() in {"te", "ti", "t2"}
             and getattr(term.smooth_spec, "pc", None) is not None
             for term in group_terms
         )

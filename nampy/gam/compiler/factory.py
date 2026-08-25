@@ -18,6 +18,7 @@ from ..smooths.shape.bivariate import BivariateShapePSplineTerm
 from ..smooths.shape.scop import ShapeConstrainedPSplineTerm
 from ..specs import LinearPredictorSpec, PenaltyGroupSpec, TermSpec
 from ..specs.smooth import (
+    AlternativeTensorProductSmoothSpec,
     FactorSmoothInteractionSpec,
     RandomEffectSmoothSpec,
     ShapeConstrainedSmoothSpec,
@@ -208,7 +209,11 @@ def instantiate_term(term_like: TermSpec | Any):
 
     if isinstance(
         smooth_spec,
-        (TensorProductSmoothSpec, TensorInteractionSmoothSpec),
+        (
+            TensorProductSmoothSpec,
+            TensorInteractionSmoothSpec,
+            AlternativeTensorProductSmoothSpec,
+        ),
     ):
         groups = _tensor_feature_groups(features, getattr(smooth_spec, "d", None))
         basis = [str(b).lower() for b in tensor_basis_list(smooth_spec, len(groups))]
@@ -232,6 +237,9 @@ def instantiate_term(term_like: TermSpec | Any):
 
         if isinstance(smooth_spec, TensorInteractionSmoothSpec):
             kwargs["mc"] = smooth_spec.mc
+        elif isinstance(smooth_spec, AlternativeTensorProductSmoothSpec):
+            kwargs["full"] = smooth_spec.full
+            kwargs["ord"] = smooth_spec.ord
 
         return make_smooth_term(smooth_spec.special, **kwargs)
 

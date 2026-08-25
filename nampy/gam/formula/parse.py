@@ -423,6 +423,7 @@ def _is_smooth_call(node) -> bool:
         "s",
         "te",
         "ti",
+        "t2",
     }
 
 
@@ -560,12 +561,6 @@ def _collect_special_nodes(node, rhs_src: str, out: dict[str, ast.Call]) -> None
         if value is None:
             _collect_special_nodes(node.operand, rhs_src, out)
         return
-
-    if isinstance(node, ast.Call) and _call_name(node.func) == "t2":
-        raise NotImplementedError(
-            "t2(...) tensor product smooths are not supported; "
-            "use te(...) or ti(...)."
-        )
 
     if _is_smooth_call(node):
         label = _ast_to_expr_label(node, rhs_src)
@@ -724,7 +719,7 @@ def _smooth_label(kind: str, features: tuple[str, ...], textra: str | None) -> s
 
 def _parse_smooth_call(node, rhs_src: str, textra: str | None):
     kind = _call_name(node.func)
-    if kind not in {"s", "te", "ti"}:
+    if kind not in {"s", "te", "ti", "t2"}:
         raise ValueError(f"Unknown smooth special {kind!r}.")
 
     features = tuple(_ast_to_expr_label(arg, rhs_src) for arg in node.args)

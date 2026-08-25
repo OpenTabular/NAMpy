@@ -162,6 +162,20 @@ class TensorInteractionSmoothSpec(BaseSmoothSpec):
     pc: Any = None
 
 
+@dataclass(frozen=True)
+class AlternativeTensorProductSmoothSpec(BaseSmoothSpec):
+    """SS-ANOVA-style ``t2`` tensor-product smooth specification."""
+
+    special: str = "t2"
+    bs: Any = "cr"
+    m: Any = None
+    xt: Any = None
+    d: Any = None
+    pc: Any = None
+    full: bool = False
+    ord: Any = None
+
+
 SmoothSpec = Union[
     CubicRegressionSmoothSpec,
     CyclicCubicRegressionSmoothSpec,
@@ -180,6 +194,7 @@ SmoothSpec = Union[
     SumToZeroFactorSmoothSpec,
     TensorProductSmoothSpec,
     TensorInteractionSmoothSpec,
+    AlternativeTensorProductSmoothSpec,
 ]
 
 
@@ -188,7 +203,11 @@ def replace_smooth_spec(spec: SmoothSpec, **changes: Any) -> SmoothSpec:
 
 
 def tensor_basis_list(
-    spec: Union[TensorProductSmoothSpec, TensorInteractionSmoothSpec],
+    spec: Union[
+        TensorProductSmoothSpec,
+        TensorInteractionSmoothSpec,
+        AlternativeTensorProductSmoothSpec,
+    ],
     n_features: int,
 ) -> list[Any]:
     basis = spec.bs

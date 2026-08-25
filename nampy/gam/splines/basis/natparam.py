@@ -282,4 +282,83 @@ def nat_param_type0(X, S, rank=None, tol=None, unit_fnorm=True):
     return {"X": Xn, "D": D, "P": P, "rank": int(rank)}
 
 
-__all__ = ["nat_param_type0", "nat_param_type1"]
+def nat_param_type3(X, S, rank=None, tol=None, unit_fnorm=True):
+    """Python implementation of ``mgcv::nat.param(..., type=3)``.
+
+    Type 3 diagonalizes the supplied penalty without the QR step used by the
+    type-0/1 natural parameterizations.  Its penalized columns have a common
+    ridge penalty and, when the null space has dimension greater than one, the
+    final null-space column is oriented toward the constant function.  This is
+    the marginal parameterization used by ``mgcv::t2``.
+    """
+    X = np.asarray(X, dtype=np.float64)
+    S = np.asarray(S, dtype=np.float64)
+    if X.ndim != 2 or S.ndim != 2 or S.shape[0] != S.shape[1]:
+        raise ValueError("nat_param_type3 requires a matrix X and square penalty S.")
+    if X.shape[1] != S.shape[0]:
+        raise ValueError("X and S must have the same coefficient dimension.")
+
+    tol = np.finfo(float).eps ** 0.8 if tol is None else float(tol)
+    evals, vectors = _r_symmetric_eigh_descending(S)
+    if rank is None or int(rank) < 1 or int(rank) > S.shape[0]:
+        largest = float(np.max(evals)) if evals.size else 0.0
+        rank = int(np.sum(evals > largest * tol))
+    rank = max(0, min(int(rank), S.shape[0]))
+    if rank == 0:
+        raise ValueError(
+            "type-3 natural parameterization requires positive penalty rank."
+        )
+
+    null_exists = rank < X.shape[1]
+    divisor = np.ones(X.shape[1], dtype=np.float64)
+    divisor[:rank] = np.sqrt(np.maximum(evals[:rank], 0.0))
+
+    Xn = np.asarray(X @ vectors, dtype=np.float64)
+    col_norm = np.sum(Xn**2, axis=0) / divisor**2
+    average_penalized_norm = float(np.mean(col_norm[:rank]))
+    if not np.isfinite(average_penalized_norm) or average_penalized_norm <= 0.0:
+        raise ValueError("Penalized type-3 marginal basis has zero norm.")
+    if null_exists:
+        divisor[rank:] = np.sqrt(
+            np.maximum(col_norm[rank:] / average_penalized_norm, 0.0)
+        )
+        if np.any(divisor[rank:] <= 0.0):
+            raise ValueError("Type-3 marginal null-space basis is rank deficient.")
+
+    P = np.asarray(vectors / divisor[np.newaxis, :], dtype=np.float64)
+    Xn = np.asarray(Xn / divisor[np.newaxis, :], dtype=np.float64)
+
+    # mgcv reverses the destination null-space indices so that the eigenvector
+    # of the centered null basis with smallest eigenvalue (the constant
+    # direction) is placed last.
+    if null_exists and rank < Xn.shape[1] - 1:
+        source = np.arange(rank, Xn.shape[1], dtype=int)
+        destination = source[::-1]
+        centered = Xn[:, source] - np.mean(Xn[:, source], axis=0, keepdims=True)
+        _null_values, null_vectors = _r_symmetric_eigh_descending(centered.T @ centered)
+        X_source = Xn[:, source].copy()
+        P_source = P[:, source].copy()
+        Xn[:, destination] = X_source @ null_vectors
+        P[:, destination] = P_source @ null_vectors
+
+    scale = 1.0
+    if unit_fnorm:
+        scale = 1.0 / np.sqrt(np.mean(Xn[:, :rank] ** 2))
+        Xn[:, :rank] *= scale
+        # This is algebraically the same as mgcv's row scaling here because
+        # type 3 equalizes the penalized and null block norms before this step.
+        P[:, :rank] *= scale
+        if null_exists:
+            null_scale = 1.0 / np.sqrt(np.mean(Xn[:, rank:] ** 2))
+            Xn[:, rank:] *= null_scale
+            P[:, rank:] *= null_scale
+
+    return {
+        "X": np.asarray(Xn, dtype=np.float64),
+        "D": np.full(rank, scale**2, dtype=np.float64),
+        "P": np.asarray(P, dtype=np.float64),
+        "rank": int(rank),
+    }
+
+
+__all__ = ["nat_param_type0", "nat_param_type1", "nat_param_type3"]
