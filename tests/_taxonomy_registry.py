@@ -22,6 +22,7 @@ _SMOOTH_MARK_NAMES = {
     "ds": "smooth_ds",
     "gp": "smooth_gp",
     "mrf": "smooth_mrf",
+    "sos": "smooth_sos",
     "ps": "smooth_ps",
     "tp": "smooth_tp",
     "ts": "smooth_ts",
@@ -89,6 +90,7 @@ _DEFAULT_MARKS_BY_FILE = {
     "test_mgcv_raw_constructor_parity.py": {"surface_smoothcon"},
     "test_mgcv_ds_combinations_parity.py": {"surface_snapshot"},
     "test_mgcv_mrf_combinations_parity.py": {"surface_snapshot"},
+    "test_mgcv_sos_combinations_parity.py": {"surface_snapshot"},
     "test_mgcv_score_hist_trace_parity.py": {"surface_trace"},
     "test_mgcv_optimization_lifecycle_parity.py": {"surface_trace"},
     "test_mgcv_linked_id_trace_parity.py": {"surface_trace"},
@@ -125,6 +127,7 @@ _SELECTION_CAPABLE_FILES = {
     "test_mgcv_output_parity.py",
     "test_mgcv_ds_combinations_parity.py",
     "test_mgcv_mrf_combinations_parity.py",
+    "test_mgcv_sos_combinations_parity.py",
     "test_mgcv_score_hist_trace_parity.py",
     "test_mgcv_linked_id_trace_parity.py",
     "test_mgcv_score_gamma_parity.py",
@@ -155,6 +158,11 @@ _PRIMARY_COVERAGE_BY_MARK = {
     "smooth_mrf": (
         "tests/parity/test_mgcv_mrf_combinations_parity.py",
         "tests/smooths/test_mgcv_raw_constructor_parity.py",
+    ),
+    "smooth_sos": (
+        "tests/parity/test_mgcv_sos_combinations_parity.py",
+        "tests/smooths/test_mgcv_raw_constructor_parity.py",
+        "tests/smooths/test_mgcv_smoothcon_parity.py",
     ),
     "smooth_cs": (
         "tests/smooths/test_mgcv_pc_id_parity.py",

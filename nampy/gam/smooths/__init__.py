@@ -25,6 +25,7 @@ from .univariate.cr import CubicSplineTerm
 from .univariate.ds import DuchonSplineTerm
 from .univariate.gp import GaussianProcessTerm
 from .univariate.ps import PSplineTerm1D
+from .univariate.sos import SphericalSplineTerm
 from .univariate.tp import ThinPlateSplineTerm
 
 # mgcv-facing smooth aliases keep formulas/tests readable without reintroducing
@@ -36,6 +37,7 @@ bs = DerivativeBSplineTerm1D
 cr = cs = cc = CubicSplineTerm
 ds = DuchonSplineTerm
 gp = GaussianProcessTerm
+sos = SphericalSplineTerm
 mrf = MarkovRandomFieldTerm
 cp = ps = PSplineTerm1D
 tp = ts = ThinPlateSplineTerm
@@ -65,6 +67,7 @@ __all__ = [
     "CubicSplineTerm",
     "DuchonSplineTerm",
     "GaussianProcessTerm",
+    "SphericalSplineTerm",
     "MarkovRandomFieldTerm",
     "DerivativeBSplineTerm1D",
     "PSplineTerm1D",
@@ -83,6 +86,7 @@ __all__ = [
     "cc",
     "ds",
     "gp",
+    "sos",
     "mrf",
     "cp",
     "ps",

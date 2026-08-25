@@ -77,6 +77,12 @@ def make_predictor_specs(model, feature_names, *, knots=None):
                     metadata={},
                 )
             )
+        elif basis == "sos":
+            raise NotImplementedError(
+                "The array API builds one smooth per feature and cannot express "
+                "the two-coordinate bs='sos' term; use a formula with both latitude "
+                "and longitude."
+            )
         elif basis in {"tp", "ts"}:
             main_terms.append(
                 TermSpec(

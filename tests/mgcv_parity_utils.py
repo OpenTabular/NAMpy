@@ -1651,6 +1651,12 @@ serialize_smooth <- function(sm) {
       shift = pack_vector(sm$shift, "numeric"),
       gp_defn = pack_vector(sm$gp.defn, "numeric")
     ),
+    "sos.smooth" = list(
+      knt = pack_vector(sm$knt, "numeric"),
+      UZ = pack_matrix(sm$UZ),
+      p_order = as.integer(sm$p.order),
+      xc_scale = pack_vector(sm$xc.scale, "numeric")
+    ),
     "mrf.smooth" = list(
       P = pack_matrix(sm$P),
       knots = pack_vector(sm$knots, "character"),

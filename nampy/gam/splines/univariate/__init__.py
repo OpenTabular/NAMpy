@@ -49,6 +49,14 @@ from .ps import (
     pspline_knots,
     pspline_predict_matrix,
 )
+from .sos import (
+    SphericalSplineSetup,
+    build_spherical_spline_setup,
+    normalize_spherical_order,
+    predict_spherical_spline,
+    spherical_null_space_dimension,
+    spherical_spline_kernel,
+)
 from .tp import build_tprs_term_setup, predict_tprs_term
 
 __all__ = [
@@ -74,6 +82,12 @@ __all__ = [
     "gp_polynomial_basis",
     "normalize_gp_definition",
     "predict_gaussian_process",
+    "SphericalSplineSetup",
+    "build_spherical_spline_setup",
+    "normalize_spherical_order",
+    "predict_spherical_spline",
+    "spherical_null_space_dimension",
+    "spherical_spline_kernel",
     "add_full_rank_shrinkage",
     "bspline_design_matrix",
     "cyclic_cubic_bd",

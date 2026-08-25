@@ -1072,6 +1072,85 @@ class TestDuchonSplineSmooth:
         )
 
 
+class TestSphericalSplineSmooth:
+    """Spherical-spline smoothCon parity against mgcv 1.9-4."""
+
+    @staticmethod
+    def _make_data(seed=951, n=130):
+        rng = np.random.default_rng(seed)
+        lo = rng.uniform(-180.0, 180.0, size=n)
+        la = np.rad2deg(np.arcsin(rng.uniform(-1.0, 1.0, size=n)))
+        y = np.sin(np.deg2rad(lo)) * np.cos(np.deg2rad(la - 10.0))
+        return pd.DataFrame({"y": y, "la": la, "lo": lo})
+
+    @staticmethod
+    def _assert_basis_and_penalties(data, formula, expression, *, n_penalties=1):
+        design = _compile_formula_design(data, formula)
+        expected_x = _run_mgcv_smoothcon_matrix(data, expression)
+        actual_x = np.asarray(design.design_matrix, dtype=np.float64)
+        target_x = np.asarray(expected_x["X"], dtype=np.float64)
+        np.testing.assert_allclose(
+            actual_x @ np.linalg.pinv(actual_x),
+            target_x @ np.linalg.pinv(target_x),
+            atol=2e-8,
+            rtol=2e-8,
+        )
+        actual_s = [
+            np.asarray(block.matrix, dtype=np.float64)
+            for block in design.compiled_penalties
+        ]
+        assert len(actual_s) == n_penalties
+        if n_penalties == 0:
+            return
+        expected_s = _run_mgcv_smoothcon_penalties(
+            data, expression, absorb_cons=True, scale_penalty=True
+        )
+        penalty_payload = expected_s["S"]
+        if isinstance(penalty_payload, dict):
+            penalty_payload = list(penalty_payload.values())
+        target_s = [np.asarray(S, dtype=np.float64) for S in penalty_payload]
+        assert len(target_s) == n_penalties
+        np.testing.assert_allclose(
+            penalized_response_operator(actual_x, actual_s),
+            penalized_response_operator(target_x, target_s),
+            atol=2e-8,
+            rtol=2e-8,
+        )
+
+    def test_sos_default_smoothcon_basis_and_penalty_match_mgcv(self):
+        data = self._make_data(seed=951)
+        self._assert_basis_and_penalties(
+            data,
+            'y ~ s(la, lo, bs="sos", k=12, sp=.7)',
+            's(la, lo, bs="sos", k=12, sp=.7)',
+        )
+
+    def test_sos_duchon_tail_smoothcon_basis_and_penalty_match_mgcv(self):
+        data = self._make_data(seed=952)
+        self._assert_basis_and_penalties(
+            data,
+            'y ~ s(la, lo, bs="sos", k=12, m=-1, sp=.7)',
+            's(la, lo, bs="sos", k=12, m=-1, sp=.7)',
+        )
+
+    def test_sos_pc_smoothcon_basis_and_penalty_match_mgcv(self):
+        data = self._make_data(seed=953)
+        self._assert_basis_and_penalties(
+            data,
+            'y ~ s(la, lo, bs="sos", k=12, pc=[0,0], sp=.7)',
+            's(la, lo, bs="sos", k=12, pc=c(0,0), sp=.7)',
+        )
+
+    def test_sos_fixed_smoothcon_basis_matches_mgcv_without_penalty(self):
+        data = self._make_data(seed=954)
+        self._assert_basis_and_penalties(
+            data,
+            'y ~ s(la, lo, bs="sos", k=12, fx=True)',
+            's(la, lo, bs="sos", k=12, fx=TRUE)',
+            n_penalties=0,
+        )
+
+
 class TestPSplineSmooth(_SharedTestPSplineSmooth):
     """P-spline (bs='ps') standalone parity against mgcv."""
 
