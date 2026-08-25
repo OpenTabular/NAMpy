@@ -1515,6 +1515,7 @@ generic tuning label.
 | `cc` | cyclic cubic spline for periodic covariates |
 | `ps` | P-spline with difference penalties |
 | `gp` | low-rank Gaussian-process smooth with spherical, power-exponential, or Matérn covariance |
+| `mrf` | region effect coupled by a neighbor graph, polygon boundary, or supplied penalty |
 | `tp`, `ts` | thin-plate regression spline; `ts` adds shrinkage |
 | `te(...)` | scale-invariant tensor product including main-effect directions |
 | `ti(...)` | tensor interaction with marginal main-effect directions removed |
@@ -1538,6 +1539,12 @@ smooth_examples = {
     "p_spline": GAM(formula="demand ~ s(temperature, bs='ps', k=10)"),
     "gaussian_process": GAM(
         formula="demand ~ s(temperature, humidity, bs='gp', k=20, m=[3, 1.0])"
+    ),
+    "markov_random_field": GAM(
+        formula=(
+            "demand ~ s(region, bs='mrf', "
+            "xt={'nb': {'north': ['south'], 'south': ['north']}})"
+        )
     ),
     "thin_plate": GAM(formula="demand ~ s(temperature, bs='tp', k=10)"),
     "shrinkage_thin_plate": GAM(formula="demand ~ s(temperature, bs='ts', k=10)"),
