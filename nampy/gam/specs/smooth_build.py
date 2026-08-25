@@ -14,6 +14,7 @@ from ..basis_registry import (
     get_basis_descriptor,
 )
 from .smooth import (
+    AdaptiveSmoothSpec,
     AlternativeTensorProductSmoothSpec,
     CubicRegressionSmoothSpec,
     CubicShrinkageSmoothSpec,
@@ -53,6 +54,22 @@ _SMOOTH_SPEC_DEFAULTS: dict[str, object] = {
     "full": False,
     "ord": None,
 }
+
+
+@basis_spec_builder("ad")
+def _build_s_ad(opts) -> AdaptiveSmoothSpec:
+    return AdaptiveSmoothSpec(
+        special="s",
+        k=opts["k"],
+        fx=opts["fx"],
+        select=opts["select"],
+        sp=opts["sp"],
+        knots=opts["knots"],
+        m=opts["m"],
+        xt=opts["xt"],
+        constraint_mode=opts["constraint_mode"],
+        pc=opts["pc"],
+    )
 
 @basis_spec_builder("cr")
 def _build_s_cr(opts) -> CubicRegressionSmoothSpec:

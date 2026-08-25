@@ -55,7 +55,7 @@ def make_predictor_specs(model, feature_names, *, knots=None):
                     metadata={},
                 )
             )
-        elif basis in {"bs", "ds", "gp", "mrf", "ps", "cp"}:
+        elif basis in {"ad", "bs", "ds", "gp", "mrf", "ps", "cp"}:
             main_terms.append(
                 TermSpec(
                     kind="smooth",
@@ -125,7 +125,7 @@ def make_predictor_specs(model, feature_names, *, knots=None):
         else:
             raise NotImplementedError(
                 "Automatic main-effect construction currently supports "
-                "{'bs','cr','cs','cc','cp','ds','gp','mrf','ps','tp','ts','re'}, "
+                "{'ad','bs','cr','cs','cc','cp','ds','gp','mrf','ps','tp','ts','re'}, "
                 f"got {model.basis!r}."
             )
 

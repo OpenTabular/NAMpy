@@ -21,6 +21,7 @@ from .smooth_base import (
 from .tensor.t2 import AlternativeTensorProductSplineTerm
 from .tensor.te import TensorProductSplineTerm
 from .tensor.ti import InteractionTensorProductSplineTerm
+from .univariate.ad import AdaptiveSmoothTerm
 from .univariate.bs import DerivativeBSplineTerm1D
 from .univariate.cr import CubicSplineTerm
 from .univariate.ds import DuchonSplineTerm
@@ -36,6 +37,7 @@ ti = InteractionTensorProductSplineTerm
 t2 = AlternativeTensorProductSplineTerm
 
 bs = DerivativeBSplineTerm1D
+ad = AdaptiveSmoothTerm
 cr = cs = cc = CubicSplineTerm
 ds = DuchonSplineTerm
 gp = GaussianProcessTerm
@@ -72,6 +74,7 @@ __all__ = [
     "SphericalSplineTerm",
     "MarkovRandomFieldTerm",
     "DerivativeBSplineTerm1D",
+    "AdaptiveSmoothTerm",
     "PSplineTerm1D",
     "ThinPlateSplineTerm",
     "TensorProductSplineTerm",
@@ -84,6 +87,7 @@ __all__ = [
     "te",
     "ti",
     "t2",
+    "ad",
     "bs",
     "cr",
     "cs",

@@ -1,3 +1,4 @@
+from .ad import AdaptiveSmoothTerm
 from .bs import DerivativeBSplineTerm1D
 from .cr import CubicSplineTerm
 from .ds import DuchonSplineTerm
@@ -6,6 +7,7 @@ from .ps import PSplineTerm1D
 from .sos import SphericalSplineTerm
 from .tp import ThinPlateSplineTerm
 
+ad = AdaptiveSmoothTerm
 bs = DerivativeBSplineTerm1D
 cr = cs = cc = CubicSplineTerm
 ds = DuchonSplineTerm
@@ -16,6 +18,7 @@ tp = ts = ThinPlateSplineTerm
 
 __all__ = [
     "DerivativeBSplineTerm1D",
+    "AdaptiveSmoothTerm",
     "CubicSplineTerm",
     "DuchonSplineTerm",
     "GaussianProcessTerm",
@@ -23,4 +26,4 @@ __all__ = [
     "PSplineTerm1D",
     "ThinPlateSplineTerm",
 ]
-__all__ += ["bs", "cr", "cs", "cc", "cp", "ds", "gp", "sos", "ps", "tp", "ts"]
+__all__ += ["ad", "bs", "cr", "cs", "cc", "cp", "ds", "gp", "sos", "ps", "tp", "ts"]

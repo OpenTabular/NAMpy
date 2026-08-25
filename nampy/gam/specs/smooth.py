@@ -19,6 +19,16 @@ class BaseSmoothSpec:
 
 
 @dataclass(frozen=True)
+class AdaptiveSmoothSpec(BaseSmoothSpec):
+    """One- or two-dimensional adaptive P-spline smooth."""
+
+    bs: str = "ad"
+    m: Any = None
+    xt: Any = None
+    constraint_mode: str = "auto"
+    pc: Any = None
+
+@dataclass(frozen=True)
 class CubicRegressionSmoothSpec(BaseSmoothSpec):
     bs: str = "cr"
     constraint_mode: str = "auto"
@@ -177,6 +187,7 @@ class AlternativeTensorProductSmoothSpec(BaseSmoothSpec):
 
 
 SmoothSpec = Union[
+    AdaptiveSmoothSpec,
     CubicRegressionSmoothSpec,
     CyclicCubicRegressionSmoothSpec,
     DerivativeBSplineSmoothSpec,
