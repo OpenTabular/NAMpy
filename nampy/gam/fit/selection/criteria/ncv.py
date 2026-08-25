@@ -79,7 +79,7 @@ def _deviance_contributions(family, y, mu, weights):
             family.deviance(
                 np.asarray([yi]), np.asarray([mui]), weights=np.asarray([wi])
             )
-            for yi, mui, wi in zip(y, mu, weights)
+            for yi, mui, wi in zip(y, mu, weights, strict=True)
         ],
         dtype=np.float64,
     )
@@ -91,7 +91,6 @@ def _ncv_state(model, y, log_sp, *, qapprox=False):
         return 0.0, np.empty(0), free_mask, np.empty(0), np.empty((0, 0))
     nei = normalize_nei(getattr(model, "nei", None), int(model.n_samples_))
     X = np.asarray(kernel.current.X, dtype=np.float64)
-    beta = np.asarray(kernel.current.beta, dtype=np.float64)
     A = np.asarray(kernel.current.A, dtype=np.float64)
     W = np.asarray(kernel.current.W, dtype=np.float64)
     eta = np.asarray(sol["eta"], dtype=np.float64)
@@ -116,7 +115,7 @@ def _ncv_state(model, y, log_sp, *, qapprox=False):
     eta_cv = np.empty(nei["d"].size, dtype=np.float64)
     deta_cv = np.empty((nei["d"].size, nsp), dtype=np.float64)
     a0 = d0 = 0
-    for a1, d1 in zip(nei["ma"], nei["md"]):
+    for a1, d1 in zip(nei["ma"], nei["md"], strict=True):
         ai = nei["a"][a0:a1]
         di = nei["d"][d0:d1]
         Xa = X[ai]
@@ -128,7 +127,6 @@ def _ncv_state(model, y, log_sp, *, qapprox=False):
             delta = -np.linalg.pinv(A_minus, hermitian=True) @ b_drop
         eta_cv[d0:d1] = eta[di] + X[di] @ delta
         for j in range(nsp):
-            dbeta = np.asarray(kernel.ift.dbeta[j], dtype=np.float64)
             deta = np.asarray(kernel.ift.deta[j], dtype=np.float64)
             dA_minus = np.asarray(kernel.ift.dA[j], dtype=np.float64) - Xa.T @ (
                 np.asarray(kernel.ift.dW_obs[j], dtype=np.float64)[ai, None] * Xa

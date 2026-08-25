@@ -10,7 +10,6 @@ from __future__ import annotations
 import numpy as np
 from scipy.optimize import OptimizeResult, dual_annealing, minimize
 
-
 _NLM_MESSAGES = {
     1: "Relative gradient is close to zero, current iterate is probably solution",
     2: "Successive iterates within tolerance, current iterate is probably solution",
