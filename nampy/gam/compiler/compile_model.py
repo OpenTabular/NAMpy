@@ -36,10 +36,10 @@ def _apply_overlapping_parametric_identifiability(
     n_obs = int(compiled_predictors[0].design_matrix.shape[0])
     expanded_columns = []
     owners: list[tuple[int, int | None, int | None]] = []
-    keep_by_component: list[dict[int, np.ndarray]] = [
-        {} for _ in compiled_predictors
+    keep_by_component: list[dict[int, np.ndarray]] = [{} for _ in compiled_predictors]
+    keep_intercept = [
+        bool(predictor.has_intercept) for predictor in compiled_predictors
     ]
-    keep_intercept = [bool(predictor.has_intercept) for predictor in compiled_predictors]
 
     def append_column(column, targets, owner):
         expanded = np.zeros(n_obs * n_linear_predictors, dtype=np.float64)
@@ -101,9 +101,7 @@ def _apply_overlapping_parametric_identifiability(
         dropped_local: list[int] = []
         for term_index, term in enumerate(predictor.compiled_terms):
             basis = np.asarray(term.basis_train, dtype=np.float64)
-            keep = component_keep.get(
-                term_index, np.ones(basis.shape[1], dtype=bool)
-            )
+            keep = component_keep.get(term_index, np.ones(basis.shape[1], dtype=bool))
             kept_indices = np.flatnonzero(keep)
             selection = np.eye(basis.shape[1], dtype=np.float64)[:, kept_indices]
             metadata = dict(getattr(term, "metadata", {}) or {})
@@ -199,7 +197,11 @@ def _full_predictor_matrix(predictor, X: np.ndarray) -> tuple[np.ndarray, np.nda
     Z_fit = np.asarray(predictor.design_matrix, dtype=np.float64)
     pred_blocks = []
     for term in predictor.compiled_terms:
-        use_raw = bool(getattr(term, "metadata", {}).get("expose_raw_prediction_basis"))
+        term_metadata = dict(getattr(term, "metadata", {}) or {})
+        use_raw = bool(
+            term_metadata.get("expose_raw_prediction_basis")
+            or term_metadata.get("prediction_basis_map") is not None
+        )
         if use_raw:
             block = np.asarray(
                 term.prediction_parameterization_matrix(X), dtype=np.float64
@@ -250,7 +252,7 @@ def _fit_to_prediction_parameterization_map(
     # qr(Xp, LAPACK=TRUE) -> Rrank(R) -> triangular solve on QtX -> restore pivots.
     Q, R, piv = scipy_qr(X_pred, mode="economic", pivoting=True)
     p_pred = int(R.shape[1])
-    rank = upper_triangular_rrank(R, tol=float(np.finfo(np.float64).eps**0.9))
+    rank = upper_triangular_rrank(R, tol=float(np.finfo(np.float64).eps ** 0.9))
     QtX = np.asarray(Q.T @ X_fit, dtype=np.float64)[:rank, :]
     if rank < p_pred:
         R1 = np.asarray(R[:rank, :], dtype=np.float64)
@@ -342,9 +344,7 @@ def compile_model(
         tuple(
             int(value) - 1
             for value in (
-                (getattr(spec, "metadata", {}) or {}).get(
-                    "lpi", (component_index + 1,)
-                )
+                (getattr(spec, "metadata", {}) or {}).get("lpi", (component_index + 1,))
                 or (component_index + 1,)
             )
         )
@@ -352,9 +352,9 @@ def compile_model(
         else (component_index,)
         for component_index, spec in enumerate(predictor_specs)
     )
-    n_linear_predictors = max(
-        (max(indices) for indices in component_lpi if indices), default=0
-    ) + 1
+    n_linear_predictors = (
+        max((max(indices) for indices in component_lpi if indices), default=0) + 1
+    )
 
     compiled_predictors = compile_predictors(
         X=X,
@@ -452,9 +452,7 @@ def compile_model(
                     (
                         np.zeros(int(predictor.n_coef), dtype=bool)
                         if predictor.positive_coefficient_mask is None
-                        else np.asarray(
-                            predictor.positive_coefficient_mask, dtype=bool
-                        )
+                        else np.asarray(predictor.positive_coefficient_mask, dtype=bool)
                     ),
                 ]
             ),

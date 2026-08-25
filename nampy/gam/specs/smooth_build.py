@@ -16,6 +16,7 @@ from .smooth import (
     DuchonSplineSmoothSpec,
     FactorSmoothInteractionSpec,
     GaussianProcessSmoothSpec,
+    MarkovRandomFieldSmoothSpec,
     PSplineSmoothSpec,
     RandomEffectSmoothSpec,
     ShapeConstrainedSmoothSpec,
@@ -145,6 +146,19 @@ def _build_s_gp(opts) -> GaussianProcessSmoothSpec:
     )
 
 
+def _build_s_mrf(opts) -> MarkovRandomFieldSmoothSpec:
+    return MarkovRandomFieldSmoothSpec(
+        special="s",
+        k=opts["k"],
+        fx=opts["fx"],
+        select=opts["select"],
+        sp=opts["sp"],
+        knots=opts["knots"],
+        xt=opts["xt"],
+        constraint_mode=opts["constraint_mode"],
+    )
+
+
 def _build_s_shape(opts) -> ShapeConstrainedSmoothSpec:
     return ShapeConstrainedSmoothSpec(
         special="s",
@@ -236,6 +250,7 @@ _S_BASIS_SPEC_BUILDERS: dict[str, Callable[[dict[str, Any]], SmoothSpec]] = {
     "bs": _build_s_bs,
     "ds": _build_s_ds,
     "gp": _build_s_gp,
+    "mrf": _build_s_mrf,
     "tp": _build_s_tp,
     "ts": _build_s_ts,
     "re": _build_s_re,
@@ -553,7 +568,7 @@ def _default_k_for_smooth(kind, basis, features, default_k):
         # mgcv::te()/ti() default k to 5^d per marginal. The current
         # Python tensor surface supports one feature per marginal, so d = 1.
         return [5] * len(features)
-    if str(basis).lower() in {"bs", "ds", "gp", "tp", "ts"}:
+    if str(basis).lower() in {"bs", "ds", "gp", "mrf", "tp", "ts"}:
         # mgcv/R/smooth.r::s() leaves k = -1. The basis constructor then
         # resolves its dimension-dependent default (TP/TS use M + 8/27/100;
         # DS uses M + 10/30/100; GP uses d + 1 + 10/30/100). A flat default here would be wrong in more

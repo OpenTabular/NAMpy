@@ -77,6 +77,13 @@ class GaussianProcessSmoothSpec(BaseSmoothSpec):
 
 
 @dataclass(frozen=True)
+class MarkovRandomFieldSmoothSpec(BaseSmoothSpec):
+    bs: str = "mrf"
+    xt: Any = None
+    constraint_mode: str = "auto"
+
+
+@dataclass(frozen=True)
 class ShapeConstrainedSmoothSpec(BaseSmoothSpec):
     """SCAM SCOP-spline specification for a named shape basis code."""
 
@@ -152,6 +159,7 @@ SmoothSpec = Union[
     DerivativeBSplineSmoothSpec,
     DuchonSplineSmoothSpec,
     GaussianProcessSmoothSpec,
+    MarkovRandomFieldSmoothSpec,
     CubicShrinkageSmoothSpec,
     PSplineSmoothSpec,
     ShapeConstrainedSmoothSpec,

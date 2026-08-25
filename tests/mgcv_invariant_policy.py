@@ -320,6 +320,17 @@ def _canonicalize_gp_raw_state(state):
     return state
 
 
+def _canonicalize_mrf_raw_state(state):
+    extra = state["extra"]
+    if extra.get("P") is not None:
+        state["X"] = np.asarray(state["X"], dtype=np.float64) @ np.asarray(
+            state["X"], dtype=np.float64
+        ).T
+        extra["P"] = stable_column_space_projector(extra["P"])
+        state["S"] = [penalty_spectrum(S) for S in state["S"]]
+    return state
+
+
 def _canonicalize_cs_raw_state(state):
     state["S"] = [penalty_spectrum(S) for S in state["S"]]
     return state
@@ -378,6 +389,8 @@ def canonicalize_raw_representation_state(state: dict[str, Any]) -> dict[str, An
         return _canonicalize_duchon_raw_state(state)
     if class_name == "gp.smooth":
         return _canonicalize_gp_raw_state(state)
+    if class_name == "mrf.smooth":
+        return _canonicalize_mrf_raw_state(state)
     if class_name == "fs.interaction":
         return _canonicalize_fs_raw_state(state)
     if class_name == "sz.interaction":

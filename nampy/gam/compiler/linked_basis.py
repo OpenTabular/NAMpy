@@ -103,6 +103,26 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
                 "pc= is not supported across id-linked s() terms with different "
                 "feature sets; mgcv 1.9-4 fails while constructing the shared basis."
             )
+        has_mrf = any(
+            term.smooth_spec is not None
+            and (
+                str(getattr(term.smooth_spec, "bs", "")).lower() == "mrf"
+                or (
+                    isinstance(getattr(term.smooth_spec, "bs", None), (list, tuple))
+                    and "mrf"
+                    in {
+                        str(value).lower()
+                        for value in getattr(term.smooth_spec, "bs", ())
+                    }
+                )
+            )
+            for term in group_terms
+        )
+        if has_mrf and len(feature_tuples) > 1:
+            raise NotImplementedError(
+                "id= is not supported across MRF terms with different feature "
+                "sets; mgcv 1.9-4 loses the factor topology while pooling them."
+            )
         for term in group_terms[1:]:
             _clone_linked_smooth_spec(base_term, term)
 

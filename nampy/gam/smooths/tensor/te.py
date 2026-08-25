@@ -131,9 +131,12 @@ class TensorProductSplineTerm(BaseSmoothTerm):
             knots=self.knots,
             centered=False,
             shared_basis_setups=marginal_shared_setups,
+            metadata=self.metadata,
         )
         for term in marginals:
             term.fit(X, feature_names)
+            if str(getattr(term, "basis_name", "")).lower() == "mrf":
+                self.metadata = dict(term.metadata)
         feature_indices, feature_names_resolved = resolve_tensor_marginal_features(
             marginals
         )
@@ -223,9 +226,7 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         self._set_penalty_rescale_factors(
             [
                 float(scale)
-                for scale, keep in zip(
-                    penalty_scales, keep_penalties, strict=True
-                )
+                for scale, keep in zip(penalty_scales, keep_penalties, strict=True)
                 if keep
             ]
         )
