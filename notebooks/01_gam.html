@@ -452,6 +452,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.gam.GAM.html">nampy.gam.GAM</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="../api/gam.html#spherical-smooths">Spherical smooths</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/gam.html#shape-constrained-smooths">Shape-constrained smooths</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.gam.diagnostics.SmoothDerivativeResult.html">nampy.gam.diagnostics.SmoothDerivativeResult</a></li>
 </ul>
@@ -1185,22 +1186,25 @@ site[south]  -0.918130    0.130848   -7.016791   2.633719e-11, pterms_table=  la
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">gp</span></code></p></td>
 <td><p>low-rank Gaussian-process smooth with spherical, power-exponential, or Matérn covariance</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">mrf</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">sos</span></code></p></td>
+<td><p>isotropic spherical spline for latitude then longitude in degrees</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">mrf</span></code></p></td>
 <td><p>region effect coupled by a neighbor graph, polygon boundary, or supplied penalty</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">tp</span></code>, <code class="docutils literal notranslate"><span class="pre">ts</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">tp</span></code>, <code class="docutils literal notranslate"><span class="pre">ts</span></code></p></td>
 <td><p>thin-plate regression spline; <code class="docutils literal notranslate"><span class="pre">ts</span></code> adds shrinkage</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">te(...)</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">te(...)</span></code></p></td>
 <td><p>scale-invariant tensor product including main-effect directions</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ti(...)</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ti(...)</span></code></p></td>
 <td><p>tensor interaction with marginal main-effect directions removed</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">re</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">re</span></code></p></td>
 <td><p>random-effect/ridge-penalized factor block</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">fs</span></code>, <code class="docutils literal notranslate"><span class="pre">sz</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">fs</span></code>, <code class="docutils literal notranslate"><span class="pre">sz</span></code></p></td>
 <td><p>factor-specific smooths with different identifiability structures</p></td>
 </tr>
 </tbody>
@@ -1219,6 +1223,9 @@ site[south]  -0.918130    0.130848   -7.016791   2.633719e-11, pterms_table=  la
     <span class="s2">"p_spline"</span><span class="p">:</span> <span class="n">GAM</span><span class="p">(</span><span class="n">formula</span><span class="o">=</span><span class="s2">"demand ~ s(temperature, bs='ps', k=10)"</span><span class="p">),</span>
     <span class="s2">"gaussian_process"</span><span class="p">:</span> <span class="n">GAM</span><span class="p">(</span>
         <span class="n">formula</span><span class="o">=</span><span class="s2">"demand ~ s(temperature, humidity, bs='gp', k=20, m=[3, 1.0])"</span>
+    <span class="p">),</span>
+    <span class="s2">"spherical_spline"</span><span class="p">:</span> <span class="n">GAM</span><span class="p">(</span>
+        <span class="n">formula</span><span class="o">=</span><span class="s2">"demand ~ s(latitude, longitude, bs='sos', k=20, m=0)"</span>
     <span class="p">),</span>
     <span class="s2">"markov_random_field"</span><span class="p">:</span> <span class="n">GAM</span><span class="p">(</span>
         <span class="n">formula</span><span class="o">=</span><span class="p">(</span>
@@ -1265,6 +1272,7 @@ site[south]  -0.918130    0.130848   -7.016791   2.633719e-11, pterms_table=  la
  &#39;random_effect&#39;,
  &#39;shrinkage_cubic&#39;,
  &#39;shrinkage_thin_plate&#39;,
+ &#39;spherical_spline&#39;,
  &#39;sum_to_zero_factor_smooth&#39;,
  &#39;tensor_interaction&#39;,
  &#39;tensor_surface&#39;,

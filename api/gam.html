@@ -449,6 +449,7 @@
 <li class="toctree-l4"><a class="reference internal" href="generated/nampy.gam.GAM.html">nampy.gam.GAM</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#spherical-smooths">Spherical smooths</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#shape-constrained-smooths">Shape-constrained smooths</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="generated/nampy.gam.diagnostics.SmoothDerivativeResult.html">nampy.gam.diagnostics.SmoothDerivativeResult</a></li>
 </ul>
@@ -711,6 +712,20 @@ targeting behavioral parity to machine precision wherever feasible.</p>
 <span class="n">model</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
 </pre></div>
 </div>
+</section>
+<section id="spherical-smooths">
+<h2>Spherical smooths<a class="headerlink" href="#spherical-smooths" title="Link to this heading"></a></h2>
+<p>Use <code class="docutils literal notranslate"><span class="pre">s(latitude,</span> <span class="pre">longitude,</span> <span class="pre">bs=&quot;sos&quot;)</span></code> for an isotropic smooth on a
+sphere.  Coordinates are supplied in degrees, latitude first and longitude
+second.  The default <code class="docutils literal notranslate"><span class="pre">m=0</span></code> is the second-order Wendelberger spline; integer
+orders from <code class="docutils literal notranslate"><span class="pre">-2</span></code> through <code class="docutils literal notranslate"><span class="pre">4</span></code> select the upstream Duchon or Wahba kernel
+branches.  SOS margins in <code class="docutils literal notranslate"><span class="pre">te</span></code> and <code class="docutils literal notranslate"><span class="pre">ti</span></code> must be grouped with <code class="docutils literal notranslate"><span class="pre">d=2</span></code>.
+The array API cannot express this joint two-coordinate term, so SOS models use
+the formula interface.  The <code class="docutils literal notranslate"><span class="pre">m=-1</span></code> null space is four-dimensional; combining
+that order with an <code class="docutils literal notranslate"><span class="pre">fs</span></code> factor smooth is rejected because the corresponding
+upstream penalty split is LAPACK-orientation dependent.  Upstream SOS smooths
+also do not define derivative matrices, and NAMpy does not expose the
+hemisphere-specific <code class="docutils literal notranslate"><span class="pre">plot.gam</span></code> schemes 0 and 1 through its generic plotter.</p>
 </section>
 <section id="shape-constrained-smooths">
 <h2>Shape-constrained smooths<a class="headerlink" href="#shape-constrained-smooths" title="Link to this heading"></a></h2>
