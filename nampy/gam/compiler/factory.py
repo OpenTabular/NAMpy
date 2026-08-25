@@ -21,6 +21,7 @@ from ..smooths.univariate.cr import CubicSplineTerm
 from ..smooths.univariate.ds import DuchonSplineTerm
 from ..smooths.univariate.gp import GaussianProcessTerm
 from ..smooths.univariate.ps import PSplineTerm1D
+from ..smooths.univariate.sos import SphericalSplineTerm
 from ..specs import LinearPredictorSpec, PenaltyGroupSpec, TermSpec
 from ..specs.smooth import (
     CubicRegressionSmoothSpec,
@@ -34,6 +35,7 @@ from ..specs.smooth import (
     PSplineSmoothSpec,
     RandomEffectSmoothSpec,
     ShapeConstrainedSmoothSpec,
+    SphericalSplineSmoothSpec,
     SumToZeroFactorSmoothSpec,
     TensorInteractionSmoothSpec,
     TensorProductSmoothSpec,
@@ -213,6 +215,25 @@ def instantiate_term(term_like: TermSpec | Any):
 
     if isinstance(smooth_spec, GaussianProcessSmoothSpec):
         return GaussianProcessTerm(
+            feature=features,
+            k=smooth_spec.k,
+            m=smooth_spec.m,
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            fixed=smooth_spec.fx,
+            constraint_mode=smooth_spec.constraint_mode,
+            pc=smooth_spec.pc,
+            knots=smooth_spec.knots,
+            xt=smooth_spec.xt,
+            metadata=metadata,
+        )
+
+    if isinstance(smooth_spec, SphericalSplineSmoothSpec):
+        return SphericalSplineTerm(
             feature=features,
             k=smooth_spec.k,
             m=smooth_spec.m,

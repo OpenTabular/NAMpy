@@ -190,6 +190,12 @@ def _prepare_smooth(model, tb, *, se, n, n2, n3, xlab, ylab, main, label,
     basis_name = str(getattr(tb, "basis_name", "")).lower()
     X_train = np.asarray(model.X_)
 
+    if basis_name == "sos":
+        raise NotImplementedError(
+            "plot() for bs='sos' requires mgcv's rotated hemisphere projection; "
+            "the generic rectangular 2D plot is not equivalent."
+        )
+
     if basis_name == "re":
         # plot.random.effect (plots.r:357-367): X is the identity; the plot
         # is a normal QQ plot of the estimated effects.

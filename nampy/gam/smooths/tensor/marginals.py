@@ -13,10 +13,11 @@ from ..univariate.cr import CubicSplineTerm
 from ..univariate.ds import DuchonSplineTerm
 from ..univariate.gp import GaussianProcessTerm
 from ..univariate.ps import PSplineTerm1D
+from ..univariate.sos import SphericalSplineTerm
 from ..univariate.tp import ThinPlateSplineTerm
 
 TENSOR_MARGINAL_BASES = frozenset(
-    {"bs", "cr", "cs", "cc", "cp", "ds", "gp", "mrf", "ps", "tp", "ts"}
+    {"bs", "cr", "cs", "cc", "cp", "ds", "gp", "mrf", "ps", "sos", "tp", "ts"}
 )
 
 
@@ -133,6 +134,27 @@ def make_tensor_marginal_term(
 
     if basis == "gp":
         return GaussianProcessTerm(
+            feature=marginal_features,
+            k=k,
+            m=m,
+            xt=xt,
+            label=str(feature),
+            smoothing_id=None,
+            by=None,
+            select=False,
+            fixed=False,
+            constraint_mode=constraint_mode,
+            knots=knots,
+            metadata=metadata,
+        )
+
+    if basis == "sos":
+        if len(marginal_features) != 2:
+            raise ValueError(
+                "Tensor marginal basis 'sos' requires a two-feature group "
+                "(latitude, longitude); supply d=2 for that marginal."
+            )
+        return SphericalSplineTerm(
             feature=marginal_features,
             k=k,
             m=m,

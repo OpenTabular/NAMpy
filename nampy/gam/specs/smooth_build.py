@@ -21,6 +21,7 @@ from .smooth import (
     RandomEffectSmoothSpec,
     ShapeConstrainedSmoothSpec,
     SmoothSpec,
+    SphericalSplineSmoothSpec,
     SumToZeroFactorSmoothSpec,
     TensorInteractionSmoothSpec,
     TensorProductSmoothSpec,
@@ -146,6 +147,21 @@ def _build_s_gp(opts) -> GaussianProcessSmoothSpec:
     )
 
 
+def _build_s_sos(opts) -> SphericalSplineSmoothSpec:
+    return SphericalSplineSmoothSpec(
+        special="s",
+        k=opts["k"],
+        fx=opts["fx"],
+        select=opts["select"],
+        sp=opts["sp"],
+        knots=opts["knots"],
+        m=opts["m"],
+        xt=opts["xt"],
+        constraint_mode=opts["constraint_mode"],
+        pc=opts["pc"],
+    )
+
+
 def _build_s_mrf(opts) -> MarkovRandomFieldSmoothSpec:
     return MarkovRandomFieldSmoothSpec(
         special="s",
@@ -250,6 +266,7 @@ _S_BASIS_SPEC_BUILDERS: dict[str, Callable[[dict[str, Any]], SmoothSpec]] = {
     "bs": _build_s_bs,
     "ds": _build_s_ds,
     "gp": _build_s_gp,
+    "sos": _build_s_sos,
     "mrf": _build_s_mrf,
     "tp": _build_s_tp,
     "ts": _build_s_ts,
@@ -351,6 +368,7 @@ _PC_SUPPORTED_S_BASES = {
     "cs",
     "ds",
     "gp",
+    "sos",
     "ps",
     "tp",
     "ts",
@@ -568,7 +586,7 @@ def _default_k_for_smooth(kind, basis, features, default_k):
         # mgcv::te()/ti() default k to 5^d per marginal. The current
         # Python tensor surface supports one feature per marginal, so d = 1.
         return [5] * len(features)
-    if str(basis).lower() in {"bs", "ds", "gp", "mrf", "tp", "ts"}:
+    if str(basis).lower() in {"bs", "ds", "gp", "mrf", "sos", "tp", "ts"}:
         # mgcv/R/smooth.r::s() leaves k = -1. The basis constructor then
         # resolves its dimension-dependent default (TP/TS use M + 8/27/100;
         # DS uses M + 10/30/100; GP uses d + 1 + 10/30/100). A flat default here would be wrong in more

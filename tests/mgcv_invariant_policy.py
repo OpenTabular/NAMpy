@@ -320,6 +320,16 @@ def _canonicalize_gp_raw_state(state):
     return state
 
 
+def _canonicalize_sos_raw_state(state):
+    extra = state["extra"]
+    extra.pop("used_supplied_knots", False)
+    extra.pop("used_subsampling", False)
+    state["S"] = [penalty_spectrum(S) for S in state["S"]]
+    state["X"] = matrix_self_gram(state["X"])
+    extra["UZ"] = stable_column_space_projector(extra["UZ"])
+    return state
+
+
 def _canonicalize_mrf_raw_state(state):
     extra = state["extra"]
     if extra.get("P") is not None:
@@ -389,6 +399,8 @@ def canonicalize_raw_representation_state(state: dict[str, Any]) -> dict[str, An
         return _canonicalize_duchon_raw_state(state)
     if class_name == "gp.smooth":
         return _canonicalize_gp_raw_state(state)
+    if class_name == "sos.smooth":
+        return _canonicalize_sos_raw_state(state)
     if class_name == "mrf.smooth":
         return _canonicalize_mrf_raw_state(state)
     if class_name == "fs.interaction":
