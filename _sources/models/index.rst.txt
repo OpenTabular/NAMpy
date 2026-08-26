@@ -18,7 +18,7 @@ Statistical model
      - Start here
    * - GAM
      - Penalized regression splines with ``mgcv``-aligned fitting and inference
-     - :doc:`../notebooks/01_gam`
+     - :doc:`../notebooks/02_complete_gam_guide`
 
 Neural architectures
 --------------------
@@ -32,63 +32,64 @@ Neural architectures
      - Tutorial
    * - LinReg
      - An additive linear baseline
-     - :doc:`../notebooks/02_linreg`
+     - :doc:`../notebooks/03_neural_additive_model_zoo`
    * - NAM
      - Independent neural shape functions and optional explicit interactions
-     - :doc:`../notebooks/03_nam`
+     - :doc:`../notebooks/03_neural_additive_model_zoo`
    * - SNAM
      - Sparse additive fitting and feature selection
-     - :doc:`../notebooks/04_snam`
+     - :doc:`../notebooks/03_neural_additive_model_zoo`
    * - SIAN
      - Data-driven sparse higher-order interaction discovery
-     - :doc:`../notebooks/05_sian`
+     - :doc:`../notebooks/03_neural_additive_model_zoo`
    * - GPNAM
      - Smooth fixed random-Fourier-feature additive effects
-     - :doc:`../notebooks/06_gpnam`
+     - :doc:`../notebooks/03_neural_additive_model_zoo`
    * - IGANN
      - Fast boosted ELM shape functions initialized by a sparse linear model
-     - :doc:`../notebooks/07_igann`
+     - :doc:`../notebooks/03_neural_additive_model_zoo`
    * - NBM
      - Shared learned basis functions for unary or n-ary concepts
-     - :doc:`../notebooks/08_nbm`
+     - :doc:`../notebooks/03_neural_additive_model_zoo`
    * - SPAM
      - Low-rank polynomial additive effects
-     - :doc:`../notebooks/09_spam`
+     - :doc:`../notebooks/03_neural_additive_model_zoo`
    * - NBM-SPAM
      - Polynomial heads over learned NBM concept scores
-     - :doc:`../notebooks/10_nbm_spam`
+     - :doc:`../notebooks/03_neural_additive_model_zoo`
    * - TreeNAM
      - Piecewise additive effects learned with differentiable trees
-     - :doc:`../notebooks/11_treenam`
+     - :doc:`../notebooks/03_neural_additive_model_zoo`
    * - NodeGAM
      - Additive ensembles of differentiable oblivious trees
-     - :doc:`../notebooks/13_nodegam`
+     - :doc:`../notebooks/03_neural_additive_model_zoo`
    * - NATT
      - Attention-based tabular modeling when strict additivity is not required
-     - :doc:`../notebooks/14_natt`
+     - :doc:`../notebooks/03_neural_additive_model_zoo`
    * - NAMformer
      - Transformer-style representations with additive term extraction
-     - :doc:`../notebooks/15_namformer`
+     - :doc:`../notebooks/03_neural_additive_model_zoo`
    * - QNAM
      - Ordered conditional quantiles through distributional regression
-     - :doc:`../notebooks/16_qnam`
+     - :doc:`../notebooks/03_neural_additive_model_zoo`
    * - SplineNAM
      - Neural additive effects represented by learnable spline bases
-     - :doc:`../notebooks/17_spline_nam`
+     - :doc:`../notebooks/03_neural_additive_model_zoo`
 
 Ensembling
 ----------
 
-``EnsembleTreeNAM`` is the jointly trained multi-TreeNAM architecture; it is
-documented as a TreeNAM variant in :doc:`../notebooks/12_ensemble_treenam`.
+``EnsembleTreeNAM`` is the jointly trained multi-TreeNAM architecture and is
+covered in :doc:`../notebooks/03_neural_additive_model_zoo`.
 ``NeuralEnsemble`` is the independent bootstrap/seed ensemble wrapper that can
 be applied to supported neural estimators; see
-:doc:`../notebooks/18_neural_ensemble`.
+:doc:`../notebooks/04_tasks_distributional_models_and_ensembles`.
 
 Task availability
 -----------------
 
-The notebook for each architecture constructs every supported estimator
-surface: regression, classification, and/or distributional regression. The
-:doc:`../api/models` page is the authoritative list of public estimator
-classes.
+The runtime sweeps in
+:doc:`../notebooks/04_tasks_distributional_models_and_ensembles` construct and
+fit each supported regression, classification, and distributional estimator
+surface. The :doc:`../api/models` page is the authoritative list of public
+estimator classes.

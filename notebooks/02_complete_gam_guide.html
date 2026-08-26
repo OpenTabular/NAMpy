@@ -1,0 +1,2073 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Complete GAM guide &mdash; nampy 0.3.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/nbsphinx-code-cells.css?v=2aa19091" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=ea57e989" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=e259d695"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Neural additive model zoo" href="03_neural_additive_model_zoo.html" />
+    <link rel="prev" title="NAMpy core workflow" href="01_nampy_core_workflow.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            nampy
+              <img src="../_static/logo.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Learn and use NAMpy</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#installation-methods">Installation Methods</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../installation.html#from-pypi-recommended">From PyPI (Recommended)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../installation.html#from-source">From Source</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../installation.html#from-github">From GitHub</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../installation.html#development-installation">Development Installation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#verifying-installation">Verifying Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#gpu-support">GPU Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#getting-help">Getting Help</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick Start</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#install">Install</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#statistical-gam">Statistical GAM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#neural-additive-model">Neural additive model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#where-to-continue">Where to continue</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="../notebook_tutorials.html">Notebook Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="01_nampy_core_workflow.html">NAMpy core workflow</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="01_nampy_core_workflow.html#1.-Additive-models-as-structured-predictors">1. Additive models as structured predictors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="01_nampy_core_workflow.html#2.-Synthetic-datasets-used-throughout">2. Synthetic datasets used throughout</a></li>
+<li class="toctree-l3"><a class="reference internal" href="01_nampy_core_workflow.html#3.-First-statistical-and-neural-additive-models">3. First statistical and neural additive models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="01_nampy_core_workflow.html#4.-The-shared-estimator-interface">4. The shared estimator interface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="01_nampy_core_workflow.html#5.-The-shared-interpretation-contract">5. The shared interpretation contract</a></li>
+<li class="toctree-l3"><a class="reference internal" href="01_nampy_core_workflow.html#6.-Link-scale-and-response-scale">6. Link scale and response scale</a></li>
+<li class="toctree-l3"><a class="reference internal" href="01_nampy_core_workflow.html#7.-Scikit-learn-integration">7. Scikit-learn integration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="01_nampy_core_workflow.html#8.-Persistence-and-reproducibility">8. Persistence and reproducibility</a></li>
+<li class="toctree-l3"><a class="reference internal" href="01_nampy_core_workflow.html#9.-What-the-next-notebooks-add">9. What the next notebooks add</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Complete GAM guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#1.-Penalized-regression-splines">1. Penalized regression splines</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#2.-Data-and-execution-configuration">2. Data and execution configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#3.-Formula-and-array-interfaces">3. Formula and array interfaces</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#3.1-Prediction,-uncertainty,-offsets,-and-plots">3.1 Prediction, uncertainty, offsets, and plots</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#4.-Formula-language-and-smooth-bases">4. Formula language and smooth bases</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#4.1-Parametric-terms-and-smoothness-sharing">4.1 Parametric terms and smoothness sharing</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#5.-Main-effects,-interactions,-and-grouped-structure">5. Main effects, interactions, and grouped structure</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#5.1-Periodic,-spatial,-and-spherical-effects">5.1 Periodic, spatial, and spherical effects</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#6.-Shape-constrained-additive-models">6. Shape-constrained additive models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#7.-Response-families-and-links">7. Response families and links</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#8.-Selecting-smoothness">8. Selecting smoothness</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#9.-Inference-and-diagnostics">9. Inference and diagnostics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#10.-Distributional-GAMs">10. Distributional GAMs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#10.1-Normal-and-Gamma-location-scale-models">10.1 Normal and Gamma location-scale models</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#11.-Practical-model-building-sequence">11. Practical model-building sequence</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="03_neural_additive_model_zoo.html">Neural additive model zoo</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="03_neural_additive_model_zoo.html#1.-Common-neural-additive-workflow">1. Common neural additive workflow</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="03_neural_additive_model_zoo.html#1.1-Preprocessing,-training,-and-explanation-with-NAM">1.1 Preprocessing, training, and explanation with NAM</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="03_neural_additive_model_zoo.html#2.-Runtime-capability-discovery">2. Runtime capability discovery</a></li>
+<li class="toctree-l3"><a class="reference internal" href="03_neural_additive_model_zoo.html#3.-Linear-baseline:-LinReg">3. Linear baseline: LinReg</a></li>
+<li class="toctree-l3"><a class="reference internal" href="03_neural_additive_model_zoo.html#4.-Feature-networks:-NAM">4. Feature networks: NAM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="03_neural_additive_model_zoo.html#5.-Interaction-discovery:-SIAN">5. Interaction discovery: SIAN</a></li>
+<li class="toctree-l3"><a class="reference internal" href="03_neural_additive_model_zoo.html#6.-Group-sparsity:-SNAM">6. Group sparsity: SNAM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="03_neural_additive_model_zoo.html#7.-Random-Fourier-features:-GPNAM">7. Random Fourier features: GPNAM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="03_neural_additive_model_zoo.html#8.-ELM-boosting:-IGANN">8. ELM boosting: IGANN</a></li>
+<li class="toctree-l3"><a class="reference internal" href="03_neural_additive_model_zoo.html#9.-Shared-learned-bases:-NBM">9. Shared learned bases: NBM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="03_neural_additive_model_zoo.html#10.-Polynomial-structure-and-local-importance:-SPAM">10. Polynomial structure and local importance: SPAM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="03_neural_additive_model_zoo.html#11.-Shared-bases-with-polynomial-heads:-NBM-SPAM">11. Shared bases with polynomial heads: NBM-SPAM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="03_neural_additive_model_zoo.html#12.-Additive-attention:-NATT">12. Additive attention: NATT</a></li>
+<li class="toctree-l3"><a class="reference internal" href="03_neural_additive_model_zoo.html#13.-Identifiable-transformer-effects:-NAMformer">13. Identifiable transformer effects: NAMformer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="03_neural_additive_model_zoo.html#14.-One-differentiable-tree-per-term:-TreeNAM">14. One differentiable tree per term: TreeNAM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="03_neural_additive_model_zoo.html#15.-Joint-tree-ensembles:-EnsembleTreeNAM">15. Joint tree ensembles: EnsembleTreeNAM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="03_neural_additive_model_zoo.html#16.-Oblivious-additive-trees:-NodeGAM">16. Oblivious additive trees: NodeGAM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="03_neural_additive_model_zoo.html#17.-Non-crossing-conditional-quantiles:-QNAM">17. Non-crossing conditional quantiles: QNAM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="03_neural_additive_model_zoo.html#18.-Cubic-spline-layers:-SplineNAM">18. Cubic spline layers: SplineNAM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="03_neural_additive_model_zoo.html#19.-Standardized-architecture-comparison">19. Standardized architecture comparison</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="04_tasks_distributional_models_and_ensembles.html">Tasks, distributional models, and ensembles</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="04_tasks_distributional_models_and_ensembles.html#1.-Registry-driven-experimental-setup">1. Registry-driven experimental setup</a></li>
+<li class="toctree-l3"><a class="reference internal" href="04_tasks_distributional_models_and_ensembles.html#2.-Regression-across-architectures">2. Regression across architectures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="04_tasks_distributional_models_and_ensembles.html#3.-Classification-across-architectures">3. Classification across architectures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="04_tasks_distributional_models_and_ensembles.html#4.-Location-scale-regression-across-architectures">4. Location-scale regression across architectures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="04_tasks_distributional_models_and_ensembles.html#5.-Neural-distribution-family-gallery">5. Neural distribution-family gallery</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="04_tasks_distributional_models_and_ensembles.html#5.1-Domain-and-non-crossing-checks">5.1 Domain and non-crossing checks</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="04_tasks_distributional_models_and_ensembles.html#6.-Independent-neural-ensembles">6. Independent neural ensembles</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="04_tasks_distributional_models_and_ensembles.html#6.1-Three-different-meanings-of-uncertainty">6.1 Three different meanings of uncertainty</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="04_tasks_distributional_models_and_ensembles.html#7.-Final-capability-report">7. Final capability report</a></li>
+<li class="toctree-l3"><a class="reference internal" href="04_tasks_distributional_models_and_ensembles.html#8.-Reading-the-reports-responsibly">8. Reading the reports responsibly</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../notebook_tutorials.html#run-locally">Run locally</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../models/index.html">Model Catalog</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../models/index.html#statistical-model">Statistical model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../models/index.html#neural-architectures">Neural architectures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../models/index.html#ensembling">Ensembling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../models/index.html#task-availability">Task availability</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../user_guide.html">User Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../user_guide/preprocessing.html">Preprocessing (PreTab)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/preprocessing.html#using-pretab-with-nampy">Using PreTab with NAMpy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/preprocessing.html#preprocessor-contract">Preprocessor contract</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/preprocessing.html#accessing-the-preprocessor">Accessing the preprocessor</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../user_guide/pretab_compatibility.html">Published PreTab compatibility</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/pretab_compatibility.html#supported-contract">Supported contract</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/pretab_compatibility.html#removed-requirements">Removed requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/pretab_compatibility.html#model-impact">Model impact</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/pretab_compatibility.html#nam">NAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/pretab_compatibility.html#nbm">NBM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/pretab_compatibility.html#spam-and-nbm-spam">SPAM and NBM-SPAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/pretab_compatibility.html#nodegam">NodeGAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/pretab_compatibility.html#other-neural-models">Other neural models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/pretab_compatibility.html#gam-backend">GAM backend</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/pretab_compatibility.html#behavioral-consequences">Behavioral consequences</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../user_guide/training.html">Training Models</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/training.html#basic-training">Basic Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/training.html#training-parameters">Training Parameters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/training.html#common-training-parameters">Common Training Parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/training.html#complete-example">Complete Example</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/training.html#early-stopping">Early Stopping</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/training.html#learning-rate-scheduling">Learning Rate Scheduling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/training.html#monitoring-training">Monitoring Training</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/training.html#training-progress">Training Progress</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/training.html#custom-monitoring">Custom Monitoring</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/training.html#gpu-training">GPU Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/training.html#batch-size">Batch Size</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/training.html#architecture-native-training">Architecture-native training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/training.html#regularization">Regularization</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/training.html#weight-decay-l2">Weight Decay (L2)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/training.html#dropout">Dropout</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/training.html#hyperparameter-tuning">Hyperparameter Tuning</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/training.html#manual-search">Manual Search</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/training.html#using-scikit-learn">Using scikit-learn</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/training.html#training-tips">Training Tips</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/training.html#common-issues">Common Issues</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/training.html#model-not-converging">Model Not Converging</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/training.html#overfitting">Overfitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/training.html#underfitting">Underfitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/training.html#slow-training">Slow Training</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/training.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../user_guide/shape_constrained_gams.html">Shape-constrained GAMs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/shape_constrained_gams.html#architecture">Architecture</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/shape_constrained_gams.html#basic-use">Basic use</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/shape_constrained_gams.html#univariate-bases">Univariate bases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/shape_constrained_gams.html#bivariate-bases">Bivariate bases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/shape_constrained_gams.html#linear-functionals">Linear functionals</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/shape_constrained_gams.html#inference-and-diagnostics">Inference and diagnostics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/shape_constrained_gams.html#gaussian-ar-1-errors">Gaussian AR(1) errors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/shape_constrained_gams.html#current-boundaries">Current boundaries</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../user_guide/gamlss.html">Distributional GAMs and GAMLSS</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/gamlss.html#public-parameter-contract">Public parameter contract</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/gamlss.html#formula-and-array-modes">Formula and array modes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/gamlss.html#migration">Migration</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../user_guide/custom_models.html">Custom Models</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/custom_models.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/custom_models.html#step-by-step-guide">Step-by-Step Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/custom_models.html#define-configuration">1. Define Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/custom_models.html#implement-the-model">2. Implement the Model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/custom_models.html#register-the-architecture">3. Register the Architecture</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/custom_models.html#use-your-custom-model">4. Use Your Custom Model</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/custom_models.html#complete-example">Complete Example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/custom_models.html#important-notes">Important Notes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/custom_models.html#forward-pass-requirements">Forward Pass Requirements</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/custom_models.html#for-interpretable-models">For Interpretable Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../user_guide/custom_models.html#configuration-best-practices">Configuration Best Practices</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/custom_models.html#testing-your-model">Testing Your Model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/custom_models.html#contributing-your-model">Contributing Your Model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/custom_models.html#resources">Resources</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../user_guide/interpretability.html">Interpretability</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#understanding-additive-models">Understanding Additive Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#feature-level-predictions">Feature-Level Predictions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#model-comparison">Model Comparison</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#visualization">Visualization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#contributing">Contributing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#for-more-information">For More Information</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../user_guide.html#guide-map">Guide map</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide.html#preprocessing">Preprocessing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide.html#training">Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide.html#interpretation">Interpretation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide.html#shape-constrained-gams">Shape-constrained GAMs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide.html#distributional-gams">Distributional GAMs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide.html#extending-nampy">Extending NAMpy</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../user_guide.html#related-material">Related material</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/index.html">Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../examples/basic_regression.html">Basic Regression Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/basic_classification.html">Basic Classification Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/distributional_regression.html">Distributional Regression Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/index.html#choosing-the-right-format">Choosing the right format</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/index.html#running-repository-material">Running repository material</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/models.html">Models</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#regression-models">Regression Models</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMRegressor.html">nampy.models.NAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SIANRegressor.html">nampy.models.SIANRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.GPNAMRegressor.html">nampy.models.GPNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.IGANNRegressor.html">nampy.models.IGANNRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NBMRegressor.html">nampy.models.NBMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NBMSPAMRegressor.html">nampy.models.NBMSPAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SPAMRegressor.html">nampy.models.SPAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NATTRegressor.html">nampy.models.NATTRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMformerRegressor.html">nampy.models.NAMformerRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.LinRegRegressor.html">nampy.models.LinRegRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.TreeNAMRegressor.html">nampy.models.TreeNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.EnsembleTreeNAMRegressor.html">nampy.models.EnsembleTreeNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SNAMRegressor.html">nampy.models.SNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SplineNAMRegressor.html">nampy.models.SplineNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NodeGAMRegressor.html">nampy.models.NodeGAMRegressor</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#classification-models">Classification Models</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMClassifier.html">nampy.models.NAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SIANClassifier.html">nampy.models.SIANClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.GPNAMClassifier.html">nampy.models.GPNAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.IGANNClassifier.html">nampy.models.IGANNClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NBMClassifier.html">nampy.models.NBMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NBMSPAMClassifier.html">nampy.models.NBMSPAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SPAMClassifier.html">nampy.models.SPAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NATTClassifier.html">nampy.models.NATTClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMformerClassifier.html">nampy.models.NAMformerClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.LinRegClassifier.html">nampy.models.LinRegClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.TreeNAMClassifier.html">nampy.models.TreeNAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.EnsembleTreeNAMClassifier.html">nampy.models.EnsembleTreeNAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SNAMClassifier.html">nampy.models.SNAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NodeGAMClassifier.html">nampy.models.NodeGAMClassifier</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#distributional-regression-models-lss">Distributional Regression Models (LSS)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMLSS.html">nampy.models.NAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SIANLSS.html">nampy.models.SIANLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.GPNAMLSS.html">nampy.models.GPNAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.IGANNLSS.html">nampy.models.IGANNLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NBMLSS.html">nampy.models.NBMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NBMSPAMLSS.html">nampy.models.NBMSPAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SPAMLSS.html">nampy.models.SPAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NATTLSS.html">nampy.models.NATTLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMformerLSS.html">nampy.models.NAMformerLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.LinRegLSS.html">nampy.models.LinRegLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.TreeNAMLSS.html">nampy.models.TreeNAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.EnsembleTreeNAMLSS.html">nampy.models.EnsembleTreeNAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SNAMLSS.html">nampy.models.SNAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NodeGAMLSS.html">nampy.models.NodeGAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.GAMLSS.html">nampy.models.GAMLSS</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#other-models">Other Models</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.QNAMLSS.html">nampy.models.QNAMLSS</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#base-classes">Base Classes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NeuralRegressor.html">nampy.models.NeuralRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NeuralClassifier.html">nampy.models.NeuralClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NeuralLSS.html">nampy.models.NeuralLSS</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/gam.html">GAM (mgcv-parity backend)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/gam.html#high-level-model">High-level model</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.gam.GAM.html">nampy.gam.GAM</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/gam.html#spherical-smooths">Spherical smooths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/gam.html#shape-constrained-smooths">Shape-constrained smooths</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.gam.diagnostics.SmoothDerivativeResult.html">nampy.gam.diagnostics.SmoothDerivativeResult</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/gam.html#scikit-learn-adapters">Scikit-learn adapters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.GAMRegressor.html">nampy.models.GAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.GAMClassifier.html">nampy.models.GAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.GAMLSS.html">nampy.models.GAMLSS</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/gam.html#fit-core">Fit core</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.gam.fit_model_core.html">nampy.gam.fit_model_core</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.gam.solve_fit.html">nampy.gam.solve_fit</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.gam.FitCoreSolution.html">nampy.gam.FitCoreSolution</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/gam.html#shared-contracts">Shared contracts</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.contracts.FeatureSchema.html">nampy.contracts.FeatureSchema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.contracts.AdditivePrediction.html">nampy.contracts.AdditivePrediction</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/basemodels.html">Base Models</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/basemodels.html#base-classes">Base Classes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.BaseModel.html">nampy.neural.architectures.BaseModel</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.task.TaskModule.html">nampy.neural.task.TaskModule</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/basemodels.html#model-implementations">Model Implementations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.NAM.html">nampy.neural.architectures.NAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.SIAN.html">nampy.neural.architectures.SIAN</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.GPNAM.html">nampy.neural.architectures.GPNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.IGANN.html">nampy.neural.architectures.IGANN</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.NBM.html">nampy.neural.architectures.NBM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.NBMSPAM.html">nampy.neural.architectures.NBMSPAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.SPAM.html">nampy.neural.architectures.SPAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.NATT.html">nampy.neural.architectures.NATT</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.NAMformer.html">nampy.neural.architectures.NAMformer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.LinReg.html">nampy.neural.architectures.LinReg</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.QNAM.html">nampy.neural.architectures.QNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.SNAM.html">nampy.neural.architectures.SNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.TreeNAM.html">nampy.neural.architectures.TreeNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.EnsembleTreeNAM.html">nampy.neural.architectures.EnsembleTreeNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.SplineNAM.html">nampy.neural.architectures.SplineNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.architectures.NodeGAM.html">nampy.neural.architectures.NodeGAM</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/configs.html">Configurations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNAMConfig.html">nampy.neural.configs.DefaultNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNAMConfig.html#nampy.neural.configs.DefaultNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultSIANConfig.html">nampy.neural.configs.DefaultSIANConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultSIANConfig.html#nampy.neural.configs.DefaultSIANConfig"><code class="docutils literal notranslate"><span class="pre">DefaultSIANConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNBMConfig.html">nampy.neural.configs.DefaultNBMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNBMConfig.html#nampy.neural.configs.DefaultNBMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNBMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html">nampy.neural.configs.DefaultNBMSPAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNBMSPAMConfig.html#nampy.neural.configs.DefaultNBMSPAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNBMSPAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultSPAMConfig.html">nampy.neural.configs.DefaultSPAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultSPAMConfig.html#nampy.neural.configs.DefaultSPAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultSPAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNATTConfig.html">nampy.neural.configs.DefaultNATTConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNATTConfig.html#nampy.neural.configs.DefaultNATTConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNATTConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNAMformerConfig.html">nampy.neural.configs.DefaultNAMformerConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNAMformerConfig.html#nampy.neural.configs.DefaultNAMformerConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNAMformerConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultLinRegConfig.html">nampy.neural.configs.DefaultLinRegConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultLinRegConfig.html#nampy.neural.configs.DefaultLinRegConfig"><code class="docutils literal notranslate"><span class="pre">DefaultLinRegConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultGPNAMConfig.html">nampy.neural.configs.DefaultGPNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultGPNAMConfig.html#nampy.neural.configs.DefaultGPNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultGPNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultIGANNConfig.html">nampy.neural.configs.DefaultIGANNConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultIGANNConfig.html#nampy.neural.configs.DefaultIGANNConfig"><code class="docutils literal notranslate"><span class="pre">DefaultIGANNConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultQNAMConfig.html">nampy.neural.configs.DefaultQNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultQNAMConfig.html#nampy.neural.configs.DefaultQNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultQNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultSNAMConfig.html">nampy.neural.configs.DefaultSNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultSNAMConfig.html#nampy.neural.configs.DefaultSNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultSNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultSplineNAMConfig.html">nampy.neural.configs.DefaultSplineNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultSplineNAMConfig.html#nampy.neural.configs.DefaultSplineNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultSplineNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultTreeNAMConfig.html">nampy.neural.configs.DefaultTreeNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultTreeNAMConfig.html#nampy.neural.configs.DefaultTreeNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultTreeNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultEnsembleTreeNAMConfig.html">nampy.neural.configs.DefaultEnsembleTreeNAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultEnsembleTreeNAMConfig.html#nampy.neural.configs.DefaultEnsembleTreeNAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultEnsembleTreeNAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html">nampy.neural.configs.DefaultNodeGAMConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.configs.DefaultNodeGAMConfig.html#nampy.neural.configs.DefaultNodeGAMConfig"><code class="docutils literal notranslate"><span class="pre">DefaultNodeGAMConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/configs.html#using-configurations">Using Configurations</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/utils.html">Distributions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/utils.html#modules">Modules</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.distributions.distributions.html">nampy.neural.distributions.distributions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.neural.distributions.metrics.html">nampy.neural.distributions.metrics</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/utils.html#available-distributions">Available Distributions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/utils.html#example-usage">Example Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#public-layers">Public layers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#version">Version</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/index.html#nampy.__version__"><code class="docutils literal notranslate"><span class="pre">__version__</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Project information</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../architecture.html">Architecture</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../architecture.html#neural-architecture-contract">Neural architecture contract</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture.html#optional-training-and-inference-contracts">Optional training and inference contracts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture.html#adding-an-architecture">Adding an architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture.html#gam-isolation">GAM isolation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../contributing.html#useful-links">Useful links</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">License</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../license.html#mit-license">MIT License</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../license.html#summary">Summary</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../faq.html#general-questions">General Questions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#what-is-nampy">What is NAMpy?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#why-use-nampy-over-traditional-methods">Why use NAMpy over traditional methods?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#is-nampy-production-ready">Is NAMpy production-ready?</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../faq.html#installation-setup">Installation &amp; Setup</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#how-do-i-install-nampy">How do I install NAMpy?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#what-are-the-requirements">What are the requirements?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#do-i-need-a-gpu">Do I need a GPU?</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../faq.html#usage-questions">Usage Questions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#how-do-i-choose-which-model-to-use">How do I choose which model to use?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#can-i-use-nampy-with-pandas-dataframes">Can I use NAMpy with pandas DataFrames?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#how-do-i-handle-categorical-features">How do I handle categorical features?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#can-i-use-nampy-with-scikit-learn-pipelines">Can I use NAMpy with scikit-learn pipelines?</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../faq.html#performance-questions">Performance Questions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#why-is-training-slow">Why is training slow?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#how-do-i-speed-up-predictions">How do I speed up predictions?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#my-model-is-overfitting-what-should-i-do">My model is overfitting, what should I do?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#my-model-is-underfitting-what-should-i-do">My model is underfitting, what should I do?</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../faq.html#technical-questions">Technical Questions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#how-do-i-save-and-load-models">How do I save and load models?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#can-i-implement-custom-models">Can I implement custom models?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#how-do-i-extract-feature-importances">How do I extract feature importances?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#does-nampy-support-multi-output-regression">Does NAMpy support multi-output regression?</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../faq.html#integration-questions">Integration Questions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#can-i-use-nampy-with-other-frameworks">Can I use NAMpy with other frameworks?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#does-nampy-work-with-jupyter-notebooks">Does NAMpy work with Jupyter notebooks?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#can-i-deploy-nampy-models-in-production">Can I deploy NAMpy models in production?</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../faq.html#contributing-questions">Contributing Questions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#how-can-i-contribute">How can I contribute?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#how-do-i-report-a-bug">How do I report a bug?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#how-do-i-request-a-feature">How do I request a feature?</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../faq.html#still-have-questions">Still Have Questions?</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../development/reference_sources.html">Local upstream references</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../development/reference_sources.html#fixture-policy">Fixture policy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../development/reference_sources.html#refresh-workflow">Refresh workflow</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../development/mgcv_optimizer_boundaries.html">mgcv and SCAM optimizer coverage</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../development/mgcv_optimizer_boundaries.html#intentional-upstream-boundaries">Intentional upstream boundaries</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">nampy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../notebook_tutorials.html">Notebook Tutorials</a></li>
+      <li class="breadcrumb-item active">Complete GAM guide</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/notebooks/02_complete_gam_guide.ipynb.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="Complete-GAM-guide">
+<h1>Complete GAM guide<a class="headerlink" href="#Complete-GAM-guide" title="Link to this heading"></a></h1>
+<p>This notebook is a theory-first reference to NAMpy’s statistical GAM backend. It covers the formula and array interfaces, smooth construction, structured effects, shape constraints, response families, smoothness selection, inference, diagnostics, and multi-parameter GAMLSS models. Related bases share compact galleries; representative models are fitted rather than repeating identical boilerplate for every code.</p>
+<section id="1.-Penalized-regression-splines">
+<h2>1. Penalized regression splines<a class="headerlink" href="#1.-Penalized-regression-splines" title="Link to this heading"></a></h2>
+<p>For response <span class="math notranslate nohighlight">\(y_i\)</span> and conditional mean <span class="math notranslate nohighlight">\(\mu_i\)</span>, a GAM uses</p>
+<div class="math notranslate nohighlight">
+\[g(\mu_i)=\mathbf x_i^\top\boldsymbol\gamma+
+\sum_j\mathbf B_j(x_{ij})^\top\boldsymbol\beta_j+o_i.\]</div>
+<p>Each basis dimension <span class="math notranslate nohighlight">\(K_j\)</span> is finite. Smoothness is controlled by <span class="math notranslate nohighlight">\(\lambda_j\boldsymbol\beta_j^\top\mathbf S_j\boldsymbol\beta_j\)</span>, not by selecting a single polynomial degree. Large <span class="math notranslate nohighlight">\(K_j\)</span> supplies capacity; large <span class="math notranslate nohighlight">\(\lambda_j\)</span> suppresses wiggliness. Side conditions remove overlap between smooth null spaces, the intercept, and other terms.</p>
+<p>Effective degrees of freedom summarize the flexibility remaining after penalization. They are generally non-integer. Covariance and confidence bands are conditional on the fitted model; optional unconditional covariance also propagates estimated smoothing-parameter uncertainty.</p>
+</section>
+<section id="2.-Data-and-execution-configuration">
+<h2>2. Data and execution configuration<a class="headerlink" href="#2.-Data-and-execution-configuration" title="Link to this heading"></a></h2>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+<span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s2">"ignore"</span><span class="p">,</span> <span class="n">category</span><span class="o">=</span><span class="ne">FutureWarning</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">style</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s2">"seaborn-v0_8-whitegrid"</span><span class="p">)</span>
+<span class="n">COLORS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"#2563EB"</span><span class="p">,</span> <span class="s2">"#F97316"</span><span class="p">,</span> <span class="s2">"#10B981"</span><span class="p">,</span> <span class="s2">"#8B5CF6"</span><span class="p">,</span> <span class="s2">"#EF4444"</span><span class="p">]</span>
+
+<span class="n">FAST_MODE</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">N_SAMPLES</span> <span class="o">=</span> <span class="mi">160</span> <span class="k">if</span> <span class="n">FAST_MODE</span> <span class="k">else</span> <span class="mi">5000</span>
+<span class="n">MAX_EPOCHS</span> <span class="o">=</span> <span class="mi">2</span> <span class="k">if</span> <span class="n">FAST_MODE</span> <span class="k">else</span> <span class="mi">150</span>
+<span class="n">MAX_STEPS</span> <span class="o">=</span> <span class="mi">2</span> <span class="k">if</span> <span class="n">FAST_MODE</span> <span class="k">else</span> <span class="o">-</span><span class="mi">1</span>
+<span class="n">RANDOM_STATE</span> <span class="o">=</span> <span class="mi">7</span>
+<span class="n">CHECKPOINT_ROOT</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">"nampy-notebook-"</span><span class="p">))</span>
+
+<span class="n">NEURAL_FIT_KWARGS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"max_epochs"</span><span class="p">:</span> <span class="n">MAX_EPOCHS</span><span class="p">,</span>
+    <span class="s2">"max_steps"</span><span class="p">:</span> <span class="n">MAX_STEPS</span><span class="p">,</span>
+    <span class="s2">"batch_size"</span><span class="p">:</span> <span class="mi">64</span> <span class="k">if</span> <span class="n">FAST_MODE</span> <span class="k">else</span> <span class="mi">256</span><span class="p">,</span>
+    <span class="s2">"random_state"</span><span class="p">:</span> <span class="n">RANDOM_STATE</span><span class="p">,</span>
+    <span class="s2">"checkpoint_path"</span><span class="p">:</span> <span class="n">CHECKPOINT_ROOT</span><span class="p">,</span>
+    <span class="s2">"logger"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="s2">"enable_progress_bar"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="s2">"enable_model_summary"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="s2">"num_sanity_val_steps"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">RANDOM_STATE</span><span class="p">)</span>
+
+<span class="n">n</span> <span class="o">=</span> <span class="n">N_SAMPLES</span> <span class="o">+</span> <span class="p">(</span><span class="mi">80</span> <span class="k">if</span> <span class="n">FAST_MODE</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span>
+<span class="n">x1</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+<span class="n">x2</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+<span class="n">season</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">24.0</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+<span class="n">group</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Categorical</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">([</span><span class="s2">"a"</span><span class="p">,</span> <span class="s2">"b"</span><span class="p">,</span> <span class="s2">"c"</span><span class="p">,</span> <span class="s2">"d"</span><span class="p">],</span> <span class="n">size</span><span class="o">=</span><span class="n">n</span><span class="p">))</span>
+<span class="n">group_effect</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">group</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">({</span><span class="s2">"a"</span><span class="p">:</span> <span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="s2">"b"</span><span class="p">:</span> <span class="mf">0.2</span><span class="p">,</span> <span class="s2">"c"</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">,</span> <span class="s2">"d"</span><span class="p">:</span> <span class="o">-</span><span class="mf">0.1</span><span class="p">})</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+<span class="n">surface</span> <span class="o">=</span> <span class="mf">0.9</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">x1</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">x2</span><span class="p">)</span>
+<span class="n">mu</span> <span class="o">=</span> <span class="mf">1.2</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">x1</span><span class="p">)</span> <span class="o">+</span> <span class="mf">0.35</span> <span class="o">*</span> <span class="n">x2</span> <span class="o">+</span> <span class="n">surface</span> <span class="o">+</span> <span class="n">group_effect</span>
+<span class="n">exposure</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">2.5</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+
+<span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s2">"x1"</span><span class="p">:</span> <span class="n">x1</span><span class="p">,</span> <span class="s2">"x2"</span><span class="p">:</span> <span class="n">x2</span><span class="p">,</span> <span class="s2">"season"</span><span class="p">:</span> <span class="n">season</span><span class="p">,</span> <span class="s2">"group"</span><span class="p">:</span> <span class="n">group</span><span class="p">,</span>
+    <span class="s2">"exposure"</span><span class="p">:</span> <span class="n">exposure</span><span class="p">,</span> <span class="s2">"log_exposure"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">exposure</span><span class="p">),</span>
+<span class="p">})</span>
+<span class="n">data</span><span class="p">[</span><span class="s2">"y"</span><span class="p">]</span> <span class="o">=</span> <span class="n">mu</span> <span class="o">+</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+<span class="n">data</span><span class="p">[</span><span class="s2">"binary"</span><span class="p">]</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">binomial</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5</span> <span class="o">+</span> <span class="n">mu</span><span class="p">))))</span>
+<span class="n">rate</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mf">0.2</span> <span class="o">+</span> <span class="mf">0.7</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">x1</span><span class="p">))</span> <span class="o">*</span> <span class="n">exposure</span>
+<span class="n">data</span><span class="p">[</span><span class="s2">"count"</span><span class="p">]</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">poisson</span><span class="p">(</span><span class="n">rate</span><span class="p">)</span>
+<span class="n">data</span><span class="p">[</span><span class="s2">"gamma"</span><span class="p">]</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">gamma</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="mf">6.0</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mf">0.4</span> <span class="o">+</span> <span class="mf">0.4</span> <span class="o">*</span> <span class="n">x1</span><span class="p">)</span> <span class="o">/</span> <span class="mf">6.0</span><span class="p">)</span>
+<span class="n">data</span><span class="p">[</span><span class="s2">"beta"</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">beta</span><span class="p">(</span><span class="mf">2.0</span> <span class="o">+</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">x1</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">),</span> <span class="mf">1e-5</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="mf">1e-5</span><span class="p">)</span>
+<span class="n">data</span><span class="p">[</span><span class="s2">"ordinal"</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">cut</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">,</span> <span class="mf">1.6</span><span class="p">,</span> <span class="mf">2.4</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">],</span> <span class="n">labels</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+<span class="n">data</span><span class="p">[</span><span class="s2">"positive"</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">rng</span><span class="o">.</span><span class="n">gamma</span><span class="p">(</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="o">-</span> <span class="mf">0.35</span><span class="p">)</span>
+
+<span class="n">sigma</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">1.3</span> <span class="o">+</span> <span class="mf">0.7</span> <span class="o">*</span> <span class="p">(</span><span class="n">x2</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">data</span><span class="p">[</span><span class="s2">"hetero"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">x1</span><span class="p">)</span> <span class="o">+</span> <span class="n">sigma</span> <span class="o">*</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">n</span><span class="p">)</span>
+<span class="n">data</span><span class="p">[</span><span class="s2">"gamma_lss"</span><span class="p">]</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">gamma</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="mi">1</span> <span class="o">/</span> <span class="mf">0.25</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mf">0.2</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">x1</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.25</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">data</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+<br/></pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>x1</th>
+      <th>x2</th>
+      <th>season</th>
+      <th>group</th>
+      <th>exposure</th>
+      <th>log_exposure</th>
+      <th>y</th>
+      <th>binary</th>
+      <th>count</th>
+      <th>gamma</th>
+      <th>beta</th>
+      <th>ordinal</th>
+      <th>positive</th>
+      <th>hetero</th>
+      <th>gamma_lss</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>0.625095</td>
+      <td>-0.241361</td>
+      <td>7.023409</td>
+      <td>a</td>
+      <td>0.568153</td>
+      <td>-0.565364</td>
+      <td>0.727774</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1.324666</td>
+      <td>0.456304</td>
+      <td>1</td>
+      <td>2.700527</td>
+      <td>0.529906</td>
+      <td>1.703753</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>0.897214</td>
+      <td>-0.494451</td>
+      <td>7.030132</td>
+      <td>a</td>
+      <td>1.308638</td>
+      <td>0.268987</td>
+      <td>-0.163390</td>
+      <td>0</td>
+      <td>0</td>
+      <td>4.075249</td>
+      <td>0.610358</td>
+      <td>1</td>
+      <td>1.017491</td>
+      <td>0.728242</td>
+      <td>2.290064</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>0.775686</td>
+      <td>-0.086980</td>
+      <td>10.337878</td>
+      <td>d</td>
+      <td>1.655917</td>
+      <td>0.504355</td>
+      <td>0.364507</td>
+      <td>0</td>
+      <td>1</td>
+      <td>1.192106</td>
+      <td>0.764845</td>
+      <td>1</td>
+      <td>0.190409</td>
+      <td>-0.136088</td>
+      <td>1.697323</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>0.225207</td>
+      <td>0.314488</td>
+      <td>23.977410</td>
+      <td>d</td>
+      <td>1.006837</td>
+      <td>0.006814</td>
+      <td>2.132462</td>
+      <td>1</td>
+      <td>3</td>
+      <td>2.455830</td>
+      <td>0.257287</td>
+      <td>4</td>
+      <td>0.053814</td>
+      <td>2.009079</td>
+      <td>1.590799</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>0.300166</td>
+      <td>-0.797802</td>
+      <td>8.461247</td>
+      <td>c</td>
+      <td>1.196430</td>
+      <td>0.179342</td>
+      <td>1.910444</td>
+      <td>1</td>
+      <td>7</td>
+      <td>1.820847</td>
+      <td>0.118092</td>
+      <td>3</td>
+      <td>0.000000</td>
+      <td>1.535253</td>
+      <td>1.413327</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+</section>
+<section id="3.-Formula-and-array-interfaces">
+<h2>3. Formula and array interfaces<a class="headerlink" href="#3.-Formula-and-array-interfaces" title="Link to this heading"></a></h2>
+<p>Formula mode preserves named parametric terms, categorical contrasts, smooth specifications, offsets, and multi-predictor formulas. Array mode is compact and sklearn-friendly: each input column receives the adapter’s common basis and dimension. Use formula mode when terms need different bases or structured effects.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.gam</span><span class="w"> </span><span class="kn">import</span> <span class="n">GAM</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">GAMClassifier</span><span class="p">,</span> <span class="n">GAMLSS</span><span class="p">,</span> <span class="n">GAMRegressor</span>
+
+<span class="n">formula_gam</span> <span class="o">=</span> <span class="n">GAM</span><span class="p">(</span>
+    <span class="n">formula</span><span class="o">=</span><span class="s2">"y ~ x2 + group + s(x1, bs='cr', k=10) + s(season, bs='cc', k=8)"</span><span class="p">,</span>
+    <span class="n">family</span><span class="o">=</span><span class="s2">"gaussian"</span><span class="p">,</span>
+    <span class="n">smoothing_method</span><span class="o">=</span><span class="s2">"reml"</span><span class="p">,</span>
+<span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+
+<span class="n">array_gam</span> <span class="o">=</span> <span class="n">GAMRegressor</span><span class="p">(</span><span class="n">k</span><span class="o">=</span><span class="mi">9</span><span class="p">,</span> <span class="n">basis</span><span class="o">=</span><span class="s2">"cr"</span><span class="p">,</span> <span class="n">smoothing_method</span><span class="o">=</span><span class="s2">"reml"</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+    <span class="n">data</span><span class="p">[[</span><span class="s2">"x1"</span><span class="p">,</span> <span class="s2">"x2"</span><span class="p">]],</span> <span class="n">data</span><span class="p">[</span><span class="s2">"y"</span><span class="p">]</span>
+<span class="p">)</span>
+
+<span class="n">formula_prediction</span><span class="p">,</span> <span class="n">formula_se</span> <span class="o">=</span> <span class="n">formula_gam</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"response"</span><span class="p">,</span> <span class="n">return_se</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">array_prediction</span> <span class="o">=</span> <span class="n">array_gam</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">[[</span><span class="s2">"x1"</span><span class="p">,</span> <span class="s2">"x2"</span><span class="p">]])</span>
+<span class="n">display</span><span class="p">(</span><span class="n">formula_gam</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
+<span class="n">display</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s2">"interface"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"formula"</span><span class="p">,</span> <span class="s2">"array"</span><span class="p">],</span>
+    <span class="s2">"prediction shape"</span><span class="p">:</span> <span class="p">[</span><span class="n">formula_prediction</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">array_prediction</span><span class="o">.</span><span class="n">shape</span><span class="p">],</span>
+    <span class="s2">"intercept"</span><span class="p">:</span> <span class="p">[</span>
+        <span class="n">formula_gam</span><span class="o">.</span><span class="n">fit_result</span><span class="p">(</span><span class="n">include_covariances</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">intercept</span><span class="p">,</span>
+        <span class="n">array_gam</span><span class="o">.</span><span class="n">gam_</span><span class="o">.</span><span class="n">fit_result</span><span class="p">(</span><span class="n">include_covariances</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">intercept</span><span class="p">,</span>
+    <span class="p">],</span>
+<span class="p">}))</span>
+<br/></pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+
+Family: gaussian
+Link function: identity
+
+Formula:
+y ~ x2 + group + s(x1, bs=&#39;cr&#39;, k=10) + s(season, bs=&#39;cc&#39;, k=8)
+
+Parametric coefficients:
+                 Estimate   Std. Error      t value     Pr(&gt;|t|)
+(Intercept)       0.57777     0.067378       8.5751    1.755e-15 ***
+x2                0.46828     0.060159       7.7841    2.695e-13 ***
+group[b]          0.82721     0.090211       9.1697       &lt;2e-16 ***
+group[c]           1.4158     0.098073       14.437       &lt;2e-16 ***
+group[d]          0.49269     0.092823       5.3079    2.698e-07 ***
+---
+Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+
+Approximate significance of smooth terms:
+                      edf       Ref.df            F      p-value
+s(x1)              8.6333       8.9604       45.441       &lt;2e-16 ***
+s(season)          5.7548            6      0.52101       0.7743
+---
+Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+
+R-sq.(adj) = 0.748   Deviance explained = 76.7%
+Scale est. = 0.24023  n = 240
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+GAMSummary(family_name=&#39;gaussian&#39;, link_name=&#39;identity&#39;, formula=&#34;y ~ x2 + group + s(x1, bs=&#39;cr&#39;, k=10) + s(season, bs=&#39;cc&#39;, k=8)&#34;, p_coeff=array([0.57777364, 0.46828359, 0.82720639, 1.41583613, 0.49269182]), se=array([0.06737768, 0.06015866, 0.09021103, 0.09807328, 0.09282286,
+       0.13672281, 0.10398695, 0.11323893, 0.11334642, 0.10387469,
+       0.10838754, 0.10649807, 0.11042186, 0.20266329, 0.0946373 ,
+       0.08376293, 0.09210184, 0.0974602 , 0.08906054, 0.09600436]), p_t=array([ 8.57514851,  7.78414221,  9.16968137, 14.43651194,  5.30787134]), p_pv=array([1.75464297e-15, 2.69488344e-13, 3.43030093e-17, 1.05224197e-33,
+       2.69755514e-07]), p_table=             Estimate  Std. Error    t value      Pr(&gt;|t|)
+(Intercept)  0.577774    0.067378   8.575149  1.754643e-15
+x2           0.468284    0.060159   7.784142  2.694883e-13
+group[b]     0.827206    0.090211   9.169681  3.430301e-17
+group[c]     1.415836    0.098073  14.436512  1.052242e-33
+group[d]     0.492692    0.092823   5.307871  2.697555e-07, pterms_table=   label   df  wald_stat       p_value test covariance  dispersion
+0     x2  1.0  60.592870  2.694883e-13    F      bayes    0.240226
+1  group  3.0  73.296219  6.302115e-33    F      bayes    0.240226, s_table=       label       edf    ref_df  wald_stat   p_value test term_type  \
+0      s(x1)  8.633252  8.960351  45.441233  0.000000    F    smooth
+1  s(season)  5.754788  6.000000   0.521014  0.774287    F    smooth
+
+  basis_name covariance  dispersion
+0         cr      bayes    0.240226
+1         cc      bayes    0.240226  , residual_df=220.61195980289062, m=2, scale=0.2402256443505984, dispersion=0.2402256443505984, scale_estimated=True, r_sq=0.747760317135475, dev_expl=0.7671669841974791, null_deviance=227.61656035949485, deviance=52.996650195097715, n=240, np=20, rank=20, method=None, sp_criterion=None, covariance=&#39;bayes&#39;, edf_total=19.38804019710939, metadata={})
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>interface</th>
+      <th>prediction shape</th>
+      <th>intercept</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>formula</td>
+      <td>(240,)</td>
+      <td>0.577774</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>array</td>
+      <td>(240,)</td>
+      <td>1.260042</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+<section id="3.1-Prediction,-uncertainty,-offsets,-and-plots">
+<h3>3.1 Prediction, uncertainty, offsets, and plots<a class="headerlink" href="#3.1-Prediction,-uncertainty,-offsets,-and-plots" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">type=&quot;link&quot;</span></code> predicts <span class="math notranslate nohighlight">\(\eta\)</span>; <code class="docutils literal notranslate"><span class="pre">type=&quot;response&quot;</span></code> applies the inverse link; <code class="docutils literal notranslate"><span class="pre">type=&quot;terms&quot;</span></code> returns identified term contributions; and <code class="docutils literal notranslate"><span class="pre">type=&quot;lpmatrix&quot;</span></code> returns the design mapping coefficients to predictors. Standard errors are pointwise, not simultaneous bands. An offset is supplied in the formula with <code class="docutils literal notranslate"><span class="pre">offset(...)</span></code> or through the fit/predict argument and is never estimated.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">link</span> <span class="o">=</span> <span class="n">formula_gam</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"link"</span><span class="p">)</span>
+<span class="n">term_values</span> <span class="o">=</span> <span class="n">formula_gam</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"terms"</span><span class="p">,</span> <span class="n">return_se</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">Xp</span> <span class="o">=</span> <span class="n">formula_gam</span><span class="o">.</span><span class="n">lpmatrix</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">formula_gam</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">pages</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">se</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="n">offset_gam</span> <span class="o">=</span> <span class="n">GAM</span><span class="p">(</span>
+    <span class="n">formula</span><span class="o">=</span><span class="s2">"count ~ s(x1, bs='cr', k=8) + offset(log_exposure)"</span><span class="p">,</span>
+    <span class="n">family</span><span class="o">=</span><span class="s2">"poisson"</span><span class="p">,</span>
+    <span class="n">smoothing_method</span><span class="o">=</span><span class="s2">"ubre"</span><span class="p">,</span>
+<span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+<span class="n">display</span><span class="p">({</span><span class="s2">"link shape"</span><span class="p">:</span> <span class="n">link</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s2">"lpmatrix shape"</span><span class="p">:</span> <span class="n">Xp</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s2">"offset AIC"</span><span class="p">:</span> <span class="n">offset_gam</span><span class="o">.</span><span class="n">aic</span><span class="p">()})</span>
+<br/></pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+{&#39;link shape&#39;: (240,),
+ &#39;lpmatrix shape&#39;: (240, 20),
+ &#39;offset AIC&#39;: 751.426753770295}
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/notebooks_02_complete_gam_guide_7_1.png" src="../_images/notebooks_02_complete_gam_guide_7_1.png" />
+</div>
+</div>
+</section>
+</section>
+<section id="4.-Formula-language-and-smooth-bases">
+<h2>4. Formula language and smooth bases<a class="headerlink" href="#4.-Formula-language-and-smooth-bases" title="Link to this heading"></a></h2>
+<p>Basis choice encodes geometry and boundary behavior. Shrinkage variants add a penalty to the usual null space so an entire smooth can approach zero. Tensor products are appropriate when predictors use different units. Random and factor-specific smooths encode grouped structures.</p>
+<p>The gallery is executable specification: constructing every object checks that the installed parser recognizes the formula. Related bases share a comparison row because their fitting workflow is identical.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">formula_gallery</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">([</span>
+    <span class="p">(</span><span class="s2">"B-spline derivatives"</span><span class="p">,</span> <span class="s2">"bs"</span><span class="p">,</span> <span class="s2">"y ~ s(x1, bs='bs', k=9, m=[3, 2])"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"cubic regression"</span><span class="p">,</span> <span class="s2">"cr / cs"</span><span class="p">,</span> <span class="s2">"y ~ s(x1, bs='cr', k=9)"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"cyclic cubic / P-spline"</span><span class="p">,</span> <span class="s2">"cc / cp"</span><span class="p">,</span> <span class="s2">"y ~ s(season, bs='cc', k=9)"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"Duchon spline"</span><span class="p">,</span> <span class="s2">"ds"</span><span class="p">,</span> <span class="s2">"y ~ s(x1, x2, bs='ds', k=16)"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"Gaussian-process smooth"</span><span class="p">,</span> <span class="s2">"gp"</span><span class="p">,</span> <span class="s2">"y ~ s(x1, x2, bs='gp', k=16)"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"P-spline"</span><span class="p">,</span> <span class="s2">"ps"</span><span class="p">,</span> <span class="s2">"y ~ s(x1, bs='ps', k=9)"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"spherical spline"</span><span class="p">,</span> <span class="s2">"sos"</span><span class="p">,</span> <span class="s2">"y ~ s(latitude, longitude, bs='sos', k=20)"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"thin plate / shrinkage"</span><span class="p">,</span> <span class="s2">"tp / ts"</span><span class="p">,</span> <span class="s2">"y ~ s(x1, x2, bs='tp', k=16)"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"Markov random field"</span><span class="p">,</span> <span class="s2">"mrf"</span><span class="p">,</span> <span class="s2">"y ~ s(region, bs='mrf', xt={'nb': neighbors})"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"random effect"</span><span class="p">,</span> <span class="s2">"re"</span><span class="p">,</span> <span class="s2">"y ~ s(group, bs='re')"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"factor-specific"</span><span class="p">,</span> <span class="s2">"fs / sz"</span><span class="p">,</span> <span class="s2">"y ~ s(group, x1, bs='fs', k=6, xt='cr')"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"full tensor product"</span><span class="p">,</span> <span class="s2">"te"</span><span class="p">,</span> <span class="s2">"y ~ te(x1, x2, bs=['cr', 'ps'], k=[6, 6])"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"pure tensor interaction"</span><span class="p">,</span> <span class="s2">"ti"</span><span class="p">,</span> <span class="s2">"y ~ s(x1) + s(x2) + ti(x1, x2, k=[6, 6])"</span><span class="p">),</span>
+<span class="p">],</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">"intended use"</span><span class="p">,</span> <span class="s2">"basis"</span><span class="p">,</span> <span class="s2">"formula"</span><span class="p">])</span>
+
+<span class="n">constructible</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">row</span><span class="o">.</span><span class="n">basis</span><span class="p">:</span> <span class="n">GAM</span><span class="p">(</span><span class="n">formula</span><span class="o">=</span><span class="n">row</span><span class="o">.</span><span class="n">formula</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">formula_gallery</span><span class="o">.</span><span class="n">itertuples</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">row</span><span class="o">.</span><span class="n">basis</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"mrf"</span><span class="p">,</span> <span class="s2">"sos"</span><span class="p">}</span>
+<span class="p">}</span>
+<span class="n">formula_gallery</span>
+<br/></pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>intended use</th>
+      <th>basis</th>
+      <th>formula</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>B-spline derivatives</td>
+      <td>bs</td>
+      <td>y ~ s(x1, bs='bs', k=9, m=[3, 2])</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>cubic regression</td>
+      <td>cr / cs</td>
+      <td>y ~ s(x1, bs='cr', k=9)</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>cyclic cubic / P-spline</td>
+      <td>cc / cp</td>
+      <td>y ~ s(season, bs='cc', k=9)</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>Duchon spline</td>
+      <td>ds</td>
+      <td>y ~ s(x1, x2, bs='ds', k=16)</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>Gaussian-process smooth</td>
+      <td>gp</td>
+      <td>y ~ s(x1, x2, bs='gp', k=16)</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>P-spline</td>
+      <td>ps</td>
+      <td>y ~ s(x1, bs='ps', k=9)</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>spherical spline</td>
+      <td>sos</td>
+      <td>y ~ s(latitude, longitude, bs='sos', k=20)</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>thin plate / shrinkage</td>
+      <td>tp / ts</td>
+      <td>y ~ s(x1, x2, bs='tp', k=16)</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>Markov random field</td>
+      <td>mrf</td>
+      <td>y ~ s(region, bs='mrf', xt={'nb': neighbors})</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>random effect</td>
+      <td>re</td>
+      <td>y ~ s(group, bs='re')</td>
+    </tr>
+    <tr>
+      <th>10</th>
+      <td>factor-specific</td>
+      <td>fs / sz</td>
+      <td>y ~ s(group, x1, bs='fs', k=6, xt='cr')</td>
+    </tr>
+    <tr>
+      <th>11</th>
+      <td>full tensor product</td>
+      <td>te</td>
+      <td>y ~ te(x1, x2, bs=['cr', 'ps'], k=[6, 6])</td>
+    </tr>
+    <tr>
+      <th>12</th>
+      <td>pure tensor interaction</td>
+      <td>ti</td>
+      <td>y ~ s(x1) + s(x2) + ti(x1, x2, k=[6, 6])</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+<section id="4.1-Parametric-terms-and-smoothness-sharing">
+<h3>4.1 Parametric terms and smoothness sharing<a class="headerlink" href="#4.1-Parametric-terms-and-smoothness-sharing" title="Link to this heading"></a></h3>
+<p>Numeric and categorical parametric terms use ordinary model-matrix columns. <code class="docutils literal notranslate"><span class="pre">x1:x2</span></code> is a parametric interaction. A shared <code class="docutils literal notranslate"><span class="pre">id=</span></code> pools basis construction and smoothing parameters across compatible smooths. <code class="docutils literal notranslate"><span class="pre">select=True</span></code> adds null-space selection penalties. <code class="docutils literal notranslate"><span class="pre">pc=</span></code> imposes a point constraint such as <span class="math notranslate nohighlight">\(f(0)=0\)</span>. <code class="docutils literal notranslate"><span class="pre">sp=</span></code> fixes a term’s smoothing parameter; omitted values are selected when automatic smoothing is enabled.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">language_examples</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"parametric"</span><span class="p">:</span> <span class="n">GAM</span><span class="p">(</span><span class="n">formula</span><span class="o">=</span><span class="s2">"y ~ x1 + group + x1:group"</span><span class="p">),</span>
+    <span class="s2">"shared smoothing"</span><span class="p">:</span> <span class="n">GAM</span><span class="p">(</span><span class="n">formula</span><span class="o">=</span><span class="s2">"y ~ s(x1, bs='cr', id='shared') + s(x2, bs='cr', id='shared')"</span><span class="p">),</span>
+    <span class="s2">"term selection"</span><span class="p">:</span> <span class="n">GAM</span><span class="p">(</span><span class="n">formula</span><span class="o">=</span><span class="s2">"y ~ s(x1, bs='ts', k=10)"</span><span class="p">,</span> <span class="n">select</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+    <span class="s2">"point constraint"</span><span class="p">:</span> <span class="n">GAM</span><span class="p">(</span><span class="n">formula</span><span class="o">=</span><span class="s2">"y ~ s(x1, bs='cr', k=10, pc=0.0)"</span><span class="p">),</span>
+    <span class="s2">"fixed smoothing"</span><span class="p">:</span> <span class="n">GAM</span><span class="p">(</span><span class="n">formula</span><span class="o">=</span><span class="s2">"y ~ s(x1, bs='cr', k=10, sp=0.8)"</span><span class="p">),</span>
+<span class="p">}</span>
+<span class="nb">sorted</span><span class="p">(</span><span class="n">language_examples</span><span class="p">)</span>
+<br/></pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[&#39;fixed smoothing&#39;,
+ &#39;parametric&#39;,
+ &#39;point constraint&#39;,
+ &#39;shared smoothing&#39;,
+ &#39;term selection&#39;]
+</pre></div></div>
+</div>
+</section>
+</section>
+<section id="5.-Main-effects,-interactions,-and-grouped-structure">
+<h2>5. Main effects, interactions, and grouped structure<a class="headerlink" href="#5.-Main-effects,-interactions,-and-grouped-structure" title="Link to this heading"></a></h2>
+<p>A tensor interaction separates marginal trends from a residual surface. Random effects use ridge penalties and partial pooling. Factor-specific smooths allow a curve per group: <code class="docutils literal notranslate"><span class="pre">fs</span></code> applies per-level penalties, while <code class="docutils literal notranslate"><span class="pre">sz</span></code> uses sum-to-zero constraints so deviations are interpreted around a population curve. Shared smoothing parameters reduce the number of hyperparameters when scientific reasoning supports common roughness.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">structured</span> <span class="o">=</span> <span class="n">GAM</span><span class="p">(</span>
+    <span class="n">formula</span><span class="o">=</span><span class="p">(</span>
+        <span class="s2">"y ~ s(x1, bs='cr', k=8) + s(x2, bs='cr', k=8) "</span>
+        <span class="s2">"+ ti(x1, x2, bs=['cr', 'cr'], k=[5, 5]) + s(group, bs='re')"</span>
+    <span class="p">),</span>
+    <span class="n">family</span><span class="o">=</span><span class="s2">"gaussian"</span><span class="p">,</span>
+    <span class="n">smoothing_method</span><span class="o">=</span><span class="s2">"reml"</span><span class="p">,</span>
+<span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+
+<span class="n">structured_terms</span> <span class="o">=</span> <span class="n">structured</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"terms"</span><span class="p">)</span>
+<span class="n">structured</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">pages</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">se</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">n2</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+<span class="n">display</span><span class="p">(</span><span class="n">structured</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
+<br/></pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+
+Family: gaussian
+Link function: identity
+
+Formula:
+y ~ s(x1, bs=&#39;cr&#39;, k=8) + s(x2, bs=&#39;cr&#39;, k=8) + ti(x1, x2, bs=[&#39;cr&#39;, &#39;cr&#39;], k=[5, 5]) + s(group, bs=&#39;re&#39;)
+
+Parametric coefficients:
+                 Estimate   Std. Error      t value     Pr(&gt;|t|)
+(Intercept)         1.278      0.12343       10.354       &lt;2e-16 ***
+---
+Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+
+Approximate significance of smooth terms:
+                      edf       Ref.df            F      p-value
+s(x1)               6.761       6.9734       243.51       &lt;2e-16 ***
+s(x2)              6.7869         6.98       107.01       &lt;2e-16 ***
+ti(x1, x2)         9.3244        11.87       11.856       &lt;2e-16 ***
+s(group)           2.9441            3       268.33       &lt;2e-16 ***
+---
+Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+
+R-sq.(adj) = 0.937   Deviance explained = 94.4%
+Scale est. = 0.05987  n = 240
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+GAMSummary(family_name=&#39;gaussian&#39;, link_name=&#39;identity&#39;, formula=&#34;y ~ s(x1, bs=&#39;cr&#39;, k=8) + s(x2, bs=&#39;cr&#39;, k=8) + ti(x1, x2, bs=[&#39;cr&#39;, &#39;cr&#39;], k=[5, 5]) + s(group, bs=&#39;re&#39;)&#34;, p_coeff=array([1.27803136]), se=array([0.12343228, 0.0596042 , 0.0492317 , 0.05392305, 0.04801951,
+       0.05736465, 0.05301277, 0.09800791, 0.06714869, 0.0530108 ,
+       0.05762367, 0.05331075, 0.05240847, 0.05696552, 0.09958005,
+       0.11101136, 0.09211787, 0.10355703, 0.14315713, 0.11146588,
+       0.08365471, 0.09902281, 0.1507523 , 0.11045715, 0.09040988,
+       0.1028485 , 0.15820211, 0.12809775, 0.12631614, 0.12897461,
+       0.2259239 , 0.12592877, 0.12521253, 0.12615619, 0.12555125]), p_t=array([10.35410989]), p_pv=array([1.29393191e-20]), p_table=             Estimate  Std. Error   t value      Pr(&gt;|t|)
+(Intercept)  1.278031    0.123432  10.35411  1.293932e-20, pterms_table=Empty DataFrame
+Columns: [label, df, wald_stat, p_value, test, covariance, dispersion]
+Index: [], s_table=        label       edf     ref_df   wald_stat  p_value test  \
+0       s(x1)  6.760958   6.973394  243.507790      0.0    F
+1       s(x2)  6.786868   6.979980  107.011667      0.0    F
+2  ti(x1, x2)  9.324386  11.869554   11.856245      0.0    F
+3    s(group)  2.944128   3.000000  268.329634      0.0    F
+
+            term_type basis_name covariance  dispersion
+0              smooth         cr      bayes     0.05987
+1              smooth         cr      bayes     0.05987
+2  tensor_interaction  ti(cr,cr)      bayes     0.05987
+3       random_effect         re      bayes     0.05987  , residual_df=213.18365990840695, m=4, scale=0.059869681025702046, dispersion=0.059869681025702046, scale_estimated=True, r_sq=0.9371361479914134, dev_expl=0.9439265855768579, null_deviance=227.61656035949485, deviance=12.76323771860807, n=240, np=35, rank=35, method=None, sp_criterion=None, covariance=&#39;bayes&#39;, edf_total=26.81634009159306, metadata={})
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/notebooks_02_complete_gam_guide_13_2.png" src="../_images/notebooks_02_complete_gam_guide_13_2.png" />
+</div>
+</div>
+<section id="5.1-Periodic,-spatial,-and-spherical-effects">
+<h3>5.1 Periodic, spatial, and spherical effects<a class="headerlink" href="#5.1-Periodic,-spatial,-and-spherical-effects" title="Link to this heading"></a></h3>
+<p>Cyclic bases identify the endpoints of a known period. MRF smooths couple adjacent regions through a graph Laplacian and require a neighbor graph, polygons, or a supplied penalty. Spherical splines treat latitude and longitude as coordinates on a sphere; ordinary planar smooths can distort global geometry. These compact objects document the required formulas without inventing a large external map dataset.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">cyclic</span> <span class="o">=</span> <span class="n">GAM</span><span class="p">(</span><span class="n">formula</span><span class="o">=</span><span class="s2">"y ~ s(season, bs='cc', k=10)"</span><span class="p">,</span> <span class="n">smoothing_method</span><span class="o">=</span><span class="s2">"reml"</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+<span class="n">neighbors</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"north"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"central"</span><span class="p">],</span> <span class="s2">"central"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"north"</span><span class="p">,</span> <span class="s2">"south"</span><span class="p">],</span> <span class="s2">"south"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"central"</span><span class="p">]}</span>
+<span class="n">spatial</span> <span class="o">=</span> <span class="n">GAM</span><span class="p">(</span><span class="n">formula</span><span class="o">=</span><span class="s2">"y ~ s(region, bs='mrf', xt={'nb': neighbors})"</span><span class="p">)</span>
+<span class="n">spherical</span> <span class="o">=</span> <span class="n">GAM</span><span class="p">(</span><span class="n">formula</span><span class="o">=</span><span class="s2">"y ~ s(latitude, longitude, bs='sos', k=20)"</span><span class="p">)</span>
+
+<span class="n">grid</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">"season"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">24</span><span class="p">,</span> <span class="mi">200</span><span class="p">)})</span>
+<span class="n">cycle</span> <span class="o">=</span> <span class="n">cyclic</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+<span class="n">display</span><span class="p">({</span><span class="s2">"endpoint difference"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">cycle</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">cycle</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])),</span> <span class="s2">"spatial formula"</span><span class="p">:</span> <span class="n">spatial</span><span class="o">.</span><span class="n">formula</span><span class="p">})</span>
+<br/></pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+{&#39;endpoint difference&#39;: 0.002638384650427872,
+ &#39;spatial formula&#39;: &#34;y ~ s(region, bs=&#39;mrf&#39;, xt={&#39;nb&#39;: neighbors})&#34;}
+</pre></div></div>
+</div>
+</section>
+</section>
+<section id="6.-Shape-constrained-additive-models">
+<h2>6. Shape-constrained additive models<a class="headerlink" href="#6.-Shape-constrained-additive-models" title="Link to this heading"></a></h2>
+<p>Shape constraints encode qualitative prior knowledge in the coefficient parameterization. They are not post-fit clipping. First derivatives test monotonicity; second derivatives test curvature. Positivity and anchoring constrain function levels. Numeric-by and local bases apply restrictions to varying-coefficient or subdomain effects. Bivariate codes constrain directions or curvature of surfaces.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">shape_reference</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">([</span>
+    <span class="p">(</span><span class="s2">"mpi"</span><span class="p">,</span> <span class="s2">"monotone increasing"</span><span class="p">),</span> <span class="p">(</span><span class="s2">"mpd"</span><span class="p">,</span> <span class="s2">"monotone decreasing"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"cx"</span><span class="p">,</span> <span class="s2">"convex"</span><span class="p">),</span> <span class="p">(</span><span class="s2">"cv"</span><span class="p">,</span> <span class="s2">"concave"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"micx"</span><span class="p">,</span> <span class="s2">"increasing and convex"</span><span class="p">),</span> <span class="p">(</span><span class="s2">"micv"</span><span class="p">,</span> <span class="s2">"increasing and concave"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"mdcx"</span><span class="p">,</span> <span class="s2">"decreasing and convex"</span><span class="p">),</span> <span class="p">(</span><span class="s2">"mdcv"</span><span class="p">,</span> <span class="s2">"decreasing and concave"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"po"</span><span class="p">,</span> <span class="s2">"positive"</span><span class="p">),</span> <span class="p">(</span><span class="s2">"ipo"</span><span class="p">,</span> <span class="s2">"increasing positive"</span><span class="p">),</span> <span class="p">(</span><span class="s2">"dpo"</span><span class="p">,</span> <span class="s2">"decreasing positive"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"miso"</span><span class="p">,</span> <span class="s2">"anchored increasing"</span><span class="p">),</span> <span class="p">(</span><span class="s2">"mifo"</span><span class="p">,</span> <span class="s2">"anchored decreasing"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"mpiby / mpdby"</span><span class="p">,</span> <span class="s2">"numeric-by monotonicity"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"cxby / cvby / micxby / micvby / mdcxby / mdcvby"</span><span class="p">,</span> <span class="s2">"numeric-by curvature"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"lmpi / lipl"</span><span class="p">,</span> <span class="s2">"local constraints"</span><span class="p">),</span> <span class="p">(</span><span class="s2">"cpop"</span><span class="p">,</span> <span class="s2">"locally positive cyclic effect"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"tedmi / tedmd"</span><span class="p">,</span> <span class="s2">"tensor monotonicity"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"temicx / temicv / tedecx / tedecv"</span><span class="p">,</span> <span class="s2">"tensor monotonicity plus curvature"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"tecxcx / tecvcv / tecxcv"</span><span class="p">,</span> <span class="s2">"bivariate curvature"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"tesmi1 / tesmd1 / tesmi2 / tesmd2"</span><span class="p">,</span> <span class="s2">"single-direction monotonicity"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"tismi / tismd"</span><span class="p">,</span> <span class="s2">"tensor-interaction monotonicity"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"tescx / tescv"</span><span class="p">,</span> <span class="s2">"single-direction curvature"</span><span class="p">),</span>
+<span class="p">],</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">"basis code"</span><span class="p">,</span> <span class="s2">"mathematical property"</span><span class="p">])</span>
+<span class="n">shape_reference</span>
+<br/></pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>basis code</th>
+      <th>mathematical property</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>mpi</td>
+      <td>monotone increasing</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>mpd</td>
+      <td>monotone decreasing</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>cx</td>
+      <td>convex</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>cv</td>
+      <td>concave</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>micx</td>
+      <td>increasing and convex</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>micv</td>
+      <td>increasing and concave</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>mdcx</td>
+      <td>decreasing and convex</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>mdcv</td>
+      <td>decreasing and concave</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>po</td>
+      <td>positive</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>ipo</td>
+      <td>increasing positive</td>
+    </tr>
+    <tr>
+      <th>10</th>
+      <td>dpo</td>
+      <td>decreasing positive</td>
+    </tr>
+    <tr>
+      <th>11</th>
+      <td>miso</td>
+      <td>anchored increasing</td>
+    </tr>
+    <tr>
+      <th>12</th>
+      <td>mifo</td>
+      <td>anchored decreasing</td>
+    </tr>
+    <tr>
+      <th>13</th>
+      <td>mpiby / mpdby</td>
+      <td>numeric-by monotonicity</td>
+    </tr>
+    <tr>
+      <th>14</th>
+      <td>cxby / cvby / micxby / micvby / mdcxby / mdcvby</td>
+      <td>numeric-by curvature</td>
+    </tr>
+    <tr>
+      <th>15</th>
+      <td>lmpi / lipl</td>
+      <td>local constraints</td>
+    </tr>
+    <tr>
+      <th>16</th>
+      <td>cpop</td>
+      <td>locally positive cyclic effect</td>
+    </tr>
+    <tr>
+      <th>17</th>
+      <td>tedmi / tedmd</td>
+      <td>tensor monotonicity</td>
+    </tr>
+    <tr>
+      <th>18</th>
+      <td>temicx / temicv / tedecx / tedecv</td>
+      <td>tensor monotonicity plus curvature</td>
+    </tr>
+    <tr>
+      <th>19</th>
+      <td>tecxcx / tecvcv / tecxcv</td>
+      <td>bivariate curvature</td>
+    </tr>
+    <tr>
+      <th>20</th>
+      <td>tesmi1 / tesmd1 / tesmi2 / tesmd2</td>
+      <td>single-direction monotonicity</td>
+    </tr>
+    <tr>
+      <th>21</th>
+      <td>tismi / tismd</td>
+      <td>tensor-interaction monotonicity</td>
+    </tr>
+    <tr>
+      <th>22</th>
+      <td>tescx / tescv</td>
+      <td>single-direction curvature</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">shape_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">"x"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n</span><span class="p">)})</span>
+<span class="n">shape_data</span><span class="p">[</span><span class="s2">"increasing"</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="mi">3</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mi">4</span> <span class="o">*</span> <span class="n">shape_data</span><span class="p">[</span><span class="s2">"x"</span><span class="p">]))</span> <span class="o">+</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.08</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+<span class="n">shape_data</span><span class="p">[</span><span class="s2">"convex"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">+</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">shape_data</span><span class="p">[</span><span class="s2">"x"</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+
+<span class="n">monotone</span> <span class="o">=</span> <span class="n">GAM</span><span class="p">(</span>
+    <span class="n">formula</span><span class="o">=</span><span class="s2">"increasing ~ s(x, bs='mpi', k=10)"</span><span class="p">,</span>
+    <span class="n">optimize_smoothing</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">smoothing_method</span><span class="o">=</span><span class="s2">"fixed"</span><span class="p">,</span> <span class="n">smoothing_params</span><span class="o">=</span><span class="p">[</span><span class="mf">0.5</span><span class="p">],</span>
+<span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">shape_data</span><span class="p">)</span>
+<span class="n">convex</span> <span class="o">=</span> <span class="n">GAM</span><span class="p">(</span>
+    <span class="n">formula</span><span class="o">=</span><span class="s2">"convex ~ s(x, bs='cx', k=10)"</span><span class="p">,</span>
+    <span class="n">optimize_smoothing</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">smoothing_method</span><span class="o">=</span><span class="s2">"fixed"</span><span class="p">,</span> <span class="n">smoothing_params</span><span class="o">=</span><span class="p">[</span><span class="mf">0.5</span><span class="p">],</span>
+<span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">shape_data</span><span class="p">)</span>
+
+<span class="n">d1</span> <span class="o">=</span> <span class="n">monotone</span><span class="o">.</span><span class="n">derivative</span><span class="p">(</span><span class="n">smooth_number</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">deriv</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">derivative</span>
+<span class="n">d2</span> <span class="o">=</span> <span class="n">convex</span><span class="o">.</span><span class="n">derivative</span><span class="p">(</span><span class="n">smooth_number</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">deriv</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">derivative</span>
+<span class="k">assert</span> <span class="n">d1</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="o">-</span><span class="mf">1e-6</span>
+<span class="k">assert</span> <span class="n">d2</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="o">-</span><span class="mf">1e-6</span>
+<span class="n">display</span><span class="p">({</span><span class="s2">"minimum first derivative"</span><span class="p">:</span> <span class="n">d1</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="s2">"minimum second derivative"</span><span class="p">:</span> <span class="n">d2</span><span class="o">.</span><span class="n">min</span><span class="p">()})</span>
+<br/></pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+{&#39;minimum first derivative&#39;: 0.34771668790873866,
+ &#39;minimum second derivative&#39;: 0.0}
+</pre></div></div>
+</div>
+</section>
+<section id="7.-Response-families-and-links">
+<h2>7. Response families and links<a class="headerlink" href="#7.-Response-families-and-links" title="Link to this heading"></a></h2>
+<p>The family determines support, variance, likelihood, deviance, residuals, and inverse-link interpretation. The same smooth formula is therefore not a substitute for choosing a scientifically appropriate distribution. The examples below simulate responses on the required support and report one family-appropriate check.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">family_specs</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"Gaussian"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"y"</span><span class="p">,</span> <span class="s2">"gaussian"</span><span class="p">,</span> <span class="s2">"y ~ s(x1, bs='cr', k=8) + x2"</span><span class="p">),</span>
+    <span class="s2">"Binomial"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"binary"</span><span class="p">,</span> <span class="s2">"binomial"</span><span class="p">,</span> <span class="s2">"binary ~ s(x1, bs='cr', k=8) + x2"</span><span class="p">),</span>
+    <span class="s2">"Poisson"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"count"</span><span class="p">,</span> <span class="s2">"poisson"</span><span class="p">,</span> <span class="s2">"count ~ s(x1, bs='cr', k=8) + offset(log_exposure)"</span><span class="p">),</span>
+    <span class="s2">"Gamma"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"gamma"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"name"</span><span class="p">:</span> <span class="s2">"gamma"</span><span class="p">,</span> <span class="s2">"link"</span><span class="p">:</span> <span class="s2">"log"</span><span class="p">},</span> <span class="s2">"gamma ~ s(x1, bs='cr', k=8)"</span><span class="p">),</span>
+    <span class="s2">"Negative binomial"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"count"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"name"</span><span class="p">:</span> <span class="s2">"nb"</span><span class="p">},</span> <span class="s2">"count ~ s(x1, bs='cr', k=8) + offset(log_exposure)"</span><span class="p">),</span>
+    <span class="s2">"Beta"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"beta"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"name"</span><span class="p">:</span> <span class="s2">"betar"</span><span class="p">,</span> <span class="s2">"theta"</span><span class="p">:</span> <span class="mf">8.0</span><span class="p">},</span> <span class="s2">"beta ~ s(x1, bs='cr', k=8)"</span><span class="p">),</span>
+    <span class="s2">"Tweedie"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"positive"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"name"</span><span class="p">:</span> <span class="s2">"tweedie"</span><span class="p">,</span> <span class="s2">"link"</span><span class="p">:</span> <span class="s2">"log"</span><span class="p">},</span> <span class="s2">"positive ~ s(x1, bs='cr', k=8)"</span><span class="p">),</span>
+    <span class="s2">"Ordered categorical"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"ordinal"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"name"</span><span class="p">:</span> <span class="s2">"ocat"</span><span class="p">,</span> <span class="s2">"R"</span><span class="p">:</span> <span class="mi">4</span><span class="p">},</span> <span class="s2">"ordinal ~ s(x1, bs='cr', k=8)"</span><span class="p">),</span>
+<span class="p">}</span>
+
+<span class="n">family_rows</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">family_models</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">family</span><span class="p">,</span> <span class="n">formula</span><span class="p">)</span> <span class="ow">in</span> <span class="n">family_specs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="n">method</span> <span class="o">=</span> <span class="s2">"ubre"</span> <span class="k">if</span> <span class="n">label</span> <span class="o">==</span> <span class="s2">"Poisson"</span> <span class="k">else</span> <span class="s2">"reml"</span>
+    <span class="n">candidate</span> <span class="o">=</span> <span class="n">GAM</span><span class="p">(</span><span class="n">formula</span><span class="o">=</span><span class="n">formula</span><span class="p">,</span> <span class="n">family</span><span class="o">=</span><span class="n">family</span><span class="p">,</span> <span class="n">smoothing_method</span><span class="o">=</span><span class="n">method</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+    <span class="n">family_models</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="n">candidate</span>
+    <span class="n">fitted</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">candidate</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"response"</span><span class="p">))</span>
+    <span class="n">family_rows</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+        <span class="s2">"family"</span><span class="p">:</span> <span class="n">label</span><span class="p">,</span>
+        <span class="s2">"finite predictions"</span><span class="p">:</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">fitted</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()),</span>
+        <span class="s2">"prediction minimum"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">fitted</span><span class="p">)),</span>
+        <span class="s2">"deviance residual RMS"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">candidate</span><span class="o">.</span><span class="n">residuals</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">"deviance"</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">))),</span>
+    <span class="p">})</span>
+<span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">family_rows</span><span class="p">)</span>
+<br/></pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>family</th>
+      <th>finite predictions</th>
+      <th>prediction minimum</th>
+      <th>deviance residual RMS</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>Gaussian</td>
+      <td>True</td>
+      <td>-0.058786</td>
+      <td>0.669675</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>Binomial</td>
+      <td>True</td>
+      <td>0.338648</td>
+      <td>1.065651</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>Poisson</td>
+      <td>True</td>
+      <td>0.389765</td>
+      <td>0.994880</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>Gamma</td>
+      <td>True</td>
+      <td>1.448257</td>
+      <td>0.386918</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>Negative binomial</td>
+      <td>True</td>
+      <td>0.389765</td>
+      <td>0.994877</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>Beta</td>
+      <td>True</td>
+      <td>0.331917</td>
+      <td>1.098874</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>Tweedie</td>
+      <td>True</td>
+      <td>0.472319</td>
+      <td>1.066770</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>Ordered categorical</td>
+      <td>True</td>
+      <td>0.014442</td>
+      <td>1.443130</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+</section>
+<section id="8.-Selecting-smoothness">
+<h2>8. Selecting smoothness<a class="headerlink" href="#8.-Selecting-smoothness" title="Link to this heading"></a></h2>
+<p>Fixed smoothing is useful for controlled comparisons. GCV/Cp and UBRE estimate predictive risk; ML, REML, and LAML use marginal-likelihood criteria. REML is a strong default for many ordinary GAMs. Outer Newton uses derivatives, BFGS is quasi-Newton, EFS is extended Fellner-Schall, and the <code class="docutils literal notranslate"><span class="pre">optim</span></code> route can use methods such as L-BFGS-B where supported. Availability depends jointly on family, criterion, and optimizer.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">smoothness_routes</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">(</span><span class="s2">"fixed"</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">"fixed"</span><span class="p">,</span> <span class="s2">"outer_newton"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"GCV/Cp"</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">"gcv"</span><span class="p">,</span> <span class="s2">"outer_newton"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"REML Newton"</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">"reml"</span><span class="p">,</span> <span class="s2">"outer_newton"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"REML BFGS"</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">"reml"</span><span class="p">,</span> <span class="s2">"bfgs"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"REML EFS"</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">"reml"</span><span class="p">,</span> <span class="s2">"efs"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"REML optim/L-BFGS-B"</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">"reml"</span><span class="p">,</span> <span class="s2">"optim"</span><span class="p">,</span> <span class="s2">"L-BFGS-B"</span><span class="p">),</span>
+<span class="p">]</span>
+
+<span class="n">selection_rows</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">optimize</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">,</span> <span class="n">optim_method</span> <span class="ow">in</span> <span class="n">smoothness_routes</span><span class="p">:</span>
+    <span class="n">started</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+    <span class="n">kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+        <span class="n">formula</span><span class="o">=</span><span class="s2">"y ~ s(x1, bs='cr', k=10)"</span><span class="p">,</span> <span class="n">family</span><span class="o">=</span><span class="s2">"gaussian"</span><span class="p">,</span>
+        <span class="n">optimize_smoothing</span><span class="o">=</span><span class="n">optimize</span><span class="p">,</span> <span class="n">smoothing_method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span>
+        <span class="n">smoothing_optimizer</span><span class="o">=</span><span class="n">optimizer</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">optimize</span><span class="p">:</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">"smoothing_params"</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.7</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">optim_method</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">"optim_method"</span><span class="p">]</span> <span class="o">=</span> <span class="n">optim_method</span>
+    <span class="n">candidate</span> <span class="o">=</span> <span class="n">GAM</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">candidate</span><span class="o">.</span><span class="n">fit_result</span><span class="p">(</span><span class="n">include_covariances</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">selection_rows</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+        <span class="s2">"route"</span><span class="p">:</span> <span class="n">label</span><span class="p">,</span>
+        <span class="s2">"fit seconds"</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">started</span><span class="p">,</span>
+        <span class="s2">"EDF"</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">edf_total</span><span class="p">,</span>
+        <span class="s2">"criterion"</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">criterion_value</span><span class="p">,</span>
+        <span class="s2">"smoothing parameter"</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">smoothing_params</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+    <span class="p">})</span>
+<span class="n">selection_table</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">selection_rows</span><span class="p">)</span>
+<span class="n">selection_table</span>
+<br/></pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>route</th>
+      <th>fit seconds</th>
+      <th>EDF</th>
+      <th>criterion</th>
+      <th>smoothing parameter</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>fixed</td>
+      <td>0.124734</td>
+      <td>9.742437</td>
+      <td>NaN</td>
+      <td>0.700000</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>GCV/Cp</td>
+      <td>1.111831</td>
+      <td>5.732176</td>
+      <td>0.510515</td>
+      <td>84.806366</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>REML Newton</td>
+      <td>1.431619</td>
+      <td>6.502093</td>
+      <td>265.117973</td>
+      <td>41.129305</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>REML BFGS</td>
+      <td>3.034044</td>
+      <td>6.502080</td>
+      <td>265.117973</td>
+      <td>41.129803</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>REML EFS</td>
+      <td>1.098485</td>
+      <td>6.502086</td>
+      <td>265.117973</td>
+      <td>41.129562</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>REML optim/L-BFGS-B</td>
+      <td>2.788102</td>
+      <td>6.502076</td>
+      <td>265.117973</td>
+      <td>41.129942</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+</section>
+<section id="9.-Inference-and-diagnostics">
+<h2>9. Inference and diagnostics<a class="headerlink" href="#9.-Inference-and-diagnostics" title="Link to this heading"></a></h2>
+<p>Confidence bands describe estimated-function uncertainty under the model; residual plots examine distributional assumptions; derivatives describe rates of change. ANOVA compares nested models when its assumptions apply. AIC/BIC and log likelihood compare fit against complexity. Concurvity is the smooth analogue of collinearity. <code class="docutils literal notranslate"><span class="pre">k_check</span></code> asks whether a chosen basis dimension leaves residual pattern, and <code class="docutils literal notranslate"><span class="pre">gam_check</span></code> combines comparable residual and basis-dimension checks with local optimizer
+information.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">good</span> <span class="o">=</span> <span class="n">GAM</span><span class="p">(</span><span class="n">formula</span><span class="o">=</span><span class="s2">"y ~ s(x1, bs='cr', k=12) + s(x2, bs='cr', k=9)"</span><span class="p">,</span> <span class="n">smoothing_method</span><span class="o">=</span><span class="s2">"reml"</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+<span class="n">poor</span> <span class="o">=</span> <span class="n">GAM</span><span class="p">(</span><span class="n">formula</span><span class="o">=</span><span class="s2">"y ~ s(x1, bs='cr', k=4)"</span><span class="p">,</span> <span class="n">smoothing_method</span><span class="o">=</span><span class="s2">"reml"</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+
+<span class="n">diagnostic_report</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"log likelihood"</span><span class="p">:</span> <span class="n">good</span><span class="o">.</span><span class="n">loglik</span><span class="p">(),</span>
+    <span class="s2">"AIC"</span><span class="p">:</span> <span class="n">good</span><span class="o">.</span><span class="n">aic</span><span class="p">(),</span>
+    <span class="s2">"BIC"</span><span class="p">:</span> <span class="n">good</span><span class="o">.</span><span class="n">bic</span><span class="p">(),</span>
+    <span class="s2">"covariance shape"</span><span class="p">:</span> <span class="n">good</span><span class="o">.</span><span class="n">vcov</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+    <span class="s2">"residual RMS"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">good</span><span class="o">.</span><span class="n">residuals</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">"deviance"</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">))),</span>
+<span class="p">}</span>
+<span class="n">poor_k</span> <span class="o">=</span> <span class="n">poor</span><span class="o">.</span><span class="n">k_check</span><span class="p">(</span><span class="n">subsample</span><span class="o">=</span><span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">),</span> <span class="mi">200</span><span class="p">),</span> <span class="n">n_rep</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">RANDOM_STATE</span><span class="p">)</span>
+<span class="n">poor_check</span> <span class="o">=</span> <span class="n">poor</span><span class="o">.</span><span class="n">gam_check</span><span class="p">(</span><span class="n">k_sample</span><span class="o">=</span><span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">),</span> <span class="mi">200</span><span class="p">),</span> <span class="n">k_rep</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">RANDOM_STATE</span><span class="p">)</span>
+<span class="n">concurvity</span> <span class="o">=</span> <span class="n">good</span><span class="o">.</span><span class="n">concurvity</span><span class="p">()</span>
+<span class="n">anova_table</span> <span class="o">=</span> <span class="n">poor</span><span class="o">.</span><span class="n">anova</span><span class="p">(</span><span class="n">good</span><span class="p">,</span> <span class="n">test</span><span class="o">=</span><span class="s2">"F"</span><span class="p">)</span>
+<span class="n">display</span><span class="p">(</span><span class="n">diagnostic_report</span><span class="p">)</span>
+<span class="n">display</span><span class="p">(</span><span class="n">poor_k</span><span class="p">)</span>
+<span class="n">display</span><span class="p">(</span><span class="n">anova_table</span><span class="p">)</span>
+<br/></pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+{&#39;log likelihood&#39;: -199.21799895773694,
+ &#39;AIC&#39;: 438.8981847576252,
+ &#39;BIC&#39;: 509.31531598078925,
+ &#39;covariance shape&#39;: (20, 20),
+ &#39;residual RMS&#39;: 0.5549576149855296}
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>k_prime</th>
+      <th>edf</th>
+      <th>k_index</th>
+      <th>p_value</th>
+    </tr>
+    <tr>
+      <th>label</th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>s(x1)</th>
+      <td>3</td>
+      <td>2.954146</td>
+      <td>0.952995</td>
+      <td>0.15</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+AnovaGAMComparison(family_name=&#39;gaussian&#39;, test=&#39;F&#39;, table=    Resid. Df  Resid. Dev         Df   Deviance         F        Pr(&gt;F)
+0  236.001672  117.437395        NaN        NaN       NaN           NaN
+1  220.089306   73.914709  15.912366  43.522686  8.169359  3.289948e-15)
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">prediction</span><span class="p">,</span> <span class="n">se</span> <span class="o">=</span> <span class="n">good</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"response"</span><span class="p">,</span> <span class="n">return_se</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">derivative_model</span> <span class="o">=</span> <span class="n">GAM</span><span class="p">(</span>
+    <span class="n">formula</span><span class="o">=</span><span class="s2">"y ~ s(x1, bs='ps', k=10)"</span><span class="p">,</span>
+    <span class="n">optimize_smoothing</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">smoothing_method</span><span class="o">=</span><span class="s2">"fixed"</span><span class="p">,</span>
+    <span class="n">smoothing_params</span><span class="o">=</span><span class="p">[</span><span class="mf">0.7</span><span class="p">],</span>
+<span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+<span class="n">derivative</span> <span class="o">=</span> <span class="n">derivative_model</span><span class="o">.</span><span class="n">derivative</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">smooth_number</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">deriv</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">order</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"x1"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mf">3.8</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"x1"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()[</span><span class="n">order</span><span class="p">],</span> <span class="n">prediction</span><span class="p">[</span><span class="n">order</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">fill_between</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"x1"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()[</span><span class="n">order</span><span class="p">],</span> <span class="p">(</span><span class="n">prediction</span> <span class="o">-</span> <span class="mi">2</span><span class="o">*</span><span class="n">se</span><span class="p">)[</span><span class="n">order</span><span class="p">],</span> <span class="p">(</span><span class="n">prediction</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">se</span><span class="p">)[</span><span class="n">order</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Pointwise confidence band"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"x1"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"fitted response"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">prediction</span><span class="p">,</span> <span class="n">good</span><span class="o">.</span><span class="n">residuals</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">"deviance"</span><span class="p">),</span> <span class="n">s</span><span class="o">=</span><span class="mi">18</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.55</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#334155"</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">"--"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"Residual check"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"fitted"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"deviance residual"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"x1"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()[</span><span class="n">order</span><span class="p">],</span> <span class="n">derivative</span><span class="o">.</span><span class="n">derivative</span><span class="p">[</span><span class="n">order</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">COLORS</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#334155"</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">"--"</span><span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">"First derivative"</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">"x1"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"df/dx"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+<br/></pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/notebooks_02_complete_gam_guide_25_0.png" src="../_images/notebooks_02_complete_gam_guide_25_0.png" />
+</div>
+</div>
+</section>
+<section id="10.-Distributional-GAMs">
+<h2>10. Distributional GAMs<a class="headerlink" href="#10.-Distributional-GAMs" title="Link to this heading"></a></h2>
+<p>A GAMLSS model assigns one additive predictor to every distribution parameter. For a normal model,</p>
+<div class="math notranslate nohighlight">
+\[Y_i\mid x_i,z_i\sim N\{\mu(x_i),\sigma(z_i)^2\}.\]</div>
+<p>Joint likelihood fitting differs from modeling squared residuals in a second stage: location and scale are estimated together with their joint covariance. Contributions reconstruct each raw parameter predictor. Natural-parameter transforms then enforce domains such as <span class="math notranslate nohighlight">\(\sigma&gt;0\)</span>.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">normal_lss</span> <span class="o">=</span> <span class="n">GAMLSS</span><span class="p">(</span>
+    <span class="n">formula</span><span class="o">=</span><span class="p">[</span>
+        <span class="s2">"hetero ~ s(x1, bs='cr', k=9)"</span><span class="p">,</span>
+        <span class="s2">"~ s(x2, bs='cr', k=8)"</span><span class="p">,</span>
+    <span class="p">],</span>
+    <span class="n">family</span><span class="o">=</span><span class="s2">"normal"</span><span class="p">,</span>
+    <span class="n">smoothing_method</span><span class="o">=</span><span class="s2">"ml"</span><span class="p">,</span>
+<span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+<span class="n">natural</span> <span class="o">=</span> <span class="n">normal_lss</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">raw</span> <span class="o">=</span> <span class="n">normal_lss</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">raw</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">point</span> <span class="o">=</span> <span class="n">normal_lss</span><span class="o">.</span><span class="n">predict_point</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">components</span> <span class="o">=</span> <span class="n">normal_lss</span><span class="o">.</span><span class="n">predict_components</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">components</span><span class="o">.</span><span class="n">validate_additive_reconstruction</span><span class="p">()</span>
+<span class="n">parameter_importance</span> <span class="o">=</span> <span class="n">normal_lss</span><span class="o">.</span><span class="n">term_importance</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+<span class="n">lower</span> <span class="o">=</span> <span class="n">natural</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.96</span> <span class="o">*</span> <span class="n">natural</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+<span class="n">upper</span> <span class="o">=</span> <span class="n">natural</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mf">1.96</span> <span class="o">*</span> <span class="n">natural</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+<span class="n">coverage</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">data</span><span class="p">[</span><span class="s2">"hetero"</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">lower</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"hetero"</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">upper</span><span class="p">))</span>
+<span class="n">display</span><span class="p">({</span>
+    <span class="s2">"parameter names"</span><span class="p">:</span> <span class="n">normal_lss</span><span class="o">.</span><span class="n">parameter_names_</span><span class="p">,</span>
+    <span class="s2">"raw shape"</span><span class="p">:</span> <span class="n">raw</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+    <span class="s2">"natural shape"</span><span class="p">:</span> <span class="n">natural</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+    <span class="s2">"minimum sigma"</span><span class="p">:</span> <span class="n">natural</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span>
+    <span class="s2">"95</span><span class="si">% i</span><span class="s2">nterval coverage"</span><span class="p">:</span> <span class="n">coverage</span><span class="p">,</span>
+<span class="p">})</span>
+<span class="n">display</span><span class="p">(</span><span class="n">parameter_importance</span><span class="p">)</span>
+<br/></pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+{&#39;parameter names&#39;: (&#39;mu&#39;, &#39;sigma&#39;),
+ &#39;raw shape&#39;: (240, 2),
+ &#39;natural shape&#39;: (240, 2),
+ &#39;minimum sigma&#39;: 0.2881437585196322,
+ &#39;95% interval coverage&#39;: 0.9625}
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>term</th>
+      <th>term_type</th>
+      <th>output</th>
+      <th>importance</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>mu:s(x1, bs='cr', k=9)</td>
+      <td>interaction</td>
+      <td>0</td>
+      <td>0.641511</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>sigma:s(x2, bs='cr', k=8)</td>
+      <td>interaction</td>
+      <td>1</td>
+      <td>0.111352</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>mu:s(x1, bs='cr', k=9)</td>
+      <td>interaction</td>
+      <td>1</td>
+      <td>0.000000</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>sigma:s(x2, bs='cr', k=8)</td>
+      <td>interaction</td>
+      <td>0</td>
+      <td>0.000000</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+<section id="10.1-Normal-and-Gamma-location-scale-models">
+<h3>10.1 Normal and Gamma location-scale models<a class="headerlink" href="#10.1-Normal-and-Gamma-location-scale-models" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">gaulss</span></code> returns natural <span class="math notranslate nohighlight">\((\mu,\sigma)\)</span> despite using a precision-related scale predictor internally. <code class="docutils literal notranslate"><span class="pre">gammals</span></code> models a positive mean and scale; both are transformed to remain positive. <code class="docutils literal notranslate"><span class="pre">predict(raw=True)</span></code> exposes the additive predictors, <code class="docutils literal notranslate"><span class="pre">predict</span></code> returns natural parameters, and <code class="docutils literal notranslate"><span class="pre">predict_point</span></code> returns the family-defined conditional mean.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">gamma_lss</span> <span class="o">=</span> <span class="n">GAMLSS</span><span class="p">(</span>
+    <span class="n">formula</span><span class="o">=</span><span class="p">[</span><span class="s2">"gamma_lss ~ s(x1, bs='cr', k=8)"</span><span class="p">,</span> <span class="s2">"~ 1"</span><span class="p">],</span>
+    <span class="n">family</span><span class="o">=</span><span class="s2">"gamma"</span><span class="p">,</span>
+    <span class="n">smoothing_method</span><span class="o">=</span><span class="s2">"ml"</span><span class="p">,</span>
+<span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+<span class="n">gamma_parameters</span> <span class="o">=</span> <span class="n">gamma_lss</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">gamma_components</span> <span class="o">=</span> <span class="n">gamma_lss</span><span class="o">.</span><span class="n">predict_components</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">gamma_components</span><span class="o">.</span><span class="n">validate_additive_reconstruction</span><span class="p">()</span>
+<span class="n">display</span><span class="p">({</span>
+    <span class="s2">"normal NLL"</span><span class="p">:</span> <span class="n">normal_lss</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">data</span><span class="p">[</span><span class="s2">"hetero"</span><span class="p">])[</span><span class="s2">"Negative Log-Likelihood"</span><span class="p">],</span>
+    <span class="s2">"gamma NLL"</span><span class="p">:</span> <span class="n">gamma_lss</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">data</span><span class="p">[</span><span class="s2">"gamma_lss"</span><span class="p">])[</span><span class="s2">"Negative Log-Likelihood"</span><span class="p">],</span>
+    <span class="s2">"gamma parameters positive"</span><span class="p">:</span> <span class="nb">bool</span><span class="p">((</span><span class="n">gamma_parameters</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()),</span>
+<span class="p">})</span>
+<br/></pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+{&#39;normal NLL&#39;: 0.3957955326972089,
+ &#39;gamma NLL&#39;: 0.46935598007658114,
+ &#39;gamma parameters positive&#39;: True}
+</pre></div></div>
+</div>
+</section>
+</section>
+<section id="11.-Practical-model-building-sequence">
+<h2>11. Practical model-building sequence<a class="headerlink" href="#11.-Practical-model-building-sequence" title="Link to this heading"></a></h2>
+<p>Start with the response support and link, then specify scientifically justified main effects and structures. Give bases enough capacity, select smoothness, and inspect residuals, <code class="docutils literal notranslate"><span class="pre">k_check</span></code>, concurvity, and sensitivity to plausible basis choices. Add interactions or distributional parameters only when they answer a substantive question. Finally validate on held-out data and persist the complete fitted object.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="01_nampy_core_workflow.html" class="btn btn-neutral float-left" title="NAMpy core workflow" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="03_neural_additive_model_zoo.html" class="btn btn-neutral float-right" title="Neural additive model zoo" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Ananyapam De, Anton Thielmann, and OpenTabular Contributors.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
