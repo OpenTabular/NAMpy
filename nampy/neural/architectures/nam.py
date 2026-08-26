@@ -11,6 +11,7 @@ from .components.interactions import (
     sum_feature_dims,
 )
 from .components.mlp import MLP
+from .components.module_dict import RawKeyModuleDict
 from .components.nam import NAMFeatureNN
 from .components.regularization import (
     evaluating,
@@ -28,11 +29,11 @@ class NAM(BaseModel):
 
     Attributes
     ----------
-    num_feature_networks : nn.ModuleDict
+    num_feature_networks : RawKeyModuleDict
         Sub-networks for each numerical feature.
-    cat_feature_networks : nn.ModuleDict
+    cat_feature_networks : RawKeyModuleDict
         Sub-networks for each categorical feature.
-    interaction_networks : nn.ModuleDict
+    interaction_networks : RawKeyModuleDict
         Networks for modeling feature interactions (if applicable).
     interaction_degree : int, optional
         Degree of interactions to be modeled.
@@ -157,8 +158,8 @@ class NAM(BaseModel):
             raise ValueError("Regularization coefficients must be non-negative.")
 
         # Initialize sub-networks for each feature
-        self.num_feature_networks = nn.ModuleDict()
-        self.cat_feature_networks = nn.ModuleDict()
+        self.num_feature_networks = RawKeyModuleDict()
+        self.cat_feature_networks = RawKeyModuleDict()
         info_by_kind = {"num": num_feature_info, "cat": cat_feature_info}
         networks_by_kind = {
             "num": self.num_feature_networks,

@@ -6,6 +6,7 @@ from .components.base_model import BaseModel
 from .components.embeddings import EmbeddingLayer
 from .components.interactions import resolve_interactions
 from .components.mlp import MLP, make_activation
+from .components.module_dict import RawKeyModuleDict
 from .components.normalization import (
     BatchNorm,
     GroupNorm,
@@ -76,7 +77,7 @@ class NATT(BaseModel):
         )
 
         # Initialize sub-networks for each feature
-        self.num_feature_networks = nn.ModuleDict()
+        self.num_feature_networks = RawKeyModuleDict()
         for feature_name, info in num_feature_info.items():
             self.num_feature_networks[feature_name] = self._create_subnetwork(
                 info["dimension"], config
@@ -158,7 +159,7 @@ class NATT(BaseModel):
             Configuration dataclass containing model hyperparameters.
         """
 
-        self.interaction_networks = nn.ModuleDict()
+        self.interaction_networks = RawKeyModuleDict()
         all_feature_names = list(num_feature_info.keys()) + list(
             cat_feature_info.keys()
         )

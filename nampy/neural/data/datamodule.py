@@ -1,10 +1,31 @@
 import lightning as pl
 import numpy as np
 import torch
+from scipy import sparse
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from .dataset import NAMpyDataset
+
+
+def _configure_unknown_category_encoding(preprocessor):
+    """Keep fitted categorical widths stable for validation and prediction.
+
+    PreTab's integer encoder already reserves zero for unknown values.  Its
+    one-hot path uses sklearn's error-on-unknown default, so switch fitted
+    one-hot encoders to the equivalent all-zero representation.  This is done
+    after fitting and therefore cannot leak validation/test categories into the
+    learned category vocabulary.
+    """
+
+    column_transformer = getattr(preprocessor, "column_transformer", None)
+    for _name, transformer, _columns in getattr(
+        column_transformer, "transformers_", ()
+    ):
+        named_steps = getattr(transformer, "named_steps", {})
+        encoder = named_steps.get("onehot")
+        if encoder is not None and hasattr(encoder, "handle_unknown"):
+            encoder.set_params(handle_unknown="ignore")
 
 
 class NAMpyDataModule(pl.LightningDataModule):
@@ -133,13 +154,32 @@ class NAMpyDataModule(pl.LightningDataModule):
         return torch.tensor(np.asarray(sample_weight, dtype=np.float32)).reshape(-1, 1)
 
     @staticmethod
+    def _as_dense_array(value):
+        """Materialize one transformed feature for PyTorch tensor creation.
+
+        PreTab can return every feature slice as a SciPy sparse matrix when a
+        wide one-hot categorical feature makes the combined transform sparse.
+        ``np.asarray`` turns such a matrix into a scalar object array, so make
+        the conversion explicit and keep the sample axis intact.
+        """
+
+        if sparse.issparse(value):
+            value = value.toarray()
+        array = np.asarray(value)
+        if array.ndim == 0:
+            raise ValueError(
+                "A transformed feature must retain a sample axis; received a scalar."
+            )
+        return array
+
+    @staticmethod
     def _with_cardinality(info, transformed, prefix):
         enriched = {key: dict(value) for key, value in info.items()}
         for key, value in enriched.items():
             transformed_key = f"{prefix}_{key}"
             if transformed_key not in transformed:
                 continue
-            array = np.asarray(transformed[transformed_key])
+            array = NAMpyDataModule._as_dense_array(transformed[transformed_key])
             if array.ndim == 1:
                 array = array[:, None]
             value["n_unique"] = int(np.unique(array, axis=0).shape[0])
@@ -259,6 +299,7 @@ class NAMpyDataModule(pl.LightningDataModule):
         # exposes get_feature_info(verbose=...) and returns
         # (num_feature_info, cat_feature_info, emb_feature_info).
         self.preprocessor.fit(X_fit, np.asarray(self.y_train))
+        _configure_unknown_category_encoding(self.preprocessor)
         num_info, cat_info, _ = self.preprocessor.get_feature_info(verbose=False)
         self._train_preprocessed_data = self.preprocessor.transform(X_fit)
         self.num_feature_info = self._with_cardinality(
@@ -293,13 +334,13 @@ class NAMpyDataModule(pl.LightningDataModule):
                 )
                 cat_dtype = torch.float32 if is_onehot else torch.long
                 if cat_key in train_preprocessed_data:
-                    arr = train_preprocessed_data[cat_key]
+                    arr = self._as_dense_array(train_preprocessed_data[cat_key])
                     if not is_onehot and arr.dtype.kind == "f":
                         arr = arr.astype("int64")
                     train_cat_tensors.append(torch.tensor(arr, dtype=cat_dtype))
                     cat_keys.append(key)
                 if cat_key in val_preprocessed_data:
-                    arr = val_preprocessed_data[cat_key]
+                    arr = self._as_dense_array(val_preprocessed_data[cat_key])
                     if not is_onehot and arr.dtype.kind == "f":
                         arr = arr.astype("int64")
                     val_cat_tensors.append(torch.tensor(arr, dtype=cat_dtype))
@@ -310,14 +351,16 @@ class NAMpyDataModule(pl.LightningDataModule):
                 if num_key in train_preprocessed_data:
                     train_num_tensors.append(
                         torch.tensor(
-                            train_preprocessed_data[num_key], dtype=torch.float32
+                            self._as_dense_array(train_preprocessed_data[num_key]),
+                            dtype=torch.float32,
                         )
                     )
                     num_keys.append(key)
                 if num_key in val_preprocessed_data:
                     val_num_tensors.append(
                         torch.tensor(
-                            val_preprocessed_data[num_key], dtype=torch.float32
+                            self._as_dense_array(val_preprocessed_data[num_key]),
+                            dtype=torch.float32,
                         )
                     )
 
@@ -370,7 +413,7 @@ class NAMpyDataModule(pl.LightningDataModule):
             transformed_key = "cat_" + key
             if transformed_key not in preprocessed:
                 continue
-            array = preprocessed[transformed_key]
+            array = self._as_dense_array(preprocessed[transformed_key])
             is_onehot = "onehot" in info.get("preprocessing", "").lower() or (
                 info.get("dimension", 1) > 1
             )
@@ -383,7 +426,8 @@ class NAMpyDataModule(pl.LightningDataModule):
             transformed_key = "num_" + key
             if transformed_key in preprocessed:
                 num_tensors[key] = torch.tensor(
-                    preprocessed[transformed_key], dtype=torch.float32
+                    self._as_dense_array(preprocessed[transformed_key]),
+                    dtype=torch.float32,
                 )
         return cat_tensors, num_tensors
 
@@ -408,7 +452,7 @@ class NAMpyDataModule(pl.LightningDataModule):
             cat_dtype = torch.float32 if is_onehot else torch.long
 
             if cat_key in test_preprocessed_data:
-                arr = test_preprocessed_data[cat_key]
+                arr = self._as_dense_array(test_preprocessed_data[cat_key])
                 if not is_onehot and arr.dtype.kind == "f":
                     arr = arr.astype("int64")
                 t = torch.tensor(arr, dtype=cat_dtype)
@@ -421,13 +465,16 @@ class NAMpyDataModule(pl.LightningDataModule):
         for key in self.num_feature_info:
             num_key = "num_" + key
             if num_key in test_preprocessed_data:
-                t = torch.tensor(test_preprocessed_data[num_key], dtype=torch.float32)
+                t = torch.tensor(
+                    self._as_dense_array(test_preprocessed_data[num_key]),
+                    dtype=torch.float32,
+                )
 
                 test_num_tensors_list.append(t)
                 test_num_tensors_dict[key] = t
                 num_keys.append(key)
 
-        n = len(next(iter(test_preprocessed_data.values())))
+        n = self._as_dense_array(next(iter(test_preprocessed_data.values()))).shape[0]
         self.test_labels = torch.zeros(n, dtype=self.labels_dtype).unsqueeze(1)
 
         # store for Lightning test_dataloader path

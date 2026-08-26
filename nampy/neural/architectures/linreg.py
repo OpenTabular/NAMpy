@@ -3,6 +3,7 @@ import torch.nn as nn
 
 from ..configs.linreg_config import DefaultLinRegConfig
 from .components.base_model import BaseModel
+from .components.module_dict import RawKeyModuleDict
 
 
 class LinReg(BaseModel):
@@ -43,13 +44,13 @@ class LinReg(BaseModel):
         else:
             self.intercept = None
 
-        self.num_feature_networks = nn.ModuleDict()
+        self.num_feature_networks = RawKeyModuleDict()
         for feature_name, info in num_feature_info.items():
             self.num_feature_networks[feature_name] = self._create_subnetwork(
                 info["dimension"]
             )
 
-        self.cat_feature_networks = nn.ModuleDict()
+        self.cat_feature_networks = RawKeyModuleDict()
         for feature_name, info in cat_feature_info.items():
             self.cat_feature_networks[feature_name] = self._create_subnetwork(
                 info["dimension"]

@@ -194,6 +194,8 @@ model_checkpoints/
 /*review*.md
 /plan_claude.md
 /nampy_notes/
+/benchmarks/
+/tests/benchmarks/
 
 # Local development probes and maintenance tooling
 /debug/

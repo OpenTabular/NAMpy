@@ -21,6 +21,8 @@ from typing import Callable, Mapping, Sequence
 import torch
 import torch.nn as nn
 
+from .module_dict import RawKeyModuleDict
+
 
 def sum_feature_dims(
     interaction: Sequence[str],
@@ -42,7 +44,7 @@ def create_interaction_networks(
     interaction_degree: int | None,
     make_subnetwork: Callable[[tuple[str, ...]], nn.Module],
     interactions: Sequence[Sequence[str]] | None = None,
-) -> nn.ModuleDict:
+) -> RawKeyModuleDict:
     """Enumerate interactions up to ``interaction_degree`` into a ModuleDict.
 
     Keys follow the ``":"``-joined grammar from ``nampy/neural/contracts.py``
@@ -50,7 +52,7 @@ def create_interaction_networks(
     feature names and returns the module; input-dimension rules stay with the
     caller.
     """
-    networks = nn.ModuleDict()
+    networks = RawKeyModuleDict()
     for interaction in resolve_interactions(
         feature_names, interaction_degree, interactions
     ):
@@ -104,7 +106,7 @@ def resolve_interactions(
 
 
 def interaction_forward(
-    networks: nn.ModuleDict,
+    networks: RawKeyModuleDict,
     interaction_degree: int | None,
     num_features: Mapping[str, torch.Tensor],
     cat_features: Mapping[str, torch.Tensor],

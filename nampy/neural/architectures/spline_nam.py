@@ -8,6 +8,7 @@ from .components.interactions import (
     create_interaction_networks,
     interaction_forward,
 )
+from .components.module_dict import RawKeyModuleDict
 from .components.splines import CubicSplineLayer
 
 
@@ -79,7 +80,7 @@ class SplineNAM(BaseModel):
                 )
 
         self._feature_ranges = {}
-        self.num_feature_networks = nn.ModuleDict()
+        self.num_feature_networks = RawKeyModuleDict()
         for feature_name, _info in num_feature_info.items():
             self._feature_ranges[feature_name] = (0.0, 1.0)
             self.num_feature_networks[feature_name] = CubicSplineLayer(
@@ -91,7 +92,7 @@ class SplineNAM(BaseModel):
                 n_outputs=self.num_classes,
             )
 
-        self.cat_feature_networks = nn.ModuleDict()
+        self.cat_feature_networks = RawKeyModuleDict()
         for feature_name, info in cat_feature_info.items():
             categories = info.get("categories")
             max_val = float(max(int(categories) - 1, 1)) if categories else 1.0

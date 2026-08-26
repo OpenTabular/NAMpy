@@ -38,18 +38,45 @@ class BaseDistribution(torch.nn.Module):
         self.eps = float(eps)
 
         self.predefined_transforms = {
-            "positive": lambda x: F.softplus(x) + self.eps,
-            "strictly_positive": lambda x: F.softplus(x) + self.eps,
-            "none": lambda x: x,
-            "identity": lambda x: x,
-            "square": lambda x: x.square() + self.eps,
-            "exp": lambda x: torch.exp(torch.clamp(x, min=-40.0, max=40.0)) + self.eps,
-            "sqrt": lambda x: torch.sqrt(torch.clamp(x, min=self.eps)),
-            "probabilities": lambda x: torch.softmax(x, dim=-1),
-            "log": lambda x: torch.log(torch.clamp(x, min=self.eps)),
+            "positive": self._positive_transform,
+            "strictly_positive": self._positive_transform,
+            "none": self._identity_transform,
+            "identity": self._identity_transform,
+            "square": self._square_transform,
+            "exp": self._exp_transform,
+            "sqrt": self._sqrt_transform,
+            "probabilities": self._probability_transform,
+            "log": self._log_transform,
             # Monotone transform for quantiles / cutpoints:
-            "sort": lambda x: torch.cumsum(F.softplus(x), dim=-1),
+            "sort": self._sorted_transform,
         }
+
+    def _positive_transform(self, x: torch.Tensor) -> torch.Tensor:
+        return F.softplus(x) + self.eps
+
+    @staticmethod
+    def _identity_transform(x: torch.Tensor) -> torch.Tensor:
+        return x
+
+    def _square_transform(self, x: torch.Tensor) -> torch.Tensor:
+        return x.square() + self.eps
+
+    def _exp_transform(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.exp(torch.clamp(x, min=-40.0, max=40.0)) + self.eps
+
+    def _sqrt_transform(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.sqrt(torch.clamp(x, min=self.eps))
+
+    @staticmethod
+    def _probability_transform(x: torch.Tensor) -> torch.Tensor:
+        return torch.softmax(x, dim=-1)
+
+    def _log_transform(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.log(torch.clamp(x, min=self.eps))
+
+    @staticmethod
+    def _sorted_transform(x: torch.Tensor) -> torch.Tensor:
+        return torch.cumsum(F.softplus(x), dim=-1)
 
     @property
     def name(self) -> str:

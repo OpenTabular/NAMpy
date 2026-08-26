@@ -11,6 +11,7 @@ from .components.interactions import (
     sum_feature_dims,
 )
 from .components.mlp import MLP
+from .components.module_dict import RawKeyModuleDict
 
 
 class QNAM(BaseModel):
@@ -82,13 +83,13 @@ class QNAM(BaseModel):
             self.raw_intercept = None
 
         # Main-effect subnetworks
-        self.num_feature_networks = nn.ModuleDict()
+        self.num_feature_networks = RawKeyModuleDict()
         for feature_name, info in num_feature_info.items():
             self.num_feature_networks[feature_name] = self._create_subnetwork(
                 info["dimension"]
             )
 
-        self.cat_feature_networks = nn.ModuleDict()
+        self.cat_feature_networks = RawKeyModuleDict()
         for feature_name, info in cat_feature_info.items():
             self.cat_feature_networks[feature_name] = self._create_subnetwork(
                 info["dimension"]

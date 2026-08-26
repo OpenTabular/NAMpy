@@ -147,7 +147,12 @@ def dataframe_to_feature_matrix(
 
 
 def coerce_formula_predict_inputs(
-    model, X, *, allowed_missing_features=(), allow_missing_numeric=False
+    model,
+    X,
+    *,
+    allowed_missing_features=(),
+    allow_missing_numeric=False,
+    validate_structured_factor_levels=False,
 ):
     from .specs.preprocess import apply_formula_preprocess_to_new_data
 
@@ -168,7 +173,10 @@ def coerce_formula_predict_inputs(
         # an NA row.  Their transform_new implementations reproduce this and
         # must see the original value rather than being stopped by the generic
         # formula-factor guard.
-        if str(getattr(term, "basis_name", "")).lower() in {"re", "fs", "sz"}:
+        if (
+            str(getattr(term, "basis_name", "")).lower() in {"re", "fs", "sz"}
+            and not bool(validate_structured_factor_levels)
+        ):
             continue
         factor_info = (getattr(term, "metadata", {}) or {}).get(
             "factor_levels_by_feature", {}

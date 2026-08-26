@@ -116,7 +116,12 @@ class NeuralLSS(NeuralEstimatorBase):
         predictions = self._predict(X, batch_size=batch_size)["output"]
 
         if not raw:
-            return self.model.objective.transform(predictions).cpu().numpy()
+            # Some distribution transforms depend on learned family parameters
+            # (for example ordinal cutpoints), so their result can require a
+            # gradient even though the backbone prediction path is in eval mode.
+            with torch.no_grad():
+                transformed = self.model.objective.transform(predictions)
+            return transformed.cpu().numpy()
 
         # Convert predictions to NumPy array and return
         else:
@@ -135,6 +140,10 @@ class NeuralLSS(NeuralEstimatorBase):
         Higher is better, so sklearn model-selection utilities can rank fits.
         """
         raw_pred = self._predict(X)["output"]
+        if isinstance(y, pd.Series):
+            y = y.to_numpy()
+        if isinstance(sample_weight, pd.Series):
+            sample_weight = sample_weight.to_numpy()
         with torch.no_grad():
             y_tensor = torch.as_tensor(y, device=raw_pred.device)
             weight_tensor = (

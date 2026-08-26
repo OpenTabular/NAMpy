@@ -9,6 +9,7 @@ from .components.interactions import (
     interaction_forward,
     sum_feature_dims,
 )
+from .components.module_dict import RawKeyModuleDict
 from .components.trees import NeuralDecisionTree
 
 
@@ -63,13 +64,13 @@ class TreeNAM(BaseModel):
         else:
             self.intercept = None
 
-        self.num_feature_models = nn.ModuleDict()
+        self.num_feature_models = RawKeyModuleDict()
         for feature_name, info in num_feature_info.items():
             self.num_feature_models[feature_name] = self._create_tree(
                 input_dim=info["dimension"]
             )
 
-        self.cat_feature_models = nn.ModuleDict()
+        self.cat_feature_models = RawKeyModuleDict()
         for feature_name, info in cat_feature_info.items():
             self.cat_feature_models[feature_name] = self._create_tree(
                 input_dim=info["dimension"]

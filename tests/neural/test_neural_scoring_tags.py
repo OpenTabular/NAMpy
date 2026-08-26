@@ -103,8 +103,38 @@ def test_lss_score_is_negative_mean_nll(tmp_path):
     )
 
     score = estimator.score(X, y)
+    series_score = estimator.score(X, pd.Series(y))
     nll = estimator.evaluate(X, y)["NLL"]
     assert score == pytest.approx(-nll)
+    assert series_score == pytest.approx(score)
+
+
+def test_lss_persistence_round_trip_includes_distribution_transforms(tmp_path):
+    X, y = _regression_data(n=50)
+    estimator = LinRegLSS(
+        family="normal", numerical_preprocessing="standardization"
+    )
+    estimator.fit(X, y, max_epochs=2, patience=1, checkpoint_path=str(tmp_path))
+    expected = estimator.predict(X.iloc[:8])
+
+    path = estimator.save_model(tmp_path / "normal-lss.nampy")
+    restored = LinRegLSS.load_model(path)
+
+    np.testing.assert_allclose(restored.predict(X.iloc[:8]), expected, rtol=0, atol=0)
+
+
+def test_ordinal_lss_predict_detaches_learned_cutpoints(tmp_path):
+    X, continuous = _regression_data(n=60)
+    y = np.digitize(continuous, np.quantile(continuous, [1 / 3, 2 / 3]))
+    estimator = LinRegLSS(
+        family="ordinal", numerical_preprocessing="standardization"
+    )
+    estimator.fit(X, y, max_epochs=2, patience=1, checkpoint_path=str(tmp_path))
+
+    probabilities = estimator.predict(X)
+    assert isinstance(probabilities, np.ndarray)
+    assert probabilities.shape == (len(X), 3)
+    np.testing.assert_allclose(probabilities.sum(axis=1), 1.0, atol=1e-5)
 
 
 def test_cross_val_score_runs_on_neural_estimators(tmp_path):

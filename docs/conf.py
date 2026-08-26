@@ -4,7 +4,6 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 import os
-import runpy
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -17,14 +16,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 # Import the package to get version
 import nampy
-
-# Notebooks are deterministic documentation sources. Regenerate them before
-# Sphinx discovers source files so the rendered pages cannot drift from the
-# generator. nbsphinx/nbconvert use Pandoc during the HTML publishing step.
-_notebook_generator = runpy.run_path(
-    str(Path(__file__).with_name("generate_notebooks.py"))
-)
-_notebook_generator["main"]()
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -50,7 +41,7 @@ extensions = [
     "sphinx.ext.githubpages",
     "sphinx_rtd_theme",
     "myst_parser",  # For Markdown support
-    "nbsphinx",  # Render generated notebook sources (via nbconvert/Pandoc)
+    "nbsphinx",  # Render checked-in notebook sources (via nbconvert/Pandoc)
 ]
 
 nbsphinx_execute = "never"

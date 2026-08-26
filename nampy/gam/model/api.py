@@ -770,6 +770,7 @@ class GAM:
                 X_input,
                 allowed_missing_features=allowed_missing_features,
                 allow_missing_numeric=allow_missing_numeric,
+                validate_structured_factor_levels=bool(newdata_guaranteed),
             )
             offset_use = combine_offsets(
                 offset_formula,

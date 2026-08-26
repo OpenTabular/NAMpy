@@ -13,6 +13,7 @@ from .components.base_model import BaseModel
 from .components.block_masked_additive import BlockMaskedAdditiveNetwork
 from .components.interactions import resolve_interactions
 from .components.mlp import MLP
+from .components.module_dict import RawKeyModuleDict
 
 
 class MuPResidualMLP(nn.Module):
@@ -132,7 +133,7 @@ class SIAN(BaseModel):
             raise ValueError("execution_mode must be 'block_masked' or 'independent'.")
         self.execution_mode_ = requested_mode
         self.block_network: BlockMaskedAdditiveNetwork | None = None
-        self.term_networks: nn.ModuleDict | None = None
+        self.term_networks: RawKeyModuleDict | None = None
         if requested_mode == "block_masked":
             self.block_network = self._make_block_network()
         else:
@@ -178,10 +179,10 @@ class SIAN(BaseModel):
 
     def _make_independent_networks(
         self, networks: Sequence[MLP] | None = None
-    ) -> nn.ModuleDict:
+    ) -> RawKeyModuleDict:
         if networks is None:
             networks = self._make_block_network().to_independent()
-        return nn.ModuleDict(dict(zip(self.term_names_, networks, strict=True)))
+        return RawKeyModuleDict(dict(zip(self.term_names_, networks, strict=True)))
 
     def _concatenate(self, num_features, cat_features) -> torch.Tensor:
         all_features = {**num_features, **cat_features}

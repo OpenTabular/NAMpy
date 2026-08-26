@@ -6,6 +6,7 @@ from .components.base_model import BaseModel
 from .components.embeddings import EmbeddingLayer
 from .components.interactions import resolve_interactions
 from .components.mlp import MLP
+from .components.module_dict import RawKeyModuleDict
 from .components.normalization import LayerNorm
 from .components.transformer import CustomTransformerEncoderLayer
 
@@ -129,7 +130,7 @@ class NAMformer(BaseModel):
             norm=self.norm_embedding,
         )
 
-        self.interaction_networks = nn.ModuleDict()
+        self.interaction_networks = RawKeyModuleDict()
         if self.interactions is not None or (
             self.interaction_degree is not None and self.interaction_degree >= 2
         ):

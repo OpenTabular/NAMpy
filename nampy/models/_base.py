@@ -843,6 +843,23 @@ class NeuralEstimatorBase(BaseEstimator):
         )
         trainer.fit(self.model, self.data_module)
 
+        # Retain lightweight training-resource metadata without keeping the
+        # Trainer object (which would complicate estimator persistence).  The
+        # public attributes support reproducible benchmark accounting for
+        # epochs, optimizer steps, and the final monitored values.
+        self.n_epochs_ = int(trainer.current_epoch)
+        self.n_optimizer_steps_ = int(trainer.global_step)
+        self.final_training_metrics_ = {
+            str(key): float(
+                value.detach().cpu() if torch.is_tensor(value) else value
+            )
+            for key, value in trainer.callback_metrics.items()
+            if np.asarray(
+                value.detach().cpu() if torch.is_tensor(value) else value
+            ).size
+            == 1
+        }
+
         best_model_path = checkpoint_callback.best_model_path
         self.best_model_path_ = best_model_path or None
         if averaging_callback is not None and averaging_callback.states:

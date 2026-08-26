@@ -1,34 +1,21 @@
-# Model notebooks
+# NAMpy notebooks
 
-Compact, visual tutorials for every supported NAMpy model. Each notebook pairs
-the essential theory with a runnable fit, predictive checks, additive
-explanations, term importance, and model-specific plots. Start with
-`00_overview.ipynb`; every checked-in notebook includes executed outputs.
+Four self-contained, theory-first notebooks cover NAMpy without splitting every
+architecture into a repetitive tutorial. Each notebook defines its own small
+datasets and helper functions; there is no shared notebook utility directory.
+Every checked-in notebook has been executed with `FAST_MODE = True`.
 
-`01_gam.ipynb` is a longer energy-system case study covering penalized
-likelihood, smooth construction, smoothing criteria and optimizers, response
-families, multi-linear-predictor models, shape constraints, inference, and
-diagnostics.
-
-| Notebook | Model |
+| Notebook | Focus |
 |---|---|
-| `01_gam.ipynb` | mgcv-aligned GAM and sklearn adapters |
-| `02_linreg.ipynb` | LinReg |
-| `03_nam.ipynb` | NAM |
-| `04_snam.ipynb` | SNAM |
-| `05_sian.ipynb` | SIAN |
-| `06_gpnam.ipynb` | GPNAM |
-| `07_igann.ipynb` | IGANN |
-| `08_nbm.ipynb` | NBM |
-| `09_spam.ipynb` | SPAM |
-| `10_nbm_spam.ipynb` | NBM-SPAM |
-| `11_treenam.ipynb` | TreeNAM |
-| `13_nodegam.ipynb` | NodeGAM |
-| `14_natt.ipynb` | NATT |
-| `15_namformer.ipynb` | NAMformer |
-| `16_qnam.ipynb` | QNAM |
-| `17_spline_nam.ipynb` | SplineNAM |
-| `18_neural_ensemble.ipynb` | independent NeuralEnsemble |
+| `01_nampy_core_workflow.ipynb` | Additive theory, the shared GAM/neural estimator interface, link-scale explanations, sklearn integration, and persistence |
+| `02_complete_gam_guide.ipynb` | Formula and array GAMs, bases, structured smooths, constraints, families, smoothness selection, inference, diagnostics, and GAMLSS |
+| `03_neural_additive_model_zoo.ipynb` | Theory and focused examples for every architecture discovered from the installed registry |
+| `04_tasks_distributional_models_and_ensembles.ipynb` | Runtime regression/classification/LSS sweeps, all registered distribution families, ensembles, and the final capability report |
+
+The runtime tables distinguish registered support from successful demonstration.
+In this checkout, the NAMformer task variants fit and predict but their extracted
+marginal components do not reconstruct the link output; the notebooks report
+that result explicitly instead of hiding it behind a static checkmark.
 
 From the repository root, install the complete environment and launch Jupyter:
 
@@ -36,3 +23,7 @@ From the repository root, install the complete environment and launch Jupyter:
 pip install -e ".[all,docs]" jupyterlab
 jupyter lab docs/notebooks
 ```
+
+Set `FAST_MODE = False` inside a notebook for larger datasets and meaningful
+training budgets. The fast-mode comparisons are interface demonstrations, not
+competitive benchmarks.

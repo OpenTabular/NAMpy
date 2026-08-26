@@ -6,9 +6,36 @@ import numpy as np
 import pandas as pd
 import torch
 from pretab.preprocessor import Preprocessor
+from scipy import sparse
 from torch.utils.data import WeightedRandomSampler
 
 from nampy.neural.data.datamodule import NAMpyDataModule
+
+
+class _SparseFeaturePreprocessor:
+    """Small PreTab-compatible fixture that exposes sparse feature slices."""
+
+    def fit(self, X, y):
+        del y
+        self.columns_ = tuple(X.columns)
+        return self
+
+    def get_feature_info(self, verbose=False):
+        del verbose
+        return (
+            {"x": {"dimension": 1, "preprocessing": "standardization"}},
+            {"group": {"dimension": 2, "preprocessing": "onehot"}},
+            {},
+        )
+
+    def transform(self, X):
+        x = np.asarray(X["x"], dtype=np.float64).reshape(-1, 1)
+        group = np.asarray(X["group"], dtype=np.int64)
+        encoded = np.eye(2, dtype=np.float64)[group]
+        return {
+            "num_x": sparse.csr_matrix(x),
+            "cat_group": sparse.csr_matrix(encoded),
+        }
 
 
 def _make_frames(seed=0):
@@ -61,6 +88,48 @@ def test_out_of_range_validation_values_transform_without_error():
     assert len(data_module.val_dataset) == len(X_val)
 
 
+def test_one_hot_unknown_categories_use_zero_block_without_split_leakage():
+    X_train = pd.DataFrame(
+        {"group": pd.Categorical(["a", "b", "a", "b"])}
+    )
+    X_val = pd.DataFrame(
+        {"group": pd.Categorical(["validation-only", "a"])}
+    )
+    data_module = NAMpyDataModule(
+        preprocessor=Preprocessor(
+            numerical_preprocessing="none",
+            categorical_preprocessing="one-hot",
+        ),
+        batch_size=2,
+        shuffle=False,
+        regression=True,
+    )
+    data_module.setup_data(
+        X_train,
+        np.arange(4.0),
+        X_val=X_val,
+        y_val=np.arange(2.0),
+    )
+    data_module.setup("fit")
+
+    encoder = data_module.preprocessor.column_transformer.named_transformers_[
+        "cat_group"
+    ].named_steps["onehot"]
+    assert set(encoder.categories_[0]) == {"a", "b"}
+    assert "validation-only" not in encoder.categories_[0]
+    assert data_module.cat_feature_info["group"]["dimension"] == 2
+    assert data_module.val_dataset.cat_features_list[0].shape == (2, 2)
+    assert torch.count_nonzero(
+        data_module.val_dataset.cat_features_list[0][0]
+    ).item() == 0
+
+    test_cat, _ = data_module.preprocess_test_data(
+        pd.DataFrame({"group": pd.Categorical(["test-only", "b"])})
+    )
+    assert test_cat["group"].shape == (2, 2)
+    assert torch.count_nonzero(test_cat["group"][0]).item() == 0
+
+
 def test_stratified_auto_split_preserves_class_ratio():
     rng = np.random.default_rng(1)
     X = pd.DataFrame({"x": rng.normal(size=200), "z": rng.normal(size=200)})
@@ -93,6 +162,36 @@ def test_feature_metadata_records_train_only_transformed_cardinality():
     )
     data_module.setup_data(X_train, y_train, X_val=X_val, y_val=y_val)
     assert data_module.num_feature_info["x"]["n_unique"] == 3
+
+
+def test_sparse_preprocessor_slices_keep_sample_axes_and_become_tensors():
+    X_train = pd.DataFrame({"x": [0.0, 1.0, 2.0, 3.0], "group": [0, 1, 0, 1]})
+    X_val = pd.DataFrame({"x": [4.0, 5.0], "group": [1, 0]})
+    data_module = NAMpyDataModule(
+        preprocessor=_SparseFeaturePreprocessor(),
+        batch_size=2,
+        shuffle=False,
+        regression=True,
+    )
+
+    data_module.setup_data(
+        X_train,
+        np.arange(4.0),
+        X_val=X_val,
+        y_val=np.arange(2.0),
+    )
+    data_module.setup("fit")
+
+    assert data_module.num_feature_info["x"]["n_unique"] == 4
+    assert data_module.cat_feature_info["group"]["n_unique"] == 2
+    assert data_module.train_dataset.num_features_list[0].shape == (4, 1)
+    assert data_module.train_dataset.cat_features_list[0].shape == (4, 2)
+    cat, num = data_module.preprocess_tensors(X_val)
+    assert cat["group"].shape == (2, 2)
+    assert num["x"].shape == (2, 1)
+    test_cat, test_num = data_module.preprocess_test_data(X_val)
+    assert test_cat["group"].shape == (2, 2)
+    assert test_num["x"].shape == (2, 1)
 
 
 def test_sample_weights_split_with_rows_and_reach_dataset():

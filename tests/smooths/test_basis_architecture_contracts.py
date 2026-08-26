@@ -22,6 +22,7 @@ from nampy.gam.splines._low_rank import (
 )
 
 REGULAR_BASES = {
+    "ad",
     "bs",
     "cc",
     "cp",
@@ -36,6 +37,8 @@ REGULAR_BASES = {
     "ts",
 }
 
+TENSOR_BASES = REGULAR_BASES - {"ad"}
+
 
 def test_regular_basis_descriptors_own_all_construction_capabilities():
     descriptors = {
@@ -45,7 +48,7 @@ def test_regular_basis_descriptors_own_all_construction_capabilities():
     }
 
     assert set(descriptors) == REGULAR_BASES
-    assert tensor_basis_names() == REGULAR_BASES
+    assert tensor_basis_names() == TENSOR_BASES
     for descriptor in descriptors.values():
         assert descriptor.runtime_class is not None
         assert descriptor.spec_builder is not None

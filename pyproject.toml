@@ -66,6 +66,10 @@ neural = [
 igann-sparse = [
     "abess>=0.4.5",
 ]
+benchmarks = [
+    "tabm==0.0.3",
+    "rtdl-num-embeddings==0.0.12",
+]
 all = [
     "scipy>=1.16",
     "matplotlib",
