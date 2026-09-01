@@ -24,6 +24,9 @@ EXPECTED_GAM_EXPORTS = [
     "fit_model_core",
     "solve_fit",
     "FitCoreSolution",
+    "GAMControl",
+    "gam_control",
+    "normalize_nei",
 ]
 
 
