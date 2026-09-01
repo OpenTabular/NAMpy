@@ -25,6 +25,7 @@ from tests._paths import PARITY_DIR, REPO_ROOT, TESTS_DIR
 from tests.reference_fixtures import (
     REFRESH_ENV,
     AliasedReferenceKey,
+    FixtureIdentity,
     MissingReferenceFixture,
     fixture_payload_variants,
     load_aliased_reference,
@@ -1467,30 +1468,46 @@ def _normalize_raw_constructor_knots(knots):
     return out
 
 
+def _portable_raw_constructor_knots_repr(knots_payload) -> FixtureIdentity | str:
+    """Return a portable knot identity while retaining the historical key text."""
+    legacy = json.dumps(knots_payload, sort_keys=True, default=str)
+    if knots_payload is None:
+        return legacy
+    portable, _ = fixture_payload_variants(knots_payload, normalize_floats=True)
+    canonical = json.dumps(portable, sort_keys=True, default=str)
+    return FixtureIdentity(canonical, legacy)
+
+
 def _run_mgcv_raw_constructor(
     data: pd.DataFrame, smooth_expr: str, knots: dict | None = None
 ):
     smooth_expr_r = _normalize_python_formula_text(smooth_expr)
     knots_payload = _normalize_raw_constructor_knots(knots)
+    knots_identity = _portable_raw_constructor_knots_repr(knots_payload)
     key_parts = {
         "version": _RAW_CONSTRUCTOR_FIXTURE_VERSION,
         "data": _portable_df_fixture_repr(
             _raw_constructor_fixture_frame(data, smooth_expr_r)
         ),
         "smooth_expr": smooth_expr_r,
-        "knots": json.dumps(knots_payload, sort_keys=True, default=str),
+        "knots": knots_identity,
     }
     _cache_key = _mgcv_fixture_key("raw_constructor", key_parts)
     try:
         cached = _mgcv_fixture_load(_cache_key)
     except RuntimeError as portable_error:
         # Preserve access to the committed v5 fixtures while they are migrated
-        # first from full-frame portable identities, then exact pandas CSV.
-        legacy_keys = [
+        # from exact knot JSON and from full-frame data identities.
+        historical_parts = {
+            **key_parts,
+            "knots": json.dumps(knots_payload, sort_keys=True, default=str),
+        }
+        legacy_keys = [_mgcv_fixture_key("raw_constructor", historical_parts)]
+        legacy_keys.extend(
             _mgcv_fixture_key(
                 "raw_constructor",
                 {
-                    **key_parts,
+                    **historical_parts,
                     "data": representation,
                 },
             )
@@ -1498,7 +1515,7 @@ def _run_mgcv_raw_constructor(
                 _portable_df_fixture_repr(data),
                 _df_fixture_repr(data),
             )
-        ]
+        )
         cached = None
         seen_candidates: set[tuple[str, str | None]] = set()
         for legacy_key in legacy_keys:

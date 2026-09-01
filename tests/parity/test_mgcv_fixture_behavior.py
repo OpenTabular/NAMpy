@@ -84,6 +84,22 @@ def test_portable_dataframe_fixture_identity_ignores_final_bit_platform_noise():
     ) != mgcv_parity_utils._portable_df_fixture_repr(meaningfully_different)
 
 
+def test_portable_raw_constructor_knot_identity_ignores_final_bit_noise():
+    """Data-derived knots use the same portable precision as constructor data."""
+    value = 0.912763940260521
+    neighbor = np.nextafter(value, np.inf)
+
+    left = mgcv_parity_utils._portable_raw_constructor_knots_repr({"x": [value]})
+    right = mgcv_parity_utils._portable_raw_constructor_knots_repr({"x": [neighbor]})
+    different = mgcv_parity_utils._portable_raw_constructor_knots_repr(
+        {"x": [value + 1e-10]}
+    )
+
+    assert str(left) == str(right)
+    assert str(left) != str(different)
+    assert left.legacy != right.legacy
+
+
 def test_portable_fixture_key_records_and_reuses_existing_fixture_alias(
     monkeypatch, tmp_path
 ):
