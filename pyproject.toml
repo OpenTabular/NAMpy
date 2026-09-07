@@ -102,7 +102,7 @@ docs = [
 
 [project.urls]
 Homepage = "https://github.com/Ananyapam7/NAMpy"
-Documentation = "https://github.com/Ananyapam7/NAMpy"
+Documentation = "https://nampy.readthedocs.io/"
 Repository = "https://github.com/Ananyapam7/NAMpy"
 "Bug Tracker" = "https://github.com/Ananyapam7/NAMpy/issues"
 
