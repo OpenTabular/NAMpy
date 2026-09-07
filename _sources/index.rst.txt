@@ -14,6 +14,10 @@ NAMpy: Interpretable Additive Modeling
    :target: https://opensource.org/licenses/MIT
    :alt: License: MIT
 
+.. image:: https://readthedocs.org/projects/nampy/badge/?version=latest
+   :target: https://nampy.readthedocs.io/en/latest/?badge=latest
+   :alt: Documentation status
+
 NAMpy combines a strict ``mgcv``-aligned statistical GAM backend with neural
 additive models for regression, classification, and distributional regression.
 
