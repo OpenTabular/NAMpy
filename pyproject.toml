@@ -101,10 +101,10 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Ananyapam7/NAMpy"
+Homepage = "https://github.com/OpenTabular/NAMpy"
 Documentation = "https://nampy.readthedocs.io/"
-Repository = "https://github.com/Ananyapam7/NAMpy"
-"Bug Tracker" = "https://github.com/Ananyapam7/NAMpy/issues"
+Repository = "https://github.com/OpenTabular/NAMpy"
+"Bug Tracker" = "https://github.com/OpenTabular/NAMpy/issues"
 
 [tool.setuptools]
 include-package-data = true

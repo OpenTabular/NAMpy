@@ -160,20 +160,6 @@ def function(param1, param2):
     """
 ```
 
-## Read the Docs
-
-The documentation is configured for Read the Docs via `.readthedocs.yaml`.
-
-To build on Read the Docs:
-
-1. Import the project at https://readthedocs.org/
-2. The build will use `.readthedocs.yaml` configuration
-3. Documentation will be automatically built on each commit
-
-## Continuous Integration
-
-Documentation is automatically built and checked in CI via `.github/workflows/docs.yml`.
-
 ## Contributing
 
 When adding new features:
@@ -190,4 +176,3 @@ When adding new features:
 * [Sphinx Documentation](https://www.sphinx-doc.org/)
 * [reStructuredText Primer](https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html)
 * [NumPy Docstring Guide](https://numpydoc.readthedocs.io/en/latest/format.html)
-* [Read the Docs](https://docs.readthedocs.io/)

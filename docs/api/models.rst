@@ -71,7 +71,9 @@ Distributional Regression Models (LSS)
    EnsembleTreeNAMLSS
    SNAMLSS
    NodeGAMLSS
-   GAMLSS
+
+The statistical :class:`GAMLSS` adapter is documented with the GAM backend in
+:doc:`gam`.
 
 Other Models
 ------------

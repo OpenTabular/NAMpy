@@ -38,7 +38,6 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinx.ext.mathjax",
-    "sphinx.ext.githubpages",
     "sphinx_rtd_theme",
     "myst_parser",  # For Markdown support
     "nbsphinx",  # Render checked-in notebook sources (via nbconvert/Pandoc)
@@ -176,6 +175,14 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [(master_doc, "nampy", "NAMpy Documentation", [author], 1)]
+
+# Include rendered notebook pages in EPUB while omitting their raw source files.
+epub_exclude_files = [
+    "notebooks/01_nampy_core_workflow.ipynb",
+    "notebooks/02_complete_gam_guide.ipynb",
+    "notebooks/03_neural_additive_model_zoo.ipynb",
+    "notebooks/04_tasks_distributional_models_and_ensembles.ipynb",
+]
 
 # -- Options for Texinfo output ----------------------------------------------
 
