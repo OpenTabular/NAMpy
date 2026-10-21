@@ -1,9 +1,21 @@
 GAM Inference
 =============
 
-Summary, ANOVA, and null-deviance utilities for fitted statistical GAMs.
+Summary, term tests, model comparisons, and null-deviance calculations for
+fitted statistical GAMs. The corresponding model methods are ``summary()``,
+``anova()``, and ``loglik()``.
 
-.. automodule:: nampy.gam.inference
-   :members:
-   :member-order: bysource
+.. currentmodule:: nampy.gam.inference
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   summary_gam
+   GAMSummary
+   anova_gam
+   AnovaGAMSingle
+   AnovaGAMComparison
+   null_deviance
+   compute_null_deviance
 

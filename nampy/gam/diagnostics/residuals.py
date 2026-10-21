@@ -55,6 +55,8 @@ def _quantile_residuals(model, y, mu, weights, *, seed=None) -> np.ndarray:
 def residuals_gam(
     model, type: str = "deviance", *, setseed=None
 ) -> np.ndarray:
+    """Compute response, working, Pearson, deviance, or quantile residuals."""
+
     _require_fitted(model)
 
     type = str(type).lower()

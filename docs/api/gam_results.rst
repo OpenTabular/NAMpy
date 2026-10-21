@@ -1,9 +1,18 @@
 GAM Results
 ===========
 
-Structured objects returned by the statistical fitting and reporting layers.
+Structured outputs from the statistical fitting and reporting layers. These
+objects keep numerical solver state separate from the concise, user-facing
+views returned by :class:`nampy.gam.GAM`.
 
-.. automodule:: nampy.gam.results
-   :members:
-   :member-order: bysource
+.. currentmodule:: nampy.gam.results
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   GAMResult
+   GAMFitResult
+   TermFitResult
+   FitResult
 

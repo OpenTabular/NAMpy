@@ -14,6 +14,8 @@ from ._single_penalty import SinglePenaltyLowRankSmoothTerm
 
 @register_smooth("gp")
 class GaussianProcessTerm(SinglePenaltyLowRankSmoothTerm):
+    """Low-rank Gaussian-process smooth runtime term."""
+
     term_type = "smooth"
     basis_name = "gp"
 

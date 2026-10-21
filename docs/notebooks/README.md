@@ -1,6 +1,6 @@
 # NAMpy notebooks
 
-Four self-contained notebooks cover the shared workflow, statistical GAMs,
+Four self-contained notebooks cover the introductory analysis, statistical GAMs,
 neural architectures, and distributional models. Each notebook defines the
 data and helper functions needed to run it independently.
 

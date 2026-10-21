@@ -217,6 +217,8 @@ def t2_identity_penalties(n_coef: int, widths) -> list[np.ndarray]:
 
 @register_smooth("t2")
 class AlternativeTensorProductSplineTerm(BaseSmoothTerm):
+    """ANOVA-style tensor-product runtime term for ``t2(...)``."""
+
     term_type = "tensor_t2"
     basis_name = "t2"
     supports_tensor_marginal = False

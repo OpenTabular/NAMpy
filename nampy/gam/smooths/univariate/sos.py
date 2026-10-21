@@ -12,6 +12,8 @@ from ._single_penalty import SinglePenaltyLowRankSmoothTerm
 
 @register_smooth("sos")
 class SphericalSplineTerm(SinglePenaltyLowRankSmoothTerm):
+    """Spline-on-the-sphere runtime term for latitude and longitude."""
+
     term_type = "smooth"
     basis_name = "sos"
 

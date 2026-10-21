@@ -8,16 +8,33 @@ normally use the estimators in :doc:`models`.
 Architecture registry
 ---------------------
 
-.. automodule:: nampy.neural.registry
-   :members:
-   :member-order: bysource
+.. currentmodule:: nampy.neural.registry
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   NeuralArchitecture
+   architectures
+   get_architecture
+   register_architecture
 
 Training objectives
 -------------------
 
-.. automodule:: nampy.neural.objectives
-   :members:
-   :member-order: bysource
+.. currentmodule:: nampy.neural.objectives
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   NeuralObjective
+   RegressionObjective
+   BinaryObjective
+   MulticlassObjective
+   DistributionObjective
+   classification_objective
+   objective_from_legacy
 
 Training module
 ---------------
@@ -33,28 +50,54 @@ Training module
 Data module
 -----------
 
-.. automodule:: nampy.neural.data
-   :members:
-   :member-order: bysource
+.. currentmodule:: nampy.neural.data
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   NAMpyDataModule
+   NAMpyDataset
 
 Interaction selection
 ---------------------
 
-.. automodule:: nampy.neural.interaction_selection
-   :members:
-   :member-order: bysource
+.. currentmodule:: nampy.neural.interaction_selection
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   InteractionSearchConfig
+   InteractionSelectionResult
+   InteractionScore
+   ArchipelagoDetector
+   select_interactions
+   interaction_frontier
+   fit_reference_model
 
 Architecture contracts
 ----------------------
 
-.. automodule:: nampy.neural.contracts
-   :members:
-   :member-order: bysource
+.. currentmodule:: nampy.neural.contracts
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   FixedLinearDesignProvider
+   NativeTrainingProvider
+   harvest_penalties
+   validate_feature_names
 
 Fixed-design solver
 -------------------
 
-.. automodule:: nampy.neural.linear_solver
-   :members:
-   :member-order: bysource
+.. currentmodule:: nampy.neural.linear_solver
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   solve_fixed_linear_regression
 

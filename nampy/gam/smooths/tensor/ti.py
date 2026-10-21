@@ -33,6 +33,8 @@ from .marginals import (
 
 @register_smooth("ti")
 class InteractionTensorProductSplineTerm(BaseSmoothTerm):
+    """Tensor interaction runtime term for ``ti(...)``."""
+
     term_type = "tensor_interaction"
     basis_name = "ti"
     supports_tensor_marginal = False

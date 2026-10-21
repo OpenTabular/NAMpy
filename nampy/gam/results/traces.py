@@ -112,6 +112,8 @@ def _normalize_outer_info(raw_outer_info, *, optim_result, trace_rows):
 
 
 def build_optimizer_trace(model):
+    """Collect serializable smoothness-optimizer diagnostics from a fit."""
+
     core = model
     if hasattr(model, "core_") and model.core_ is not None:
         core = model.core_
@@ -194,12 +196,16 @@ def build_optimizer_trace(model):
 
 
 def save_optimizer_trace(trace_obj, path):
+    """Write an optimizer trace to JSON."""
+
     path = Path(path)
     with path.open("w", encoding="utf-8") as f:
         json.dump(trace_obj, f, indent=2)
 
 
 def load_optimizer_trace(path):
+    """Read an optimizer trace from JSON."""
+
     path = Path(path)
     with path.open("r", encoding="utf-8") as f:
         return json.load(f)

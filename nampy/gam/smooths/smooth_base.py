@@ -68,6 +68,8 @@ def _resolve_numeric_by(by, X, feature_names):
 
 @dataclass
 class ByState:
+    """Resolved state for a numeric or matrix-valued ``by`` variable."""
+
     feature_index: int | None
     feature_name: str | None
     values: np.ndarray | None
@@ -86,6 +88,8 @@ class ByState:
 
 
 def resolve_by_state(by, X, feature_names):
+    """Resolve a ``by`` variable against the training feature matrix."""
+
     if by is None:
         return ByState(None, None, None, False, True, handling="none")
     idx, name, z = _resolve_numeric_by(by, X, feature_names)
@@ -195,6 +199,8 @@ def columns_as_float_matrix(X, indices):
 
 
 def apply_numeric_by(B, z, allow_missing=False):
+    """Multiply basis rows by their numeric ``by`` values."""
+
     B = np.asarray(B, dtype=np.float64)
     if z is None:
         return B
@@ -254,6 +260,8 @@ def build_penalty_definition(
     metadata_extra=None,
     local_penalty_index=0,
 ):
+    """Create a penalty specification with term and smoothing metadata."""
+
     sp_mode, sp_value = _sp_mode_value(sp_value_in)
     return make_penalty_spec(
         matrix=np.asarray(matrix, dtype=np.float64),

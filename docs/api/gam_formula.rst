@@ -1,11 +1,66 @@
 Formula API
 ===========
 
-The formula module parses statistical model formulas into declarative term
-specifications. Most users write formulas through :class:`nampy.gam.GAM`;
-these objects and functions are available for validation and extension work.
+NAMpy translates a model formula into a typed description of its parametric
+terms, smooths, interactions, offsets, and linear predictors. Most analyses
+only need to pass the formula to :class:`nampy.gam.GAM`:
 
-.. automodule:: nampy.gam.formula
-   :members:
-   :member-order: bysource
+.. code-block:: python
+
+   from nampy.gam import GAM
+
+   model = GAM(
+       formula='y ~ group + s(x, bs="cr", k=12) + ti(x, z)',
+       family="gaussian",
+       smoothing_method="reml",
+   ).fit(data)
+
+See :ref:`gam-formula-language` for the supported formula surface and examples.
+The objects below are useful when validating formulas or extending the
+statistical backend.
+
+Parsing and extraction
+----------------------
+
+.. currentmodule:: nampy.gam.formula
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   parse_gam_formula
+   extract_formula_terms
+   all_vars1
+   get_numeric_response_labels
+   strip_offset_wrapper
+
+Parsed formula objects
+----------------------
+
+These records describe the formula before data are attached or basis matrices
+are constructed.
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   ParsedGAMFormula
+   ParsedPredictorFormula
+   ParsedFormulaComponent
+   ParsedParametricTerm
+   ParsedSmoothTerm
+
+Extracted term objects
+----------------------
+
+Extraction converts parsed syntax into one declarative term collection per
+linear predictor.
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   ExtractedPredictor
+   ExtractedParametricTerm
+   ExtractedSmoothTerm
 

@@ -42,7 +42,7 @@ from ..smooth_base import (
 @register_smooth("lmpi")
 @register_smooth("lipl")
 class ShapeConstrainedPSplineTerm(BaseSmoothTerm):
-    """Monotone SCOP-spline runtime for ``bs='mpi'`` and ``bs='mpd'``."""
+    """Runtime term for univariate and bivariate SCOP-spline constraints."""
 
     term_type = "shape_constrained_smooth"
     supports_tensor_marginal = False

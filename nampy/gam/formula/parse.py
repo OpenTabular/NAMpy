@@ -23,6 +23,8 @@ _FORMULA_DOT_SENTINEL = "__GAM_DOT__"
 
 @dataclass
 class ParsedParametricTerm:
+    """A parsed linear term or parametric interaction."""
+
     variables: tuple[str, ...]
     raw_label: str
     factor_labels: tuple[str, ...] = ()
@@ -30,6 +32,8 @@ class ParsedParametricTerm:
 
 @dataclass
 class ParsedSmoothTerm:
+    """A parsed ``s``, ``te``, ``ti``, or ``t2`` term."""
+
     kind: str
     features: tuple[str, ...]
     kwargs: dict[str, Any] = field(default_factory=dict)
@@ -40,6 +44,8 @@ class ParsedSmoothTerm:
 
 @dataclass
 class ParsedFormulaComponent:
+    """One formula component before linear-predictor aggregation."""
+
     response_name: str | None
     intercept: bool
     terms: list[Any]
@@ -63,6 +69,8 @@ class ParsedFormulaComponent:
 
 @dataclass
 class ParsedPredictorFormula:
+    """The combined formula description for one linear predictor."""
+
     response_name: str | None
     intercept: bool
     terms: list[Any]
@@ -79,6 +87,8 @@ class ParsedPredictorFormula:
 
 @dataclass
 class ParsedGAMFormula:
+    """The complete parsed representation of a GAM formula specification."""
+
     response_name: str | None
     predictors: list[ParsedPredictorFormula]
     components: list[ParsedFormulaComponent] = field(default_factory=list)
@@ -89,6 +99,8 @@ class ParsedGAMFormula:
 
 
 def strip_offset_wrapper(expr: str) -> str:
+    """Return the expression contained in an ``offset(...)`` term."""
+
     expr = str(expr).strip()
     if expr.startswith("offset(") and expr.endswith(")"):
         return expr[7:-1].strip()
@@ -1017,6 +1029,8 @@ def _aggregate_predictors(
 
 
 def parse_gam_formula(formula) -> ParsedGAMFormula:
+    """Parse one formula or a multi-predictor formula specification."""
+
     if isinstance(formula, str):
         component = _parse_formula_component(
             formula,

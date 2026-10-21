@@ -49,12 +49,12 @@ NAMpy supports Python 3.11 and 3.12. The standard installation contains the
 statistical and neural backends. See :doc:`installation` for hardware guidance
 and verification.
 
-A first neural additive model
------------------------------
+Learned feature effects
+-----------------------
 
-This complete example learns four nonlinear feature functions. The plotting
-call uses the same public term-contribution API for all neural additive
-estimators.
+The example below fits a neural additive model and visualizes how each feature
+contributes to its predictions. The same plotting interface is available
+across NAMpy's neural additive estimators.
 
 .. code-block:: python
 
@@ -118,15 +118,26 @@ with the response.
 Why NAMpy
 ---------
 
-* **One workflow, two modeling traditions.** Use statistical GAMs and neural
-  additive models without learning unrelated estimator interfaces.
-* **Inspectable predictions.** Recover term contributions, feature effects,
-  importances, and distributional parameters through public methods.
-* **Models for different assumptions.** Choose smooth functions, shape
-  constraints, neural feature networks, explicit interactions, or
-  distributional objectives.
-* **Tabular data support.** Work with numerical and categorical columns through
-  the package's preprocessing layer.
+* **A Python-native statistical GAM engine.** Specify models with formulas and
+  use penalized smooths, automatic smoothness selection, rich response
+  families, inference, diagnostics, and prediction tools directly in Python.
+  The implementation does not require an R runtime.
+* **A broad collection of neural additive models.** Use established neural
+  architectures through maintained estimator classes while retaining access
+  to their learned feature and interaction effects.
+* **Effects remain first-class outputs.** Recover named term contributions,
+  uncertainty where the model supports it, feature importance, interaction
+  surfaces, and distributional parameters through public methods.
+* **Models beyond conditional means.** Fit additive predictors for location,
+  scale, and shape, then inspect both the parameter effects and the implied
+  conditional distribution.
+
+The statistical backend covers the major stages of an ``mgcv`` analysis:
+formula compilation, a large collection of smooth bases, GCV/UBRE/ML/REML and
+LAML routes, prediction matrices and term-wise standard errors, summaries,
+ANOVA, residual diagnostics, derivatives, concurvity, basis checks, and GAM
+plots. The :ref:`statistical-gam-tools` guide gives the full supported
+inventory with code.
 
 Choose a starting point
 -----------------------
@@ -145,8 +156,8 @@ Choose a starting point
       :link: notebooks/03_neural_models
       :link-type: doc
 
-      Compare neural feature functions and interaction structures through the
-      shared estimator interface.
+      Compare neural feature functions, interaction structures, and their
+      learned effects.
 
    .. grid-item-card:: Distributional regression
       :link: notebooks/04_distributional_models
@@ -165,8 +176,9 @@ Choose a starting point
 Documentation
 -------------
 
-The :doc:`overview` explains the model families and their shared interface.
-The :doc:`quickstart` gives a complete first analysis. Use the
+The :doc:`overview` explains the mathematical structure of additive models and
+the distinctions between statistical and neural estimation. The
+:doc:`quickstart` gives a complete first analysis. Use the
 :doc:`notebook_tutorials` for executable workflows, the :doc:`user_guide` for
 concepts, and the :doc:`api/index` for signature-level reference.
 

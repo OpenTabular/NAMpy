@@ -15,12 +15,16 @@ from .summary_format import summary_lines_from_gam_summary
 
 
 def build_summary_lines(model) -> list[str]:
+    """Format a fitted GAM summary as individual text lines."""
+
     from ..inference.summary import summary_gam
 
     return summary_lines_from_gam_summary(summary_gam(model))
 
 
 def summary_text(model_or_summary) -> str:
+    """Return a printable statistical GAM summary."""
+
     from ..inference.summary import GAMSummary
 
     if isinstance(model_or_summary, GAMSummary):
@@ -29,6 +33,8 @@ def summary_text(model_or_summary) -> str:
 
 
 def print_summary(model, *, dispersion=None, freq=False, re_test=True):
+    """Print and return the structured summary of a fitted GAM."""
+
     from ..inference.summary import summary_gam
 
     summary = summary_gam(

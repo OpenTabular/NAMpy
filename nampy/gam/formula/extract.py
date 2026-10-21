@@ -17,6 +17,8 @@ from .parse import ParsedGAMFormula, ParsedParametricTerm, ParsedSmoothTerm
 
 @dataclass(frozen=True)
 class ExtractedParametricTerm:
+    """A declarative parametric term ready for model-spec construction."""
+
     variables: tuple[str, ...]
     raw_label: str
     factor_labels: tuple[str, ...] = ()
@@ -24,6 +26,8 @@ class ExtractedParametricTerm:
 
 @dataclass(frozen=True)
 class ExtractedSmoothTerm:
+    """A declarative smooth term ready for model-spec construction."""
+
     kind: str
     features: tuple[str, ...]
     kwargs: dict
@@ -35,6 +39,8 @@ ExtractedTerm = ExtractedParametricTerm | ExtractedSmoothTerm
 
 @dataclass(frozen=True)
 class ExtractedPredictor:
+    """The extracted term collection for one linear predictor."""
+
     predictor_index: int
     predictor_name: str
     response_name: str | None
@@ -49,6 +55,8 @@ class ExtractedPredictor:
 def extract_formula_terms(
     parsed: ParsedGAMFormula, *, drop_intercept=None
 ) -> list[ExtractedPredictor]:
+    """Convert parsed formula components into declarative predictor terms."""
+
     # Formula-list components, rather than the aggregated predictor views,
     # own coefficient blocks in mgcv.  In particular ``1 + 2 ~ s(x)`` is one
     # block referenced by both linear predictors.  For an ordinary formula

@@ -33,6 +33,8 @@ from ..smooth_base import (
 @register_smooth("tp")
 @register_smooth("ts")
 class ThinPlateSplineTerm(BaseSmoothTerm):
+    """Thin-plate regression spline runtime term (``bs='tp'`` or ``'ts'``)."""
+
     term_type = "smooth"
     basis_name = "tp"
 

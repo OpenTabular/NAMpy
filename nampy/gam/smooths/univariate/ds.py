@@ -12,6 +12,8 @@ from ._single_penalty import SinglePenaltyLowRankSmoothTerm
 
 @register_smooth("ds")
 class DuchonSplineTerm(SinglePenaltyLowRankSmoothTerm):
+    """Low-rank Duchon spline runtime term for one or more covariates."""
+
     term_type = "smooth"
     basis_name = "ds"
 

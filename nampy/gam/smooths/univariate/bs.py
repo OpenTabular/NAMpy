@@ -33,6 +33,8 @@ from ..smooth_base import (
 
 @register_smooth("bs")
 class DerivativeBSplineTerm1D(BaseSmoothTerm):
+    """B-spline runtime term with derivative-based penalties."""
+
     term_type = "smooth"
     basis_name = "bs"
 

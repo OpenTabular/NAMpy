@@ -341,6 +341,51 @@ table.autosummary td:first-child code {
   display: none;
 }
 
+/* API entries should read as reference cards, not an unbroken stream of raw
+   Python signatures. Long signatures remain horizontally scrollable without
+   forcing the whole page wider than the content column. */
+#content dl.py {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin: 1.25rem 0 1.75rem;
+  overflow: hidden;
+}
+
+#content dl.py > dt.sig {
+  background: #f6f8fa;
+  border: 0;
+  border-bottom: 1px solid #e5e7eb;
+  display: block;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  overflow-x: auto;
+  padding: 0.8rem 1rem;
+  white-space: nowrap;
+}
+
+#content dl.py > dd {
+  margin: 0;
+  padding: 0.9rem 1rem 1rem;
+}
+
+#content dl.py dl.py {
+  border-color: #eef0f2;
+  margin: 0.9rem 0;
+}
+
+#content .sig-prename {
+  color: #57606a;
+  font-weight: 500;
+}
+
+#content .sig-name {
+  color: #6639ba;
+}
+
+#content .sig-param {
+  font-weight: 400;
+}
+
 /* The theme switches with an html.dark class. Declare the complete light
    palette explicitly as well, so a system-level dark preference cannot leave
    Pygments tokens on a light code-block background. */
@@ -580,6 +625,24 @@ html.dark .sd-card {
 html.dark .sd-card:hover {
   border-color: #60a5fa !important;
   box-shadow: 0 4px 16px rgb(0 0 0 / 28%) !important;
+}
+
+html.dark #content dl.py,
+html.dark #content dl.py > dt.sig,
+html.dark #content dl.py dl.py {
+  border-color: #30363d;
+}
+
+html.dark #content dl.py > dt.sig {
+  background: #161b22;
+}
+
+html.dark #content .sig-prename {
+  color: #8b949e;
+}
+
+html.dark #content .sig-name {
+  color: #d2a8ff;
 }
 
 html.dark .homepage-demo-light {

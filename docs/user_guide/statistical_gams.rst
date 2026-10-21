@@ -1,11 +1,41 @@
-Statistical GAM Tools
-=====================
+.. _statistical-gam-tools:
+
+Statistical GAMs in Python
+==========================
 
 NAMpy provides a Python implementation of the statistical GAM workflow and
 uses ``mgcv`` terminology where the corresponding behavior is available. This
-page collects the reader-facing formula syntax, smooth constructors, fitting
-controls, prediction methods, and diagnostic tools in one place. The
+page collects the formula syntax, smooth constructors, fitting controls,
+prediction methods, inference, and diagnostics in one place. The
 :doc:`../api/gam` reference gives full call signatures.
+
+Coverage map
+------------
+
+.. grid:: 1 1 2 2
+   :gutter: 2
+
+   .. grid-item-card:: Specify
+
+      Formulas, transformed covariates, offsets, parametric interactions,
+      smooth main effects, tensor products, factor smooths, linked penalties,
+      and multiple linear predictors.
+
+   .. grid-item-card:: Estimate
+
+      Penalized Gaussian, PIRLS, transformed-coefficient, and general-family
+      solvers with fixed or automatically selected smoothing parameters.
+
+   .. grid-item-card:: Predict
+
+      Response and link values, term and interaction contributions, prediction
+      matrices, conditional or unconditional uncertainty, offsets, and
+      missing-data controls.
+
+   .. grid-item-card:: Diagnose
+
+      Summaries, ANOVA, residuals, smooth derivatives, concurvity, basis checks,
+      likelihood criteria, effective degrees of freedom, and term plots.
 
 Model interfaces
 ----------------
@@ -30,8 +60,10 @@ Model interfaces
      - Multi-parameter distributional GAMs.
      - ``GAMLSS(family="normal", formula=formulas).fit(df)``
 
-Formula syntax
---------------
+.. _gam-formula-language:
+
+Formula language
+----------------
 
 .. list-table::
    :header-rows: 1
@@ -58,6 +90,9 @@ Formula syntax
    * - ``ti(...)``
      - Tensor interaction used with lower-order main effects.
      - ``y ~ s(x) + s(z) + ti(x, z)``
+   * - ``t2(...)``
+     - Alternative tensor product with an ANOVA-style penalty decomposition.
+     - ``y ~ t2(x, z, bs=c("cr", "cr"))``
    * - ``offset(...)``
      - Known additive contribution to the linear predictor.
      - ``count ~ s(x) + offset(log_exposure)``
@@ -67,6 +102,8 @@ Formula syntax
    * - ``I()``, ``log()``, ``sqrt()``, ``exp()``
      - Numeric transformations evaluated from data columns.
      - ``y ~ s(log(x)) + I(z**2)``
+
+.. _gam-smooth-bases:
 
 Smooth bases
 ------------
@@ -285,6 +322,12 @@ Smoothing and fitting
    * - ``"ml"`` / ``"reml"``
      - Select smoothness by likelihood criteria.
      - ``GAM(optimize_smoothing=True, smoothing_method="reml")``
+   * - ``"p-ml"`` / ``"p-reml"``
+     - Pearson-scale ML or REML criteria for supported PIRLS models.
+     - ``GAM(optimize_smoothing=True, smoothing_method="p-reml")``
+   * - ``"ncv"`` / ``"qncv"``
+     - Exact or quadratic neighborhood cross-validation using ``nei=``.
+     - ``GAM(optimize_smoothing=True, smoothing_method="ncv", nei=nei)``
    * - ``"laml"``
      - Laplace approximate marginal likelihood for supported general families.
      - ``GAM(optimize_smoothing=True, smoothing_method="laml")``
@@ -298,6 +341,18 @@ Smoothing and fitting
    * - ``sample_weight=``
      - Apply prior observation weights.
      - ``model.fit(data=df, sample_weight=w)``
+   * - ``min_sp=``
+     - Set lower bounds for smoothing parameters.
+     - ``GAM(min_sp=[1e-6, 1e-6])``
+   * - ``score_gamma=`` / ``scale=``
+     - Adjust selection scores or supply a known dispersion scale.
+     - ``GAM(score_gamma=1.4, scale=1.0)``
+   * - ``coefficient_optimizer=``
+     - Select Newton or BFGS coefficient optimization where supported.
+     - ``GAM(coefficient_optimizer="bfgs")``
+   * - ``start=``
+     - Supply starting coefficients for compatible fitting routes.
+     - ``GAM(start=beta0)``
    * - ``ar1_rho=`` / ``ar_start=``
      - Use known Gaussian AR(1) residual correlation.
      - ``GAM(ar1_rho=0.5, ar_start="new_series")``
@@ -316,6 +371,23 @@ Prediction and term inspection
      - Response, link, terms, interaction terms, or linear-predictor matrix;
        optionally with standard errors.
      - ``model.predict(new, type="response", return_se=True)``
+   * - ``terms=`` / ``exclude=``
+     - Include or omit named terms without changing the fitted model.
+     - ``model.predict(new, type="terms", exclude=["s(z)"])``
+   * - ``unconditional=True``
+     - Include smoothing-parameter uncertainty in prediction covariance when
+       available.
+     - ``model.predict(new, return_se=True, unconditional=True)``
+   * - ``na_action=``
+     - Pass, omit, exclude, or reject incomplete prediction rows.
+     - ``model.predict(new, na_action="exclude")``
+   * - ``block_size=``
+     - Evaluate large prediction sets in bounded-memory blocks.
+     - ``model.predict(new, block_size=20_000)``
+   * - ``newdata_guaranteed=True``
+     - Use the optimized prediction route when new data satisfy the documented
+       completeness and factor-level contract.
+     - ``model.predict(new, exclude=["s(z)"], newdata_guaranteed=True)``
    * - ``predict_terms``
      - Named smooth and parametric term contributions.
      - ``model.predict_terms(new)``
@@ -332,6 +404,10 @@ Prediction and term inspection
    * - ``save_model`` / ``load_model``
      - Persist and restore a fitted statistical GAM.
      - ``GAM.load_model("model.pkl")``
+   * - ``parity_snapshot``
+     - Export coefficients, predictions, smoothness, and optional covariance
+       summaries for numerical validation.
+     - ``model.parity_snapshot(new)``
 
 Inference and diagnostics
 -------------------------

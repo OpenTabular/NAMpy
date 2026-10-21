@@ -322,6 +322,8 @@ def predict_markov_random_field(values, setup: MarkovRandomFieldSetup) -> np.nda
 
 @register_smooth("mrf")
 class MarkovRandomFieldTerm(BaseSmoothTerm):
+    """Markov random-field smooth over discrete neighboring regions."""
+
     term_type = "smooth"
     basis_name = "mrf"
 

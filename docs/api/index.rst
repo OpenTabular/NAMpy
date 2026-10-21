@@ -1,5 +1,5 @@
-API and Modules
-===============
+API Reference
+=============
 
 The API reference follows NAMpy's public namespaces. Estimator classes are
 listed first; the remaining pages cover the statistical GAM, neural,

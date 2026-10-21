@@ -1,91 +1,120 @@
-Overview
-========
+Additive Models in NAMpy
+========================
 
-NAMpy brings statistical and neural additive models into one Python workflow.
-The models share familiar estimator operations, but they keep their own
-estimation methods, uncertainty statements, and interpretation rules.
+Additive models describe a prediction as a sum of named effects. For a model
+with main effects and selected interactions,
 
-What NAMpy provides
+.. math::
+
+   \eta(x) = \beta_0
+   + \sum_j f_j(x_j)
+   + \sum_{(j,k) \in \mathcal{I}} f_{jk}(x_j, x_k),
+
+where :math:`\eta` is the linear predictor and :math:`\mathcal{I}` contains the
+interactions included in the model. This structure makes it possible to inspect
+how individual terms contribute without reducing the model to one global
+importance score.
+
+NAMpy supports two distinct ways to estimate these effects: statistical
+generalized additive models and neural additive models. They use different
+representations, optimizers, and uncertainty statements; NAMpy preserves those
+differences while giving both model families direct access to predictions and
+term effects.
+
+Statistical generalized additive models
+---------------------------------------
+
+A statistical GAM represents an effect with basis functions,
+
+.. math::
+
+   f_j(x) = \sum_{r=1}^{K_j} b_{jr}(x)\theta_{jr},
+
+and estimates the coefficients by balancing fit against smoothness penalties,
+
+.. math::
+
+   \underset{\theta}{\operatorname{minimize}}\;
+   -\ell(\theta) + \frac{1}{2}\sum_m
+   \lambda_m\theta^\mathsf{T}S_m\theta.
+
+The smoothing parameters :math:`\lambda_m` determine how much flexibility each
+penalized component retains. NAMpy can estimate them with GCV, UBRE, ML, REML,
+or Laplace approximate marginal likelihood, depending on the family and model.
+
+NAMpy contains a Python-native statistical GAM engine rather than an interface
+that sends models to R. Its formula compiler, smooth constructors, penalized
+solvers, prediction routines, inference, and diagnostics cover the main
+analytical stages familiar from ``mgcv``:
+
+* formulas with parametric terms, transformations, offsets, ``s()``, ``te()``,
+  ``ti()``, and ``t2()`` terms;
+* thin-plate, cubic, cyclic, P-spline, Duchon, Gaussian-process, adaptive,
+  spherical, random-effect, MRF, factor-specific, tensor, and
+  shape-constrained smooths;
+* automatic smoothness selection, shrinkage and term selection, linked
+  smoothing parameters, observation weights, and Gaussian AR(1) correction;
+* Gaussian, binomial, Poisson, Gamma, negative-binomial, beta, Tweedie,
+  ordered-categorical, and supported multi-parameter families;
+* response, link, term, interaction, and linear-predictor-matrix predictions,
+  including standard errors and unconditional covariance where supported;
+* summaries, ANOVA, residuals, smooth derivatives, concurvity, basis-dimension
+  checks, variance components, likelihood criteria, and GAM plots.
+
+The :ref:`statistical-gam-tools` page is the complete, symbol-level inventory.
+The :doc:`api/gam` reference provides exact signatures.
+
+Neural additive models
+----------------------
+
+A neural additive model keeps the additive predictor but learns each effect
+with a feature network,
+
+.. math::
+
+   f_j(x_j) = h_j(x_j; w_j).
+
+The network parameters :math:`w_j` are fitted by gradient-based optimization.
+Different architectures change the feature function, parameter sharing, or
+interaction mechanism, but an effect interpreted as :math:`f_j(x_j)` remains a
+function of the stated feature. NAMpy exposes the resulting term contributions,
+interaction contributions, and feature importance through the fitted
+estimator. See :doc:`models/index` for the theoretical description and code for
+each architecture.
+
+Distributional additive models
+------------------------------
+
+Mean regression is not enough when conditional spread, skewness, or tail
+behavior changes with the predictors. Distributional models assign a separate
+additive predictor to each distribution parameter,
+
+.. math::
+
+   \eta_k(x) = \beta_{0k} + \sum_j f_{jk}(x_j),
+   \qquad \theta_k(x) = g_k^{-1}\!\left(\eta_k(x)\right).
+
+NAMpy returns both natural distribution parameters :math:`\theta_k(x)` and
+point summaries such as the conditional mean. Parameter-wise effects remain on
+their predictor scales unless a plotting method explicitly applies the inverse
+links. See :doc:`user_guide/gamlss` for the exact semantics.
+
+Interpreting additive effects
+-----------------------------
+
+For a fitted model, the intercept and returned terms reconstruct the linear
+predictor. This is an accounting identity, not a claim that every effect is
+uniquely identified. Centering removes constant-shift ambiguity for main
+effects, while interactions and correlated predictors can still admit several
+similar decompositions. Effect plots should therefore be read together with
+the model specification, reference data, and uncertainty or stability checks.
+The :doc:`user_guide/interpretability` page defines these contracts precisely.
+
+Continue with NAMpy
 -------------------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 24 40 36
-
-   * - Model family
-     - Use it when
-     - Main outputs
-   * - Statistical GAM
-     - You need smooth effects, automatic smoothness selection, or classical
-       inference.
-     - Predictions, smooth terms, standard errors, and diagnostics.
-   * - Neural additive model
-     - You want flexible learned feature functions or explicit higher-order
-       terms.
-     - Predictions, learned term contributions, and feature importance.
-   * - Distributional model
-     - The conditional spread or shape matters in addition to the mean.
-     - Natural distribution parameters, point predictions, and parameter-wise
-       effects.
-
-The shared workflow
--------------------
-
-High-level estimators use ``fit``, ``predict``, ``score``, and persistence
-methods. Additive models also expose their component functions so a prediction
-can be examined as a sum of terms rather than only as a final value.
-
-.. code-block:: python
-
-   from nampy.models import NAMRegressor
-
-   model = NAMRegressor()
-   model.fit(X_train, y_train, max_epochs=50)
-
-   predictions = model.predict(X_test)
-   components = model.predict_components(X_test)
-   importance = model.term_importance(X_test)
-
-Statistical GAMs additionally provide a formula interface:
-
-.. code-block:: python
-
-   from nampy.gam import GAM
-
-   model = GAM(
-       formula='y ~ s(income, bs="cr", k=10) + s(age, bs="tp", k=10)',
-       family="gaussian",
-       smoothing_method="REML",
-   ).fit(data)
-
-   predictions = model.predict(data, type="response")
-
-Choosing a model
-----------------
-
-Start with the simplest structure that answers the analytical question. Use a
-statistical GAM when the smooth specification and inferential output are central.
-Use a neural model when learned feature functions or the published architecture
-are the object of interest. Use a distributional estimator when a single
-conditional mean is insufficient.
-
-The :doc:`models/index` compares the available architectures. The
-:doc:`quickstart` shows the two primary backends on small, complete examples.
-
-Interpretation
---------------
-
-An additive prediction reconstructs as an intercept plus model terms. This is
-an accounting identity, not a guarantee that every term is uniquely identified
-or stable under correlated inputs. Main effects, interactions, and nonlinear
-distribution links therefore need to be interpreted on the scale documented by
-the fitted estimator. See :doc:`user_guide/interpretability` for the precise
-contracts.
-
-Next steps
-----------
-
-* :doc:`installation` — install and verify NAMpy.
-* :doc:`quickstart` — fit a statistical GAM and a neural model.
-* :doc:`notebook_tutorials` — follow complete executable analyses.
-* :doc:`api/index` — look up classes, methods, and plotting functions.
+* :doc:`quickstart` fits and inspects complete statistical and neural models.
+* :doc:`user_guide/statistical_gams` documents the statistical GAM workflow.
+* :doc:`models/index` explains every model architecture with code.
+* :doc:`notebook_tutorials` contains executable analyses.
+* :doc:`api/index` is the signature-level reference.

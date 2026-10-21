@@ -44,6 +44,8 @@ from ..smooth_base import (
 @register_smooth("cs")
 @register_smooth("cc")
 class CubicSplineTerm(BaseSmoothTerm):
+    """Cubic, cyclic, or shrinkage cubic regression spline runtime term."""
+
     term_type = "smooth"
     basis_name = "cr"
 

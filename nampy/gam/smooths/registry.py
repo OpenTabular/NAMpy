@@ -6,6 +6,8 @@ _SMOOTH_REGISTRY = {}
 
 
 def register_smooth(name: str):
+    """Register a runtime smooth class under a formula basis code."""
+
     name = str(name).lower()
 
     def decorator(cls):
@@ -21,6 +23,8 @@ def register_smooth(name: str):
 
 
 def make_smooth_term(kind: str, *args, **kwargs):
+    """Construct a registered runtime smooth by basis code."""
+
     key = str(kind).lower()
     if key not in _SMOOTH_REGISTRY:
         raise ValueError(

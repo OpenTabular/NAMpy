@@ -118,6 +118,8 @@ def _concurvity_measures(
 
 
 def concurvity(model, full: bool = True):
+    """Measure dependence between fitted smooth terms."""
+
     _require_fitted(model)
 
     X = np.asarray(build_lpmatrix(model), dtype=np.float64)

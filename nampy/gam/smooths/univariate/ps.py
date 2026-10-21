@@ -29,6 +29,8 @@ from ..smooth_base import (
 @register_smooth("ps")
 @register_smooth("cp")
 class PSplineTerm1D(BaseSmoothTerm):
+    """One-dimensional P-spline or cyclic P-spline runtime term."""
+
     term_type = "smooth"
     basis_name = "ps"
 
