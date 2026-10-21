@@ -53,6 +53,11 @@ jobs:
           python -m pip install -c .github/constraints-ci.txt -r .github/requirements-ci-cpu-torch.txt
           python -m pip install -c .github/constraints-ci.txt -e ".[docs]"
 
+      - name: Execute flagship documentation examples
+        env:
+          MPLCONFIGDIR: /tmp/nampy-matplotlib
+        run: python docs/scripts/generate_first_gam_assets.py
+
       - name: Build Sphinx documentation
         run: python -m sphinx -b html docs docs/_build/html -W --keep-going
 

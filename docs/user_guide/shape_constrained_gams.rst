@@ -1,38 +1,71 @@
 Shape-constrained GAMs
 ======================
 
-NAMpy implements shape-constrained P-splines following the ``scam`` 1.2-22
-definitions within the :class:`nampy.gam.GAM` pipeline. A constrained and an
-ordinary smooth can be combined in one formula. The compiler represents the
-constraint as a coefficient transform, then dispatches by model capability
-rather than by a hard-coded list of SCAM terms.
+Use a shape constraint when the direction or curvature of an effect follows
+from the problem rather than from the observed sample alone. For example, a
+dose effect may be expected to increase but not decrease over the studied
+range. A constrained smooth encodes that assumption during fitting; it is not
+a visual adjustment applied afterward.
 
-Architecture
-------------
+Compare an unconstrained and monotone fit
+-----------------------------------------
 
-Three contracts separate reusable model behavior from SCAM-specific basis
-construction:
+The only formula change below is the basis code. ``cr`` fits an ordinary cubic
+regression spline, while ``mpi`` fits a monotone-increasing P-spline.
 
-* runtime terms own basis construction, penalties, prediction matrices, and
-  derivative matrices;
-* coefficient transforms map unconstrained optimization coordinates to the
-  coefficients used for prediction and transport covariance between those
-  spaces;
-* observation transforms apply row operations such as known AR(1) whitening
-  consistently to responses, offsets, and design matrices.
+.. code-block:: python
 
-Ordinary ``mgcv``-compatible terms use identity coefficient transforms. SCAM
-terms declare the constrained coordinates and SCAM's released covariance
-transport policy. Independent transform blocks compose across terms and
-distributional linear predictors. This keeps the ordinary identity path
-unchanged while allowing constrained terms to use the same compiler,
-prediction, diagnostics, and result contracts.
+   from nampy.gam import GAM
 
-Basic use
----------
+   ordinary = GAM(
+       formula='y ~ s(x, bs="cr", k=12)',
+       family="gaussian",
+       optimize_smoothing=True,
+       smoothing_method="reml",
+   ).fit(data)
 
-Use a SCAM basis code in an ordinary ``s()`` term.  Fixed smoothing and
-SCAM-compatible automatic GCV/UBRE selection are both available::
+   increasing = GAM(
+       formula='y ~ s(x, bs="mpi", k=12)',
+       family="gaussian",
+       optimize_smoothing=True,
+       smoothing_method="gcv",
+       smoothing_optimizer="bfgs",
+   ).fit(data)
+
+.. image:: ../_static/shape_constraint_comparison.png
+   :alt: Unconstrained and monotone-increasing smooths fitted to noisy data
+   :class: scientific-figure
+   :align: center
+
+The unconstrained curve can turn downward locally when the observations are
+noisy. The monotone fit cannot: its first derivative remains nonnegative over
+the fitted range. This is useful only when monotonicity is scientifically or
+operationally defensible. Otherwise the constraint can conceal real structure.
+
+Inspect the fitted constraint
+-----------------------------
+
+The derivative is an estimand, not merely a visual property of the plotted
+line. For the first smooth, request its first derivative and Bayesian standard
+error:
+
+.. code-block:: python
+
+   derivative = increasing.derivative(smooth_number=1, deriv=1)
+   derivative.derivative
+   derivative.se
+
+Check the derivative over the fitted range and report the scientific reason
+for imposing the constraint. A nonnegative derivative confirms what the
+chosen basis enforces; it is not an independent test that monotonicity is true.
+
+Fit a constrained smooth
+------------------------
+
+Use a ``scam`` basis code in an ordinary ``s()`` term. Fixed smoothing and
+compatible automatic GCV/UBRE selection are both available:
+
+.. code-block:: python
 
    from nampy.gam import GAM
 
@@ -126,12 +159,8 @@ Bayesian and frequentist covariance matrices are exposed in both spaces.
 types use the transformed covariance, as ``scam`` does.
 
 ``derivative(smooth_number=1, deriv=1)`` returns first- or second-derivative
-values and Bayesian standard errors for a univariate constrained smooth.  The
-smooth number is one-based to match ``scam::derivative.scam``::
-
-   derivative = model.derivative(smooth_number=1, deriv=1)
-   derivative.derivative
-   derivative.se
+values and Bayesian standard errors for a univariate constrained smooth. The
+smooth number is one-based.
 
 Derivative evaluation is term-owned. Ordinary P-splines also support exact
 first and second derivatives at training or new data. SCAM derivatives retain
@@ -162,6 +191,21 @@ are returned by ``ar1_standardized_residuals()``. Fixed smoothing and GCV use
 the shared observation transform. ML/REML/LAML are guarded until their
 correlation-determinant contribution is implemented. Non-Gaussian and
 non-identity likelihoods are rejected before fitting.
+
+How constraints are fitted
+--------------------------
+
+NAMpy follows the ``scam`` 1.2-22 definitions for shape-constrained
+P-splines. The runtime term constructs the basis, penalty, prediction matrix,
+and derivative matrices. A coefficient transform maps unconstrained optimizer
+coordinates to coefficients that satisfy the requested shape and transports
+covariance into that prediction space.
+
+These transforms are term-local. A formula can therefore combine constrained
+and ordinary smooths, and the resulting model continues to use the statistical
+engine's prediction, inference, residual, derivative, and result interfaces.
+Observation transforms, including supported Gaussian AR(1) whitening, are
+applied consistently to the response, offset, and design matrix.
 
 Current boundaries
 ------------------

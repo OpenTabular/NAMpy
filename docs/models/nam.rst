@@ -1,6 +1,15 @@
 NAM
 ===
 
+When to use it
+--------------
+
+Start with NAM when each reported main effect should be learned by its own
+neural network and depend only on its named feature.
+
+Model structure
+---------------
+
 A neural additive model learns one subnetwork per feature and sums the
 resulting contributions,
 
@@ -16,6 +25,9 @@ feature networks can use ordinary multilayer perceptrons or the configured
 feature-layer variants, with output and parameter regularization available
 separately.
 
+Fit and inspect
+---------------
+
 .. code-block:: python
 
    from nampy.models import NAMRegressor
@@ -29,6 +41,9 @@ separately.
    prediction = model.predict(X_test)
    components = model.predict_components(X_test, center=True)
    figures = model.plot_terms(X_test)
+
+Interpretation and limits
+-------------------------
 
 Use NAM when feature-wise nonlinear functions are desired without imposing a
 spline basis. Explicit interactions should be chosen deliberately because

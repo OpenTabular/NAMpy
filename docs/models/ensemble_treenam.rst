@@ -1,6 +1,15 @@
 EnsembleTreeNAM
 ===============
 
+When to use it
+--------------
+
+Use EnsembleTreeNAM when averaging several differentiable trees per term is
+worth the additional training and memory cost.
+
+Model structure
+---------------
+
 EnsembleTreeNAM trains several complete TreeNAM learners jointly and averages
 their outputs,
 
@@ -11,6 +20,9 @@ their outputs,
 Term contributions are averaged with the same rule, so the additive
 reconstruction remains available. This is a jointly optimized ensemble; it is
 not bagging and does not fit learners sequentially as boosting would.
+
+Fit and inspect
+---------------
 
 .. code-block:: python
 
@@ -24,9 +36,13 @@ not bagging and does not fit learners sequentially as boosting would.
 
    prediction = model.predict(X_test)
    components = model.predict_components(X_test, center=True)
+   figures = model.plot_terms(X_test, center=True)
 
-Use the ensemble when averaging several differentiable trees per term is worth
-the added training and memory cost.
+Interpretation and limits
+-------------------------
+
+Term contributions are averages over jointly fitted learners. They do not
+represent bootstrap variation or a confidence interval.
 
 Available estimators
 --------------------
@@ -34,4 +50,12 @@ Available estimators
 * :class:`nampy.models.EnsembleTreeNAMRegressor`
 * :class:`nampy.models.EnsembleTreeNAMClassifier`
 * :class:`nampy.models.EnsembleTreeNAMLSS`
+
+References
+----------
+
+* Agarwal et al. (2021), `Neural Additive Models
+  <https://arxiv.org/abs/2004.13912>`_.
+* Chang, Caruana, and Goldenberg (2022), `NODE-GAM
+  <https://arxiv.org/abs/2106.01613>`_.
 

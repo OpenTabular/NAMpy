@@ -54,11 +54,15 @@ docs/
 ├── conf.py              # Sphinx configuration
 ├── index.rst            # Main documentation page
 ├── installation.rst     # Installation guide
-├── quickstart.rst       # Quick start guide
-├── notebook_tutorials.rst # Toctree for the four tutorials
-├── notebooks/            # Self-contained notebook tutorials
-├── user_guide.rst       # Cross-cutting guide index
-│   └── user_guide/      # Preprocessing, training, interpretation, extensions
+├── quickstart.rst       # First statistical GAM analysis
+├── compatibility.rst    # Public mgcv/scam compatibility scope
+├── tutorials/           # Question-led analyses with generated figures
+├── howto/              # Focused modeling recipes
+├── concepts/           # Statistical and interpretation background
+├── notebook_tutorials.rst # Extended executable surveys
+├── notebooks/            # Broad reference notebooks
+├── user_guide.rst       # Guide landing page
+│   └── user_guide/      # Detailed modeling reference
 ├── api/                 # Signature-level API reference and generated stubs
 ├── models/index.rst     # Compact model-selection catalog
 ├── examples/            # Short copyable task recipes
@@ -67,6 +71,7 @@ docs/
 ├── license.rst          # License information
 ├── faq.rst             # FAQ
 ├── _static/            # Static files (CSS, images)
+├── scripts/            # Reproducible documentation-figure generators
 ├── _templates/         # Custom templates
 └── _build/             # Built documentation (gitignored)
 ```
@@ -76,8 +81,17 @@ boundaries are recorded in
 [development/mgcv_optimizer_boundaries.md](development/mgcv_optimizer_boundaries.md).
 
 The four notebooks in `notebooks/` are rendered by nbsphinx/nbconvert with
-Pandoc. Longer terminal-runnable programs live in `../examples/`; Sphinx
-example pages contain shorter task-based recipes.
+Pandoc. They are broad surveys rather than the primary learning path. Longer
+terminal-runnable programs live in `../examples/`; Sphinx example pages
+contain shorter task-based recipes.
+
+Regenerate the homepage, quickstart, and tutorial-gallery figures from public
+NAMpy APIs with:
+
+```bash
+MPLCONFIGDIR=/tmp/nampy-matplotlib \
+  python docs/scripts/generate_first_gam_assets.py
+```
 
 Autosummary may create files below `api/generated/` during a build. That
 directory is ignored and must not be committed; its pages are derived from
@@ -164,9 +178,8 @@ When adding new features:
 
 1. Update relevant RST files
 2. Add docstrings to new classes/functions
-3. Add model theory or a guided workflow to one of the four self-contained
-   notebooks; add a standalone verification to ``examples/``; keep Sphinx
-   examples as short recipes
+3. Add model theory to the model reference and a question-led analysis to
+   ``tutorials/``; keep focused procedures in ``howto/``
 4. Build and check locally before committing
 
 ## Resources

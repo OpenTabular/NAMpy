@@ -1,5 +1,41 @@
-User Guide
-==========
+Guides
+======
+
+Use a how-to guide when you already know the task you need to complete. Use a
+concept page when you need the statistical or interpretive reasoning behind a
+modeling choice. Exhaustive symbol and capability inventories live in the
+:doc:`API reference <api/index>` and :doc:`statistical GAM reference
+<user_guide/statistical_gams>`.
+
+.. grid:: 1 2 2 2
+   :gutter: 2
+
+   .. grid-item-card:: How-to guides
+      :link: howto/index
+      :link-type: doc
+
+      Add interactions, impose constraints, work with offsets, and save fitted
+      estimators.
+
+   .. grid-item-card:: Concepts
+      :link: concepts/index
+      :link-type: doc
+
+      Understand additive predictors, centering, smoothness, uncertainty, and
+      distributional parameters.
+
+   .. grid-item-card:: Statistical GAM reference
+      :link: user_guide/statistical_gams
+      :link-type: doc
+
+      Look up formulas, bases, families, fitting controls, inference, and
+      diagnostics.
+
+   .. grid-item-card:: Neural modeling reference
+      :link: models/index
+      :link-type: doc
+
+      Choose an architecture and understand what its reported terms mean.
 
 .. toctree::
    :maxdepth: 2
@@ -13,30 +49,3 @@ User Guide
    user_guide/gamlss
    user_guide/custom_models
    user_guide/interpretability
-
-Choose a topic
---------------
-
-.. list-table::
-   :header-rows: 1
-   :widths: 28 72
-
-   * - Topic
-     - What it covers
-   * - :doc:`user_guide/statistical_gams`
-     - Formula syntax, smooth bases, fitting controls, prediction, inference,
-       diagnostics, and advanced GAM utilities.
-   * - :doc:`user_guide/preprocessing`
-     - Numerical and categorical transformations before model fitting.
-   * - :doc:`user_guide/pretab_compatibility`
-     - The transformed feature blocks supplied to neural architectures.
-   * - :doc:`user_guide/training`
-     - Validation, weighting, callbacks, checkpoints, and optimization controls.
-   * - :doc:`user_guide/shape_constrained_gams`
-     - Monotonicity, convexity, bounded effects, and their inferential meaning.
-   * - :doc:`user_guide/gamlss`
-     - Distribution parameters, links, formulas, and prediction semantics.
-   * - :doc:`user_guide/interpretability`
-     - Additive components, feature effects, importance, and plotting.
-   * - :doc:`user_guide/custom_models`
-     - Registering an architecture and exposing it through the estimator API.

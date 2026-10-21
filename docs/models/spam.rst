@@ -1,6 +1,15 @@
 SPAM
 ====
 
+When to use it
+--------------
+
+Use SPAM when scalable low-rank polynomial interaction structure is more
+important than a strictly feature-wise decomposition.
+
+Model structure
+---------------
+
 SPAM represents higher-order effects with low-rank homogeneous polynomials.
 For degree :math:`d`, a rank-:math:`R_d` block is built from projected inputs,
 
@@ -12,6 +21,9 @@ For degree :math:`d`, a rank-:math:`R_d` block is built from projected inputs,
 The factorized form avoids enumerating every monomial explicitly. NAMpy can
 retain unary terms, add lower-order corrections, constrain factors through the
 proximal option, and report local expanded-term importance.
+
+Fit and inspect
+---------------
 
 .. code-block:: python
 
@@ -26,6 +38,9 @@ proximal option, and report local expanded-term importance.
    prediction = model.predict(X_test)
    components = model.predict_components(X_test, center=True)
    local = model.local_term_importance(X_test.iloc[:5], top_k=8)
+
+Interpretation and limits
+-------------------------
 
 Degree blocks summarize polynomial structure. Expanded local terms are
 sample-specific and should not be read as globally stable interactions without

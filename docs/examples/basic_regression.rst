@@ -1,5 +1,5 @@
-Basic Regression Examples
-==========================
+Fit a Neural Regressor
+======================
 
 The regressors accept NumPy arrays or pandas data frames. A two-dimensional
 target produces one prediction column per output.
@@ -25,5 +25,7 @@ target produces one prediction column per output.
    model = NAMRegressor(numerical_preprocessing="standardization")
    model.fit(X_train, y_train, max_epochs=20, batch_size=64)
    predictions = model.predict(X_test)
+   effects = model.plot_terms(X_test, center=True, reference_X=X_train)
 
-   assert predictions.shape == y_test.shape
+``predictions`` has one column for each target. ``effects`` contains the
+feature-contribution figures on the additive-predictor scale.

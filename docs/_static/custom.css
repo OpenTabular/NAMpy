@@ -22,6 +22,12 @@ body,
   max-width: 860px;
 }
 
+/* Give the landing page enough room for capability cards and fitted-effect
+   figures while retaining the narrower reading measure on guides. */
+#content:has(> #nampy-additive-modeling-in-python) {
+  max-width: 1040px;
+}
+
 #content p {
   color: var(--nampy-text);
   line-height: 1.7;
@@ -62,6 +68,30 @@ body,
   text-decoration: underline;
 }
 
+#content a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+summary:focus-visible {
+  border-radius: 3px;
+  outline: 3px solid #f59abb;
+  outline-offset: 3px;
+}
+
+.sd-card img {
+  background: #ffffff;
+  border-radius: 6px;
+  display: block;
+  margin-top: 0.8rem;
+  max-height: 150px;
+  object-fit: cover;
+  width: 100%;
+}
+
+.sd-btn {
+  margin-bottom: 0.6rem;
+  margin-right: 0.45rem;
+}
+
 #content ul li,
 #content ol li {
   line-height: 1.55;
@@ -87,9 +117,9 @@ header img[alt="Logo"],
 
 .brand-mark {
   display: block;
-  margin: 0 auto 1.5rem;
-  max-height: 22rem;
-  width: min(190px, 48vw);
+  margin: 0 auto 1rem;
+  max-height: 7rem;
+  width: min(108px, 32vw);
 }
 
 #left-sidebar nav p.caption ~ p.caption {
@@ -335,6 +365,14 @@ table.autosummary td:first-child code {
   box-shadow: 0 4px 18px rgb(15 23 42 / 8%);
   margin: 1rem auto 1.5rem;
   width: 100%;
+}
+
+.scientific-figure {
+  border: 1px solid var(--nampy-border);
+  border-radius: 8px;
+  display: block;
+  margin: 1rem auto 1.5rem;
+  max-width: 100%;
 }
 
 .homepage-demo-dark {
@@ -654,8 +692,10 @@ html.dark .homepage-demo-dark {
   display: block;
 }
 
-html.dark #content img:not(.homepage-demo) {
-  filter: invert(1) hue-rotate(180deg);
+html.dark #content img.scientific-figure {
+  background: #ffffff;
+  border-color: #30363d;
+  padding: 0.2rem;
 }
 
 @media (max-width: 768px) {

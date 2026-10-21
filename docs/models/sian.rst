@@ -1,6 +1,15 @@
 SIAN
 ====
 
+When to use it
+--------------
+
+Use SIAN when sparse higher-order interaction discovery is part of the
+modeling question.
+
+Model structure
+---------------
+
 SIAN represents the predictor as a sparse collection of main effects and
 higher-order interaction functions,
 
@@ -14,6 +23,9 @@ term-specific inputs. The optional interaction-selection workflow scores
 candidates with an Archipelago-style detector before fitting the additive
 terms.
 
+Fit and inspect
+---------------
+
 .. code-block:: python
 
    from nampy.models import SIANRegressor
@@ -26,6 +38,10 @@ terms.
 
    components = model.predict_components(X_test, center=True)
    effects = model.explain_terms(X_test)
+   figures = model.plot_terms(X_test, center=True)
+
+Interpretation and limits
+-------------------------
 
 When a residual network is enabled, its unrestricted contribution is
 predictive but should not be interpreted as a named additive feature effect.

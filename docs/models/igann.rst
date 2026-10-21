@@ -1,6 +1,15 @@
 IGANN
 =====
 
+When to use it
+--------------
+
+Use IGANN when a sparse linear starting model and staged nonlinear boosting
+are preferable to end-to-end neural optimization.
+
+Model structure
+---------------
+
 IGANN begins with a sparse linear model and then adds feature-wise nonlinear
 updates from extreme learning machines. Their hidden weights are fixed random
 draws; output weights are estimated during boosting. For iteration :math:`m`,
@@ -13,6 +22,9 @@ draws; output weights are estimated during boosting. For iteration :math:`m`,
 where :math:`\nu` is the boosting rate. Numeric features receive independent
 random hidden units, while categorical features remain reference-coded and
 linear in each update.
+
+Fit and inspect
+---------------
 
 .. code-block:: python
 
@@ -27,6 +39,10 @@ linear in each update.
 
    prediction = model.predict(X_test)
    components = model.predict_components(X_test, center=True)
+   figures = model.plot_terms(X_test, center=True)
+
+Interpretation and limits
+-------------------------
 
 IGANN owns its staged boosting procedure instead of using the common
 end-to-end neural training loop. The fitted estimator records the number of

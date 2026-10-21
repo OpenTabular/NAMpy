@@ -1,6 +1,15 @@
 LinReg
 ======
 
+When to use it
+--------------
+
+Use LinReg as an additive linear baseline under the same preprocessing and
+component interface as the neural architectures.
+
+Model structure
+---------------
+
 LinReg is the linear member of NAMpy's estimator family. After preprocessing,
 each source feature contributes its own linear block,
 
@@ -13,8 +22,8 @@ feature usually contributes one column; a categorical feature can contribute a
 group of encoded columns. Keeping the blocks separate gives the same additive
 component interface used by the nonlinear architectures.
 
-LinReg is useful as a transparent baseline and as a check that a nonlinear
-model is learning more than preprocessing and linear effects.
+Fit and inspect
+---------------
 
 .. code-block:: python
 
@@ -24,6 +33,15 @@ model is learning more than preprocessing and linear effects.
    prediction = model.predict(X_test)
    components = model.predict_components(X_test, center=True)
    importance = model.term_importance(X_test)
+   figures = model.plot_terms(X_test, center=True)
+
+Interpretation and limits
+-------------------------
+
+LinReg is useful as a transparent baseline and as a check that a nonlinear
+model is learning more than preprocessing and linear effects. Encoded
+categorical blocks still contain several coefficients even though they are
+reported under one source feature.
 
 Available estimators
 --------------------

@@ -1,6 +1,15 @@
 NATT
 ====
 
+When to use it
+--------------
+
+Use NATT when additive readouts should be combined with contextual
+representations of categorical tokens.
+
+Model structure
+---------------
+
 NATT combines additive output terms with tabular-transformer representations.
 Numerical features use feature-specific subnetworks. Categorical tokens are
 encoded jointly, then token-specific heads contribute to the final sum;
@@ -16,6 +25,9 @@ block. A categorical token is contextualized by attention, so its named
 contribution may depend on the other categorical inputs. Treat those values as
 contextual contributions, not as a univariate function :math:`f_j(x_j)`.
 
+Fit and inspect
+---------------
+
 .. code-block:: python
 
    from nampy.models import NATTRegressor
@@ -29,6 +41,14 @@ contextual contributions, not as a univariate function :math:`f_j(x_j)`.
 
    prediction = model.predict(X_test)
    components = model.predict_components(X_test, center=True)
+   figures = model.plot_terms(X_test, center=True)
+
+Interpretation and limits
+-------------------------
+
+Numerical main effects retain feature-specific inputs. A categorical token is
+contextualized by other categorical inputs, so its named contribution is not
+generally a univariate function of that token alone.
 
 Available estimators
 --------------------

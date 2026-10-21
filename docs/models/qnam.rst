@@ -1,6 +1,15 @@
 QNAM
 ====
 
+When to use it
+--------------
+
+Use QNAM when several conditional quantiles should change additively without
+crossing one another.
+
+Model structure
+---------------
+
 QNAM predicts several conditional quantiles with additive feature and
 interaction networks. For ordered levels :math:`\tau_1 < \cdots < \tau_K`,
 each term produces a free first value and positive increments,
@@ -15,6 +24,9 @@ The same transform is applied to the intercept and explicit interactions.
 Their sum is therefore nondecreasing across quantile levels, preventing
 crossing by construction.
 
+Fit and inspect
+---------------
+
 .. code-block:: python
 
    from nampy.models import QNAMLSS
@@ -27,6 +39,10 @@ crossing by construction.
 
    quantiles = model.predict(X_test)
    components = model.predict_components(X_test, center=True)
+   figures = model.plot_terms(X_test, center=True)
+
+Interpretation and limits
+-------------------------
 
 QNAM is distributional-only. Each component has one output per requested
 quantile, so effect plots should retain the quantile labels.

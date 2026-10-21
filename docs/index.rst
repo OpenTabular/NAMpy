@@ -1,186 +1,234 @@
-NAMpy: Interpretable Additive Modeling
-======================================
+NAMpy: Additive Modeling in Python
+==================================
 
 .. image:: _static/logo-mark.svg
    :alt: NAMpy logo
    :class: brand-mark
    :align: center
-   :width: 190px
+   :width: 108px
 
-NAMpy is a Python library for statistical and neural additive models. Models
-can be specified with formulas, such as ``y ~ s(x) + te(z1, z2)``, or through
-Python estimator classes with familiar ``fit`` and ``predict`` methods. Both
-interfaces provide access to additive terms, feature effects, interactions,
-and distributional parameters while preserving the estimation and
-interpretation appropriate to each model family.
+NAMpy brings statistical GAMs, shape-constrained smooths, neural additive
+models, and distributional regression into one Python library. Fit models with
+formulas or estimator classes, then inspect the named effects that make up
+each prediction.
 
-Use :class:`nampy.gam.GAM` when the model is most naturally expressed as a
-formula. Use estimators such as :class:`nampy.models.GAMRegressor` and
-:class:`nampy.models.NAMRegressor` when working with feature matrices and
-scikit-learn-style workflows.
+.. button-ref:: quickstart
+   :color: primary
 
-Neural additive models
-----------------------
+   Get started
 
-A neural additive model represents the transformed conditional mean as a sum
-of feature functions,
+.. button-ref:: compatibility
+   :outline:
 
-.. math::
-
-   \eta(x) \equiv g\!\left(\mathbb{E}[Y \mid x]\right)
-   = \beta_0 + \sum_{j=1}^{p} f_j(x_j).
-
-Each :math:`f_j` is a small neural network that receives one feature and learns
-its possibly nonlinear contribution. The model remains inspectable because a
-prediction is obtained by adding these contributions. Explicit interaction
-terms can be included when an effect should depend on more than one feature.
-NAMpy can center the terms against reference data for display; this fixes their
-vertical position without claiming that correlated feature effects are
-uniquely identifiable.
-
-Installation
-------------
+   Coming from mgcv or scam?
 
 .. code-block:: bash
 
    pip install nampy
 
-NAMpy supports Python 3.11 and 3.12. The standard installation contains the
-statistical and neural backends. See :doc:`installation` for hardware guidance
-and verification.
+What the model learned
+----------------------
 
-Learned feature effects
------------------------
+This fitted statistical GAM describes demand in a synthetic energy dataset.
+The curves are estimated feature effects; the shaded regions show uncertainty.
+Temperature has a U-shaped association with demand, while the cyclic smooth
+joins the beginning and end of the day.
 
-The example below fits a neural additive model and visualizes how each feature
-contributes to its predictions. The same plotting interface is available
-across NAMpy's neural additive estimators.
-
-.. code-block:: python
-
-   import numpy as np
-   import pandas as pd
-
-   from nampy.models import NAMRegressor
-
-   rng = np.random.default_rng(7)
-   n = 1_800
-   X = pd.DataFrame({
-       "median_income": rng.uniform(1.0, 10.0, n),
-       "house_age": rng.uniform(1.0, 52.0, n),
-       "latitude": rng.uniform(32.0, 42.0, n),
-       "rooms_per_household": rng.lognormal(1.5, 0.35, n),
-   })
-   y = (
-       2.2 * np.tanh((X["median_income"] - 5.0) / 1.7)
-       + 0.9 * np.sin((X["house_age"] - 5.0) / 8.0)
-       - 0.55 * (X["latitude"] - 37.0) ** 2 / 6.0
-       + 0.75 * np.log1p(X["rooms_per_household"])
-       + rng.normal(0.0, 0.3, n)
-   )
-
-   model = NAMRegressor(
-       layer_sizes=[48, 24],
-       dropout=0.0,
-       numerical_preprocessing="minmax",
-   )
-   model.fit(
-       X,
-       y,
-       max_epochs=100,
-       batch_size=128,
-       patience=12,
-       random_state=7,
-   )
-   figures = model.plot_terms(
-       X,
-       center=True,
-       reference_X=X,
-       pages=1,
-   )
-
-.. image:: _static/homepage_demo_light.png
-   :alt: Four feature-effect plots learned by a NAMpy neural additive model
-   :class: homepage-demo homepage-demo-light
+.. image:: _static/first_gam_effects.png
+   :alt: Estimated temperature and hour effects from a statistical GAM
+   :class: homepage-demo scientific-figure
    :align: center
 
-.. image:: _static/homepage_demo_dark.png
-   :alt: Four feature-effect plots learned by a NAMpy neural additive model
-   :class: homepage-demo homepage-demo-dark
-   :align: center
+The vertical axis is the contribution of each term to the additive predictor,
+not the response itself. Together with the intercept, the displayed terms
+reconstruct the model's prediction. The :doc:`quickstart` develops this
+analysis from data generation through held-out evaluation and diagnostics.
 
-Each curve is one centered contribution :math:`f_j(x_j)` on the additive
-predictor scale. The reddish shading shows the empirical density of each
-feature. Adding the four displayed terms and the adjusted intercept
-reconstructs the model prediction; the curves are not marginal correlations
-with the response.
-
-Why NAMpy
----------
-
-* **A Python-native statistical GAM engine.** Specify models with formulas and
-  use penalized smooths, automatic smoothness selection, rich response
-  families, inference, diagnostics, and prediction tools directly in Python.
-  The implementation does not require an R runtime.
-* **A broad collection of neural additive models.** Use established neural
-  architectures through maintained estimator classes while retaining access
-  to their learned feature and interaction effects.
-* **Effects remain first-class outputs.** Recover named term contributions,
-  uncertainty where the model supports it, feature importance, interaction
-  surfaces, and distributional parameters through public methods.
-* **Models beyond conditional means.** Fit additive predictors for location,
-  scale, and shape, then inspect both the parameter effects and the implied
-  conditional distribution.
-
-The statistical backend covers the major stages of an ``mgcv`` analysis:
-formula compilation, a large collection of smooth bases, GCV/UBRE/ML/REML and
-LAML routes, prediction matrices and term-wise standard errors, summaries,
-ANOVA, residual diagnostics, derivatives, concurvity, basis checks, and GAM
-plots. The :ref:`statistical-gam-tools` guide gives the full supported
-inventory with code.
-
-Choose a starting point
------------------------
+Four ways to use NAMpy
+----------------------
 
 .. grid:: 1 1 2 2
    :gutter: 2
 
    .. grid-item-card:: Statistical GAMs
-      :link: notebooks/02_statistical_gams
+      :link: quickstart
       :link-type: doc
 
-      Fit penalized smooths, select smoothing parameters, inspect uncertainty,
-      and work with shape constraints.
+      Fit penalized smooths, select their complexity, quantify uncertainty,
+      and diagnose the fitted model entirely in Python.
 
-   .. grid-item-card:: Neural models
-      :link: notebooks/03_neural_models
+   .. grid-item-card:: Shape-constrained GAMs
+      :link: user_guide/shape_constrained_gams
       :link-type: doc
 
-      Compare neural feature functions, interaction structures, and their
-      learned effects.
+      Encode increasing, decreasing, convex, concave, positive, local, and
+      bivariate shape assumptions during estimation.
+
+   .. grid-item-card:: Neural additive models
+      :link: models/index
+      :link-type: doc
+
+      Choose among neural representations while retaining named feature and
+      interaction effects.
 
    .. grid-item-card:: Distributional regression
-      :link: notebooks/04_distributional_models
+      :link: user_guide/gamlss
       :link-type: doc
 
-      Model several distribution parameters and inspect how covariates affect
-      location, scale, and shape.
+      Model how location, spread, and shape change with predictors rather than
+      reducing every conditional distribution to one mean.
 
-   .. grid-item-card:: API reference
+The additive structure
+----------------------
+
+An additive model represents a transformed prediction as a sum of named
+effects,
+
+.. math::
+
+   \eta(x) = \beta_0 + \sum_j f_j(x_j)
+   + \sum_{(j,k) \in \mathcal{I}} f_{jk}(x_j, x_k).
+
+Statistical GAMs represent each :math:`f_j` with a penalized smooth basis and
+estimate its effective complexity. Neural additive models learn the feature
+functions with neural networks. NAMpy preserves the different estimation and
+uncertainty semantics of these approaches while exposing their contributions
+through a common result contract.
+
+The returned :class:`nampy.contracts.AdditivePrediction` contains response and
+link predictions, named terms, the intercept, and any offset. Its
+``validate_additive_reconstruction()`` method checks that those pieces recover
+the linear predictor.
+
+Statistical modeling with formulas
+----------------------------------
+
+Use :class:`nampy.gam.GAM` for direct control of the statistical engine, or
+:class:`nampy.models.GAMRegressor` for estimator conventions such as
+``score`` and automatic REML smoothing by default. Both accept formulas.
+
+.. code-block:: python
+
+   from nampy.models import GAMRegressor
+
+   gam = GAMRegressor(
+       formula='demand ~ s(temperature, bs="cr", k=12) '
+               '+ s(hour, bs="cc", k=12)',
+       family="gaussian",
+   ).fit(train)
+
+   predictions = gam.predict(test)
+   components = gam.predict_components(test)
+   effects = gam.plot(scheme=1, shade_col="#f3b4c2", scale=0)
+
+The Python-native backend covers formula compilation, smooth construction,
+penalized fitting, automatic smoothness selection, prediction matrices,
+standard errors, summaries, ANOVA, residual diagnostics, derivatives,
+concurvity, basis-dimension checks, and term plots. The
+:ref:`statistical-gam-tools` guide is the full capability inventory.
+
+Neural feature functions
+------------------------
+
+Neural estimators use the same familiar fit-and-predict pattern. Their model
+pages explain what each architecture assumes and which variables a reported
+effect may depend on.
+
+.. code-block:: python
+
+   from nampy.models import NAMRegressor
+
+   nam = NAMRegressor(layer_sizes=[48, 24])
+   nam.fit(X_train, y_train, max_epochs=100, patience=12)
+
+   predictions = nam.predict(X_test)
+   components = nam.predict_components(X_test)
+   figures = nam.plot_terms(X_test, center=True, reference_X=X_train)
+
+Use the :doc:`model chooser <models/index>` to start with NAM, NBM, SNAM,
+SIAN, GPNAM, or another architecture according to the structure required by
+the analysis.
+
+Beyond conditional means
+------------------------
+
+Shape constraints and distributional predictors answer different modeling
+questions. A shape constraint encodes a defensible direction or curvature
+during estimation. A distributional model lets conditional spread or shape
+change with predictors as well as location.
+
+.. grid:: 1 2 2 2
+   :gutter: 2
+
+   .. grid-item-card:: Compare constrained and unconstrained effects
+      :link: tutorials/monotone_effect
+      :link-type: doc
+
+      .. image:: _static/shape_constraint_comparison.png
+         :alt: Ordinary and monotone-increasing smooths
+
+   .. grid-item-card:: Inspect changing conditional variability
+      :link: tutorials/changing_variability
+      :link-type: doc
+
+      .. image:: _static/changing_variability.png
+         :alt: Conditional location effect and spread
+
+Compatibility you can inspect
+-----------------------------
+
+``mgcv`` is the methodological and compatibility reference for the
+statistical GAM engine, and ``scam`` is the reference for shape-constrained
+smooths. NAMpy compares representative design matrices, penalties,
+coefficients, fitted values, uncertainty quantities, diagnostics, and
+predictions against versioned upstream results.
+
+The :doc:`compatibility and validation <compatibility>` page separates what is
+implemented, what is compared against upstream, what intentionally differs,
+and what remains unsupported. Unsupported combinations fail explicitly rather
+than silently selecting a different method.
+
+Explore the documentation
+-------------------------
+
+.. grid:: 1 1 2 2
+   :gutter: 2
+
+   .. grid-item-card:: Fit your first GAM
+      :link: quickstart
+      :link-type: doc
+
+      Follow one nonlinear dataset through fitting, held-out evaluation,
+      effect interpretation, and diagnostics.
+
+   .. grid-item-card:: Understand additive models
+      :link: overview
+      :link-type: doc
+
+      Learn the statistical, neural, distributional, and interpretation
+      foundations.
+
+   .. grid-item-card:: Work through tutorials
+      :link: tutorials/index
+      :link-type: doc
+
+      Explore question-led analyses with executable code and fitted plots.
+
+   .. grid-item-card:: Look up an exact symbol
       :link: api/index
       :link-type: doc
 
-      Find public estimators, configuration objects, distributions, plotting
-      functions, and exact method signatures.
+      Find constructors, methods, defaults, return values, and extension
+      interfaces.
 
-Documentation
--------------
+Citing NAMpy
+------------
 
-The :doc:`overview` explains the mathematical structure of additive models and
-the distinctions between statistical and neural estimation. The
-:doc:`quickstart` gives a complete first analysis. Use the
-:doc:`notebook_tutorials` for executable workflows, the :doc:`user_guide` for
-concepts, and the :doc:`api/index` for signature-level reference.
+If NAMpy contributes to published work, cite the software as:
+
+   Ananyapam De, Anton Thielmann, and OpenTabular contributors (2026).
+   *NAMpy: Statistical and Neural Additive Models for Python*.
+   https://github.com/OpenTabular/NAMpy
 
 .. toctree::
    :caption: Getting Started
@@ -193,19 +241,28 @@ concepts, and the :doc:`api/index` for signature-level reference.
    faq
 
 .. toctree::
-   :caption: Core Concepts
+   :caption: Tutorials
    :maxdepth: 2
    :hidden:
 
-   user_guide
+   tutorials/index
+   notebook_tutorials
 
 .. toctree::
-   :caption: Tutorials and Examples
+   :caption: How-to Guides
    :maxdepth: 2
    :hidden:
 
-   notebook_tutorials
+   howto/index
    examples/index
+
+.. toctree::
+   :caption: Concepts
+   :maxdepth: 2
+   :hidden:
+
+   concepts/index
+   user_guide
 
 .. toctree::
    :caption: Models
@@ -222,10 +279,11 @@ concepts, and the :doc:`api/index` for signature-level reference.
    api/index
 
 .. toctree::
-   :caption: Developer Guide
+   :caption: Validation and Development
    :maxdepth: 1
    :hidden:
 
+   compatibility
    contributing
    architecture
    development/reference_sources

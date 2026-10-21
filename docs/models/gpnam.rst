@@ -1,6 +1,15 @@
 GPNAM
 =====
 
+When to use it
+--------------
+
+Use GPNAM for smooth additive effects built from a fixed random-feature
+approximation to a Gaussian process.
+
+Model structure
+---------------
+
 GPNAM approximates an additive Gaussian process with random Fourier features.
 For feature :math:`x_j`, a fixed map such as
 
@@ -13,6 +22,9 @@ mapped features. NAMpy uses the inverse-normal frequency grid and independently
 permuted phase grids described by the reference implementation. Only the
 additive coefficients and intercept are fitted. Pairwise terms provide the
 GP-NA2M extension.
+
+Fit and inspect
+---------------
 
 .. code-block:: python
 
@@ -27,6 +39,10 @@ GP-NA2M extension.
 
    prediction = model.predict(X_test)
    components = model.predict_components(X_test, center=True)
+   figures = model.plot_terms(X_test, center=True)
+
+Interpretation and limits
+-------------------------
 
 GPNAM is useful when smooth, kernel-like feature functions are desired with a
 fixed nonlinear representation and a linear coefficient solve.

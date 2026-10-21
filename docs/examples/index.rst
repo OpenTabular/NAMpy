@@ -1,5 +1,5 @@
-Examples
-========
+Short Recipes
+=============
 
 Use these pages when you need the shortest working example for a task. Each
 recipe keeps setup, fitting, prediction, and evaluation together.
@@ -34,7 +34,7 @@ recipe keeps setup, fitting, prediction, and evaluation together.
    distributional_regression
 
 For complete analyses with mathematical context and fitted plots, use the
-:doc:`../notebook_tutorials`. The repository's
+:doc:`tutorial gallery <../tutorials/index>`. The repository's
 `examples directory <https://github.com/OpenTabular/NAMpy/tree/main/examples>`_
 contains standalone scripts. Exact constructors and methods are listed in the
 :doc:`../api/index`.

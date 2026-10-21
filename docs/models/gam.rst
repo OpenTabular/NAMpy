@@ -1,6 +1,16 @@
 Generalized Additive Models
 ===========================
 
+When to use them
+----------------
+
+Use a statistical GAM when smoothness selection, model-based uncertainty,
+effective degrees of freedom, term tests, and residual diagnostics are part of
+the analysis.
+
+Model structure
+---------------
+
 A generalized additive model represents a transformed conditional mean as a
 sum of parametric and smooth effects,
 
@@ -17,9 +27,8 @@ LAML routes. Unlike the neural models, the statistical backend also provides
 model-based covariance matrices, effective degrees of freedom, term tests,
 and residual diagnostics.
 
-Use a formula when the basis, tensor-product structure, offsets, or
-shape constraints should be explicit. Use ``GAMRegressor`` or
-``GAMClassifier`` for a feature-matrix workflow.
+Fit and inspect
+---------------
 
 .. code-block:: python
 
@@ -48,6 +57,15 @@ For distributional regression, provide one formula per parameter:
        formula={"mu": "y ~ s(x)", "sigma": "~ s(z)"},
    ).fit(df)
    parameters = model.predict(df)
+
+Interpretation and limits
+-------------------------
+
+Use a formula when the basis, tensor-product structure, offsets, or shape
+constraints should be explicit. Both ``GAM`` and the estimator adapters accept
+formulas. ``GAMRegressor`` and ``GAMClassifier`` add estimator conventions and
+automatic REML smoothing by default; raw ``GAM`` starts with fixed smoothing
+unless selection is requested.
 
 Available interfaces
 --------------------

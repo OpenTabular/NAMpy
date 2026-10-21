@@ -1,6 +1,15 @@
 TreeNAM
 =======
 
+When to use it
+--------------
+
+Use TreeNAM when each named term should be represented by a compact,
+differentiable decision tree.
+
+Model structure
+---------------
+
 TreeNAM assigns one differentiable decision tree to each main effect and,
 optionally, to each explicit interaction. Soft routing makes the leaf values
 and split parameters trainable by gradient descent,
@@ -14,6 +23,9 @@ The tree depth controls the number of routing decisions and therefore the
 piecewise complexity of each term. Evaluation can retain soft routing or use
 hard routing when requested.
 
+Fit and inspect
+---------------
+
 .. code-block:: python
 
    from nampy.models import TreeNAMRegressor
@@ -26,6 +38,13 @@ hard routing when requested.
 
    components = model.predict_components(X_test, center=True)
    figures = model.plot_terms(X_test)
+
+Interpretation and limits
+-------------------------
+
+Tree depth controls the piecewise complexity of every term. Soft routing is
+smooth enough for gradient-based fitting; hard routing changes evaluation and
+should be reported when enabled.
 
 Available estimators
 --------------------

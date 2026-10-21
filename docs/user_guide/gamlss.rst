@@ -1,8 +1,15 @@
 Distributional GAMs and GAMLSS
 ==============================
 
-NAMpy exposes three statistical GAM estimators with distinct prediction
-contracts:
+Two groups can have similar average outcomes and very different variability.
+A mean-only model cannot represent that distinction. Distributional
+regression assigns an additive predictor to location, spread, or another
+family parameter so each can change with the covariates.
+
+Start with :doc:`../tutorials/changing_variability` for a visual analysis.
+This page defines the statistical formula and prediction contracts in detail.
+
+Choose the estimator by the quantity being modeled:
 
 * :class:`nampy.models.GAMRegressor` fits one response predictor and returns a
   one-dimensional numeric response.
@@ -11,8 +18,9 @@ contracts:
 * :class:`nampy.models.GAMLSS` jointly fits two or more distribution parameters
   and returns a parameter matrix.
 
-The low-level :class:`nampy.gam.GAM` remains unrestricted. It deliberately
-keeps mgcv-shaped family names and response transformations for parity work.
+The lower-level :class:`nampy.gam.GAM` also accepts supported
+multi-parameter families and exposes their statistical parameterization
+directly.
 
 Public parameter contract
 -------------------------
@@ -92,24 +100,22 @@ Offsets must be a list or tuple with one entry per parameter. Contributions in
 ``predict_components`` are zero-padded matrices, so every term has the same
 ``(n_samples, n_parameters)`` shape as the link prediction.
 
-Migration
----------
+Interpreting distributional effects
+-----------------------------------
 
-Code that previously placed ``gaulss`` or ``gammals`` inside
-``GAMRegressor`` must move to ``GAMLSS``:
+For neural LSS estimators, ``plot_distributional_effects`` obtains the
+conditional point prediction and standard deviation from the fitted family.
+The central curve is the point effect relative to the centered reference
+configuration. The black envelope is point effect plus or minus one
+conditional standard deviation; it is predictive spread, not a confidence
+interval for the central curve.
 
-.. code-block:: python
+``reference_X`` defines the empirical distribution used for centering. The
+zero-centered reference can be useful even when no observed row has every
+term at its reference value. ``response_scale`` applies a linear conversion
+back to original target units after response standardization. Nonlinear
+parameter links are always evaluated by the family before plotting.
 
-   # Before
-   GAMRegressor(family="gaulss", formula=["y ~ s(x)", "~ s(z)"])
-
-   # Now
-   GAMLSS(
-       family="normal",
-       formula={"mu": "y ~ s(x)", "sigma": "~ s(z)"},
-   )
-
-This is an intentional role guard: a multi-parameter prediction is neither a
-single regression target nor a classification label. Direct ``GAM`` code does
-not need to migrate, but should remember that raw ``type="response"`` follows
-mgcv's internal parameterization rather than this natural-parameter contract.
+For repeated fits, the optional blue quantile ribbon describes between-fit
+variation. Keep that separate from the black conditional-spread envelope when
+reporting results.

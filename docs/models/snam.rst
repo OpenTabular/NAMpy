@@ -1,6 +1,15 @@
 SNAM
 ====
 
+When to use it
+--------------
+
+Use SNAM when the analysis needs feature-wise neural effects together with
+group-level shrinkage of whole terms.
+
+Model structure
+---------------
+
 SNAM adds group sparsity to the NAM architecture. If :math:`\theta_j` contains
 all parameters of feature network :math:`j`, training adds
 
@@ -11,6 +20,9 @@ all parameters of feature network :math:`j`, training adds
 to the predictive loss. Entire feature or interaction subnetworks can
 therefore shrink toward zero, providing model-level feature selection rather
 than sparsity within individual weight matrices.
+
+Fit and inspect
+---------------
 
 .. code-block:: python
 
@@ -25,6 +37,10 @@ than sparsity within individual weight matrices.
    components = model.predict_components(X_test, center=True)
    group_norms = model.model.get_group_norms()
    selected = model.model.selected_groups(threshold=1e-4)
+   figures = model.plot_terms(X_test, center=True)
+
+Interpretation and limits
+-------------------------
 
 The group-lasso coefficient controls selection strength and should be chosen
 with held-out data. A small fitted group norm is evidence of shrinkage, not a

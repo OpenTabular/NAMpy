@@ -1,6 +1,15 @@
 NodeGAM
 =======
 
+When to use it
+--------------
+
+Use NodeGAM when differentiable oblivious trees and sparse selectors are the
+desired representation of main effects and optional pairs.
+
+Model structure
+---------------
+
 NodeGAM builds an additive predictor from ensembles of differentiable oblivious
 decision trees. Sparse feature selectors assign a tree to a feature, and
 differentiable binning routes observations to leaves. With pairwise structure
@@ -13,6 +22,9 @@ enabled, a tree may depend on two selected features,
 
 Temperature annealing sharpens the selectors during training. NAMpy also
 supports the architecture's masked-pretraining path.
+
+Fit and inspect
+---------------
 
 .. code-block:: python
 
@@ -27,6 +39,10 @@ supports the architecture's masked-pretraining path.
 
    prediction = model.predict(X_test)
    components = model.predict_components(X_test, center=True)
+   figures = model.plot_terms(X_test, center=True)
+
+Interpretation and limits
+-------------------------
 
 The selector settings and interaction regularization determine how sharply
 tree contributions can be attributed to individual features or pairs.

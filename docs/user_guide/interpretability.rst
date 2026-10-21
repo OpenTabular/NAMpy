@@ -3,7 +3,7 @@ Interpretability
 
 NAMpy exposes the terms that form an additive prediction.
 
-Understanding Additive Models
+What a term contribution means
 ------------------------------
 
 For a scalar response, the central model is
@@ -27,11 +27,11 @@ uniquely identifiable. Centering fixes constant shifts against a stated
 reference dataset; correlated inputs and overlapping main effects and
 interactions can still affect term stability.
 
-Feature-Level Predictions
+Extract term contributions
 --------------------------
 
-For interpretable models (NAM, GPNAM, etc.), you can extract feature
-contributions:
+Every estimator that exposes additive components uses the same result
+contract:
 
 .. code-block:: python
 
@@ -45,39 +45,9 @@ contributions:
    importance = model.term_importance(X_test)
    figures = model.plot_terms(X_test)
 
-Model Comparison
-----------------
-
-Compare interpretable vs. black-box models:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 20 30 30 20
-
-   * - Model
-     - Interpretability
-     - Performance
-     - Best For
-   * - NAM
-     - High (feature-level)
-     - Good
-     - Explanation needed
-   * - GPNAM
-     - High (feature-level)
-     - Good
-     - Smooth, parameter-efficient effects
-   * - TreeNAM
-     - High (feature-level)
-     - Good
-     - Categorical data
-   * - NAMformer
-     - Medium (attention)
-     - Better
-     - Performance + some interpretation
-   * - NATT
-     - Low
-     - Best
-     - Pure performance
+Choose a representation from the :doc:`model guide <../models/index>` based
+on term dependence, interaction structure, objective support, and inferential
+needs.
 
 Visualization
 -------------
@@ -110,14 +80,8 @@ combine the results with ``combine_distributional_effects``, and pass the
 result to ``render_distributional_effects``. The renderer then adds a
 between-fit quantile ribbon.
 
-Contributing
-------------
-
-Interpretability tools are an active area of development. Contributions
-are welcome! See :doc:`../contributing` for details.
-
-For More Information
---------------------
+Continue the analysis
+---------------------
 
 * :doc:`../models/index` - Model comparison
 * :doc:`../examples/index` - Practical examples

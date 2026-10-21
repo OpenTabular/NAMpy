@@ -1,9 +1,9 @@
-Tutorials
-=========
+Extended Notebooks
+==================
 
-These executable notebooks introduce NAMpy through complete analyses. Start
-with the common workflow, then choose the model family or task relevant to your
-work.
+These notebooks provide broad, executable surveys of NAMpy. For a shorter
+analysis organized around one modeling question, start with the
+:doc:`tutorial gallery <tutorials/index>`.
 
 .. grid:: 1 1 2 2
    :gutter: 2
@@ -15,12 +15,12 @@ work.
       Fit models, generate predictions, inspect additive components, and save
       fitted estimators.
 
-   .. grid-item-card:: Statistical GAMs
+   .. grid-item-card:: Statistical GAM reference notebook
       :link: notebooks/02_statistical_gams
       :link-type: doc
 
-      Work with formulas, smooth bases, smoothing selection, inference,
-      diagnostics, and shape constraints.
+      Survey formulas, smooth bases, smoothing selection, inference,
+      diagnostics, and shape constraints in one place.
 
    .. grid-item-card:: Neural models
       :link: notebooks/03_neural_models
@@ -29,12 +29,11 @@ work.
       Compare neural feature functions and interaction structures through a
       common estimator interface.
 
-   .. grid-item-card:: Distributional models and ensembles
+   .. grid-item-card:: Distributional capability notebook
       :link: notebooks/04_distributional_models
       :link-type: doc
 
-      Fit classification, distributional, quantile, and ensemble models and
-      interpret their outputs.
+      Survey classification, distributional, quantile, and ensemble surfaces.
 
 .. toctree::
    :maxdepth: 1

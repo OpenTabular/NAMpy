@@ -1,6 +1,15 @@
 NAMformer
 =========
 
+When to use it
+--------------
+
+Use NAMformer when explicit marginal readouts are needed alongside an
+unrestricted transformer contribution.
+
+Model structure
+---------------
+
 NAMformer combines transformer-based tabular prediction with feature-level
 readout heads. Each input is embedded as a token. A transformer produces a
 global prediction from the classification token, while separate linear heads
@@ -18,6 +27,9 @@ This dependence structure matters for interpretation: the marginal heads
 named embeddings, and the global transformer term depends on all inputs. The
 model is therefore not limited to a purely feature-additive predictor.
 
+Fit and inspect
+---------------
+
 .. code-block:: python
 
    from nampy.models import NAMformerRegressor
@@ -31,6 +43,10 @@ model is therefore not limited to a purely feature-additive predictor.
 
    prediction = model.predict(X_test)
    marginal_components = model.predict_components(X_test, center=True)
+   figures = model.plot_terms(X_test, center=True)
+
+Interpretation and limits
+-------------------------
 
 Use the component output to study the explicit marginal and interaction heads;
 do not treat it as a unique decomposition of the global transformer term.

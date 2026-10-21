@@ -1,5 +1,5 @@
-Basic Classification Examples
-==============================
+Fit a Binary Classifier
+=======================
 
 Classifiers expose both class labels and class probabilities.
 
@@ -25,5 +25,7 @@ Classifiers expose both class labels and class probabilities.
 
    labels = model.predict(X_test)
    probabilities = model.predict_proba(X_test)
-   assert labels.shape == y_test.shape
-   assert probabilities.shape[0] == y_test.shape[0]
+
+``labels`` contains the selected class for each row. ``probabilities`` has one
+column per class and is the appropriate output for threshold selection,
+calibration, and probability-based scoring.

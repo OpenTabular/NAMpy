@@ -1,6 +1,15 @@
 NBM-SPAM
 ========
 
+When to use it
+--------------
+
+Use NBM-SPAM when polynomial interactions should operate on learned nonlinear
+concept scores rather than directly on transformed input columns.
+
+Model structure
+---------------
+
 NBM-SPAM composes two representations. An NBM first learns nonlinear unary
 concept scores, then a SPAM head combines those scores with low-rank polynomial
 terms,
@@ -13,6 +22,9 @@ terms,
 This separates nonlinear feature representation from polynomial interaction
 construction. It is useful when interactions between learned concept scores
 are more plausible than polynomials of the raw transformed columns.
+
+Fit and inspect
+---------------
 
 .. code-block:: python
 
@@ -27,6 +39,10 @@ are more plausible than polynomials of the raw transformed columns.
 
    prediction = model.predict(X_test)
    components = model.predict_components(X_test, center=True)
+   local = model.local_term_importance(X_test.iloc[:5], top_k=8)
+
+Interpretation and limits
+-------------------------
 
 The returned components follow the architecture's concept and polynomial
 blocks. They are not equivalent to an independently fitted function of each

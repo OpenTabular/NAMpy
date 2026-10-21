@@ -6,8 +6,39 @@ The models differ in how they represent feature effects, select interactions,
 and estimate their parameters. Use the table below to choose an appropriate
 starting point.
 
-Choose a model
+Where to begin
 --------------
+
+These are structural starting points, not performance rankings.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 59 41
+
+   * - What the analysis needs
+     - Start with
+   * - Statistical smoothness selection, standard errors, and diagnostics
+     - :doc:`GAM <gam>`
+   * - A straightforward neural additive model
+     - :doc:`NAM <nam>`
+   * - Basis functions shared across features and interactions
+     - :doc:`NBM <nbm>`
+   * - Sparse feature or term selection
+     - :doc:`SNAM <snam>`
+   * - Sparse interaction discovery
+     - :doc:`SIAN <sian>`
+   * - Additive Gaussian-process approximations
+     - :doc:`GPNAM <gpnam>`
+   * - Polynomial interaction structure
+     - :doc:`SPAM <spam>` or :doc:`NBM-SPAM <nbm_spam>`
+
+Architecture reference
+----------------------
+
+Each linked page explains when to use the model, its mathematical structure,
+the variables on which a reported contribution may depend, supported
+objectives, a runnable fit-and-plot workflow, important controls, and
+interpretation limits.
 
 .. list-table::
    :header-rows: 1
@@ -57,9 +88,9 @@ distributional-only, SplineNAM is regression-only, and IGANN currently supports
 main effects but not explicit interaction terms. The :doc:`../api/models`
 reference lists every public estimator class.
 
-The :doc:`../notebooks/02_statistical_gams` develops the statistical GAM
-workflow. The :doc:`../notebooks/03_neural_models` compares neural
-architectures using a common dataset and estimator interface.
+The :doc:`../tutorials/nam_nbm` compares two neural representations on the
+same data and plotting scale. The :doc:`../notebooks/03_neural_models`
+provides a broader executable architecture survey.
 
 .. toctree::
    :maxdepth: 1

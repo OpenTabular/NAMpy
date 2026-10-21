@@ -43,7 +43,6 @@ extensions = [
     "myst_parser",  # For Markdown support
     "nbsphinx",  # Render checked-in notebook sources (via nbconvert/Pandoc)
     "sphinx_design",
-    "sphinx_copybutton",
 ]
 
 nbsphinx_execute = "never"

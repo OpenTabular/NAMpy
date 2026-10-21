@@ -1,5 +1,5 @@
-Distributional Regression Examples
-===================================
+Fit a Distributional Model
+==========================
 
 LSS estimators predict the parameters of a chosen response distribution.
 
@@ -27,4 +27,12 @@ LSS estimators predict the parameters of a chosen response distribution.
        batch_size=64,
    )
    distribution_parameters = model.predict(X_test)
-   assert distribution_parameters.shape[0] == X_test.shape[0]
+   figures = model.plot_distributional_effects(
+       X_test,
+       reference_X=X_train,
+       feature_names=["x0"],
+   )
+
+For a normal family, the two prediction columns are conditional location and
+standard deviation. The plotted black envelope represents conditional spread,
+not uncertainty about the fitted location effect.
