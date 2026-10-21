@@ -199,6 +199,43 @@ class NeuralLSS(NeuralEstimatorBase):
             reference_weight=reference_weight,
         )
 
+    def plot_distributional_effects(
+        self,
+        X,
+        *,
+        reference_X=None,
+        reference_weight=None,
+        response_scale=1.0,
+        feature_name=None,
+        feature_names=None,
+        **plot_kwargs,
+    ):
+        """Plot point effects and conditional spread for additive terms.
+
+        Effects are computed through the fitted family's ``predict_point`` and
+        ``predict_spread`` methods.  No parameter ordering or family formula is
+        encoded in the plotting layer.  ``response_scale`` converts effects
+        and standard deviations back to target units after fitting a linearly
+        standardized response.
+
+        Returns
+        -------
+        list of matplotlib.figure.Figure
+            Figures containing the requested one-dimensional terms.
+        """
+        from ..plotting import plot_distributional_effects
+
+        return plot_distributional_effects(
+            self,
+            X,
+            reference_X=reference_X,
+            reference_weight=reference_weight,
+            response_scale=response_scale,
+            feature_name=feature_name,
+            feature_names=feature_names,
+            **plot_kwargs,
+        )
+
     def evaluate(self, X, y_true, metrics=None, distribution_family=None):
         """
         Evaluate the fitted distributional model.

@@ -1,48 +1,40 @@
 Examples
 ========
 
-NAMpy has three deliberately different example formats:
+Use these pages when you need the shortest working example for a task. Each
+recipe keeps setup, fitting, prediction, and evaluation together.
 
-* The pages below are short, copyable task recipes.
-* :doc:`../notebook_tutorials` contains theory-first, executable model
-  tutorials generated and rendered as part of the documentation build.
-* The root `examples directory <https://github.com/Ananyapam7/NAMpy/tree/main/examples>`_
-  contains longer standalone verification scripts, including synthetic
-  data-generating processes, fitted-model checks, and plots.
+.. grid:: 1 1 3 3
+   :gutter: 2
+
+   .. grid-item-card:: Regression
+      :link: basic_regression
+      :link-type: doc
+
+      Fit an additive regressor and generate continuous predictions.
+
+   .. grid-item-card:: Classification
+      :link: basic_classification
+      :link-type: doc
+
+      Fit a classifier and inspect labels and class probabilities.
+
+   .. grid-item-card:: Distributional regression
+      :link: distributional_regression
+      :link-type: doc
+
+      Predict distribution parameters rather than a single conditional mean.
 
 .. toctree::
    :maxdepth: 1
+   :hidden:
 
    basic_regression
    basic_classification
    distributional_regression
 
-Choosing the right format
--------------------------
-
-Use a recipe when you already know which task you need and want the smallest
-working estimator call. Use a notebook when you want mathematical background,
-model-specific controls, interpretation, and references. Use a standalone
-script when you want a terminal-runnable verification with explicit numerical
-checks.
-
-Custom architectures are documented once, in
-:doc:`../user_guide/custom_models`. Exact constructors and methods live in the
+For complete analyses with mathematical context and fitted plots, use the
+:doc:`../notebook_tutorials`. The repository's
+`examples directory <https://github.com/OpenTabular/NAMpy/tree/main/examples>`_
+contains standalone scripts. Exact constructors and methods are listed in the
 :doc:`../api/index`.
-
-Running repository material
----------------------------
-
-From the repository root:
-
-.. code-block:: bash
-
-   pip install -e ".[all,docs]" jupyterlab
-   jupyter lab docs/notebooks
-
-Standalone scripts can be run directly, for example:
-
-.. code-block:: bash
-
-   python examples/example_gam2.py
-   python examples/example_nam.py

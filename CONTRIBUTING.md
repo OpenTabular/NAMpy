@@ -10,7 +10,7 @@ git clone https://github.com/OpenTabular/NAMpy.git
 cd NAMpy
 python3.11 -m venv .venv
 source .venv/bin/activate
-python -m pip install -e ".[all,dev]"
+python -m pip install -e ".[dev]"
 pre-commit install
 ```
 

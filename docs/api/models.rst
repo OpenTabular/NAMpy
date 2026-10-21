@@ -1,9 +1,21 @@
-Models
-======
+Estimators
+==========
 
-High-level model classes that follow the scikit-learn API.
+High-level statistical and neural model classes with ``fit`` and ``predict``
+interfaces.
 
 .. currentmodule:: nampy.models
+
+Statistical GAMs
+----------------
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   GAMRegressor
+   GAMClassifier
+   GAMLSS
 
 Regression Models
 -----------------
@@ -72,17 +84,25 @@ Distributional Regression Models (LSS)
    SNAMLSS
    NodeGAMLSS
 
-The statistical :class:`GAMLSS` adapter is documented with the GAM backend in
-:doc:`gam`.
-
-Other Models
-------------
+Specialized Models
+------------------
 
 .. autosummary::
    :toctree: generated/
    :nosignatures:
 
    QNAMLSS
+
+Ensembles and Architecture Factories
+------------------------------------
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   NeuralEnsemble
+   NeuralEstimatorFamily
+   estimator_family
 
 Base Classes
 ------------

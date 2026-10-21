@@ -11,7 +11,7 @@ Install Pandoc with your system package manager (for example,
 dependencies:
 
 ```bash
-pip install -e ".[all,docs]"
+pip install -e ".[docs]"
 ```
 
 Or install from documentation requirements:
@@ -56,7 +56,7 @@ docs/
 ├── installation.rst     # Installation guide
 ├── quickstart.rst       # Quick start guide
 ├── notebook_tutorials.rst # Toctree for the four tutorials
-├── notebooks/            # Canonical self-contained notebook sources
+├── notebooks/            # Self-contained notebook tutorials
 ├── user_guide.rst       # Cross-cutting guide index
 │   └── user_guide/      # Preprocessing, training, interpretation, extensions
 ├── api/                 # Signature-level API reference and generated stubs
@@ -75,11 +75,9 @@ The supported mgcv/SCAM selection routes and their intentional upstream
 boundaries are recorded in
 [development/mgcv_optimizer_boundaries.md](development/mgcv_optimizer_boundaries.md).
 
-The repository has one canonical notebook collection at `notebooks/`. The four
-self-contained notebooks are checked in with fast-mode outputs and rendered by
-nbsphinx/nbconvert with Pandoc. Long terminal-runnable verification programs
-belong in `../examples/`; Sphinx recipe pages should stay concise and link to
-those scripts rather than copying them.
+The four notebooks in `notebooks/` are rendered by nbsphinx/nbconvert with
+Pandoc. Longer terminal-runnable programs live in `../examples/`; Sphinx
+example pages contain shorter task-based recipes.
 
 Autosummary may create files below `api/generated/` during a build. That
 directory is ignored and must not be committed; its pages are derived from

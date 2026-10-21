@@ -1,63 +1,607 @@
-/* Custom CSS for NAMpy documentation */
+/* NAMpy documentation — aligned with the OpenTabular documentation style. */
 
-/* Improve code block styling */
-.highlight {
-    background: #f8f8f8;
-    border-radius: 4px;
-    padding: 10px;
-    margin: 15px 0;
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&display=swap");
+
+:root {
+  --nampy-blue: #2563eb;
+  --nampy-blue-dark: #1d4ed8;
+  --nampy-green: #1a7f37;
+  --nampy-border: #d0d7de;
+  --nampy-code-bg: #f6f8fa;
+  --nampy-text: #374151;
+  --nampy-heading: #111827;
 }
 
-/* Better table styling */
-table.docutils {
-    border: none;
-    border-collapse: collapse;
+body,
+#content {
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-table.docutils td, table.docutils th {
-    border: 1px solid #e1e4e5;
-    padding: 8px;
+#content {
+  color: var(--nampy-text);
+  max-width: 860px;
 }
 
-/* Improve admonition styling */
-.admonition {
-    margin: 20px 0;
-    padding: 15px;
-    border-left: 5px solid #2980b9;
+#content p {
+  color: var(--nampy-text);
+  line-height: 1.7;
+  margin-bottom: 1rem;
 }
 
-.admonition.note {
-    border-left-color: #2980b9;
-    background-color: #e7f2fa;
+#content h1,
+#content h2,
+#content h3,
+#content h4 {
+  color: var(--nampy-heading);
+  font-weight: 700;
+  letter-spacing: -0.015em;
 }
 
-.admonition.warning {
-    border-left-color: #e67e22;
-    background-color: #ffedcc;
+#content h1 {
+  margin-bottom: 1.5rem;
 }
 
-.admonition.tip {
-    border-left-color: #27ae60;
-    background-color: #dbf6e9;
+#content h2,
+#content h3 {
+  margin-bottom: 1rem;
+  margin-top: 2rem;
 }
 
-/* Better spacing for parameter lists */
-.field-list dt {
-    font-weight: bold;
-    padding-top: 10px;
+#content strong {
+  color: var(--nampy-heading);
+  font-weight: 700;
 }
 
-/* Improve method/function signatures */
-.sig-name {
-    color: #2980b9;
-    font-weight: bold;
+#content a {
+  color: var(--nampy-blue);
+  font-weight: 500;
 }
 
-/* Code in prose */
+#content a:hover {
+  color: var(--nampy-blue-dark);
+  text-decoration: underline;
+}
+
+#content ul li,
+#content ol li {
+  line-height: 1.55;
+  margin-bottom: 0.2rem;
+  margin-top: 0.2rem;
+}
+
+#left-sidebar img,
+header img {
+  height: auto;
+  max-height: 4rem;
+  max-width: 10rem;
+  object-fit: contain;
+}
+
+header img[alt="Logo"],
+#left-sidebar img[alt="Logo"] {
+  height: 2.35rem;
+  max-height: 2.35rem;
+  max-width: 2rem;
+  width: 2rem;
+}
+
+.brand-mark {
+  display: block;
+  margin: 0 auto 1.5rem;
+  max-height: 22rem;
+  width: min(190px, 48vw);
+}
+
+#left-sidebar nav p.caption ~ p.caption {
+  border-top: 1px solid var(--nampy-border);
+  margin-top: 0.5rem;
+  padding-top: 0.85rem;
+}
+
+code,
+kbd,
+samp,
+pre,
+.highlight pre,
+tt.literal,
 code.literal {
-    background-color: #f8f8f8;
-    padding: 2px 4px;
-    border-radius: 3px;
-    font-size: 90%;
+  font-family: "JetBrains Mono", "Fira Code", "SFMono-Regular", Consolas, monospace;
 }
 
+div.highlight {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.highlight pre {
+  background: var(--nampy-code-bg);
+  border: 1px solid var(--nampy-border);
+  border-radius: 8px;
+  color: #24292f;
+  font-size: 0.9rem;
+  font-feature-settings: "liga" 1, "calt" 1;
+  line-height: 1.65;
+  margin-top: 0;
+  padding: 1rem 1.25rem;
+}
+
+code.literal,
+p code,
+li code,
+td code {
+  background: #f3f4f6;
+  border: 1px solid #e2e4e8;
+  border-radius: 4px;
+  color: #c2185b;
+  font-size: 0.82em;
+  padding: 0.15em 0.4em;
+}
+
+.highlight .k,
+.highlight .kn,
+.highlight .kd,
+.highlight .kr,
+.highlight .kc,
+.highlight .kw,
+.highlight .nb,
+.highlight .bp,
+.highlight .mi,
+.highlight .mf {
+  color: #0550ae;
+}
+
+.highlight .k,
+.highlight .kn,
+.highlight .kd,
+.highlight .kr,
+.highlight .kc,
+.highlight .kw {
+  font-weight: 600;
+}
+
+.highlight .s,
+.highlight .s1,
+.highlight .s2,
+.highlight .sa,
+.highlight .se,
+.highlight .si {
+  color: #116329;
+}
+
+.highlight .nf,
+.highlight .fm,
+.highlight .nc,
+.highlight .nd {
+  color: #8250df;
+}
+
+.highlight .c,
+.highlight .c1,
+.highlight .cm,
+.highlight .cp {
+  color: #6e7781;
+  font-style: italic;
+}
+
+.admonition {
+  background: #f8f9fa;
+  border-left: 4px solid var(--nampy-border);
+  border-radius: 4px;
+  margin: 1.5rem 0;
+  padding: 0.75rem 1rem;
+}
+
+.admonition-title {
+  align-items: center;
+  display: flex;
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+}
+
+.admonition-title::before {
+  display: inline-block;
+  flex-shrink: 0;
+  margin-right: 0.5rem;
+}
+
+.admonition.note,
+.admonition.seealso {
+  background: #ddf4ff;
+  border-left-color: #0969da;
+}
+
+.admonition.note .admonition-title,
+.admonition.seealso .admonition-title {
+  color: #0969da;
+}
+
+.admonition.note .admonition-title::before {
+  content: "ℹ️";
+}
+
+.admonition.seealso .admonition-title::before {
+  content: "🔗";
+}
+
+.admonition.tip,
+.admonition.hint {
+  background: #dafbe1;
+  border-left-color: var(--nampy-green);
+}
+
+.admonition.tip .admonition-title,
+.admonition.hint .admonition-title {
+  color: var(--nampy-green);
+}
+
+.admonition.tip .admonition-title::before {
+  content: "💡";
+}
+
+.admonition.hint .admonition-title::before {
+  content: "🔑";
+}
+
+.admonition.important {
+  background: #fbefff;
+  border-left-color: #8250df;
+}
+
+.admonition.important .admonition-title {
+  color: #8250df;
+}
+
+.admonition.important .admonition-title::before {
+  content: "⚡";
+}
+
+.admonition.warning,
+.admonition.caution {
+  background: #fff8c5;
+  border-left-color: #bf8700;
+}
+
+.admonition.warning .admonition-title,
+.admonition.caution .admonition-title {
+  color: #9a6700;
+}
+
+.admonition.warning .admonition-title::before,
+.admonition.caution .admonition-title::before {
+  content: "⚠️";
+}
+
+.admonition p:last-child,
+.admonition ul:last-child,
+.admonition ol:last-child {
+  margin-bottom: 0;
+}
+
+#content table.docutils,
+#content table.autosummary {
+  border-collapse: collapse;
+  display: block;
+  margin: 1.25rem 0 1.75rem;
+  max-width: 100%;
+  overflow-x: auto;
+  width: max-content;
+}
+
+#content table.docutils th,
+#content table.docutils td,
+#content table.autosummary td {
+  border-bottom: 1px solid #e5e7eb;
+  padding: 0.55rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+#content table.docutils th {
+  background: #f6f8fa;
+  color: var(--nampy-heading);
+  font-weight: 600;
+}
+
+#content table.docutils tbody tr:hover,
+#content table.autosummary tbody tr:hover {
+  background: #f8fafc;
+}
+
+table.autosummary td:first-child code {
+  color: #8250df;
+  font-weight: 600;
+}
+
+.sd-card {
+  border: 1px solid #e5e7eb !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+.sd-card:hover {
+  border-color: #93c5fd !important;
+  box-shadow: 0 4px 14px rgb(15 23 42 / 8%) !important;
+}
+
+.sd-card-title {
+  color: var(--nampy-heading);
+  font-weight: 700;
+}
+
+.homepage-demo {
+  border: 1px solid var(--nampy-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 18px rgb(15 23 42 / 8%);
+  margin: 1rem auto 1.5rem;
+  width: 100%;
+}
+
+.homepage-demo-dark {
+  display: none;
+}
+
+/* The theme switches with an html.dark class. Declare the complete light
+   palette explicitly as well, so a system-level dark preference cannot leave
+   Pygments tokens on a light code-block background. */
+html:not(.dark) .highlight,
+html:not(.dark) .highlight pre,
+html:not(.dark) .highlight code {
+  background: #f6f8fa;
+  color: #24292f;
+}
+
+html:not(.dark) .highlight span {
+  color: #24292f;
+}
+
+html:not(.dark) .highlight .k,
+html:not(.dark) .highlight .kn,
+html:not(.dark) .highlight .kd,
+html:not(.dark) .highlight .kr,
+html:not(.dark) .highlight .kc,
+html:not(.dark) .highlight .kw,
+html:not(.dark) .highlight .nb,
+html:not(.dark) .highlight .bp,
+html:not(.dark) .highlight .mi,
+html:not(.dark) .highlight .mf {
+  color: #0550ae;
+}
+
+html:not(.dark) .highlight .s,
+html:not(.dark) .highlight .s1,
+html:not(.dark) .highlight .s2,
+html:not(.dark) .highlight .sa,
+html:not(.dark) .highlight .sb,
+html:not(.dark) .highlight .sc,
+html:not(.dark) .highlight .sd,
+html:not(.dark) .highlight .se,
+html:not(.dark) .highlight .si,
+html:not(.dark) .highlight .sh {
+  color: #116329;
+}
+
+html:not(.dark) .highlight .nf,
+html:not(.dark) .highlight .fm,
+html:not(.dark) .highlight .nc,
+html:not(.dark) .highlight .nd {
+  color: #6639ba;
+}
+
+html:not(.dark) .highlight .c,
+html:not(.dark) .highlight .c1,
+html:not(.dark) .highlight .cm,
+html:not(.dark) .highlight .cs,
+html:not(.dark) .highlight .cp {
+  color: #57606a;
+}
+
+html.dark #content,
+html.dark #content p {
+  color: #d1d5db;
+}
+
+html.dark #content h1,
+html.dark #content h2,
+html.dark #content h3,
+html.dark #content h4,
+html.dark #content strong,
+html.dark .sd-card-title {
+  color: #f9fafb;
+}
+
+html.dark #content a {
+  color: #60a5fa;
+}
+
+html.dark #content a:hover {
+  color: #93c5fd;
+}
+
+html.dark #left-sidebar nav p.caption ~ p.caption,
+html.dark #content table.docutils th,
+html.dark #content table.docutils td,
+html.dark #content table.autosummary td {
+  border-color: #30363d;
+}
+
+html.dark .highlight pre,
+html.dark code.literal,
+html.dark p code,
+html.dark li code,
+html.dark td code {
+  background: #0d1117;
+  border-color: #30363d;
+}
+
+html.dark .highlight pre {
+  color: #e6edf3;
+}
+
+html.dark div.highlight {
+  background: #0d1117;
+}
+
+html.dark code.literal,
+html.dark p code,
+html.dark li code,
+html.dark td code {
+  color: #ff7b72;
+}
+
+html.dark .highlight .k,
+html.dark .highlight .kn,
+html.dark .highlight .kd,
+html.dark .highlight .kr,
+html.dark .highlight .kc,
+html.dark .highlight .kw,
+html.dark .highlight .nb,
+html.dark .highlight .bp,
+html.dark .highlight .mi,
+html.dark .highlight .mf {
+  color: #79c0ff;
+}
+
+html.dark .highlight .s,
+html.dark .highlight .s1,
+html.dark .highlight .s2,
+html.dark .highlight .sa,
+html.dark .highlight .sb,
+html.dark .highlight .sc,
+html.dark .highlight .sd,
+html.dark .highlight .se,
+html.dark .highlight .si,
+html.dark .highlight .sh {
+  color: #7ee787;
+}
+
+html.dark .highlight .nf,
+html.dark .highlight .fm,
+html.dark .highlight .nc,
+html.dark .highlight .nd {
+  color: #d2a8ff;
+}
+
+html.dark .highlight .c,
+html.dark .highlight .c1,
+html.dark .highlight .cm,
+html.dark .highlight .cs,
+html.dark .highlight .cp {
+  color: #8b949e;
+}
+
+html.dark .highlight .n,
+html.dark .highlight .na,
+html.dark .highlight .nv,
+html.dark .highlight .nn,
+html.dark .highlight .nx,
+html.dark .highlight .p,
+html.dark .highlight .o,
+html.dark .highlight .ow {
+  color: #e6edf3;
+}
+
+html.dark .admonition,
+html.dark .admonition.note,
+html.dark .admonition.seealso,
+html.dark .admonition.tip,
+html.dark .admonition.hint,
+html.dark .admonition.important {
+  background: #0d1117;
+}
+
+html.dark .admonition.warning,
+html.dark .admonition.caution {
+  background: #1c1810;
+}
+
+html.dark .admonition.note,
+html.dark .admonition.seealso {
+  border-left-color: #58a6ff;
+}
+
+html.dark .admonition.note .admonition-title,
+html.dark .admonition.seealso .admonition-title {
+  color: #79c0ff;
+}
+
+html.dark .admonition.tip,
+html.dark .admonition.hint {
+  border-left-color: #3fb950;
+}
+
+html.dark .admonition.tip .admonition-title,
+html.dark .admonition.hint .admonition-title {
+  color: #7ee787;
+}
+
+html.dark .admonition.important {
+  border-left-color: #a371f7;
+}
+
+html.dark .admonition.important .admonition-title {
+  color: #d2a8ff;
+}
+
+html.dark .admonition.warning,
+html.dark .admonition.caution {
+  border-left-color: #d29922;
+}
+
+html.dark .admonition.warning .admonition-title,
+html.dark .admonition.caution .admonition-title {
+  color: #e3b341;
+}
+
+html.dark #content table.docutils th,
+html.dark #content table.docutils tbody tr:hover,
+html.dark #content table.autosummary tbody tr:hover {
+  background: #161b22;
+}
+
+html.dark #content table.docutils td,
+html.dark #content table.autosummary td,
+html.dark #content dl,
+html.dark #content dt,
+html.dark #content dd,
+html.dark #content blockquote {
+  color: #d1d5db;
+}
+
+html.dark table.autosummary td:first-child code {
+  color: #d2a8ff;
+}
+
+html.dark .sd-card {
+  background: #0d1117 !important;
+  border-color: #30363d !important;
+}
+
+html.dark .sd-card:hover {
+  border-color: #60a5fa !important;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 28%) !important;
+}
+
+html.dark .homepage-demo-light {
+  display: none;
+}
+
+html.dark .homepage-demo-dark {
+  border-color: #30363d;
+  display: block;
+}
+
+html.dark #content img:not(.homepage-demo) {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+@media (max-width: 768px) {
+  #content {
+    max-width: 100%;
+  }
+
+  #content table.docutils,
+  #content table.autosummary {
+    width: 100%;
+  }
+}

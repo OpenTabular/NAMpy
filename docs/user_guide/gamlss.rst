@@ -17,6 +17,23 @@ keeps mgcv-shaped family names and response transformations for parity work.
 Public parameter contract
 -------------------------
 
+For distribution parameter :math:`k`, NAMpy uses an additive predictor and a
+parameter-specific inverse link,
+
+.. math::
+
+   \eta_k(x)
+   = \beta_{0k} + \sum_{j=1}^{p} f_{jk}(x_j)
+     + \sum_{S \in \mathcal I_k} f_{Sk}(x_S) + o_k(x),
+   \qquad
+   \theta_k(x) = h_k^{-1}\!\left(\eta_k(x)\right),
+
+with :math:`Y \mid x \sim
+\mathcal{D}\{\theta_1(x),\ldots,\theta_K(x)\}`. Contributions returned by
+``predict_components`` are additive on the :math:`\eta_k` scale; natural
+parameters returned by ``predict`` need not be additive after applying
+:math:`h_k^{-1}`.
+
 ``GAMLSS.predict`` always returns natural distribution parameters. Columns
 follow ``parameter_names_``. ``predict(raw=True)`` and ``predict_link`` return
 the additive linear predictors instead.

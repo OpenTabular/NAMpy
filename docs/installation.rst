@@ -1,108 +1,71 @@
 Installation
 ============
 
-Requirements
-------------
+.. important::
 
-NAMpy supports Python 3.11 and 3.12. The core package requires:
+   **Requirements:** Python 3.11 or 3.12. PyTorch is installed with NAMpy.
 
-* scikit-learn
-* pandas
-* numpy (<=1.26.4)
-
-Backend dependencies are grouped into ``gam`` and ``neural`` installation
-extras. The ``all`` extra installs both.
-
-Installation Methods
---------------------
-
-From PyPI (Recommended)
-~~~~~~~~~~~~~~~~~~~~~~~
-
-Install both supported backends with:
+Quick install
+-------------
 
 .. code-block:: bash
 
-   pip install "nampy[all]"
+   pip install nampy
 
-Install one backend when a smaller environment is preferable:
+This installs the statistical GAM and neural modeling backends together with
+their runtime dependencies.
 
-.. code-block:: bash
-
-   pip install "nampy[gam]"
-   pip install "nampy[neural]"
-
-From Source
-~~~~~~~~~~~
-
-To install the latest development version from source:
-
-.. code-block:: bash
-
-   git clone https://github.com/Ananyapam7/NAMpy.git
-   cd NAMpy
-   pip install -e ".[all]"
-
-From GitHub
-~~~~~~~~~~~
-
-You can also install directly from Github:
-
-.. code-block:: bash
-
-   pip install "nampy[all] @ git+https://github.com/Ananyapam7/NAMpy.git@main"
-
-Development Installation
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-If you want to contribute to NAMpy, install with development dependencies:
-
-.. code-block:: bash
-
-   git clone https://github.com/Ananyapam7/NAMpy.git
-   cd NAMpy
-   pip install -e ".[all,dev]"
-   
-   # Optional: install the repository's local quality hooks
-   pre-commit install
-
-Verifying Installation
-----------------------
-
-To verify that NAMpy is installed correctly:
+Verify the installation
+-----------------------
 
 .. code-block:: python
 
    import nampy
+
    print(nampy.__version__)
 
-GPU Support
+GPU support
 -----------
 
-NAMpy uses PyTorch as its backend, which supports GPU acceleration. To use GPU:
+Statistical GAMs run on the CPU. Neural estimators use PyTorch and can train on
+a supported GPU. Check whether CUDA is available with:
 
-1. Install PyTorch with CUDA support:
+.. code-block:: python
 
-   .. code-block:: bash
+   import torch
 
-      # For CUDA 11.8
-      pip install torch --index-url https://download.pytorch.org/whl/cu118
+   print(torch.cuda.is_available())
+   if torch.cuda.is_available():
+       print(torch.cuda.get_device_name(0))
 
-2. Verify GPU availability:
+The PyTorch build installed from PyPI may not match the CUDA runtime on every
+machine. If CUDA is unavailable, select the appropriate command with the
+`PyTorch installation guide <https://pytorch.org/get-started/locally/>`_, then
+install NAMpy.
 
-   .. code-block:: python
+.. note::
 
-      import torch
-      print(f"CUDA available: {torch.cuda.is_available()}")
-      print(f"Device: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU'}")
+   A GPU is optional. It is most useful for larger neural models and datasets;
+   the package also runs on the CPU.
 
-NAMpy models will automatically use GPU if available.
+Troubleshooting
+---------------
 
-Getting Help
-------------
+First confirm that the Python interpreter running your script can see the same
+installation:
 
-If you encounter issues during installation:
+.. code-block:: bash
 
-* Check the `GitHub Issues <https://github.com/Ananyapam7/NAMpy/issues>`_
-* Ask a question in `GitHub Discussions <https://github.com/Ananyapam7/NAMpy/discussions>`_
-* Consult the :doc:`faq` page
+   python -m pip show nampy
+
+If installation or import still fails, search the
+`issue tracker <https://github.com/OpenTabular/NAMpy/issues>`_ or open a report
+with the Python version, operating system, installation command, and complete
+error message.
+
+Next steps
+----------
+
+* :doc:`quickstart` — fit the first statistical and neural models.
+* :doc:`overview` — understand the model families and shared workflow.
+* :doc:`faq` — find answers to common setup and modeling questions.

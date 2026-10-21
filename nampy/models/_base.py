@@ -1196,15 +1196,20 @@ class NeuralEstimatorBase(BaseEstimator):
         reference_X=None,
         reference_weight=None,
         rug=None,
+        density=True,
+        density_bins=30,
+        density_color="#D73027",
         pages=0,
         figsize=None,
     ):
         """Render 1-d term-contribution curves via the shared renderer.
 
         Builds the same prepared-data schema the GAM plotting pipeline uses,
-        so GAM and neural term plots share one renderer. Only single-column
-        numeric main effects are drawn; interaction terms use
-        :meth:`plot_interactions`.
+        so GAM and neural term plots share one renderer. The default reddish
+        shading shows the empirical feature density behind each effect. Set
+        ``density=False`` to remove it or ``rug=True`` to add observation
+        marks. Only single-column numeric main effects are drawn; interaction
+        terms use :meth:`plot_interactions`.
         """
         from ..plotting import prepared_from_contributions, render_term_plots
 
@@ -1215,7 +1220,15 @@ class NeuralEstimatorBase(BaseEstimator):
             reference_weight=reference_weight,
         )
         prepared = prepared_from_contributions(X, components.terms)
-        return render_term_plots(prepared, rug=rug, pages=pages, figsize=figsize)
+        return render_term_plots(
+            prepared,
+            rug=rug,
+            density=density,
+            density_bins=density_bins,
+            density_color=density_color,
+            pages=pages,
+            figsize=figsize,
+        )
 
     def explain_terms(
         self,

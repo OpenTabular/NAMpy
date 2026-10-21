@@ -2,51 +2,67 @@
 
 ![NAMpy — Interpretable Additive Modeling](docs/_static/logo.png)
 
-[![Python 3.11 | 3.12](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
-[![Development status: Beta](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/OpenTabular/NAMpy)
-[![Documentation Status](https://readthedocs.org/projects/nampy/badge/?version=latest)](https://nampy.readthedocs.io/en/latest/?badge=latest)
+![Python 3.11 | 3.12](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)
+![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)
+![Development status: Beta](https://img.shields.io/badge/status-beta-orange.svg)
+![Documentation Status](https://readthedocs.org/projects/nampy/badge/?version=latest)
 
 NAMpy is a suite of interpretable models for regression, classification, and distributional regression tasks for tabular data offering **generalized additive models (GAMs)** with statistical inference, automatic smoothness selection, diagnostics, shape constraints etc. along with **neural additive models** (such as NAM, NBM, IGANN, GPNAM, SIAN, SPAM, NodeGAM, and related architectures). The models are available for `regression`, `classification` and distributional regression, denoted by `LSS`. Hence, they are available as e.g. `NAMRegressor`, `NAMClassifier` or `NAMLSS`. NAMpy models adhere to scikit-learn's `BaseEstimator` interface, making them highly compatible with the familiar scikit-learn ecosystem.
 
 ## Installation
 
-NAMpy supports Python 3.11 and 3.12. Install all functionality with:
+NAMpy supports Python 3.11 and 3.12. Install it with:
 
 ```bash
-pip install "nampy[all]"
+pip install nampy
 ```
+
+
 
 ## Interpretability
 
-NAMpy models express predictions as sums of interpretable term contributions-
-
-$$\eta(\mathbf{x})=\beta_0+ \sum_{j=1}^{p} f_j(x_j) + \sum_{(j,k)\in\mathcal I} f_{jk}(x_j,x_k) +o,$$
-
-where $\beta_0$ is the intercept, $f_j$ are main effects, $f_{jk}$ are
-selected interactions, and $o$ is an optional offset. A response transformation
-connects the additive predictor to the prediction:
+NAMpy models use an additive predictor built from named term contributions:
 
 $$
-\hat{\mu}(\mathbf{x}) = g^{-1}\left(\eta(\mathbf{x})\right).
+\eta(\mathbf{x})
+\equiv g\!\left(\mathbb{E}[Y\mid\mathbf{x}]\right)
+=\beta_0+\sum_{j=1}^{p}f_j(x_j)
++\sum_{S\in\mathcal I}f_S(\mathbf{x}_S)+o(\mathbf{x}).
+$$
+
+Here $\beta_0$ is the intercept, $f_j$ is a main effect that depends only on
+feature $x_j$, $f_S$ is an explicitly included interaction over the variables
+in $S$, and $o(\mathbf{x})$ is an optional known offset. With no interactions or
+offset, the last two terms are omitted. The inverse link maps the additive
+predictor to the conditional mean:
+
+$$
+\mu(\mathbf{x})=\mathbb{E}[Y\mid\mathbf{x}]
+=g^{-1}\!\left(\eta(\mathbf{x})\right).
 $$
 
 GAMs represent the functions $f_j$ using penalized spline bases and estimate
 their smoothness statistically. Neural additive models represent them using
-feature networks, neural trees, learned bases, or related architectures. For distributional regression, NAMpy constructs one additive predictor for
-each distribution parameter:
+feature networks, neural trees, learned bases, or related architectures. For
+distributional regression, NAMpy constructs one additive predictor for each
+distribution parameter:
 
 $$
-Y \mid \mathbf{x}
-\sim
-\mathcal D\left(\theta_1(\mathbf{x}),\ldots,\theta_K(\mathbf{x})\right),
+\eta_k(\mathbf{x})
+=\beta_{0k}+\sum_{j=1}^{p}f_{jk}(x_j)
++\sum_{S\in\mathcal I_k}f_{Sk}(\mathbf{x}_S)+o_k(\mathbf{x}),
 \qquad
-\theta_k(\mathbf{x}) = h_k^{-1}\left(\eta_k(\mathbf{x})\right).
+\theta_k(\mathbf{x})=h_k^{-1}\!\left(\eta_k(\mathbf{x})\right),
 $$
 
-This preserves an additive decomposition on the parameter/link scale while
-allowing location, scale, shape, quantiles, or class probabilities to vary with
-the inputs.
+$$
+Y\mid\mathbf{x}\sim
+\mathcal D\!\left(\theta_1(\mathbf{x}),\ldots,\theta_K(\mathbf{x})\right).
+$$
+
+The additive decomposition is defined on each parameter's link scale. Location,
+scale, shape, quantiles, or class probabilities may therefore vary with the
+inputs without implying additivity after a nonlinear inverse link.
 
 ## Quick start — Fitting a model
 
@@ -124,20 +140,20 @@ result, and prediction interfaces.
 ### GAM functionality
 
 
-| Formula surface    | Supported terms                                                                                      |
-| ------------------ | ---------------------------------------------------------------------------------------------------- |
-| Metric smooths     | `s(..., bs='bs')`, `cr`, `cs`, `cc`, `cp`, `ds`, `gp`, `ps`, `sos`, `tp`, `ts`                       |
+| Formula surface    | Supported terms                                                                                       |
+| ------------------ | ----------------------------------------------------------------------------------------------------- |
+| Metric smooths     | `s(..., bs='bs')`, `cr`, `cs`, `cc`, `cp`, `ds`, `gp`, `ps`, `sos`, `tp`, `ts`                        |
 | Structured smooths | Markov random fields `mrf`, random effects `re`, factor smooths `fs`, sum-to-zero factor smooths `sz` |
-| Tensor products    | `te(...)` and `ti(...)` over supported metric or MRF marginals                                       |
-| Parametric terms   | numeric and factor terms, supported interactions, intercept policies, and formula offsets            |
-| Shared smoothing   | supported `id=` groups, fixed/free smoothing parameters, `select=True`, and `pc=` on supported bases |
+| Tensor products    | `te(...)` and `ti(...)` over supported metric or MRF marginals                                        |
+| Parametric terms   | numeric and factor terms, supported interactions, intercept policies, and formula offsets             |
+| Shared smoothing   | supported `id=` groups, fixed/free smoothing parameters, `select=True`, and `pc=` on supported bases  |
+
 
 For spherical splines, write
 `s(latitude, longitude, bs='sos')`: coordinates are degrees in latitude-first,
 longitude-second order. A spherical marginal inside `te()` or `ti()` needs
 `d=2`. Because the array API creates one smooth per input column, joint SOS
 terms use the formula interface.
-
 
 ### Shape-constrained functionality
 
@@ -167,7 +183,7 @@ Shape-constrained functionality includes fixed smoothing, the supported automati
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Ordinary families         | Gaussian, binomial, Poisson, and Gamma with the implemented canonical and noncanonical links                                                       |
 | Extended families         | negative binomial (`nb` and fixed-theta `negbin`), beta regression (`betar`), Tweedie (`tw`), and ordered categorical (`ocat`)                     |
-| Multi-predictor families  | `GAMLSS` with `normal`/`gaulss` and `gamma`/`gammals`; raw `GAM` also accepts the mgcv family names                                                  |
+| Multi-predictor families  | `GAMLSS` with `normal`/`gaulss` and `gamma`/`gammals`; raw `GAM` also accepts the mgcv family names                                                |
 | Smoothness criteria       | fixed smoothing, GCV/Cp, UBRE, ML, REML, and general-family LAML where the selected family and model combination supports them                     |
 | Smoothness optimizers     | outer Newton, BFGS, EFS, and guarded `optim`/L-BFGS-B routes                                                                                       |
 | Prediction                | link, response, terms, interaction terms, linear-predictor matrices, and pointwise standard errors                                                 |
@@ -175,34 +191,104 @@ Shape-constrained functionality includes fixed smoothing, the supported automati
 
 #### Neural Additive Model (NAM)
 
-NAMpy provides multiple neural additive architectures behind consistent
-regression, classification, and distributional-regression APIs. Models retain
-their published structural and training differences while sharing data
-preparation, prediction, scoring, persistence, and term-inspection conventions.
+NAMpy provides neural additive architectures for regression, classification,
+and distributional regression. They share data preparation, prediction,
+scoring, persistence, and term-inspection methods while retaining their own
+model structures and training procedures.
 
 ```python
+import numpy as np
+import pandas as pd
+
 from nampy.models import NAMRegressor
 
+rng = np.random.default_rng(7)
+n = 1_800
+X = pd.DataFrame({
+    "median_income": rng.uniform(1.0, 10.0, n),
+    "house_age": rng.uniform(1.0, 52.0, n),
+    "latitude": rng.uniform(32.0, 42.0, n),
+    "rooms_per_household": rng.lognormal(1.5, 0.35, n),
+})
+y = (
+    2.2 * np.tanh((X["median_income"] - 5.0) / 1.7)
+    + 0.9 * np.sin((X["house_age"] - 5.0) / 8.0)
+    - 0.55 * (X["latitude"] - 37.0) ** 2 / 6.0
+    + 0.75 * np.log1p(X["rooms_per_household"])
+    + rng.normal(0.0, 0.3, n)
+)
+
 model = NAMRegressor(
-    layer_sizes=[64, 32],
-    dropout=0.1,
+    layer_sizes=[48, 24],
+    dropout=0.0,
     numerical_preprocessing="minmax",
-).fit(
-    X_train,
-    y_train,
+)
+model.fit(
+    X,
+    y,
     max_epochs=100,
     batch_size=128,
     patience=12,
     random_state=7,
 )
 
-prediction = model.predict(X_test)
-components = model.predict_components(X_test, center=True)
-importance = model.term_importance(X_test)
-figures = model.plot_terms(X_test)
+prediction = model.predict(X)
+components = model.predict_components(X, center=True, reference_X=X)
+importance = model.term_importance(X, center=True, reference_X=X)
+figures = model.plot_terms(X, center=True, reference_X=X)
 ```
 
+![Centered NAM feature effects](docs/_static/homepage_demo_light.png)
+
+Distributional estimators also expose family-aware point-and-spread plots:
+
+```python
+from nampy.models import NAMLSS
+
+rng_dist = np.random.default_rng(11)
+X_dist = pd.DataFrame({
+    "median_income": rng_dist.uniform(1.0, 10.0, n),
+    "house_age": rng_dist.uniform(1.0, 52.0, n),
+})
+location = (
+    1.8 * np.tanh((X_dist["median_income"] - 5.0) / 1.7)
+    + 0.7 * np.sin((X_dist["house_age"] - 5.0) / 8.0)
+)
+scale = 0.25 + 0.45 / (1.0 + np.exp(-(X_dist["median_income"] - 5.0)))
+y_dist = location + rng_dist.normal(0.0, scale, n)
+
+lss = NAMLSS(
+    family="normal",
+    layer_sizes=[48, 24],
+    dropout=0.0,
+    numerical_preprocessing="minmax",
+)
+lss.fit(
+    X_dist,
+    y_dist,
+    max_epochs=100,
+    batch_size=128,
+    patience=12,
+    random_state=11,
+)
+figures = lss.plot_distributional_effects(
+    X_dist,
+    reference_X=X_dist,
+    feature_names=["median_income", "house_age"],
+    display_names={
+        "median_income": "Median income",
+        "house_age": "House age",
+    },
+)
+```
+
+![Distributional feature effects with conditional spread and predictor-density shading](docs/_static/readme_distributional_effects.png)
+
+The plotting layer uses each family's `predict_point` and `predict_spread`
+contract, so it is not tied to a particular distribution or parameter order.
+
 ### Integrated Neural Models
+
 
 | Architecture                                                                                                                                      | Model idea                                                                                 |
 | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
@@ -221,6 +307,7 @@ figures = model.plot_terms(X_test)
 | [Neural Generalized Additive Model (NodeGAM)](https://arxiv.org/abs/2106.01613)                                                                   | Differentiable oblivious trees with additive term extraction                               |
 | Quantile Neural Additive Model (QNAM)                                                                                                             | Non-crossing additive quantile outputs                                                     |
 | Spline Neural Additive Model (SplineNAM)                                                                                                          | Cubic-spline feature and interaction layers with smoothing penalties                       |
+
 
 `Regressor`, `Classifier`, and `LSS` suffixes form the concrete class names, for example `NBMRegressor`, `NBMClassifier`, and `NBMLSS`. Most architectures support all three estimator types; QNAM is distributional-only, SplineNAM is regression-only, and IGANN does not advertise interaction terms.
 
@@ -255,6 +342,8 @@ components.validate_additive_reconstruction()  # raw parameter/link scale
 | Discrete and ordered | `categorical`, `ordinal`                                                                                                |
 | Multivariate         | `dirichlet`, `mvnormdiag`                                                                                               |
 | Quantiles            | `quantile`                                                                                                              |
+
+
 
 
 ## Shared interpretation contract
@@ -355,7 +444,6 @@ restored = type(model).load_model(path)
 ```
 
 These artifacts use Python pickle. Load them only from trusted sources.
-
 
 Both model families keep predictions decomposable into named terms:
 

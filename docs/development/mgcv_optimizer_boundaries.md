@@ -1,6 +1,6 @@
 # mgcv and SCAM optimizer coverage
 
-NAMpy ports the following smoothing-selection routes from the vendored mgcv
+NAMpy implements the following smoothing-selection routes against the vendored mgcv
 1.9-4 and SCAM sources:
 
 - GCV, GACV, UBRE/Cp, ML, REML, P-ML, P-REML, LAML, NCV, and QNCV;

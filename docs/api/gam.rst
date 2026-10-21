@@ -1,8 +1,11 @@
-GAM (mgcv-parity backend)
-=========================
+Statistical GAM API
+===================
 
-The classical GAM backend is a Python reimplementation of R's ``mgcv``,
-targeting behavioral parity to machine precision wherever feasible.
+NAMpy's statistical backend implements formula, smooth-construction, fitting,
+prediction, and inference conventions familiar from R's ``mgcv``. The
+:doc:`../user_guide/statistical_gams` page lists supported formula symbols,
+bases, families, selection methods, and analysis utilities with short usage
+examples.
 
 High-level model
 ----------------
@@ -48,19 +51,11 @@ hemisphere-specific ``plot.gam`` schemes 0 and 1 through its generic plotter.
 Shape-constrained smooths
 -------------------------
 
-The same ``GAM`` class accepts the SCOP-spline basis codes ported from R's
-``scam`` package.  For example, ``bs="mpi"`` is monotone increasing and
+The same ``GAM`` class accepts SCOP-spline basis codes defined by R's ``scam``
+package. For example, ``bs="mpi"`` is monotone increasing and
 ``bs="tecxcv"`` is a bivariate convex/concave surface.  See
 :doc:`../user_guide/shape_constrained_gams` for the complete basis list,
 automatic smoothing, derivatives, linear functionals, and AR(1) support.
-
-.. currentmodule:: nampy.gam.diagnostics
-
-.. autosummary::
-   :toctree: generated/
-   :nosignatures:
-
-   SmoothDerivativeResult
 
 Scikit-learn adapters
 ---------------------
@@ -117,6 +112,17 @@ Low-level entry points for the solver stage:
    fit_model_core
    solve_fit
    FitCoreSolution
+
+Controls and neighborhood cross-validation
+--------------------------------------------
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   GAMControl
+   gam_control
+   normalize_nei
 
 Shared contracts
 ----------------

@@ -1,26 +1,21 @@
-Quick Start
-===========
+Quickstart
+==========
 
-This page is intentionally short. It establishes the shared estimator workflow;
-the :doc:`notebook_tutorials` contain model theory and broader demonstrations.
+This guide fits one statistical GAM and one neural additive model. Both use a
+small regression dataset and the familiar ``fit`` and ``predict`` workflow.
 
-Install
--------
-
-Install both backends:
+Install NAMpy
+-------------
 
 .. code-block:: bash
 
-   pip install "nampy[all]"
+   pip install nampy
 
-Use ``nampy[gam]`` for only the statistical GAM backend or ``nampy[neural]``
-for only the neural backend. See :doc:`installation` for development installs
-and optional dependencies.
+Fit a statistical GAM
+---------------------
 
-Statistical GAM
----------------
-
-Formula mode exposes the ``mgcv``-aligned backend directly:
+The formula interface specifies which smooth function is fitted for each
+feature.
 
 .. code-block:: python
 
@@ -29,25 +24,30 @@ Formula mode exposes the ``mgcv``-aligned backend directly:
 
    from nampy.gam import GAM
 
-   x = np.linspace(0.0, 1.0, 120)
-   data = pd.DataFrame({"x": x, "y": np.sin(2 * np.pi * x)})
+   x = np.linspace(0.0, 1.0, 240)
+   data = pd.DataFrame(
+       {
+           "x": x,
+           "y": np.sin(2 * np.pi * x) + 0.15 * np.cos(6 * np.pi * x),
+       }
+   )
 
-   model = GAM(
-       formula='y ~ s(x, bs="cr", k=10)',
+   gam = GAM(
+       formula='y ~ s(x, bs="cr", k=12)',
        family="gaussian",
        smoothing_method="REML",
-   ).fit(data=data)
-   prediction = model.predict(data, type="response")
+   ).fit(data)
 
-The GAM notebook develops this interface into one coherent case study covering
-smooth bases, smoothing selection, response families, multiple linear
-predictors, shape constraints, inference, and diagnostics.
+   predictions = gam.predict(data, type="response")
+   gam.plot()
 
-Neural additive model
----------------------
+The model estimates a penalized cubic regression spline, selects its
+smoothness with REML, and returns predictions on the response scale.
 
-Neural estimators use a scikit-learn-style ``fit``/``predict``/``score``
-contract:
+Fit a neural additive model
+---------------------------
+
+The high-level neural estimators follow the scikit-learn convention.
 
 .. code-block:: python
 
@@ -57,27 +57,53 @@ contract:
    from nampy.models import NAMRegressor
 
    X, y = make_regression(
-       n_samples=500,
-       n_features=6,
+       n_samples=1000,
+       n_features=8,
+       n_informative=6,
        noise=0.2,
        random_state=7,
    )
    X_train, X_test, y_train, y_test = train_test_split(
-       X, y, test_size=0.2, random_state=7
+       X,
+       y,
+       test_size=0.2,
+       random_state=7,
    )
 
-   model = NAMRegressor(numerical_preprocessing="standardization")
-   model.fit(X_train, y_train, max_epochs=20, batch_size=64)
-   prediction = model.predict(X_test)
-   score = model.score(X_test, y_test)
+   nam = NAMRegressor(numerical_preprocessing="standardization")
+   nam.fit(X_train, y_train, max_epochs=50, batch_size=64)
 
-Where to continue
------------------
+   predictions = nam.predict(X_test)
+   score = nam.score(X_test, y_test)
 
-* Choose an architecture in :doc:`models/index`.
-* Open :doc:`notebook_tutorials` for theory and complete model demonstrations.
-* Read :doc:`user_guide/preprocessing` and :doc:`user_guide/training` for
-  cross-model controls.
-* Use :doc:`examples/index` for compact classification and distributional
-  recipes.
-* Consult :doc:`api/index` when you need exact signatures.
+The estimator fits one learned contribution function for each input feature.
+Preprocessing, batching, optimization, and prediction use the same fitted
+estimator object.
+
+Inspect the fitted terms
+------------------------
+
+Additive components are available separately from the final prediction:
+
+.. code-block:: python
+
+   components = nam.predict_components(X_test)
+   importance = nam.term_importance(X_test)
+   figures = nam.plot_terms(X_test)
+
+``predict_components`` returns the terms used to reconstruct the additive
+predictor. ``term_importance`` summarizes their magnitude, and ``plot_terms``
+draws the learned feature functions.
+
+Where to go next
+----------------
+
+* :doc:`notebooks/01_getting_started` introduces fitting, prediction, and
+  interpretation in NAMpy.
+* :doc:`notebooks/02_statistical_gams` covers smooths, inference, diagnostics,
+  and shape constraints.
+* :doc:`notebooks/03_neural_models` compares neural model
+  architectures.
+* :doc:`notebooks/04_distributional_models` covers
+  distributional predictions and ensembles.
+* :doc:`api/index` lists exact constructor and method signatures.

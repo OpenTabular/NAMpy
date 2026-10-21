@@ -1,95 +1,119 @@
-Model Catalog
-=============
+Models and Architectures
+========================
 
-This page helps choose a model. Mathematical derivations, supported task
-variants, model-specific controls, interpretation examples, limitations, and
-primary references live in the :doc:`../notebook_tutorials`. Constructor and
-method signatures live in :doc:`../api/index`.
+NAMpy provides statistical and neural models through a common estimator API.
+The models differ in how they represent feature effects, select interactions,
+and estimate their parameters. Use the table below to choose an appropriate
+starting point.
 
-Statistical model
------------------
-
-.. list-table::
-   :header-rows: 1
-   :widths: 18 38 44
-
-   * - Model
-     - Main inductive bias
-     - Start here
-   * - GAM
-     - Penalized regression splines with ``mgcv``-aligned fitting and inference
-     - :doc:`../notebooks/02_complete_gam_guide`
-
-Neural architectures
---------------------
+Choose a model
+--------------
 
 .. list-table::
    :header-rows: 1
-   :widths: 18 48 34
+   :widths: 27 73
 
    * - Model
-     - Best fit for
-     - Tutorial
-   * - LinReg
-     - An additive linear baseline
-     - :doc:`../notebooks/03_neural_additive_model_zoo`
-   * - NAM
-     - Independent neural shape functions and optional explicit interactions
-     - :doc:`../notebooks/03_neural_additive_model_zoo`
-   * - SNAM
-     - Sparse additive fitting and feature selection
-     - :doc:`../notebooks/03_neural_additive_model_zoo`
-   * - SIAN
-     - Data-driven sparse higher-order interaction discovery
-     - :doc:`../notebooks/03_neural_additive_model_zoo`
-   * - GPNAM
-     - Smooth fixed random-Fourier-feature additive effects
-     - :doc:`../notebooks/03_neural_additive_model_zoo`
-   * - IGANN
-     - Fast boosted ELM shape functions initialized by a sparse linear model
-     - :doc:`../notebooks/03_neural_additive_model_zoo`
-   * - NBM
-     - Shared learned basis functions for unary or n-ary concepts
-     - :doc:`../notebooks/03_neural_additive_model_zoo`
-   * - SPAM
-     - Low-rank polynomial additive effects
-     - :doc:`../notebooks/03_neural_additive_model_zoo`
-   * - NBM-SPAM
-     - Polynomial heads over learned NBM concept scores
-     - :doc:`../notebooks/03_neural_additive_model_zoo`
-   * - TreeNAM
-     - Piecewise additive effects learned with differentiable trees
-     - :doc:`../notebooks/03_neural_additive_model_zoo`
-   * - NodeGAM
+     - Representation
+   * - :doc:`GAM <gam>` :sup:`1, 2`
+     - Penalized regression splines with automatic smoothness selection and
+       statistical inference
+   * - :doc:`LinReg <linreg>`
+     - Additive linear effects trained through the neural estimator interface
+   * - :doc:`NAM <nam>` :sup:`3`
+     - One neural network per feature, with optional explicit interactions
+   * - :doc:`SNAM <snam>` :sup:`4`
+     - NAM feature networks with group-lasso sparsity
+   * - :doc:`SIAN <sian>` :sup:`5`
+     - Sparse higher-order terms selected through feature-interaction detection
+   * - :doc:`GPNAM <gpnam>` :sup:`6`
+     - Random Fourier feature approximations to additive Gaussian processes
+   * - :doc:`IGANN <igann>` :sup:`7`
+     - Sparse linear initialization followed by feature-wise ELM boosting
+   * - :doc:`NBM <nbm>` :sup:`8`
+     - Learned basis functions shared across features and interactions
+   * - :doc:`SPAM <spam>` :sup:`9`
+     - Low-rank polynomial effects for scalable higher-order interactions
+   * - :doc:`NBM-SPAM <nbm_spam>` :sup:`8, 9`
+     - Learned NBM concept scores combined by SPAM polynomial heads
+   * - :doc:`TreeNAM <treenam>` :sup:`3, 10`
+     - One differentiable decision tree per main effect or explicit interaction
+   * - :doc:`EnsembleTreeNAM <ensemble_treenam>` :sup:`3, 10`
+     - A jointly trained ensemble of TreeNAM components
+   * - :doc:`NodeGAM <nodegam>` :sup:`10`
      - Additive ensembles of differentiable oblivious trees
-     - :doc:`../notebooks/03_neural_additive_model_zoo`
-   * - NATT
-     - Attention-based tabular modeling when strict additivity is not required
-     - :doc:`../notebooks/03_neural_additive_model_zoo`
-   * - NAMformer
-     - Transformer-style representations with additive term extraction
-     - :doc:`../notebooks/03_neural_additive_model_zoo`
-   * - QNAM
-     - Ordered conditional quantiles through distributional regression
-     - :doc:`../notebooks/03_neural_additive_model_zoo`
-   * - SplineNAM
-     - Neural additive effects represented by learnable spline bases
-     - :doc:`../notebooks/03_neural_additive_model_zoo`
+   * - :doc:`NATT <natt>` :sup:`11`
+     - Additive tabular-transformer representations with optional interactions
+   * - :doc:`NAMformer <namformer>` :sup:`12`
+     - Transformer representations designed to recover marginal feature effects
+   * - :doc:`QNAM <qnam>` :sup:`3, 13`
+     - Additive quantile functions constrained to remain ordered
+   * - :doc:`SplineNAM <spline_nam>` :sup:`1, 2`
+     - Learnable cubic-spline feature and interaction functions
 
-Ensembling
+``Regressor``, ``Classifier``, and ``LSS`` suffixes identify the estimator
+task, for example ``NAMRegressor``, ``NAMClassifier``, and ``NAMLSS``. QNAM is
+distributional-only, SplineNAM is regression-only, and IGANN currently supports
+main effects but not explicit interaction terms. The :doc:`../api/models`
+reference lists every public estimator class.
+
+The :doc:`../notebooks/02_statistical_gams` develops the statistical GAM
+workflow. The :doc:`../notebooks/03_neural_models` compares neural
+architectures using a common dataset and estimator interface.
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+
+   gam
+   linreg
+   nam
+   snam
+   sian
+   gpnam
+   igann
+   nbm
+   spam
+   nbm_spam
+   treenam
+   ensemble_treenam
+   nodegam
+   natt
+   namformer
+   qnam
+   spline_nam
+
+References
 ----------
 
-``EnsembleTreeNAM`` is the jointly trained multi-TreeNAM architecture and is
-covered in :doc:`../notebooks/03_neural_additive_model_zoo`.
-``NeuralEnsemble`` is the independent bootstrap/seed ensemble wrapper that can
-be applied to supported neural estimators; see
-:doc:`../notebooks/04_tasks_distributional_models_and_ensembles`.
-
-Task availability
------------------
-
-The runtime sweeps in
-:doc:`../notebooks/04_tasks_distributional_models_and_ensembles` construct and
-fit each supported regression, classification, and distributional estimator
-surface. The :doc:`../api/models` page is the authoritative list of public
-estimator classes.
+1. Hastie and Tibshirani (1986). `Generalized Additive Models
+   <https://doi.org/10.1214/ss/1177013604>`_.
+2. Wood (2011). `Fast stable restricted maximum likelihood and marginal
+   likelihood estimation of semiparametric generalized linear models
+   <https://doi.org/10.1111/j.1467-9868.2010.00749.x>`_.
+3. Agarwal et al. (2021). `Neural Additive Models: Interpretable Machine
+   Learning with Neural Nets <https://arxiv.org/abs/2004.13912>`_.
+4. Xu et al. (2022). `Sparse Neural Additive Model: Interpretable Deep
+   Learning with Feature Selection via Group Sparsity
+   <https://arxiv.org/abs/2202.12482>`_.
+5. Enouen and Liu (2023). `Sparse Interaction Additive Networks via Feature
+   Interaction Detection and Sparse Selection
+   <https://arxiv.org/abs/2209.09326>`_.
+6. Zhang, Barr, and Paisley (2024). `Gaussian Process Neural Additive Models
+   <https://arxiv.org/abs/2402.12518>`_.
+7. Kraus et al. (2024). `Interpretable generalized additive neural networks
+   <https://doi.org/10.1016/j.ejor.2023.06.032>`_.
+8. Radenovic, Dubey, and Mahajan (2022). `Neural Basis Models for
+   Interpretability <https://arxiv.org/abs/2205.14120>`_.
+9. Dubey, Radenovic, and Mahajan (2022). `Scalable Interpretability via
+   Polynomials <https://arxiv.org/abs/2205.14108>`_.
+10. Chang, Caruana, and Goldenberg (2022). `NODE-GAM: Neural Generalized
+    Additive Model for Interpretable Deep Learning
+    <https://arxiv.org/abs/2106.01613>`_.
+11. Thielmann et al. `Neural Additive Tabular Transformer Networks
+    <https://openreview.net/forum?id=TdJ7lpzAkD>`_.
+12. Thielmann, Reuter, and Säfken (2025). `Beyond Black-Box Predictions:
+    Identifying Marginal Feature Effects in Tabular Transformer Networks
+    <https://arxiv.org/abs/2504.08712>`_.
+13. Koenker and Bassett (1978). `Regression Quantiles
+    <https://doi.org/10.2307/1913643>`_.

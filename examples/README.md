@@ -24,7 +24,7 @@ use the [API reference](../docs/api/index.rst).
 Install the relevant backend and run a script from the repository root:
 
 ```bash
-pip install -e ".[all]"
+pip install -e .
 python examples/example_gam2.py
 ```
 

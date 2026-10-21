@@ -214,6 +214,23 @@ class BaseDistribution(torch.nn.Module):
         params = self._ensure_2d_predictions(params)
         return params[:, 0]
 
+    def predict_spread(
+        self, predictions: TensorLike, transformed: bool = False
+    ) -> torch.Tensor:
+        """Return the conditional standard deviation on the response scale.
+
+        Distributional effect plots use this family-level hook instead of
+        interpreting parameter names in the plotting code.  Scalar families
+        with a defined standard deviation should override it; families whose
+        output is multivariate, categorical, or quantile-only deliberately do
+        not invent a scalar spread.
+        """
+        del predictions, transformed
+        raise NotImplementedError(
+            f"{type(self).__name__} does not define a scalar conditional "
+            "standard deviation."
+        )
+
 
 class NormalDistribution(BaseDistribution):
     """
@@ -263,6 +280,11 @@ class NormalDistribution(BaseDistribution):
         params = predictions if transformed else self.forward(predictions)
         params = self._ensure_2d_predictions(params)
         return params[:, 0]
+
+    def predict_spread(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        return params[:, 1]
 
 
 class PoissonDistribution(BaseDistribution):
@@ -314,6 +336,11 @@ class PoissonDistribution(BaseDistribution):
         params = self._ensure_2d_predictions(params)
         return params[:, 0]
 
+    def predict_spread(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        return torch.sqrt(torch.clamp(params[:, 0], min=0.0))
+
 
 class InverseGammaDistribution(BaseDistribution):
     """Inverse-Gamma with parameters [shape, rate]."""
@@ -354,6 +381,19 @@ class InverseGammaDistribution(BaseDistribution):
         rate = params[:, 1]
         return rate / torch.clamp(shape - 1.0, min=self.eps)
 
+    def predict_spread(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        shape, rate = params[:, 0], params[:, 1]
+        variance = rate.square() / (
+            (shape - 1.0).square() * torch.clamp(shape - 2.0, min=self.eps)
+        )
+        return torch.where(
+            shape > 2.0,
+            torch.sqrt(torch.clamp(variance, min=0.0)),
+            torch.full_like(shape, torch.nan),
+        )
+
 
 class BetaDistribution(BaseDistribution):
     """Beta with parameters [alpha, beta]. Targets must lie in (0, 1)."""
@@ -388,6 +428,14 @@ class BetaDistribution(BaseDistribution):
         alpha = params[:, 0]
         beta = params[:, 1]
         return alpha / torch.clamp(alpha + beta, min=self.eps)
+
+    def predict_spread(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        alpha, beta = params[:, 0], params[:, 1]
+        total = torch.clamp(alpha + beta, min=self.eps)
+        variance = alpha * beta / (total.square() * (total + 1.0))
+        return torch.sqrt(torch.clamp(variance, min=0.0))
 
 
 class DirichletDistribution(BaseDistribution):
@@ -511,6 +559,11 @@ class GammaDistribution(BaseDistribution):
         params = self._ensure_2d_predictions(params)
         return params[:, 0] / torch.clamp(params[:, 1], min=self.eps)
 
+    def predict_spread(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        return torch.sqrt(params[:, 0]) / torch.clamp(params[:, 1], min=self.eps)
+
 
 class StudentTDistribution(BaseDistribution):
     """Student-t with parameters [df, loc, scale]."""
@@ -530,14 +583,19 @@ class StudentTDistribution(BaseDistribution):
         self.scale_transform = scale_transform
         self.min_df = float(min_df)
 
+    def forward(self, predictions: TensorLike) -> torch.Tensor:
+        params = super().forward(predictions)
+        params = params.clone()
+        params[:, 0] = params[:, 0] + self.min_df
+        return params
+
     def compute_loss_per_sample(self, predictions, y_true):
         predictions = self._ensure_2d_predictions(predictions)
         y = self._squeeze_target_last_singleton(y_true).float()
         self._validate_batch_match(predictions, y)
 
-        df = self.get_transform(self.df_transform)(predictions[:, 0]) + self.min_df
-        loc = self.get_transform(self.loc_transform)(predictions[:, 1])
-        scale = self.get_transform(self.scale_transform)(predictions[:, 2])
+        params = self.forward(predictions)
+        df, loc, scale = params[:, 0], params[:, 1], params[:, 2]
         return -dist.StudentT(df=df, loc=loc, scale=scale).log_prob(y)
 
     def evaluate_nll(self, y_true, y_pred):
@@ -560,6 +618,13 @@ class StudentTDistribution(BaseDistribution):
         params = predictions if transformed else self.forward(predictions)
         params = self._ensure_2d_predictions(params)
         return params[:, 1]
+
+    def predict_spread(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        df, scale = params[:, 0], params[:, 2]
+        spread = scale * torch.sqrt(df / torch.clamp(df - 2.0, min=self.eps))
+        return torch.where(df > 2.0, spread, torch.full_like(spread, torch.nan))
 
 
 class NegativeBinomialDistribution(BaseDistribution):
@@ -614,6 +679,12 @@ class NegativeBinomialDistribution(BaseDistribution):
         params = predictions if transformed else self.forward(predictions)
         params = self._ensure_2d_predictions(params)
         return params[:, 0]
+
+    def predict_spread(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        mean, dispersion = params[:, 0], params[:, 1]
+        return torch.sqrt(torch.clamp(mean + dispersion * mean.square(), min=0.0))
 
 
 class CategoricalDistribution(BaseDistribution):
@@ -926,6 +997,13 @@ class LogNormalDistribution(BaseDistribution):
         scale = params[:, 1]
         return torch.exp(loc + 0.5 * scale.square())
 
+    def predict_spread(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        loc, scale = params[:, 0], params[:, 1]
+        variance = torch.expm1(scale.square()) * torch.exp(2.0 * loc + scale.square())
+        return torch.sqrt(torch.clamp(variance, min=0.0))
+
 
 class WeibullDistribution(BaseDistribution):
     """
@@ -973,6 +1051,16 @@ class WeibullDistribution(BaseDistribution):
         return scale * torch.exp(
             torch.lgamma(1.0 + 1.0 / torch.clamp(shape, min=self.eps))
         )
+
+    def predict_spread(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        scale, shape = params[:, 0], params[:, 1]
+        inverse_shape = 1.0 / torch.clamp(shape, min=self.eps)
+        first = torch.exp(torch.lgamma(1.0 + inverse_shape))
+        second = torch.exp(torch.lgamma(1.0 + 2.0 * inverse_shape))
+        variance = scale.square() * (second - first.square())
+        return torch.sqrt(torch.clamp(variance, min=0.0))
 
 
 class LogLogisticDistribution(BaseDistribution):
@@ -1034,6 +1122,17 @@ class LogLogisticDistribution(BaseDistribution):
         # Median of the log-logistic is exactly scale.
         return params[:, 0]
 
+    def predict_spread(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        scale, shape = params[:, 0], params[:, 1]
+        angle = torch.pi / torch.clamp(shape, min=self.eps)
+        mean = scale * angle / torch.sin(angle)
+        second = scale.square() * (2.0 * angle) / torch.sin(2.0 * angle)
+        variance = second - mean.square()
+        spread = torch.sqrt(torch.clamp(variance, min=0.0))
+        return torch.where(shape > 2.0, spread, torch.full_like(spread, torch.nan))
+
 
 class ZeroInflatedPoissonDistribution(BaseDistribution):
     """
@@ -1094,6 +1193,13 @@ class ZeroInflatedPoissonDistribution(BaseDistribution):
         zero_prob = params[:, 0]
         rate = params[:, 1]
         return (1.0 - zero_prob) * rate
+
+    def predict_spread(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        zero_prob, rate = params[:, 0], params[:, 1]
+        variance = (1.0 - zero_prob) * rate * (1.0 + zero_prob * rate)
+        return torch.sqrt(torch.clamp(variance, min=0.0))
 
 
 class ZeroInflatedNegativeBinomialDistribution(BaseDistribution):
@@ -1160,6 +1266,14 @@ class ZeroInflatedNegativeBinomialDistribution(BaseDistribution):
         zero_prob = params[:, 0]
         mean = params[:, 1]
         return (1.0 - zero_prob) * mean
+
+    def predict_spread(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        zero_prob, mean, dispersion = params[:, 0], params[:, 1], params[:, 2]
+        base_variance = mean + dispersion * mean.square()
+        variance = (1.0 - zero_prob) * (base_variance + zero_prob * mean.square())
+        return torch.sqrt(torch.clamp(variance, min=0.0))
 
 
 class HurdlePoissonDistribution(BaseDistribution):
@@ -1438,6 +1552,13 @@ class TweedieDistribution(BaseDistribution):
         params = predictions if transformed else self.forward(predictions)
         params = self._ensure_2d_predictions(params)
         return params[:, 0]
+
+    def predict_spread(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        mean, dispersion = params[:, 0], params[:, 1]
+        variance = dispersion * mean.pow(self.variance_power)
+        return torch.sqrt(torch.clamp(variance, min=0.0))
 
 
 class OrdinalCumulativeLogitDistribution(BaseDistribution):

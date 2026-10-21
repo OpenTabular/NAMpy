@@ -1,259 +1,209 @@
 Frequently Asked Questions
 ==========================
 
-General Questions
------------------
-
-What is NAMpy?
-~~~~~~~~~~~~~~
-
-NAMpy is a Python package for neural additive models and related architectures,
-providing interpretable deep learning for tabular data with a scikit-learn compatible interface.
-
-Why use NAMpy over traditional methods?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-NAMpy combines the performance of deep learning with the interpretability of
-additive models. It offers:
-
-* Better performance than linear models
-* More interpretability than black-box neural networks
-* Scikit-learn compatible API
-* Multiple model architectures for different use cases
-
-Is NAMpy production-ready?
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-NAMpy 0.1 is a beta release. Validate the estimator, data preprocessing, and
-deployment path against your own requirements before production use.
-
-Installation & Setup
---------------------
-
-How do I install NAMpy?
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: bash
-
-   pip install "nampy[all]"
-
-For development installation:
-
-.. code-block:: bash
-
-   git clone https://github.com/Ananyapam7/NAMpy.git
-   cd NAMpy
-   pip install -e ".[all,dev]"
-
-What are the requirements?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-* Python 3.11 or 3.12
-
-The core package requires NumPy, pandas, and scikit-learn. Install
-``nampy[gam]`` for the GAM backend, ``nampy[neural]`` for the neural backend,
-or ``nampy[all]`` for both.
-
-Do I need a GPU?
-~~~~~~~~~~~~~~~~
-
-No, but GPU acceleration is supported and will speed up training if available.
-
-Usage Questions
+Models and data
 ---------------
 
-How do I choose which model to use?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Which model should I use?
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
-* **Maximum interpretability**: NAM, NodeGAM
-* **Fast smooth additive fitting**: GPNAM
-* **Fast linear-to-nonlinear additive fitting**: IGANN
-* **Aleatoric distributional prediction**: an ``*LSS`` estimator with an
-  appropriate distribution family
-* **Feature selection**: SNAM or IGANN with ``sparse > 0``
-* **Complex interactions**: NATT, NAMformer
-* **Baseline**: LinReg
+Start with the model whose structure matches the question you want to answer.
 
-See :doc:`models/index` for detailed comparisons.
+.. list-table::
+   :header-rows: 1
+   :widths: 45 55
 
-Can I use NAMpy with pandas DataFrames?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   * - Goal
+     - Starting point
+   * - Smooth effects with statistical inference
+     - ``GAMRegressor`` or the formula-based ``GAM``
+   * - Flexible feature-wise neural functions
+     - ``NAMRegressor`` or ``NAMClassifier``
+   * - Sparse feature selection
+     - ``SNAM`` or ``IGANN`` estimators
+   * - Explicit higher-order interactions
+     - ``SIAN``, ``SPAM``, ``NATT``, or ``NAMformer`` estimators
+   * - Conditional scale or shape
+     - ``GAMLSS`` or a neural ``*LSS`` estimator
+   * - Ordered conditional quantiles
+     - ``QNAMLSS``
 
-Yes. NAMpy works with pandas DataFrames:
+These are starting points rather than performance guarantees. Compare candidate
+models on the same validation split and metric. See :doc:`models/index` for the
+full catalog.
+
+Can I use pandas DataFrames?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Yes. DataFrames preserve column names and dtypes, which makes them the clearest
+input format for mixed tabular data.
 
 .. code-block:: python
 
    import pandas as pd
+
    from nampy.models import NAMRegressor
-   
-   df = pd.read_csv("data.csv")
-   X = df.drop("target", axis=1)
-   y = df["target"]
-   
+
+   data = pd.read_csv("data.csv")
+   X = data.drop(columns="target")
+   y = data["target"]
+
    model = NAMRegressor()
    model.fit(X, y, max_epochs=100)
 
-How do I handle categorical features?
+NumPy arrays are also accepted by the high-level neural estimators.
+
+How are categorical columns detected?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The preprocessing layer uses DataFrame dtypes and estimator settings to assign
+feature types. Convert identifier-like integer columns to ``category`` when
+they should not be treated as continuous measurements.
+
+.. code-block:: python
+
+   X["region"] = X["region"].astype("category")
+
+See :doc:`user_guide/preprocessing` for the available transformations and
+feature-type controls.
+
+What is the difference between a GAM and a neural additive model?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A statistical GAM represents effects with penalized basis functions and selects
+smoothness through a statistical criterion. Its output includes quantities such
+as standard errors and smooth diagnostics. A neural additive model learns its
+feature functions with neural optimization and exposes learned contributions,
+but its uncertainty statements are not the same as GAM inference.
+
+Fitting and hardware
+--------------------
+
+Do I need a GPU?
+~~~~~~~~~~~~~~~~
+
+No. Statistical GAMs run on the CPU, and neural estimators also support CPU
+training. A GPU is useful when the neural model or dataset is large enough to
+offset device-transfer overhead.
+
+How can I reduce neural training time?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-NAMpy's preprocessor handles categorical features automatically. You can also
-specify how to treat features:
+Measure validation performance while changing one setting at a time:
+
+* reduce ``max_epochs`` while prototyping;
+* use early stopping;
+* reduce the architecture width or number of basis functions;
+* increase ``batch_size`` when memory allows; and
+* confirm that the intended accelerator is available.
+
+If validation quality matters, do not treat a short demonstration run as a
+final fit.
+
+How do I control overfitting?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use a fixed validation split and monitor its metric. For neural models, common
+controls include early stopping, ``dropout``, ``weight_decay``, and model
+capacity. For statistical GAMs, smoothness selection controls the effective
+complexity of smooth terms.
+
+Predictions and interpretation
+------------------------------
+
+How do I inspect feature effects?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use the fitted estimator's component and plotting methods:
 
 .. code-block:: python
 
-   model = NAMRegressor(
-       cat_cutoff=0.03,  # Treat as categorical if <3% unique values
-       treat_all_integers_as_numerical=False
-   )
+   components = model.predict_components(X_test)
+   importance = model.term_importance(X_test)
+   figures = model.plot_terms(X_test)
 
-Can I use NAMpy with scikit-learn pipelines?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``predict_components`` returns the additive terms used in reconstruction.
+``term_importance`` summarizes their magnitude, while ``plot_terms`` displays
+the fitted one- and two-dimensional effects supported by the estimator.
 
-Yes. NAMpy models are scikit-learn compatible:
+.. note::
 
-.. code-block:: python
+   Exact reconstruction does not imply that individual effects are uniquely
+   identified. Correlated inputs and overlapping main effects and interactions
+   can make term estimates unstable. See :doc:`user_guide/interpretability`.
 
-   from sklearn.pipeline import Pipeline
-   from sklearn.preprocessing import StandardScaler
-   from nampy.models import NAMRegressor
-   
-   pipeline = Pipeline([
-       ('scaler', StandardScaler()),
-       ('model', NAMRegressor())
-   ])
-
-Performance Questions
----------------------
-
-Why is training slow?
-~~~~~~~~~~~~~~~~~~~~~
-
-Deep learning models require more computation. Try:
-
-* Use GPU if available
-* Reduce `max_epochs`
-* Smaller `layer_sizes`
-* Fewer `n_bins`
-* Smaller dataset for prototyping
-
-How do I speed up predictions?
+What does an LSS model predict?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-* Use GPU
-* Pass ``batch_size=...`` to ``predict``, ``predict_proba``,
-  ``predict_components``, or ``basis_transform``
-* Save and load trained models
-* Use simpler model architecture
+An ``*LSS`` estimator predicts the natural parameters of its selected
+distribution. Their number, order, constraints, and links depend on the family.
+Use ``predict_point`` when you need the family-specific point prediction and
+consult :doc:`user_guide/gamlss` for parameter semantics.
 
-My model is overfitting, what should I do?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Does NAMpy support interactions?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-* Increase `dropout`
-* Add `weight_decay`
-* Use early stopping (`patience` parameter)
-* Reduce model complexity
-* Get more training data
+Yes, but interaction support depends on the architecture. Some models accept
+explicit interaction terms, while others discover or construct higher-order
+components. The :doc:`models/index` describes the representation used by each
+model.
 
-My model is underfitting, what should I do?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Persistence and integration
+---------------------------
 
-* Increase model capacity (`layer_sizes`)
-* Train longer (`max_epochs`)
-* Reduce `dropout`
-* Try different model architecture
-* Feature engineering
-
-Technical Questions
--------------------
-
-How do I save and load models?
+How do I save and load a model?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
    from nampy.models import NAMRegressor
 
-   path = model.save_model("nam_model.nampy")
-   restored = NAMRegressor.load_model(path)
+   model.save_model("housing.nampy")
+   restored = NAMRegressor.load_model("housing.nampy")
 
-The file contains the estimator, its fitted neural network, and preprocessing
-state. It uses Python's pickle protocol, so only load files from trusted sources.
-Recreate persisted files when moving between incompatible Python, PyTorch, or
-NAMpy versions.
+The artifact contains fitted model and preprocessing state. It uses Python's
+pickle protocol, so load only trusted files and retain the environment details
+used to create long-lived artifacts.
 
-Can I implement custom models?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Can I use scikit-learn utilities?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Yes! See :doc:`user_guide/custom_models` for a complete guide.
+The high-level estimators follow the scikit-learn estimator interface and can
+be used with common splitting, scoring, and model-selection utilities. Keep
+neural searches sequential when several fits would otherwise compete for the
+same GPU memory.
 
-How do I extract feature importances?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Can I add an architecture?
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-For interpretable models like NAM, you can extract feature-level predictions
-from the model's forward pass. The exact method depends on the model architecture.
+Yes. See :doc:`user_guide/custom_models` for the architecture, configuration,
+registry, and estimator contracts.
 
-Does NAMpy support multi-output regression?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Troubleshooting and support
+---------------------------
 
-The regression estimators accept a two-dimensional target and return one column
-per output. This is tested for every public neural regressor. Classification and
-LSS targets retain their task-specific shapes.
+Why can Python not import NAMpy after installation?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Integration Questions
----------------------
+Check that the package was installed into the interpreter used by the script or
+notebook:
 
-Can I use NAMpy with other frameworks?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. code-block:: bash
 
-NAMpy is built on PyTorch, so it integrates well with the PyTorch ecosystem.
-It also works with scikit-learn utilities.
+   python -m pip show nampy
 
-Does NAMpy work with Jupyter notebooks?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In an editor or notebook, also confirm the selected Python environment or
+kernel. See :doc:`installation` for the supported Python versions.
 
-Yes! NAMpy works great in Jupyter notebooks. Check out the examples in the
-repository's `examples/` directory.
+How do I report a problem?
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Can I deploy NAMpy models in production?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Search the `issue tracker <https://github.com/OpenTabular/NAMpy/issues>`_ first.
+For a new report, include a minimal example, the complete error message, the
+expected behavior, and the Python, NAMpy, operating-system, and backend versions.
 
-Yes! NAMpy models can be serialized and deployed like any scikit-learn model.
-Consider using model serving frameworks like FastAPI, Flask, or TorchServe.
+How do I contribute?
+~~~~~~~~~~~~~~~~~~~~
 
-Contributing Questions
-----------------------
-
-How can I contribute?
-~~~~~~~~~~~~~~~~~~~~~
-
-See :doc:`contributing` for detailed guidelines.
-
-How do I report a bug?
-~~~~~~~~~~~~~~~~~~~~~~
-
-Open an issue on `GitHub <https://github.com/Ananyapam7/NAMpy/issues>`_
-with:
-
-* Clear description of the problem
-* Steps to reproduce
-* Expected vs. actual behavior
-* Environment details
-
-How do I request a feature?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Open an issue on `GitHub <https://github.com/Ananyapam7/NAMpy/issues>`_
-describing:
-
-* The feature and its motivation
-* Use cases
-* Possible implementation approach
-
-Still Have Questions?
----------------------
-
-* Check the :doc:`user_guide`
-* Browse the :doc:`examples/index`
-* Search `GitHub Issues <https://github.com/Ananyapam7/NAMpy/issues>`_
-* Ask in `GitHub Discussions <https://github.com/Ananyapam7/NAMpy/discussions>`_
-* Read the :doc:`api/index`
+The :doc:`contributing` page contains the development installation, test
+commands, and links to the repository workflow.

@@ -31,11 +31,24 @@ def _page_layout(n_plots: int, pages: int):
     return pages, ppp
 
 
-def render_term_plots(prepared, *, rug=None, pages=0, theta=30, phi=30,
-                      shade_col="0.8", figsize=None):
+def render_term_plots(
+    prepared,
+    *,
+    rug=None,
+    density=None,
+    density_bins=None,
+    density_color=None,
+    pages=0,
+    theta=30,
+    phi=30,
+    shade_col="0.8",
+    figsize=None,
+):
     """Render prepared plot data with matplotlib (plots.r:1042-1188).
 
-    ``rug=None`` falls back to ``prepared["rug_default"]`` (True when absent).
+    ``rug=None`` and ``density=None`` use the defaults stored in ``prepared``.
+    Density shading encodes the empirical feature distribution with translucent
+    vertical bands behind one-dimensional effects.
     """
     import matplotlib.pyplot as plt
 
@@ -47,6 +60,12 @@ def render_term_plots(prepared, *, rug=None, pages=0, theta=30, phi=30,
 
     if rug is None:
         rug = bool(prepared.get("rug_default", True))
+    if density is None:
+        density = bool(prepared.get("density_default", False))
+    if density_bins is None:
+        density_bins = int(prepared.get("density_bins", 30))
+    if density_color is None:
+        density_color = str(prepared.get("density_color", "#D73027"))
 
     plots = [
         (i, P)
@@ -110,6 +129,15 @@ def render_term_plots(prepared, *, rug=None, pages=0, theta=30, phi=30,
             xx = P["x"]
             fit = trans(np.asarray(P["fit"], dtype=np.float64) + shift)
             ylimit = common_ylim
+            if density:
+                from .distributional import add_density_shading
+
+                add_density_shading(
+                    ax,
+                    P["raw"],
+                    bins=density_bins,
+                    color=density_color,
+                )
             if P.get("plot_ci"):
                 ll0 = trans(P["ll"][:, 0] + shift)
                 ul0 = trans(P["ul"][:, 0] + shift)
@@ -266,7 +294,6 @@ def prepared_from_contributions(
     columns = getattr(frame, "columns", ())
 
     pd_list = []
-    n_rows = None
     for name, values in terms.items():
         column = term_features.get(name, name)
         if column not in columns or (":" in name and name not in term_features):
@@ -279,7 +306,6 @@ def prepared_from_contributions(
         if contrib.shape[1] != 1:
             continue
         order = np.argsort(x_raw)
-        n_rows = x_raw.size
         pd_list.append(
             {
                 "kind": "1d",
@@ -307,5 +333,8 @@ def prepared_from_contributions(
         "jit": False,
         "select": None,
         "scale": False,
-        "rug_default": bool(n_rows is None or n_rows <= 10000),
+        "rug_default": False,
+        "density_default": True,
+        "density_bins": 30,
+        "density_color": "#D73027",
     }

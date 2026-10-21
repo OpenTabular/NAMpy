@@ -8,6 +8,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from sphinxawesome_theme.postprocess import Icons
+
 # Keep Matplotlib cache writes out of user home directories in local and CI builds.
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/nampy-matplotlib")
 
@@ -38,15 +40,18 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinx.ext.mathjax",
-    "sphinx_rtd_theme",
     "myst_parser",  # For Markdown support
     "nbsphinx",  # Render checked-in notebook sources (via nbconvert/Pandoc)
+    "sphinx_design",
+    "sphinx_copybutton",
 ]
 
 nbsphinx_execute = "never"
 nbsphinx_allow_errors = False
 nbsphinx_kernel_name = "python3"
 highlight_language = "python3"  # Use python3 for syntax highlighting
+pygments_style = "default"
+pygments_style_dark = "monokai"
 
 # Napoleon settings for NumPy-style docstrings
 napoleon_google_docstring = False
@@ -109,22 +114,22 @@ nitpick_ignore = [
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = "sphinx_rtd_theme"
+html_theme = "sphinxawesome_theme"
 html_static_path = ["_static"]
 
-# Theme options
 html_theme_options = {
-    "logo_only": False,
-    "prev_next_buttons_location": "bottom",
-    "style_external_links": False,
-    "style_nav_header_background": "#2980B9",
-    # Toc options
-    "collapse_navigation": False,
-    "sticky_navigation": True,
-    "navigation_depth": 4,
-    "includehidden": True,
-    "titles_only": False,
+    "show_breadcrumbs": True,
+    "show_prev_next": True,
+    "show_scrolltop": True,
+    "awesome_headerlinks": True,
+    "awesome_external_links": False,
+    "main_nav_links": {
+        "GitHub": "https://github.com/OpenTabular/NAMpy",
+        "PyPI": "https://pypi.org/project/nampy/",
+    },
 }
+
+html_permalinks_icon = Icons.permalinks_icon
 
 # Add any paths that contain custom static files (such as style sheets)
 html_static_path = ["_static"]
@@ -132,13 +137,15 @@ html_css_files = ["custom.css"]
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-html_logo = "_static/logo.png"
+html_logo = "_static/logo-mark.svg"
+html_title = "NAMpy"
+html_last_updated_fmt = "%Y-%m-%d"
 
 # The name of an image file (within the static path) to use as favicon
-# html_favicon = "_static/favicon.ico"
+html_favicon = "_static/logo-mark.svg"
 
 # If true, links to the reST sources are added to the pages.
-html_show_sourcelink = True
+html_show_sourcelink = False
 
 # If true, "Created using Sphinx" is shown in the HTML footer.
 html_show_sphinx = True
@@ -178,10 +185,10 @@ man_pages = [(master_doc, "nampy", "NAMpy Documentation", [author], 1)]
 
 # Include rendered notebook pages in EPUB while omitting their raw source files.
 epub_exclude_files = [
-    "notebooks/01_nampy_core_workflow.ipynb",
-    "notebooks/02_complete_gam_guide.ipynb",
-    "notebooks/03_neural_additive_model_zoo.ipynb",
-    "notebooks/04_tasks_distributional_models_and_ensembles.ipynb",
+    "notebooks/01_getting_started.ipynb",
+    "notebooks/02_statistical_gams.ipynb",
+    "notebooks/03_neural_models.ipynb",
+    "notebooks/04_distributional_models.ipynb",
 ]
 
 # -- Options for Texinfo output ----------------------------------------------

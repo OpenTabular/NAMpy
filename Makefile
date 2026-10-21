@@ -19,10 +19,10 @@ help:
 	@echo "publish          Publish to PyPI (use with caution)"
 
 install:
-	pip install -e ".[all]"
+	pip install -e .
 
 install-dev:
-	pip install -e ".[all,dev]"
+	pip install -e ".[dev]"
 	pre-commit install
 
 test:

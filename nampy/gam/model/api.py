@@ -936,7 +936,7 @@ class GAM:
     def plot(self, **kwargs):
         """mgcv ``plot.gam``-shaped term plots (mgcv/R/plots.r:1271-1565).
 
-        Accepts the ported plot.gam arguments (``residuals``, ``rug``, ``se``,
+        Accepts the supported plot.gam arguments (``residuals``, ``rug``, ``se``,
         ``pages``, ``select``, ``scale``, ``n``, ``n2``, ``n3``, ``theta``,
         ``phi``, ``jit``, ``xlab``, ``ylab``, ``main``, ``ylim``, ``xlim``,
         ``too_far``, ``shade_col``, ``shift``, ``trans``, ``se_with_mean``,

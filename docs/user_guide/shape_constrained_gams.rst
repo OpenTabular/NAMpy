@@ -1,8 +1,8 @@
 Shape-constrained GAMs
 ======================
 
-NAMpy ports the shape-constrained P-spline machinery from ``scam`` 1.2-22
-into the classical :class:`nampy.gam.GAM` pipeline. A constrained and an
+NAMpy implements shape-constrained P-splines following the ``scam`` 1.2-22
+definitions within the :class:`nampy.gam.GAM` pipeline. A constrained and an
 ordinary smooth can be combined in one formula. The compiler represents the
 constraint as a coefficient transform, then dispatches by model capability
 rather than by a hard-coded list of SCAM terms.

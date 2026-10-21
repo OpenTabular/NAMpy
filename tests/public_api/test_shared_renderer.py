@@ -82,12 +82,51 @@ def test_neural_plot_terms_uses_shared_renderer(tmp_path):
     y = 2.0 * X["x"].to_numpy() - X["z"].to_numpy()
 
     estimator = LinRegRegressor(numerical_preprocessing="standardization")
-    estimator.fit(X, y, max_epochs=2, patience=1, checkpoint_path=str(tmp_path))
+    estimator.fit(
+        X,
+        y,
+        max_epochs=2,
+        patience=1,
+        checkpoint_path=str(tmp_path),
+        logger=False,
+        enable_progress_bar=False,
+        enable_model_summary=False,
+    )
 
     figures = estimator.plot_terms(X)
     try:
         assert len(figures) == 1
         assert len(figures[0].axes) >= 2
+        assert all(axis.patches for axis in figures[0].axes[:2])
+        assert all(len(axis.lines) == 1 for axis in figures[0].axes[:2])
+    finally:
+        plt.close("all")
+
+
+def test_neural_plot_terms_can_replace_density_with_rug(tmp_path):
+    from nampy.models.linreg import LinRegRegressor
+
+    rng = np.random.default_rng(1)
+    X = pd.DataFrame({"x": rng.normal(size=60)})
+    y = 2.0 * X["x"].to_numpy()
+
+    estimator = LinRegRegressor(numerical_preprocessing="standardization")
+    estimator.fit(
+        X,
+        y,
+        max_epochs=2,
+        patience=1,
+        checkpoint_path=str(tmp_path),
+        logger=False,
+        enable_progress_bar=False,
+        enable_model_summary=False,
+    )
+
+    figures = estimator.plot_terms(X, density=False, rug=True)
+    try:
+        axis = figures[0].axes[0]
+        assert not axis.patches
+        assert len(axis.lines) == 2
     finally:
         plt.close("all")
 

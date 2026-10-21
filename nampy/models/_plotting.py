@@ -99,22 +99,14 @@ def plot_density_shading(ax, x_values, y_range, num_bins=30):
     x_values : np.ndarray
         The x values to compute density from.
     y_range : tuple
-        (y_min, y_max) range for the shading bars.
+        Retained for backward compatibility; vertical spans follow the axes.
     num_bins : int, optional
         Number of bins for density computation, by default 30.
     """
-    counts, bin_edges = np.histogram(x_values, bins=num_bins)
-    max_count = counts.max() if counts.size else 1
-    norm_counts = counts / max_count
+    del y_range  # retained for compatibility with the legacy helper signature
+    from ..plotting import add_density_shading
 
-    for i in range(num_bins):
-        ax.bar(
-            bin_edges[i],
-            y_range,
-            width=bin_edges[i + 1] - bin_edges[i],
-            color=plt.cm.Reds(norm_counts[i]),
-            alpha=0.6,
-        )
+    add_density_shading(ax, x_values, bins=num_bins)
 
 
 def _as_2d_numpy(values) -> np.ndarray:
@@ -235,7 +227,8 @@ def plot_interaction_effects(
         for condition, row_indices in ranked_groups:
             values = condition if isinstance(condition, tuple) else (condition,)
             label = ", ".join(
-                f"{name}={value}" for name, value in zip(features[2:], values, strict=True)
+                f"{name}={value}"
+                for name, value in zip(features[2:], values, strict=True)
             )
             mask = np.zeros(len(interaction_preds), dtype=bool)
             mask[np.asarray(row_indices, dtype=int)] = True

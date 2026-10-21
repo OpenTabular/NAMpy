@@ -1,32 +1,49 @@
-API Reference
-=============
+API and Modules
+===============
 
-This section is the signature-level reference generated from NAMpy's public
-docstrings. For workflows and explanation, use the :doc:`../quickstart`,
-:doc:`../user_guide`, or :doc:`../notebook_tutorials` instead.
+The API reference follows NAMpy's public namespaces. Estimator classes are
+listed first; the remaining pages cover the statistical GAM, neural,
+inspection, plotting, and extension APIs.
+
+Estimators
+----------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    models
+
+Statistical GAM API
+-------------------
+
+.. toctree::
+   :maxdepth: 1
+
    gam
+   gam_formula
+   gam_smooths
+   gam_families
+   gam_diagnostics
+   gam_inference
+   gam_results
+   gam_advanced
+
+Neural API
+----------
+
+.. toctree::
+   :maxdepth: 1
+
    basemodels
    configs
    utils
+   neural
 
-Public layers
--------------
+Shared analysis API
+-------------------
 
-* :mod:`nampy.models` provides high-level scikit-learn-style estimators,
-  including the GAM adapters.
-* :mod:`nampy.gam` provides the formula-oriented GAM API and fit core.
-* :mod:`nampy.neural` provides architecture, objective, configuration, and
-  distribution internals for advanced use and extension.
-* :mod:`nampy.contracts` provides backend-neutral prediction, capability,
-  feature-schema, and persistence contracts.
+.. toctree::
+   :maxdepth: 1
 
-Version
--------
-
-.. autodata:: nampy.__version__
-   :annotation:
+   contracts
+   plotting
