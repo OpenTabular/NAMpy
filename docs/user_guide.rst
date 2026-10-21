@@ -1,51 +1,68 @@
-Guides
-======
+User Guide
+==========
 
-Use a how-to guide when you already know the task you need to complete. Use a
-concept page when you need the statistical or interpretive reasoning behind a
-modeling choice. Exhaustive symbol and capability inventories live in the
-:doc:`API reference <api/index>` and :doc:`statistical GAM reference
-<user_guide/statistical_gams>`.
+Additive models describe a transformed prediction as a sum of named effects,
 
-.. grid:: 1 2 2 2
+.. math::
+
+   \eta(x) = \beta_0 + \sum_j f_j(x_j)
+   + \sum_{(j,k) \in \mathcal I} f_{jk}(x_j, x_k).
+
+NAMpy offers two ways to estimate these effects. Statistical GAMs represent
+them with penalized smooth bases and support inference and diagnostics. Neural
+additive models learn them with neural networks. Shape constraints extend the
+statistical smooths, while distributional regression lets either modeling
+approach describe more than a conditional mean.
+
+Choose the topic that matches the analysis you are building.
+
+.. grid:: 1 1 2 2
    :gutter: 2
 
-   .. grid-item-card:: How-to guides
-      :link: howto/index
-      :link-type: doc
-
-      Add interactions, impose constraints, work with offsets, and save fitted
-      estimators.
-
-   .. grid-item-card:: Concepts
-      :link: concepts/index
-      :link-type: doc
-
-      Understand additive predictors, centering, smoothness, uncertainty, and
-      distributional parameters.
-
-   .. grid-item-card:: Statistical GAM reference
+   .. grid-item-card:: Statistical GAMs
       :link: user_guide/statistical_gams
       :link-type: doc
 
-      Look up formulas, bases, families, fitting controls, inference, and
-      diagnostics.
+      Specify formulas and smooth bases, select smoothness, quantify
+      uncertainty, and diagnose a fitted model.
 
-   .. grid-item-card:: Neural modeling reference
-      :link: models/index
+   .. grid-item-card:: Neural additive models
+      :link: user_guide/neural_models
       :link-type: doc
 
-      Choose an architecture and understand what its reported terms mean.
+      Understand neural feature functions, preprocessing, training, and the
+      available interaction structures.
+
+   .. grid-item-card:: Shape constraints
+      :link: user_guide/shape_constrained_gams
+      :link-type: doc
+
+      Impose defensible monotonicity, curvature, positivity, or bivariate
+      shape assumptions.
+
+   .. grid-item-card:: Distributional regression
+      :link: user_guide/gamlss
+      :link-type: doc
+
+      Give location, scale, or shape parameters their own additive predictors.
+
+   .. grid-item-card:: Interpreting effects
+      :link: user_guide/interpretability
+      :link-type: doc
+
+      Read centered contributions, uncertainty bands, density shading, and
+      interaction surfaces without confusing reconstruction with
+      identifiability.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :hidden:
 
    user_guide/statistical_gams
-   user_guide/preprocessing
-   user_guide/pretab_compatibility
-   user_guide/training
+   user_guide/neural_models
    user_guide/shape_constrained_gams
    user_guide/gamlss
-   user_guide/custom_models
    user_guide/interpretability
+
+Answers to shorter setup and modeling questions are collected in the
+:doc:`frequently asked questions <faq>`.

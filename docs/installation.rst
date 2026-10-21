@@ -66,6 +66,7 @@ error message.
 Next steps
 ----------
 
-* :doc:`quickstart` — fit the first statistical and neural models.
-* :doc:`overview` — understand the model families and shared workflow.
+* :doc:`quickstart` — fit and interpret a statistical GAM.
+* :doc:`neural_quickstart` — fit and interpret a neural additive model.
+* :doc:`user_guide` — understand the modeling and interpretation workflow.
 * :doc:`faq` — find answers to common setup and modeling questions.

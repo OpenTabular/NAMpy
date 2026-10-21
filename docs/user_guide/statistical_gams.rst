@@ -9,6 +9,12 @@ page collects the formula syntax, smooth constructors, fitting controls,
 prediction methods, inference, and diagnostics in one place. The
 :doc:`../api/gam` reference gives full call signatures.
 
+The basis dimension ``k`` supplies enough capacity to represent a range of
+curves; the smoothing penalty determines how much of that capacity the fitted
+model uses. Increasing ``k`` raises the ceiling on complexity, but does not by
+itself instruct the model to fit a more irregular curve. After fitting,
+inspect effective degrees of freedom, residual structure, and ``k_check()``.
+
 Coverage map
 ------------
 

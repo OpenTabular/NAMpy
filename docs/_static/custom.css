@@ -115,11 +115,26 @@ header img[alt="Logo"],
   width: 2rem;
 }
 
-.brand-mark {
-  display: block;
-  margin: 0 auto 1rem;
-  max-height: 7rem;
-  width: min(108px, 32vw);
+.homepage-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0.25rem 0 0.75rem;
+}
+
+.homepage-actions p {
+  margin: 0 !important;
+}
+
+/* The homepage is intentionally concise and does not need a duplicate table
+   of contents. Long guides and API pages keep the right-hand navigation. */
+main:has(#nampy-additive-modeling-in-python) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+main:has(#nampy-additive-modeling-in-python) #right-sidebar {
+  display: none;
 }
 
 #left-sidebar nav p.caption ~ p.caption {
