@@ -2,12 +2,10 @@ Shape-constrained GAMs
 ======================
 
 Use a shape constraint when the direction or curvature of an effect follows
-from the problem rather than from the observed sample alone. Consider a crop
-study where ``fertilizer_kg_ha`` is fertilizer dose in kilograms per hectare
-and ``yield_t_ha`` is crop yield in tonnes per hectare. Within the studied
-range, agronomic knowledge may support an effect that levels off but does not
-decrease. A constrained smooth encodes that assumption during fitting; it is
-not a visual adjustment applied afterward.
+from the problem rather than from the observed sample alone. For example, a
+dose effect may be expected to increase but not decrease over the studied
+range. A constrained smooth encodes that assumption during fitting; it is not
+a visual adjustment applied afterward.
 
 Compare an unconstrained and monotone fit
 -----------------------------------------
@@ -20,23 +18,19 @@ regression spline, while ``mpi`` fits a monotone-increasing P-spline.
    from nampy.gam import GAM
 
    ordinary = GAM(
-       formula='yield_t_ha ~ s(fertilizer_kg_ha, bs="cr", k=12)',
+       formula='y ~ s(x, bs="cr", k=12)',
        family="gaussian",
        optimize_smoothing=True,
        smoothing_method="reml",
    ).fit(data)
 
    increasing = GAM(
-       formula='yield_t_ha ~ s(fertilizer_kg_ha, bs="mpi", k=12)',
+       formula='y ~ s(x, bs="mpi", k=12)',
        family="gaussian",
        optimize_smoothing=True,
        smoothing_method="gcv",
        smoothing_optimizer="bfgs",
    ).fit(data)
-
-The :doc:`complete monotone-effect example
-<../auto_examples/statistical/plot_monotone_effect>` defines and generates
-``data``, draws the fitted curves, and is downloadable as Python or a notebook.
 
 .. image:: ../_static/shape_constraint_comparison.png
    :alt: Unconstrained and monotone-increasing smooths fitted to noisy data

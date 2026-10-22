@@ -1,25 +1,23 @@
-Predict with an offset
+Predict with an Offset
 ======================
 
-Suppose ``incident_count`` is the number of safety incidents recorded at each
-site, ``operating_hours`` is the time each site was observed, and
-``day_of_year`` describes seasonality. An offset accounts for unequal exposure
-without estimating a coefficient for it.
+An offset is a known contribution to the linear predictor. Supply it during
+fitting and again for new rows when it cannot be recovered from the formula:
 
 .. code-block:: python
 
    model = GAM(
-       formula="incident_count ~ s(day_of_year, bs='cc')",
+       formula="count ~ s(age)",
        family="poisson",
        optimize_smoothing=True,
        smoothing_method="reml",
-   ).fit(sites, offset=np.log(sites["operating_hours"]))
+   ).fit(data, offset=np.log(data["exposure"]))
 
-   predicted_incidents = model.predict(
-       new_sites,
+   prediction = model.predict(
+       new_data,
        type="response",
-       offset=np.log(new_sites["operating_hours"]),
+       offset=np.log(new_data["exposure"]),
    )
 
-``predict_components`` records the known exposure offset separately so the
-reported terms still reconstruct the link-scale prediction.
+``predict_components`` records the offset separately so the reported terms
+still reconstruct the link-scale prediction.

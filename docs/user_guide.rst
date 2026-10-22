@@ -1,87 +1,51 @@
-User guide
-==========
+Guides
+======
 
-The user guide explains modeling decisions: what an additive effect means,
-which approach fits a scientific question, how to assess a fitted model, and
-which limitations matter. Complete analyses live in :doc:`examples/index`;
-exact signatures and return types live in :doc:`api/index`.
+Use a how-to guide when you already know the task you need to complete. Use a
+concept page when you need the statistical or interpretive reasoning behind a
+modeling choice. Exhaustive symbol and capability inventories live in the
+:doc:`API reference <api/index>` and :doc:`statistical GAM reference
+<user_guide/statistical_gams>`.
 
-Foundations
------------
-
-.. grid:: 1 1 2 2
+.. grid:: 1 2 2 2
    :gutter: 2
 
-   .. grid-item-card:: Additive predictors and interpretation
-      :link: concepts/additive_predictors
+   .. grid-item-card:: How-to guides
+      :link: howto/index
       :link-type: doc
 
-      Understand term contributions, centering, interactions, and what exact
-      prediction reconstruction does—and does not—guarantee.
+      Add interactions, impose constraints, work with offsets, and save fitted
+      estimators.
 
-   .. grid-item-card:: Smoothness and basis dimension
-      :link: concepts/smoothness
+   .. grid-item-card:: Concepts
+      :link: concepts/index
       :link-type: doc
 
-      Learn how basis capacity and penalties jointly determine a fitted curve.
+      Understand additive predictors, centering, smoothness, uncertainty, and
+      distributional parameters.
 
-Modeling approaches
--------------------
-
-.. grid:: 1 1 2 2
-   :gutter: 2
-
-   .. grid-item-card:: Statistical GAMs
-      :link: user_guide/statistical_models
+   .. grid-item-card:: Statistical GAM reference
+      :link: user_guide/statistical_gams
       :link-type: doc
 
-      Choose families, smooth bases, fitting controls, inference, and
+      Look up formulas, bases, families, fitting controls, inference, and
       diagnostics.
 
-   .. grid-item-card:: Neural additive models
-      :link: user_guide/neural_models
+   .. grid-item-card:: Neural modeling reference
+      :link: models/index
       :link-type: doc
 
-      Learn the shared workflow, then compare specialized neural
-      representations.
-
-   .. grid-item-card:: Shape-constrained effects
-      :link: user_guide/shape_constrained_gams
-      :link-type: doc
-
-      Include defensible monotonicity, curvature, positivity, or bivariate
-      constraints during fitting.
-
-   .. grid-item-card:: Distributional modeling
-      :link: user_guide/gamlss
-      :link-type: doc
-
-      Model location, scale, and shape parameters with separate additive
-      predictors.
-
-Working with fitted models
---------------------------
-
-Use :doc:`user_guide/interpretability` to inspect and reconstruct named
-contributions. Data preparation, training controls, and custom extensions are
-covered after the modeling guides so that implementation details do not block
-a first analysis.
+      Choose an architecture and understand what its reported terms mean.
 
 .. toctree::
    :maxdepth: 2
    :hidden:
 
-   concepts/additive_predictors
-   concepts/smoothness
-   user_guide/statistical_models
    user_guide/statistical_gams
-   user_guide/neural_models
-   models/index
+   user_guide/preprocessing
+   user_guide/pretab_compatibility
+   user_guide/training
    user_guide/shape_constrained_gams
    user_guide/gamlss
-   concepts/distributional_regression
-   user_guide/interpretability
-   user_guide/preprocessing
-   user_guide/training
    user_guide/custom_models
-   user_guide/pretab_compatibility
+   user_guide/interpretability

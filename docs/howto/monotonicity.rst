@@ -1,15 +1,13 @@
-Impose monotonicity
+Impose Monotonicity
 ===================
 
-In a crop study, let ``fertilizer_kg_ha`` denote fertilizer dose in kilograms
-per hectare and ``yield_t_ha`` denote crop yield in tonnes per hectare. If the
-expected yield is known not to decrease within the studied dose range, replace
-the ordinary smooth basis with ``mpi``:
+Replace the smooth basis code with ``mpi`` for an increasing effect or ``mpd``
+for a decreasing effect:
 
 .. code-block:: python
 
    increasing = GAM(
-       formula='yield_t_ha ~ s(fertilizer_kg_ha, bs="mpi", k=12)',
+       formula="y ~ s(dose, bs='mpi', k=12)",
        family="gaussian",
        optimize_smoothing=True,
        smoothing_method="gcv",
@@ -18,8 +16,7 @@ the ordinary smooth basis with ``mpi``:
 
    derivative = increasing.derivative(smooth_number=1, deriv=1)
 
-The constraint applies during fitting. Check the derivative and fitted range,
-and state why the direction is justified. Run the :doc:`complete comparison
-<../auto_examples/statistical/plot_monotone_effect>` or consult the
-:doc:`shape-constraint guide <../user_guide/shape_constrained_gams>` for
-curvature, positivity, local, and bivariate constraints.
+The constraint applies during fitting. Check the derivative and the fitted
+range, and state why the direction is justified. The
+:doc:`../user_guide/shape_constrained_gams` reference lists curvature,
+positivity, local, and bivariate constraints.

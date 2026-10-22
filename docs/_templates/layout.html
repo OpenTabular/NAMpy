@@ -1,0 +1,16 @@
+{% extends "!layout.html" %}
+
+{% block htmltitle %}
+  {{ super() }}
+  <script>
+    (function () {
+      const key = "_x_darkMode";
+      const stored = localStorage.getItem(key);
+      const darkMode = stored === "true";
+      if (stored === null) {
+        localStorage.setItem(key, "false");
+      }
+      document.documentElement.classList.toggle("dark", darkMode);
+    })();
+  </script>
+{% endblock htmltitle %}

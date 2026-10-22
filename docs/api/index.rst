@@ -1,10 +1,9 @@
 API Reference
 =============
 
-The API reference gives exact signatures, accepted inputs, return values, and
-public symbols. It is for looking up an interface after choosing a method. Use
-the :doc:`user guide <../user_guide>` for modeling decisions and the
-:doc:`example gallery <../examples/index>` for complete analyses.
+The API reference follows NAMpy's public namespaces. Estimator classes are
+listed first; the remaining pages cover the statistical GAM, neural,
+inspection, plotting, and extension APIs.
 
 Estimators
 ----------

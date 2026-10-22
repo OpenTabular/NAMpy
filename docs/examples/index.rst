@@ -1,67 +1,29 @@
-Examples
-========
+Short Recipes
+=============
 
-This is the single index for NAMpy examples. Each entry is labeled by format
-so you can choose the depth you need without first navigating separate
-``tutorials``, ``recipes``, and ``notebooks`` sections.
+Use these pages when you need the shortest working example for a task. Each
+recipe keeps setup, fitting, prediction, and evaluation together.
 
-Generated gallery
------------------
+.. grid:: 1 1 3 3
+   :gutter: 2
 
-The flagship examples execute during the documentation build. Their figures
-and printed outputs are captured automatically, and each page provides
-downloadable Python and notebook versions.
+   .. grid-item-card:: Regression
+      :link: basic_regression
+      :link-type: doc
 
-.. toctree::
-   :maxdepth: 2
+      Fit an additive regressor and generate continuous predictions.
 
-   ../auto_examples/index
+   .. grid-item-card:: Classification
+      :link: basic_classification
+      :link-type: doc
 
-Statistical modeling
---------------------
+      Fit a classifier and inspect labels and class probabilities.
 
-* **Tutorial:** :doc:`First statistical GAM
-  <../auto_examples/statistical/plot_first_gam>` — fit, evaluate, interpret,
-  and diagnose one model.
-* **Tutorial:** :doc:`Monotone effect
-  <../auto_examples/statistical/plot_monotone_effect>` — compare an
-  unconstrained smooth with a scientifically justified increasing effect.
-* **Tutorial:** :doc:`Cyclic effect <../tutorials/periodic_effect>` — encode a
-  periodic boundary.
-* **Tutorial:** :doc:`Interaction surface <../tutorials/interaction_surface>`
-  — interpret an effect that depends jointly on two inputs.
-* **Recipe:** :doc:`Use an offset <../howto/offsets>`.
+   .. grid-item-card:: Distributional regression
+      :link: distributional_regression
+      :link-type: doc
 
-Neural modeling
----------------
-
-* **Tutorial:** :doc:`First neural additive model
-  <../auto_examples/neural/plot_first_nam>` — train a NAM and inspect its
-  feature effects.
-* **Tutorial:** :doc:`NAM versus NBM <../tutorials/nam_nbm>` — compare two
-  representations on the same data and scale.
-* **Recipe:** :doc:`Regression <basic_regression>`.
-* **Recipe:** :doc:`Classification <basic_classification>`.
-
-Distributional modeling
------------------------
-
-* **Tutorial:** :doc:`Changing conditional variability
-  <../auto_examples/distributional/plot_changing_variability>` — model
-  location and scale separately.
-* **Recipe:** :doc:`Distributional regression <distributional_regression>`.
-
-Extended notebooks
-------------------
-
-The notebooks are broad executable surveys rather than first introductions.
-Use them after the focused examples above.
-
-* **Extended notebook:** :doc:`Getting started <../notebooks/01_getting_started>`.
-* **Extended notebook:** :doc:`Statistical GAMs <../notebooks/02_statistical_gams>`.
-* **Extended notebook:** :doc:`Neural models <../notebooks/03_neural_models>`.
-* **Extended notebook:** :doc:`Distributional models
-  <../notebooks/04_distributional_models>`.
+      Predict distribution parameters rather than a single conditional mean.
 
 .. toctree::
    :maxdepth: 1
@@ -70,14 +32,9 @@ Use them after the focused examples above.
    basic_regression
    basic_classification
    distributional_regression
-   ../tutorials/periodic_effect
-   ../tutorials/interaction_surface
-   ../tutorials/nam_nbm
-   ../howto/interactions
-   ../howto/monotonicity
-   ../howto/offsets
-   ../howto/persistence
-   ../notebooks/01_getting_started
-   ../notebooks/02_statistical_gams
-   ../notebooks/03_neural_models
-   ../notebooks/04_distributional_models
+
+For complete analyses with mathematical context and fitted plots, use the
+:doc:`tutorial gallery <../tutorials/index>`. The repository's
+`examples directory <https://github.com/OpenTabular/NAMpy/tree/main/examples>`_
+contains standalone scripts. Exact constructors and methods are listed in the
+:doc:`../api/index`.
