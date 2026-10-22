@@ -1,12 +1,10 @@
-Fit and Diagnose a Statistical GAM
-==================================
+:orphan:
 
-How do temperature and time of day relate to energy demand? The
-:doc:`../quickstart` follows this complete synthetic analysis through model
-choice, held-out prediction, fitted effects, additive reconstruction,
-residual inspection, and basis-dimension checks.
+First statistical GAM
+=====================
 
-.. image:: ../_static/first_gam_effects.png
-   :alt: Estimated temperature and cyclic hour effects with uncertainty
-   :class: scientific-figure
-   :align: center
+This tutorial has moved to the executable, downloadable
+:doc:`first statistical GAM example
+<../auto_examples/statistical/plot_first_gam>`.
+
+This compatibility page preserves the previous URL.

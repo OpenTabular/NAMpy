@@ -1,710 +1,157 @@
-/* NAMpy documentation — aligned with the OpenTabular documentation style. */
-
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&display=swap");
-
+/* NAMpy documentation: a restrained scientific-Python presentation. */
 :root {
-  --nampy-blue: #2563eb;
-  --nampy-blue-dark: #1d4ed8;
-  --nampy-green: #1a7f37;
-  --nampy-border: #d0d7de;
-  --nampy-code-bg: #f6f8fa;
-  --nampy-text: #374151;
-  --nampy-heading: #111827;
+  --nampy-accent: #a61e4d;
+  --nampy-accent-dark: #7d1539;
+  --nampy-soft: #fff2f6;
+  --nampy-border: #e6d8dd;
+  --pst-color-primary: var(--nampy-accent);
+  --pst-color-link: var(--nampy-accent);
+  --pst-color-link-hover: var(--nampy-accent-dark);
 }
 
-body,
-#content {
-  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+html[data-theme="dark"] {
+  --nampy-accent: #f08eac;
+  --nampy-accent-dark: #ffc0d1;
+  --nampy-soft: #2c2025;
+  --nampy-border: #59434b;
+  --pst-color-primary: var(--nampy-accent);
+  --pst-color-link: var(--nampy-accent);
+  --pst-color-link-hover: var(--nampy-accent-dark);
 }
 
-#content {
-  color: var(--nampy-text);
-  max-width: 860px;
+.bd-page-width {
+  max-width: 96rem;
 }
 
-/* Give the landing page enough room for capability cards and fitted-effect
-   figures while retaining the narrower reading measure on guides. */
-#content:has(> #nampy-additive-modeling-in-python) {
-  max-width: 1040px;
+.bd-main .bd-content .bd-article-container {
+  max-width: 54rem;
 }
 
-#content p {
-  color: var(--nampy-text);
-  line-height: 1.7;
-  margin-bottom: 1rem;
+.bd-main .bd-content .bd-article-container:has(.homepage-hero) {
+  max-width: 76rem;
 }
 
-#content h1,
-#content h2,
-#content h3,
-#content h4 {
-  color: var(--nampy-heading);
-  font-weight: 700;
-  letter-spacing: -0.015em;
-}
-
-#content h1 {
-  margin-bottom: 1.5rem;
-}
-
-#content h2,
-#content h3 {
-  margin-bottom: 1rem;
-  margin-top: 2rem;
-}
-
-#content strong {
-  color: var(--nampy-heading);
-  font-weight: 700;
-}
-
-#content a {
-  color: var(--nampy-blue);
-  font-weight: 500;
-}
-
-#content a:hover {
-  color: var(--nampy-blue-dark);
-  text-decoration: underline;
-}
-
-#content a:focus-visible,
-button:focus-visible,
-input:focus-visible,
-summary:focus-visible {
-  border-radius: 3px;
-  outline: 3px solid #f59abb;
-  outline-offset: 3px;
-}
-
-.sd-card img {
-  background: #ffffff;
-  border-radius: 6px;
-  display: block;
-  margin-top: 0.8rem;
-  max-height: 150px;
-  object-fit: cover;
-  width: 100%;
-}
-
-.sd-btn {
-  margin-bottom: 0.6rem;
-  margin-right: 0.45rem;
-}
-
-#content ul li,
-#content ol li {
-  line-height: 1.55;
-  margin-bottom: 0.2rem;
-  margin-top: 0.2rem;
-}
-
-#left-sidebar img,
-header img {
-  height: auto;
-  max-height: 4rem;
-  max-width: 10rem;
+.navbar-brand img {
+  height: 2.15rem;
+  width: 2.15rem;
   object-fit: contain;
 }
 
-header img[alt="Logo"],
-#left-sidebar img[alt="Logo"] {
-  height: 2.35rem;
-  max-height: 2.35rem;
-  max-width: 2rem;
-  width: 2rem;
-}
-
-.brand-mark {
-  display: block;
-  margin: 0 auto 1rem;
-  max-height: 7rem;
-  width: min(108px, 32vw);
-}
-
-#left-sidebar nav p.caption ~ p.caption {
-  border-top: 1px solid var(--nampy-border);
-  margin-top: 0.5rem;
-  padding-top: 0.85rem;
-}
-
-code,
-kbd,
-samp,
-pre,
-.highlight pre,
-tt.literal,
-code.literal {
-  font-family: "JetBrains Mono", "Fira Code", "SFMono-Regular", Consolas, monospace;
-}
-
-div.highlight {
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.highlight pre {
-  background: var(--nampy-code-bg);
-  border: 1px solid var(--nampy-border);
-  border-radius: 8px;
-  color: #24292f;
-  font-size: 0.9rem;
-  font-feature-settings: "liga" 1, "calt" 1;
-  line-height: 1.65;
-  margin-top: 0;
-  padding: 1rem 1.25rem;
-}
-
-code.literal,
-p code,
-li code,
-td code {
-  background: #f3f4f6;
-  border: 1px solid #e2e4e8;
-  border-radius: 4px;
-  color: #c2185b;
-  font-size: 0.82em;
-  padding: 0.15em 0.4em;
-}
-
-.highlight .k,
-.highlight .kn,
-.highlight .kd,
-.highlight .kr,
-.highlight .kc,
-.highlight .kw,
-.highlight .nb,
-.highlight .bp,
-.highlight .mi,
-.highlight .mf {
-  color: #0550ae;
-}
-
-.highlight .k,
-.highlight .kn,
-.highlight .kd,
-.highlight .kr,
-.highlight .kc,
-.highlight .kw {
-  font-weight: 600;
-}
-
-.highlight .s,
-.highlight .s1,
-.highlight .s2,
-.highlight .sa,
-.highlight .se,
-.highlight .si {
-  color: #116329;
-}
-
-.highlight .nf,
-.highlight .fm,
-.highlight .nc,
-.highlight .nd {
-  color: #8250df;
-}
-
-.highlight .c,
-.highlight .c1,
-.highlight .cm,
-.highlight .cp {
-  color: #6e7781;
-  font-style: italic;
-}
-
-.admonition {
-  background: #f8f9fa;
-  border-left: 4px solid var(--nampy-border);
-  border-radius: 4px;
-  margin: 1.5rem 0;
-  padding: 0.75rem 1rem;
-}
-
-.admonition-title {
-  align-items: center;
-  display: flex;
-  font-size: 0.95rem;
+.navbar-brand p {
   font-weight: 700;
-  margin: 0 0 0.5rem;
+  letter-spacing: -0.02em;
 }
 
-.admonition-title::before {
-  display: inline-block;
-  flex-shrink: 0;
-  margin-right: 0.5rem;
+.homepage-hero {
+  max-width: 72rem;
+  padding: 1.5rem 0 0.75rem;
 }
 
-.admonition.note,
-.admonition.seealso {
-  background: #ddf4ff;
-  border-left-color: #0969da;
+.homepage-hero h1 {
+  font-size: clamp(2.2rem, 5vw, 4.25rem);
+  letter-spacing: -0.045em;
+  line-height: 1.02;
+  margin-bottom: 1rem;
 }
 
-.admonition.note .admonition-title,
-.admonition.seealso .admonition-title {
-  color: #0969da;
+.homepage-lead {
+  font-size: 1.18rem;
+  line-height: 1.65;
+  max-width: 54rem;
 }
 
-.admonition.note .admonition-title::before {
-  content: "ℹ️";
+.homepage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 1.2rem 0 0.6rem;
 }
 
-.admonition.seealso .admonition-title::before {
-  content: "🔗";
-}
-
-.admonition.tip,
-.admonition.hint {
-  background: #dafbe1;
-  border-left-color: var(--nampy-green);
-}
-
-.admonition.tip .admonition-title,
-.admonition.hint .admonition-title {
-  color: var(--nampy-green);
-}
-
-.admonition.tip .admonition-title::before {
-  content: "💡";
-}
-
-.admonition.hint .admonition-title::before {
-  content: "🔑";
-}
-
-.admonition.important {
-  background: #fbefff;
-  border-left-color: #8250df;
-}
-
-.admonition.important .admonition-title {
-  color: #8250df;
-}
-
-.admonition.important .admonition-title::before {
-  content: "⚡";
-}
-
-.admonition.warning,
-.admonition.caution {
-  background: #fff8c5;
-  border-left-color: #bf8700;
-}
-
-.admonition.warning .admonition-title,
-.admonition.caution .admonition-title {
-  color: #9a6700;
-}
-
-.admonition.warning .admonition-title::before,
-.admonition.caution .admonition-title::before {
-  content: "⚠️";
-}
-
-.admonition p:last-child,
-.admonition ul:last-child,
-.admonition ol:last-child {
-  margin-bottom: 0;
-}
-
-#content table.docutils,
-#content table.autosummary {
-  border-collapse: collapse;
-  display: block;
-  margin: 1.25rem 0 1.75rem;
-  max-width: 100%;
-  overflow-x: auto;
-  width: max-content;
-}
-
-#content table.docutils th,
-#content table.docutils td,
-#content table.autosummary td {
-  border-bottom: 1px solid #e5e7eb;
-  padding: 0.55rem 0.7rem;
-  text-align: left;
-  vertical-align: top;
-}
-
-#content table.docutils th {
-  background: #f6f8fa;
-  color: var(--nampy-heading);
-  font-weight: 600;
-}
-
-#content table.docutils tbody tr:hover,
-#content table.autosummary tbody tr:hover {
-  background: #f8fafc;
-}
-
-table.autosummary td:first-child code {
-  color: #8250df;
-  font-weight: 600;
+.install-command {
+  margin: 1rem 0 1.5rem;
+  max-width: 28rem;
 }
 
 .sd-card {
-  border: 1px solid #e5e7eb !important;
-  border-radius: 8px !important;
+  border: 1px solid var(--nampy-border) !important;
   box-shadow: none !important;
 }
 
 .sd-card:hover {
-  border-color: #93c5fd !important;
-  box-shadow: 0 4px 14px rgb(15 23 42 / 8%) !important;
+  border-color: var(--nampy-accent) !important;
 }
 
 .sd-card-title {
-  color: var(--nampy-heading);
   font-weight: 700;
 }
 
+.scientific-figure,
+.sphx-glr-single-img,
+.sphx-glr-multi-img img {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 0.35rem;
+  box-sizing: border-box;
+  padding: 0.35rem;
+}
+
 .homepage-demo {
-  border: 1px solid var(--nampy-border);
-  border-radius: 8px;
-  box-shadow: 0 4px 18px rgb(15 23 42 / 8%);
-  margin: 1rem auto 1.5rem;
-  width: 100%;
-}
-
-.scientific-figure {
-  border: 1px solid var(--nampy-border);
-  border-radius: 8px;
   display: block;
   margin: 1rem auto 1.5rem;
+  width: min(100%, 64rem);
+}
+
+/* Scientific colors must retain their meaning in both themes. */
+html[data-theme="dark"] .scientific-figure,
+html[data-theme="dark"] .sphx-glr-single-img,
+html[data-theme="dark"] .sphx-glr-multi-img img {
+  filter: none;
+}
+
+div.highlight,
+pre,
+dl.py > dt,
+.pst-scrollable-table-container {
   max-width: 100%;
-}
-
-.homepage-demo-dark {
-  display: none;
-}
-
-/* API entries should read as reference cards, not an unbroken stream of raw
-   Python signatures. Long signatures remain horizontally scrollable without
-   forcing the whole page wider than the content column. */
-#content dl.py {
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  margin: 1.25rem 0 1.75rem;
-  overflow: hidden;
-}
-
-#content dl.py > dt.sig {
-  background: #f6f8fa;
-  border: 0;
-  border-bottom: 1px solid #e5e7eb;
-  display: block;
-  font-size: 0.9rem;
-  line-height: 1.65;
   overflow-x: auto;
-  padding: 0.8rem 1rem;
-  white-space: nowrap;
 }
 
-#content dl.py > dd {
-  margin: 0;
-  padding: 0.9rem 1rem 1rem;
+dl.py > dt {
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
-#content dl.py dl.py {
-  border-color: #eef0f2;
-  margin: 0.9rem 0;
+.data-dictionary {
+  font-size: 0.95rem;
 }
 
-#content .sig-prename {
-  color: #57606a;
-  font-weight: 500;
+.version-note {
+  color: var(--pst-color-text-muted);
+  font-size: 0.88rem;
 }
 
-#content .sig-name {
-  color: #6639ba;
-}
-
-#content .sig-param {
-  font-weight: 400;
-}
-
-/* The theme switches with an html.dark class. Declare the complete light
-   palette explicitly as well, so a system-level dark preference cannot leave
-   Pygments tokens on a light code-block background. */
-html:not(.dark) .highlight,
-html:not(.dark) .highlight pre,
-html:not(.dark) .highlight code {
-  background: #f6f8fa;
-  color: #24292f;
-}
-
-html:not(.dark) .highlight span {
-  color: #24292f;
-}
-
-html:not(.dark) .highlight .k,
-html:not(.dark) .highlight .kn,
-html:not(.dark) .highlight .kd,
-html:not(.dark) .highlight .kr,
-html:not(.dark) .highlight .kc,
-html:not(.dark) .highlight .kw,
-html:not(.dark) .highlight .nb,
-html:not(.dark) .highlight .bp,
-html:not(.dark) .highlight .mi,
-html:not(.dark) .highlight .mf {
-  color: #0550ae;
-}
-
-html:not(.dark) .highlight .s,
-html:not(.dark) .highlight .s1,
-html:not(.dark) .highlight .s2,
-html:not(.dark) .highlight .sa,
-html:not(.dark) .highlight .sb,
-html:not(.dark) .highlight .sc,
-html:not(.dark) .highlight .sd,
-html:not(.dark) .highlight .se,
-html:not(.dark) .highlight .si,
-html:not(.dark) .highlight .sh {
-  color: #116329;
-}
-
-html:not(.dark) .highlight .nf,
-html:not(.dark) .highlight .fm,
-html:not(.dark) .highlight .nc,
-html:not(.dark) .highlight .nd {
-  color: #6639ba;
-}
-
-html:not(.dark) .highlight .c,
-html:not(.dark) .highlight .c1,
-html:not(.dark) .highlight .cm,
-html:not(.dark) .highlight .cs,
-html:not(.dark) .highlight .cp {
-  color: #57606a;
-}
-
-html.dark #content,
-html.dark #content p {
-  color: #d1d5db;
-}
-
-html.dark #content h1,
-html.dark #content h2,
-html.dark #content h3,
-html.dark #content h4,
-html.dark #content strong,
-html.dark .sd-card-title {
-  color: #f9fafb;
-}
-
-html.dark #content a {
-  color: #60a5fa;
-}
-
-html.dark #content a:hover {
-  color: #93c5fd;
-}
-
-html.dark #left-sidebar nav p.caption ~ p.caption,
-html.dark #content table.docutils th,
-html.dark #content table.docutils td,
-html.dark #content table.autosummary td {
-  border-color: #30363d;
-}
-
-html.dark .highlight pre,
-html.dark code.literal,
-html.dark p code,
-html.dark li code,
-html.dark td code {
-  background: #0d1117;
-  border-color: #30363d;
-}
-
-html.dark .highlight pre {
-  color: #e6edf3;
-}
-
-html.dark div.highlight {
-  background: #0d1117;
-}
-
-html.dark code.literal,
-html.dark p code,
-html.dark li code,
-html.dark td code {
-  color: #ff7b72;
-}
-
-html.dark .highlight .k,
-html.dark .highlight .kn,
-html.dark .highlight .kd,
-html.dark .highlight .kr,
-html.dark .highlight .kc,
-html.dark .highlight .kw,
-html.dark .highlight .nb,
-html.dark .highlight .bp,
-html.dark .highlight .mi,
-html.dark .highlight .mf {
-  color: #79c0ff;
-}
-
-html.dark .highlight .s,
-html.dark .highlight .s1,
-html.dark .highlight .s2,
-html.dark .highlight .sa,
-html.dark .highlight .sb,
-html.dark .highlight .sc,
-html.dark .highlight .sd,
-html.dark .highlight .se,
-html.dark .highlight .si,
-html.dark .highlight .sh {
-  color: #7ee787;
-}
-
-html.dark .highlight .nf,
-html.dark .highlight .fm,
-html.dark .highlight .nc,
-html.dark .highlight .nd {
-  color: #d2a8ff;
-}
-
-html.dark .highlight .c,
-html.dark .highlight .c1,
-html.dark .highlight .cm,
-html.dark .highlight .cs,
-html.dark .highlight .cp {
-  color: #8b949e;
-}
-
-html.dark .highlight .n,
-html.dark .highlight .na,
-html.dark .highlight .nv,
-html.dark .highlight .nn,
-html.dark .highlight .nx,
-html.dark .highlight .p,
-html.dark .highlight .o,
-html.dark .highlight .ow {
-  color: #e6edf3;
-}
-
-html.dark .admonition,
-html.dark .admonition.note,
-html.dark .admonition.seealso,
-html.dark .admonition.tip,
-html.dark .admonition.hint,
-html.dark .admonition.important {
-  background: #0d1117;
-}
-
-html.dark .admonition.warning,
-html.dark .admonition.caution {
-  background: #1c1810;
-}
-
-html.dark .admonition.note,
-html.dark .admonition.seealso {
-  border-left-color: #58a6ff;
-}
-
-html.dark .admonition.note .admonition-title,
-html.dark .admonition.seealso .admonition-title {
-  color: #79c0ff;
-}
-
-html.dark .admonition.tip,
-html.dark .admonition.hint {
-  border-left-color: #3fb950;
-}
-
-html.dark .admonition.tip .admonition-title,
-html.dark .admonition.hint .admonition-title {
-  color: #7ee787;
-}
-
-html.dark .admonition.important {
-  border-left-color: #a371f7;
-}
-
-html.dark .admonition.important .admonition-title {
-  color: #d2a8ff;
-}
-
-html.dark .admonition.warning,
-html.dark .admonition.caution {
-  border-left-color: #d29922;
-}
-
-html.dark .admonition.warning .admonition-title,
-html.dark .admonition.caution .admonition-title {
-  color: #e3b341;
-}
-
-html.dark #content table.docutils th,
-html.dark #content table.docutils tbody tr:hover,
-html.dark #content table.autosummary tbody tr:hover {
-  background: #161b22;
-}
-
-html.dark #content table.docutils td,
-html.dark #content table.autosummary td,
-html.dark #content dl,
-html.dark #content dt,
-html.dark #content dd,
-html.dark #content blockquote {
-  color: #d1d5db;
-}
-
-html.dark table.autosummary td:first-child code {
-  color: #d2a8ff;
-}
-
-html.dark .sd-card {
-  background: #0d1117 !important;
-  border-color: #30363d !important;
-}
-
-html.dark .sd-card:hover {
-  border-color: #60a5fa !important;
-  box-shadow: 0 4px 16px rgb(0 0 0 / 28%) !important;
-}
-
-html.dark #content dl.py,
-html.dark #content dl.py > dt.sig,
-html.dark #content dl.py dl.py {
-  border-color: #30363d;
-}
-
-html.dark #content dl.py > dt.sig {
-  background: #161b22;
-}
-
-html.dark #content .sig-prename {
-  color: #8b949e;
-}
-
-html.dark #content .sig-name {
-  color: #d2a8ff;
-}
-
-html.dark .homepage-demo-light {
-  display: none;
-}
-
-html.dark .homepage-demo-dark {
-  border-color: #30363d;
-  display: block;
-}
-
-html.dark #content img.scientific-figure {
-  background: #ffffff;
-  border-color: #30363d;
-  padding: 0.2rem;
+.sphx-glr-download-link-note,
+.sphx-glr-download-jupyter,
+.sphx-glr-download-python {
+  border-radius: 0.3rem;
 }
 
 @media (max-width: 768px) {
-  #content {
-    max-width: 100%;
+  .homepage-hero {
+    padding-top: 0.5rem;
   }
 
-  #content table.docutils,
-  #content table.autosummary {
+  .homepage-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .homepage-actions .sd-btn {
+    text-align: center;
     width: 100%;
+  }
+
+  .bd-main .bd-content .bd-article-container {
+    max-width: 100%;
   }
 }

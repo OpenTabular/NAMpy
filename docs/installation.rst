@@ -66,6 +66,9 @@ error message.
 Next steps
 ----------
 
-* :doc:`quickstart` — fit the first statistical and neural models.
-* :doc:`overview` — understand the model families and shared workflow.
+* :doc:`auto_examples/statistical/plot_first_gam` — fit and diagnose a
+  statistical GAM.
+* :doc:`auto_examples/neural/plot_first_nam` — learn and inspect neural
+  feature effects.
+* :doc:`user_guide` — understand the modeling approaches and their choices.
 * :doc:`faq` — find answers to common setup and modeling questions.

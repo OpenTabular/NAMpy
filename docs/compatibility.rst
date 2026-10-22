@@ -179,4 +179,5 @@ Both interfaces accept formulas, but they serve different workflows:
      - Automatic REML smoothing selection for a binary binomial model.
      - You want class labels, probabilities, and estimator conventions.
 
-For a first complete analysis, continue with :doc:`quickstart`.
+For a first complete analysis, continue with the :doc:`statistical GAM
+example <auto_examples/statistical/plot_first_gam>`.

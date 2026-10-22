@@ -72,8 +72,13 @@ particular parameter order or distribution.
    figures = model.plot_distributional_effects(
        X_test,
        reference_X=X_train,
-       feature_names=["age", "income"],
+       feature_names=["distance_km"],
    )
+
+In this example, ``distance_km`` is commute distance in kilometres and the
+response is travel time in minutes. The central curve describes the fitted
+location effect; the outer curves describe conditional trip-to-trip spread,
+not uncertainty about the fitted mean.
 
 For repeated fits, use ``prepare_distributional_effects`` on each fitted model,
 combine the results with ``combine_distributional_effects``, and pass the

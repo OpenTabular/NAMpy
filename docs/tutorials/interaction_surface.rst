@@ -5,6 +5,11 @@ Can separate latitude and longitude effects describe a localized spatial
 pattern? Usually not: the effect of one coordinate changes with the other. A
 tensor-product smooth represents their joint contribution.
 
+In this controlled synthetic example, ``latitude`` and ``longitude`` are
+centered local coordinates measured in degrees, and ``response`` is a unitless
+environmental index. ``spatial_data`` contains 700 sampled locations and the
+index observed at each one.
+
 .. code-block:: python
 
    from nampy.gam import GAM

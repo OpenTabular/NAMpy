@@ -8,8 +8,6 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from sphinxawesome_theme.postprocess import Icons
-
 # Keep Matplotlib cache writes out of user home directories in local and CI builds.
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/nampy-matplotlib")
 
@@ -43,6 +41,7 @@ extensions = [
     "myst_parser",  # For Markdown support
     "nbsphinx",  # Render checked-in notebook sources (via nbconvert/Pandoc)
     "sphinx_design",
+    "sphinx_gallery.gen_gallery",
 ]
 
 nbsphinx_execute = "never"
@@ -92,7 +91,23 @@ exclude_patterns = [
     "notebooks/README.md",
     "Thumbs.db",
     ".DS_Store",
+    "auto_examples/**/*.ipynb",
+    "auto_examples/**/*.py",
+    "auto_examples/**/*.zip",
+    "auto_examples/**/*.json",
+    "auto_examples/**/*.md5",
 ]
+
+sphinx_gallery_conf = {
+    "examples_dirs": "gallery_examples",
+    "gallery_dirs": "auto_examples",
+    "filename_pattern": r"/plot_",
+    "backreferences_dir": "generated/gallery_backreferences",
+    "doc_module": ("nampy",),
+    "abort_on_example_error": True,
+    "remove_config_comments": True,
+    "show_memory": False,
+}
 
 # Source file suffixes
 source_suffix = {
@@ -113,22 +128,46 @@ nitpick_ignore = [
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = "sphinxawesome_theme"
+html_theme = "pydata_sphinx_theme"
 html_static_path = ["_static"]
 
 html_theme_options = {
-    "show_breadcrumbs": True,
-    "show_prev_next": True,
-    "show_scrolltop": True,
-    "awesome_headerlinks": True,
-    "awesome_external_links": False,
-    "main_nav_links": {
-        "GitHub": "https://github.com/OpenTabular/NAMpy",
-        "PyPI": "https://pypi.org/project/nampy/",
+    "logo": {
+        "text": "NAMpy",
+        "image_light": "_static/logo-mark.svg",
+        "image_dark": "_static/logo-mark.svg",
     },
+    "navbar_start": ["navbar-logo"],
+    "navbar_center": ["navbar-nav"],
+    "navbar_end": ["theme-switcher", "navbar-icon-links"],
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/OpenTabular/NAMpy",
+            "icon": "fa-brands fa-github",
+        },
+        {
+            "name": "PyPI",
+            "url": "https://pypi.org/project/nampy/",
+            "icon": "fa-solid fa-box",
+        },
+    ],
+    "show_nav_level": 1,
+    "navigation_depth": 3,
+    "show_toc_level": 2,
+    "secondary_sidebar_items": {
+        "index": [],
+        "**": ["page-toc"],
+    },
+    "footer_start": ["copyright"],
+    "footer_end": ["sphinx-version", "theme-version"],
 }
 
-html_permalinks_icon = Icons.permalinks_icon
+html_context = {"default_mode": "light"}
+html_sidebars = {
+    "index": [],
+    "**": ["sidebar-nav-bs"],
+}
 
 # Add any paths that contain custom static files (such as style sheets)
 html_static_path = ["_static"]

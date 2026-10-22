@@ -1,15 +1,20 @@
-Models and Architectures
-========================
+Neural architecture comparison
+==============================
 
-NAMpy provides statistical and neural models through a common estimator API.
-The models differ in how they represent feature effects, select interactions,
-and estimate their parameters. Use the table below to choose an appropriate
-starting point.
+Start with :doc:`NAM <nam>` if you want an introduction to neural feature
+effects. The other architectures make more specialized structural choices:
+shared bases, sparse selection, interaction discovery, Gaussian-process
+approximations, trees, transformers, quantiles, or splines. The comparisons
+below describe those choices; they are not performance rankings.
+
+For smoothness selection, statistical inference, and GAM diagnostics, use the
+:doc:`statistical GAM guide <../user_guide/statistical_models>` instead.
 
 Where to begin
 --------------
 
-These are structural starting points, not performance rankings.
+Move beyond NAM only when the analysis supplies a reason for the added
+structure.
 
 .. list-table::
    :header-rows: 1
@@ -17,8 +22,6 @@ These are structural starting points, not performance rankings.
 
    * - What the analysis needs
      - Start with
-   * - Statistical smoothness selection, standard errors, and diagnostics
-     - :doc:`GAM <gam>`
    * - A straightforward neural additive model
      - :doc:`NAM <nam>`
    * - Basis functions shared across features and interactions
@@ -46,9 +49,6 @@ interpretation limits.
 
    * - Model
      - Representation
-   * - :doc:`GAM <gam>` :sup:`1, 2`
-     - Penalized regression splines with automatic smoothness selection and
-       statistical inference
    * - :doc:`LinReg <linreg>`
      - Additive linear effects trained through the neural estimator interface
    * - :doc:`NAM <nam>` :sup:`3`
@@ -96,7 +96,6 @@ provides a broader executable architecture survey.
    :maxdepth: 1
    :hidden:
 
-   gam
    linreg
    nam
    snam

@@ -6,7 +6,9 @@ A mean-only model cannot represent that distinction. Distributional
 regression assigns an additive predictor to location, spread, or another
 family parameter so each can change with the covariates.
 
-Start with :doc:`../tutorials/changing_variability` for a visual analysis.
+Start with the :doc:`travel-time variability example
+<../auto_examples/distributional/plot_changing_variability>` for a visual
+analysis in which every variable and unit is defined.
 This page defines the statistical formula and prediction contracts in detail.
 
 Choose the estimator by the quantity being modeled:
@@ -74,18 +76,24 @@ to parameter order and requires secondary formulas to be one-sided:
 
    from nampy.models import GAMLSS
 
+   # travel_time_min: trip duration in minutes
+   # distance_km: commute distance in kilometres
+   # peak_hour: 1 during peak commuting hours, otherwise 0
    model = GAMLSS(
        family="normal",
        formula={
-           "mu": "y ~ s(age, bs='cr', k=10) + group",
-           "sigma": "~ s(age, bs='cr', k=8)",
+           "mu": (
+               "travel_time_min ~ s(distance_km, bs='cr', k=10) "
+               "+ peak_hour"
+           ),
+           "sigma": "~ s(distance_km, bs='cr', k=8) + peak_hour",
        },
        smoothing_method="reml",
-   ).fit(data)
+   ).fit(trips)
 
-   parameters = model.predict(data)
-   standard_errors = model.standard_errors(data)
-   components = model.predict_components(data)
+   parameters = model.predict(trips)
+   standard_errors = model.standard_errors(trips)
+   components = model.predict_components(trips)
    components.validate_additive_reconstruction()
 
 An ordered formula list remains supported for compatibility. Without a
