@@ -228,33 +228,6 @@ def generate_neural_comparison() -> None:
     _save(figure, "nam_nbm_comparison.png")
 
 
-def generate_first_nam_plot() -> None:
-    """Fit the neural quickstart model and render its public term plots."""
-    data = make_data()
-    X = data[["temperature", "hour"]]
-    y = data["demand"].to_numpy()
-    X_train, X_test, y_train, _ = train_test_split(
-        X, y, test_size=0.2, random_state=21
-    )
-
-    with tempfile.TemporaryDirectory(prefix="nampy-docs-first-nam-") as directory:
-        model = NAMRegressor(
-            layer_sizes=[32, 16],
-            dropout=0.0,
-            numerical_preprocessing="minmax",
-        )
-        fit_kwargs = _neural_fit_kwargs(Path(directory))
-        fit_kwargs.update(max_epochs=180, random_state=21)
-        model.fit(X_train, y_train, **fit_kwargs)
-        figures = model.plot_terms(
-            X_test,
-            center=True,
-            reference_X=X_train,
-            figsize=(10, 4),
-        )
-    _save(figures[0], "first_nam_effects.png")
-
-
 def generate_distributional_plot() -> None:
     """Fit varying location and scale and call the public effect renderer."""
     rng = np.random.default_rng(29)
@@ -296,7 +269,6 @@ def main() -> None:
     generate_first_gam_plot()
     generate_shape_constraint_plot()
     generate_interaction_plot()
-    generate_first_nam_plot()
     generate_neural_comparison()
     generate_distributional_plot()
 

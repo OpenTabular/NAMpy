@@ -53,21 +53,19 @@ make clean
 docs/
 ├── conf.py              # Sphinx configuration
 ├── index.rst            # Main documentation page
-├── getting_started.rst  # Installation and first-analysis routes
 ├── installation.rst     # Installation guide
 ├── quickstart.rst       # First statistical GAM analysis
-├── neural_quickstart.rst # First neural additive analysis
-├── user_guide.rst       # Modeling and interpretation topics
-├── examples/index.rst   # Tutorials, recipes, and extended notebooks
-├── api/index.rst        # Signature-level API reference
-├── about.rst            # Project and development information
 ├── compatibility.rst    # Public mgcv/scam compatibility scope
 ├── tutorials/           # Question-led analyses with generated figures
+├── howto/              # Focused modeling recipes
+├── concepts/           # Statistical and interpretation background
+├── notebook_tutorials.rst # Extended executable surveys
 ├── notebooks/            # Broad reference notebooks
-├── howto/               # Focused recipes listed in the examples gallery
-├── user_guide/          # Detailed modeling reference
-├── api/                 # Generated and hand-written API pages
-├── models/index.rst     # Beginner model choice and architecture comparison
+├── user_guide.rst       # Guide landing page
+│   └── user_guide/      # Detailed modeling reference
+├── api/                 # Signature-level API reference and generated stubs
+├── models/index.rst     # Compact model-selection catalog
+├── examples/            # Short copyable task recipes
 ├── contributing.rst     # Contributing guide
 ├── development/         # Reference-source and optimizer-boundary notes
 ├── license.rst          # License information

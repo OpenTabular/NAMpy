@@ -1,34 +1,39 @@
-Choosing a Model
-================
+Models and Architectures
+========================
 
-Start from the result you need rather than an architecture name. Most readers
-can begin with a statistical GAM, a NAM, or the distributional modeling
-introduction and explore specialized neural structures later.
+NAMpy provides statistical and neural models through a common estimator API.
+The models differ in how they represent feature effects, select interactions,
+and estimate their parameters. Use the table below to choose an appropriate
+starting point.
 
 Where to begin
 --------------
 
-These are starting points, not performance rankings.
+These are structural starting points, not performance rankings.
 
 .. list-table::
    :header-rows: 1
-   :widths: 66 34
+   :widths: 59 41
 
    * - What the analysis needs
      - Start with
-   * - Smooth nonlinear effects with statistical inference and diagnostics
-     - :doc:`Statistical GAM <gam>` :sup:`1, 2`
-   * - An introduction to learned neural feature effects
-     - :doc:`NAM <nam>` :sup:`3`
-   * - Changing variability or shape as well as the conditional mean
-     - :doc:`Distributional modeling <../user_guide/gamlss>`
+   * - Statistical smoothness selection, standard errors, and diagnostics
+     - :doc:`GAM <gam>`
+   * - A straightforward neural additive model
+     - :doc:`NAM <nam>`
+   * - Basis functions shared across features and interactions
+     - :doc:`NBM <nbm>`
+   * - Sparse feature or term selection
+     - :doc:`SNAM <snam>`
+   * - Sparse interaction discovery
+     - :doc:`SIAN <sian>`
+   * - Additive Gaussian-process approximations
+     - :doc:`GPNAM <gpnam>`
+   * - Polynomial interaction structure
+     - :doc:`SPAM <spam>` or :doc:`NBM-SPAM <nbm_spam>`
 
-Explore other neural models
----------------------------
-
-Once the first additive model is working, the architectural distinctions
-become useful. They describe how feature functions share parameters, select
-terms, or represent interactions.
+Architecture reference
+----------------------
 
 Each linked page explains when to use the model, its mathematical structure,
 the variables on which a reported contribution may depend, supported
@@ -41,6 +46,11 @@ interpretation limits.
 
    * - Model
      - Representation
+   * - :doc:`GAM <gam>` :sup:`1, 2`
+     - Penalized regression splines with automatic smoothness selection and
+       statistical inference
+   * - :doc:`LinReg <linreg>`
+     - Additive linear effects trained through the neural estimator interface
    * - :doc:`NAM <nam>` :sup:`3`
      - One neural network per feature, with optional explicit interactions
    * - :doc:`SNAM <snam>` :sup:`4`
@@ -78,11 +88,9 @@ distributional-only, SplineNAM is regression-only, and IGANN currently supports
 main effects but not explicit interaction terms. The :doc:`../api/models`
 reference lists every public estimator class.
 
-The :doc:`first neural tutorial <../neural_quickstart>` is the shortest route
-to a fitted NAM. The :doc:`NAM and NBM comparison <../tutorials/nam_nbm>`
-then compares two neural representations on the same data and plotting scale.
-The :doc:`extended neural notebook <../notebooks/03_neural_models>` surveys
-the broader architecture collection.
+The :doc:`../tutorials/nam_nbm` compares two neural representations on the
+same data and plotting scale. The :doc:`../notebooks/03_neural_models`
+provides a broader executable architecture survey.
 
 .. toctree::
    :maxdepth: 1
