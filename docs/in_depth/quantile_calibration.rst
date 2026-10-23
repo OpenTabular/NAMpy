@@ -1,6 +1,10 @@
 Conditional Quantiles and Interval Calibration
 ==============================================
 
+Prerequisite: :doc:`../notebooks/04_distributional_models`. The complete
+180-epoch script can take several minutes on CPU; early stopping may shorten
+the run.
+
 A mean prediction cannot tell us whether uncertainty changes with the inputs.
 This example uses ``examples/example_qnam.py`` to fit the 10th, 50th, and 90th
 conditional quantiles of a synthetic response with numerical and categorical

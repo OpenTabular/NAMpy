@@ -101,3 +101,8 @@ Fixed-design solver
 
    solve_fixed_linear_regression
 
+
+.. toctree::
+   :maxdepth: 1
+
+   neural_training

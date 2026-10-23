@@ -59,6 +59,8 @@ Create your model by inheriting from `BaseModel`:
            super().__init__(**kwargs)
            self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
            
+           if config is None:
+               config = MyModelConfig()
            # Calculate input size
            total_input_size = (
                sum(int(info.get("dimension", 1)) for info in num_feature_info.values())
@@ -95,21 +97,11 @@ Create your model by inheriting from `BaseModel`:
            dict
                Dictionary containing the output tensor.
            """
-           # Concatenate all numerical features
-           num_features_tensor = torch.cat(
-               [num_features[key] for key in num_features.keys()], 
-               dim=1
-           )
-           
-           # Concatenate all categorical features
-           cat_features_tensor = torch.cat(
-               [cat_features[key] for key in cat_features.keys()], 
-               dim=1
-           ) if cat_features else torch.empty(num_features_tensor.shape[0], 0)
-           
-           # Concatenate all features
-           input_tensor = torch.cat([num_features_tensor, cat_features_tensor], dim=1)
-           
+           blocks = [tensor.float() for tensor in [*num_features.values(), *cat_features.values()]]
+           if not blocks:
+               raise ValueError("At least one feature block is required.")
+           input_tensor = torch.cat(blocks, dim=1)
+
            # Forward pass
            output = self.mlp(input_tensor)
            
@@ -175,7 +167,11 @@ Now use it like any other NAMpy model:
 Complete Example
 ----------------
 
-Here's a complete working example:
+This example projects each numerical or categorical feature block into a token
+and attends across those tokens. It supports numerical-only, categorical-only,
+and mixed inputs. One-hot blocks keep their full encoded width. Its output is
+a global contextual contribution, not a collection of marginal feature effects:
+attention can make every token depend on the other tokens.
 
 .. code-block:: python
 
@@ -210,14 +206,20 @@ Here's a complete working example:
            super().__init__(**kwargs)
            self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
            
-           total_input_size = (
-               sum(int(info.get("dimension", 1)) for info in num_feature_info.values())
-               + len(cat_feature_info)
-           )
-           
-           # Input projection
-           self.input_proj = nn.Linear(total_input_size, config.hidden_size)
-           
+           if config is None:
+               config = AttentiveMLPConfig()
+           # Each source feature is a token, even when its encoded block
+           # spans several columns. Either feature dictionary may be empty.
+           self.feature_names = list(num_feature_info) + list(cat_feature_info)
+           infos = list(num_feature_info.values()) + list(cat_feature_info.values())
+           if not infos:
+               raise ValueError("At least one input feature is required.")
+           self.projections = nn.ModuleList([
+               nn.Linear(int(info.get("dimension", 1)), config.hidden_size)
+               for info in infos
+           ])
+           self.global_term_names = ("global_attention",)
+
            # Multi-head attention
            self.attention = nn.MultiheadAttention(
                embed_dim=config.hidden_size,
@@ -239,15 +241,13 @@ Here's a complete working example:
            self.output_layer = nn.Linear(config.hidden_size, num_classes)
        
        def forward(self, num_features: dict, cat_features: dict) -> dict:
-           # Concatenate features
-           num_tensor = torch.cat(list(num_features.values()), dim=1)
-           cat_tensor = torch.cat(list(cat_features.values()), dim=1) if cat_features else torch.empty(num_tensor.shape[0], 0)
-           x = torch.cat([num_tensor, cat_tensor], dim=1)
-           
-           # Project to hidden size
-           x = self.input_proj(x)
-           x = x.unsqueeze(1)  # Add sequence dimension
-           
+           inputs = {**num_features, **cat_features}
+           tokens = [
+               projection(inputs[name].float())
+               for name, projection in zip(self.feature_names, self.projections)
+           ]
+           x = torch.stack(tokens, dim=1)  # batch, source features, hidden size
+
            # Self-attention
            attn_out, _ = self.attention(x, x, x)
            x = x + attn_out  # Residual connection
@@ -257,10 +257,10 @@ Here's a complete working example:
            x = attn_out + ffn_out  # Residual connection
            
            # Output
-           x = x.squeeze(1)  # Remove sequence dimension
+           x = x.mean(dim=1)  # Pool the contextual feature tokens
            output = self.output_layer(x)
            
-           return {"output": output}
+           return {"output": output, "global_attention": output}
    
    # 3. One declaration generates every supported objective surface
    register_architecture(NeuralArchitecture(
@@ -317,7 +317,7 @@ If you want feature-level predictions (like NAM):
        
        return {
            "output": output,
-           "feature_outputs": feature_outputs  # For interpretability
+           **feature_outputs  # Flat named tensors form the additive contract
        }
 
 Configuration Best Practices

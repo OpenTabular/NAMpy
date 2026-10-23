@@ -53,19 +53,17 @@ make clean
 docs/
 ├── conf.py              # Sphinx configuration
 ├── index.rst            # Main documentation page
-├── quickstart.rst       # First statistical GAM analysis
 ├── compatibility.rst    # Public mgcv/scam compatibility scope
 ├── tutorials/           # Question-led analyses with generated figures
 ├── howto/              # Focused modeling recipes
 ├── concepts/           # Statistical and interpretation background
-├── notebooks/            # Broad reference notebooks
-├── user_guide.rst       # Guide landing page
-│   └── user_guide/      # Detailed modeling reference
-├── api/                 # Signature-level API reference and generated stubs
+├── notebooks/           # Executed teaching notebooks
+├── user_guide/         # Practical guides linked from howto/
+├── api/                 # Public API contracts and generated references
 ├── models/index.rst     # Compact model-selection catalog
 ├── examples/            # Short copyable task recipes
 ├── contributing.rst     # Contributing guide
-├── development/         # Reference-source and optimizer-boundary notes
+├── development/         # Numerical boundaries and executed validation reports
 ├── license.rst          # License information
 ├── faq.rst             # FAQ
 ├── _static/            # Static files (CSS, images)
@@ -78,12 +76,17 @@ The supported mgcv/SCAM selection routes and their intentional upstream
 boundaries are recorded in
 [development/mgcv_optimizer_boundaries.md](development/mgcv_optimizer_boundaries.md).
 
-The four notebooks in `notebooks/` are rendered by nbsphinx/nbconvert with
-Pandoc. They are broad surveys rather than the primary learning path. Longer
-terminal-runnable programs live in `../examples/`; Sphinx example pages
-contain shorter task-based recipes.
+The teaching notebooks in `notebooks/` are rendered with saved outputs. Broad
+architecture/task sweeps live in `development/notebooks/` as validation reports.
+Execute both from clean kernels with:
 
-Regenerate the homepage, quickstart, and tutorial-gallery figures from public
+```bash
+python docs/scripts/execute_notebooks.py
+python docs/scripts/execute_notebooks.py docs/development/notebooks/*.ipynb
+python docs/scripts/generate_optimizer_matrix.py
+```
+
+Regenerate the homepage and tutorial-gallery figures from public
 NAMpy APIs with:
 
 ```bash
@@ -92,8 +95,13 @@ MPLCONFIGDIR=/tmp/nampy-matplotlib \
 ```
 
 Autosummary may create files below `api/generated/` during a build. That
-directory is ignored and must not be committed; its pages are derived from
-public docstrings rather than maintained as another documentation source.
+directory is ignored and must not be committed. `docs/_ext/public_reference.py`
+generates effective constructor defaults, training controls, and family
+contracts from the installed API into `_generated/reference/`. The shared
+navigation excludes generated symbols; users access them from reference pages.
+
+After building, run `python docs/scripts/check_documentation.py` to check local
+links, anchors, redirects, navigation consistency, and notebook records.
 
 ## Writing Documentation
 

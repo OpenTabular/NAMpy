@@ -188,9 +188,10 @@ supply a known correlation and optional starts of independent series::
 
 ``ar_start`` may instead be a boolean array. Standardized response residuals
 are returned by ``ar1_standardized_residuals()``. Fixed smoothing and GCV use
-the shared observation transform. ML/REML/LAML are guarded until their
-correlation-determinant contribution is implemented. Non-Gaussian and
-non-identity likelihoods are rejected before fitting.
+the shared observation transform. For ordinary Gaussian identity models with unknown scale, ML/REML/LAML use
+the determinant-corrected bam route. Transformed-coefficient SCAM models
+continue to reject automatic ML/REML/LAML selection. Non-Gaussian and
+non-identity observation-transform likelihoods are rejected before fitting.
 
 How constraints are fitted
 --------------------------
@@ -210,12 +211,4 @@ applied consistently to the response, offset, and design matrix.
 Current boundaries
 ------------------
 
-For transformed single-predictor ordinary-family models, automatic smoothing
-selection is the upstream ``bfgs_gcv.ubre`` route only; ML/REML/LAML and
-alternative outer policies are not substituted. Fixed-smoothing transformed
-terms compose across multiple distributional predictors, including LSS
-families. Automatic smoothing for that combination remains guarded until the
-higher-order transformed Laplace derivatives are implemented. Bivariate
-``by`` terms, model-level ``select=True``, user-supplied constraint matrices,
-and SCAM's ``efs``, ``optim``, ``nlm``, and coefficient-BFGS variants remain
-unsupported and raise explicit errors where reachable.
+.. include:: ../_includes/optimizer_support.inc

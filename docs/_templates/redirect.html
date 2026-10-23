@@ -1,0 +1,10 @@
+{% extends "!page.html" %}
+{% block extrahead %}
+{{ super() }}
+<meta name="robots" content="noindex,follow">
+<meta http-equiv="refresh" content="0; url={{ redirect_url|e }}">
+<link rel="canonical" href="{{ redirect_url|e }}">
+{% endblock %}
+{% block body %}
+<p>This page has moved to <a href="{{ redirect_url|e }}">{{ redirect_title|e }}</a>.</p>
+{% endblock %}

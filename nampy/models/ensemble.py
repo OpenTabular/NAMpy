@@ -141,6 +141,15 @@ class NeuralEnsemble(BaseEstimator):
             terms={name: values.mean(axis=0) for name, values in term_arrays.items()},
             intercept=intercepts.mean(axis=0),
             backend=first.backend,
+            term_metadata={
+                name: next(
+                    part.term_metadata[name]
+                    for part in components
+                    if name in part.term_metadata
+                )
+                for name in keys
+                if any(name in part.term_metadata for part in components)
+            },
             offset=first.offset,
         )
         intercept_std = intercepts.std(axis=0)

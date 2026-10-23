@@ -1,6 +1,10 @@
 Compare GAM, NAM, and shared-basis models
 =========================================
 
+This analysis builds on :doc:`first_gam` and the shared estimator workflow.
+Allow several minutes on CPU for the neural fits; the training budgets are
+shown explicitly in the code.
+
 Do a statistical GAM and a neural additive model learn the same relationships
 when the data and train/test split are held fixed? This analysis fits both
 representations to a four-feature synthetic housing dataset, evaluates them on

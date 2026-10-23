@@ -6,7 +6,7 @@ from collections.abc import Mapping, Sequence
 
 import numpy as np
 
-from ..contracts import AdditivePrediction
+from ..contracts import AdditivePrediction, AdditiveTermMetadata
 from ..gam.families.gamlss import GamlssFamily, gammals, gaulss
 from .gam import _GAMAdapterBase
 
@@ -300,10 +300,9 @@ class GAMLSS(_GAMAdapterBase):
         n_samples, n_parameters = link.shape
 
         compiled = self.gam_.gam_result_.require_compiled_model()
-        predictor_index = {
-            f"eta{index + 1}": index for index in range(n_parameters)
-        }
+        predictor_index = {f"eta{index + 1}": index for index in range(n_parameters)}
         label_map = {}
+        feature_map = {}
         for term in compiled.compiled_terms:
             targets = tuple(getattr(term, "predictor_indices", ())) or (
                 int(getattr(term, "predictor_index", 0)),
@@ -312,8 +311,14 @@ class GAMLSS(_GAMAdapterBase):
                 label_map[(f"eta{int(target) + 1}", str(term.term_id))] = str(
                     term.label
                 )
+                features = tuple(term.feature_info.feature_names)
+                by = term.by_variable_info.name
+                feature_map[(f"eta{int(target) + 1}", str(term.term_id))] = tuple(
+                    dict.fromkeys((*features, *((by,) if by else ())))
+                )
 
         terms = {}
+        metadata = {}
         reserved = {"output", "response", "intercept", "offset"}
         for raw_key, value in vals.items():
             if raw_key in reserved:
@@ -329,6 +334,12 @@ class GAMLSS(_GAMAdapterBase):
             if public_key in terms:
                 public_key = f"{self.parameter_names_[index]}:{term_id}"
             terms[public_key] = contribution
+            features = feature_map.get((predictor_name, term_id), ())
+            metadata[public_key] = AdditiveTermMetadata(
+                features=features,
+                parameter=self.parameter_names_[index],
+                kind="interaction" if len(features) > 1 else "main",
+            )
 
         intercept = np.zeros(n_parameters, dtype=np.float64)
         raw_intercept = vals.get("intercept", {})
@@ -352,6 +363,7 @@ class GAMLSS(_GAMAdapterBase):
             intercept=intercept,
             backend="gam",
             offset=offset_array,
+            term_metadata=metadata,
         )
 
 

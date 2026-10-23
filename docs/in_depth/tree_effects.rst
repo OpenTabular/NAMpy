@@ -1,6 +1,10 @@
 Recover Step Effects with Additive Trees
 ========================================
 
+Prerequisite: :doc:`../tutorials/gam_nam`. Allow several minutes on CPU for
+the complete script, which trains a single tree model and a five-member
+joint ensemble with the displayed early-stopping budgets.
+
 Smooth feature functions are not always a natural representation. A response
 may change around thresholds or between category levels. The repository's
 ``examples/example_ensemble.py`` compares a single TreeNAM with an

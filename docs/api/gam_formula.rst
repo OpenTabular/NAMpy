@@ -12,6 +12,7 @@ only need to pass the formula to :class:`nampy.gam.GAM`:
    model = GAM(
        formula='y ~ group + s(x, bs="cr", k=12) + ti(x, z)',
        family="gaussian",
+       optimize_smoothing=True,
        smoothing_method="reml",
    ).fit(data)
 

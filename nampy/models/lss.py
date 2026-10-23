@@ -288,7 +288,12 @@ class NeuralLSS(NeuralEstimatorBase):
         # Compute NLL from raw outputs
         scores = {}
         with torch.no_grad():
-            y_tensor = torch.as_tensor(y_true, device=raw_pred.device)
+            target = (
+                y_true.to_numpy()
+                if isinstance(y_true, (pd.Series, pd.DataFrame))
+                else y_true
+            )
+            y_tensor = torch.as_tensor(target, device=raw_pred.device)
             nll = self.model.objective.compute_loss(raw_pred, y_tensor)
             scores["NLL"] = float(nll.detach().cpu().item())
 

@@ -13,8 +13,8 @@ quantiles and mixed numerical/categorical tree effects using repository scripts.
       :link: ../notebooks/02_statistical_gams
       :link-type: doc
 
-      Smooth bases, grouped structure, offsets, shape constraints, smoothing
-      selection, inference, diagnostics, and distributional GAMs.
+      Select basis capacity with validation data, model group shifts and
+      exposure offsets, and fit conditional location and spread.
 
       :download:`Download notebook <../notebooks/02_statistical_gams.ipynb>`
 
@@ -50,6 +50,20 @@ quantiles and mixed numerical/categorical tree effects using repository scripts.
       Compare a single additive tree with a jointly trained tree ensemble on
       numerical thresholds and categorical level shifts.
 
+   .. grid-item-card:: Statistical, neural, and distributional workflows
+      :link: ../tutorials/modeling_workflows
+      :link-type: doc
+
+      Complete fit-and-plot examples with predictions, components, importance,
+      and model-specific figures.
+
+   .. grid-item-card:: Classify a real dataset
+      :link: ../notebooks/05_real_data_classification
+      :link-type: doc
+
+      Handle missing values and categories, fit a baseline and NAM, and assess
+      held-out probability quality and calibration.
+
 .. toctree::
    :maxdepth: 1
    :hidden:
@@ -59,3 +73,5 @@ quantiles and mixed numerical/categorical tree effects using repository scripts.
    ../notebooks/04_distributional_models
    quantile_calibration
    tree_effects
+   ../tutorials/modeling_workflows
+   ../notebooks/05_real_data_classification

@@ -26,7 +26,37 @@ permissions:
   contents: read
 
 jobs:
+  execute-notebooks:
+    name: Execute teaching notebooks and validation reports
+    runs-on: ubuntu-latest
+    env:
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      MPLCONFIGDIR: /tmp/nampy-matplotlib
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install CPU package and notebook dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -c .github/constraints-ci.txt -r .github/requirements-ci-cpu-torch.txt
+          python -m pip install -c .github/constraints-ci.txt -e ".[docs]"
+      - name: Execute from clean kernels
+        run: |
+          python docs/scripts/execute_notebooks.py
+          python docs/scripts/execute_notebooks.py docs/development/notebooks/*.ipynb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: executed-documentation-notebooks
+          path: |
+            docs/notebooks/*.ipynb
+            docs/development/notebooks/*.ipynb
+
   build-docs:
+    needs: execute-notebooks
     name: Build docs (Sphinx)
     runs-on: ubuntu-latest
 
@@ -53,13 +83,37 @@ jobs:
           python -m pip install -c .github/constraints-ci.txt -r .github/requirements-ci-cpu-torch.txt
           python -m pip install -c .github/constraints-ci.txt -e ".[docs]"
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: executed-documentation-notebooks
+          path: docs
+
+      - name: Check short examples and explanation contracts
+        env:
+          OPENBLAS_NUM_THREADS: "1"
+          OMP_NUM_THREADS: "1"
+        run: |
+          python -m pip install pytest
+          python docs/scripts/check_short_examples.py
+          python docs/scripts/generate_optimizer_matrix.py
+          python -m pytest -q tests/neural/test_documented_component_contracts.py tests/neural/test_explanation_tables.py tests/public_api/test_gamlss_estimator.py
+
       - name: Execute flagship documentation examples
         env:
           MPLCONFIGDIR: /tmp/nampy-matplotlib
         run: python docs/scripts/generate_first_gam_assets.py
 
       - name: Build Sphinx documentation
-        run: python -m sphinx -b html docs docs/_build/html -W --keep-going
+        run: python -m sphinx -E -a -b html docs docs/_build/html -W --keep-going
+
+      - name: Check links, redirects, navigation, and notebook records
+        run: python docs/scripts/check_documentation.py
+
+      - name: Check sidebar navigation in Chromium
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+          python docs/scripts/check_sidebar_navigation.py
 
       - name: Upload documentation artifact
         uses: actions/upload-artifact@v4

@@ -32,7 +32,11 @@ version = nampy.__version__
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
+sys.path.insert(0, str(Path(__file__).parent / "_ext"))
+
 extensions = [
+    "public_reference",
+    "site_integrity",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",

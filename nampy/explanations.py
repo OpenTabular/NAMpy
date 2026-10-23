@@ -61,6 +61,7 @@ def center_additive_prediction(
         intercept=centered_intercept,
         backend=prediction.backend,
         offset=prediction.offset,
+        term_metadata=dict(prediction.term_metadata),
     )
 
 
@@ -108,7 +109,10 @@ def _term_type(term: str) -> str:
 def _binned_values(values: pd.Series, max_bins: int):
     if max_bins < 1:
         raise ValueError("max_bins must be at least 1.")
-    if pd.api.types.is_numeric_dtype(values) and values.nunique(dropna=False) > max_bins:
+    if (
+        pd.api.types.is_numeric_dtype(values)
+        and values.nunique(dropna=False) > max_bins
+    ):
         bins = pd.qcut(values, q=max_bins, duplicates="drop")
         return bins.map(lambda interval: interval.mid if pd.notna(interval) else np.nan)
     return values
@@ -123,7 +127,8 @@ def term_importance_table(prediction: AdditivePrediction) -> pd.DataFrame:
             values = values[:, None]
         elif values.ndim > 2:
             values = values.reshape(values.shape[0], -1)
-        term_type = _term_type(term)
+        metadata = prediction.term_metadata.get(term)
+        term_type = metadata.kind if metadata is not None else _term_type(term)
         for output in range(values.shape[1]):
             rows.append(
                 {
@@ -155,9 +160,9 @@ def explain_additive_prediction(
     frame = _as_frame(X)
     if len(frame) != np.asarray(prediction.link).shape[0]:
         raise ValueError("X and prediction must contain the same number of rows.")
-    importance = term_importance_table(prediction).set_index(
-        ["term", "output"]
-    )["importance"]
+    importance = term_importance_table(prediction).set_index(["term", "output"])[
+        "importance"
+    ]
     tables = []
 
     for term, contribution in prediction.terms.items():
@@ -167,8 +172,21 @@ def explain_additive_prediction(
         elif values.ndim > 2:
             values = values.reshape(values.shape[0], -1)
 
-        features = _term_features(term, frame.columns)
-        term_type = "interaction" if len(features) > 1 else _term_type(term)
+        metadata = prediction.term_metadata.get(term)
+        features = (
+            metadata.features
+            if metadata is not None
+            else _term_features(term, frame.columns)
+        )
+        term_type = (
+            metadata.kind
+            if metadata is not None
+            else ("interaction" if len(features) > 1 else _term_type(term))
+        )
+        if metadata is not None and metadata.kind in {"global", "contextual"}:
+            # Aggregating a joint term over a single feature would imply a
+            # marginal effect it does not promise. Keep a joint summary.
+            features = ()
         group_columns = []
         base = pd.DataFrame(index=frame.index)
         for index, feature in enumerate(features):
@@ -187,7 +205,10 @@ def explain_additive_prediction(
             current["contribution"] = values[:, output]
             grouped = (
                 current.groupby(group_columns, dropna=False, observed=True)
-                .agg(contribution=("contribution", "mean"), count=("contribution", "size"))
+                .agg(
+                    contribution=("contribution", "mean"),
+                    count=("contribution", "size"),
+                )
                 .reset_index()
             )
             grouped.insert(0, "output", output)
@@ -205,9 +226,7 @@ def explain_additive_prediction(
         "importance",
     ]
     if not tables:
-        return pd.DataFrame(
-            columns=[*base_columns[:3], "value", *base_columns[3:]]
-        )
+        return pd.DataFrame(columns=[*base_columns[:3], "value", *base_columns[3:]])
     result = pd.concat(tables, ignore_index=True, sort=False)
     value_columns = ["value"]
     value_columns.extend(

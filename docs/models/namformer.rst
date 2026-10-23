@@ -42,7 +42,8 @@ Fit and inspect
    ).fit(X_train, y_train)
 
    prediction = model.predict(X_test)
-   marginal_components = model.predict_components(X_test, center=True)
+   components = model.predict_components(X_test, center=True)
+   global_effect = components.terms["global_transformer"]
    figures = model.plot_terms(X_test, center=True)
 
 Interpretation and limits
@@ -65,3 +66,7 @@ Thielmann, Reuter, and Säfken (2025), `Beyond Black-Box Predictions:
 Identifying Marginal Feature Effects in Tabular Transformer Networks
 <https://arxiv.org/abs/2504.08712>`_.
 
+
+The complete component output includes ``global_transformer``. Its metadata
+marks dependence on all source features. Marginal heads and named interaction
+heads are reported separately; their sum alone is not the full prediction.

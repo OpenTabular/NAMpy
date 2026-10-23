@@ -96,6 +96,10 @@ Without a formula, the adapter creates one smooth main effect per input
 column:
 
 ```python
+X_train = data[["x"]].iloc[::2]
+y_train = data["y"].iloc[::2]
+X_test = data[["x"]].iloc[1::2]
+
 model = GAMRegressor(k=10, basis="tp").fit(X_train, y_train)
 prediction = model.predict(X_test)
 standard_error = model.standard_errors(X_test)

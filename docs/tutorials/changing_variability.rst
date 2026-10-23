@@ -1,6 +1,9 @@
 Learn conditional location and spread
 =====================================
 
+This example assumes the workflow in :doc:`../notebooks/01_getting_started`.
+Allow a few minutes on CPU for the location-scale fit and plots.
+
 Two observations can have the same expected response but very different
 uncertainty. Here the conditional location varies nonlinearly with exposure,
 while the observation-level standard deviation grows across its range.

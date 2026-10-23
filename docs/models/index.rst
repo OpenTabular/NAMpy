@@ -32,6 +32,16 @@ These are structural starting points, not performance rankings.
    * - Polynomial interaction structure
      - :doc:`SPAM <spam>` or :doc:`NBM-SPAM <nbm_spam>`
 
+Prediction and explanation contracts
+------------------------------------
+
+Task support comes from the architecture registry. Explanation support is a
+separate property: reconstructing a predictor does not imply that every term
+is a marginal effect, or that estimated effects are identifiable and stable.
+For statistical GAM inference and its bounds, see :doc:`gam`.
+
+.. include:: /_generated/reference/model_capabilities.inc
+
 Architecture reference
 ----------------------
 

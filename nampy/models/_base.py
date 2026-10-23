@@ -6,7 +6,7 @@ import random
 from collections import deque
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, Literal, TypeVar
 from uuid import uuid4
 
 import lightning as pl
@@ -45,6 +45,7 @@ class TrainingPlan:
     def datamodule_regression(self) -> bool:
         """Derive the data-label representation from the objective."""
         return bool(self.objective.datamodule_regression)
+
 
 def build_callbacks(name: str, *, monitor, mode, patience, checkpoint_path):
     """Build the EarlyStopping/ModelCheckpoint pair for one fit.
@@ -291,10 +292,14 @@ class NeuralEstimatorBase(BaseEstimator):
         pretrain_epochs : int, default=0
             Run optional masked reconstruction before supervised fitting.
             Currently supported only by NodeGAM architectures.
-        pretrain_max_steps, pretraining_ratio, pretraining_noise,
-        pretraining_feature_mask
-            Controls for NodeGAM reconstruction pretraining, mirroring the
-            upstream ``pretrain_recon``/``pretrain_recon2`` objective.
+        pretrain_max_steps : int, default=-1
+            Maximum reconstruction-pretraining optimizer steps; -1 is unlimited.
+        pretraining_ratio : float, default=0.15
+            Masked reconstruction fraction for NodeGAM pretraining.
+        pretraining_noise : float, default=0.1
+            Noise level for the NodeGAM reconstruction objective.
+        pretraining_feature_mask : bool, default=True
+            Whether to mask source features during NodeGAM pretraining.
         checkpoint_path : str, default="model_checkpoints"
             Root directory for per-fit checkpoint subdirectories.
         dataloader_kwargs : dict, optional
@@ -316,7 +321,7 @@ class NeuralEstimatorBase(BaseEstimator):
             Custom loss ``fn(preds, targets)`` replacing the task default
             (regression tasks only; e.g. ``nn.PoissonNLLLoss(log_input=True)``
             for count responses composed on the log-link scale).
-        **trainer_kwargs
+        **trainer_kwargs : object
             Additional kwargs for PyTorch Lightning's Trainer. These do not
             apply to architectures using native training.
 
@@ -540,7 +545,10 @@ class NeuralEstimatorBase(BaseEstimator):
             raise RuntimeError(
                 "An architecture cannot use fixed-design and native training together."
             )
-        if use_native_training and getattr(plan.objective, "kind", None) == "regression":
+        if (
+            use_native_training
+            and getattr(plan.objective, "kind", None) == "regression"
+        ):
             if not getattr(plan.objective, "uses_default_loss", False):
                 raise NotImplementedError(
                     "Architecture-native regression currently requires the default "
@@ -553,7 +561,9 @@ class NeuralEstimatorBase(BaseEstimator):
                 "warm_start is not meaningful for an exact fixed-design solve."
             )
         if use_native_training and pretrain_epochs > 0:
-            raise ValueError("Architecture-native training cannot use masked pretraining.")
+            raise ValueError(
+                "Architecture-native training cannot use masked pretraining."
+            )
         if use_native_training and warm_start_state is not None:
             raise ValueError(
                 "warm_start is not supported by architecture-native training."
@@ -615,9 +625,7 @@ class NeuralEstimatorBase(BaseEstimator):
             val_targets=torch.as_tensor(self.data_module.y_val),
             objective=plan.objective,
             train_offset=optional_tensor(self.data_module.offset_train),
-            train_sample_weight=optional_tensor(
-                self.data_module.sample_weight_train
-            ),
+            train_sample_weight=optional_tensor(self.data_module.sample_weight_train),
             random_state=random_state,
         )
         # Data-driven setup must not make final architecture initialization
@@ -636,9 +644,9 @@ class NeuralEstimatorBase(BaseEstimator):
             else:
                 from ..neural.registry import get_architecture
 
-                supports_pretraining = get_architecture(
-                    architecture_name
-                ).supports("masked_pretraining")
+                supports_pretraining = get_architecture(architecture_name).supports(
+                    "masked_pretraining"
+                )
             if not supports_pretraining:
                 raise ValueError(
                     f"{self.base_model.__name__} does not support masked reconstruction "
@@ -650,11 +658,9 @@ class NeuralEstimatorBase(BaseEstimator):
                 raise ValueError("pretraining_noise must lie between 0 and 1.")
 
             input_width = sum(
-                info["dimension"]
-                for info in self.data_module.num_feature_info.values()
+                info["dimension"] for info in self.data_module.num_feature_info.values()
             ) + sum(
-                info["dimension"]
-                for info in self.data_module.cat_feature_info.values()
+                info["dimension"] for info in self.data_module.cat_feature_info.values()
             )
             pretraining_config = replace(architecture_config, interaction_degree=1)
             pretraining_model = TaskModule(
@@ -720,9 +726,7 @@ class NeuralEstimatorBase(BaseEstimator):
             objective=plan.objective,
         )
 
-        initialize = getattr(
-            self.model.model, "initialize_from_training_data", None
-        )
+        initialize = getattr(self.model.model, "initialize_from_training_data", None)
         if initialize is not None:
             with torch.no_grad():
                 initialize(train_num, train_cat)
@@ -850,9 +854,7 @@ class NeuralEstimatorBase(BaseEstimator):
         self.n_epochs_ = int(trainer.current_epoch)
         self.n_optimizer_steps_ = int(trainer.global_step)
         self.final_training_metrics_ = {
-            str(key): float(
-                value.detach().cpu() if torch.is_tensor(value) else value
-            )
+            str(key): float(value.detach().cpu() if torch.is_tensor(value) else value)
             for key, value in trainer.callback_metrics.items()
             if np.asarray(
                 value.detach().cpu() if torch.is_tensor(value) else value
@@ -882,13 +884,17 @@ class NeuralEstimatorBase(BaseEstimator):
             sum(parameter.numel() for parameter in parameters)
         )
         self.n_parameters_trainable_ = int(
-            sum(parameter.numel() for parameter in parameters if parameter.requires_grad)
+            sum(
+                parameter.numel() for parameter in parameters if parameter.requires_grad
+            )
         )
         architecture = self.model.model
         for name in getattr(architecture, "estimator_fitted_attributes", ()):
             setattr(self, name, getattr(architecture, name))
 
-    def _predict_raw(self, X, *, batch_size: int | None = None) -> dict[str, torch.Tensor]:
+    def _predict_raw(
+        self, X, *, batch_size: int | None = None
+    ) -> dict[str, torch.Tensor]:
         """Run inference on prepared features and return the forward-output dict.
 
         ``X`` must already have passed through the estimator's feature
@@ -924,9 +930,7 @@ class NeuralEstimatorBase(BaseEstimator):
                         key: tensor[start:stop].to(device)
                         for key, tensor in num_tensor_dict.items()
                     }
-                    result = self.model(
-                        num_features=num_batch, cat_features=cat_batch
-                    )
+                    result = self.model(num_features=num_batch, cat_features=cat_batch)
                     for key, value in result.items():
                         is_batched = (
                             key != "intercept"
@@ -941,9 +945,7 @@ class NeuralEstimatorBase(BaseEstimator):
         finally:
             self.model.train(was_training)
 
-        merged = {
-            key: torch.cat(values, dim=0) for key, values in collected.items()
-        }
+        merged = {key: torch.cat(values, dim=0) for key, values in collected.items()}
         merged.update(constants)
         return merged
 
@@ -986,8 +988,14 @@ class NeuralEstimatorBase(BaseEstimator):
                 stop = min(start + int(batch_size), n_rows)
                 blocks.append(
                     transform(
-                        {key: value[start:stop].to(device) for key, value in num.items()},
-                        {key: value[start:stop].to(device) for key, value in cat.items()},
+                        {
+                            key: value[start:stop].to(device)
+                            for key, value in num.items()
+                        },
+                        {
+                            key: value[start:stop].to(device)
+                            for key, value in cat.items()
+                        },
                     ).cpu()
                 )
         return torch.cat(blocks).numpy()
@@ -1073,12 +1081,23 @@ class NeuralEstimatorBase(BaseEstimator):
             "total_parameters": self.n_parameters_total_,
             "trainable_parameters": self.n_parameters_trainable_,
         }
-        architecture_metadata = getattr(
-            self.model.model, "complexity_metadata", None
-        )
+        architecture_metadata = getattr(self.model.model, "complexity_metadata", None)
         if architecture_metadata is not None:
             result.update(architecture_metadata())
         return result
+
+    def group_norms(self) -> dict[str, float]:
+        """Return fitted term-group parameter norms for sparse architectures.
+
+        Raises ``NotImplementedError`` when the architecture has no group
+        penalty, and ``NotFittedError`` before fitting.
+        """
+        if getattr(self, "model", None) is None:
+            raise NotFittedError("Fit the estimator before requesting group norms.")
+        method = getattr(self.model.model, "get_group_norms", None)
+        if method is None:
+            raise NotImplementedError("This architecture does not expose group norms.")
+        return dict(method())
 
     def training_history(self) -> dict:
         """Return architecture-native fit history when one is available."""
@@ -1117,9 +1136,33 @@ class NeuralEstimatorBase(BaseEstimator):
         reference_X=None,
         reference_weight=None,
     ):
+        from dataclasses import replace
+
+        from ..contracts import AdditiveTermMetadata
+        from ..explanations import _term_features, center_additive_prediction
+
+        feature_names = tuple(str(name) for name in self.feature_names_in_)
+        metadata = {}
+        for term in prediction.terms:
+            features = _term_features(term, feature_names)
+            kind: Literal["main", "interaction", "global", "contextual"] = (
+                "interaction" if len(features) > 1 else "main"
+            )
+            if term == "global_transformer" or term in getattr(
+                self.model.model, "global_term_names", ()
+            ):
+                features, kind = feature_names, "global"
+            elif getattr(self, "architecture_name", None) == "natt":
+                # Attention may contextualize categorical readouts.
+                cat_names = getattr(self.model.model, "cat_feature_info", {})
+                if any(
+                    name == term or term.startswith(f"{name}[") for name in cat_names
+                ):
+                    features, kind = tuple(cat_names), "contextual"
+            metadata[term] = AdditiveTermMetadata(features=features, kind=kind)
+        prediction = replace(prediction, term_metadata=metadata)
         if not center and reference_X is None:
             return prediction
-        from ..explanations import center_additive_prediction
 
         reference = None
         if reference_X is not None:

@@ -1,0 +1,4 @@
+# Recreated from the installed API by the Sphinx extension.
+/reference/*
+# Runtime probe output is checked in and refreshed by documentation CI.
+!/reference/optimizer_routes.inc

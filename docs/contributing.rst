@@ -35,3 +35,6 @@ Useful links
 * `Issue tracker <https://github.com/OpenTabular/NAMpy/issues>`_
 * `Pull requests <https://github.com/OpenTabular/NAMpy/pulls>`_
 * `Discussions <https://github.com/OpenTabular/NAMpy/discussions>`_
+
+Documentation validation and notebook execution are described in
+:doc:`development/documentation_validation`.

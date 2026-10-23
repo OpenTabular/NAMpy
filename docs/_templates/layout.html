@@ -19,3 +19,8 @@
     <nav aria-labelledby="page-navigation-title"></nav>
   </aside>
 {% endblock %}
+
+{% block footer %}
+  {{ super() }}
+  <p class="documentation-build">NAMpy {{ nampy_version|e }} · source {{ nampy_commit|e }}</p>
+{% endblock %}

@@ -1,6 +1,3 @@
-Fit and Interpret Your First GAM
-================================
-
 This tutorial asks a concrete question: **how do outdoor temperature and time
 of day relate to energy demand?** We will fit a statistical GAM, evaluate it on
 unseen observations, inspect the estimated effects, and check whether the
@@ -183,16 +180,3 @@ Here the effective degrees of freedom remain within the available basis and
 the diagnostic gives no evidence that either ``k`` is too restrictive. This
 is not a universal acceptance test: residual structure, the scientific
 meaning of each term, and sensitivity to model choices still matter.
-
-Choose the next analysis
-------------------------
-
-* :doc:`/user_guide/statistical_gams` lists formulas, smooth bases, families,
-  fitting controls, prediction options, inference, and diagnostics.
-* :doc:`/user_guide/shape_constrained_gams` shows how to impose a defensible
-  monotonicity, curvature, or positivity assumption.
-* :doc:`/models/index` helps choose a neural additive architecture.
-* :doc:`/user_guide/gamlss` models changing spread and other distribution
-  parameters.
-* :doc:`/compatibility` documents the supported ``mgcv`` and ``scam``
-  compatibility surface and its boundaries.

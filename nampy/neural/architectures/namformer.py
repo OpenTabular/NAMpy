@@ -231,7 +231,7 @@ class NAMformer(BaseModel):
         }
 
         interaction_outputs = {}
-        if self.interaction_degree is not None and self.interaction_degree >= 2:
+        if self.interaction_networks:
             for (
                 interaction_name,
                 interaction_network,
@@ -250,41 +250,14 @@ class NAMformer(BaseModel):
                 # Store the interaction output
                 interaction_outputs[interaction_name] = interaction_output
 
-        # Sum all feature outputs (main effects) and interaction outputs
-
-        all_outputs = (
-            [x] + list(nam_outputs.values()) + list(interaction_outputs.values())
-        )
-
-        # Make sure all tensors have the same number of dimensions
-        all_outputs = [
-            output.unsqueeze(-1) if output.dim() == 2 else output
-            for output in all_outputs
-        ]
-
-        # Concatenate all feature outputs
-        concatenated = torch.cat(all_outputs, dim=-1)
-        # Apply feature dropout
-        concatenated = self.feature_dropout(concatenated)
-
-        # Sum across features, keeping the num_classes dimension
-        num_features_total = len(all_outputs)
-        if self.num_classes > 1:
-            # Reshape to [batch_size, num_features, num_classes] and sum
-            x = concatenated.view(-1, num_features_total, self.num_classes).sum(dim=1)
-        else:
-            # For single output, sum and keep dimension
-            x = concatenated.sum(dim=-1)
-
-        # intercept
+        # The global transformer head depends on every input token. Return it
+        # explicitly so explanations account for the complete predictor.
+        result = {"global_transformer": x, **nam_outputs, **interaction_outputs}
+        contributions = torch.stack(list(result.values()), dim=-1)
+        output = self.feature_dropout(contributions).sum(dim=-1)
         if self.intercept is not None:
-            x += self.intercept
-
-        # Combine the output tensor with the original feature values
-        result = {"output": x}
-        result.update(nam_outputs)
-        result.update(interaction_outputs)
-        if self.intercept is not None:
+            output = output + self.intercept
             result["intercept"] = self.intercept
+        result["output"] = output
 
         return result

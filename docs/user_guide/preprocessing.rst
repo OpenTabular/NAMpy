@@ -1,7 +1,10 @@
 Preprocessing (PreTab)
 ======================
 
-NAMpy does not implement its own tabular preprocessing. All preprocessing is done by the **PreTab** library. You pass a PreTab preprocessor instance into the data module or into the sklearn-style models (e.g. :class:`nampy.models.nam.NAMRegressor`).
+Neural estimators use **PreTab** for tabular preprocessing. Configure their
+preprocessing through constructor keywords, or pass a PreTab instance to the
+low-level neural data module. The statistical GAM backend builds its own
+formula/design matrices and does not use PreTab.
 
 Using PreTab with NAMpy
 -----------------------
@@ -44,7 +47,7 @@ Using PreTab with NAMpy
 Preprocessor contract
 ---------------------
 
-Any preprocessor used with NAMpy (including PreTab’s) must:
+Any preprocessor supplied to the neural data module must:
 
 * Implement ``fit(X, y)`` and ``transform(X)``.
 * Expose ``get_feature_info(verbose=False)`` returning a tuple ``(num_feature_info, cat_feature_info, emb_feature_info)`` — three dicts of feature names to metadata (e.g. ``preprocessing``, ``dimension``) so that NAMpy can build the right input tensors.

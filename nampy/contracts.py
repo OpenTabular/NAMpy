@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Literal
 
 import numpy as np
@@ -77,9 +77,22 @@ class FeatureSchema:
             )
         if dtypes != self.dtypes:
             raise ValueError(
-                "Feature dtype mismatch: "
-                f"expected {self.dtypes}, got {dtypes}."
+                f"Feature dtype mismatch: expected {self.dtypes}, got {dtypes}."
             )
+
+
+@dataclass(frozen=True)
+class AdditiveTermMetadata:
+    """Feature dependence and parameter identity, independent of display labels.
+
+    ``kind`` distinguishes main effects, interactions, and global/contextual
+    contributions. Reconstruction alone does not establish feature dependence.
+    """
+
+    features: tuple[str, ...] = ()
+    parameter: str | None = None
+    kind: Literal["main", "interaction", "global", "contextual"] = "main"
+
 
 @dataclass(frozen=True)
 class AdditivePrediction:
@@ -91,6 +104,7 @@ class AdditivePrediction:
     intercept: float | np.ndarray
     backend: Literal["gam", "neural"]
     offset: np.ndarray | None = None
+    term_metadata: dict[str, AdditiveTermMetadata] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.backend not in {"gam", "neural"}:
@@ -108,9 +122,10 @@ class AdditivePrediction:
             if response.ndim == 2 and shape[1:] not in {(), (1,), response.shape[1:]}:
                 raise ValueError(f"Term {name!r} has an incompatible output shape.")
 
-        scalar_inputs: tuple[
-            tuple[str, float | np.ndarray | None], ...
-        ] = (("intercept", self.intercept), ("offset", self.offset))
+        scalar_inputs: tuple[tuple[str, float | np.ndarray | None], ...] = (
+            ("intercept", self.intercept),
+            ("offset", self.offset),
+        )
         for name, scalar_value in scalar_inputs:
             if scalar_value is None:
                 continue
@@ -139,7 +154,9 @@ class AdditivePrediction:
         if self.offset is not None:
             expected = expected + aligned(self.offset)
         if not np.allclose(link, expected, rtol=rtol, atol=atol, equal_nan=True):
-            raise ValueError("link is not reconstructed by intercept, terms, and offset.")
+            raise ValueError(
+                "link is not reconstructed by intercept, terms, and offset."
+            )
 
 
 @dataclass(frozen=True)

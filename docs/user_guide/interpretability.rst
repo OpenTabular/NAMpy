@@ -67,5 +67,5 @@ Continue the analysis
 ---------------------
 
 * :doc:`../models/index` - Model comparison
-* :doc:`../examples/index` - Practical examples
+* :doc:`../howto/index` - Practical examples
 * GitHub: https://github.com/Ananyapam7/NAMpy

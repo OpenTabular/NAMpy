@@ -41,3 +41,6 @@ These combinations remain guarded rather than approximated:
 Controls without a Python or native-kernel analogue are retained as metadata or
 documented no-ops. In particular, `nthreads` and `ncv_threads` do not create
 parallel native kernels.
+
+See the [runtime-checked route matrix](optimizer_matrix.rst) for representative
+finite fits and expected rejections generated from the current implementation.

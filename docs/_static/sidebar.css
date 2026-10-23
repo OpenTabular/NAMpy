@@ -120,3 +120,28 @@
 .contributor-profile:focus-visible {
   background: #f1f6f8;
 }
+
+/* Parameter descriptions should read within the reference column. */
+.rst-content table.api-reference-table td,
+.rst-content table.api-reference-table th {
+  white-space: normal;
+  vertical-align: top;
+}
+.rst-content table.api-reference-table code {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.rst-content h1,
+.rst-content dl.field-list {
+  overflow-wrap: anywhere;
+}
+.rst-content dl.field-list dd {
+  min-width: 0;
+}
+.rst-content dl.field-list code {
+  white-space: normal;
+}
+html.writer-html5 .rst-content dl.field-list {
+  grid-template-columns: fit-content(35%) minmax(0, 1fr);
+}

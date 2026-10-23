@@ -212,7 +212,9 @@ Manual Search
 
 .. code-block:: python
 
-   best_score = 0
+   import numpy as np
+
+   best_score = -np.inf
    best_params = None
    
    for lr in [1e-5, 1e-4, 1e-3]:
@@ -237,7 +239,7 @@ Using scikit-learn
    model = NAMRegressor()
    scores = cross_val_score(
        model, X, y, cv=5,
-       fit_params={'max_epochs': 50, 'lr': 1e-3}
+       params={'max_epochs': 50, 'lr': 1e-3}
    )
    
    print(f"CV Score: {scores.mean():.4f} (+/- {scores.std():.4f})")

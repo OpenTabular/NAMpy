@@ -3,23 +3,13 @@ NAMpy: Interpretable Additive Models
 
 .. image:: _static/logo.png
    :alt: NAMpy — Interpretable Additive Modeling
-   :class: landing-logo
+   :class: landing-logo no-scaled-link
    :align: center
    :width: 100%
 
 NAMpy combines statistical and neural additive models in one Python workflow.
 Fit nonlinear feature effects, inspect their contributions, and model changing
 response distributions through a scikit-learn-style estimator interface.
-
-.. button-ref:: quickstart
-   :color: primary
-
-   Get started
-
-.. button-ref:: models/index
-   :outline:
-
-   Explore the models
 
 Quick installation
 ------------------
@@ -316,7 +306,7 @@ Explore the documentation
    :gutter: 2
 
    .. grid-item-card:: Fit your first GAM
-      :link: quickstart
+      :link: tutorials/first_gam
       :link-type: doc
 
       Follow one nonlinear dataset through fitting, held-out evaluation,
@@ -330,7 +320,7 @@ Explore the documentation
       and offsets to fitted examples.
 
    .. grid-item-card:: Understand additive models
-      :link: overview
+      :link: concepts/index
       :link-type: doc
 
       Learn the statistical, neural, distributional, and interpretation
@@ -349,6 +339,24 @@ Explore the documentation
       Find constructors, methods, defaults, return values, and extension
       interfaces.
 
+   .. grid-item-card:: Explore detailed examples
+      :link: in_depth/index
+      :link-type: doc
+
+      Work through longer statistical, neural, and distributional analyses.
+
+   .. grid-item-card:: Choose a model
+      :link: models/index
+      :link-type: doc
+
+      Compare model capabilities and find the estimator for your analysis.
+
+   .. grid-item-card:: Find a practical recipe
+      :link: howto/index
+      :link-type: doc
+
+      Find focused guides for preprocessing, fitting, interpretation, and prediction.
+
 Contributors
 ------------
 
@@ -365,26 +373,12 @@ Contributors
 
 .. toctree::
    :caption: Getting Started
-   :maxdepth: 1
+   :maxdepth: 2
    :hidden:
 
-   overview
-   quickstart
+   Introductory examples <tutorials/index>
+   Advanced examples <in_depth/index>
    faq
-
-.. toctree::
-   :caption: Tutorials
-   :maxdepth: 2
-   :hidden:
-
-   tutorials/index
-
-.. toctree::
-   :caption: In-depth Tutorials
-   :maxdepth: 2
-   :hidden:
-
-   in_depth/index
 
 .. toctree::
    :caption: How-to Guides
@@ -392,7 +386,6 @@ Contributors
    :hidden:
 
    howto/index
-   examples/index
 
 .. toctree::
    :caption: Concepts
@@ -400,20 +393,14 @@ Contributors
    :hidden:
 
    concepts/index
-   user_guide
 
 .. toctree::
-   :caption: Models
-   :maxdepth: 1
-   :hidden:
-
-   models/index
-
-.. toctree::
-   :caption: API Reference
+   :caption: Reference
    :maxdepth: 2
    :hidden:
 
+   models/index
+   user_guide/formula_visual_reference
    api/models
    api/gam
    api/gam_formula
@@ -431,12 +418,13 @@ Contributors
    api/plotting
 
 .. toctree::
-   :caption: Validation and Development
+   :caption: Development
    :maxdepth: 1
    :hidden:
 
    compatibility
    contributing
+   development/validation_reports
    architecture
    development/reference_sources
    development/mgcv_optimizer_boundaries

@@ -12,20 +12,11 @@
     if (!sidebar || !menu) return;
     const storageKey = 'nampy-sidebar-navigation';
 
-    function branchPath(item) {
-      const link = item.querySelector(':scope > a[href]');
-      return link ? new URL(link.href).pathname : null;
-    }
-
     try {
       const saved = JSON.parse(sessionStorage.getItem(storageKey) || 'null');
       if (saved && saved.destination === window.location.pathname) {
-        menu.querySelectorAll('li').forEach((item) => {
-          if (item.querySelector(':scope > ul') && saved.expanded.includes(branchPath(item))) {
-            item.classList.add('current');
-            item.setAttribute('aria-expanded', 'true');
-          }
-        });
+        // Keep Sphinx's current-page classes: restoring old branches as
+        // 'current' makes previously visited pages look selected as well.
         sidebar.scrollTop = saved.scrollTop;
       }
     } catch (_) {
@@ -39,13 +30,9 @@
       const destination = new URL(link.href);
       if (destination.origin !== window.location.origin) return;
       try {
-        const expanded = Array.from(menu.querySelectorAll('li.current'))
-          .filter((item) => item.querySelector(':scope > ul'))
-          .map(branchPath);
         sessionStorage.setItem(storageKey, JSON.stringify({
           destination: destination.pathname,
           scrollTop: sidebar.scrollTop,
-          expanded,
         }));
       } catch (_) {
         // Do not block the link if browser storage is disabled.

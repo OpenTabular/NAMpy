@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def main():
     torch.set_num_threads(1)
-    source = (ROOT / "docs/index.rst").read_text()
+    source = (ROOT / "docs/tutorials/modeling_workflows.rst").read_text()
     section = source.split("Neural Additive Model (NAM)\n", 1)[1]
     block = re.search(
         r"^\.\. code-block:: python\n\n((?:(?:   [^\n]*)?\n)+)", section, re.M

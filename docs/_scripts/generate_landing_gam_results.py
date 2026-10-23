@@ -43,7 +43,7 @@ def save(fig, name):
     plt.close(fig)
 
 
-source = (ROOT / "docs/index.rst").read_text()
+source = (ROOT / "docs/tutorials/modeling_workflows.rst").read_text()
 blocks = re.findall(
     r"^\.\. code-block:: python\n\n((?:(?:   [^\n]*)?\n)+)", source, re.M
 )

@@ -35,7 +35,7 @@ Fit and inspect
    ).fit(X_train, y_train)
 
    components = model.predict_components(X_test, center=True)
-   group_norms = model.model.get_group_norms()
+   group_norms = model.group_norms()
    selected = model.model.selected_groups(threshold=1e-4)
    figures = model.plot_terms(X_test, center=True)
 

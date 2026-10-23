@@ -1,9 +1,10 @@
 Fit, diagnose, and extend a statistical GAM
 ===========================================
 
-.. include:: ../quickstart.rst
-   :start-line: 3
-   :end-before: Choose the next analysis
+Start after :doc:`../notebooks/01_getting_started` or with basic Python and pandas knowledge.
+Allow a few minutes on CPU for fitting, diagnostics, and the extensions below.
+
+.. include:: ../_includes/first_gam_walkthrough.inc
 
 Extend the model structure
 --------------------------
