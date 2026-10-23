@@ -210,6 +210,13 @@ Neural Additive Model (NAM)
    :class: homepage-demo scientific-figure
    :align: center
 
+.. include:: _generated/home_nam.inc
+
+.. image:: _static/home_nam_importance.png
+   :alt: NAM feature importance measured by mean absolute centered contribution
+   :class: homepage-demo scientific-figure
+   :align: center
+
 Neural distributional regression
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -260,6 +267,48 @@ Neural LSS estimators also provide point-and-spread effect plots:
    :class: homepage-demo scientific-figure
    :align: center
 
+More modeling examples
+----------------------
+
+.. grid:: 1 1 2 2
+   :gutter: 2
+
+   .. grid-item-card:: Constrain a feature effect
+      :link: tutorial-monotone
+      :link-type: ref
+
+      .. image:: _static/shape_constraint_comparison.png
+         :alt: Comparison of unconstrained and monotone feature effects
+
+      Encode a defensible monotonicity assumption during fitting.
+
+   .. grid-item-card:: Model interacting features
+      :link: tutorial-interaction
+      :link-type: ref
+
+      .. image:: _static/interaction_surface.png
+         :alt: Joint spatial effect estimated by a tensor-product smooth
+
+      Learn a joint surface that separate main effects cannot represent.
+
+   .. grid-item-card:: Predict conditional quantiles
+      :link: in_depth/quantile_calibration
+      :link-type: doc
+
+      .. image:: _static/detailed_quantile_median.png
+         :alt: Learned and known conditional median in the QNAM example
+
+      Compare quantile recovery, interval width, and held-out coverage.
+
+   .. grid-item-card:: Recover step-shaped effects
+      :link: in_depth/tree_effects
+      :link-type: doc
+
+      .. image:: _static/detailed_tree_effects.png
+         :alt: Additive tree predictions and numerical and categorical effects
+
+      Compare a single additive tree with a jointly trained tree ensemble.
+
 Explore the documentation
 -------------------------
 
@@ -294,20 +343,25 @@ Explore the documentation
       Explore question-led analyses with executable code and fitted plots.
 
    .. grid-item-card:: Look up an exact symbol
-      :link: api/index
+      :link: api/models
       :link-type: doc
 
       Find constructors, methods, defaults, return values, and extension
       interfaces.
 
-Citing NAMpy
+Contributors
 ------------
 
-If NAMpy contributes to published work, cite the software as:
+.. raw:: html
 
-   Ananyapam De, Anton Thielmann, and OpenTabular contributors (2026).
-   *NAMpy: Statistical and Neural Additive Models for Python*.
-   https://github.com/OpenTabular/NAMpy
+   <div class="contributors-grid" id="github-contributors">
+   <a class="contributor-profile" href="https://github.com/Ananyapam7"><img src="https://avatars.githubusercontent.com/u/39508435?v=4&amp;s=96" alt="" width="64" height="64" loading="lazy"><span>Ananyapam7</span></a>
+   <a class="contributor-profile" href="https://github.com/AnFreTh"><img src="https://avatars.githubusercontent.com/u/51477933?v=4&amp;s=96" alt="" width="64" height="64" loading="lazy"><span>AnFreTh</span></a>
+   <a class="contributor-profile" href="https://github.com/22GC22"><img src="https://avatars.githubusercontent.com/u/80445708?v=4&amp;s=96" alt="" width="64" height="64" loading="lazy"><span>22GC22</span></a>
+   <a class="contributor-profile" href="https://github.com/eltociear"><img src="https://avatars.githubusercontent.com/u/22633385?v=4&amp;s=96" alt="" width="64" height="64" loading="lazy"><span>eltociear</span></a>
+   </div>
+
+`All contributors on GitHub <https://github.com/OpenTabular/NAMpy/graphs/contributors>`_.
 
 .. toctree::
    :caption: Getting Started
@@ -324,7 +378,13 @@ If NAMpy contributes to published work, cite the software as:
    :hidden:
 
    tutorials/index
-   notebook_tutorials
+
+.. toctree::
+   :caption: In-depth Tutorials
+   :maxdepth: 2
+   :hidden:
+
+   in_depth/index
 
 .. toctree::
    :caption: How-to Guides
@@ -354,7 +414,21 @@ If NAMpy contributes to published work, cite the software as:
    :maxdepth: 2
    :hidden:
 
-   api/index
+   api/models
+   api/gam
+   api/gam_formula
+   api/gam_smooths
+   api/gam_families
+   api/gam_diagnostics
+   api/gam_inference
+   api/gam_results
+   api/gam_advanced
+   api/basemodels
+   api/configs
+   api/utils
+   api/neural
+   api/contracts
+   api/plotting
 
 .. toctree::
    :caption: Validation and Development

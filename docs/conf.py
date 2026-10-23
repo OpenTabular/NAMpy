@@ -129,6 +129,7 @@ html_static_path = ["_static"]
 html_css_files = ["sidebar.css"]
 html_js_files = [
     "page-navigation.js",
+    ("contributors.js", {"defer": "defer"}),
     ("site-navigation.js", {"defer": "defer"}),
 ]
 
@@ -204,3 +205,20 @@ texinfo_documents = [
         "Miscellaneous",
     ),
 ]
+
+
+# Every HTML sidebar contains the global navigation tree. Re-render all pages
+# after an environment update so incremental builds cannot retain old menus.
+def _refresh_html_navigation(app, env):
+    if app.builder.format == "html":
+        # Viewcode otherwise retains source pages whose Python source is unchanged,
+        # even when their shared navigation has changed.
+        for page in (Path(app.outdir) / "_modules").rglob("*.html"):
+            page.unlink()
+        (Path(app.outdir) / "py-modindex.html").unlink(missing_ok=True)
+        return sorted(env.found_docs)
+    return []
+
+
+def setup(app):
+    app.connect("env-updated", _refresh_html_navigation)

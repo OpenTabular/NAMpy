@@ -58,7 +58,6 @@ docs/
 ├── tutorials/           # Question-led analyses with generated figures
 ├── howto/              # Focused modeling recipes
 ├── concepts/           # Statistical and interpretation background
-├── notebook_tutorials.rst # Extended executable surveys
 ├── notebooks/            # Broad reference notebooks
 ├── user_guide.rst       # Guide landing page
 │   └── user_guide/      # Detailed modeling reference

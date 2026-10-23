@@ -102,7 +102,7 @@ Interpret the effects
        figsize=(10, 4),
    )
 
-.. image:: _static/first_gam_effects.png
+.. image:: /_static/first_gam_effects.png
    :alt: Estimated temperature and hour effects with uncertainty
    :class: scientific-figure
    :align: center
@@ -155,7 +155,7 @@ statistical model in ``gam_``, which exposes the full diagnostic surface.
    plt.xlabel("Fitted demand")
    plt.ylabel("Deviance residual")
 
-.. image:: _static/first_gam_residuals.png
+.. image:: /_static/first_gam_residuals.png
    :alt: Deviance residuals against fitted energy demand
    :class: scientific-figure
    :align: center
@@ -187,12 +187,12 @@ meaning of each term, and sensitivity to model choices still matter.
 Choose the next analysis
 ------------------------
 
-* :doc:`user_guide/statistical_gams` lists formulas, smooth bases, families,
+* :doc:`/user_guide/statistical_gams` lists formulas, smooth bases, families,
   fitting controls, prediction options, inference, and diagnostics.
-* :doc:`user_guide/shape_constrained_gams` shows how to impose a defensible
+* :doc:`/user_guide/shape_constrained_gams` shows how to impose a defensible
   monotonicity, curvature, or positivity assumption.
-* :doc:`models/index` helps choose a neural additive architecture.
-* :doc:`user_guide/gamlss` models changing spread and other distribution
+* :doc:`/models/index` helps choose a neural additive architecture.
+* :doc:`/user_guide/gamlss` models changing spread and other distribution
   parameters.
-* :doc:`compatibility` documents the supported ``mgcv`` and ``scam``
+* :doc:`/compatibility` documents the supported ``mgcv`` and ``scam``
   compatibility surface and its boundaries.

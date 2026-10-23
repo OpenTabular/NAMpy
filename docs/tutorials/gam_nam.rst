@@ -1,5 +1,5 @@
-Compare Statistical and Neural Feature Effects
-==============================================
+Compare GAM, NAM, and shared-basis models
+=========================================
 
 Do a statistical GAM and a neural additive model learn the same relationships
 when the data and train/test split are held fixed? This analysis fits both
@@ -114,8 +114,9 @@ are transferred to the intercept.
    )
 
    gam_parts.validate_additive_reconstruction()
-   nam_parts.validate_additive_reconstruction()
+   nam_parts.validate_additive_reconstruction(atol=1e-5)
 
+The neural check allows small floating-point rounding differences.
 For each model, its intercept, named terms, and optional offset reconstruct the
 linear predictor. This is an accounting guarantee. It does not imply that the
 individual effects are uniquely identified or that neural effects carry the
@@ -128,6 +129,31 @@ The curves below are centered link-scale contributions evaluated across each
 feature's training range. Every other feature is held at its training median;
 because these models contain main effects only, the selected value of the
 other predictors does not change the plotted term.
+
+.. code-block:: python
+
+   import matplotlib.pyplot as plt
+
+   # Match each named term to its source feature.
+   def feature_effect(parts, feature):
+       key = next(name for name in parts.terms if feature in name)
+       return np.asarray(parts.terms[key]).reshape(-1)
+
+   gam_reference = gam.predict_components(train)
+   figure, axes = plt.subplots(2, 2, figsize=(10, 7))
+   for axis, feature in zip(axes.flat, features):
+       lower, upper = np.quantile(train[feature], [0.01, 0.99])
+       values = np.linspace(lower, upper, 240)
+       grid = pd.DataFrame({name: np.full(values.size, train[name].median()) for name in features})
+       grid[feature] = values
+       gam_effect = feature_effect(gam.predict_components(grid), feature)
+       gam_effect -= feature_effect(gam_reference, feature).mean()
+       nam_grid = nam.predict_components(grid, center=True, reference_X=train[features])
+       axis.plot(values, gam_effect, label="GAM")
+       axis.plot(values, feature_effect(nam_grid, feature), label="NAM")
+       axis.set(title=feature, xlabel="Feature value", ylabel="Centered contribution")
+   axes[0, 0].legend()
+   figure.tight_layout()
 
 .. image:: ../_static/gam_nam_all_features.png
    :alt: Statistical GAM and NAM centered contributions for all four features
@@ -150,5 +176,10 @@ feature-specific neural functions are the desired representation. Compare
 their centered effects as fitted relationships, not as interchangeable
 uncertainty statements.
 
-Continue with :doc:`first_gam` for a complete statistical diagnostic workflow
-or :doc:`nam_nbm` to compare two neural representations.
+The NAM is one neural representation. Next, compare it with an NBM, which
+shares learned basis functions across terms, using a new two-feature dataset.
+
+.. include:: ../_includes/tutorial_nam_nbm.inc
+
+Continue with :doc:`../notebooks/03_neural_models` for sparse terms,
+interaction discovery, attention, tree models, and other architectures.

@@ -1,3 +1,5 @@
+:orphan:
+
 API Reference
 =============
 
@@ -8,42 +10,30 @@ inspection, plotting, and extension APIs.
 Estimators
 ----------
 
-.. toctree::
-   :maxdepth: 1
-
-   models
+* :doc:`models`
 
 Statistical GAM API
 -------------------
 
-.. toctree::
-   :maxdepth: 1
-
-   gam
-   gam_formula
-   gam_smooths
-   gam_families
-   gam_diagnostics
-   gam_inference
-   gam_results
-   gam_advanced
+* :doc:`gam`
+* :doc:`gam_formula`
+* :doc:`gam_smooths`
+* :doc:`gam_families`
+* :doc:`gam_diagnostics`
+* :doc:`gam_inference`
+* :doc:`gam_results`
+* :doc:`gam_advanced`
 
 Neural API
 ----------
 
-.. toctree::
-   :maxdepth: 1
-
-   basemodels
-   configs
-   utils
-   neural
+* :doc:`basemodels`
+* :doc:`configs`
+* :doc:`utils`
+* :doc:`neural`
 
 Shared analysis API
 -------------------
 
-.. toctree::
-   :maxdepth: 1
-
-   contracts
-   plotting
+* :doc:`contracts`
+* :doc:`plotting`

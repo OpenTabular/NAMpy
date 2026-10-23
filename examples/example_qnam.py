@@ -119,11 +119,12 @@ def main():
         layer_sizes=(128, 64),
         dropout=0.05,
         feature_dropout=0.0,
-        numerical_method="standardization",
-        categorical_method="one_hot",
+        numerical_preprocessing="standardization",
+        categorical_preprocessing="one-hot",
         cat_cutoff=0.0,
         monotone_transform="softplus",
         min_increment=0.0,
+        distributional_kwargs={"quantiles": quantiles},
     )
 
     with tempfile.TemporaryDirectory() as ckpt_dir:
@@ -132,7 +133,6 @@ def main():
             y_train,
             X_val=X_val,
             y_val=y_val,
-            distributional_kwargs={"quantiles": quantiles},
             checkpoint_path=ckpt_dir,
             max_epochs=180,
             batch_size=64,

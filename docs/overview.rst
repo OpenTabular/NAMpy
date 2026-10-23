@@ -26,7 +26,7 @@ differ in which features an effect can depend on and how interactions are
 specified or discovered.
 
 Use :doc:`models/index` to compare architectures, or follow
-:doc:`tutorials/nam_nbm` for a fitted comparison of NAM and NBM.
+:ref:`NAM and NBM comparison <tutorial-nam-nbm>` for a fitted comparison of NAM and NBM.
 
 Distributional additive models
 ------------------------------

@@ -94,3 +94,29 @@
     outline-offset: 2px;
   }
 }
+
+.contributors-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+.contributor-profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0.25rem;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+.contributor-profile img {
+  border-radius: 50%;
+  border: 1px solid #e1e6e9;
+}
+.contributor-profile:hover,
+.contributor-profile:focus-visible {
+  background: #f1f6f8;
+}
