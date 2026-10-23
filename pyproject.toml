@@ -58,16 +58,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Compatibility aliases retained for existing installation commands. The
-# standard installation already contains every modeling backend.
-gam = []
-neural = []
-igann-sparse = []
 benchmarks = [
     "tabm==0.0.3",
     "rtdl-num-embeddings==0.0.12",
 ]
-all = []
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
@@ -79,7 +73,7 @@ dev = [
 ]
 docs = [
     "sphinx>=5.0",
-    "sphinxawesome-theme>=6.0",
+    "sphinx-rtd-theme>=3.0",
     "sphinx-autodoc-typehints>=1.0",
     "myst-parser>=2.0.0",
     "nbsphinx>=0.9.0",
@@ -103,7 +97,7 @@ version = {attr = "nampy.__version__.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["nampy*"]
+include = ["nampy", "nampy.*"]
 exclude = ["tests*", "debug*", "docs*", "mgcv*", "upstreams*"]
 
 [tool.black]

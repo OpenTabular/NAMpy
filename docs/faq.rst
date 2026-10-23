@@ -1,36 +1,56 @@
 Frequently Asked Questions
 ==========================
 
+Installation and setup
+----------------------
+
+Which Python versions are supported?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+NAMpy supports **Python 3.11 and 3.12**.
+
+How can I verify the installation?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Import NAMpy and check its version:
+
+.. code-block:: python
+
+   import nampy
+
+   print(nampy.__version__)
+
+Do I need a GPU?
+~~~~~~~~~~~~~~~~
+
+No. Statistical GAMs run on the CPU, and neural estimators also support CPU
+training. A GPU is useful when the neural model or dataset is large enough to
+offset device-transfer overhead.
+
+How can I check GPU support?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Check whether PyTorch can see a CUDA-capable GPU:
+
+.. code-block:: python
+
+   import torch
+
+   print(torch.cuda.is_available())
+   if torch.cuda.is_available():
+       print(torch.cuda.get_device_name(0))
+
+If CUDA is unavailable, select the appropriate PyTorch build using the
+`PyTorch installation guide <https://pytorch.org/get-started/locally/>`_.
+
 Models and data
 ---------------
 
 Which model should I use?
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Start with the model whose structure matches the question you want to answer.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 45 55
-
-   * - Goal
-     - Starting point
-   * - Smooth effects with statistical inference
-     - ``GAMRegressor`` or the formula-based ``GAM``
-   * - Flexible feature-wise neural functions
-     - ``NAMRegressor`` or ``NAMClassifier``
-   * - Sparse feature selection
-     - ``SNAM`` or ``IGANN`` estimators
-   * - Explicit higher-order interactions
-     - ``SIAN``, ``SPAM``, ``NATT``, or ``NAMformer`` estimators
-   * - Conditional scale or shape
-     - ``GAMLSS`` or a neural ``*LSS`` estimator
-   * - Ordered conditional quantiles
-     - ``QNAMLSS``
-
-These are starting points rather than performance guarantees. Compare candidate
-models on the same validation split and metric. See :doc:`models/index` for the
-full catalog.
+Use the :doc:`model chooser <models/index>` to select a starting architecture
+based on your task, interaction structure, and inference needs.
 
 Can I use pandas DataFrames?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -76,15 +96,8 @@ as standard errors and smooth diagnostics. A neural additive model learns its
 feature functions with neural optimization and exposes learned contributions,
 but its uncertainty statements are not the same as GAM inference.
 
-Fitting and hardware
---------------------
-
-Do I need a GPU?
-~~~~~~~~~~~~~~~~
-
-No. Statistical GAMs run on the CPU, and neural estimators also support CPU
-training. A GPU is useful when the neural model or dataset is large enough to
-offset device-transfer overhead.
+Fitting
+-------
 
 How can I reduce neural training time?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -126,11 +139,7 @@ Use the fitted estimator's component and plotting methods:
 ``term_importance`` summarizes their magnitude, while ``plot_terms`` displays
 the fitted one- and two-dimensional effects supported by the estimator.
 
-.. note::
-
-   Exact reconstruction does not imply that individual effects are uniquely
-   identified. Correlated inputs and overlapping main effects and interactions
-   can make term estimates unstable. See :doc:`user_guide/interpretability`.
+For centering and interpretation, see :doc:`user_guide/interpretability`.
 
 What does an LSS model predict?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -193,14 +202,15 @@ notebook:
    python -m pip show nampy
 
 In an editor or notebook, also confirm the selected Python environment or
-kernel. See :doc:`installation` for the supported Python versions.
+kernel.
 
 How do I report a problem?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Search the `issue tracker <https://github.com/OpenTabular/NAMpy/issues>`_ first.
 For a new report, include a minimal example, the complete error message, the
-expected behavior, and the Python, NAMpy, operating-system, and backend versions.
+expected behavior, installation command, and the Python, NAMpy, operating-system,
+and backend versions.
 
 How do I contribute?
 ~~~~~~~~~~~~~~~~~~~~

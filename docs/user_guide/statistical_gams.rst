@@ -65,6 +65,10 @@ Model interfaces
 Formula language
 ----------------
 
+For a modeling-question-first introduction with fitted plots, see
+:ref:`formula-visual-reference`. The complete ``bs=`` code inventory is in
+:ref:`gam-smooth-bases`.
+
 .. list-table::
    :header-rows: 1
    :widths: 26 39 35
@@ -103,87 +107,6 @@ Formula language
      - Numeric transformations evaluated from data columns.
      - ``y ~ s(log(x)) + I(z**2)``
 
-.. _gam-smooth-bases:
-
-Smooth bases
-------------
-
-The basis code is supplied through ``bs=`` inside ``s()``, ``te()``, or
-``ti()``. Tensor products accept one code per margin.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 20 43 37
-
-   * - Code
-     - Basis
-     - Example
-   * - ``tp``
-     - Thin-plate regression spline.
-     - ``s(x, bs="tp")``
-   * - ``ts``
-     - Thin-plate spline with null-space shrinkage.
-     - ``s(x, bs="ts")``
-   * - ``cr``
-     - Cubic regression spline.
-     - ``s(x, bs="cr")``
-   * - ``cs``
-     - Cubic regression spline with shrinkage.
-     - ``s(x, bs="cs")``
-   * - ``cc``
-     - Cyclic cubic regression spline.
-     - ``s(day, bs="cc")``
-   * - ``ps``
-     - P-spline.
-     - ``s(x, bs="ps", m=c(2, 2))``
-   * - ``cp``
-     - Cyclic P-spline.
-     - ``s(day, bs="cp")``
-   * - ``bs``
-     - B-spline with derivative-based penalties.
-     - ``s(x, bs="bs", m=c(3, 2))``
-   * - ``ds``
-     - Duchon spline for one or more covariates.
-     - ``s(x, z, bs="ds")``
-   * - ``gp``
-     - Gaussian-process smooth.
-     - ``s(x, z, bs="gp")``
-   * - ``ad``
-     - Adaptive smooth with locally varying smoothness.
-     - ``s(x, bs="ad")``
-   * - ``sos``
-     - Spline on a sphere from latitude and longitude.
-     - ``s(lat, lon, bs="sos")``
-
-Structured smooths
-------------------
-
-.. list-table::
-   :header-rows: 1
-   :widths: 20 43 37
-
-   * - Code
-     - Structure
-     - Example
-   * - ``re``
-     - Random-effect smooth.
-     - ``s(group, bs="re")``
-   * - ``mrf``
-     - Markov random field over neighboring regions.
-     - ``s(region, bs="mrf", xt=graph)``
-   * - ``fs``
-     - Factor-specific smooth with a shared smoothing parameter.
-     - ``s(x, group, bs="fs")``
-   * - ``sz``
-     - Sum-to-zero factor smooth.
-     - ``s(x, group, bs="sz")``
-   * - ``by=``
-     - Numeric or factor modulation of a smooth.
-     - ``s(x, by=group)``
-   * - ``id=``
-     - Share smoothing parameters across compatible terms.
-     - ``s(x, id=1) + s(z, id=1)``
-
 Smooth options
 --------------
 
@@ -219,48 +142,12 @@ Smooth options
      - Supply user-defined knot locations.
      - ``model.fit(data=df, knots={"x": knots})``
 
-Shape-constrained bases
------------------------
+Shape constraints
+-----------------
 
 Shape constraints use the same ``s(..., bs=...)`` syntax as ordinary
-smooths. See :doc:`shape_constrained_gams` for the coefficient transforms,
-derivative behavior, linear functionals, and supported fitting routes.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 27 38 35
-
-   * - Constraint
-     - Codes
-     - Example
-   * - Monotone
-     - ``mpi``, ``mpd``
-     - ``s(x, bs="mpi")``
-   * - Convex or concave
-     - ``cx``, ``cv``
-     - ``s(x, bs="cx")``
-   * - Monotone with curvature
-     - ``micx``, ``micv``, ``mdcx``, ``mdcv``
-     - ``s(x, bs="micx")``
-   * - Positive
-     - ``po``, ``ipo``, ``dpo``, ``cpop``
-     - ``s(x, bs="po")``
-   * - Anchored monotone
-     - ``miso``, ``mifo``
-     - ``s(x, bs="miso")``
-   * - Numeric-by
-     - ``mpiby``, ``mpdby``, ``micxby``, ``micvby``, ``mdcxby``,
-       ``mdcvby``, ``cxby``, ``cvby``
-     - ``s(x, by=z, bs="mpiby")``
-   * - Local
-     - ``lmpi``, ``lipl``
-     - ``s(x, bs="lmpi", xt=list(xc=0.4))``
-   * - Bivariate
-     - ``tedmi``, ``tedmd``, ``temicx``, ``temicv``, ``tedecx``,
-       ``tedecv``, ``tecxcx``, ``tecvcv``, ``tecxcv``, ``tescx``,
-       ``tescv``, ``tesmi1``, ``tesmd1``, ``tesmi2``, ``tesmd2``,
-       ``tismi``, ``tismd``
-     - ``s(x, z, bs="tedmi")``
+smooths. See :doc:`shape_constrained_gams` for the modeling workflow and
+:ref:`shape-constrained-basis-codes` for the exhaustive code inventory.
 
 Families and links
 ------------------

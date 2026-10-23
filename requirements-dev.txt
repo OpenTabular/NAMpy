@@ -1,6 +1,2 @@
-pytest
-pytest-cov
-black
-ruff
-mypy
-isort
+# NAMpy and development tools.
+.[dev]

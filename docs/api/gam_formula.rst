@@ -15,7 +15,9 @@ only need to pass the formula to :class:`nampy.gam.GAM`:
        smoothing_method="reml",
    ).fit(data)
 
-See :ref:`gam-formula-language` for the supported formula surface and examples.
+See :ref:`formula-visual-reference` to choose terms from fitted examples,
+:ref:`gam-formula-language` for the compact syntax table, and
+:ref:`gam-smooth-bases` for every public ``bs=`` code.
 The objects below are useful when validating formulas or extending the
 statistical backend.
 

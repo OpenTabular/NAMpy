@@ -1,0 +1,96 @@
+/* Logo treatments for the Read the Docs theme. */
+.rst-content img.landing-logo {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  height: auto;
+  margin: 0 auto 1.5rem;
+}
+
+.wy-side-nav-search > a img.logo {
+  display: block;
+  height: 156px;
+  margin: 0.65rem auto 0;
+  max-width: 100%;
+  object-fit: contain;
+  width: auto;
+}
+
+@media screen and (max-width: 768px) {
+  .wy-side-nav-search > a img.logo {
+    height: 112px;
+  }
+}
+
+/* Keep page navigation separate from the site-wide document tree. */
+.page-navigation {
+  display: none;
+}
+
+.rst-content h2,
+.rst-content h3 {
+  scroll-margin-top: 2rem;
+}
+
+@media screen and (min-width: 1200px) {
+  .wy-nav-content.has-page-navigation {
+    display: grid;
+    grid-template-columns: minmax(0, 800px) 210px;
+    gap: 3rem;
+    max-width: 1200px;
+  }
+
+  .has-page-navigation > .rst-content {
+    min-width: 0;
+  }
+
+  .page-navigation:not([hidden]) {
+    display: block;
+    position: sticky;
+    top: 2rem;
+    align-self: start;
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
+    border-left: 1px solid #e1e6e9;
+    padding-left: 1.25rem;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+
+  .page-navigation-title {
+    color: #374957;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+  }
+
+  .page-navigation ul {
+    list-style: none;
+    margin: 0;
+  }
+
+  .page-navigation ul ul {
+    margin-left: 0.85rem;
+  }
+
+  .page-navigation a {
+    display: block;
+    padding: 0.3rem 0;
+    color: #62717d;
+    overflow-wrap: anywhere;
+  }
+
+  .page-navigation a:hover,
+  .page-navigation a[aria-current="location"] {
+    color: #287ca6;
+  }
+
+  .page-navigation a[aria-current="location"] {
+    font-weight: 600;
+  }
+
+  .page-navigation a:focus-visible {
+    outline: 2px solid #287ca6;
+    outline-offset: 2px;
+  }
+}

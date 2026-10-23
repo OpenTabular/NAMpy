@@ -1,4 +1,4 @@
-"""Import-boundary contracts for optional NAMpy backends."""
+"""Import-boundary contracts for lazy NAMpy backends."""
 
 from __future__ import annotations
 

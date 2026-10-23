@@ -11,21 +11,14 @@ the analysis.
 Model structure
 ---------------
 
-A generalized additive model represents a transformed conditional mean as a
-sum of parametric and smooth effects,
+Statistical GAMs use penalized spline bases for smooth effects, alongside
+parametric terms and explicit interactions. See
+:doc:`../concepts/additive_predictors` for the decomposition and
+:doc:`../concepts/smoothness` for the basis and penalty equations.
 
-.. math::
-
-   \eta(x) \equiv g\!\left(\mathbb{E}[Y \mid x]\right)
-   = \beta_0 + X\beta + \sum_{j=1}^{p} f_j(x_j)
-     + \sum_{j<k} f_{jk}(x_j, x_k).
-
-Each smooth is represented by basis coefficients and a roughness penalty.
-Smoothing parameters control the trade-off between fit and wiggliness and can
-be supplied directly or estimated with GCV, UBRE, ML, REML, or the supported
-LAML routes. Unlike the neural models, the statistical backend also provides
-model-based covariance matrices, effective degrees of freedom, term tests,
-and residual diagnostics.
+Smoothing parameters can be supplied directly or estimated with GCV, UBRE, ML,
+REML, or the supported LAML routes. The statistical backend provides
+model-based covariance matrices, effective degrees of freedom, and term tests.
 
 Fit and inspect
 ---------------

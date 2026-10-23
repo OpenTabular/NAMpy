@@ -1,16 +1,21 @@
 {% extends "!layout.html" %}
 
-{% block htmltitle %}
+{% block menu %}
+  {% set home_doc = root_doc|default(master_doc) %}
+  {% set home_item %}
+    <li class="toctree-l1 home-navigation{% if pagename == home_doc %} current{% endif %}">
+      <a class="reference internal{% if pagename == home_doc %} current{% endif %}"
+         href="{{ pathto(home_doc) }}"{% if pagename == home_doc %} aria-current="page"{% endif %}>Home</a>
+    </li>
+  {% endset %}
+  {% set navigation = super() %}
+  {{ navigation.replace('<li class="toctree-l1', home_item ~ '<li class="toctree-l1', 1)|safe }}
+{% endblock %}
+
+{% block content %}
   {{ super() }}
-  <script>
-    (function () {
-      const key = "_x_darkMode";
-      const stored = localStorage.getItem(key);
-      const darkMode = stored === "true";
-      if (stored === null) {
-        localStorage.setItem(key, "false");
-      }
-      document.documentElement.classList.toggle("dark", darkMode);
-    })();
-  </script>
-{% endblock htmltitle %}
+  <aside class="page-navigation" aria-label="On this page" hidden>
+    <p class="page-navigation-title" id="page-navigation-title">On this page</p>
+    <nav aria-labelledby="page-navigation-title"></nav>
+  </aside>
+{% endblock %}

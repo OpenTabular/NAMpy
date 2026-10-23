@@ -1,11 +1,2 @@
-numpy<=1.26.4
-pandas
-lightning
-scikit-learn
-scipy>=1.16
-torch
-torchmetrics
-setuptools
-properscoring
-matplotlib
-pretab
+# Complete NAMpy installation; runtime dependencies are defined in pyproject.toml.
+.

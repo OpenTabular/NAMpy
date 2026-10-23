@@ -10,13 +10,14 @@ neural network and depend only on its named feature.
 Model structure
 ---------------
 
-A neural additive model learns one subnetwork per feature and sums the
-resulting contributions,
+NAM learns each feature's contribution with a separate network,
 
 .. math::
 
-   \eta(x) \equiv g\!\left(\mathbb{E}[Y \mid x]\right)
-   = \beta_0 + \sum_{j=1}^{p} f_j(x_j).
+   f_j(x_j)=h_j(x_j;w_j).
+
+These contributions follow the :doc:`shared decomposition
+<../concepts/additive_predictors>`.
 
 NAMpy can add explicitly requested interaction subnetworks
 :math:`f_S(x_S)`. A reported main effect depends only on its named source

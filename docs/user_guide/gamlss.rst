@@ -1,46 +1,16 @@
 Distributional GAMs and GAMLSS
 ==============================
 
-Two groups can have similar average outcomes and very different variability.
-A mean-only model cannot represent that distinction. Distributional
-regression assigns an additive predictor to location, spread, or another
-family parameter so each can change with the covariates.
+This guide covers ``GAMLSS`` formulas, parameter ordering, predictions, and
+scoring. For the underlying model, see
+:doc:`../concepts/distributional_regression`; for a fitted example, see
+:doc:`../tutorials/changing_variability`.
 
-Start with :doc:`../tutorials/changing_variability` for a visual analysis.
-This page defines the statistical formula and prediction contracts in detail.
-
-Choose the estimator by the quantity being modeled:
-
-* :class:`nampy.models.GAMRegressor` fits one response predictor and returns a
-  one-dimensional numeric response.
-* :class:`nampy.models.GAMClassifier` fits a binary binomial predictor and
-  returns labels or two-column probabilities.
-* :class:`nampy.models.GAMLSS` jointly fits two or more distribution parameters
-  and returns a parameter matrix.
-
-The lower-level :class:`nampy.gam.GAM` also accepts supported
-multi-parameter families and exposes their statistical parameterization
-directly.
+The lower-level :class:`nampy.gam.GAM` also accepts supported multi-parameter
+families and exposes their statistical parameterization directly.
 
 Public parameter contract
 -------------------------
-
-For distribution parameter :math:`k`, NAMpy uses an additive predictor and a
-parameter-specific inverse link,
-
-.. math::
-
-   \eta_k(x)
-   = \beta_{0k} + \sum_{j=1}^{p} f_{jk}(x_j)
-     + \sum_{S \in \mathcal I_k} f_{Sk}(x_S) + o_k(x),
-   \qquad
-   \theta_k(x) = h_k^{-1}\!\left(\eta_k(x)\right),
-
-with :math:`Y \mid x \sim
-\mathcal{D}\{\theta_1(x),\ldots,\theta_K(x)\}`. Contributions returned by
-``predict_components`` are additive on the :math:`\eta_k` scale; natural
-parameters returned by ``predict`` need not be additive after applying
-:math:`h_k^{-1}`.
 
 ``GAMLSS.predict`` always returns natural distribution parameters. Columns
 follow ``parameter_names_``. ``predict(raw=True)`` and ``predict_link`` return
@@ -100,22 +70,5 @@ Offsets must be a list or tuple with one entry per parameter. Contributions in
 ``predict_components`` are zero-padded matrices, so every term has the same
 ``(n_samples, n_parameters)`` shape as the link prediction.
 
-Interpreting distributional effects
------------------------------------
-
-For neural LSS estimators, ``plot_distributional_effects`` obtains the
-conditional point prediction and standard deviation from the fitted family.
-The central curve is the point effect relative to the centered reference
-configuration. The black envelope is point effect plus or minus one
-conditional standard deviation; it is predictive spread, not a confidence
-interval for the central curve.
-
-``reference_X`` defines the empirical distribution used for centering. The
-zero-centered reference can be useful even when no observed row has every
-term at its reference value. ``response_scale`` applies a linear conversion
-back to original target units after response standardization. Nonlinear
-parameter links are always evaluated by the family before plotting.
-
-For repeated fits, the optional blue quantile ribbon describes between-fit
-variation. Keep that separate from the black conditional-spread envelope when
-reporting results.
+For neural LSS effect plots, centering references, and uncertainty envelopes,
+see :doc:`interpretability`.

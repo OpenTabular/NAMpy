@@ -34,7 +34,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         python -m pip install -c .github/constraints-ci.txt -r .github/requirements-ci-cpu-torch.txt
-        pip install -c .github/constraints-ci.txt -e ".[all,dev]"
+        pip install -c .github/constraints-ci.txt -e ".[dev]"
 
     - name: Run tests from static upstream fixtures
       run: |
@@ -68,7 +68,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -c .github/constraints-ci.txt -e ".[gam,dev]"
+        pip install -c .github/constraints-ci.txt -e ".[dev]"
 
     - name: Run portable numerical slices
       run: >-
@@ -178,7 +178,7 @@ jobs:
       run: |
         wheel_paths=(dist/*.whl)
         python -m pip install -c .github/constraints-ci.txt -r .github/requirements-ci-cpu-torch.txt
-        python -m pip install --no-cache-dir -c .github/constraints-ci.txt "${wheel_paths[0]}[all]"
+        python -m pip install --no-cache-dir -c .github/constraints-ci.txt "${wheel_paths[0]}"
         cd "${RUNNER_TEMP}"
         python "${GITHUB_WORKSPACE}/tests/public_api/installed_package_smoke.py"
 

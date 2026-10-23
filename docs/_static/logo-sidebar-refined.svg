@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="215" height="487" viewBox="0 0 215 487" role="img" aria-labelledby="title description">
+<title id="title">NAMpy</title>
+<desc id="description">Vector rendering of the original NAMpy tower, with its structural glass N, blue smooth, green neural layer, golden crossing curves, and transparent signal cube.</desc>
+<defs>
+  <linearGradient id="blue" x2="1" y2="0.8"><stop stop-color="#a4d8f2"/><stop offset="0.45" stop-color="#79b7dc"/><stop offset="1" stop-color="#5e9bc5"/></linearGradient>
+  <linearGradient id="curve-area" x2="0.3" y2="1"><stop stop-color="#eaf7ff" stop-opacity="0.92"/><stop offset="0.5" stop-color="#d9f0fc" stop-opacity="0.8"/><stop offset="1" stop-color="#c4e8f9" stop-opacity="0.9"/></linearGradient>
+  <radialGradient id="node-light" cx="30%" cy="25%" r="80%"><stop stop-color="#efffe9"/><stop offset="0.45" stop-color="#d5f5cf"/><stop offset="1" stop-color="#8bc79d"/></radialGradient>
+  <radialGradient id="node-muted" cx="30%" cy="25%" r="80%"><stop stop-color="#a9d7a2"/><stop offset="0.5" stop-color="#80bb87"/><stop offset="1" stop-color="#629c78"/></radialGradient>
+  <linearGradient id="green" x2="1" y2="1"><stop stop-color="#b6e8b9"/><stop offset="1" stop-color="#73c29c"/></linearGradient>
+  <linearGradient id="right" x1="0" y1="1" x2="0.8" y2="0"><stop stop-color="#78b7dc"/><stop offset="0.55" stop-color="#61a9bb"/><stop offset="1" stop-color="#b8ebbd"/></linearGradient>
+  <linearGradient id="letter" gradientUnits="userSpaceOnUse" x1="112" y1="438" x2="200" y2="184"><stop stop-color="#bee6fa" stop-opacity="0.9"/><stop offset="0.24" stop-color="#edfaff" stop-opacity="0.95"/><stop offset="0.52" stop-color="#eaf9f1" stop-opacity="0.91"/><stop offset="0.8" stop-color="#e5f6df" stop-opacity="0.89"/><stop offset="1" stop-color="#d9f0d2" stop-opacity="0.86"/></linearGradient>
+  <linearGradient id="letter-reflection" gradientUnits="userSpaceOnUse" x1="108" y1="0" x2="143" y2="0"><stop stop-color="#fff" stop-opacity="0.05"/><stop offset="0.48" stop-color="#fff" stop-opacity="0.62"/><stop offset="0.7" stop-color="#dff7ff" stop-opacity="0.32"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <clipPath id="letter-clip"><path d="M108 258 132 246 181 327V207L212 190V385L184 399 142 317V422L108 439Z"/></clipPath>
+  <linearGradient id="gold" x2="1" y2="1"><stop stop-color="#fff0a0"/><stop offset="0.55" stop-color="#edcf6c"/><stop offset="1" stop-color="#e7c66a"/></linearGradient>
+  <linearGradient id="gold-right" x2="1" y2="0.7"><stop stop-color="#f7e6a2"/><stop offset="1" stop-color="#e8d484"/></linearGradient>
+  <linearGradient id="glass" x2="0.6" y2="1"><stop stop-color="#eaf5fc" stop-opacity="0.88"/><stop offset="1" stop-color="#e0edf3" stop-opacity="0.72"/></linearGradient>
+  <radialGradient id="glow"><stop stop-color="#7cd8ce" stop-opacity="0.7"/><stop offset="1" stop-color="#7cd8ce" stop-opacity="0"/></radialGradient>
+  <linearGradient id="edge" x2="0" y2="1"><stop stop-color="#80bf96"/><stop offset="1" stop-color="#577c9d"/></linearGradient>
+</defs>
+<!-- Original stepped footprint, without a surrounding rectangular panel. -->
+<path d="M10 415 108 466 206 415V429L108 480 10 429Z" fill="#b2c5d1" opacity="0.32"/>
+<g stroke-width="2" stroke-linejoin="round">
+  <path d="M4 387 108 334 212 385 108 439Z" fill="#d3e1eb" stroke="#526c86"/>
+  <path d="M4 387 108 439V467L4 414Z" fill="#a3b3c9" stroke="#526c86"/>
+  <path d="M108 439 212 385V414L108 467Z" fill="#c4d0dc" stroke="#526c86"/>
+  <!-- The blue and green blocks keep the original asymmetric proportions. -->
+  <path d="M4 300 108 247 212 299 108 353Z" fill="#bfe6f4" stroke="#5289a7"/>
+  <path d="M4 300 108 353V439L4 387Z" fill="url(#blue)" stroke="#5282a3"/>
+  <path d="M108 258V238L132 226 174 171 212 190V385L108 439Z" fill="url(#right)" stroke="url(#edge)"/>
+  <!-- A single neural block meets the gold cube directly; no intervening plate. -->
+  <path d="M22 215 108 258V334L22 292Z" fill="url(#green)" stroke="none"/>
+  <path d="M22 215V292L108 334V258L132 246" fill="none" stroke="#579b78"/>
+  <!-- Shared top tile: both the green block and N use the same (24, -12)
+       depth vector, so their front and rear borders meet without a step. -->
+  <path d="M22 215 108 258 132 246 46 203Z" fill="#ddf2d6" fill-opacity="0.9" stroke="#689d83" stroke-width="1.5"/>
+  <path d="M22 215 108 258 132 246" fill="none" stroke="#609780" stroke-width="1.9"/>
+  <!-- The N is the structure itself: broad glass stems and diagonal,
+       with the original blue triangular opening below the diagonal. -->
+  <path d="M108 258 132 246 181 327V207L212 190V385L184 399 142 317V422L108 439Z" fill="url(#letter)" stroke="url(#edge)"/>
+  <g clip-path="url(#letter-clip)" stroke="none">
+    <path d="M108 247H143V440H108Z" fill="url(#letter-reflection)"/>
+  </g>
+  <!-- Recessed inner faces give the N its depth, including the visible plinth. -->
+  <!-- Exposed rear surfaces of the tall stem retain their own shaded edges. -->
+  <path d="M181 207 166 199V302L181 327Z" fill="#6eaaa6" fill-opacity="0.72" stroke="#669c96" stroke-width="1.2"/>
+  <path d="M142 317 184 399 142 377Z" fill="#74a9c8" stroke="#557f9e" stroke-width="1.4"/>
+  <path d="M142 377 184 399 142 422Z" fill="#b8c8d7" stroke="#5d7790" stroke-width="1.5"/>
+  <path d="M142 317V422L108 439M184 399 212 385M181 207V327L132 246" fill="none" stroke="url(#edge)" stroke-width="1.8"/>
+  <!-- Inset contour endpoints leave clearance from the plinth and stem cap. -->
+  <path d="M125 413V291Q125 273 137 286L182 358Q196 375 196 352V215" fill="none" stroke="#6c9fa4" stroke-opacity="0.67" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M112 263V433" fill="none" stroke="#fff" stroke-opacity="0.72" stroke-width="2"/>
+  <path d="M16 318V379L98 422" fill="none" stroke="#376d95" stroke-width="1.5"/>
+  <path d="M22 374C35 322 47 333 59 374S81 403 92 360L92 384C80 389 70 383 60 372C47 357 35 351 22 374Z" fill="url(#curve-area)" stroke="none"/>
+  <!-- Faint, shallow companion smooth crossing the main blue-face curve. -->
+  <path d="M22 374C35 351 47 357 60 372S83 389 98 383" fill="none" stroke="#d1eaf6" stroke-opacity="0.72" stroke-width="1.35" stroke-linecap="round"/>
+  <path d="M22 374C35 322 47 333 59 374S81 403 92 360" fill="none" stroke="#27577b" stroke-width="2" stroke-linecap="round"/>
+  <g fill="none" stroke="#467d60" stroke-width="1.25">
+    <path d="M37 240 63 251 91 278M37 240 63 273 91 278M37 263 63 251M37 263 63 273M37 263 63 294 91 278M37 285 63 273M37 285 63 294"/>
+  </g>
+  <g fill="url(#node-light)" stroke="#487f60" stroke-width="1.5">
+    <ellipse cx="37" cy="240" rx="4" ry="6" transform="rotate(-30 37 240)" fill="url(#node-muted)"/>
+    <ellipse cx="37" cy="263" rx="4" ry="6" transform="rotate(-30 37 263)" fill="url(#node-muted)"/>
+    <ellipse cx="37" cy="285" rx="4" ry="6" transform="rotate(-30 37 285)" fill="url(#node-muted)"/>
+    <ellipse cx="63" cy="251" rx="4.5" ry="6" transform="rotate(-30 63 251)"/>
+    <ellipse cx="63" cy="273" rx="4.5" ry="6" transform="rotate(-30 63 273)"/>
+    <ellipse cx="63" cy="294" rx="4.5" ry="6" transform="rotate(-30 63 294)"/>
+    <ellipse cx="91" cy="278" rx="4.5" ry="6" transform="rotate(-30 91 278)"/>
+  </g>
+  <g stroke="#b49b43">
+    <path d="M42 147 108 114 174 147 108 180Z" fill="#fff1ac"/>
+    <path d="M42 147 108 180V238L42 205Z" fill="url(#gold)"/>
+    <path d="M108 180 174 147V205L108 238Z" fill="url(#gold-right)"/>
+    <path d="M47 147 108 117 169 147 108 176Z" fill="none" stroke="#fff8d3" stroke-width="1.5"/>
+    <!-- Two separate curved X marks on each face, projected with the box. -->
+    <g fill="none" stroke="#ad902e" stroke-width="1.9" stroke-linecap="round">
+      <g transform="matrix(1 .5 0 1 42 147)">
+        <path d="M7 15C17 10 18 46 29 42M7 42C17 45 18 12 29 15"/>
+        <path d="M33 16C43 12 45 45 57 42M33 42C43 45 46 12 57 16"/>
+      </g>
+      <g transform="matrix(1 -.5 0 1 108 180)">
+        <path d="M8 43C19 46 21 12 31 16M8 16C19 12 20 46 31 42"/>
+        <path d="M35 42C46 46 48 11 58 15M35 16C46 12 48 45 58 42"/>
+      </g>
+    </g>
+  </g>
+  <!-- The original cap is a transparent cube, with the antenna passing
+       through the rear top vertex rather than the front seam. -->
+  <path d="M62 88 108 64 154 88 108 112Z" fill="#e7f4f8" fill-opacity="0.82" stroke="#62839d"/>
+  <path d="M62 88 108 112V159L62 136Z" fill="url(#glass)" stroke="#62839d"/>
+  <path d="M108 112 154 88V136L108 159Z" fill="url(#glass)" stroke="#62839d"/>
+  <path d="M108 22V91" fill="none" stroke="#6f94a7" stroke-width="2.2" stroke-linecap="round"/>
+</g>
+<circle cx="108" cy="21" r="22" fill="url(#glow)"/>
+<circle cx="108" cy="21" r="5" fill="#fff"/>
+</svg>

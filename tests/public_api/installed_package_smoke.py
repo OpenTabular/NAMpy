@@ -1,14 +1,14 @@
 """Smoke-test the installed NAMpy distribution and its public imports.
 
 Run this script from outside the repository after installing a built wheel with
-its ``all`` extra. It intentionally rejects imports resolved from the source
+its standard dependencies. It intentionally rejects imports resolved from the source
 checkout, so a passing result certifies the installed artifact rather than the
 working tree.
 """
 
 from __future__ import annotations
 
-from importlib.metadata import version
+from importlib.metadata import metadata, version
 from pathlib import Path
 
 import nampy
@@ -39,6 +39,9 @@ def main() -> None:
         )
 
     assert version("nampy") == nampy.__version__
+    extras = set(metadata("nampy").get_all("Provides-Extra", []))
+    assert not extras.intersection({"gam", "neural", "all", "igann-sparse"})
+    assert version("abess")  # Sparse IGANN is part of the standard installation.
     assert gam.__all__ == EXPECTED_GAM_EXPORTS
     assert gam.GAM.__module__.startswith("nampy.gam.")
     assert not hasattr(nampy, "GAM")

@@ -10,8 +10,14 @@ For parameter :math:`\theta_k`, NAMpy fits an additive predictor
 
 .. math::
 
-   \eta_k(x)=\beta_{0k}+\sum_j f_{jk}(x_j),\qquad
+   \eta_k(x)=\beta_{0k}+\sum_j f_{jk}(x_j)
+   +\sum_{S\in\mathcal I_k}f_{Sk}(x_S)+o_k(x),\qquad
    \theta_k(x)=h_k^{-1}\{\eta_k(x)\}.
+
+Together these parameters specify the response distribution,
+:math:`Y\mid x\sim\mathcal D\{\theta_1(x),\ldots,\theta_K(x)\}`.
+The term definitions and identifiability considerations follow
+:doc:`additive_predictors`, separately for each parameter.
 
 Terms add on the :math:`\eta_k` scale. Natural parameters generally do not add
 after a nonlinear inverse link. Conditional standard deviation describes

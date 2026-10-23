@@ -1,28 +1,29 @@
 """Generate deterministic figures used by the documentation tutorials."""
 
-from pathlib import Path
 import logging
 import sys
 import tempfile
 import warnings
-
+from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DOCS_ROOT = REPOSITORY_ROOT / "docs"
 sys.path.insert(0, str(REPOSITORY_ROOT))
 
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+from sklearn.model_selection import train_test_split  # noqa: E402
 
-from nampy.gam import GAM
-from nampy.models import GAMRegressor, NAMRegressor, NAMLSS, NBMRegressor
-
+from nampy.gam import GAM  # noqa: E402
+from nampy.models import NAMLSS, GAMRegressor, NAMRegressor, NBMRegressor  # noqa: E402
 
 PINK = "#b4234d"
 PINK_FILL = "#f3b4c2"
 BLUE = "#276fbf"
+GOLD = "#b7791f"
+GREEN = "#2f855a"
+GRAY = "#6b7280"
 
 
 def _save(figure, name: str) -> None:
@@ -51,6 +52,28 @@ def make_data() -> pd.DataFrame:
     return pd.DataFrame(
         {"demand": demand, "temperature": temperature, "hour": hour}
     )
+
+
+def make_gam_nam_data() -> pd.DataFrame:
+    """Return the four-feature data used for the cross-backend comparison."""
+    rng = np.random.default_rng(41)
+    n = 1_200
+    data = pd.DataFrame(
+        {
+            "median_income": rng.uniform(1.0, 10.0, n),
+            "house_age": rng.uniform(1.0, 52.0, n),
+            "latitude": rng.uniform(32.0, 42.0, n),
+            "rooms_per_household": rng.lognormal(1.5, 0.35, n),
+        }
+    )
+    data["value"] = (
+        2.2 * np.tanh((data["median_income"] - 5.0) / 1.7)
+        + 0.9 * np.sin((data["house_age"] - 5.0) / 8.0)
+        - 0.55 * (data["latitude"] - 37.0) ** 2 / 6.0
+        + 0.75 * np.log1p(data["rooms_per_household"])
+        + rng.normal(0.0, 0.3, n)
+    )
+    return data
 
 
 def generate_first_gam_plot() -> None:
@@ -83,6 +106,124 @@ def generate_first_gam_plot() -> None:
     axis.spines[["top", "right"]].set_visible(False)
     axis.grid(alpha=0.16)
     _save(figure, "first_gam_residuals.png")
+
+
+def _component_for_feature(terms, feature: str) -> np.ndarray:
+    """Select the unique named contribution involving ``feature``."""
+    matches = [np.asarray(values) for name, values in terms.items() if feature in name]
+    if len(matches) != 1:
+        raise RuntimeError(
+            f"Expected one component for {feature!r}, found {len(matches)}."
+        )
+    return matches[0]
+
+
+def generate_gam_nam_comparison() -> None:
+    """Compare GAM and NAM contributions for every feature in one dataset."""
+    data = make_gam_nam_data()
+    train, test = train_test_split(data, test_size=0.2, random_state=41)
+    features = (
+        "median_income",
+        "house_age",
+        "latitude",
+        "rooms_per_household",
+    )
+
+    gam = GAMRegressor(
+        formula=(
+            "value ~ s(median_income, bs='cr', k=12)"
+            " + s(house_age, bs='cr', k=12)"
+            " + s(latitude, bs='cr', k=12)"
+            " + s(rooms_per_household, bs='cr', k=12)"
+        ),
+        family="gaussian",
+    ).fit(train)
+
+    with tempfile.TemporaryDirectory(prefix="nampy-docs-gam-nam-") as directory:
+        nam = NAMRegressor(
+            layer_sizes=[48, 24],
+            dropout=0.0,
+            numerical_preprocessing="minmax",
+        )
+        nam.fit(
+            train.loc[:, list(features)],
+            train["value"],
+            max_epochs=60,
+            lr=5e-3,
+            batch_size=128,
+            patience=10,
+            random_state=41,
+            checkpoint_path=Path(directory),
+            logger=False,
+            enable_progress_bar=False,
+            enable_model_summary=False,
+            num_sanity_val_steps=0,
+        )
+
+    gam_training = gam.predict_components(train)
+    nam_training = nam.predict_components(
+        train.loc[:, list(features)],
+        center=True,
+        reference_X=train.loc[:, list(features)],
+    )
+    gam_training.validate_additive_reconstruction(atol=1e-7)
+    nam_training.validate_additive_reconstruction(atol=1e-5)
+    gam_r2 = gam.score(test, test["value"])
+    nam_r2 = nam.score(test.loc[:, list(features)], test["value"])
+
+    display_names = {
+        "median_income": "Median income",
+        "house_age": "House age",
+        "latitude": "Latitude",
+        "rooms_per_household": "Rooms per household",
+    }
+    figure, axes = plt.subplots(2, 2, figsize=(10.4, 7.0))
+    for axis, feature in zip(axes.flat, features, strict=True):
+        lower, upper = np.quantile(train[feature], [0.01, 0.99])
+        x_values = np.linspace(lower, upper, 240)
+        grid = pd.DataFrame(
+            {
+                name: np.full(x_values.size, train[name].median())
+                for name in features
+            }
+        )
+        grid[feature] = x_values
+
+        gam_grid = gam.predict_components(grid)
+        gam_effect = _component_for_feature(gam_grid.terms, feature)
+        gam_reference = _component_for_feature(gam_training.terms, feature)
+        gam_effect = gam_effect - np.mean(gam_reference, axis=0)
+
+        nam_grid = nam.predict_components(
+            grid,
+            center=True,
+            reference_X=train.loc[:, list(features)],
+        )
+        nam_effect = _component_for_feature(nam_grid.terms, feature)
+
+        axis.plot(x_values, gam_effect, color=PINK, lw=2.4, label="GAM")
+        axis.plot(x_values, nam_effect, color=BLUE, lw=2.2, label="NAM")
+        axis.set_title(display_names[feature])
+        axis.set_xlabel("Feature value")
+        axis.set_ylabel("Centered contribution")
+        axis.grid(alpha=0.18)
+        axis.spines[["top", "right"]].set_visible(False)
+
+    axes[0, 0].legend(frameon=False, ncols=2)
+    figure.suptitle(
+        "Same data and additive scale, different model representations",
+        fontsize=14,
+        y=1.035,
+    )
+    figure.text(
+        0.5,
+        0.985,
+        f"Held-out R² — GAM: {gam_r2:.3f} · NAM: {nam_r2:.3f}",
+        ha="center",
+        va="top",
+        color="#4b5563",
+    )
+    _save(figure, "gam_nam_all_features.png")
 
 
 def generate_shape_constraint_plot() -> None:
@@ -160,6 +301,277 @@ def generate_interaction_plot() -> None:
     figure = rendered["figures"][0]
     figure.axes[0].set_title("Joint spatial effect")
     _save(figure, "interaction_surface.png")
+
+
+def _style_formula_axis(axis) -> None:
+    """Apply the compact visual language used by the formula reference."""
+    axis.grid(alpha=0.16)
+    axis.spines[["top", "right"]].set_visible(False)
+
+
+def generate_formula_reference_plots() -> None:
+    """Fit the small examples used by the visual formula reference."""
+    rng = np.random.default_rng(57)
+
+    # Smooth continuous effect.
+    x = np.sort(rng.uniform(0.0, 10.0, 240))
+    y = 1.4 * np.sin(0.75 * x) + 0.13 * x + rng.normal(0.0, 0.34, x.size)
+    continuous_data = pd.DataFrame({"y": y, "x": x})
+    continuous = GAM(
+        formula='y ~ s(x, bs="cr", k=10, sp=0.4)', family="gaussian"
+    ).fit(continuous_data)
+    continuous_grid = pd.DataFrame({"x": np.linspace(0.0, 10.0, 240)})
+    continuous_fit, continuous_se = continuous.predict(
+        continuous_grid, type="response", return_se=True
+    )
+    figure, axis = plt.subplots(figsize=(6.8, 3.7))
+    axis.scatter(x, y, s=12, color="#9ca3af", alpha=0.4, label="observed")
+    axis.fill_between(
+        continuous_grid["x"],
+        continuous_fit - 2.0 * continuous_se,
+        continuous_fit + 2.0 * continuous_se,
+        color=PINK_FILL,
+        alpha=0.65,
+        linewidth=0,
+        label="approx. 95% interval",
+    )
+    axis.plot(continuous_grid["x"], continuous_fit, color=PINK, lw=2.5)
+    axis.set(xlabel="x", ylabel="Expected response")
+    axis.legend(frameon=False, ncols=2, fontsize=8)
+    _style_formula_axis(axis)
+    _save(figure, "formula_smooth_continuous.png")
+
+    # Cyclic effect with observed endpoints so the fitted domain is exactly 0--24.
+    hour = np.linspace(0.0, 24.0, 260)
+    demand = (
+        4.2 * np.sin(2.0 * np.pi * (hour - 6.0) / 24.0)
+        + rng.normal(0.0, 0.45, hour.size)
+    )
+    periodic_data = pd.DataFrame({"demand": demand, "hour": hour})
+    periodic = GAM(
+        formula='demand ~ s(hour, bs="cc", k=12, sp=0.5)', family="gaussian"
+    ).fit(periodic_data)
+    periodic_grid = pd.DataFrame({"hour": np.linspace(0.0, 24.0, 300)})
+    periodic_fit = periodic.predict(periodic_grid, type="response")
+    figure, axis = plt.subplots(figsize=(6.8, 3.7))
+    axis.scatter(hour, demand, s=11, color="#9ca3af", alpha=0.32)
+    axis.plot(periodic_grid["hour"], periodic_fit, color=BLUE, lw=2.5)
+    axis.scatter(
+        [0.0, 24.0],
+        periodic_fit[[0, -1]],
+        s=50,
+        color=PINK,
+        edgecolor="white",
+        linewidth=1,
+        zorder=4,
+        label="joined boundary",
+    )
+    axis.set(xticks=[0, 6, 12, 18, 24], xlabel="Hour", ylabel="Demand effect")
+    axis.legend(frameon=False, fontsize=8)
+    _style_formula_axis(axis)
+    _save(figure, "formula_periodicity.png")
+
+    # Group-specific smooth curves.
+    n_group = 130
+    segment = np.repeat(np.array(["A", "B", "C"], dtype=object), n_group)
+    group_x = rng.uniform(-2.0, 2.0, segment.size)
+    group_signal = np.select(
+        [segment == "A", segment == "B", segment == "C"],
+        [
+            1.2 * np.sin(1.4 * group_x),
+            0.8 * group_x**2 - 0.9,
+            -1.15 * group_x,
+        ],
+    )
+    group_data = pd.DataFrame(
+        {
+            "y": group_signal + rng.normal(0.0, 0.28, segment.size),
+            "x": group_x,
+            "segment": pd.Categorical(segment),
+        }
+    )
+    grouped = GAM(
+        formula=(
+            'y ~ s(x, segment, bs="fs", k=7, xt="cr", '
+            "sp=[0.6, 0.6, 0.6])"
+        ),
+        family="gaussian",
+    ).fit(group_data)
+    figure, axis = plt.subplots(figsize=(6.8, 3.7))
+    palette = {"A": PINK, "B": BLUE, "C": GREEN}
+    curve_x = np.linspace(-2.0, 2.0, 220)
+    for label in ("A", "B", "C"):
+        grid = pd.DataFrame(
+            {
+                "x": curve_x,
+                "segment": pd.Categorical(
+                    np.repeat(label, curve_x.size), categories=["A", "B", "C"]
+                ),
+            }
+        )
+        axis.plot(
+            curve_x,
+            grouped.predict(grid, type="response"),
+            color=palette[label],
+            lw=2.3,
+            label=f"Segment {label}",
+        )
+    axis.set(xlabel="x", ylabel="Group-specific response")
+    axis.legend(frameon=False, ncols=3, fontsize=8)
+    _style_formula_axis(axis)
+    _save(figure, "formula_group_curves.png")
+
+    # Random intercepts, shown as fitted deviations from the grand mean.
+    group_labels = np.array([f"G{i}" for i in range(1, 11)], dtype=object)
+    group_shift = np.array([-1.25, -0.8, -0.45, -0.2, -0.05, 0.15, 0.3, 0.55, 0.9, 1.2])
+    observed_group = rng.choice(group_labels, size=420, replace=True)
+    shift_lookup = dict(zip(group_labels, group_shift, strict=True))
+    random_data = pd.DataFrame(
+        {
+            "y": np.array([shift_lookup[value] for value in observed_group])
+            + rng.normal(0.0, 0.72, observed_group.size),
+            "group": pd.Categorical(observed_group, categories=group_labels),
+        }
+    )
+    random_effect = GAM(
+        formula='y ~ s(group, bs="re", sp=1.0)', family="gaussian"
+    ).fit(random_data)
+    random_grid = pd.DataFrame(
+        {"group": pd.Categorical(group_labels, categories=group_labels)}
+    )
+    estimated_shift = random_effect.predict(random_grid, type="response")
+    estimated_shift = estimated_shift - np.mean(estimated_shift)
+    figure, axis = plt.subplots(figsize=(6.8, 3.7))
+    axis.axhline(0.0, color="#9ca3af", lw=1)
+    axis.vlines(group_labels, 0.0, estimated_shift, color=PINK_FILL, lw=3)
+    axis.scatter(group_labels, estimated_shift, s=44, color=PINK, zorder=3)
+    axis.set(xlabel="Group", ylabel="Estimated baseline deviation")
+    _style_formula_axis(axis)
+    _save(figure, "formula_random_effects.png")
+
+    # Offset model: the fitted rate is shared, while exposure scales counts.
+    offset_x = rng.uniform(0.0, 4.0, 520)
+    exposure = rng.uniform(0.35, 2.4, offset_x.size)
+    log_rate = 0.25 + 0.55 * np.sin(1.4 * offset_x) + 0.22 * offset_x
+    count = rng.poisson(exposure * np.exp(log_rate))
+    offset_data = pd.DataFrame(
+        {
+            "count": count,
+            "x": offset_x,
+            "exposure": exposure,
+            "log_exposure": np.log(exposure),
+        }
+    )
+    offset_model = GAM(
+        formula=(
+            'count ~ s(x, bs="cr", k=9, sp=0.5) '
+            "+ offset(log_exposure)"
+        ),
+        family="poisson",
+    ).fit(offset_data)
+    figure, axis = plt.subplots(figsize=(6.8, 3.7))
+    offset_grid_x = np.linspace(0.0, 4.0, 220)
+    for value, color in zip((0.5, 1.0, 2.0), (GOLD, PINK, BLUE), strict=True):
+        grid = pd.DataFrame(
+            {
+                "x": offset_grid_x,
+                "exposure": value,
+                "log_exposure": np.log(value),
+            }
+        )
+        axis.plot(
+            offset_grid_x,
+            offset_model.predict(grid, type="response"),
+            color=color,
+            lw=2.2,
+            label=f"Exposure = {value:g}",
+        )
+    axis.set(xlabel="x", ylabel="Expected count")
+    axis.legend(frameon=False, fontsize=8)
+    _style_formula_axis(axis)
+    _save(figure, "formula_exposure_offset.png")
+
+
+def generate_tensor_constructor_comparison() -> None:
+    """Fit te, ti, and t2 representations to the same response surface."""
+    rng = np.random.default_rng(73)
+    n = 650
+    x = rng.uniform(-1.0, 1.0, n)
+    z = rng.uniform(-1.0, 1.0, n)
+    response = (
+        0.9 * np.sin(np.pi * x)
+        - 0.7 * z
+        + 1.7 * x * z
+        + 0.8 * np.exp(-7.0 * ((x - 0.35) ** 2 + (z + 0.25) ** 2))
+        + rng.normal(0.0, 0.16, n)
+    )
+    data = pd.DataFrame({"response": response, "x": x, "z": z})
+    formulas = {
+        "te(): one full tensor term": (
+            "response ~ te(x, z, bs=c('cr', 'cr'), k=c(7, 7))"
+        ),
+        "ti(): main effects + pure interaction": (
+            "response ~ s(x, bs='cr', k=7) + s(z, bs='cr', k=7) "
+            "+ ti(x, z, bs=c('cr', 'cr'), k=c(7, 7))"
+        ),
+        "t2(): ANOVA-style penalty blocks": (
+            "response ~ t2(x, z, bs=c('cr', 'cr'), k=c(7, 7))"
+        ),
+    }
+    models = {
+        label: GAM(
+            formula=formula,
+            family="gaussian",
+            optimize_smoothing=True,
+            smoothing_method="reml",
+        ).fit(data)
+        for label, formula in formulas.items()
+    }
+
+    axis_values = np.linspace(-1.0, 1.0, 70)
+    grid_x, grid_z = np.meshgrid(axis_values, axis_values)
+    grid = pd.DataFrame({"x": grid_x.ravel(), "z": grid_z.ravel()})
+    fitted = {
+        label: model.predict(grid, type="response").reshape(grid_x.shape)
+        for label, model in models.items()
+    }
+    color_limit = max(float(np.max(np.abs(values))) for values in fitted.values())
+
+    figure, axes = plt.subplots(1, 3, figsize=(12.2, 3.8), sharex=True, sharey=True)
+    image = None
+    for axis, (label, values) in zip(axes, fitted.items(), strict=True):
+        image = axis.contourf(
+            grid_x,
+            grid_z,
+            values,
+            levels=np.linspace(-color_limit, color_limit, 22),
+            cmap="RdBu_r",
+            extend="both",
+        )
+        axis.contour(
+            grid_x,
+            grid_z,
+            values,
+            levels=8,
+            colors="#374151",
+            linewidths=0.4,
+            alpha=0.5,
+        )
+        axis.set_title(label, fontsize=10)
+        axis.set_xlabel("x")
+        axis.set_aspect("equal")
+    axes[0].set_ylabel("z")
+    figure.subplots_adjust(wspace=0.18, right=0.88)
+    colorbar_axis = figure.add_axes([0.9, 0.17, 0.018, 0.66])
+    colorbar = figure.colorbar(image, cax=colorbar_axis)
+    colorbar.set_label("Fitted response")
+    figure.savefig(
+        DOCS_ROOT / "_static" / "formula_tensor_comparison.png",
+        dpi=180,
+        bbox_inches="tight",
+        facecolor="white",
+    )
+    plt.close(figure)
 
 
 def _neural_fit_kwargs(checkpoint_path: Path) -> dict:
@@ -267,8 +679,11 @@ def main() -> None:
     warnings.filterwarnings("ignore")
     logging.getLogger("lightning.pytorch").setLevel(logging.ERROR)
     generate_first_gam_plot()
+    generate_gam_nam_comparison()
     generate_shape_constraint_plot()
     generate_interaction_plot()
+    generate_formula_reference_plots()
+    generate_tensor_constructor_comparison()
     generate_neural_comparison()
     generate_distributional_plot()
 

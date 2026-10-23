@@ -1,13 +1,22 @@
-# NAMpy — Interpretable Additive Modeling
+# NAMpy — Statistical and Neural Additive Models in Python
 
-![NAMpy — Interpretable Additive Modeling](docs/_static/logo.png)
+![NAMpy — Statistical and Neural Additive Models in Python](docs/_static/logo.png)
 
 ![Python 3.11 | 3.12](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)
 ![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)
 ![Development status: Beta](https://img.shields.io/badge/status-beta-orange.svg)
 ![Documentation Status](https://readthedocs.org/projects/nampy/badge/?version=latest)
 
-NAMpy is a suite of interpretable models for regression, classification, and distributional regression tasks for tabular data offering **generalized additive models (GAMs)** with statistical inference, automatic smoothness selection, diagnostics, shape constraints etc. along with **neural additive models** (such as NAM, NBM, IGANN, GPNAM, SIAN, SPAM, NodeGAM, and related architectures). The models are available for `regression`, `classification` and distributional regression, denoted by `LSS`. Hence, they are available as e.g. `NAMRegressor`, `NAMClassifier` or `NAMLSS`. NAMpy models adhere to scikit-learn's `BaseEstimator` interface, making them highly compatible with the familiar scikit-learn ecosystem.
+NAMpy brings serious statistical additive modeling and a broad collection of
+neural additive models into one Python workflow. Fit nonlinear relationships,
+inspect individual effects, impose shape constraints, and model changing
+distributions for regression and classification tasks. Its Python-native GAM
+engine covers formulas, smooth construction, penalized fitting, automatic
+smoothness selection, inference, and diagnostics without requiring R, while
+architectures such as NAM, NBM, IGANN, GPNAM, SIAN, SPAM, and NodeGAM retain
+their neural training semantics. Public estimators follow scikit-learn's
+`BaseEstimator` interface and use `Regressor`, `Classifier`, or `LSS` suffixes
+for their supported objectives.
 
 ## Installation
 
@@ -17,52 +26,37 @@ NAMpy supports Python 3.11 and 3.12. Install it with:
 pip install nampy
 ```
 
-
-
 ## Interpretability
 
-NAMpy models use an additive predictor built from named term contributions:
+An additive model builds its prediction from one effect per feature:
 
 $$
-\eta(\mathbf{x})
-\equiv g\!\left(\mathbb{E}[Y\mid\mathbf{x}]\right)
-=\beta_0+\sum_{j=1}^{p}f_j(x_j)
-+\sum_{S\in\mathcal I}f_S(\mathbf{x}_S)+o(\mathbf{x}).
+\eta(x)=\beta_0+\sum_{j=1}^{p}f_j(x_j).
 $$
 
-Here $\beta_0$ is the intercept, $f_j$ is a main effect that depends only on
-feature $x_j$, $f_S$ is an explicitly included interaction over the variables
-in $S$, and $o(\mathbf{x})$ is an optional known offset. With no interactions or
-offset, the last two terms are omitted. The inverse link maps the additive
-predictor to the conditional mean:
+Here $\beta_0$ is the intercept and $f_j$ describes how feature $x_j$
+contributes. GAMs represent these effects with penalized splines; neural
+additive models learn them with feature networks or other learned functions.
+The inverse link maps the additive predictor to the conditional mean:
 
 $$
-\mu(\mathbf{x})=\mathbb{E}[Y\mid\mathbf{x}]
-=g^{-1}\!\left(\eta(\mathbf{x})\right).
+\mu(x)=\mathbb{E}[Y\mid x]=g^{-1}\!\left(\eta(x)\right).
 $$
 
-GAMs represent the functions $f_j$ using penalized spline bases and estimate
-their smoothness statistically. Neural additive models represent them using
-feature networks, neural trees, learned bases, or related architectures. For
-distributional regression, NAMpy constructs one additive predictor for each
-distribution parameter:
+For distributional regression, each distribution parameter gets its own
+additive predictor:
 
 $$
-\eta_k(\mathbf{x})
-=\beta_{0k}+\sum_{j=1}^{p}f_{jk}(x_j)
-+\sum_{S\in\mathcal I_k}f_{Sk}(\mathbf{x}_S)+o_k(\mathbf{x}),
-\qquad
-\theta_k(\mathbf{x})=h_k^{-1}\!\left(\eta_k(\mathbf{x})\right),
+\eta_k(x)=\beta_{0k}+\sum_{j=1}^{p}f_{jk}(x_j),
+\qquad \theta_k(x)=h_k^{-1}\!\left(\eta_k(x)\right).
 $$
 
 $$
-Y\mid\mathbf{x}\sim
-\mathcal D\!\left(\theta_1(\mathbf{x}),\ldots,\theta_K(\mathbf{x})\right).
+Y\mid x\sim\mathcal D\!\left(\theta_1(x),\ldots,\theta_K(x)\right).
 $$
 
-The additive decomposition is defined on each parameter's link scale. Location,
-scale, shape, quantiles, or class probabilities may therefore vary with the
-inputs without implying additivity after a nonlinear inverse link.
+This lets quantities such as the conditional mean and spread vary with the
+inputs. Contributions add on each predictor's link scale.
 
 ## Quick start — Fitting a model
 
@@ -96,7 +90,6 @@ model = GAMRegressor(
 prediction = model.predict(data)
 summary = model.summary()
 components = model.predict_components(data)
-components.validate_additive_reconstruction()
 ```
 
 Without a formula, the adapter creates one smooth main effect per input
@@ -114,17 +107,26 @@ describe one response distribution:
 ```python
 from nampy.models import GAMLSS
 
+rng_dist = np.random.default_rng(11)
+data_dist = data.copy()
+noise_scale = 0.08 + 0.30 * np.sin(2 * np.pi * data_dist["x"]) ** 2
+data_dist["y"] = (
+    np.sin(2 * np.pi * data_dist["x"])
+    + 0.25 * (data_dist["group"] == "b")
+    + rng_dist.normal(scale=noise_scale)
+)
+
 model = GAMLSS(
     family="normal",
     formula={
-        "mu": "y ~ s(x0, bs='cr', k=10)",
-        "sigma": "~ s(x1, bs='cr', k=8)",
+        "mu": "y ~ s(x, bs='cr', k=10) + group",
+        "sigma": "~ s(x, bs='cr', k=8)",
     },
-).fit(data)
+).fit(data_dist)
 
-parameters = model.predict(data)       # columns: mu, sigma
-point_prediction = model.predict_point(data)
-raw_predictors = model.predict(data, raw=True)
+parameters = model.predict(data_dist)       # columns: mu, sigma
+point_prediction = model.predict_point(data_dist)
+raw_predictors = model.predict(data_dist, raw=True)
 ```
 
 `GAMRegressor` accepts single-predictor regression families,
@@ -374,7 +376,6 @@ components.link == (
 Use the built-in check in application code:
 
 ```python
-components.validate_additive_reconstruction()
 table = model.explain_terms(X_test)
 importance = model.term_importance(X_test)
 interaction_importance = model.interaction_importance(X_test)

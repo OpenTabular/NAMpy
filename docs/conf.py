@@ -8,8 +8,6 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from sphinxawesome_theme.postprocess import Icons
-
 # Keep Matplotlib cache writes out of user home directories in local and CI builds.
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/nampy-matplotlib")
 
@@ -113,35 +111,35 @@ nitpick_ignore = [
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = "sphinxawesome_theme"
+html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
 
 html_theme_options = {
-    "show_breadcrumbs": True,
-    "show_prev_next": True,
-    "show_scrolltop": True,
-    "awesome_headerlinks": True,
-    "awesome_external_links": False,
-    "main_nav_links": {
-        "GitHub": "https://github.com/OpenTabular/NAMpy",
-        "PyPI": "https://pypi.org/project/nampy/",
-    },
+    "collapse_navigation": False,
+    "logo_only": False,
+    "navigation_depth": 4,
+    "titles_only": True,
+    "prev_next_buttons_location": "bottom",
+    "style_external_links": True,
+    "sticky_navigation": False,
 }
-
-html_permalinks_icon = Icons.permalinks_icon
 
 # Add any paths that contain custom static files (such as style sheets)
 html_static_path = ["_static"]
-html_css_files = ["custom.css"]
+html_css_files = ["sidebar.css"]
+html_js_files = [
+    "page-navigation.js",
+    ("site-navigation.js", {"defer": "defer"}),
+]
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-html_logo = "_static/logo-mark.svg"
+html_logo = "_static/logo-sidebar-refined.svg"
 html_title = "NAMpy"
 html_last_updated_fmt = "%Y-%m-%d"
 
 # The name of an image file (within the static path) to use as favicon
-html_favicon = "_static/logo-mark.svg"
+html_favicon = "_static/logo-sidebar-refined.svg"
 
 # If true, links to the reST sources are added to the pages.
 html_show_sourcelink = False

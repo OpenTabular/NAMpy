@@ -15,7 +15,7 @@ each source feature contributes its own linear block,
 
 .. math::
 
-   \eta(x) = \beta_0 + \sum_j w_j^\top z_j,
+   f_j(x_j) = w_j^\top z_j,
 
 where :math:`z_j` is the transformed block for feature :math:`j`. A numeric
 feature usually contributes one column; a categorical feature can contribute a

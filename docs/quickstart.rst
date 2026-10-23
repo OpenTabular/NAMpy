@@ -10,13 +10,6 @@ The data in this tutorial are synthetic. Their meaningful column names make
 the model easier to discuss without presenting the example as a real energy
 study.
 
-Install NAMpy
--------------
-
-.. code-block:: bash
-
-   pip install nampy
-
 Create one nonlinear dataset
 ----------------------------
 

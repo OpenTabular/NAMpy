@@ -12,12 +12,8 @@ Model structure
 
 TreeNAM assigns one differentiable decision tree to each main effect and,
 optionally, to each explicit interaction. Soft routing makes the leaf values
-and split parameters trainable by gradient descent,
-
-.. math::
-
-   \eta(x) = \beta_0 + \sum_j T_j(x_j)
-   + \sum_{S \in \mathcal{I}} T_S(x_S).
+and split parameters trainable by gradient descent. Each tree supplies one
+term in the :doc:`shared decomposition <../concepts/additive_predictors>`.
 
 The tree depth controls the number of routing decisions and therefore the
 piecewise complexity of each term. Evaluation can retain soft routing or use
@@ -42,9 +38,8 @@ Fit and inspect
 Interpretation and limits
 -------------------------
 
-Tree depth controls the piecewise complexity of every term. Soft routing is
-smooth enough for gradient-based fitting; hard routing changes evaluation and
-should be reported when enabled.
+Report whether evaluation uses soft or hard routing, since switching to hard
+routing changes predictions.
 
 Available estimators
 --------------------

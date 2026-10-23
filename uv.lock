@@ -1275,23 +1275,21 @@ wheels = [
 name = "nampy"
 source = { editable = "." }
 dependencies = [
-    { name = "joblib" },
-    { name = "numpy" },
-    { name = "pandas" },
-    { name = "scikit-learn" },
-]
-
-[package.optional-dependencies]
-all = [
     { name = "abess" },
+    { name = "joblib" },
     { name = "lightning" },
     { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "pandas" },
     { name = "pretab" },
     { name = "properscoring" },
+    { name = "scikit-learn" },
     { name = "scipy" },
     { name = "torch" },
     { name = "torchmetrics" },
 ]
+
+[package.optional-dependencies]
 benchmarks = [
     { name = "rtdl-num-embeddings" },
     { name = "tabm" },
@@ -1315,38 +1313,19 @@ docs = [
     { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "sphinx-autodoc-typehints", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "sphinx-autodoc-typehints", version = "3.13.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "sphinx-design" },
     { name = "sphinx-rtd-theme" },
-]
-gam = [
-    { name = "matplotlib" },
-    { name = "scipy" },
-]
-igann-sparse = [
-    { name = "abess" },
-]
-neural = [
-    { name = "lightning" },
-    { name = "matplotlib" },
-    { name = "pretab" },
-    { name = "properscoring" },
-    { name = "scipy" },
-    { name = "torch" },
-    { name = "torchmetrics" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "abess", marker = "extra == 'all'", specifier = ">=0.4.5" },
-    { name = "abess", marker = "extra == 'igann-sparse'", specifier = ">=0.4.5" },
+    { name = "abess", specifier = ">=0.4.5" },
     { name = "black", marker = "extra == 'dev'", specifier = ">=22.0" },
     { name = "ipykernel", marker = "extra == 'docs'" },
     { name = "isort", marker = "extra == 'dev'", specifier = ">=5.0" },
     { name = "joblib" },
-    { name = "lightning", marker = "extra == 'all'" },
-    { name = "lightning", marker = "extra == 'neural'" },
-    { name = "matplotlib", marker = "extra == 'all'" },
-    { name = "matplotlib", marker = "extra == 'gam'" },
-    { name = "matplotlib", marker = "extra == 'neural'" },
+    { name = "lightning" },
+    { name = "matplotlib" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.0" },
     { name = "myst-parser", marker = "extra == 'docs'", specifier = ">=2.0.0" },
     { name = "nbclient", marker = "extra == 'docs'", specifier = ">=0.10.0" },
@@ -1355,28 +1334,23 @@ requires-dist = [
     { name = "numpy", specifier = "<=1.26.4" },
     { name = "pandas" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.0" },
-    { name = "pretab", marker = "extra == 'all'", specifier = "==0.0.3" },
-    { name = "pretab", marker = "extra == 'neural'", specifier = "==0.0.3" },
-    { name = "properscoring", marker = "extra == 'all'" },
-    { name = "properscoring", marker = "extra == 'neural'" },
+    { name = "pretab", specifier = "==0.0.3" },
+    { name = "properscoring" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0" },
     { name = "rtdl-num-embeddings", marker = "extra == 'benchmarks'", specifier = "==0.0.12" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
     { name = "scikit-learn" },
-    { name = "scipy", marker = "extra == 'all'", specifier = ">=1.16" },
-    { name = "scipy", marker = "extra == 'gam'", specifier = ">=1.16" },
-    { name = "scipy", marker = "extra == 'neural'", specifier = ">=1.16" },
+    { name = "scipy", specifier = ">=1.16" },
     { name = "sphinx", marker = "extra == 'docs'", specifier = ">=5.0" },
     { name = "sphinx-autodoc-typehints", marker = "extra == 'docs'", specifier = ">=1.0" },
-    { name = "sphinx-rtd-theme", marker = "extra == 'docs'", specifier = ">=1.3.0" },
+    { name = "sphinx-design", marker = "extra == 'docs'", specifier = ">=0.6.0" },
+    { name = "sphinx-rtd-theme", marker = "extra == 'docs'", specifier = ">=3.0" },
     { name = "tabm", marker = "extra == 'benchmarks'", specifier = "==0.0.3" },
-    { name = "torch", marker = "extra == 'all'" },
-    { name = "torch", marker = "extra == 'neural'" },
-    { name = "torchmetrics", marker = "extra == 'all'" },
-    { name = "torchmetrics", marker = "extra == 'neural'" },
+    { name = "torch" },
+    { name = "torchmetrics" },
 ]
-provides-extras = ["gam", "neural", "igann-sparse", "benchmarks", "all", "dev", "docs"]
+provides-extras = ["benchmarks", "dev", "docs"]
 
 [[package]]
 name = "narwhals"
@@ -2424,6 +2398,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/93/87/71b5530a4657d5dda36742907d6ba77c63db724a9099eda5e114a62016b4/sphinx_autodoc_typehints-3.13.4.tar.gz", hash = "sha256:9429680faa192fec9797edb9575923177f9d2ab277481d561d4cbd4aeb9cd472", size = 92020, upload-time = "2026-08-24T15:37:44.181Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bc/10/bc3e16cda1241b45f34bbec5e3728d386e45c831798d0e45da57d2023aae/sphinx_autodoc_typehints-3.13.4-py3-none-any.whl", hash = "sha256:05c9fa3bc312cb576a16a4b2e53459c170e540665687049a0d142a83736f5209", size = 45801, upload-time = "2026-08-24T15:37:43.004Z" },
+]
+
+[[package]]
+name = "sphinx-design"
+version = "0.7.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/13/7b/804f311da4663a4aecc6cf7abd83443f3d4ded970826d0c958edc77d4527/sphinx_design-0.7.0.tar.gz", hash = "sha256:d2a3f5b19c24b916adb52f97c5f00efab4009ca337812001109084a740ec9b7a", size = 2203582, upload-time = "2026-01-19T13:12:53.297Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/30/cf/45dd359f6ca0c3762ce0490f681da242f0530c49c81050c035c016bfdd3a/sphinx_design-0.7.0-py3-none-any.whl", hash = "sha256:f82bf179951d58f55dca78ab3706aeafa496b741a91b1911d371441127d64282", size = 2220350, upload-time = "2026-01-19T13:12:51.077Z" },
 ]
 
 [[package]]

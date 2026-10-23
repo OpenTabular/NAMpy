@@ -18,6 +18,16 @@ the relevant structure is known in advance.
       .. image:: ../_static/first_gam_effects.png
          :alt: Smooth temperature and cyclic hour effects
 
+   .. grid-item-card:: Compare a GAM and a NAM
+      :link: gam_nam
+      :link-type: doc
+
+      Fit statistical and neural additive models to the same four features,
+      then compare their centered contributions through one result contract.
+
+      .. image:: ../_static/gam_nam_all_features.png
+         :alt: GAM and NAM effects for every feature
+
    .. grid-item-card:: Encode monotonicity
       :link: monotone_effect
       :link-type: doc
@@ -76,5 +86,6 @@ the relevant structure is known in advance.
    monotone_effect
    periodic_effect
    interaction_surface
+   gam_nam
    nam_nbm
    changing_variability

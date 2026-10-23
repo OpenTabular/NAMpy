@@ -53,7 +53,6 @@ make clean
 docs/
 ├── conf.py              # Sphinx configuration
 ├── index.rst            # Main documentation page
-├── installation.rst     # Installation guide
 ├── quickstart.rst       # First statistical GAM analysis
 ├── compatibility.rst    # Public mgcv/scam compatibility scope
 ├── tutorials/           # Question-led analyses with generated figures

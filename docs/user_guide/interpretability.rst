@@ -1,31 +1,9 @@
 Interpretability
 ================
 
-NAMpy exposes the terms that form an additive prediction.
-
-What a term contribution means
-------------------------------
-
-For a scalar response, the central model is
-
-.. math::
-
-   \eta(x) \equiv g\!\left(\mathbb{E}[Y \mid x]\right)
-   = \beta_0 + \sum_{j=1}^{p} f_j(x_j)
-     + \sum_{S \in \mathcal I} f_S(x_S) + o(x).
-
-Here :math:`\eta` is the additive predictor, :math:`g` is the link,
-:math:`\beta_0` is the intercept, :math:`f_j` is a main effect,
-:math:`f_S` is an explicitly included interaction, and :math:`o` is an
-optional known offset. The conditional mean is
-:math:`g^{-1}\{\eta(x)\}`. With no interactions or offset, the corresponding
-terms are omitted.
-
-``predict_components`` reconstructs :math:`\eta` from the reported intercept,
-terms, and offset. This accounting identity does not make the individual terms
-uniquely identifiable. Centering fixes constant shifts against a stated
-reference dataset; correlated inputs and overlapping main effects and
-interactions can still affect term stability.
+This guide covers component extraction, effect tables, and plot controls.
+For the link-scale decomposition, centering, and identifiability, see
+:doc:`../concepts/additive_predictors`.
 
 Extract term contributions
 --------------------------
@@ -59,12 +37,16 @@ Visualization
 curve. Pass ``density=False`` to remove the shading or ``rug=True`` to add
 individual observation marks.
 
-Distributional additive estimators additionally provide
-``plot_distributional_effects``. It plots the family-defined conditional point
-effect together with point effect plus/minus one conditional standard deviation
-and predictor-density shading. The implementation calls the distribution
-family's ``predict_point`` and ``predict_spread`` methods; it does not assume a
-particular parameter order or distribution.
+Neural LSS estimators additionally provide ``plot_distributional_effects``.
+It shows the family-defined point effect and point effect plus/minus one
+conditional standard deviation. This envelope describes predictive spread;
+it is not a confidence interval for the central curve.
+
+``reference_X`` defines the centering distribution; the centered reference
+configuration need not correspond to an observed row. ``response_scale`` converts
+standardized targets back to their original units. The family evaluates its
+parameter links before plotting, through ``predict_point`` and
+``predict_spread``; the plot does not assume a particular parameter order.
 
 .. code-block:: python
 
@@ -78,7 +60,8 @@ particular parameter order or distribution.
 For repeated fits, use ``prepare_distributional_effects`` on each fitted model,
 combine the results with ``combine_distributional_effects``, and pass the
 result to ``render_distributional_effects``. The renderer then adds a
-between-fit quantile ribbon.
+between-fit quantile ribbon, which describes variation across fitted models
+rather than conditional predictive spread.
 
 Continue the analysis
 ---------------------
