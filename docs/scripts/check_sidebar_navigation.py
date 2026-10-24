@@ -28,7 +28,9 @@ def main():
     content = (build / "_static/site-navigation.js").read_bytes().replace(b"\r", b"")
     expected = f"{zlib.crc32(content):08x}"
     for html in build.rglob("*.html"):
-        for version in re.findall(r'site-navigation\.js\?v=([^"\s]+)', html.read_text()):
+        for version in re.findall(
+            r'site-navigation\.js\?v=([^"\s]+)', html.read_text()
+        ):
             assert version == expected, f"Stale navigation asset in {html}: {version}"
     handler = functools.partial(QuietHandler, directory=str(build))
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
@@ -52,7 +54,10 @@ def main():
                 section for section in sections if section["title"] == "Getting Started"
             )
             assert getting_started["items"] == [
-                "Home", "Introductory examples", "Advanced examples", "Frequently Asked Questions"
+                "Home",
+                "Tutorials",
+                "Advanced examples",
+                "Frequently Asked Questions",
             ], getting_started
             page.evaluate("""() => sessionStorage.setItem('nampy-sidebar-navigation',
                 JSON.stringify({destination: location.pathname, scrollTop: 400,
@@ -66,7 +71,9 @@ def main():
                 ).evaluate_all("links => links.map(a => new URL(a.href).pathname)")
                 assert selected == [f"/api/{name}"], selected
                 # A new source must never be shipped under the old asset URL.
-                src = page.locator('script[src*="site-navigation.js"]').get_attribute("src")
+                src = page.locator('script[src*="site-navigation.js"]').get_attribute(
+                    "src"
+                )
                 assert f"v={expected}" in src, (src, expected)
 
             page.reload(wait_until="domcontentloaded")
@@ -83,7 +90,9 @@ def main():
             page.go_forward(wait_until="domcontentloaded")
             check("gam_smooths.html")
             browser.close()
-            print("PASS: repeated sidebar clicks, reloads, history, legacy state, and asset versions")
+            print(
+                "PASS: repeated sidebar clicks, reloads, history, legacy state, and asset versions"
+            )
     finally:
         server.shutdown()
         server.server_close()

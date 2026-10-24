@@ -19,7 +19,7 @@ def main():
             namespace = {}
             blocks = re.findall(
                 r"^\.\. code-block:: python\n\n((?:(?:   [^\n]*)?\n)+)",
-                (ROOT / "docs" / name).read_text(),
+                (ROOT / "docs/_includes/model_showcases.inc").read_text(),
                 re.M,
             )
             if name == "index.rst":

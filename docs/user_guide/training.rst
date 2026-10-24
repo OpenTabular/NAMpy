@@ -1,12 +1,13 @@
 Training Models
 ===============
 
-This guide covers how to train nampy models effectively.
+This guide covers gradient-trained neural estimators. Statistical GAMs and
+architecture-native solvers use their model-specific fitting controls.
 
 Basic Training
 --------------
 
-All nampy models follow the same training interface:
+Gradient-trained neural estimators share the following fit controls:
 
 .. code-block:: python
 
@@ -20,6 +21,9 @@ Training Parameters
 
 Common Training Parameters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The defaults below describe ``NAMRegressor`` and its shared ``fit`` defaults.
+Other architecture configurations may override optimizer settings.
 
 .. list-table::
    :header-rows: 1
@@ -63,7 +67,7 @@ Complete Example
 Early Stopping
 --------------
 
-Early stopping prevents overfitting by monitoring validation performance:
+Early stopping monitors a validation criterion and can reduce overfitting:
 
 .. code-block:: python
 
@@ -75,10 +79,9 @@ Early stopping prevents overfitting by monitoring validation performance:
        val_size=0.2
    )
 
-Benefits:
-* Prevents overfitting
-* Saves training time
-* Finds optimal stopping point automatically
+It selects a checkpoint according to the monitored validation criterion and
+can save training time. It does not establish an optimal stopping point or
+guarantee generalization. Keep final test rows outside checkpoint selection.
 
 Learning Rate Scheduling
 -------------------------
@@ -128,25 +131,17 @@ For more control, pass Lightning trainer callbacks and loggers via
 GPU Training
 ------------
 
-nampy automatically uses GPU if available:
+GPU benefit depends on network size, batch size, data transfer, and workload.
+Small tabular models can be faster on CPU. For Lightning gradient fitting,
+choose a device explicitly:
 
 .. code-block:: python
 
-   import torch
-   
-   # Check GPU availability
-   print(f"CUDA available: {torch.cuda.is_available()}")
-   
-   # Train on GPU (automatic)
-   model = NAMRegressor()
-   model.fit(X_train, y_train, max_epochs=100)
+   model.fit(X_train, y_train, accelerator="cpu", devices=1)
+   # On a machine with a supported CUDA GPU:
+   # model.fit(X_train, y_train, accelerator="gpu", devices=1)
 
-For CPU-only training, set:
-
-.. code-block:: python
-
-   import os
-   os.environ['CUDA_VISIBLE_DEVICES'] = ''
+Native solvers have their own device controls; see the architecture guide.
 
 Batch Size
 ----------

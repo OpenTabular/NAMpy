@@ -76,11 +76,22 @@ represents the category with several encoded terms.
    :alt: Repository comparison of additive tree predictions and recovered feature effects
    :class: scientific-figure
 
-In the saved repository figure, compare the locations and sizes of numerical
-steps and the relative shifts between categories. Soft transitions can blur a
-true discontinuity; deeper trees can also follow noise. The result is a
-worked example of a suitable representation, not evidence that a tree
-ensemble always improves on a single tree.
+The retained scatterplots compare fitted response predictions with the known
+**noiseless** simulation signal. Scatter around the diagonal measures signal
+recovery. The noisy-outcome MAE/R² table below instead measures prediction of
+observed test responses, including irreducible noise.
+
+.. include:: /_generated/detailed_tree_metrics.inc
+
+.. image:: /_static/detailed_tree_contributions.png
+   :alt: Known and learned age steps, income steps, and region-category contributions centered on training rows
+   :class: scientific-figure
+
+These three panels contain the feature effects: age, income, and region.
+Dashed truth and both fitted curves are centered against the same empirical
+training rows. Compare step locations, step heights, and categorical shifts;
+prediction scatter alone cannot show those quantities. Soft transitions and
+imperfect shape recovery remain visible rather than being smoothed away.
 
 The script reserves separate training, validation, and test splits. Early
 stopping uses validation rows; the metrics and figures above use test rows.
@@ -89,3 +100,6 @@ stopping uses validation rows; the metrics and figures above use test rows.
 for the effect alignment, category aggregation, and figure construction.
 See :doc:`../models/treenam` and :doc:`../models/ensemble_treenam` for the
 architecture controls.
+
+Recommended next: :doc:`../howto/interaction_selection` when residual structure
+suggests missing joint effects.

@@ -143,7 +143,7 @@ class NeuralLSS(NeuralEstimatorBase):
         """
         raw_pred = self._predict(X)["output"]
         if isinstance(y, pd.Series):
-            y = y.to_numpy()
+            y = y.to_numpy(copy=True)
         if isinstance(sample_weight, pd.Series):
             sample_weight = sample_weight.to_numpy()
         with torch.no_grad():
@@ -294,7 +294,7 @@ class NeuralLSS(NeuralEstimatorBase):
         scores = {}
         with torch.no_grad():
             target = (
-                y_true.to_numpy()
+                y_true.to_numpy(copy=True)
                 if isinstance(y_true, (pd.Series, pd.DataFrame))
                 else y_true
             )

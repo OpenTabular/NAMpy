@@ -72,7 +72,12 @@ Reproduce the checks
 
 The separate notebook CI job executes clean kernels and passes the resulting
 notebooks to the HTML build. Execution notes record package versions, runtime,
-and source commit. The HTML footer identifies the package and source commit.
+the full source commit, and a SHA256 source-state fingerprint. Notebook metadata
+stores the per-file manifest covering package code, examples, documentation
+sources/generators, and normalized notebook code cells. Generated outputs and
+execution notes are excluded, so the fingerprint can identify local source
+changes without hashing its own output. A content identifier supplements the
+commit; retain or commit the corresponding source to reproduce that state. The HTML footer identifies the package and source commit.
 The structural checker checks local links and anchors, redirect destinations,
 obsolete search entries, sidebar numbering, and saved notebook execution records.
 Numerical regression tests verify reconstruction, parameter identity, and
@@ -90,3 +95,26 @@ Use the executed reports for evidence; registry support is a separate claim.
 After publication, compare the deployed footer's source revision with the
 released commit and inspect a corrected contract and report in that build.
 A successful local build alone does not verify the deployed revision.
+
+Visual and workflow checks
+--------------------------
+
+``tests/docs/test_learning_assets.py`` checks retained figure counts, authored
+alternative descriptions, the actual saved panel titles/curve counts, and the
+example-source hashes in the asset manifest. Tables and plots for quantile
+calibration and tree effects are generated together from the same complete
+example runs. Synthetic truth uses the empirical training centering reference.
+
+Regenerate those results and the practical workflows with:
+
+.. code-block:: bash
+
+   python docs/scripts/generate_detailed_assets.py
+   python docs/scripts/generate_practical_assets.py
+
+The source snippets for the homepage and Modeling Workflows share
+``docs/_includes/model_showcases.inc``. Its generators preserve the displayed
+fit settings, publish component/summary tables, and overlay known centered
+truth on the synthetic NAM showcase. Display-only cleanup records its own source fingerprint without changing the
+executed code or numerical results. Routine logging is removed independently
+from useful figures, tables, statistical summaries and meaningful warnings.

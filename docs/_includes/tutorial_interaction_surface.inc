@@ -42,7 +42,9 @@ tensor-product smooth represents their joint contribution.
    :class: scientific-figure
    :align: center
 
-The color and contours show one joint term, not two marginal curves. Its
+The color and contours show the isolated joint tensor-product contribution.
+This example has one fitted surface plus an intercept; the displayed term
+excludes that intercept and is not the complete fitted response. Its
 reported contribution depends on both named variables. Centering preserves
 prediction reconstruction, but does not make main and interaction effects
 unique when overlapping terms are included.

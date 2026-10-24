@@ -40,6 +40,19 @@ separate property: reconstructing a predictor does not imply that every term
 is a marginal effect, or that estimated effects are identifiable and stable.
 For statistical GAM inference and its bounds, see :doc:`gam`.
 
+Neural architecture matrix
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The matrix below covers neural architectures; the statistical GAM reference
+is :doc:`gam`. Prediction-task support and component extraction are separate:
+multiclass probabilities can be available while component extraction is
+binary-only. Intervals and uncertainty require their own assumptions and
+calibration checks; this table is a structural chooser, not a leaderboard.
+
+SIAN's optional unrestricted residual network changes the dependence contract.
+SplineNAM's interactions use projected design terms rather than neural
+interaction subnetworks. Follow the architecture links for those restrictions.
+
 .. include:: /_generated/reference/model_capabilities.inc
 
 Architecture reference

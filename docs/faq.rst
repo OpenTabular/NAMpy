@@ -217,3 +217,19 @@ How do I contribute?
 
 The :doc:`contributing` page contains the development installation, test
 commands, and links to the repository workflow.
+
+Why do new rows fail schema or target checks?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Reuse training-time imputers and transforms, and supply the original column
+names in the fitted order (``feature_names_in_``). Do not silently sort or drop
+columns to make an error disappear. New category handling depends on the fitted
+PreTab encoder; test its documented policy before deployment and keep category
+construction fixed. See :doc:`user_guide/preprocessing`.
+
+Missing values in the real-data tutorial are imputed using saved training
+medians. Targets must also satisfy their family's support: positive continuous
+families require positive responses, count families require valid counts, and
+probability/composition families impose their own ranges. Consult
+:doc:`api/utils` before choosing a family; changing target values merely to
+suppress an exception changes the statistical problem.

@@ -118,7 +118,33 @@ def _concurvity_measures(
 
 
 def concurvity(model, full: bool = True):
-    """Measure dependence between fitted smooth terms."""
+    """Measure how fitted smooth-design spaces can approximate each other.
+
+    Parameters
+    ----------
+    model : GAM
+        Fitted statistical GAM.
+    full : bool, default=True
+        Compare each term with the remaining design jointly. False returns
+        pairwise comparisons instead.
+
+    Returns
+    -------
+    dict
+        ``measure_names`` and ``labels`` identify the reported ``values``.
+        The worst, observed, and estimate measures describe different aspects
+        of design-space overlap. Full comparisons use one value per term;
+        pairwise comparisons use term-by-term matrices.
+
+    Notes
+    -----
+    Values near one indicate strong redundancy: another part of the model can
+    represent similar fitted variation. Prediction may remain useful while
+    individual effect allocations become unstable. Inspect correlated inputs,
+    overlapping smooths and repeated fits; neither a high score nor a low score
+    establishes causal interpretation or unique identification. There is no
+    universal cutoff for deleting a term.
+    """
 
     _require_fitted(model)
 

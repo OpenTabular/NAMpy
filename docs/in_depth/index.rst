@@ -1,7 +1,7 @@
 Detailed Examples
 =================
 
-Build on the :doc:`introductory examples <../tutorials/index>` with broader
+Build on the :doc:`introductory tutorials <../tutorials/index>` with broader
 modeling theory and longer analyses. The notebooks explore the statistical,
 neural, and distributional APIs; the focused examples work through conditional
 quantiles and mixed numerical/categorical tree effects using repository scripts.
@@ -22,8 +22,8 @@ quantiles and mixed numerical/categorical tree effects using repository scripts.
       :link: ../notebooks/03_neural_models
       :link-type: doc
 
-      Representation choices, preprocessing, sparse terms, interactions,
-      attention, trees, quantiles, and spline networks.
+      Independent feature networks, shared learned bases, representation size,
+      and a perturbation check of marginal versus global components.
 
       :download:`Download notebook <../notebooks/03_neural_models.ipynb>`
 
@@ -57,13 +57,6 @@ quantiles and mixed numerical/categorical tree effects using repository scripts.
       Complete fit-and-plot examples with predictions, components, importance,
       and model-specific figures.
 
-   .. grid-item-card:: Classify a real dataset
-      :link: ../notebooks/05_real_data_classification
-      :link-type: doc
-
-      Handle missing values and categories, fit a baseline and NAM, and assess
-      held-out probability quality and calibration.
-
 .. toctree::
    :maxdepth: 1
    :hidden:
@@ -74,4 +67,3 @@ quantiles and mixed numerical/categorical tree effects using repository scripts.
    quantile_calibration
    tree_effects
    ../tutorials/modeling_workflows
-   ../notebooks/05_real_data_classification

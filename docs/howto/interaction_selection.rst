@@ -1,0 +1,95 @@
+Select Interactions Without Using Test Outcomes
+===============================================
+
+Does a main-effects fit miss structure that changes jointly with two inputs?
+This synthetic example first inspects validation residuals, then uses SIAN's
+interaction detector on training/validation data. Test outcomes are used only
+for the final comparison. Allow a few minutes on CPU.
+
+Fit a main-effects baseline and inspect validation residuals
+------------------------------------------------------------
+
+.. code-block:: python
+
+   import tempfile
+   import numpy as np
+   import pandas as pd
+   import matplotlib.pyplot as plt
+   from sklearn.model_selection import train_test_split
+   from sklearn.metrics import mean_squared_error, r2_score
+   from nampy.models import NAMRegressor, SIANRegressor
+
+   rng = np.random.default_rng(43)
+   X = pd.DataFrame(rng.uniform(-1, 1, (900, 3)), columns=["x", "z", "w"])
+   y = np.sin(3*X.x) + .4*X.z + 2.5*X.x*X.z + rng.normal(0, .12, len(X))
+   X_fit, X_test, y_fit, y_test = train_test_split(X, y, test_size=.2, random_state=43)
+   X_train, X_val, y_train, y_val = train_test_split(X_fit, y_fit, test_size=.25, random_state=44)
+   fit_options = dict(max_epochs=100, lr=.01, batch_size=128, patience=15,
+                      random_state=43, checkpoint_path=tempfile.mkdtemp(),
+                      logger=False, enable_progress_bar=False, enable_model_summary=False)
+   baseline = NAMRegressor(layer_sizes=[24, 12], dropout=0., numerical_preprocessing="minmax")
+   baseline.fit(X_train, y_train, X_val=X_val, y_val=y_val, **fit_options)
+   residual = y_val.to_numpy()-baseline.predict(X_val)
+   residual_association = np.corrcoef(residual, X_val.x*X_val.z)[0,1]
+
+An association between residuals and the product x*z is evidence to investigate
+a joint term. The simulation supplies a known interaction; this visual/score
+check alone does not prove that an interaction is needed in an observational
+analysis.
+
+Select terms on training/validation rows, then evaluate once
+------------------------------------------------------------
+
+SIAN fits a reference network on training rows and scores candidate subsets
+using validation inputs. Explicitly setting ``interactions`` or
+``interaction_degree`` would bypass discovery. Here both remain unset; the
+maximum candidate order is two. The residual network is disabled so the
+interpretation concerns the reported additive terms.
+
+.. code-block:: python
+
+   selected = SIANRegressor(
+       layer_sizes=[24, 12], residual_network=False,
+       numerical_preprocessing="minmax", max_interaction_order=2,
+       interaction_thresholds=.1, reference_layer_sizes=[32, 16],
+       reference_epochs=80, selection_max_samples=80,
+   )
+   selected.fit(X_train, y_train, X_val=X_val, y_val=y_val, **fit_options)
+   selection_table = selected.interaction_selection_table()
+   interaction_results = pd.DataFrame([
+       {"Model": name, "Test n": len(X_test),
+        "Test RMSE (lower better)": np.sqrt(mean_squared_error(y_test, model.predict(X_test))),
+        "Test R2 (higher better)": r2_score(y_test, model.predict(X_test))}
+       for name, model in [("Main effects", baseline), ("Selected SIAN", selected)]
+   ])
+   grid_values = np.linspace(-1, 1, 45)
+   gx, gz = np.meshgrid(grid_values, grid_values)
+   grid = pd.DataFrame({"x": gx.ravel(), "z": gz.ravel(), "w": 0.})
+   parts = selected.predict_components(grid, center=True, reference_X=X_train)
+   parts.validate_additive_reconstruction(atol=1e-5)
+   interaction_terms = [name for name, meta in parts.term_metadata.items() if meta.kind == "interaction" and set(meta.features) == {"x", "z"}]
+   interaction_surface = sum((np.asarray(parts.terms[name]).reshape(-1) for name in interaction_terms), np.zeros(len(grid)))
+   figure, axes = plt.subplots(1, 2, figsize=(10, 4), constrained_layout=True)
+   axes[0].scatter(X_val.x*X_val.z, residual, s=10, alpha=.4)
+   axes[0].set(xlabel="Validation x*z", ylabel="Baseline residual", title="Evidence before selecting terms")
+   image = axes[1].pcolormesh(gx, gz, interaction_surface.reshape(gx.shape), shading="auto")
+   axes[1].set(xlabel="x", ylabel="z", title="Selected x:z contribution" if interaction_terms else "No x:z term selected")
+   figure.colorbar(image, ax=axes[1], label="Centered link contribution")
+
+.. include:: /_generated/interaction_selection_results.inc
+
+.. include:: /_generated/interaction_detector.inc
+
+.. image:: /_static/interaction_selection_workflow.png
+   :alt: Validation residual association with x times z and the selected centered x:z contribution surface
+   :class: scientific-figure
+
+The left panel uses validation rows, while the metric table uses final test
+rows. The right panel shows only selected x:z contributions, excluding the
+intercept and main effects. A blank surface means no such term was selected;
+the detector table records the decision. This single split does not establish
+selection stability or a unique separation between overlapping effects.
+
+Recommended next: :doc:`../user_guide/interpretability` for dependence and
+centering conventions. Optional: :doc:`../models/sian` for detector controls,
+sparsity, and the unrestricted residual-network caveat.

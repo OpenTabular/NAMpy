@@ -189,7 +189,7 @@ def estimator_text(cls, spec, objective):
         lines.append(
             "This LSS task uses gradient training with solver='auto'; the native solver supports squared-error regression and binary classification only.\n"
             if objective == "distributional"
-            else "The default solver='auto' uses native boosting for this task; n_estimators limits stages. solver='gradient' selects shared optimizer and scheduler controls instead.\n"
+            else "The default solver='auto' uses native boosting for squared-error regression and binary classification; n_estimators limits stages. Multiclass classification uses gradient training, as does solver='gradient'.\n"
         )
     elif spec.name == "gpnam":
         lines.append(
@@ -372,11 +372,14 @@ def generate(root):
         matrix.append(
             (
                 f":doc:`{spec.estimator_prefix} </models/{name}>`",
-                ", ".join(
-                    sorted(
-                        spec.capabilities
-                        & {"regression", "classification", "distributional"}
-                    )
+                "; ".join(
+                    label
+                    for capability, label in [
+                        ("regression", "regression"),
+                        ("classification", "binary and multiclass prediction"),
+                        ("distributional", "LSS"),
+                    ]
+                    if spec.supports(capability)
                 ),
                 "; ".join(
                     label
@@ -392,14 +395,14 @@ def generate(root):
                 DEPENDENCE.get(
                     name, "Named features or explicitly configured subsets."
                 ),
-                "Native boosting for regression/binary classification; gradient training for LSS or solver='gradient'"
+                "Native boosting for regression/binary classification; gradient training for multiclass, LSS, or solver='gradient'"
                 if name == "igann"
                 else "Default CG regression; gradient classification/LSS or solver='gradient'"
                 if name == "gpnam"
                 else "Gradient training",
                 "Conditional quantiles and pinball loss; no complete probability density."
                 if spec.fixed_family == "quantile"
-                else "Family-dependent LSS parameters or quantiles; calibration requires separate checks."
+                else "Family-dependent LSS parameters; conditional spread where the family defines it."
                 if spec.supports("distributional")
                 else "Response prediction; no LSS interface or automatic calibrated intervals.",
             )
@@ -614,7 +617,11 @@ def generate_families(root):
             (
                 "Default transforms",
                 ", ".join(f"{key}: {value}" for key, value in transforms.items())
-                or "Family-specific ordered quantiles / cumulative probabilities",
+                or (
+                    "First raw value is free; later quantiles add cumulative softplus increments when enforce_monotonic=True. QNAM uses ordered term outputs and disables this second transform."
+                    if name == "quantile"
+                    else "Family-specific probability transformation; inspect the family contract."
+                ),
             ),
             ("Point prediction", point),
             ("Spread", spread),

@@ -201,6 +201,13 @@ def generate_gam_nam_comparison() -> None:
         )
         nam_effect = _component_for_feature(nam_grid.terms, feature)
 
+        truth = {
+            "median_income": lambda x: 2.2*np.tanh((x-5)/1.7),
+            "house_age": lambda x: .9*np.sin((x-5)/8),
+            "latitude": lambda x: -.55*(x-37)**2/6,
+            "rooms_per_household": lambda x: .75*np.log1p(x),
+        }[feature]
+        axis.plot(x_values, truth(x_values)-truth(train[feature].to_numpy()).mean(), "k--", label="Centered truth")
         axis.plot(x_values, gam_effect, color=PINK, lw=2.4, label="GAM")
         axis.plot(x_values, nam_effect, color=BLUE, lw=2.2, label="NAM")
         axis.set_title(display_names[feature])

@@ -33,7 +33,7 @@ def table(title, frame):
     return (
         f".. csv-table:: {title}\n   :header-rows: 1\n\n"
         + "".join("   " + line + "\n" for line in stream.getvalue().splitlines())
-        + "\n"
+        + ""
     )
 
 
@@ -43,7 +43,7 @@ def save(fig, name):
     plt.close(fig)
 
 
-source = (ROOT / "docs/tutorials/modeling_workflows.rst").read_text()
+source = (ROOT / "docs/_includes/model_showcases.inc").read_text()
 blocks = re.findall(
     r"^\.\. code-block:: python\n\n((?:(?:   [^\n]*)?\n)+)", source, re.M
 )
@@ -78,7 +78,17 @@ for index, block in enumerate(blocks[:3]):
             frame[name] = np.asarray(values).reshape(-1)
         frame["prediction"] = namespace["prediction"]
         text += table("Additive components — first five observations", frame.head())
-        (OUTPUT / "home_gam.inc").write_text(text)
+        first = frame.iloc[0]
+        addends = [float(first["intercept"])] + [
+            float(first[name]) for name in components.terms
+        ]
+        text += (
+            "\nFor the first displayed row, intercept plus fitted contributions gives ``"
+            + " + ".join(f"({value:.4f})" for value in addends)
+            + f" = {float(first['prediction']):.4f}``, up to displayed rounding. The x and group columns are inputs, not additional summands.\n\n"
+        )
+
+        (OUTPUT / "home_gam.inc").write_text(text.rstrip() + "\n")
         fig, axes = plt.subplots(1, 2, figsize=(9, 3.5))
         term = next(values for name, values in components.terms.items() if "x" in name)
         axes[0].plot(x, np.asarray(term).reshape(-1), color="#237f75")

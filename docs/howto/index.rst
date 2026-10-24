@@ -26,6 +26,8 @@ chosen.
 More tasks
 ----------
 
+* :doc:`Prediction output and plotting map <prediction_outputs>`
+* :doc:`Interaction selection <interaction_selection>`
 * :doc:`Regression </examples/basic_regression>`
 * :doc:`Classification </examples/basic_classification>`
 * :doc:`Distributional regression </examples/distributional_regression>`
@@ -42,6 +44,8 @@ More tasks
    :hidden:
 
    interactions
+   interaction_selection
+   prediction_outputs
    monotonicity
    offsets
    persistence

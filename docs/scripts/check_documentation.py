@@ -22,6 +22,7 @@ class Page(HTMLParser):
     def __init__(self, text):
         super().__init__(convert_charrefs=True)
         self.ids = set()
+        self.images = []
         self.links = []
         self.robots = ""
         self.redirect = None
@@ -32,6 +33,8 @@ class Page(HTMLParser):
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
+        if tag == "img":
+            self.images.append((attrs.get("src", ""), attrs.get("alt", "")))
         if attrs.get("id"):
             self.ids.add(attrs["id"])
         if tag in {"a", "link"} and attrs.get("href"):
@@ -118,6 +121,15 @@ def main():
             errors.append(
                 f"{path.relative_to(build)}: generated symbols leaked into global navigation"
             )
+    for path, page in pages.items():
+        if path.relative_to(build).parts[0] == "notebooks":
+            for src, alt in page.images:
+                if "notebooks_" in src and (
+                    not alt or re.search(r"\.(?:png|svg|jpe?g)", alt)
+                ):
+                    errors.append(
+                        f"{path.relative_to(build)}: notebook figure has filename-based alt text"
+                    )
     homepage = pages.get((build / "index.html").resolve())
     if homepage is not None:
         for path, page in pages.items():
@@ -142,6 +154,16 @@ def main():
         notebook = nbformat.read(path, as_version=4)
         if "nampy_execution" not in notebook.metadata:
             errors.append(f"{path.name}: missing execution provenance")
+        record = notebook.metadata.get("nampy_execution", {})
+        if (
+            len(record.get("revision", "")) != 40
+            or len(record.get("source_sha256", "")) != 64
+        ):
+            errors.append(
+                f"{path.name}: execution source revision or content fingerprint missing"
+            )
+        if not record.get("source_manifest"):
+            errors.append(f"{path.name}: execution source manifest missing")
         fingerprint = hashlib.sha256(
             json.dumps(
                 [cell.source for cell in notebook.cells if cell.cell_type == "code"],

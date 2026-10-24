@@ -45,7 +45,7 @@ def test_reference_generation_from_clean_checkout(tmp_path):
     lss = (tmp_path / "docs/_generated/reference/NAMLSS.inc").read_text()
     assert "family_.param_names" in lss
     native = (tmp_path / "docs/_generated/reference/IGANNRegressor.inc").read_text()
-    assert "binary targets only" in native and "boosting" in native
+    assert "native boosting for binary targets" in native and "boosting" in native
     assert "model.fit(X, y, max_epochs=" not in native
     native_lss = (tmp_path / "docs/_generated/reference/IGANNLSS.inc").read_text()
     assert "This LSS task uses gradient training" in native_lss

@@ -58,5 +58,5 @@ zero defines a synthetic reference configuration and need not correspond to
 an observed row. See :doc:`../user_guide/gamlss` for parameter links and
 family-specific meanings.
 
-Continue with :doc:`../notebooks/04_distributional_models` to explore other
+Recommended next: :doc:`../notebooks/04_distributional_models` to explore other
 response families, conditional quantiles, classification, and ensemble uncertainty.

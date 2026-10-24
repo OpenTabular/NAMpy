@@ -298,7 +298,7 @@ def _register_builtins() -> None:
                 "input_requirements": {
                     "numerical": "one scalar column per source feature",
                     "categorical": "integer encoded; IGANN drops the reference level",
-                    "classification": "binary targets only",
+                    "classification": "native boosting for binary targets; multiclass uses gradient training",
                 },
             }
         elif name == "sian":

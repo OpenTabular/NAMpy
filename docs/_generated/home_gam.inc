@@ -34,3 +34,5 @@
    0.0067,b,-0.0111,-0.0016,-0.0048,-0.0175
    0.0100,b,-0.0111,-0.0016,0.0183,0.0056
    0.0134,b,-0.0111,-0.0016,0.0414,0.0287
+
+For the first displayed row, intercept plus fitted contributions gives ``(-0.0111) + (-0.0016) + (-0.0512) = -0.0639``, up to displayed rounding. The x and group columns are inputs, not additional summands.

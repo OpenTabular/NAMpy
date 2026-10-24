@@ -53,6 +53,8 @@ def setup(app):
     app.connect("html-collect-pages", pages)
     app.connect("html-page-context", navigation_context)
     app.connect("builder-inited", provenance)
+    app.connect("doctree-resolved", notebook_image_descriptions)
+    app.connect("build-finished", version_local_images)
     return {"parallel_read_safe": True, "parallel_write_safe": True}
 
 
@@ -80,3 +82,71 @@ def navigation_context(app, pagename, templatename, context, doctree):
         return app.builder.render_partial(tree)["fragment"]
 
     context["toctree"] = navigation
+
+
+def notebook_image_descriptions(app, doctree, docname):
+    """Use authored descriptions instead of nbsphinx-generated filenames."""
+    import json
+
+    from docutils import nodes
+
+    path = Path(app.srcdir) / (docname + ".ipynb")
+    if not path.is_file():
+        return
+    notebook = json.loads(path.read_text())
+    descriptions = []
+    for cell in notebook["cells"]:
+        for output in cell.get("outputs", []):
+            if any(
+                mime in output.get("data", {})
+                for mime in ["image/png", "image/svg+xml", "image/jpeg"]
+            ):
+                descriptions.append(cell.get("metadata", {}).get("figure_alt", ""))
+    for image, description in zip(
+        doctree.findall(nodes.image), descriptions, strict=False
+    ):
+        if description:
+            image["alt"] = description
+
+
+def version_local_images(app, exception):
+    """Give regenerated image URLs content keys, including their full-size links."""
+    if exception is not None or app.builder.format != "html":
+        return
+    import html
+    import re
+    import zlib
+    from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
+
+    root = Path(app.outdir).resolve()
+    checksums = {}
+    attributes = re.compile(
+        r"(?P<prefix>\b(?:src|href)=[\"'])(?P<url>[^\"']+)(?P<suffix>[\"'])"
+    )
+    for page in root.rglob("*.html"):
+
+        def replace(match, page=page):
+            parts = urlsplit(html.unescape(match["url"]))
+            if parts.scheme or parts.netloc:
+                return match[0]
+            target = (page.parent / unquote(parts.path)).resolve()
+            if (
+                not target.is_relative_to(root)
+                or not target.is_file()
+                or target.suffix.lower()
+                not in {".png", ".svg", ".jpg", ".jpeg", ".webp", ".gif"}
+            ):
+                return match[0]
+            if target not in checksums:
+                checksums[target] = f"{zlib.crc32(target.read_bytes()):08x}"
+            query = [
+                (key, value) for key, value in parse_qsl(parts.query) if key != "v"
+            ]
+            query.append(("v", checksums[target]))
+            url = urlunsplit(parts._replace(query=urlencode(query)))
+            return match["prefix"] + html.escape(url, quote=True) + match["suffix"]
+
+        original = page.read_text()
+        updated = attributes.sub(replace, original)
+        if updated != original:
+            page.write_text(updated)

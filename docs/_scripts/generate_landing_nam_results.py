@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def main():
     torch.set_num_threads(1)
-    source = (ROOT / "docs/tutorials/modeling_workflows.rst").read_text()
+    source = (ROOT / "docs/_includes/model_showcases.inc").read_text()
     section = source.split("Neural Additive Model (NAM)\n", 1)[1]
     block = re.search(
         r"^\.\. code-block:: python\n\n((?:(?:   [^\n]*)?\n)+)", section, re.M
@@ -28,6 +28,12 @@ def main():
     )
     namespace = {}
     exec(compile(code, "<landing NAM example>", "exec"), namespace)
+    namespace["figures"][0].savefig(
+        ROOT / "docs/_static/homepage_demo_light.png",
+        dpi=180,
+        bbox_inches="tight",
+        facecolor="white",
+    )
     prediction = np.asarray(namespace["prediction"]).reshape(-1)
     components = namespace["components"]
     observed = np.asarray(namespace["y"])
@@ -50,7 +56,7 @@ def main():
     )
     (ROOT / "docs/_generated/home_nam.inc").write_text(output)
     importance = namespace["importance"].sort_values("importance")
-    fig, ax = plt.subplots(figsize=(8, 3.2))
+    fig, ax = plt.subplots(figsize=(6, 6))
     bars = ax.barh(importance["term"], importance["importance"], color="#237f75")
     ax.bar_label(bars, fmt="%.3f", padding=5)
     ax.set(xlabel="Mean absolute centered contribution", title="NAM feature importance")
@@ -59,6 +65,21 @@ def main():
     fig.tight_layout()
     fig.savefig(
         ROOT / "docs/_static/home_nam_importance.png",
+        dpi=180,
+        bbox_inches="tight",
+        facecolor="white",
+    )
+    # The distributional panel is generated from its displayed block as well.
+    section = source.split("Neural distributional regression\n", 1)[1]
+    block = re.search(
+        r"^\.\. code-block:: python\n\n((?:(?:   [^\n]*)?\n)+)", section, re.M
+    )[1]
+    code = "\n".join(
+        line[3:] if line.startswith("   ") else line for line in block.splitlines()
+    )
+    exec(compile(code, "<distributional showcase>", "exec"), namespace)
+    namespace["figures"][0].savefig(
+        ROOT / "docs/_static/readme_distributional_effects.png",
         dpi=180,
         bbox_inches="tight",
         facecolor="white",

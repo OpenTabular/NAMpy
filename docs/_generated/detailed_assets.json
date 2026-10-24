@@ -1,0 +1,37 @@
+{
+  "tree": {
+    "panels": [
+      "age",
+      "income",
+      "region"
+    ],
+    "lines": [
+      3,
+      3,
+      3
+    ],
+    "test_rows": 320
+  },
+  "quantile": {
+    "panels": [
+      "Test quantile calibration",
+      "Known and fitted age effects"
+    ],
+    "lines": [
+      2,
+      6
+    ],
+    "test_rows": 280,
+    "levels": [
+      0.1,
+      0.5,
+      0.9
+    ]
+  },
+  "source_sha256": {
+    "example_ensemble.py": "62896c6ad1f76b8a1919f9bc73650237eb9d46ce446e6e51858d87a05770d29e",
+    "example_qnam.py": "438702193f3387c2d16884aa8c92faa0117eb758897d5910e30e70b0465ad36a"
+  },
+  "centering": "empirical training rows",
+  "evaluation": "test rows excluded from early stopping"
+}

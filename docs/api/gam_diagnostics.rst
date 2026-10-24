@@ -13,8 +13,16 @@ is the usual interface:
    derivative = model.derivative(smooth_number=1, deriv=1)
    figures = model.plot(residuals=True, pages=1)
 
+Use ``k_check`` to investigate whether residual structure remains near the
+smooth's basis limit; a low index or small permutation p-value motivates a
+larger-k refit, not automatic acceptance or rejection. ``concurvity`` concerns
+overlap among fitted design spaces and the stability of effect allocations.
+``smooth_derivative`` reports predictor-scale slope/curvature and conditional
+pointwise Bayesian uncertainty. Under a nonlinear link, a derivative of the
+response mean also needs the chain rule.
+
 The functions below expose the same operations for extension and reporting
-code.
+code; their references describe outputs, interpretation and limits.
 
 Model checks
 ------------

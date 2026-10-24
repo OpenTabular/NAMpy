@@ -78,6 +78,7 @@ regularization, and fitting algorithms remain different.
        train[features],
        train["value"],
        max_epochs=60,
+       lr=5e-3,
        batch_size=128,
        patience=10,
        random_state=41,
@@ -154,6 +155,13 @@ other predictors does not change the plotted term.
        gam_effect -= feature_effect(gam_reference, feature).mean()
        nam_grid = nam.predict_components(grid, center=True, reference_X=train[features])
        axis.plot(values, gam_effect, label="GAM")
+       truth = {
+           "median_income": lambda x: 2.2*np.tanh((x-5)/1.7),
+           "house_age": lambda x: .9*np.sin((x-5)/8),
+           "latitude": lambda x: -.55*(x-37)**2/6,
+           "rooms_per_household": lambda x: .75*np.log1p(x),
+       }[feature]
+       axis.plot(values, truth(values)-truth(train[feature]).mean(), "k--", label="Centered truth")
        axis.plot(values, feature_effect(nam_grid, feature), label="NAM")
        axis.set(title=feature, xlabel="Feature value", ylabel="Centered contribution")
    axes[0, 0].legend()
@@ -164,6 +172,8 @@ other predictors does not change the plotted term.
    :class: scientific-figure
    :align: center
 
+Dashed truth is centered against the same training rows as the fitted curves.
+Use it to assess recovery rather than the visual smoothness of a fitted line.
 Both models recover the dominant saturating income effect, the curved latitude
 effect, the age pattern, and the diminishing return from additional rooms.
 Where the curves differ, the disagreement is useful information: spline basis
@@ -185,5 +195,6 @@ shares learned basis functions across terms, using a new two-feature dataset.
 
 .. include:: ../_includes/tutorial_nam_nbm.inc
 
-Continue with :doc:`../notebooks/03_neural_models` for sparse terms,
-interaction discovery, attention, tree models, and other architectures.
+Recommended next: :doc:`../notebooks/03_neural_models` to compare representation
+size, independent versus shared bases, and marginal versus global dependence.
+Optional branch: :doc:`changing_variability` to change the prediction target.

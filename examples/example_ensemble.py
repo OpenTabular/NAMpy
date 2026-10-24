@@ -126,7 +126,8 @@ def main():
             val_size=0.2,
             patience=20,
             logger=False,
-            enable_progress_bar=True,
+            enable_progress_bar=False,
+            random_state=42,
         )
 
         ensemble_model.fit(
@@ -140,7 +141,8 @@ def main():
             val_size=0.2,
             patience=20,
             logger=False,
-            enable_progress_bar=True,
+            enable_progress_bar=False,
+            random_state=42,
         )
 
     # ------------------------------------------------------------------
@@ -158,10 +160,10 @@ def main():
 
     print("Single TreeNAM")
     print(
-        f"  Validation — MAE: {scores_single['MAE']:.4f}, R2: {scores_single['R2']:.4f}"
+        f"  Test — MAE: {scores_single['MAE']:.4f}, R2: {scores_single['R2']:.4f}"
     )
     print("Ensemble TreeNAM")
-    print(f"  Validation — MAE: {scores_ens['MAE']:.4f}, R2: {scores_ens['R2']:.4f}")
+    print(f"  Test — MAE: {scores_ens['MAE']:.4f}, R2: {scores_ens['R2']:.4f}")
 
     # ------------------------------------------------------------------
     # Ensemble contributions
@@ -186,7 +188,7 @@ def main():
     # ------------------------------------------------------------------
     # Exact additive decomposition check
     # ------------------------------------------------------------------
-    component_keys = [k for k in learned.keys() if k not in {"output", "intercept"}]
+    component_keys = [k for k in learned.keys() if k not in {"output", "intercept", "response"}]
     reconstructed = np.zeros_like(preds_ens)
 
     if "intercept" in learned:
@@ -197,13 +199,15 @@ def main():
 
     max_abs_decomp_error = np.max(np.abs(reconstructed - learned["output"]))
     max_abs_pred_error = np.max(np.abs(reconstructed - preds_ens))
+    components.validate_additive_reconstruction(atol=1e-5)
+    assert max_abs_decomp_error < 1e-5
 
     print("\nExact additive decomposition check:")
     print(f"  max |reconstructed - returned output| : {max_abs_decomp_error:.8f}")
     print(f"  max |reconstructed - predict(X_test)|  : {max_abs_pred_error:.8f}")
 
     # ------------------------------------------------------------------
-    # Ground-truth contributions on validation set
+    # Ground-truth contributions on test set
     # ------------------------------------------------------------------
     xv = X_test.reset_index(drop=True)
     true_age_val = f_age(xv["age"].to_numpy())
@@ -338,6 +342,11 @@ def main():
     print(
         "  - region should be returned as one logical feature block, not region[0], region[1], ..."
     )
+
+    return {"single": single_model, "ensemble": ensemble_model,
+            "X_train": X_train, "X_test": X_test, "y_test": y_test,
+            "f_age": f_age, "f_income": f_income, "region_effect": REGION_EFFECT,
+            "noiseless_test": true_total_no_noise}
 
 
 if __name__ == "__main__":

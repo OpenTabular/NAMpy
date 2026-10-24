@@ -20,3 +20,10 @@ For statistical models, serialize the fitted estimator with ``joblib``:
 
 Store the package version and the model specification with the artifact so a
 future analysis can reproduce the same environment.
+
+External preprocessing is part of the prediction workflow. Persist training
+medians, category rules, expected column names/order, and any target transforms
+alongside the estimator. Recompute neither medians nor category boundaries on
+new prediction rows. The :doc:`real-data classification workflow
+<../notebooks/05_real_data_classification>` saves these objects, verifies
+reloaded probabilities against the originals, and predicts on fresh rows.

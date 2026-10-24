@@ -9,13 +9,13 @@ import hashlib
 import importlib.metadata
 import json
 import os
-import subprocess
 import sys
 import tempfile
 import time
 from pathlib import Path
 
 import nbformat
+from execution_support import clean_outputs, source_state
 from nbclient import NotebookClient
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -30,9 +30,8 @@ def main():
         name: importlib.metadata.version(name)
         for name in ["nampy", "numpy", "scikit-learn", "torch", "lightning"]
     }
-    commit = subprocess.check_output(
-        ["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, text=True
-    ).strip()
+    state = source_state(ROOT)
+    commit = state["revision"]
     for path in paths:
         path = path.resolve()
         notebook = nbformat.read(path, as_version=4)
@@ -59,16 +58,18 @@ def main():
                 resources={"metadata": {"path": directory}},
             ).execute(env=environment)
             seconds = time.perf_counter() - started
+        clean_outputs(notebook)
         note = nbformat.v4.new_markdown_cell(
             "**Execution environment:** "
             + ", ".join(f"{name} {version}" for name, version in versions.items())
-            + f". Python {sys.version.split()[0]}; source base commit `{commit}` (working checkout); elapsed {seconds:.1f} seconds on this CPU. Runtime varies by hardware.",
+            + f". Python {sys.version.split()[0]}; source revision `{commit}`; source-content SHA256 `{state['source_sha256']}` (includes local source changes); elapsed {seconds:.1f} seconds on this CPU. Runtime varies by hardware.",
             metadata={"tags": ["execution-provenance"]},
         )
         notebook.cells.insert(1, note)
         notebook.metadata["nampy_execution"] = {
             "versions": versions,
             "commit": commit,
+            **state,
             "seconds": seconds,
             "python": sys.version.split()[0],
             "code_sha256": hashlib.sha256(

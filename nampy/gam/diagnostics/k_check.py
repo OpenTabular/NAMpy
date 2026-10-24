@@ -131,7 +131,36 @@ def _tensor_rescale_data(model, tb, row_idx, X_term):
 
 
 def k_check(model, subsample: int = 5000, n_rep: int = 400, seed: int | None = None):
-    """Port of mgcv::k.check() basis-dimension diagnostic."""
+    """Check residual pattern against the available smooth basis dimension.
+
+    Parameters
+    ----------
+    model : GAM
+        Fitted statistical GAM.
+    subsample : int, default=5000
+        Maximum number of rows used by the nearest-neighbor diagnostic.
+    n_rep : int, default=400
+        Number of residual permutations for the diagnostic p-value.
+    seed : int, optional
+        Seed for subsampling and permutations; set it for repeatable comparisons.
+
+    Returns
+    -------
+    pandas.DataFrame or None
+        Rows identify smooth terms. Columns are ``k_prime`` (available basis
+        degrees of freedom), ``edf`` (fitted effective degrees of freedom),
+        ``k_index`` (neighbor-difference residual variance ratio), and
+        ``p_value`` (permutation diagnostic). No smooth terms returns None.
+
+    Notes
+    -----
+    A low k-index and small p-value suggest residual structure at nearby
+    covariate values. When EDF is close to the basis limit, refit with larger
+    k and compare the effect and validation behavior. This is not a test proving
+    the model correct: omitted structure, dependence, family assumptions, or
+    random permutation variation can affect the result. Some non-numeric terms
+    do not have the same neighbor-based diagnostic.
+    """
     _require_fitted(model)
 
     all_term_blocks = list(_term_blocks_seq(model))

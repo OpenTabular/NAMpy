@@ -193,3 +193,16 @@ When adding new features:
 * [Sphinx Documentation](https://www.sphinx-doc.org/)
 * [reStructuredText Primer](https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html)
 * [NumPy Docstring Guide](https://numpydoc.readthedocs.io/en/latest/format.html)
+
+The introductory tutorial has a core regression walkthrough followed by optional
+classification, calibration, and cross-validation extensions. Real-data
+classification is the practical continuation before branching into statistical,
+neural, or distributional detailed examples.
+
+Homepage and Modeling Workflows code comes from
+`_includes/model_showcases.inc`; regenerate its output with
+`_scripts/generate_landing_gam_results.py` and
+`_scripts/generate_landing_nam_results.py`. The detailed tree/quantile and practical
+workflow generators under `scripts/` emit displayed tables and plots together.
+The execution helper records full commits plus source-content manifests and
+removes only incidental display noise, preserving results and meaningful warnings.

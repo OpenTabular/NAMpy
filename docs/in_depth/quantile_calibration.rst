@@ -76,6 +76,29 @@ can cover most outcomes while being uninformative.
    print("Interval coverage:", np.mean((y_test >= lower) & (y_test <= upper)))
    print("Mean interval width:", np.mean(upper - lower))
 
+.. include:: /_generated/detailed_quantile_coverage.inc
+
+.. include:: /_generated/detailed_quantile_interval.inc
+
+.. image:: /_static/detailed_quantile_calibration.png
+   :alt: Nominal versus observed test quantile coverage and known versus learned age contributions at three quantile levels
+   :class: scientific-figure
+
+The calibration panel compares each requested level with the observed fraction
+below its prediction on the displayed number of test rows. The diagonal is the
+population calibration target; finite-sample deviations are expected, but
+large departures should not be dismissed as sampling noise. The
+second panel compares quantile-specific age contributions with known truth,
+centered against the same training rows. It checks shape recovery separately
+from coverage. The table's 80% interval width and coverage should be read
+together; pinball loss follows the documented sum-over-levels convention.
+
+This saved fit overcovers the interval and shows weak separation of the
+quantile-specific age shapes. Ordering has not delivered calibration or full
+effect recovery. Revisit capacity and training with validation data; further
+model changes require a fresh final evaluation rather than tuning against
+this test table.
+
 Overall coverage can conceal poorly calibrated subgroups. Repeat these checks
 within regions or ranges of age when those comparisons have enough data.
 The script reserves 60% of rows for training, 20% for early stopping, and
@@ -88,6 +111,8 @@ A feature can affect the median and the tails differently. ``predict_components`
 returns contributions with a quantile dimension; categorical terms may be
 returned as a source-level term or encoded level terms. The complete script
 handles both forms when comparing the learned region effects with truth.
+Ordering applies to full predictions: after centering each quantile separately,
+individual contribution curves can cross while the full quantiles remain ordered.
 
 .. code-block:: python
 
@@ -108,3 +133,6 @@ that separate question.
 includes the quantile-by-quantile truth comparison, categorical effect
 aggregation, and plotting code. Continue with :doc:`../notebooks/04_distributional_models`
 for the distinction between quantile intervals and ensemble disagreement.
+
+Recommended next: :doc:`tree_effects` for a different feature representation,
+or :doc:`../howto/prediction_outputs` to compare output and plotting contracts.

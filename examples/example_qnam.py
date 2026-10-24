@@ -142,7 +142,8 @@ def main():
             val_size=0.2,
             patience=20,
             logger=False,
-            enable_progress_bar=True,
+            enable_progress_bar=False,
+            random_state=42,
         )
 
     # ------------------------------------------------------------------
@@ -328,6 +329,11 @@ def main():
     print(
         "  - region[...] keys confirm one-hot categorical effects are handled atomically."
     )
+
+    return {"model": model, "X_train": X_train, "X_test": X_test,
+            "y_test": y_test, "prediction": preds, "levels": quantiles,
+            "true_quantiles": true_quantiles, "true_age": true_age_q,
+            "age_function": mu_age, "age_scale": sigma_age, "q_z": q_z}
 
 
 if __name__ == "__main__":

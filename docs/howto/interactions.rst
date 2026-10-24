@@ -34,3 +34,6 @@ For a neural estimator, name the interaction explicitly:
 An interaction contribution depends on every variable in its label. When
 main effects and interactions overlap, exact reconstruction does not imply a
 unique separation between them.
+
+For train/validation interaction discovery followed by final test evaluation,
+continue with :doc:`interaction_selection`.

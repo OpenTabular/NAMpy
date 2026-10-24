@@ -35,7 +35,34 @@ class SmoothDerivativeResult:
 
 
 def smooth_derivative(model, *, X=None, smooth_number: int = 1, deriv: int = 1):
-    """Evaluate a term-owned univariate derivative and Bayesian uncertainty."""
+    """Evaluate a univariate smooth derivative on its additive-predictor scale.
+
+    Parameters
+    ----------
+    model : GAM
+        Fitted statistical GAM.
+    X : array-like or DataFrame, optional
+        Evaluation rows; None uses the term's fitted evaluation data.
+    smooth_number : int, default=1
+        One-based smooth index, excluding parametric terms.
+    deriv : {1, 2}, default=1
+        Derivative order: slope or curvature.
+
+    Returns
+    -------
+    SmoothDerivativeResult
+        Derivative, Bayesian standard error, derivative design matrix, term
+        label, and derivative order. The ``d`` and ``se_d`` properties are aliases.
+
+    Notes
+    -----
+    A pointwise derivative band can help locate increasing or decreasing
+    regions. It is conditional on the fitted basis, smoothing and covariance;
+    it is not a simultaneous guarantee across an entire curve. Derivatives of
+    a response mean under a nonlinear inverse link require the chain rule.
+    Only univariate smooths and first/second derivatives are supported here;
+    a joint interaction surface needs a separate partial-derivative analysis.
+    """
     _require_fitted(model)
     deriv = int(deriv)
     if deriv not in {1, 2}:

@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def main():
-    source = (ROOT / "docs/index.rst").read_text()
+    source = (ROOT / "docs/_includes/model_showcases.inc").read_text()
     block = re.search(
         r"^\.\. code-block:: python\n\n((?:(?:   [^\n]*)?\n)+)", source, re.M
     )[1]

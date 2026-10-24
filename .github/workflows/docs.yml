@@ -96,15 +96,26 @@ jobs:
           python -m pip install pytest
           python docs/scripts/check_short_examples.py
           python docs/scripts/generate_optimizer_matrix.py
-          python -m pytest -q tests/docs tests/neural/test_documented_component_contracts.py tests/neural/test_explanation_tables.py tests/public_api/test_gamlss_estimator.py
+          python -m pytest -q tests/docs tests/neural/test_documented_component_contracts.py tests/neural/test_explanation_tables.py tests/public_api/test_gamlss_estimator.py tests/neural/test_igann_reference.py::test_registered_igann_native_binary_and_generic_multiclass_classification
 
       - name: Execute flagship documentation examples
         env:
+          OPENBLAS_NUM_THREADS: "1"
+          OMP_NUM_THREADS: "1"
+          MPLBACKEND: "Agg"
           MPLCONFIGDIR: /tmp/nampy-matplotlib
-        run: python docs/scripts/generate_first_gam_assets.py
+        run: |
+          python docs/scripts/generate_first_gam_assets.py
+          python docs/_scripts/generate_landing_gam_results.py
+          python docs/_scripts/generate_landing_nam_results.py
+          python docs/scripts/generate_detailed_assets.py
+          python docs/scripts/generate_practical_assets.py
 
       - name: Build Sphinx documentation
         run: python -m sphinx -E -a -b html docs docs/_build/html -W --keep-going
+
+      - name: Check published visual content and source provenance
+        run: python -m pytest -q tests/docs/test_learning_assets.py
 
       - name: Check links, redirects, navigation, and notebook records
         run: python docs/scripts/check_documentation.py
