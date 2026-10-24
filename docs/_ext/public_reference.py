@@ -343,6 +343,7 @@ def generate(root):
     output = root / "docs/_generated/reference"
     output.mkdir(parents=True, exist_ok=True)
     generated = root / "docs/api/generated"
+    generated.mkdir(parents=True, exist_ok=True)
     for name in ["GAMRegressor", "GAMClassifier", "GAMLSS"]:
         (output / f"{name}.inc").write_text(statistical_text(getattr(models, name)))
     matrix = []

@@ -96,7 +96,7 @@ jobs:
           python -m pip install pytest
           python docs/scripts/check_short_examples.py
           python docs/scripts/generate_optimizer_matrix.py
-          python -m pytest -q tests/neural/test_documented_component_contracts.py tests/neural/test_explanation_tables.py tests/public_api/test_gamlss_estimator.py
+          python -m pytest -q tests/docs tests/neural/test_documented_component_contracts.py tests/neural/test_explanation_tables.py tests/public_api/test_gamlss_estimator.py
 
       - name: Execute flagship documentation examples
         env:
