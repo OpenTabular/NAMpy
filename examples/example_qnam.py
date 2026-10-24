@@ -108,8 +108,11 @@ def main():
     eps = rng.normal(0.0, 1.0, n)
     y = mu_all + sigma_all * eps
 
-    X_train, X_val, y_train, y_val = train_test_split(
+    X_fit, X_test, y_fit, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42
+    )
+    X_train, X_val, y_train, y_val = train_test_split(
+        X_fit, y_fit, test_size=0.25, random_state=43
     )
 
     # ------------------------------------------------------------------
@@ -145,25 +148,25 @@ def main():
     # ------------------------------------------------------------------
     # Predictions
     # ------------------------------------------------------------------
-    preds = np.asarray(model.predict(X_val))
+    preds = np.asarray(model.predict(X_test))
     if preds.ndim != 2 or preds.shape[1] != len(quantiles):
         raise RuntimeError(
             f"Expected predictions of shape [N, {len(quantiles)}], got {preds.shape}"
         )
 
-    xv = X_val.reset_index(drop=True)
-    log_income_val = np.log(xv["income"].to_numpy())
-    income_z_val = (log_income_val - log_income.mean()) / log_income.std()
+    xv = X_test.reset_index(drop=True)
+    log_income_test = np.log(xv["income"].to_numpy())
+    income_z_val = (log_income_test - log_income.mean()) / log_income.std()
 
     mu_age_val = mu_age(xv["age"].to_numpy())
     sigma_age_val = sigma_age(xv["age"].to_numpy())
-    mu_income_val = mu_income(income_z_val)
-    sigma_income_val = sigma_income(income_z_val)
+    mu_income_test = mu_income(income_z_val)
+    sigma_income_test = sigma_income(income_z_val)
     mu_region_val = np.array([REGION_MU[r] for r in xv["region"]])
     sigma_region_val = np.array([REGION_SIGMA[r] for r in xv["region"]])
 
-    mu_val = INTERCEPT_MU + mu_age_val + mu_income_val + mu_region_val
-    sigma_val = INTERCEPT_SIGMA + sigma_age_val + sigma_income_val + sigma_region_val
+    mu_val = INTERCEPT_MU + mu_age_val + mu_income_test + mu_region_val
+    sigma_val = INTERCEPT_SIGMA + sigma_age_val + sigma_income_test + sigma_region_val
 
     true_quantiles = np.column_stack([mu_val + z * sigma_val for z in q_z])
 
@@ -190,7 +193,7 @@ def main():
     for i, q in enumerate(quantiles):
         mae = np.mean(np.abs(preds[:, i] - true_quantiles[:, i]))
         corr = centered_corr(preds[:, i], true_quantiles[:, i])
-        empirical_coverage = np.mean(np.asarray(y_val) <= preds[:, i])
+        empirical_coverage = np.mean(np.asarray(y_test) <= preds[:, i])
         print(
             f"  q={q:.2f} | MAE vs true q: {mae:.4f} | "
             f"corr(pred, true q): {corr:.4f} | "
@@ -205,7 +208,7 @@ def main():
     # ------------------------------------------------------------------
     # Feature contributions
     # ------------------------------------------------------------------
-    components = model.predict_components(X_val)
+    components = model.predict_components(X_test)
     feat_vals = dict(components.terms)
     feat_vals["output"] = components.link
     feat_vals["response"] = components.response
@@ -239,7 +242,7 @@ def main():
     # Compare learned feature contributions to true quantile contributions
     # ------------------------------------------------------------------
     true_age_q = np.column_stack([mu_age_val + z * sigma_age_val for z in q_z])
-    true_income_q = np.column_stack([mu_income_val + z * sigma_income_val for z in q_z])
+    true_income_q = np.column_stack([mu_income_test + z * sigma_income_test for z in q_z])
     true_region_q = np.column_stack([mu_region_val + z * sigma_region_val for z in q_z])
     true_intercept_q = INTERCEPT_MU + q_z * INTERCEPT_SIGMA
 

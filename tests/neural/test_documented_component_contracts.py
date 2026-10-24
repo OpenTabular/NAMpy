@@ -118,6 +118,36 @@ def test_documented_custom_attention_handles_feature_blocks(num, cat):
     assert token_counts == [int(num) + int(cat)]
     torch.testing.assert_close(out["global_attention"], out["output"])
 
+    # With both residual branches zeroed, the original feature tokens must
+    # survive both additions. Shape-only tests would miss a discarded residual.
+    model.eval()
+    with torch.no_grad():
+        for parameter in model.attention.parameters():
+            parameter.zero_()
+        for parameter in model.ffn.parameters():
+            parameter.zero_()
+        for projection in model.projections:
+            projection.weight.fill_(1)
+            projection.bias.zero_()
+        model.output_layer.weight.fill_(1)
+        model.output_layer.bias.zero_()
+    numerical = {"x": torch.ones(4, 2)} if num else {}
+    categorical = {"group": torch.eye(3)[torch.tensor([0, 1, 2, 0])]} if cat else {}
+    inputs = {**numerical, **categorical}
+    tokens = torch.stack(
+        [
+            projection(inputs[name].float())
+            for name, projection in zip(
+                model.feature_names, model.projections, strict=True
+            )
+        ],
+        dim=1,
+    )
+    expected = model.output_layer(tokens.mean(dim=1))
+    actual = model(numerical, categorical)["output"]
+    assert torch.all(expected > 0)
+    torch.testing.assert_close(actual, expected)
+
 
 def test_lss_evaluation_accepts_pandas_targets(tmp_path):
     from nampy.models import NAMLSS
@@ -158,3 +188,33 @@ def test_group_norms_public_surface(tmp_path):
         checkpoint_path=tmp_path,
     )
     assert model.group_norms() == model.model.model.get_group_norms()
+
+
+@pytest.mark.parametrize("estimator_name", ["NAMLSS", "QNAMLSS"])
+def test_quantile_evaluation_reports_pinball_loss(estimator_name, tmp_path):
+    from nampy import models
+
+    levels = np.asarray([0.1, 0.5, 0.9])
+    X = pd.DataFrame({"x": np.linspace(-1, 1, 40)})
+    y = X.x.to_numpy() + 0.1 * np.sin(5 * X.x.to_numpy())
+    model = getattr(models, estimator_name)(
+        family="quantile",
+        layer_sizes=[4],
+        dropout=0.0,
+        distributional_kwargs={"quantiles": levels.tolist()},
+    ).fit(
+        X,
+        y,
+        max_epochs=2,
+        logger=False,
+        enable_progress_bar=False,
+        enable_model_summary=False,
+        checkpoint_path=tmp_path,
+    )
+    prediction = model.predict(X)
+    residual = y[:, None] - prediction
+    expected = np.maximum(levels * residual, (levels - 1) * residual).sum(axis=1).mean()
+    scores = model.evaluate(X, y, metrics={})
+    assert set(scores) == {"pinball_loss"}
+    assert scores["pinball_loss"] == pytest.approx(expected, rel=1e-5)
+    assert model.score(X, y) == pytest.approx(-expected, rel=1e-5)

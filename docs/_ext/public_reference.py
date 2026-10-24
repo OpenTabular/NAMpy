@@ -21,9 +21,9 @@ def descriptions(obj):
     result = {}
     current = []
     for line in (inspect.getdoc(obj) or "").splitlines():
-        match = re.match(r"^([\w, ]+)\s*:\s*.+$", line)
+        match = re.match(r"^(\*{0,2}\w+(?:,\s*\w+)*)(?:\s*:\s*.+)?$", line)
         if match:
-            current = [name.strip() for name in match[1].split(",")]
+            current = [name.strip().lstrip("*") for name in match[1].split(",")]
             for name in current:
                 result[name] = ""
         elif line.startswith(" ") and current:
@@ -185,6 +185,18 @@ def estimator_text(cls, spec, objective):
             description = f"Configuration option of type {type(default).__name__}; see the architecture reference for its role and restrictions."
         rows.append((f"``{name}``", f"``{literal(default)}``", description))
     lines.append(table(["Parameter", "Effective default", "Meaning"], rows))
+    if spec.name == "igann":
+        lines.append(
+            "This LSS task uses gradient training with solver='auto'; the native solver supports squared-error regression and binary classification only.\n"
+            if objective == "distributional"
+            else "The default solver='auto' uses native boosting for this task; n_estimators limits stages. solver='gradient' selects shared optimizer and scheduler controls instead.\n"
+        )
+    elif spec.name == "gpnam":
+        lines.append(
+            "Default regression uses the fixed-design conjugate-gradient solver (solver='cg'); optimizer and scheduler controls apply when solver='gradient'.\n"
+            if objective == "regression"
+            else "Classification and LSS use gradient training; the fixed-design conjugate-gradient route is restricted to default-loss regression.\n"
+        )
     lines += [
         "Training controls\n~~~~~~~~~~~~~~~~~\n",
         "The common training controls below apply to gradient-trained estimators. Native solvers such as IGANN use their architecture-specific stage controls.\n",
@@ -193,12 +205,14 @@ def estimator_text(cls, spec, objective):
             [
                 (
                     f"``{name}``",
-                    "Required"
+                    "Optional keyword arguments"
+                    if parameter.kind is inspect.Parameter.VAR_KEYWORD
+                    else "Required"
                     if parameter.default is inspect.Parameter.empty
                     else f"``{literal(parameter.default)}``",
                     descriptions(NeuralEstimatorBase.fit).get(
                         name,
-                        "Additional Lightning Trainer options, including accelerator and devices, for gradient-trained architectures.",
+                        "See the shared training contract for this fit control.",
                     ),
                 )
                 for name, parameter in inspect.signature(
@@ -216,6 +230,8 @@ def estimator_text(cls, spec, objective):
         shape = "``predict`` returns class labels; ``predict_proba`` returns ``(n_samples, n_classes)`` probabilities in ``classes_`` order. Component extraction is binary-only and describes logits, not additive probabilities."
     else:
         shape = "``predict`` returns natural distribution parameters; ``predict(raw=True)`` returns additive predictors. For fixed scalar families, natural columns follow ``family_.param_names``. Categorical and ordinal outputs instead have one probability per class; multivariate families depend on configured dimension, and quantiles have one column per requested level. Raw width follows ``family_.param_count``. ``predict_point`` returns the family-defined point prediction."
+    if spec.fixed_family == "quantile":
+        shape = "``predict`` returns one conditional quantile per configured level. Training minimizes pinball loss; ``evaluate`` labels it ``pinball_loss`` (summed over levels, averaged over rows). These quantiles do not specify a complete probability density. ``predict_components`` retains the quantile dimension, which the single-column ``plot_terms`` renderer skips."
     lines += [
         shape + "\n",
         "``predict_components`` returns :class:`nampy.contracts.AdditivePrediction`; named contributions plus intercept and offset reconstruct its **link**. Metadata records known source dependence. Reconstruction does not establish identifiability or stability. Centering preserves predictions.\n",
@@ -257,8 +273,13 @@ def estimator_text(cls, spec, objective):
     else:
         lines.append('   y = np.sin(3 * X["x"]) + rng.normal(0, 0.15, len(X))\n')
     lines += [
-        f"   model = {cls.__name__}()\n",
-        "   model.fit(X, y, max_epochs=50, random_state=7)\n",
+        f"   model = {cls.__name__}(n_estimators=50)\n"
+        if spec.name == "igann" and objective != "distributional"
+        else f"   model = {cls.__name__}()\n",
+        "   model.fit(X, y, random_state=7)\n"
+        if (spec.name == "igann" and objective != "distributional")
+        or (spec.name == "gpnam" and objective == "regression")
+        else "   model.fit(X, y, max_epochs=50, random_state=7)\n",
         "   prediction = model.predict(X)\n",
         "   components = model.predict_components(X)\n",
         '   model.save_model("fitted.nampy")\n',
@@ -357,17 +378,30 @@ def generate(root):
                         & {"regression", "classification", "distributional"}
                     )
                 ),
-                "Binary classification only; regression and supported LSS outputs."
+                "; ".join(
+                    label
+                    for capability, label in [
+                        ("regression", "Regression components"),
+                        ("classification", "Binary-classification components"),
+                        ("distributional", "LSS link components"),
+                    ]
+                    if spec.supports(capability)
+                )
                 if spec.supports("additive_components")
                 else "No additive explanation declared.",
                 DEPENDENCE.get(
                     name, "Named features or explicitly configured subsets."
                 ),
-                "Native staged/linear solver"
-                if spec.supports("native_training")
-                or spec.supports("fixed_linear_design")
+                "Native boosting for regression/binary classification; gradient training for LSS or solver='gradient'"
+                if name == "igann"
+                else "Default CG regression; gradient classification/LSS or solver='gradient'"
+                if name == "gpnam"
                 else "Gradient training",
-                "Conditional distribution for LSS; no automatic calibrated parameter bands.",
+                "Conditional quantiles and pinball loss; no complete probability density."
+                if spec.fixed_family == "quantile"
+                else "Family-dependent LSS parameters or quantiles; calibration requires separate checks."
+                if spec.supports("distributional")
+                else "Response prediction; no LSS interface or automatic calibrated intervals.",
             )
         )
         for task, suffix in [

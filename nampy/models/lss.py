@@ -135,9 +135,11 @@ class NeuralLSS(NeuralEstimatorBase):
         return point.cpu().numpy()
 
     def score(self, X, y, sample_weight=None):
-        """Return the negative mean NLL of ``y`` under the predicted parameters.
+        """Return the negative mean family loss for ``y``.
 
         Higher is better, so sklearn model-selection utilities can rank fits.
+        Quantile families sum pinball loss over requested levels and average
+        over rows; likelihood families use NLL.
         """
         raw_pred = self._predict(X)["output"]
         if isinstance(y, pd.Series):
@@ -240,7 +242,9 @@ class NeuralLSS(NeuralEstimatorBase):
         """
         Evaluate the fitted distributional model.
 
-        NLL is computed from raw network outputs with ``family.compute_loss``.
+        The family loss is computed from raw network outputs. Likelihood
+        families report ``NLL``; quantile families report ``pinball_loss``
+        summed over requested levels and averaged over rows.
         Other metrics use transformed parameters from ``family(raw_predictions)``.
 
         Parameters
@@ -259,7 +263,8 @@ class NeuralLSS(NeuralEstimatorBase):
         Returns
         -------
         scores : dict
-            Metric values, including "NLL" when a family is available.
+            Metric values, including ``pinball_loss`` for quantile families or
+            ``NLL`` for likelihood families.
         """
         # Basic fitted check
         if self.model is None or self.data_module is None:
@@ -285,7 +290,7 @@ class NeuralLSS(NeuralEstimatorBase):
         pred_dict = self._predict(X)  # returns dict of torch tensors
         raw_pred = pred_dict["output"]  # torch.Tensor on model device
 
-        # Compute NLL from raw outputs
+        # Label the objective by its mathematical meaning.
         scores = {}
         with torch.no_grad():
             target = (
@@ -295,7 +300,12 @@ class NeuralLSS(NeuralEstimatorBase):
             )
             y_tensor = torch.as_tensor(target, device=raw_pred.device)
             nll = self.model.objective.compute_loss(raw_pred, y_tensor)
-            scores["NLL"] = float(nll.detach().cpu().item())
+            loss_name = (
+                "pinball_loss"
+                if family_name_for_instance(self.family_) == "quantile"
+                else "NLL"
+            )
+            scores[loss_name] = float(nll.detach().cpu().item())
 
             # Transformed predictions for all other metrics
             transformed_pred = self.model.objective.transform(raw_pred)

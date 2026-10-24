@@ -51,6 +51,9 @@ Interpretation and limits
 
 Use the component output to study the explicit marginal and interaction heads;
 do not treat it as a unique decomposition of the global transformer term.
+Reported components reconstruct the link predictor. Identifiability additionally
+requires assumptions or constraints on how the unrestricted global term can
+overlap with the marginal heads.
 
 Available estimators
 --------------------

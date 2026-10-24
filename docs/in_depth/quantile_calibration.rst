@@ -36,7 +36,8 @@ reference; we would rely on held-out pinball loss and calibration instead.
 
 .. literalinclude:: ../../examples/example_qnam.py
    :language: python
-   :lines: 30-113
+   :start-after: def main():
+   :end-before: # Fit QNAM
    :dedent: 4
 
 Fit ordered quantiles
@@ -46,11 +47,13 @@ For residual :math:`u=y-q_\tau(x)`, pinball loss is
 :math:`\rho_\tau(u)=u\{\tau-\mathbf{1}(u<0)\}`. Each quantile penalizes
 underprediction and overprediction differently. QNAM parameterizes ordered
 outputs, so adjacent quantiles cannot cross; this constraint does not by
-itself establish calibration.
+itself establish calibration. The family loss sums the contributions from
+the requested quantile levels and averages over observations.
 
 .. literalinclude:: ../../examples/example_qnam.py
    :language: python
-   :lines: 118-143
+   :start-after: # Fit QNAM
+   :end-before: # Predictions
    :dedent: 4
 
 Evaluate coverage and interval width
@@ -64,19 +67,19 @@ can cover most outcomes while being uninformative.
 
 .. code-block:: python
 
-   prediction = np.asarray(model.predict(X_val))
+   prediction = np.asarray(model.predict(X_test))
    for column, quantile in enumerate(quantiles):
-       coverage = np.mean(y_val <= prediction[:, column])
+       coverage = np.mean(y_test <= prediction[:, column])
        print(f"Quantile {quantile:.1f}: coverage {coverage:.3f}")
 
    lower, median, upper = prediction.T
-   print("Interval coverage:", np.mean((y_val >= lower) & (y_val <= upper)))
+   print("Interval coverage:", np.mean((y_test >= lower) & (y_test <= upper)))
    print("Mean interval width:", np.mean(upper - lower))
 
 Overall coverage can conceal poorly calibrated subgroups. Repeat these checks
 within regions or ranges of age when those comparisons have enough data.
-The held-out rows in the script also guide early stopping; use a separate
-untouched test split for a final performance estimate.
+The script reserves 60% of rows for training, 20% for early stopping, and
+20% for these final test-set checks.
 
 Interpret quantile-specific effects
 -----------------------------------
@@ -88,7 +91,7 @@ handles both forms when comparing the learned region effects with truth.
 
 .. code-block:: python
 
-   components = model.predict_components(X_val)
+   components = model.predict_components(X_test)
    for name, contribution in components.terms.items():
        print(name, np.asarray(contribution).shape)
 

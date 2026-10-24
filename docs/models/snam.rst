@@ -26,17 +26,27 @@ Fit and inspect
 
 .. code-block:: python
 
+   import numpy as np
+   import pandas as pd
+   from sklearn.model_selection import train_test_split
+
+   rng = np.random.default_rng(7)
+   X = pd.DataFrame({"x": np.linspace(-1, 1, 160), "z": rng.normal(size=160)})
+   y = np.sin(3 * X["x"]) + 0.2 * X["z"] + rng.normal(0, 0.1, len(X))
+   X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=7)
+
    from nampy.models import SNAMRegressor
 
    model = SNAMRegressor(
+       layer_sizes=[16],
        group_lasso_lambda=1e-3,
        group_lasso_include_interactions=True,
        interaction_degree=2,
-   ).fit(X_train, y_train)
+   ).fit(X_train, y_train, max_epochs=20, random_state=7)
 
    components = model.predict_components(X_test, center=True)
    group_norms = model.group_norms()
-   selected = model.model.selected_groups(threshold=1e-4)
+   selected = [name for name, norm in group_norms.items() if norm > 1e-4]
    figures = model.plot_terms(X_test, center=True)
 
 Interpretation and limits

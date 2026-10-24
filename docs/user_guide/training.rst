@@ -95,8 +95,9 @@ nampy automatically adjusts the learning rate during training:
 
 The learning rate is reduced when validation loss plateaus.
 
-Step-wise schedules are selected at fit time. ``cosine`` reproduces the
-schedule used by the NBM-SPAM reference trainer; adding warm-up steps yields
+``lr_schedule`` accepts ``"plateau"``, ``"inverse_sqrt"``, ``"cosine"``,
+``"warmup_cosine"``, and ``"none"``. Step-wise schedules are selected at fit
+time. ``cosine`` reproduces the schedule used by the NBM-SPAM reference trainer; adding warm-up steps yields
 its warm-up/cosine variant.
 
 .. code-block:: python

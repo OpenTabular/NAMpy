@@ -35,10 +35,25 @@ Verified corrections
    * - Global/contextual terms are not summarized as marginal feature curves.
      - ``test_global_term_is_not_presented_as_a_marginal_curve``
    * - The custom attention example accepts numerical-only, categorical-only,
-       and mixed encoded blocks, and attends across source tokens.
+       and mixed encoded blocks, attends across source tokens, and preserves
+       both residual additions.
      - ``test_documented_custom_attention_handles_feature_blocks``
    * - LSS evaluation accepts pandas targets as well as arrays.
      - ``test_lss_evaluation_accepts_pandas_targets``
+   * - Generated training descriptions separate optimizer controls from Trainer
+       options and mark variadic keywords optional.
+     - ``tests/docs/test_public_reference.py``
+   * - Standalone SNAM, regression plotting, and attention examples produce
+       their documented outputs.
+     - ``tests/docs/test_example_semantics.py``
+   * - Validation term statuses require observed finite metadata-typed
+       components and successful reconstruction.
+     - ``test_validation_report_checks_observed_term_kinds``
+   * - Quantile and tree examples reserve disjoint test rows.
+     - ``test_detailed_examples_reserve_disjoint_test_rows``
+   * - Quantile evaluation reports pinball loss, matching its direct calculation
+       and the negative score used for model selection.
+     - ``test_quantile_evaluation_reports_pinball_loss``
    * - Sparse group norms are available on a stable estimator method.
      - ``test_group_norms_public_surface``
 
@@ -47,11 +62,13 @@ Reproduce the checks
 
 .. code-block:: bash
 
+   python -m pytest -q tests/docs tests/neural/test_documented_component_contracts.py
    python docs/scripts/check_short_examples.py
    python docs/scripts/execute_notebooks.py
    python docs/scripts/execute_notebooks.py docs/development/notebooks/*.ipynb
    python -m sphinx -E -a -b html docs docs/_build/html -W --keep-going
    python docs/scripts/check_documentation.py
+   python docs/scripts/check_sidebar_navigation.py
 
 The separate notebook CI job executes clean kernels and passes the resulting
 notebooks to the HTML build. Execution notes record package versions, runtime,
@@ -61,3 +78,15 @@ obsolete search entries, sidebar numbering, and saved notebook execution records
 Numerical regression tests verify reconstruction, parameter identity, and
 extension input shapes. These checks do not prove calibration or effect
 identifiability for a user's dataset.
+
+Before publishing
+-----------------
+
+Check representative generated NAM regression, classification, and LSS pages,
+plus GPNAM and IGANN. Compare resolved defaults, optimizer descriptions,
+scheduler choices, native-solver restrictions, and objective-specific outputs.
+Use the executed reports for evidence; registry support is a separate claim.
+
+After publication, compare the deployed footer's source revision with the
+released commit and inspect a corrected contract and report in that build.
+A successful local build alone does not verify the deployed revision.

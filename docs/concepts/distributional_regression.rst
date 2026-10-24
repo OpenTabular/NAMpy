@@ -24,5 +24,9 @@ after a nonlinear inverse link. Conditional standard deviation describes
 observation-level predictive spread. It is different from a standard error
 for an estimated mean and from variation across repeated fits.
 
+Quantile models instead estimate selected conditional quantiles using pinball
+loss. These quantiles do not by themselves specify a complete probability
+density; their spacing and empirical coverage describe different properties.
+
 Continue with :doc:`../tutorials/changing_variability` for a fitted example or
 :doc:`../user_guide/gamlss` for formulas, links, and prediction contracts.

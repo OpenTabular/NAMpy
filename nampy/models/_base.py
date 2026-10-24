@@ -267,14 +267,24 @@ class NeuralEstimatorBase(BaseEstimator):
             Metric monitored by early stopping and checkpoint selection.
         mode : str, default="min"
             Whether the monitored metric is minimized or maximized.
-        lr, lr_patience, lr_factor, lr_schedule, weight_decay
-            Optional fit-time overrides for the estimator's optimizer and
-            LR-scheduler configuration. ``None`` uses the corresponding
-            constructor/config value. ``lr_schedule`` accepts ``"plateau"``,
-            ``"inverse_sqrt"``, or ``"none"``.
-        lr_warmup_steps, lr_decay_steps, lr_decay_factor
-            Optional step scheduler. Warmup is linear; decay multiplies the
-            learning rate every ``lr_decay_steps`` optimizer steps.
+        lr : float, optional
+            Optimizer learning rate. None uses the estimator configuration.
+        lr_patience : int, optional
+            Plateau scheduler patience in monitored epochs; None uses configuration.
+        lr_factor : float, optional
+            Multiplicative learning-rate reduction for the plateau scheduler.
+        lr_schedule : str, optional
+            Learning-rate schedule: "plateau", "inverse_sqrt", "cosine",
+            "warmup_cosine", or "none". None uses the estimator configuration.
+        weight_decay : float, optional
+            Optimizer weight-decay coefficient. None uses configuration.
+        lr_warmup_steps : int, optional
+            Number of optimizer steps for linear learning-rate warmup.
+        lr_decay_steps : int, optional
+            Step-decay interval, or total cosine horizon. A zero cosine horizon
+            is inferred from the trainer's estimated optimizer steps.
+        lr_decay_factor : float, optional
+            Multiplicative factor for the step-decay scheduler.
         optimizer : str or optimizer class, optional
             Uses the architecture default when omitted. Supported names are
             ``"adam"``, ``"adamw"``, ``"adagrad"``, ``"sgd"``, and optional

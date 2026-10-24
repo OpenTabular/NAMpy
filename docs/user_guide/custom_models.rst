@@ -155,7 +155,7 @@ Now use it like any other NAMpy model:
        num_layers=4
    )
    
-   model.fit(X_train, y_train, max_epochs=100, lr=1e-3)
+   model.fit(X_train, y_train, max_epochs=20, lr=1e-3, random_state=7)
    
    # Predict
    predictions = model.predict(X_test)
@@ -253,8 +253,8 @@ attention can make every token depend on the other tokens.
            x = x + attn_out  # Residual connection
            
            # Feed-forward network
-           ffn_out = self.ffn(attn_out)
-           x = attn_out + ffn_out  # Residual connection
+           ffn_out = self.ffn(x)
+           x = x + ffn_out  # Residual connection
            
            # Output
            x = x.mean(dim=1)  # Pool the contextual feature tokens
@@ -277,13 +277,22 @@ attention can make every token depend on the other tokens.
    ).regressor
    
    # 4. Usage
+   import numpy as np
+   import pandas as pd
+   from sklearn.model_selection import train_test_split
+
+   rng = np.random.default_rng(7)
+   X = pd.DataFrame({"x": np.linspace(-1, 1, 160), "z": rng.normal(size=160)})
+   y = np.sin(3 * X["x"]) + 0.2 * X["z"] + rng.normal(0, 0.1, len(X))
+   X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=7)
+
    model = AttentiveMLPRegressor(
        numerical_preprocessing="standardization",
-       hidden_size=256,
-       num_heads=8
+       hidden_size=64,
+       num_heads=4
    )
    
-   model.fit(X_train, y_train, max_epochs=100, lr=1e-3)
+   model.fit(X_train, y_train, max_epochs=20, lr=1e-3, random_state=7)
    predictions = model.predict(X_test)
 
 Important Notes

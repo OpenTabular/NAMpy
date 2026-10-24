@@ -29,23 +29,44 @@ Fit and inspect
 
 .. code-block:: python
 
+   import numpy as np
+   import pandas as pd
+   from sklearn.model_selection import train_test_split
+
+   rng = np.random.default_rng(7)
+   X = pd.DataFrame({"x": np.linspace(-1, 1, 160), "z": rng.normal(size=160)})
+   y = np.sin(3 * X["x"]) + 0.2 * X["z"] + rng.normal(0, 0.1, len(X))
+   X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=7)
+
+   import matplotlib.pyplot as plt
    from nampy.models import QNAMLSS
 
    model = QNAMLSS(
-       quantiles=[0.1, 0.5, 0.9],
-       interaction_degree=2,
+       layer_sizes=[16],
+       distributional_kwargs={"quantiles": [0.1, 0.5, 0.9]},
        monotone_transform="softplus",
-   ).fit(X_train, y_train)
+   ).fit(X_train, y_train, max_epochs=20, random_state=7)
 
    quantiles = model.predict(X_test)
    components = model.predict_components(X_test, center=True)
-   figures = model.plot_terms(X_test, center=True)
+   order = np.argsort(X_test["x"].to_numpy())
+   fig, ax = plt.subplots()
+   for column, level in enumerate([0.1, 0.5, 0.9]):
+       ax.plot(X_test["x"].to_numpy()[order], components.terms["x"][order, column],
+               label=f"Quantile {level}")
+   ax.set(xlabel="x", ylabel="Centered contribution")
+   ax.legend()
 
 Interpretation and limits
 -------------------------
 
 QNAM is distributional-only. Each component has one output per requested
-quantile, so effect plots should retain the quantile labels.
+quantile, so effect plots should retain the quantile labels. The example
+plots each column explicitly because ``plot_terms`` skips multi-column terms.
+Training uses pinball loss, summed over requested levels and averaged over
+rows. ``evaluate`` reports this quantity as ``pinball_loss``. A finite set of conditional quantiles does not
+specify a complete probability density, and non-crossing does not establish
+calibration.
 
 Available estimator
 -------------------

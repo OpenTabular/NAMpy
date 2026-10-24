@@ -29,7 +29,8 @@ prediction quality and recovery of individual effects.
 
 .. literalinclude:: ../../examples/example_ensemble.py
    :language: python
-   :lines: 31-86
+   :start-after: def main():
+   :end-before: # Models
    :dedent: 4
 
 Compare single and jointly trained trees
@@ -48,7 +49,8 @@ trained trees is not automatically a measure of prediction uncertainty.
 
 .. literalinclude:: ../../examples/example_ensemble.py
    :language: python
-   :lines: 91-142
+   :start-after: # Models
+   :end-before: # Predictions / evaluation
    :dedent: 4
 
 Read prediction quality and effect recovery separately
@@ -59,10 +61,10 @@ Read prediction quality and effect recovery separately
    from sklearn.metrics import mean_absolute_error, r2_score
 
    for name, model in [("Single tree", single_model), ("Joint ensemble", ensemble_model)]:
-       prediction = model.predict(X_val)
-       print(name, "MAE:", mean_absolute_error(y_val, prediction))
-       print(name, "R2:", r2_score(y_val, prediction))
-       components = model.predict_components(X_val)
+       prediction = model.predict(X_test)
+       print(name, "MAE:", mean_absolute_error(y_test, prediction))
+       print(name, "R2:", r2_score(y_test, prediction))
+       components = model.predict_components(X_test)
 
 Low held-out error indicates useful prediction, but does not guarantee that
 each feature effect has been recovered. Additive terms have a constant-shift
@@ -80,8 +82,8 @@ true discontinuity; deeper trees can also follow noise. The result is a
 worked example of a suitable representation, not evidence that a tree
 ensemble always improves on a single tree.
 
-The validation split in the script is also used for early stopping. Reserve a
-separate test set when reporting final performance after model selection.
+The script reserves separate training, validation, and test splits. Early
+stopping uses validation rows; the metrics and figures above use test rows.
 
 :download:`Download the complete example <../../examples/example_ensemble.py>`
 for the effect alignment, category aggregation, and figure construction.

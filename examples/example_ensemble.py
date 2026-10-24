@@ -81,8 +81,11 @@ def main():
     noise = rng.normal(0.0, 0.18, n)
     y = true_age + true_income + true_region + noise
 
-    X_train, X_val, y_train, y_val = train_test_split(
+    X_fit, X_test, y_fit, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42
+    )
+    X_train, X_val, y_train, y_val = train_test_split(
+        X_fit, y_fit, test_size=0.25, random_state=43
     )
 
     # ------------------------------------------------------------------
@@ -143,14 +146,14 @@ def main():
     # ------------------------------------------------------------------
     # Predictions / evaluation
     # ------------------------------------------------------------------
-    preds_single = np.asarray(single_model.predict(X_val)).reshape(-1)
-    preds_ens = np.asarray(ensemble_model.predict(X_val)).reshape(-1)
+    preds_single = np.asarray(single_model.predict(X_test)).reshape(-1)
+    preds_ens = np.asarray(ensemble_model.predict(X_test)).reshape(-1)
 
     scores_single = single_model.evaluate(
-        X_val, y_val, metrics={"MAE": mean_absolute_error, "R2": r2_score}
+        X_test, y_test, metrics={"MAE": mean_absolute_error, "R2": r2_score}
     )
     scores_ens = ensemble_model.evaluate(
-        X_val, y_val, metrics={"MAE": mean_absolute_error, "R2": r2_score}
+        X_test, y_test, metrics={"MAE": mean_absolute_error, "R2": r2_score}
     )
 
     print("Single TreeNAM")
@@ -163,7 +166,7 @@ def main():
     # ------------------------------------------------------------------
     # Ensemble contributions
     # ------------------------------------------------------------------
-    components = ensemble_model.predict_components(X_val)
+    components = ensemble_model.predict_components(X_test)
     feat_vals = dict(components.terms)
     feat_vals["output"] = components.link
     feat_vals["response"] = components.response
@@ -197,16 +200,16 @@ def main():
 
     print("\nExact additive decomposition check:")
     print(f"  max |reconstructed - returned output| : {max_abs_decomp_error:.8f}")
-    print(f"  max |reconstructed - predict(X_val)|  : {max_abs_pred_error:.8f}")
+    print(f"  max |reconstructed - predict(X_test)|  : {max_abs_pred_error:.8f}")
 
     # ------------------------------------------------------------------
     # Ground-truth contributions on validation set
     # ------------------------------------------------------------------
-    xv = X_val.reset_index(drop=True)
+    xv = X_test.reset_index(drop=True)
     true_age_val = f_age(xv["age"].to_numpy())
-    true_income_val = f_income(xv["income"].to_numpy())
+    true_income_test = f_income(xv["income"].to_numpy())
     true_region_val = np.array([REGION_EFFECT[r] for r in xv["region"]])
-    true_total_no_noise = true_age_val + true_income_val + true_region_val
+    true_total_no_noise = true_age_val + true_income_test + true_region_val
 
     def centered_corr(a, b):
         a = np.asarray(a).reshape(-1)
@@ -231,7 +234,7 @@ def main():
 
     if "income" in learned:
         print(
-            f"  income  true vs learned correlation:     {centered_corr(true_income_val, learned['income']):.4f}"
+            f"  income  true vs learned correlation:     {centered_corr(true_income_test, learned['income']):.4f}"
         )
     else:
         print("  income  key not found")
@@ -282,7 +285,7 @@ def main():
         ]
         for name, mask in income_bins:
             print(
-                f"  {name:>5s} | true mean: {true_income_val[mask].mean(): .3f} | "
+                f"  {name:>5s} | true mean: {true_income_test[mask].mean(): .3f} | "
                 f"learned mean: {learned['income'][mask].mean(): .3f}"
             )
 
