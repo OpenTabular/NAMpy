@@ -156,3 +156,31 @@ def test_model_guide_snippets_run_in_clean_sessions(
         timeout=120,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("name", ["correlated_errors", "tweedie_response"])
+def test_statistical_tutorial_fits_converge_without_warning(name):
+    """The published datasets must pass both smoothing and coefficient checks."""
+    import warnings
+
+    from nampy.gam.diagnostics import build_optimizer_trace
+
+    book = nbformat.read(ROOT / "docs/notebooks" / (name + ".ipynb"), 4)
+    fitted_names = (
+        ("ordinary", "correlated") if name == "correlated_errors" else ("model",)
+    )
+    namespace = {}
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "error", message="Smoothing optimisation did not converge.*"
+        )
+        for cell in book.cells:
+            if cell.cell_type == "code":
+                exec(compile(cell.source, name, "exec"), namespace)
+            if all(key in namespace for key in fitted_names):
+                break
+    for key in fitted_names:
+        model = namespace[key]
+        diagnostic = build_optimizer_trace(model)["fit"]
+        assert diagnostic["converged"], (name, key, diagnostic)
+        assert model.fit_result().core.converged, (name, key)

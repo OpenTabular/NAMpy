@@ -127,8 +127,10 @@ raw_predictors = model.predict(data_dist, raw=True)
 
 `GAMRegressor` accepts single-predictor regression families,
 `GAMClassifier` accepts binary binomial families, and `GAMLSS` accepts
-multi-parameter GAMLSS families. The low-level `nampy.gam.GAM` remains
-unrestricted and keeps its mgcv-shaped response conventions.
+multi-parameter GAMLSS families.
+
+The low-level `nampy.gam.GAM` interface provides direct access to supported
+response families and retains mgcv-style prediction conventions.
 
 NAMpy's GAM implementation covers the statistical model lifecycle from formula
 parsing and smooth construction through fitting, prediction, inference, and

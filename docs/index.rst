@@ -108,58 +108,56 @@ More modeling examples
 Explore the documentation
 -------------------------
 
-Start with :doc:`your first additive models <notebooks/01_getting_started>`,
-then :doc:`a real-data classification workflow <notebooks/05_real_data_classification>`.
-Choose another example from the :doc:`tutorials <tutorials/index>`.
+If you are new to NAMpy, start with
+:doc:`your first additive models <notebooks/01_getting_started>`.
+Use the guides below to choose a model, develop your analysis, or
+look up a specific method.
 
 .. grid:: 1 1 2 2
    :gutter: 2
+   :class-container: documentation-navigation
 
-   .. grid-item-card:: Fit your first GAM
-      :link: tutorials/first_gam
-      :link-type: doc
-
-      Follow one nonlinear dataset through fitting, held-out evaluation,
-      effect interpretation, and diagnostics.
-
-   .. grid-item-card:: Read formulas visually
-      :link: user_guide/formula_visual_reference
-      :link-type: doc
-
-      Match smooths, cycles, group curves, random effects, tensor products,
-      and offsets to fitted examples.
-
-   .. grid-item-card:: Interpret additive effects
-      :link: user_guide/interpretability
-      :link-type: doc
-
-      Understand centering and term dependence, then inspect components
-      and plot feature effects.
-
-   .. grid-item-card:: Work through tutorials
+   .. grid-item-card:: Learn with examples
       :link: tutorials/index
       :link-type: doc
 
-      Explore question-led analyses with executable code and fitted plots.
-
-   .. grid-item-card:: Look up an exact symbol
-      :link: api/models
-      :link-type: doc
-
-      Find constructors, methods, defaults, return values, and extension
-      interfaces.
+      Follow complete analyses with runnable code, fitted plots,
+      and explanations of the results.
 
    .. grid-item-card:: Choose a model
       :link: models/index
       :link-type: doc
 
-      Compare model capabilities and find the estimator for your analysis.
+      Compare statistical and neural architectures by their supported
+      tasks, interactions, and interpretation.
 
-   .. grid-item-card:: Find a practical recipe
+   .. grid-item-card:: Build a GAM formula
+      :link: user_guide/formula_visual_reference
+      :link-type: doc
+
+      See how smooths, group effects, interactions, and offsets
+      translate modeling assumptions into formulas.
+
+   .. grid-item-card:: Interpret fitted effects
+      :link: user_guide/interpretability
+      :link-type: doc
+
+      Extract and plot contributions, choose a centering reference,
+      and understand what each display represents.
+
+   .. grid-item-card:: Solve a specific task
       :link: howto/index
       :link-type: doc
 
-      Find focused guides for preprocessing, fitting, interpretation, and prediction.
+      Find focused instructions for preprocessing, training,
+      constraints, prediction, and saving models.
+
+   .. grid-item-card:: Browse the API
+      :link: api/index
+      :link-type: doc
+
+      Look up estimator classes, method arguments, return values,
+      and statistical and neural interfaces.
 
 Contributors
 ------------

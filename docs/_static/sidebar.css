@@ -200,3 +200,23 @@ html.writer-html5 .rst-content dl.field-list {
 .rst-content a.reference.download[href*=".ipynb"] code span:first-child::before {
   display: none;
 }
+
+/* Text-only navigation cards on the homepage. */
+.documentation-navigation .sd-card {
+  height: 100%;
+}
+
+.documentation-navigation .sd-card-title {
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.documentation-navigation .sd-card-text {
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* Hide the hosting flyout; build access is controlled by Read the Docs. */
+readthedocs-flyout {
+  display: none !important;
+}

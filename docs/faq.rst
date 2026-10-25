@@ -136,8 +136,9 @@ Use the fitted estimator's component and plotting methods:
    figures = model.plot_terms(X_test)
 
 ``predict_components`` returns the additive terms used in reconstruction.
-``term_importance`` summarizes their magnitude, while ``plot_terms`` displays
-the fitted one- and two-dimensional effects supported by the estimator.
+``term_importance`` summarizes their magnitude. Use ``plot_terms()`` for supported
+feature-effect plots and ``plot_interactions()`` for interaction displays.
+Available plots depend on the estimator and contribution type.
 
 For centering and interpretation, see :doc:`user_guide/interpretability`.
 
@@ -154,8 +155,8 @@ Does NAMpy support interactions?
 
 Yes, but interaction support depends on the architecture. Some models accept
 explicit interaction terms, while others discover or construct higher-order
-components. The :doc:`models/index` describes the representation used by each
-model.
+components. The :doc:`model guide <models/index>` describes each architecture’s representation
+and interaction support.
 
 Persistence and integration
 ---------------------------

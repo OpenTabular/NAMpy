@@ -43,6 +43,3 @@ A localized spatial pattern depends on latitude and longitude together. Separate
    :class: scientific-figure
 
 Color and contours show the fitted joint contribution of latitude and longitude. The model's intercept is excluded from this surface.
-
-For a comparison of main effects, an isolated interaction, and the complete
-predicted surface, see :doc:`../notebooks/tensor_interactions`.

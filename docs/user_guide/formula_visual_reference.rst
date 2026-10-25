@@ -161,17 +161,13 @@ corresponding column in new prediction data.
 
 .. include:: ../_includes/tutorial_interaction_surface.inc
 
-Deeper statistical analyses
----------------------------
+Related tutorials
+-----------------
 
 * :doc:`Group-specific curves and partial pooling <../notebooks/group_smooths>`
 * :doc:`Smoothness and term selection <../notebooks/smoothness_selection>`
 * :doc:`Tensor interactions <../notebooks/tensor_interactions>`
 * :doc:`Derivative and prediction contrasts <../notebooks/derivatives_contrasts>`
 
-Next steps
-----------
-
-Use :doc:`statistical_gams` for fitting, prediction, and diagnostic controls;
-use :doc:`../howto/interactions` for interaction workflow details; and use
-:ref:`gam-smooth-bases` when you need every accepted ``bs=`` code.
+For complete formula options and fitting controls, see
+:doc:`statistical_gams` and the :ref:`smooth-basis reference <gam-smooth-bases>`.
