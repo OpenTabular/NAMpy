@@ -154,7 +154,6 @@ def main():
         {
             "Quantile level": levels,
             "Observed test fraction below": observed,
-            "Test n": len(y),
             "MAE versus known quantile": np.mean(
                 np.abs(prediction - quantile["true_quantiles"]), axis=0
             ),
@@ -173,8 +172,7 @@ def main():
                     np.mean((y >= prediction[:, 0]) & (y <= prediction[:, -1]))
                 ),
                 "Mean width": float(np.mean(prediction[:, -1] - prediction[:, 0])),
-                "Test n": len(y),
-                "Pinball loss (sum levels, mean rows)": quantile["model"].evaluate(
+                "Pinball loss": quantile["model"].evaluate(
                     quantile["X_test"], y, metrics={}
                 )["pinball_loss"],
             }

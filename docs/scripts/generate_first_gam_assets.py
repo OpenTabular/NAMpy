@@ -86,6 +86,17 @@ def generate_first_gam_plot() -> None:
         family="gaussian",
     ).fit(train)
 
+    summary_path = DOCS_ROOT / "_generated/first_gam_summary.inc"
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    summary = str(model.summary())
+    summary_path.write_text(
+        ".. code-block:: text\n\n"
+        + "".join(
+            "   " + line.rstrip() + "\n" if line else "\n"
+            for line in summary.splitlines()
+        )
+    )
+
     rendered = model.plot(
         pages=1,
         rug=False,
@@ -170,6 +181,13 @@ def generate_gam_nam_comparison() -> None:
     nam_training.validate_additive_reconstruction(atol=1e-5)
     gam_r2 = gam.score(test, test["value"])
     nam_r2 = nam.score(test.loc[:, list(features)], test["value"])
+
+    metrics_path = DOCS_ROOT / "_generated/gam_nam_scores.inc"
+    metrics_path.parent.mkdir(parents=True, exist_ok=True)
+    metrics_path.write_text(
+        ".. csv-table:: Test predictions\n   :header-rows: 1\n\n"
+        f"   Model,Test R2\n   GAM,{gam_r2:.3f}\n   NAM,{nam_r2:.3f}\n"
+    )
 
     display_names = {
         "median_income": "Median income",

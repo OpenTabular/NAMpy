@@ -158,3 +158,45 @@ html.writer-html5 .rst-content dl.field-list {
   position: relative;
   z-index: 2;
 }
+
+/* Notebook downloads have their own action style on cards and article pages. */
+.rst-content a.reference.download[href*=".ipynb"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid #b3cff0;
+  border-radius: 7px;
+  background: linear-gradient(135deg, #edf5ff, #dceaff);
+  color: #245888;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgb(35 80 130 / 8%);
+  transition: background 150ms ease, border-color 150ms ease;
+}
+.rst-content a.reference.download[href*=".ipynb"]::before {
+  content: "↓";
+  font-size: 1.1em;
+}
+.rst-content a.reference.download[href*=".ipynb"]:hover {
+  background: linear-gradient(135deg, #dfedff, #c9dfff);
+  border-color: #7faadb;
+  color: #194a7a;
+}
+.rst-content a.reference.download[href*=".ipynb"]:focus-visible {
+  outline: 2px solid #3677bd;
+  outline-offset: 3px;
+}
+.rst-content a.reference.download[href*=".ipynb"] code {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  white-space: normal;
+}
+.rst-content a.reference.download[href*=".ipynb"] code span:first-child::before {
+  display: none;
+}

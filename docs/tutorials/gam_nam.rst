@@ -1,21 +1,12 @@
-Compare GAM, NAM, and shared-basis models
-=========================================
+Compare GAM and NAM feature effects
+===================================
 
-This analysis builds on :doc:`first_gam` and the shared estimator workflow.
-Allow several minutes on CPU for the neural fits; the training budgets are
-shown explicitly in the code.
+A GAM and a NAM can make similar predictions while learning different feature effects. We will compare them on the same synthetic dataset, using both test accuracy and the known relationships that generated the response.
 
-Do a statistical GAM and a neural additive model learn the same relationships
-when the data and train/test split are held fixed? This analysis fits both
-representations to a four-feature synthetic housing dataset, evaluates them on
-the same held-out rows, and compares every learned feature effect.
+Create the data
+---------------
 
-Create data with four nonlinear effects
----------------------------------------
-
-The response combines saturating, periodic, quadratic, and logarithmic
-relationships. Because the data are synthetic, each predictor has a known role
-without presenting the example as a real housing study.
+The response combines four effects: a saturating income relationship, an age pattern, a curved latitude effect, and diminishing returns from additional rooms. The housing-like names make the example easy to read; these are simulated data, not measurements from a housing study.
 
 .. code-block:: python
 
@@ -47,13 +38,11 @@ without presenting the example as a real housing study.
        "rooms_per_household",
    ]
 
-Fit both representations
-------------------------
 
-The GAM uses a cubic regression smooth for every predictor and selects the
-smoothness by REML. The NAM uses an independent neural network for every
-source feature. Both models are additive, but their function classes,
-regularization, and fitting algorithms remain different.
+Fit the two models
+------------------
+
+The GAM uses a cubic regression spline for each feature and selects smoothing strength with REML. The NAM uses a separate neural network for each feature. We give both models the same training data and evaluate their predictions on the same test rows.
 
 .. code-block:: python
 
@@ -84,11 +73,11 @@ regularization, and fitting algorithms remain different.
        random_state=41,
    )
 
-Evaluate the same held-out rows
--------------------------------
 
-``score`` returns :math:`R^2` for both regressors, so the predictive comparison
-does not require task-specific adapter code.
+Compare test predictions
+------------------------
+
+Both regressors report R2 through score. This compares predictive accuracy, but it does not tell us which feature relationships each model has learned. We examine those relationships next.
 
 .. code-block:: python
 
@@ -96,20 +85,18 @@ does not require task-specific adapter code.
        "GAM": gam.score(test, test["value"]),
        "NAM": nam.score(test[features], test["value"]),
    }
+   pd.DataFrame({"Model": list(scores), "Test R2": list(scores.values())}).style.hide(axis="index").format({"Test R2": "{:.3f}"})
 
-These scores answer whether each model predicts the held-out response. They do
-not show whether the models learned the same decomposition, so inspect their
-components next.
+.. include:: /_generated/gam_nam_scores.inc
 
-Check the shared additive contract
-----------------------------------
+Compare the feature effects
+---------------------------
 
-The GAM returns spline terms and the NAM returns feature-network terms through
-the same :class:`nampy.contracts.AdditivePrediction` type. The neural effects
-are centered against the training rows so their arbitrary additive constants
-are transferred to the intercept.
+We center the learned effects and the true effects over the same training rows. This removes differences caused only by moving a constant between an effect and the intercept. Each panel varies one feature across its training range.
 
 .. code-block:: python
+
+   import matplotlib.pyplot as plt
 
    gam_parts = gam.predict_components(test)
    nam_parts = nam.predict_components(
@@ -121,23 +108,6 @@ are transferred to the intercept.
    gam_parts.validate_additive_reconstruction()
    nam_parts.validate_additive_reconstruction(atol=1e-5)
 
-The neural check allows small floating-point rounding differences.
-For each model, its intercept, named terms, and optional offset reconstruct the
-linear predictor. This is an accounting guarantee. It does not imply that the
-individual effects are uniquely identified or that neural effects carry the
-GAM's inferential interpretation.
-
-Compare every feature
----------------------
-
-The curves below are centered link-scale contributions evaluated across each
-feature's training range. Every other feature is held at its training median;
-because these models contain main effects only, the selected value of the
-other predictors does not change the plotted term.
-
-.. code-block:: python
-
-   import matplotlib.pyplot as plt
 
    # Match each named term to its source feature.
    def feature_effect(parts, feature):
@@ -167,34 +137,15 @@ other predictors does not change the plotted term.
    axes[0, 0].legend()
    figure.tight_layout()
 
-.. image:: ../_static/gam_nam_all_features.png
-   :alt: Statistical GAM and NAM centered contributions for all four features
+
+.. image:: /_static/gam_nam_all_features.png
+   :alt: GAM, NAM, and known centered effects for four synthetic housing-like features
    :class: scientific-figure
-   :align: center
 
-Dashed truth is centered against the same training rows as the fitted curves.
-Use it to assess recovery rather than the visual smoothness of a fitted line.
-Both models recover the dominant saturating income effect, the curved latitude
-effect, the age pattern, and the diminishing return from additional rooms.
-Where the curves differ, the disagreement is useful information: spline basis
-dimension and REML regularization govern the GAM, while network capacity,
-optimization, and early stopping govern the NAM.
+The income effect saturates, the latitude effect is curved, and the rooms effect increases more slowly at larger values. Compare the fitted age curve with its known pattern as well. Differences from the dashed truth show where a model has flattened, exaggerated, or missed part of a relationship.
 
-Use the comparison responsibly
-------------------------------
+The GAM's curves depend on its spline basis and roughness penalty. The NAM's curves depend on its networks, regularization, and optimization. Similar test scores can therefore coexist with visible differences in effect recovery.
 
-The shared workflow makes representation sensitivity visible without erasing
-important distinctions. Use the GAM when statistical smoothness selection,
-standard errors, hypothesis tests, and diagnostics matter. Use the NAM when
-feature-specific neural functions are the desired representation. Compare
-their centered effects as fitted relationships, not as interchangeable
-uncertainty statements.
+.. _compare-independent-networks-with-shared-bases:
 
-The NAM is one neural representation. Next, compare it with an NBM, which
-shares learned basis functions across terms, using a new two-feature dataset.
-
-.. include:: ../_includes/tutorial_nam_nbm.inc
-
-Recommended next: :doc:`../notebooks/03_neural_models` to compare representation
-size, independent versus shared bases, and marginal versus global dependence.
-Optional branch: :doc:`changing_variability` to change the prediction target.
+The :doc:`neural architecture comparison <../notebooks/03_neural_models>` examines what changes when feature networks share learned basis functions.

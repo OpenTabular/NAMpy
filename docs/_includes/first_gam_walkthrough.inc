@@ -1,18 +1,9 @@
-This tutorial asks a concrete question: **how do outdoor temperature and time
-of day relate to energy demand?** We will fit a statistical GAM, evaluate it on
-unseen observations, inspect the estimated effects, and check whether the
-chosen basis dimensions are adequate.
+How does energy demand change with outdoor temperature and time of day? We will fit a GAM to synthetic demand data, inspect its effects, and check whether the chosen smooths capture the main patterns.
 
-The data in this tutorial are synthetic. Their meaningful column names make
-the model easier to discuss without presenting the example as a real energy
-study.
+Create the data
+---------------
 
-Create one nonlinear dataset
-----------------------------
-
-Demand increases at unusually low and high temperatures and follows a daily
-cycle. Random noise makes the fitted effects uncertain rather than perfectly
-known.
+Demand rises at very low and very high temperatures and follows a daily cycle. We add random noise so the observations vary around these relationships.
 
 .. code-block:: python
 
@@ -37,13 +28,11 @@ known.
    )
    train, test = train_test_split(data, test_size=0.2, random_state=21)
 
-Choose the terms and fit the model
-----------------------------------
 
-Temperature receives a cubic regression spline. Hour receives a cyclic cubic
-spline because midnight and the end of the day are the same boundary. The
-basis dimension ``k`` supplies enough capacity for each curve; REML determines
-how much of that capacity the fitted model uses.
+Choose the smooths
+------------------
+
+Temperature gets a cubic regression spline. Hour gets a cyclic cubic spline so that the fitted curve joins at the start and end of the day. The basis dimension k limits the available flexibility; REML selects the smoothing strength within that basis.
 
 .. code-block:: python
 
@@ -58,14 +47,11 @@ how much of that capacity the fitted model uses.
    )
    model.fit(train)
 
-``GAMRegressor`` follows estimator conventions and automatically selects
-smoothness with REML by default. The lower-level :class:`nampy.gam.GAM` offers
-more direct control and defaults to fixed smoothing; set
-``optimize_smoothing=True`` when automatic selection is wanted there. Both
-interfaces accept formulas.
 
-Evaluate unseen observations
-----------------------------
+Evaluate predictions
+--------------------
+
+We predict demand for the held-out observations and report RMSE and R2. RMSE is measured in the same units as demand; R2 compares the squared prediction error with a constant prediction based on the test-set mean.
 
 .. code-block:: python
 
@@ -77,14 +63,12 @@ Evaluate unseen observations
    print(f"RMSE: {rmse:.2f}")
    print(f"R²:   {r2:.3f}")
 
+
 .. code-block:: text
 
    RMSE: 1.95
    R²:   0.989
 
-These values describe prediction on the held-out rows. They do not by
-themselves establish that the smooth terms are well specified, so the next
-steps inspect the fitted model directly.
 
 Interpret the effects
 ---------------------
@@ -99,50 +83,24 @@ Interpret the effects
        figsize=(10, 4),
    )
 
+
 .. image:: /_static/first_gam_effects.png
-   :alt: Estimated temperature and hour effects with uncertainty
+   :alt: Estimated temperature and hour effects with pointwise uncertainty
    :class: scientific-figure
-   :align: center
 
-The solid curves are centered term contributions on the additive-predictor
-scale. The shaded bands are pointwise uncertainty intervals. Temperature has a
-U-shaped effect: demand is lowest around mild temperatures and rises toward
-both extremes. The hour effect is periodic, and the cyclic basis makes the
-curve meet at the day boundary.
+Demand is lowest at mild temperatures and rises toward both extremes. The hour curve shows the daily pattern and joins at the day boundary. Both curves are centered contributions; the shaded bands show pointwise uncertainty about the fitted effects.
 
-Recover the additive pieces
----------------------------
+Inspect residuals and basis dimensions
+--------------------------------------
 
-NAMpy exposes more than a final prediction. The shared result object contains
-the link-scale prediction, response prediction, intercept, named terms, and
-offset.
-
-.. code-block:: python
-
-   components = model.predict_components(test)
-   components.validate_additive_reconstruction()
-
-   print(components.terms.keys())
-
-.. code-block:: text
-
-   dict_keys(['s(temperature, bs="cr", k=12)',
-              's(hour, bs="cc", k=12)'])
-
-Passing the reconstruction check means that the reported terms, intercept,
-and offset add back to the model's linear predictor. It is an accounting
-guarantee, not a claim that effects are uniquely identified under correlated
-predictors.
-
-Check the fitted smooths
-------------------------
-
-Start with the model summary and a residual plot. The adapter keeps the fitted
-statistical model in ``gam_``, which exposes the full diagnostic surface.
+The residual plot shows the errors left after fitting the temperature and hour effects. There is no strong trend against fitted demand in this example. We also inspect the model summary and basis diagnostic to see whether either smooth needs more flexibility.
 
 .. code-block:: python
 
    import matplotlib.pyplot as plt
+
+   components = model.predict_components(test)
+   components.validate_additive_reconstruction()
 
    fitted = model.predict(train)
    residual = model.gam_.residuals(type="deviance")
@@ -152,22 +110,19 @@ statistical model in ``gam_``, which exposes the full diagnostic surface.
    plt.xlabel("Fitted demand")
    plt.ylabel("Deviance residual")
 
+
 .. image:: /_static/first_gam_residuals.png
    :alt: Deviance residuals against fitted energy demand
    :class: scientific-figure
-   :align: center
-
-The residuals remain centered without a strong fitted-value pattern. That
-does not prove the model is correct, but a trend or changing vertical spread
-would motivate revisiting the terms or response distribution.
-
-Next inspect whether either basis appears too small for remaining structure.
 
 .. code-block:: python
 
-   model.summary()
+   summary = model.summary()
    basis_check = model.gam_.k_check(n_rep=20, seed=21)
    print(basis_check)
+
+
+.. include:: /_generated/first_gam_summary.inc
 
 .. code-block:: text
 
@@ -176,7 +131,5 @@ Next inspect whether either basis appears too small for remaining structure.
    s(temperature)        11  9.977     1.028     0.75
    s(hour)               10  7.114     1.001     0.70
 
-Here the effective degrees of freedom remain within the available basis and
-the diagnostic gives no evidence that either ``k`` is too restrictive. This
-is not a universal acceptance test: residual structure, the scientific
-meaning of each term, and sensitivity to model choices still matter.
+
+The diagnostic gives no indication that either basis is too small here. If it suggested remaining structure, we would increase the relevant k, refit, and check whether the curve and residuals changed.

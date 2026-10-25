@@ -111,9 +111,7 @@ distributional-only, SplineNAM is regression-only, and IGANN currently supports
 main effects but not explicit interaction terms. The :doc:`../api/models`
 reference lists every public estimator class.
 
-The :ref:`NAM and NBM comparison <tutorial-nam-nbm>` compares two neural representations on the
-same data and plotting scale. The :doc:`../notebooks/03_neural_models`
-provides a broader executable architecture survey.
+The :doc:`neural architecture comparison <../notebooks/03_neural_models>` compares independent feature networks with shared bases and examines marginal and global contributions.
 
 .. toctree::
    :maxdepth: 1

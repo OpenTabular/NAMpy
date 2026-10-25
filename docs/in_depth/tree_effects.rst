@@ -1,23 +1,12 @@
-Recover Step Effects with Additive Trees
-========================================
+Recover step-shaped effects with additive trees
+===============================================
 
-Prerequisite: :doc:`../tutorials/gam_nam`. Allow several minutes on CPU for
-the complete script, which trains a single tree model and a five-member
-joint ensemble with the displayed early-stopping budgets.
+Some feature effects change at thresholds rather than varying smoothly. We will fit TreeNAM and EnsembleTreeNAM to a response with step changes in age and income and a shift for each region. Since the effects are known, we can compare both predictions and recovered shapes.
 
-Smooth feature functions are not always a natural representation. A response
-may change around thresholds or between category levels. The repository's
-``examples/example_ensemble.py`` compares a single TreeNAM with an
-EnsembleTreeNAM on a known piecewise-additive signal.
+Create step-shaped effects
+--------------------------
 
-Construct numerical steps and categorical shifts
-------------------------------------------------
-
-The response is generated as
-:math:`y=f_{\rm age}(\mathrm{age})+f_{\rm income}(\mathrm{income})+u_{\rm region}+\epsilon`.
-The numerical functions are constant within intervals, and each region has a
-fixed shift. Because the functions are known, the example can compare both
-prediction quality and recovery of individual effects.
+Age and income each contribute a piecewise-constant function. Region adds a categorical shift, and independent noise is added to their sum. We reserve separate rows for training, early stopping, and testing.
 
 .. code-block:: python
 
@@ -27,25 +16,19 @@ prediction quality and recovery of individual effects.
    from sklearn.model_selection import train_test_split
    from nampy.models import TreeNAMRegressor, EnsembleTreeNAMRegressor
 
+
 .. literalinclude:: ../../examples/example_ensemble.py
    :language: python
    :start-after: def main():
    :end-before: # Models
    :dedent: 4
 
-Compare single and jointly trained trees
-----------------------------------------
+Fit a tree and a joint ensemble
+-------------------------------
 
-A soft tree routes an observation through probabilistic gates instead of
-hard branches. For example, :math:`q(x)=\mathrm{sigmoid}\{a(x_j-t)\}`
-softens a split around threshold :math:`t`. Depth controls the number of
-regions a tree can represent. Hard routing at evaluation makes the final
-partition more discrete.
+A soft tree replaces hard branches with smooth routing probabilities. Tree depth controls how finely the input can be partitioned, while the evaluation settings determine whether routing remains soft or becomes hard.
 
-The ensemble averages member contributions while training the members
-jointly. This is a representation choice; it is different from independently
-fitting bootstrap members with ``NeuralEnsemble``. Variation between jointly
-trained trees is not automatically a measure of prediction uncertainty.
+EnsembleTreeNAM averages several member contributions and trains them jointly. It is different from fitting separate bootstrap models: disagreement between its joint members is not automatically an uncertainty estimate.
 
 .. literalinclude:: ../../examples/example_ensemble.py
    :language: python
@@ -53,53 +36,30 @@ trained trees is not automatically a measure of prediction uncertainty.
    :end-before: # Predictions / evaluation
    :dedent: 4
 
-Read prediction quality and effect recovery separately
--------------------------------------------------------
-
 .. code-block:: python
 
-   from sklearn.metrics import mean_absolute_error, r2_score
+   for fitted in (single_model, ensemble_model):
+       fitted.predict_components(X_test).validate_additive_reconstruction(atol=1e-5)
 
-   for name, model in [("Single tree", single_model), ("Joint ensemble", ensemble_model)]:
-       prediction = model.predict(X_test)
-       print(name, "MAE:", mean_absolute_error(y_test, prediction))
-       print(name, "R2:", r2_score(y_test, prediction))
-       components = model.predict_components(X_test)
-
-Low held-out error indicates useful prediction, but does not guarantee that
-each feature effect has been recovered. Additive terms have a constant-shift
-ambiguity, so the script centers learned and true effects before comparing
-their shapes. Region-level contributions are aggregated when preprocessing
-represents the category with several encoded terms.
-
-.. image:: ../_static/detailed_tree_effects.png
-   :alt: Repository comparison of additive tree predictions and recovered feature effects
+.. image:: /_static/detailed_tree_effects.png
+   :alt: Tree and joint-ensemble predictions against the noiseless response
    :class: scientific-figure
 
-The retained scatterplots compare fitted response predictions with the known
-**noiseless** simulation signal. Scatter around the diagonal measures signal
-recovery. The noisy-outcome MAE/R² table below instead measures prediction of
-observed test responses, including irreducible noise.
+Predictions from the single tree and joint ensemble against the known noiseless response. The diagonal represents exact recovery of that signal.
 
 .. include:: /_generated/detailed_tree_metrics.inc
 
+The ensemble predicts more accurately on this test set. Its noisy-response MAE is 0.237, compared with 0.314 for the single tree, and its R2 rises from 0.803 to 0.882. The noiseless-signal MAE excludes the added response noise and measures recovery of the simulated mean.
+
+Compare the feature effects
+---------------------------
+
+We center the fitted and true effects over the same training rows before comparing them. The age and income panels show whether the models recover the step locations and heights. The region panel compares the categorical shifts.
+
 .. image:: /_static/detailed_tree_contributions.png
-   :alt: Known and learned age steps, income steps, and region-category contributions centered on training rows
+   :alt: Known and fitted age, income, and region contributions
    :class: scientific-figure
 
-These three panels contain the feature effects: age, income, and region.
-Dashed truth and both fitted curves are centered against the same empirical
-training rows. Compare step locations, step heights, and categorical shifts;
-prediction scatter alone cannot show those quantities. Soft transitions and
-imperfect shape recovery remain visible rather than being smoothed away.
-
-The script reserves separate training, validation, and test splits. Early
-stopping uses validation rows; the metrics and figures above use test rows.
+Known effects and fitted contributions for age, income, and region. Rounded transitions and missed step heights show where the tree representation or fit differs from the generating functions.
 
 :download:`Download the complete example <../../examples/example_ensemble.py>`
-for the effect alignment, category aggregation, and figure construction.
-See :doc:`../models/treenam` and :doc:`../models/ensemble_treenam` for the
-architecture controls.
-
-Recommended next: :doc:`../howto/interaction_selection` when residual structure
-suggests missing joint effects.

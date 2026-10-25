@@ -1,25 +1,9 @@
 Tutorials
 =========
 
-Learn the shared estimator workflow, fit and diagnose a statistical GAM,
-compare neural representations, and then model conditional spread. These
-walkthroughs introduce the main ideas through code and fitted results.
+These tutorials follow additive models from fitting and interpretation to interactions, classification, and distributional prediction. Each example includes the code, fitted results, and an explanation of what the model has learned.
 
-Start with :doc:`your first additive models <../notebooks/01_getting_started>`,
-then :doc:`the real-data classification workflow <../notebooks/05_real_data_classification>`.
-The first gives a core regression path with optional extensions; the second
-connects preprocessing, probability evaluation, interpretation, and reuse.
-
-After that foundation, choose a branch:
-
-* Statistical: :doc:`first_gam` → :doc:`../notebooks/02_statistical_gams`.
-* Neural: :doc:`gam_nam` → :doc:`../notebooks/03_neural_models`.
-* Distributional: :doc:`changing_variability` → :doc:`../notebooks/04_distributional_models`.
-* Specializations: :doc:`../in_depth/index` and :doc:`../howto/index`.
-* Extension work: :doc:`../user_guide/custom_models`.
-
-Detailed examples continue these branches with deeper checks; they are not
-prerequisites for the core tutorials.
+If you are new to NAMpy, start with Your first additive models. Otherwise, choose the problem closest to your own data.
 
 .. grid:: 1 1 2 2
    :gutter: 2
@@ -28,52 +12,102 @@ prerequisites for the core tutorials.
       :link: ../notebooks/01_getting_started
       :link-type: doc
 
-      Start with fitting, prediction, additive components, scikit-learn integration, and cross-validation.
+      Fit a GAM and a NAM to the same data, compare their predictions, and inspect the contribution of each feature.
 
       :download:`Download notebook <../notebooks/01_getting_started.ipynb>`
 
-   .. grid-item-card:: Classify a real dataset
+   .. grid-item-card:: Classification with missing values and categorical features
       :link: ../notebooks/05_real_data_classification
       :link-type: doc
 
-      Handle missing values, compare a logistic baseline, inspect probabilities,
-      and save/reload the complete preprocessing and prediction workflow.
+      Prepare a real dataset, compare a NAM with logistic regression, examine predicted probabilities, and save the complete prediction workflow.
 
       :download:`Download notebook <../notebooks/05_real_data_classification.ipynb>`
 
-   .. grid-item-card:: Fit, diagnose, and extend a statistical GAM
+   .. grid-item-card:: Fit and diagnose a GAM
       :link: first_gam
       :link-type: doc
 
-      Follow an energy-demand analysis, then extend it with shape constraints and interaction surfaces.
+      Model energy demand with temperature and a daily cycle, then inspect residuals and the flexibility of the fitted smooths.
 
       :notebook-download:`first_gam`
 
-   .. grid-item-card:: Compare GAM, NAM, and shared-basis models
+   .. grid-item-card:: GAMs with groups, offsets, and changing variance
+      :link: ../notebooks/02_statistical_gams
+      :link-type: doc
+
+      Choose a basis dimension, account for exposure in count data, and fit separate predictors for a response's mean and standard deviation.
+
+      :download:`Download notebook <../notebooks/02_statistical_gams.ipynb>`
+
+   .. grid-item-card:: Compare GAM and NAM feature effects
       :link: gam_nam
       :link-type: doc
 
-      Compare statistical and neural feature effects, then see how shared neural bases change the representation.
+      Compare spline and neural representations on a synthetic dataset with known feature effects.
 
       :notebook-download:`gam_nam`
 
-   .. grid-item-card:: Learn conditional location and spread
+   .. grid-item-card:: Compare neural additive architectures
+      :link: ../notebooks/03_neural_models
+      :link-type: doc
+
+      Compare independent feature networks with shared bases, then examine a model that also includes a global transformer contribution.
+
+      :download:`Download notebook <../notebooks/03_neural_models.ipynb>`
+
+   .. grid-item-card:: Model a changing response distribution
       :link: changing_variability
       :link-type: doc
 
-      Move from predicting a response to modeling how both its location and variability depend on features.
+      Fit a normal distribution whose mean and standard deviation both depend on the input.
 
       :notebook-download:`changing_variability`
+
+   .. grid-item-card:: Compare distributions, quantiles, and ensemble spread
+      :link: ../notebooks/04_distributional_models
+      :link-type: doc
+
+      Compare prediction intervals from a normal model and a quantile model, and distinguish them from disagreement between fitted models.
+
+      :download:`Download notebook <../notebooks/04_distributional_models.ipynb>`
+
+   .. grid-item-card:: Fit and assess conditional quantiles
+      :link: ../in_depth/quantile_calibration
+      :link-type: doc
+
+      Fit the 10th, 50th, and 90th percentiles and examine their coverage and feature effects.
+
+      :notebook-download:`../in_depth/quantile_calibration`
+
+   .. grid-item-card:: Recover step-shaped effects with additive trees
+      :link: ../in_depth/tree_effects
+      :link-type: doc
+
+      Compare a single additive tree with a jointly trained ensemble on numerical thresholds and categorical shifts.
+
+      :notebook-download:`../in_depth/tree_effects`
+
+   .. grid-item-card:: Four modeling examples
+      :link: modeling_workflows
+      :link-type: doc
+
+      Run compact GAM, GAMLSS, NAM, and neural distributional examples and inspect their outputs.
+
+      :notebook-download:`modeling_workflows`
 
 .. toctree::
    :maxdepth: 1
    :hidden:
 
    Your first additive models <../notebooks/01_getting_started>
-   Classify a real dataset <../notebooks/05_real_data_classification>
-   Fit, diagnose, and extend a statistical GAM <first_gam>
-   Compare GAM, NAM, and shared-basis models <gam_nam>
-   Learn conditional location and spread <changing_variability>
-
-For broader theory and longer repository examples, continue with
-:doc:`../in_depth/index`.
+   Classification with missing values and categorical features <../notebooks/05_real_data_classification>
+   Fit and diagnose a GAM <first_gam>
+   GAMs with groups, offsets, and changing variance <../notebooks/02_statistical_gams>
+   Compare GAM and NAM feature effects <gam_nam>
+   Compare neural additive architectures <../notebooks/03_neural_models>
+   Model a changing response distribution <changing_variability>
+   Compare distributions, quantiles, and ensemble spread <../notebooks/04_distributional_models>
+   Fit and assess conditional quantiles <../in_depth/quantile_calibration>
+   Recover step-shaped effects with additive trees <../in_depth/tree_effects>
+   Four modeling examples <modeling_workflows>

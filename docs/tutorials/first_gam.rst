@@ -1,26 +1,13 @@
-Fit, diagnose, and extend a statistical GAM
-===========================================
-
-Start after :doc:`../notebooks/01_getting_started` or with basic Python and pandas knowledge.
-Allow a few minutes on CPU for fitting, diagnostics, and the extensions below.
+Fit and diagnose a GAM
+======================
 
 .. include:: ../_includes/first_gam_walkthrough.inc
 
-Optional branches: extend the model structure
----------------------------------------------
+Other smooth structures
+-----------------------
 
-The energy-demand example already uses a cyclic smooth for hour. The next
-optional examples switch to separate synthetic datasets to explore two other modeling choices: a monotone
-effect when prior knowledge constrains the shape, and a joint smooth when two
-features act together.
+The cyclic hour effect is one way to encode knowledge about a predictor. The following two examples use separate synthetic datasets to illustrate shape constraints and joint effects.
 
 .. include:: ../_includes/tutorial_monotone_effect.inc
 
 .. include:: ../_includes/tutorial_interaction_surface.inc
-
-Continue learning
------------------
-
-Recommended next: :doc:`../notebooks/02_statistical_gams` for grouped effects,
-offsets, response families, smoothing selection, and inference, then
-:doc:`gam_nam` to compare statistical and neural representations.

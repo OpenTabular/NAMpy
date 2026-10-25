@@ -59,13 +59,6 @@ def main():
             ).execute(env=environment)
             seconds = time.perf_counter() - started
         clean_outputs(notebook)
-        note = nbformat.v4.new_markdown_cell(
-            "**Execution environment:** "
-            + ", ".join(f"{name} {version}" for name, version in versions.items())
-            + f". Python {sys.version.split()[0]}; source revision `{commit}`; source-content SHA256 `{state['source_sha256']}` (includes local source changes); elapsed {seconds:.1f} seconds on this CPU. Runtime varies by hardware.",
-            metadata={"tags": ["execution-provenance"]},
-        )
-        notebook.cells.insert(1, note)
         notebook.metadata["nampy_execution"] = {
             "versions": versions,
             "commit": commit,

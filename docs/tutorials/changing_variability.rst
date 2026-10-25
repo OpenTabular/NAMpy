@@ -1,12 +1,7 @@
-Learn conditional location and spread
-=====================================
+Model a changing response distribution
+======================================
 
-This example assumes the workflow in :doc:`../notebooks/01_getting_started`.
-Allow a few minutes on CPU for the location-scale fit and plots.
-
-Two observations can have the same expected response but very different
-uncertainty. Here the conditional location varies nonlinearly with exposure,
-while the observation-level standard deviation grows across its range.
+Predicting the mean does not tell us how widely individual responses vary. In this example, the response has a curved mean and a standard deviation that increases with exposure. We fit a normal neural distributional model to learn both.
 
 .. code-block:: python
 
@@ -31,6 +26,11 @@ while the observation-level standard deviation grows across its range.
        numerical_preprocessing="minmax",
    ).fit(X, y, max_epochs=30, lr=1e-2, random_state=29)
 
+
+NAMLSS predicts the parameters of the chosen response distribution. With the normal family, these are its mean and standard deviation. The effect plot shows how the fitted point prediction changes with exposure and how the conditional spread changes alongside it.
+
+.. code-block:: python
+
    figures = model.plot_distributional_effects(
        X,
        reference_X=X,
@@ -39,24 +39,11 @@ while the observation-level standard deviation grows across its range.
        envelope_label="location effect ± conditional SD",
    )
 
-.. image:: ../_static/changing_variability.png
-   :alt: Location effect and conditional standard deviation across exposure
+
+.. image:: /_static/changing_variability.png
+   :alt: Centered point effect with conditional response spread across exposure
    :class: scientific-figure
-   :align: center
 
-The blue curve is the change in the family-defined conditional point
-prediction relative to the centered reference configuration. The black curves
-are that point effect plus and minus one conditional standard deviation. They
-describe predictive spread, not uncertainty about the fitted mean. The red
-background indicates where observations are concentrated. With repeated
-fits, an additional blue ribbon can show between-fit variation; it has a
-different interpretation from the black envelope.
+The blue curve is the centered point effect. The black curves are that effect plus and minus one conditional standard deviation, so their separation shows the fitted response spread. They are not confidence bounds for the blue curve. Red shading shows where input observations are concentrated.
 
-All quantities are on the response scale. ``reference_X=X`` centers terms
-against the empirical training distribution; setting every centered term to
-zero defines a synthetic reference configuration and need not correspond to
-an observed row. See :doc:`../user_guide/gamlss` for parameter links and
-family-specific meanings.
-
-Recommended next: :doc:`../notebooks/04_distributional_models` to explore other
-response families, conditional quantiles, classification, and ensemble uncertainty.
+The centering reference is the training data supplied through reference_X. The vertical level is therefore relative to that reference, rather than the full uncentered mean prediction.

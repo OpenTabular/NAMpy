@@ -1,11 +1,11 @@
 .. _tutorial-monotone:
 
-Constrain a smooth with prior knowledge
----------------------------------------
+.. _constrain-a-smooth-with-prior-knowledge:
 
-Suppose prior knowledge says that a dose effect may level off but cannot
-decrease over the studied range. The formula below makes that assumption part
-of estimation by replacing an ordinary cubic basis with ``bs="mpi"``.
+Fit a monotone effect
+---------------------
+
+Suppose a dose response can level off but should not decrease over the observed range. Replacing the ordinary cubic basis with bs="mpi" imposes this shape restriction during fitting.
 
 .. code-block:: python
 
@@ -37,6 +37,7 @@ of estimation by replacing an ordinary cubic basis with ``bs="mpi"``.
 
    derivative = increasing.derivative(smooth_number=1, deriv=1)
 
+
 .. code-block:: python
 
    import matplotlib.pyplot as plt
@@ -49,14 +50,9 @@ of estimation by replacing an ordinary cubic basis with ``bs="mpi"``.
    plt.ylabel("Expected response")
    plt.legend()
 
-.. image:: ../_static/shape_constraint_comparison.png
-   :alt: Ordinary and monotone-increasing fits to noisy observations
-   :class: scientific-figure
-   :align: center
 
-The ordinary smooth follows local noise and briefly turns downward. The
-constrained fit does not. Its first derivative is nonnegative over the fitted
-range. This restriction is useful only when the monotonicity assumption is
-defensible; it should not be selected merely because the resulting curve
-looks simpler. See :doc:`../user_guide/shape_constrained_gams` for the full
-basis and fitting reference.
+.. image:: /_static/shape_constraint_comparison.png
+   :alt: Ordinary and monotone-increasing fits
+   :class: scientific-figure
+
+The ordinary smooth briefly turns downward as it follows the noisy observations. The monotone fit cannot do so. Use this constraint when the direction is justified by the problem, rather than because the constrained curve looks cleaner.

@@ -144,7 +144,7 @@ Choose the statistical, neural, or distributional branch in :doc:`tutorials/inde
       interfaces.
 
    .. grid-item-card:: Explore detailed examples
-      :link: in_depth/index
+      :link: tutorials/index
       :link-type: doc
 
       Work through longer statistical, neural, and distributional analyses.
@@ -181,7 +181,6 @@ Contributors
    :hidden:
 
    Tutorials <tutorials/index>
-   Advanced examples <in_depth/index>
    faq
 
 .. toctree::

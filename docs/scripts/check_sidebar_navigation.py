@@ -41,7 +41,7 @@ def main():
     try:
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch()
-            page = browser.new_page()
+            page = browser.new_page(accept_downloads=True)
             page.route("https://**/*", lambda route: route.abort())
             page.goto(f"{origin}/api/gam.html", wait_until="domcontentloaded")
             sections = page.locator(".wy-menu-vertical p.caption").evaluate_all(
@@ -56,7 +56,6 @@ def main():
             assert getting_started["items"] == [
                 "Home",
                 "Tutorials",
-                "Advanced examples",
                 "Frequently Asked Questions",
             ], getting_started
             assert "Concepts" not in [section["title"] for section in sections]
@@ -67,7 +66,9 @@ def main():
             reference = next(item for item in sections if item["title"] == "Reference")
             assert "Statistical GAM API" in reference["items"], reference
             assert "Formula API" not in reference["items"], reference
-            gam_branch = page.locator(".wy-menu-vertical li.toctree-l1:has(> a.current)")
+            gam_branch = page.locator(
+                ".wy-menu-vertical li.toctree-l1:has(> a.current)"
+            )
             assert gam_branch.locator(":scope > ul > li").count() == 8
             page.evaluate("""() => sessionStorage.setItem('nampy-sidebar-navigation',
                 JSON.stringify({destination: location.pathname, scrollTop: 400,
@@ -101,6 +102,35 @@ def main():
             check("gam_formula.html")
             page.go_forward(wait_until="domcontentloaded")
             check("gam_smooths.html")
+            page.goto(f"{origin}/tutorials/index.html", wait_until="domcontentloaded")
+            expected_tutorials = [
+                "notebooks/01_getting_started.html",
+                "notebooks/05_real_data_classification.html",
+                "tutorials/first_gam.html",
+                "notebooks/02_statistical_gams.html",
+                "tutorials/gam_nam.html",
+                "notebooks/03_neural_models.html",
+                "tutorials/changing_variability.html",
+                "notebooks/04_distributional_models.html",
+                "in_depth/quantile_calibration.html",
+                "in_depth/tree_effects.html",
+                "tutorials/modeling_workflows.html",
+            ]
+            card_targets = page.locator(".sd-card a.sd-stretched-link").evaluate_all(
+                "links => links.map(a => new URL(a.href).pathname.slice(1))"
+            )
+            assert card_targets == expected_tutorials, card_targets
+            downloads = page.locator(".sd-card a.reference.download")
+            assert downloads.count() == len(expected_tutorials)
+            for download in downloads.all():
+                # Reset the document between clicks so Chromium's bulk-download
+                # limiter does not suppress the eleventh automated download.
+                page.reload(wait_until="domcontentloaded")
+                with page.expect_download() as event:
+                    download.click()
+                assert event.value.suggested_filename.endswith(".ipynb")
+            page.goto(f"{origin}/in_depth/index.html", wait_until="domcontentloaded")
+            page.wait_for_url(f"{origin}/tutorials/index.html")
             browser.close()
             print(
                 "PASS: repeated sidebar clicks, reloads, history, legacy state, and asset versions"

@@ -1,11 +1,11 @@
 .. _tutorial-interaction:
 
-Add a joint spatial effect
---------------------------
+.. _add-a-joint-spatial-effect:
 
-Can separate latitude and longitude effects describe a localized spatial
-pattern? Usually not: the effect of one coordinate changes with the other. A
-tensor-product smooth represents their joint contribution.
+Fit a spatial interaction
+-------------------------
+
+A localized spatial pattern depends on latitude and longitude together. Separate main effects cannot represent every such pattern, so we fit a tensor-product smooth of the two coordinates.
 
 .. code-block:: python
 
@@ -37,14 +37,11 @@ tensor-product smooth represents their joint contribution.
 
    figures = model.plot(pages=1, scheme=2, rug=False)
 
-.. image:: ../_static/interaction_surface.png
-   :alt: Estimated latitude and longitude interaction surface
-   :class: scientific-figure
-   :align: center
 
-The color and contours show the isolated joint tensor-product contribution.
-This example has one fitted surface plus an intercept; the displayed term
-excludes that intercept and is not the complete fitted response. Its
-reported contribution depends on both named variables. Centering preserves
-prediction reconstruction, but does not make main and interaction effects
-unique when overlapping terms are included.
+.. image:: /_static/interaction_surface.png
+   :alt: Fitted joint contribution of latitude and longitude
+   :class: scientific-figure
+
+Color and contours show the fitted joint contribution of latitude and longitude. The model's intercept is excluded from this surface.
+
+See :ref:`formula-visual-reference` for other joint smooth structures.

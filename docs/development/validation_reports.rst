@@ -5,7 +5,7 @@ These reports exercise architecture and task interfaces with small budgets.
 They verify prediction shapes, output domains, and promised reconstruction.
 They are not performance benchmarks. Some scores use fitting rows and are
 labeled accordingly. Learning workflows with separate test data live in the
-:doc:`tutorials </tutorials/index>` and :doc:`advanced examples </in_depth/index>`.
+:doc:`tutorials </tutorials/index>`.
 
 .. toctree::
    :maxdepth: 1

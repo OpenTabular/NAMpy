@@ -15,7 +15,7 @@ def test_teaching_figures_are_retained_and_described():
     minimum = {
         "01_getting_started": 7,
         "02_statistical_gams": 4,
-        "03_neural_models": 2,
+        "03_neural_models": 3,
         "04_distributional_models": 4,
         "05_real_data_classification": 3,
     }

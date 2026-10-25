@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 REDIRECTS = {
+    "in_depth/index": "tutorials/index",
     "concepts/index": "howto/index",
     "concepts/additive_predictors": "user_guide/interpretability#additive-predictor-interpretation",
     "concepts/smoothness": "user_guide/statistical_gams#smoothness-and-basis-dimension",
@@ -18,7 +19,7 @@ REDIRECTS = {
     "tutorials/monotone_effect": "tutorials/first_gam#constrain-a-smooth-with-prior-knowledge",
     "tutorials/interaction_surface": "tutorials/first_gam#add-a-joint-spatial-effect",
     "tutorials/periodic_effect": "tutorials/first_gam#interpret-the-effects",
-    "tutorials/nam_nbm": "tutorials/gam_nam#compare-independent-networks-with-shared-bases",
+    "tutorials/nam_nbm": "notebooks/03_neural_models#A-second-NAM/NBM-example",
 }
 
 

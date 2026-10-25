@@ -22,6 +22,10 @@ examples.
 High-level model
 ----------------
 
+The lower-level ``GAM`` defaults to fixed smoothing. Set
+``optimize_smoothing=True`` to estimate smoothing parameters. The estimator
+adapters below select smoothness with REML by default.
+
 .. currentmodule:: nampy.gam
 
 .. autosummary::

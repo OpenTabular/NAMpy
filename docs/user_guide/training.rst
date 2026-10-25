@@ -200,6 +200,35 @@ Add dropout for regularization:
        dropout=0.3               # Drop 30% of activations
    )
 
+Estimator parameters and sample weights
+---------------------------------------
+
+Constructor parameters describe an unfitted estimator. A search can clone it
+and set a candidate's parameters without carrying over fitted state:
+
+.. code-block:: python
+
+   from sklearn.base import clone
+   from nampy.models import NAMRegressor
+
+   template = NAMRegressor(layer_sizes=[8])
+   candidate = clone(template).set_params(dropout=0.05)
+   parameters = candidate.get_params(deep=False)
+
+Sample weights change each training row's contribution to the fitting
+objective; they are different from a fixed offset in the predictor.
+Using the numerical inputs from :doc:`../notebooks/01_getting_started`:
+
+.. code-block:: python
+
+   import numpy as np
+   from nampy.models import GAMRegressor
+
+   sample_weight = np.where(X_train["x1"].to_numpy() > 0, 2.0, 1.0)
+   weighted_gam = GAMRegressor(k=8, basis="cr").fit(
+       X_train[["x1", "x2"]], y_train, sample_weight=sample_weight
+   )
+
 Hyperparameter Tuning
 ----------------------
 

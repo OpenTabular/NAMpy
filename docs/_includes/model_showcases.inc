@@ -11,6 +11,8 @@ The estimator adapters default to automatic REML smoothness selection.
 The simulated group has no effect on the response, so its fitted coefficient
 is small and the two group prediction curves nearly overlap.
 
+.. showcase-gam-start
+
 .. code-block:: python
 
    import numpy as np
@@ -37,6 +39,8 @@ is small and the two group prediction curves nearly overlap.
    summary = model.summary()
    components = model.predict_components(data)
 
+.. showcase-gam-end
+
 .. include:: /_generated/home_gam.inc
 
 Effective degrees of freedom describe the fitted smooth's flexibility;
@@ -51,6 +55,8 @@ prediction for that row.
 
 Without a formula, the adapter creates one smooth main effect per input column:
 
+.. showcase-gam-adapter-start
+
 .. code-block:: python
 
    X_train = data[["x"]].iloc[::2]
@@ -60,6 +66,8 @@ Without a formula, the adapter creates one smooth main effect per input column:
    model = GAMRegressor(k=10, basis="tp").fit(X_train, y_train)
    prediction = model.predict(X_test)
    standard_error = model.standard_errors(X_test)
+
+.. showcase-gam-adapter-end
 
 .. include:: /_generated/home_gam_adapter.inc
 
@@ -76,6 +84,8 @@ Distributional GAM (GAMLSS)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Fit separate predictors for the conditional mean and standard deviation:
+
+.. showcase-gamlss-start
 
 .. code-block:: python
 
@@ -102,6 +112,8 @@ Fit separate predictors for the conditional mean and standard deviation:
    point_prediction = model.predict_point(data_dist)
    raw_predictors = model.predict(data_dist, raw=True)
 
+.. showcase-gamlss-end
+
 .. include:: /_generated/home_gamlss.inc
 
 .. image:: /_static/home_gamlss.png
@@ -118,6 +130,8 @@ Neural Additive Model (NAM)
 
 This housing-like dataset is entirely synthetic. Each feature has a known
 nonlinear contribution; the names do not identify a real housing study.
+
+.. showcase-nam-start
 
 .. code-block:: python
 
@@ -174,6 +188,8 @@ nonlinear contribution; the names do not identify a real housing study.
        axis.plot(values, truth(values)-truth(values).mean(), "--", label="Known centered truth")
        axis.legend()
 
+.. showcase-nam-end
+
 .. image:: /_static/homepage_demo_light.png
    :alt: Centered NAM feature effects for the four input features
    :class: homepage-demo scientific-figure
@@ -196,6 +212,8 @@ Neural distributional regression
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Neural LSS estimators also provide point-and-spread effect plots:
+
+.. showcase-neural-lss-start
 
 .. code-block:: python
 
@@ -236,6 +254,8 @@ Neural LSS estimators also provide point-and-spread effect plots:
            "house_age": "House age",
        },
    )
+
+.. showcase-neural-lss-end
 
 .. image:: /_static/readme_distributional_effects.png
    :alt: Distributional feature effects with conditional spread and predictor density
