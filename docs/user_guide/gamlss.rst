@@ -2,7 +2,7 @@ Distributional GAMs and GAMLSS
 ==============================
 
 This guide covers ``GAMLSS`` formulas, parameter ordering, predictions, and
-scoring. For a fitted example, see :doc:`../tutorials/changing_variability`.
+scoring. For a fitted example, see :doc:`../notebooks/04_distributional_models`.
 
 The lower-level :class:`nampy.gam.GAM` also accepts supported multi-parameter
 families and exposes their statistical parameterization directly.

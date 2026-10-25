@@ -11,6 +11,7 @@ from sphinx import addnodes
 from sphinx.util.docutils import SphinxRole
 
 WALKTHROUGHS = {
+    "tutorials/interaction_selection",
     "tutorials/first_gam",
     "tutorials/gam_nam",
     "tutorials/changing_variability",

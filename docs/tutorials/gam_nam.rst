@@ -1,7 +1,9 @@
 Compare GAM and NAM feature effects
 ===================================
 
-A GAM and a NAM can make similar predictions while learning different feature effects. We will compare them on the same synthetic dataset, using both test accuracy and the known relationships that generated the response.
+Similar prediction scores do not guarantee similar fitted relationships. Here we compare a GAM and a NAM against four known effects, including saturation, curvature, and diminishing returns.
+
+The data are simulated, so we can assess both held-out prediction accuracy and how closely each fitted effect follows the function that generated it.
 
 Create the data
 ---------------
@@ -89,8 +91,8 @@ Both regressors report R2 through score. This compares predictive accuracy, but 
 
 .. include:: /_generated/gam_nam_scores.inc
 
-Compare the feature effects
----------------------------
+Compare the fitted effects with the truth
+-----------------------------------------
 
 We center the learned effects and the true effects over the same training rows. This removes differences caused only by moving a constant between an effect and the intercept. Each panel varies one feature across its training range.
 

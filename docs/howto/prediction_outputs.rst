@@ -1,9 +1,9 @@
 Prediction Outputs and Plotting
 ===============================
 
-Use this map to choose the output scale before interpreting a number or
-plot. ``n`` denotes observations, ``c`` classes, and ``q`` requested quantiles.
-Parameter counts and transforms are family-specific.
+Choose the prediction method according to the quantity you need: a response prediction, class probability, distribution parameter, quantile, or additive contribution. The table below summarizes the returned values and their shapes.
+
+``n`` denotes observations, ``c`` classes, and ``q`` requested quantiles. Parameter counts and transforms are family-specific.
 
 .. list-table::
    :header-rows: 1
@@ -42,7 +42,8 @@ Choose the display by contribution type
 ---------------------------------------
 
 * A single-column numerical main effect can use neural ``plot_terms``.
-  Supply named DataFrame columns, and state centering/reference rows.
+  Supply named DataFrame columns. See :doc:`../user_guide/interpretability`
+  for centering and reference data.
 * Multiple output columns require an explicit per-output plot, as in
   :doc:`../models/qnam`. The single-column renderer skips them.
 * Categorical terms can be summarized by level on the predictor scale, as in

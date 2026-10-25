@@ -37,7 +37,7 @@ def main():
         "Offset inference on untouched test rows",
         result["offset_results"],
     )
-    selected = execute(ROOT / "docs/howto/interaction_selection.rst")
+    selected = execute(ROOT / "docs/tutorials/interaction_selection.rst")
     csv_table(
         "interaction_selection_results",
         "Final test performance after training/validation selection",
@@ -46,7 +46,13 @@ def main():
     csv_table(
         "interaction_detector",
         "Training/validation detector decisions",
-        selected["selection_table"],
+        selected["selection_table"][["interaction", "selected", "score"]].rename(
+            columns={
+                "interaction": "Interaction",
+                "selected": "Selected",
+                "score": "Selection score",
+            }
+        ),
     )
     save(selected["figure"], "interaction_selection_workflow")
     plt.close("all")

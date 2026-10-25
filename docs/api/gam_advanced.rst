@@ -160,3 +160,54 @@ matrix-summary helpers for reference comparisons. These modules are intended
 for backend development and numerical validation rather than ordinary model
 analysis.
 
+
+Advanced public utilities
+-------------------------
+
+These symbols support custom fitting, testing, and extensions. Most analyses
+should use ``GAM`` or the estimator classes above.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 31 44 25
+
+   * - Symbol
+     - Purpose
+     - Import
+   * - ``GAMControl`` / ``gam_control``
+     - Typed and validated fitting controls.
+     - ``from nampy.gam import gam_control``
+   * - ``fit_model_core``
+     - Compile and fit a configured GAM object.
+     - ``from nampy.gam import fit_model_core``
+   * - ``solve_fit``
+     - Dispatch a fixed-smoothing solve to the available backend.
+     - ``from nampy.gam import solve_fit``
+   * - ``FitCoreSolution``
+     - Structured result returned by the low-level fitting stage.
+     - ``from nampy.gam import FitCoreSolution``
+   * - ``normalize_nei``
+     - Validate neighborhood indices used by neighborhood cross-validation.
+     - ``from nampy.gam import normalize_nei``
+
+
+How constraints are fitted
+--------------------------
+
+NAMpy follows the ``scam`` 1.2-22 definitions for shape-constrained
+P-splines. The runtime term constructs the basis, penalty, prediction matrix,
+and derivative matrices. A coefficient transform maps unconstrained optimizer
+coordinates to coefficients that satisfy the requested shape and transports
+covariance into that prediction space.
+
+These transforms are term-local. A formula can therefore combine constrained
+and ordinary smooths, and the resulting model continues to use the statistical
+engine's prediction, inference, residual, derivative, and result interfaces.
+Observation transforms, including supported Gaussian AR(1) whitening, are
+applied consistently to the response, offset, and design matrix.
+
+
+Fitting compatibility
+---------------------
+
+.. include:: ../_includes/optimizer_support.inc

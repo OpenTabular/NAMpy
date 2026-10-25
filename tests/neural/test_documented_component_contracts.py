@@ -92,12 +92,14 @@ def test_documented_custom_attention_handles_feature_blocks(num, cat):
     source = (
         Path(__file__).resolve().parents[2] / "docs/user_guide/custom_models.rst"
     ).read_text()
-    section = source.split("Complete Example", 1)[1]
-    block = re.search(r"\.\. code-block:: python\n\n((?:(?:   [^\n]*)?\n)+)", section)[
-        1
-    ]
+    section = source.split("Build an attentive model", 1)[1].split(
+        "Register the architecture", 1
+    )[0]
+    blocks = re.findall(r"\.\. code-block:: python\n\n((?:(?:   [^\n]*)?\n)+)", section)
     code = "\n".join(
-        line[3:] if line.startswith("   ") else line for line in block.splitlines()
+        line[3:] if line.startswith("   ") else line
+        for block in blocks
+        for line in block.splitlines()
     )
     namespace = {}
     exec(code.split("# 3. One declaration")[0], namespace)

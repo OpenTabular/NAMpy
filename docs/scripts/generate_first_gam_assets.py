@@ -84,6 +84,7 @@ def generate_first_gam_plot() -> None:
             '+ s(hour, bs="cc", k=12)'
         ),
         family="gaussian",
+        knots={"hour": [0.0, 24.0]},
     ).fit(train)
 
     summary_path = DOCS_ROOT / "_generated/first_gam_summary.inc"
@@ -259,10 +260,11 @@ def generate_shape_constraint_plot() -> None:
     data = pd.DataFrame({"y": signal + rng.normal(0.0, 0.45, x.size), "x": x})
 
     ordinary = GAM(
-        formula='y ~ s(x, bs="cr", k=12)',
+        formula='y ~ s(x, bs="ps", k=12)',
         family="gaussian",
         optimize_smoothing=True,
-        smoothing_method="reml",
+        smoothing_method="gcv",
+        smoothing_optimizer="bfgs",
     ).fit(data)
     increasing = GAM(
         formula='y ~ s(x, bs="mpi", k=12)',
@@ -300,6 +302,17 @@ def generate_shape_constraint_plot() -> None:
     axis.legend(frameon=False)
     axis.spines[["top", "right"]].set_visible(False)
     _save(figure, "shape_constraint_comparison.png")
+
+    derivative = increasing.derivative(smooth_number=1, deriv=1)
+    values = np.asarray(derivative.derivative).reshape(-1)
+    uncertainty = np.asarray(derivative.se).reshape(-1)
+    figure, axis = plt.subplots(figsize=(6, 4))
+    axis.plot(x, values, label="First derivative")
+    axis.fill_between(x, values - 1.96 * uncertainty, values + 1.96 * uncertainty, alpha=.2)
+    axis.axhline(0, color="black", linestyle="--")
+    axis.set(xlabel="x", ylabel="Derivative of mean")
+    axis.legend()
+    _save(figure, "shape_constraint_derivative.png")
 
 
 def generate_interaction_plot() -> None:

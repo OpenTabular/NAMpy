@@ -5,6 +5,13 @@ import subprocess
 from pathlib import Path
 
 REDIRECTS = {
+    "examples/basic_regression": "examples/fit_models#predict-a-continuous-response",
+    "examples/basic_classification": "examples/fit_models#predict-class-probabilities",
+    "examples/distributional_regression": "examples/fit_models#predict-a-response-distribution",
+    "howto/monotonicity": "user_guide/shape_constrained_gams",
+    "tutorials/modeling_workflows": "index#quick-start-fitting-a-model",
+    "howto/interaction_selection": "tutorials/interaction_selection",
+    "tutorials/changing_variability": "notebooks/04_distributional_models",
     "in_depth/index": "tutorials/index",
     "concepts/index": "howto/index",
     "concepts/additive_predictors": "user_guide/interpretability#additive-predictor-interpretation",
@@ -16,10 +23,10 @@ REDIRECTS = {
     "examples/index": "howto/index",
     "user_guide": "howto/index",
     "notebook_tutorials": "tutorials/index",
-    "tutorials/monotone_effect": "tutorials/first_gam#constrain-a-smooth-with-prior-knowledge",
-    "tutorials/interaction_surface": "tutorials/first_gam#add-a-joint-spatial-effect",
+    "tutorials/monotone_effect": "user_guide/shape_constrained_gams#compare-an-unconstrained-and-monotone-fit",
+    "tutorials/interaction_surface": "user_guide/formula_visual_reference#add-a-joint-spatial-effect",
     "tutorials/periodic_effect": "tutorials/first_gam#interpret-the-effects",
-    "tutorials/nam_nbm": "notebooks/03_neural_models#A-second-NAM/NBM-example",
+    "tutorials/nam_nbm": "notebooks/03_neural_models#Fit-NAM-and-NBM",
 }
 
 

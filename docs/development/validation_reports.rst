@@ -10,6 +10,7 @@ labeled accordingly. Learning workflows with separate test data live in the
 .. toctree::
    :maxdepth: 1
 
+   pretab_migration
    documentation_validation
    optimizer_matrix
    notebooks/02_statistical_gams
@@ -19,3 +20,8 @@ labeled accordingly. Learning workflows with separate test data live in the
 The optimizer matrix is backed by
 ``tests/optimization/test_mgcv_remaining_routes.py``; prediction and metadata
 contracts are checked by ``tests/neural/test_documented_component_contracts.py``.
+
+Numerical snapshots
+-------------------
+
+``model.parity_snapshot(new_data)`` exports coefficients, predictions, smoothing parameters, and optional covariance summaries for numerical validation. It supports comparisons against reference implementations.

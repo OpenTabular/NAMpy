@@ -12,7 +12,7 @@ Gradient-trained neural estimators share the following fit controls:
 .. code-block:: python
 
    from nampy.models import NAMRegressor
-   
+
    model = NAMRegressor()
    model.fit(X_train, y_train, max_epochs=100, lr=1e-3)
 
@@ -49,20 +49,6 @@ Other architecture configurations may override optimizer settings.
      - Fraction of data for validation
      - 0.2
      - 0.1-0.3
-
-Complete Example
-~~~~~~~~~~~~~~~~
-
-.. code-block:: python
-
-   model.fit(
-       X_train,
-       y_train,
-       max_epochs=150,           # Train for up to 150 epochs
-       lr=1e-4,                  # Learning rate
-       patience=10,              # Stop if no improvement for 10 epochs
-       val_size=0.2              # Use 20% for validation
-   )
 
 Early Stopping
 --------------
@@ -241,17 +227,17 @@ Manual Search
 
    best_score = -np.inf
    best_params = None
-   
+
    for lr in [1e-5, 1e-4, 1e-3]:
        for dropout in [0.1, 0.3, 0.5]:
            model = NAMRegressor(dropout=dropout)
            model.fit(X_train, y_train, max_epochs=50, lr=lr)
            score = model.score(X_val, y_val)
-           
+
            if score > best_score:
                best_score = score
                best_params = {'lr': lr, 'dropout': dropout}
-   
+
    print(f"Best params: {best_params}")
 
 Use validation rows to choose hyperparameters and checkpoints. Keep test rows
@@ -261,64 +247,65 @@ interval calibration. Compare probability predictions and reliability in
 :doc:`../notebooks/05_real_data_classification`, or quantile coverage and
 interval width in :doc:`../in_depth/quantile_calibration`.
 
-Using scikit-learn
-~~~~~~~~~~~~~~~~~~
+Cross-validation
+~~~~~~~~~~~~~~~~
+
+Cross-validation evaluates a fitting procedure across several train–validation splits. Any transformation learned from the data must be fitted separately within each training fold.
+
+Use cross-validation to choose settings on the development data, then evaluate the selected procedure on a separate test set. This example uses only the numerical columns ``x1`` and ``x2``; the group feature is excluded.
 
 .. code-block:: python
 
-   from sklearn.model_selection import cross_val_score
-   
-   model = NAMRegressor()
-   scores = cross_val_score(
-       model, X, y, cv=5,
-       params={'max_epochs': 50, 'lr': 1e-3}
+   from sklearn.model_selection import train_test_split
+   from nampy.models import GAMRegressor
+
+   from sklearn.model_selection import GridSearchCV, KFold, cross_val_score
+
+   X_development, X_test, y_development, y_test = train_test_split(
+       X[["x1", "x2"]], y, test_size=0.2, random_state=7
    )
-   
-   print(f"CV Score: {scores.mean():.4f} (+/- {scores.std():.4f})")
+   numeric_X = X_development[["x1", "x2"]]
+   model = GAMRegressor(optimize_smoothing=False, smoothing_method="fixed", smoothing_params=[0.7, 0.7])
+   cv = KFold(n_splits=10, shuffle=True, random_state=7)
+   cv_scores = cross_val_score(model, numeric_X, y_development, cv=cv, scoring="r2")
 
-Training Tips
--------------
+   search = GridSearchCV(
+       model,
+       {"k": [6, 9]},
+       cv=cv,
+       scoring="neg_mean_squared_error",
+   ).fit(numeric_X, y_development)
 
-1. **Start with defaults** - nampy's defaults work well for most cases
-2. **Use early stopping** - Set `patience` to monitor a validation criterion
-3. **Monitor validation loss** - Ensure the model is learning
-4. **Try different learning rates** - Start with 1e-4, adjust as needed
-5. **Use GPU** - Significantly speeds up training
-6. **Validate on held-out data** - Don't overfit to training set
+   pd.DataFrame({
+       "Mean CV R2": [float(cv_scores.mean())],
+       "Selected basis dimension": [search.best_params_["k"]],
+   }).style.hide(axis="index").format({"Mean CV R2": "{:.3f}"})
 
-Common Issues
--------------
+The selected model is refit on the development rows. Evaluate
+``search.best_estimator_`` on ``X_test`` and ``y_test`` once to report final
+performance.
 
-Model Not Converging
-~~~~~~~~~~~~~~~~~~~~
+Troubleshooting
+---------------
 
-* **Reduce learning rate**: Try 1e-5 instead of 1e-4
-* **Increase max_epochs**: Give the model more time
-* **Check data**: Ensure features and target are properly scaled
+.. list-table::
+   :header-rows: 1
 
-Overfitting
-~~~~~~~~~~~
-
-* **Increase dropout**: Try 0.5 instead of 0.3
-* **Add weight_decay**: Try 1e-5 or 1e-4
-* **Use early stopping**: Set patience=10
-* **Get more data**: If possible
-
-Underfitting
-~~~~~~~~~~~~
-
-* **Increase model capacity**: Larger `layer_sizes`
-* **Train longer**: More `max_epochs`
-* **Reduce regularization**: Lower dropout, weight_decay
-* **Try different preprocessing**: PLE often works well
-
-Slow Training
-~~~~~~~~~~~~~
-
-* **Use GPU**: Check `torch.cuda.is_available()`
-* **Reduce max_epochs**: Start with 50 for experimentation
-* **Use smaller model**: Reduce `layer_sizes`
-* **Reduce n_bins**: Fewer bins = faster training
+   * - Symptom
+     - Checks
+     - Possible adjustment
+   * - Loss does not decrease
+     - Check input/target scales, finite values, and loss history.
+     - Try a smaller learning rate or more epochs.
+   * - Training improves while validation deteriorates
+     - Check the split and checkpoint criterion.
+     - Use early stopping, dropout, or weight decay.
+   * - Both training and validation fit poorly
+     - Check preprocessing, optimization, and model capacity.
+     - Increase capacity or reduce excessive regularization.
+   * - Training is slow
+     - Profile batch time and check the selected device.
+     - Use an available GPU, larger batches, or a smaller architecture.
 
 Next Steps
 ----------

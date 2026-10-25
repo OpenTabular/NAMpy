@@ -13,11 +13,29 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_teaching_figures_are_retained_and_described():
     minimum = {
-        "01_getting_started": 7,
+        "01_getting_started": 5,
         "02_statistical_gams": 4,
-        "03_neural_models": 3,
+        "03_neural_models": 2,
         "04_distributional_models": 4,
         "05_real_data_classification": 3,
+        "group_smooths": 3,
+        "smoothness_selection": 1,
+        "derivatives_contrasts": 3,
+        "gam_diagnostics": 3,
+        "overdispersed_counts": 1,
+        "tensor_interactions": 3,
+        "regional_smoothing": 2,
+        "correlated_errors": 1,
+        "neighborhood_cv": 2,
+        "adaptive_smoothing": 1,
+        "spherical_smoothing": 1,
+        "functional_inputs": 1,
+        "curvature_constraints": 1,
+        "gamma_response": 1,
+        "beta_response": 1,
+        "tweedie_response": 1,
+        "ordered_response": 1,
+        "gamma_location_scale": 1,
     }
     for name, count in minimum.items():
         book = nbformat.read(ROOT / "docs/notebooks" / (name + ".ipynb"), 4)

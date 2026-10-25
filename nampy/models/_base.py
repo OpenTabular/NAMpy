@@ -25,6 +25,15 @@ from ._data import prepare_fit_features, prepare_predict_features
 EstimatorT = TypeVar("EstimatorT", bound="NeuralEstimatorBase")
 
 
+def _training_tensor(value, *, device=None):
+    """Convert training inputs without sharing read-only NumPy storage."""
+    if value is None:
+        return None
+    if isinstance(value, np.ndarray) and not value.flags.writeable:
+        value = value.copy()
+    return torch.as_tensor(value, device=device)
+
+
 @dataclass
 class TrainingPlan:
     """Task-specific wiring for the shared neural training engine.
@@ -622,20 +631,17 @@ class NeuralEstimatorBase(BaseEstimator):
         )
         val_cat, val_num = self.data_module.preprocess_tensors(self.data_module.X_val)
 
-        def optional_tensor(value):
-            return None if value is None else torch.as_tensor(value)
-
         architecture_config = self._prepare_architecture_config(
             self.config,
             train_num_features=train_num,
             train_cat_features=train_cat,
-            train_targets=torch.as_tensor(self.data_module.y_train),
+            train_targets=_training_tensor(self.data_module.y_train),
             val_num_features=val_num,
             val_cat_features=val_cat,
-            val_targets=torch.as_tensor(self.data_module.y_val),
+            val_targets=_training_tensor(self.data_module.y_val),
             objective=plan.objective,
-            train_offset=optional_tensor(self.data_module.offset_train),
-            train_sample_weight=optional_tensor(self.data_module.sample_weight_train),
+            train_offset=_training_tensor(self.data_module.offset_train),
+            train_sample_weight=_training_tensor(self.data_module.sample_weight_train),
             random_state=random_state,
         )
         # Data-driven setup must not make final architecture initialization
@@ -775,17 +781,17 @@ class NeuralEstimatorBase(BaseEstimator):
                 self.model.model.fit_native(
                     train_num_features=train_num,
                     train_cat_features=train_cat,
-                    train_targets=torch.as_tensor(self.data_module.y_train),
+                    train_targets=_training_tensor(self.data_module.y_train),
                     val_num_features=val_num,
                     val_cat_features=val_cat,
-                    val_targets=torch.as_tensor(self.data_module.y_val),
+                    val_targets=_training_tensor(self.data_module.y_val),
                     objective=plan.objective,
-                    train_offset=optional_tensor(self.data_module.offset_train),
-                    val_offset=optional_tensor(self.data_module.offset_val),
-                    train_sample_weight=optional_tensor(
+                    train_offset=_training_tensor(self.data_module.offset_train),
+                    val_offset=_training_tensor(self.data_module.offset_val),
+                    train_sample_weight=_training_tensor(
                         self.data_module.sample_weight_train
                     ),
-                    val_sample_weight=optional_tensor(
+                    val_sample_weight=_training_tensor(
                         self.data_module.sample_weight_val
                     ),
                     random_state=random_state,

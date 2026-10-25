@@ -353,7 +353,7 @@ def statistical_text(cls):
     ]:
         if hasattr(cls, method):
             text += f".. automethod:: nampy.models.{name}.{method}\n   :no-index:\n\n"
-    text += "Complete examples\n~~~~~~~~~~~~~~~~~\n\nSee the :doc:`complete fitting examples </tutorials/modeling_workflows>` for executable data setup, fitted predictions, component tables, and plots.\n"
+    text += "Complete examples\n~~~~~~~~~~~~~~~~~\n\nSee the :doc:`homepage fitting examples </index>` for executable data setup, fitted predictions, component tables, and plots.\n"
     return text
 
 

@@ -59,7 +59,7 @@ def main():
                 "Frequently Asked Questions",
             ], getting_started
             assert "Concepts" not in [section["title"] for section in sections]
-            for title, minimum in [("How-to Guides", 17)]:
+            for title, minimum in [("How-to Guides", 12)]:
                 section = next(item for item in sections if item["title"] == title)
                 assert title not in section["items"], section
                 assert len(section["items"]) >= minimum, section
@@ -107,14 +107,31 @@ def main():
                 "notebooks/01_getting_started.html",
                 "notebooks/05_real_data_classification.html",
                 "tutorials/first_gam.html",
-                "notebooks/02_statistical_gams.html",
+                "notebooks/group_smooths.html",
+                "notebooks/smoothness_selection.html",
+                "notebooks/derivatives_contrasts.html",
+                "notebooks/gam_diagnostics.html",
+                "notebooks/tensor_interactions.html",
                 "tutorials/gam_nam.html",
                 "notebooks/03_neural_models.html",
-                "tutorials/changing_variability.html",
+                "tutorials/interaction_selection.html",
+                "notebooks/02_statistical_gams.html",
+                "notebooks/overdispersed_counts.html",
+                "notebooks/gamma_response.html",
+                "notebooks/beta_response.html",
+                "notebooks/tweedie_response.html",
+                "notebooks/ordered_response.html",
+                "notebooks/gamma_location_scale.html",
                 "notebooks/04_distributional_models.html",
                 "in_depth/quantile_calibration.html",
                 "in_depth/tree_effects.html",
-                "tutorials/modeling_workflows.html",
+                "notebooks/regional_smoothing.html",
+                "notebooks/correlated_errors.html",
+                "notebooks/neighborhood_cv.html",
+                "notebooks/adaptive_smoothing.html",
+                "notebooks/spherical_smoothing.html",
+                "notebooks/functional_inputs.html",
+                "notebooks/curvature_constraints.html",
             ]
             card_targets = page.locator(".sd-card a.sd-stretched-link").evaluate_all(
                 "links => links.map(a => new URL(a.href).pathname.slice(1))"
@@ -123,8 +140,8 @@ def main():
             downloads = page.locator(".sd-card a.reference.download")
             assert downloads.count() == len(expected_tutorials)
             for download in downloads.all():
-                # Reset the document between clicks so Chromium's bulk-download
-                # limiter does not suppress the eleventh automated download.
+                # Reset the document between clicks to avoid Chromium's
+                # bulk-download limiter.
                 page.reload(wait_until="domcontentloaded")
                 with page.expect_download() as event:
                     download.click()

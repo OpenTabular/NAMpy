@@ -3,11 +3,6 @@ Fit and diagnose a GAM
 
 .. include:: ../_includes/first_gam_walkthrough.inc
 
-Other smooth structures
------------------------
+The fitted model captures the temperature relationship and daily cycle, and the residual and basis checks do not indicate a clear problem in this example.
 
-The cyclic hour effect is one way to encode knowledge about a predictor. The following two examples use separate synthetic datasets to illustrate shape constraints and joint effects.
-
-.. include:: ../_includes/tutorial_monotone_effect.inc
-
-.. include:: ../_includes/tutorial_interaction_surface.inc
+If a smooth appeared too restrictive, we would increase its basis dimension and refit. If residual structure remained after allowing sufficient flexibility, we would reconsider the model terms or response distribution.

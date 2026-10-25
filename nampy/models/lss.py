@@ -10,7 +10,7 @@ from ..neural.distributions.registry import (
     resolve_family,
 )
 from ..neural.objectives import DistributionObjective
-from ._base import NeuralEstimatorBase, TrainingPlan
+from ._base import NeuralEstimatorBase, TrainingPlan, _training_tensor
 
 
 class NeuralLSS(NeuralEstimatorBase):
@@ -298,7 +298,7 @@ class NeuralLSS(NeuralEstimatorBase):
                 if isinstance(y_true, (pd.Series, pd.DataFrame))
                 else y_true
             )
-            y_tensor = torch.as_tensor(target, device=raw_pred.device)
+            y_tensor = _training_tensor(target, device=raw_pred.device)
             nll = self.model.objective.compute_loss(raw_pred, y_tensor)
             loss_name = (
                 "pinball_loss"

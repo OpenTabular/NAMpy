@@ -1,3 +1,5 @@
+:orphan:
+
 Published PreTab compatibility
 ==============================
 
@@ -28,49 +30,6 @@ NAMpy relies on the following published PreTab 0.0.3 behavior:
 High-level NAMpy estimators discover the supported constructor parameters from
 the installed ``Preprocessor``. Unsupported names continue to raise an explicit
 ``TypeError`` rather than being ignored.
-
-Removed requirements
---------------------
-
-The following extended PreTab surfaces are no longer required or configured by
-NAMpy:
-
-``output_granularity``
-   NAMpy no longer asks PreTab to split every encoded output column into a
-   separate dictionary entry. Multi-column representations remain grouped by
-   source feature.
-
-``output_order``
-   NAMpy no longer requests categorical-first or original-input ordering. It
-   consumes PreTab's numerical-then-categorical block order.
-
-``output_scaling`` and ``output_range``
-   NAMpy no longer requests a second scaler over the fully encoded matrix.
-   NAM, NBM, SPAM, and NBM-SPAM use PreTab's supported numerical
-   ``scaling_strategy="minmax"`` preprocessing instead. This scaler maps numerical
-   inputs to ``[-1, 1]``; categorical one-hot values remain ``0`` or ``1``.
-
-Quantile fit controls
-   ``quantile_n_quantiles``, ``quantile_output_distribution``, and
-   ``quantile_noise`` are no longer exposed by NAMpy examples or required by
-   its tests. ``numerical_preprocessing="quantile"`` remains supported with
-   PreTab's own behavior.
-
-Generic representation parameters
-   NAMpy no longer relies on ``representation_params`` or mapping-valued
-   per-feature specifications such as
-   ``{"x": {"method": "...", ...}}``. PreTab's supported
-   ``feature_preprocessing`` form remains available.
-
-TF-IDF categorical representation
-   The extended ``tfidf`` representation is no longer advertised or tested.
-   Text features must use a representation supported by the published PreTab
-   release or be prepared before they reach NAMpy.
-
-Atomic transformed-column metadata
-   NAMpy no longer expects ``output_index`` metadata or synthesized metadata
-   entries for individual encoded columns. Block dictionary order and each
-   block's ``dimension`` are the canonical layout contract.
 
 Model impact
 ------------
@@ -123,14 +82,4 @@ GAM backend
 
 ``nampy.gam`` does not import or use PreTab and is completely unaffected.
 
-Behavioral consequences
-------------------------
-
-This compatibility target guarantees that the supported neural estimators can
-be constructed, cloned, fitted, and used with published PreTab 0.0.3. It does
-not claim preprocessing parity with every model's reference repository. In
-particular, encoded scaling, categorical NAM topology, transformed-column
-ordering, and optional quantile or TF-IDF representations can differ.
-
-Users needing an unsupported representation should request it in PreTab rather
-than adding a second generic preprocessing implementation to NAMpy.
+For historical changes, see :doc:`../development/pretab_migration`.

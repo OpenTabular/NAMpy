@@ -69,8 +69,7 @@ estimate smoothing from the data. After fitting, inspect effective degrees of
 freedom, residual patterns, and ``k_check()``. A basis-dimension diagnostic is
 a warning tool rather than a universal acceptance test.
 
-See :doc:`../tutorials/first_gam` for a complete example and
-:ref:`statistical-gam-tools` for the available bases and fitting controls.
+The tutorial :doc:`../tutorials/first_gam` shows these choices in a complete fit. The :doc:`../api/gam` reference documents the available bases, criteria, and fitting controls.
 
 Model interfaces
 ----------------
@@ -166,7 +165,7 @@ Smooth options
      - ``s(x, sp=0.5)``
    * - ``select=True``
      - Add null-space shrinkage for term selection.
-     - ``s(x, select=True)``
+     - ``GAM(formula="y ~ s(x)", select=True)``
    * - ``pc=``
      - Apply a point constraint when supported by the basis.
      - ``s(x, pc=0.0)``
@@ -326,10 +325,6 @@ Prediction and term inspection
    * - ``save_model`` / ``load_model``
      - Persist and restore a fitted statistical GAM.
      - ``GAM.load_model("model.pkl")``
-   * - ``parity_snapshot``
-     - Export coefficients, predictions, smoothness, and optional covariance
-       summaries for numerical validation.
-     - ``model.parity_snapshot(new)``
 
 Inference and diagnostics
 -------------------------
@@ -380,32 +375,4 @@ Inference and diagnostics
      - Per-coefficient upper-bound effective degrees of freedom.
      - ``model.edf1()``
 
-Advanced public utilities
--------------------------
-
-These symbols support custom fitting, testing, and extensions. Most analyses
-should use ``GAM`` or the estimator classes above.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 31 44 25
-
-   * - Symbol
-     - Purpose
-     - Import
-   * - ``GAMControl`` / ``gam_control``
-     - Typed and validated fitting controls.
-     - ``from nampy.gam import gam_control``
-   * - ``fit_model_core``
-     - Compile and fit a configured GAM object.
-     - ``from nampy.gam import fit_model_core``
-   * - ``solve_fit``
-     - Dispatch a fixed-smoothing solve to the available backend.
-     - ``from nampy.gam import solve_fit``
-   * - ``FitCoreSolution``
-     - Structured result returned by the low-level fitting stage.
-     - ``from nampy.gam import FitCoreSolution``
-   * - ``normalize_nei``
-     - Validate neighborhood indices used by neighborhood cross-validation.
-     - ``from nampy.gam import normalize_nei``
-
+For low-level fitting and extension interfaces, see :doc:`../api/gam_advanced`.

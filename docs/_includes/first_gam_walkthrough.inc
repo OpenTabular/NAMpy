@@ -32,7 +32,7 @@ Demand rises at very low and very high temperatures and follows a daily cycle. W
 Choose the smooths
 ------------------
 
-Temperature gets a cubic regression spline. Hour gets a cyclic cubic spline so that the fitted curve joins at the start and end of the day. The basis dimension k limits the available flexibility; REML selects the smoothing strength within that basis.
+Temperature gets a cubic regression spline. Hour gets a cyclic cubic spline so that the fitted curve joins at the start and end of the day. The boundaries are fixed at 0 and 24 hours through ``knots``. The basis dimension k limits the available flexibility; REML selects the smoothing strength within that basis.
 
 .. code-block:: python
 
@@ -44,6 +44,7 @@ Temperature gets a cubic regression spline. Hour gets a cyclic cubic spline so t
            '+ s(hour, bs="cc", k=12)'
        ),
        family="gaussian",
+       knots={"hour": [0.0, 24.0]},
    )
    model.fit(train)
 
@@ -129,7 +130,7 @@ The residual plot shows the errors left after fitting the temperature and hour e
                    k_prime    edf  k_index  p_value
    label
    s(temperature)        11  9.977     1.028     0.75
-   s(hour)               10  7.114     1.001     0.70
+   s(hour)               10  7.116     1.001     0.70
 
 
 The diagnostic gives no indication that either basis is too small here. If it suggested remaining structure, we would increase the relevant k, refit, and check whether the curve and residuals changed.

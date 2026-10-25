@@ -1,7 +1,7 @@
 Recover step-shaped effects with additive trees
 ===============================================
 
-Some feature effects change at thresholds rather than varying smoothly. We will fit TreeNAM and EnsembleTreeNAM to a response with step changes in age and income and a shift for each region. Since the effects are known, we can compare both predictions and recovered shapes.
+Some relationships change abruptly rather than smoothly. We will simulate step-shaped feature effects, fit an additive tree model and a joint ensemble, and compare their predictions and recovered effects.
 
 Create step-shaped effects
 --------------------------

@@ -44,14 +44,6 @@ Using PreTab with NAMpy
       data_module.setup_data(X_train, y_train, val_size=0.2)
       # Use data_module with Lightning Trainer and NAMpy base models
 
-Preprocessor contract
----------------------
-
-Any preprocessor supplied to the neural data module must:
-
-* Implement ``fit(X, y)`` and ``transform(X)``.
-* Expose ``get_feature_info(verbose=False)`` returning a tuple ``(num_feature_info, cat_feature_info, emb_feature_info)`` — three dicts of feature names to metadata (e.g. ``preprocessing``, ``dimension``) so that NAMpy can build the right input tensors.
-
 Accessing the preprocessor
 --------------------------
 
@@ -66,3 +58,5 @@ After fitting a sklearn-style model, the preprocessor is available as ``model.pr
 For full PreTab options and API, see the `PreTab project <https://pypi.org/project/pretab/>`_.
 NAMpy's supported contract and the model-specific consequences of grouped
 feature blocks are documented in :doc:`pretab_compatibility`.
+
+Custom preprocessing interfaces are described in :doc:`custom_models`.

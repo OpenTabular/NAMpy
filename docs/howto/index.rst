@@ -3,9 +3,7 @@
 How-to Guides
 =============
 
-Choose the task you need to complete. Each guide explains the relevant ideas
-alongside the code. For a complete analysis from data to results, start with
-:doc:`../tutorials/index`.
+Use these guides to complete a specific task with NAMpy. For a worked analysis with data, fitted results, and interpretation, see the :doc:`tutorials <../tutorials/index>`.
 
 Prepare and fit
 ---------------
@@ -25,13 +23,13 @@ Prepare and fit
 
       Choose fitting controls, validation strategy, and hyperparameters.
 
-   .. grid-item-card:: Specify and diagnose a statistical GAM
+   .. grid-item-card:: Statistical GAM guide
       :link: /user_guide/statistical_gams
       :link-type: doc
 
       Choose bases and smoothing penalties, then inspect residuals, inference, and diagnostics.
 
-   .. grid-item-card:: Model location and spread
+   .. grid-item-card:: Distributional GAM guide
       :link: /user_guide/gamlss
       :link-type: doc
 
@@ -49,23 +47,11 @@ Control the model structure
 
       Choose a joint smooth or an explicit neural interaction.
 
-   .. grid-item-card:: Select interactions
-      :link: interaction_selection
-      :link-type: doc
-
-      Use validation evidence and interaction discovery before the final test evaluation.
-
-   .. grid-item-card:: Impose monotonicity
-      :link: monotonicity
-      :link-type: doc
-
-      Constrain a smooth to increase or decrease and check its derivative.
-
-   .. grid-item-card:: Choose other shape constraints
+   .. grid-item-card:: Constrain the shape of an effect
       :link: /user_guide/shape_constrained_gams
       :link-type: doc
 
-      Work with curvature, positivity, local constraints, and constrained surfaces.
+      Impose justified monotonicity, curvature, or positivity and inspect the fitted constraint.
 
    .. grid-item-card:: Predict with an offset
       :link: offsets
@@ -100,17 +86,12 @@ Inspect predictions and reuse a fit
 Quick fit recipes
 -----------------
 
-For a short API example rather than a full tutorial:
-
-* :doc:`Fit a neural regressor </examples/basic_regression>`
-* :doc:`Fit a binary classifier </examples/basic_classification>`
-* :doc:`Fit a distributional model </examples/distributional_regression>`
+:doc:`Fit a regression, classification, or distributional model </examples/fit_models>`.
 
 Extensions and compatibility
 ----------------------------
 
 * :doc:`Build a custom neural model </user_guide/custom_models>`
-* :doc:`Check pretab compatibility </user_guide/pretab_compatibility>`
 
 Architecture-specific features, including sparse selection, quantile models,
 and tree ensembles, are described with their assumptions and examples in

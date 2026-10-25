@@ -1,13 +1,17 @@
 Save and Reload a Model
 =======================
 
+Save the fitted estimator together with any preprocessing performed outside it. After loading, check that predictions agree on the same input rows before applying the model to new data.
+
 Neural estimators expose a versioned persistence interface:
 
 .. code-block:: python
 
+   import numpy as np
+
    model.save_model("nam.pkl")
    restored = NAMRegressor.load_model("nam.pkl")
-   prediction = restored.predict(X_test)
+   np.testing.assert_allclose(restored.predict(X_test), model.predict(X_test))
 
 For statistical models, serialize the fitted estimator with ``joblib``:
 
@@ -17,6 +21,7 @@ For statistical models, serialize the fitted estimator with ``joblib``:
 
    dump(model, "gam.joblib")
    restored = load("gam.joblib")
+   np.testing.assert_allclose(restored.predict(X_test), model.predict(X_test))
 
 Store the package version and the model specification with the artifact so a
 future analysis can reproduce the same environment.

@@ -20,6 +20,8 @@ from sklearn.metrics import mean_absolute_error, r2_score
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = ROOT / "docs/_static"
 OUTPUT = ROOT / "docs/_generated"
+# Fixed predictor bins are declared before fitting or inspecting test outcomes.
+QUANTILE_AGE_BINS = [18, 31, 44, 57, 70]
 
 
 def csv_table(name, title, frame):
@@ -163,6 +165,29 @@ def main():
         "detailed_quantile_coverage",
         "Quantile calibration on untouched test rows",
         coverage,
+    )
+    age_bins = pd.cut(quantile["X_test"].age, QUANTILE_AGE_BINS, include_lowest=True)
+    grouped_coverage = []
+    for interval_label in age_bins.cat.categories:
+        rows = np.asarray(age_bins == interval_label)
+        grouped_coverage.append(
+            {
+                "Age bin": str(interval_label),
+                "Test observations": int(rows.sum()),
+                **{
+                    f"Fraction below q={level:g}": float(
+                        np.mean(y[rows] <= prediction[rows, i])
+                    )
+                    if rows.any()
+                    else np.nan
+                    for i, level in enumerate(levels)
+                },
+            }
+        )
+    csv_table(
+        "detailed_quantile_binned_coverage",
+        "Quantile coverage across predefined age bins",
+        pd.DataFrame(grouped_coverage),
     )
     interval = pd.DataFrame(
         [

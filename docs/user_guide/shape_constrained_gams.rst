@@ -7,21 +7,23 @@ dose effect may be expected to increase but not decrease over the studied
 range. A constrained smooth encodes that assumption during fitting; it is not
 a visual adjustment applied afterward.
 
+.. _tutorial-monotone:
+
 Compare an unconstrained and monotone fit
 -----------------------------------------
 
-The only formula change below is the basis code. ``cr`` fits an ordinary cubic
-regression spline, while ``mpi`` fits a monotone-increasing P-spline.
+Both fits use P-spline bases with dimension 12 and select smoothing by GCV using BFGS. The ordinary ``ps`` basis permits either direction; the SCAM-related ``mpi`` basis imposes monotone increase.
 
 .. code-block:: python
 
    from nampy.gam import GAM
 
    ordinary = GAM(
-       formula='y ~ s(x, bs="cr", k=12)',
+       formula='y ~ s(x, bs="ps", k=12)',
        family="gaussian",
        optimize_smoothing=True,
-       smoothing_method="reml",
+       smoothing_method="gcv",
+       smoothing_optimizer="bfgs",
    ).fit(data)
 
    increasing = GAM(
@@ -59,6 +61,10 @@ Check the derivative over the fitted range and report the scientific reason
 for imposing the constraint. A nonnegative derivative confirms what the
 chosen basis enforces; it is not an independent test that monotonicity is true.
 
+.. image:: ../_static/shape_constraint_derivative.png
+   :alt: Fitted monotone smooth derivative with a pointwise uncertainty band and zero reference
+   :class: scientific-figure
+
 Fit a constrained smooth
 ------------------------
 
@@ -92,44 +98,17 @@ parameters.
 Univariate bases
 ----------------
 
-The supported univariate basis codes are:
-
-* monotone: ``mpi`` and ``mpd``;
-* convex/concave: ``cx`` and ``cv``;
-* joint monotonicity and curvature: ``micx``, ``micv``, ``mdcx``, and
-  ``mdcv``;
-* positive: ``po``, ``ipo``, ``dpo``, and cyclic-positive ``cpop``;
-* anchored monotone: ``miso`` (start at zero) and ``mifo`` (finish at zero);
-* numeric-by variants without the ordinary centering constraint:
-  ``mpiby``, ``mpdby``, ``micxby``, ``micvby``, ``mdcxby``, ``mdcvby``,
-  ``cxby``, and ``cvby``;
-* local constraints: ``lmpi`` and ``lipl``.  Supply the change point as
-  ``xt=list(xc=...)`` in the formula.
-
-For example::
-
-   local = GAM(
-       formula="y ~ s(x, bs='lmpi', k=12, xt=list(xc=0.4))",
-       family="gaussian",
-       smoothing_method="fixed",
-       smoothing_params=[0.7],
-   ).fit(data=df)
+Representative choices are ``mpi``/``mpd`` for increasing/decreasing effects,
+``cx``/``cv`` for curvature, and ``po`` for positivity. Local constraints can
+encode a justified change point. The exhaustive codes and their arguments
+are listed in :doc:`../api/gam_smooths`.
 
 Bivariate bases
 ---------------
 
-All 17 bivariate classes from the upstream release are available:
-``tedmi``, ``tedmd``, ``temicx``, ``temicv``, ``tedecx``, ``tedecv``,
-``tecxcx``, ``tecvcv``, ``tecxcv``, ``tescx``, ``tescv``, ``tesmi1``,
-``tesmd1``, ``tesmi2``, ``tesmd2``, ``tismi``, and ``tismd``.  They are
-written as two-covariate ``s()`` terms::
-
-   surface = GAM(
-       formula="y ~ s(x, z, bs='tedmi', k=c(6, 5), m=c(2, 2))",
-       family="gaussian",
-       smoothing_method="fixed",
-       smoothing_params=[0.4, 0.6],
-   ).fit(data=df)
+A constrained surface can use, for example, ``s(x, z, bs='tedmi', k=c(6, 5))``
+for a supported monotonicity construction. Check the direction and margin
+semantics in :doc:`../api/gam_smooths` before choosing a basis.
 
 Linear functionals
 ------------------
@@ -171,44 +150,11 @@ Continuous quantile residuals are available with
 ``residuals(type="rquantile")`` in addition to ``deviance``, ``pearson``,
 ``scaled.pearson``, ``working``, and ``response``.
 
-Gaussian AR(1) errors
----------------------
-
-For any supported Gaussian identity-link GAM, constrained or ordinary,
-supply a known correlation and optional starts of independent series::
-
-   model = GAM(
-       formula="y ~ s(time, bs='mpi')",
-       family="gaussian",
-       ar1_rho=0.6,
-       ar_start="new_series",
-       smoothing_method="fixed",
-       smoothing_params=[0.5],
-   ).fit(data=df)
-
-``ar_start`` may instead be a boolean array. Standardized response residuals
-are returned by ``ar1_standardized_residuals()``. Fixed smoothing and GCV use
-the shared observation transform. For ordinary Gaussian identity models with unknown scale, ML/REML/LAML use
-the determinant-corrected bam route. Transformed-coefficient SCAM models
-continue to reject automatic ML/REML/LAML selection. Non-Gaussian and
-non-identity observation-transform likelihoods are rejected before fitting.
-
-How constraints are fitted
---------------------------
-
-NAMpy follows the ``scam`` 1.2-22 definitions for shape-constrained
-P-splines. The runtime term constructs the basis, penalty, prediction matrix,
-and derivative matrices. A coefficient transform maps unconstrained optimizer
-coordinates to coefficients that satisfy the requested shape and transports
-covariance into that prediction space.
-
-These transforms are term-local. A formula can therefore combine constrained
-and ordinary smooths, and the resulting model continues to use the statistical
-engine's prediction, inference, residual, derivative, and result interfaces.
-Observation transforms, including supported Gaussian AR(1) whitening, are
-applied consistently to the response, offset, and design matrix.
+For correlated Gaussian errors, see :doc:`../notebooks/correlated_errors`.
 
 Current boundaries
 ------------------
 
-.. include:: ../_includes/optimizer_support.inc
+For transformed shape-constrained models, use fixed smoothing or a supported GCV/UBRE route. Automatic ML, REML, and LAML selection is not available for these models. The compatibility reference lists restrictions for multi-parameter models and other combinations.
+
+See :doc:`../api/gam_advanced` for fitting compatibility and coefficient-space details.

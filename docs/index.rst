@@ -193,18 +193,13 @@ Contributors
    Specify and diagnose a statistical GAM <user_guide/statistical_gams>
    Model location and spread <user_guide/gamlss>
    Add an interaction <howto/interactions>
-   Select interactions <howto/interaction_selection>
-   Impose monotonicity <howto/monotonicity>
-   Choose other shape constraints <user_guide/shape_constrained_gams>
+   Constrain the shape of an effect <user_guide/shape_constrained_gams>
    Predict with an offset <howto/offsets>
    Interpret and plot effects <user_guide/interpretability>
    Choose a prediction output <howto/prediction_outputs>
+   Fit a regression, classification, or distributional model <examples/fit_models>
    Save and reload a model <howto/persistence>
-   Quick regression recipe <examples/basic_regression>
-   Quick classification recipe <examples/basic_classification>
-   Quick distributional recipe <examples/distributional_regression>
    Build a custom neural model <user_guide/custom_models>
-   Check pretab compatibility <user_guide/pretab_compatibility>
 
 .. toctree::
    :caption: Reference

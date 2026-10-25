@@ -39,7 +39,11 @@ def test_introductory_regression_renders_real_effect_figures(tmp_path, monkeypat
     import matplotlib.pyplot as plt
 
     monkeypatch.chdir(tmp_path)
-    source = (ROOT / "docs/examples/basic_regression.rst").read_text()
+    page = (ROOT / "docs/examples/fit_models.rst").read_text()
+    source = (
+        page.split("Predict class probabilities", 1)[0]
+        + page[page.index("Inspect multiple outputs") :]
+    )
     blocks = re.findall(
         r"^\.\. code-block:: python\n\n((?:(?:   [^\n]*)?\n)+)", source, re.M
     )
@@ -118,7 +122,7 @@ def test_validation_report_checks_observed_term_kinds(kind):
         ),
         (
             "user_guide/custom_models.rst",
-            "Complete Example",
+            "Build an attentive model",
             "assert np.isfinite(predictions).all()\nassert len(predictions) == len(X_test)",
         ),
     ],
@@ -133,8 +137,14 @@ def test_model_guide_snippets_run_in_clean_sessions(
     source = (ROOT / "docs" / document).read_text()
     if section:
         source = source.split(section, 1)[1]
-    block = re.search(r"\.\. code-block:: python\n\n((?:(?:   [^\n]*)?\n)+)", source)[1]
-    code = textwrap.dedent(block).replace("max_epochs=20", "max_epochs=2")
+    if document == "user_guide/custom_models.rst":
+        source = source.split("Important Notes", 1)[0]
+    blocks = re.findall(r"\.\. code-block:: python\n\n((?:(?:   [^\n]*)?\n)+)", source)
+    if document != "user_guide/custom_models.rst":
+        blocks = blocks[:1]
+    code = "\n".join(textwrap.dedent(block) for block in blocks).replace(
+        "max_epochs=20", "max_epochs=2"
+    )
     script = tmp_path / "documented_example.py"
     script.write_text(code + "\n" + checks + "\n")
     result = subprocess.run(

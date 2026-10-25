@@ -1,7 +1,9 @@
 Fit and assess conditional quantiles
 ====================================
 
-A quantile model estimates selected points of the conditional response distribution. Here we fit the 10th, 50th, and 90th percentiles, then examine whether they recover the simulated quantiles and achieve the expected coverage on test observations.
+A fitted quantile should have a corresponding proportion of observations below it. We will compare estimated quantiles with their known values and examine coverage across the predictor range.
+
+Ordered quantiles avoid crossing, but ordering alone does not ensure accurate coverage.
 
 Generate a response with known quantiles
 ----------------------------------------
@@ -19,6 +21,8 @@ The response has additive location and scale functions with normal noise. Its co
    import numpy as np
    import pandas as pd
    import torch
+
+   age_bin_edges = [18, 31, 44, 57, 70]
    from sklearn.model_selection import train_test_split
    from nampy.models import QNAMLSS
 
@@ -60,6 +64,21 @@ About 10% of outcomes should fall below a well-calibrated 10th-percentile predic
 
 
 .. include:: /_generated/detailed_quantile_coverage.inc
+
+Age bins are fixed at 18, 31, 44, 57, and 70 before examining the test outcomes.
+Within each bin, we compare the fraction below each fitted quantile with its
+nominal level. Counts show how much test evidence supports each comparison.
+
+.. code-block:: python
+
+   age_bins = pd.cut(X_test.age, age_bin_edges, include_lowest=True)
+   binned_coverage = pd.DataFrame({
+       "Age bin": age_bins,
+       **{f"Fraction below q={level:g}": np.asarray(y_test) <= prediction[:, column]
+          for column, level in enumerate(quantiles)},
+   }).groupby("Age bin", observed=False).agg(["mean", "count"])
+
+.. include:: /_generated/detailed_quantile_binned_coverage.inc
 
 .. include:: /_generated/detailed_quantile_interval.inc
 

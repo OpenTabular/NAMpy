@@ -1,13 +1,12 @@
-Select Interactions Without Using Test Outcomes
-===============================================
+Select interactions from validation data
+========================================
 
-Does a main-effects fit miss structure that changes jointly with two inputs?
-This synthetic example first inspects validation residuals, then uses SIAN's
-interaction detector on training/validation data. Test outcomes are used only
-for the final comparison. Allow a few minutes on CPU.
+An additive model can miss a relationship that depends jointly on two inputs. We will first fit a main-effects model, inspect its validation residuals, and then use SIAN to select interaction terms.
 
-Fit a main-effects baseline and inspect validation residuals
-------------------------------------------------------------
+The test outcomes are reserved for the final comparison; they are not used to choose interactions.
+
+Generate data with an interaction
+---------------------------------
 
 .. code-block:: python
 
@@ -27,8 +26,20 @@ Fit a main-effects baseline and inspect validation residuals
    fit_options = dict(max_epochs=100, lr=.01, batch_size=128, patience=15,
                       random_state=43, checkpoint_path=tempfile.mkdtemp(),
                       logger=False, enable_progress_bar=False, enable_model_summary=False)
+
+Fit a main-effects model
+------------------------
+
+.. code-block:: python
+
    baseline = NAMRegressor(layer_sizes=[24, 12], dropout=0., numerical_preprocessing="minmax")
    baseline.fit(X_train, y_train, X_val=X_val, y_val=y_val, **fit_options)
+
+Inspect validation residuals
+----------------------------
+
+.. code-block:: python
+
    residual = y_val.to_numpy()-baseline.predict(X_val)
    residual_association = np.corrcoef(residual, X_val.x*X_val.z)[0,1]
 
@@ -37,8 +48,8 @@ a joint term. The simulation supplies a known interaction; this visual/score
 check alone does not prove that an interaction is needed in an observational
 analysis.
 
-Select terms on training/validation rows, then evaluate once
-------------------------------------------------------------
+Select interaction terms
+------------------------
 
 SIAN fits a reference network on training rows and scores candidate subsets
 using validation inputs. Explicitly setting ``interactions`` or
@@ -56,12 +67,24 @@ interpretation concerns the reported additive terms.
    )
    selected.fit(X_train, y_train, X_val=X_val, y_val=y_val, **fit_options)
    selection_table = selected.interaction_selection_table()
+
+Compare test predictions
+------------------------
+
+.. code-block:: python
+
    interaction_results = pd.DataFrame([
        {"Model": name, "Test n": len(X_test),
         "Test RMSE (lower better)": np.sqrt(mean_squared_error(y_test, model.predict(X_test))),
         "Test R2 (higher better)": r2_score(y_test, model.predict(X_test))}
        for name, model in [("Main effects", baseline), ("Selected SIAN", selected)]
    ])
+
+Inspect the selected interaction
+--------------------------------
+
+.. code-block:: python
+
    grid_values = np.linspace(-1, 1, 45)
    gx, gz = np.meshgrid(grid_values, grid_values)
    grid = pd.DataFrame({"x": gx.ravel(), "z": gz.ravel(), "w": 0.})
@@ -77,6 +100,8 @@ interpretation concerns the reported additive terms.
    figure.colorbar(image, ax=axes[1], label="Centered link contribution")
 
 .. include:: /_generated/interaction_selection_results.inc
+
+The selection table records which candidate interactions were retained. The score summarizes the discovery procedure’s evidence for each candidate; it is not a p-value or a measure of causal importance.
 
 .. include:: /_generated/interaction_detector.inc
 

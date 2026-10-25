@@ -1,8 +1,9 @@
 Predict with an Offset
 ======================
 
-An offset is a known contribution to the linear predictor. Supply it during
-fitting and again for new rows when it cannot be recovered from the formula:
+An offset is a known contribution to the linear predictor with coefficient fixed at one. It must be included consistently during fitting and prediction.
+
+Supply it for new rows when it cannot be recovered from the formula:
 
 .. code-block:: python
 
@@ -56,14 +57,15 @@ per-row offsets: new rows require new offsets, composed before the sigmoid.
    )
    parts = neural.predict_components(X.iloc[test_rows])
    parts.validate_additive_reconstruction(atol=1e-5)
-   base_logit = np.asarray(parts.link)
-   full_logit = base_logit + known_log_odds[test_rows]
-   probability_with_offset = expit(full_logit)
-   np.testing.assert_allclose(neural.predict_proba(X.iloc[test_rows])[:, 1], expit(base_logit), atol=1e-6)
+   model_contribution = np.asarray(parts.link)
+   known_offset = known_log_odds[test_rows]
+   full_linear_predictor = model_contribution + known_offset
+   probability_with_offset = expit(full_linear_predictor)
+   np.testing.assert_allclose(neural.predict_proba(X.iloc[test_rows])[:, 1], expit(model_contribution), atol=1e-6)
    offset_results = pd.DataFrame([{
        "Test n": len(test_rows),
        "Test log loss with supplied offset": log_loss(y[test_rows], probability_with_offset),
-       "Test log loss without offset": log_loss(y[test_rows], expit(base_logit)),
+       "Test log loss without offset": log_loss(y[test_rows], expit(model_contribution)),
    }])
 
 .. include:: /_generated/neural_offset_results.inc
