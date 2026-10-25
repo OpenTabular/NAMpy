@@ -376,3 +376,6 @@ Inference and diagnostics
      - ``model.edf1()``
 
 For low-level fitting and extension interfaces, see :doc:`../api/gam_advanced`.
+
+For fitted illustrations of marginal and joint terms, see the
+:ref:`formula visual reference <formula-visual-reference>`.

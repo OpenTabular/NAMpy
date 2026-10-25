@@ -16,7 +16,7 @@ Choose the prediction method according to the quantity you need: a response pred
      - ``predict(X)``: ``(n,)``
      - Conditional response prediction. Neural multi-output regression returns
        ``(n, outputs)``; inspect component columns explicitly.
-   * - Neural classification
+   * - Statistical ``GAMClassifier`` or neural classification
      - ``predict(X)``: ``(n,)``; ``predict_proba(X)``: ``(n, c)``
      - Labels or probabilities in ``classes_`` order. Binary components add in
        log-odds. Multiclass probability prediction does not imply component support.
@@ -24,7 +24,7 @@ Choose the prediction method according to the quantity you need: a response pred
      - ``predict(X)``: natural family columns; ``predict(X, raw=True)``: raw predictors
      - Normal natural columns are mean and standard deviation. Raw predictors
        have family-specific transforms; statistical and neural raw scales differ.
-   * - Neural LSS point prediction
+   * - Statistical ``GAMLSS`` or neural LSS point prediction
      - ``predict_point(X)``: family-defined point output
      - Uses the fitted family's point functional. Use
        ``plot_distributional_effects`` for supported point/spread displays.
@@ -37,6 +37,23 @@ Choose the prediction method according to the quantity you need: a response pred
      - Intercept, terms and optional offset reconstruct ``link``. ``response``
        applies the objective's response map. A term can be main, interaction,
        contextual or global; reconstruction alone establishes no identifiability.
+
+Inspect a few returned rows
+---------------------------
+
+This statistical example shows labels beside probabilities in ``classes_``
+order, then Normal parameters beside the point prediction. For this family,
+``predict_point`` equals the ``mu`` column; ``sigma`` is a standard deviation.
+
+.. literalinclude:: ../scripts/generate_howto_assets.py
+   :language: python
+   :start-after: # PREDICTIONS START
+   :end-before: # PREDICTIONS END
+   :dedent: 4
+
+.. include:: /_generated/howto_classification_outputs.inc
+
+.. include:: /_generated/howto_distribution_outputs.inc
 
 Choose the display by contribution type
 ---------------------------------------

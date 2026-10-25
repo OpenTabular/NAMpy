@@ -54,6 +54,7 @@ def main():
             }
         ),
     )
+    save(selected["residual_figure"], "interaction_selection_residuals")
     save(selected["figure"], "interaction_selection_workflow")
     plt.close("all")
     print("PASS: documented neural offset and interaction-selection workflows")

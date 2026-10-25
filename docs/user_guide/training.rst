@@ -16,11 +16,8 @@ Gradient-trained neural estimators share the following fit controls:
    model = NAMRegressor()
    model.fit(X_train, y_train, max_epochs=100, lr=1e-3)
 
-Training Parameters
+Training parameters
 -------------------
-
-Common Training Parameters
-~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The defaults below describe ``NAMRegressor`` and its shared ``fit`` defaults.
 Other architecture configurations may override optimizer settings.
@@ -102,17 +99,23 @@ its warm-up/cosine variant.
 Monitoring Training
 -------------------
 
-Training Progress
-~~~~~~~~~~~~~~~~~
+Pass a Lightning logger through ``fit`` to record the actual training and
+validation losses. The worked example below uses ``CSVLogger`` and plots the
+retained checkpoint; the complete logging and plotting code is included.
 
-nampy uses PyTorch Lightning for training, which provides progress bars
-and logging out of the box.
+.. literalinclude:: ../scripts/generate_howto_assets.py
+   :language: python
+   :start-after: # TRAINING START
+   :end-before: # TRAINING END
+   :dedent: 4
 
-Custom Monitoring
-~~~~~~~~~~~~~~~~~
+.. image:: /_static/howto_training.png
+   :alt: Actual training and validation losses with the retained validation checkpoint marked
+   :class: scientific-figure
 
-For more control, pass Lightning trainer callbacks and loggers via
-``**trainer_kwargs`` in ``fit()``.
+The vertical line marks the checkpoint restored after fitting. Later epochs
+can have lower training loss while validation loss deteriorates. Both curves
+are the logged training objectives; they are not held-out test errors.
 
 GPU Training
 ------------
@@ -201,6 +204,9 @@ and set a candidate's parameters without carrying over fitted state:
    candidate = clone(template).set_params(dropout=0.05)
    parameters = candidate.get_params(deep=False)
 
+The following sample-weight and cross-validation recipes use statistical
+``GAMRegressor`` to illustrate controls shared by the estimator interfaces.
+
 Sample weights change each training row's contribution to the fitting
 objective; they are different from a fixed offset in the predictor.
 Using the numerical inputs from :doc:`../notebooks/01_getting_started`:
@@ -221,6 +227,10 @@ Hyperparameter Tuning
 Manual Search
 ~~~~~~~~~~~~~
 
+Use the ``X_train``, ``y_train``, ``X_val``, and ``y_val`` arrays created in
+the logging example above. Every candidate receives the same validation rows
+and random seed; validation selects both checkpoints and hyperparameters.
+
 .. code-block:: python
 
    import numpy as np
@@ -231,7 +241,10 @@ Manual Search
    for lr in [1e-5, 1e-4, 1e-3]:
        for dropout in [0.1, 0.3, 0.5]:
            model = NAMRegressor(dropout=dropout)
-           model.fit(X_train, y_train, max_epochs=50, lr=lr)
+           model.fit(
+               X_train, y_train, X_val=X_val, y_val=y_val,
+               max_epochs=50, lr=lr, random_state=7,
+           )
            score = model.score(X_val, y_val)
 
            if score > best_score:
@@ -252,10 +265,15 @@ Cross-validation
 
 Cross-validation evaluates a fitting procedure across several train–validation splits. Any transformation learned from the data must be fitted separately within each training fold.
 
-Use cross-validation to choose settings on the development data, then evaluate the selected procedure on a separate test set. This example uses only the numerical columns ``x1`` and ``x2``; the group feature is excluded.
+Use cross-validation to choose settings on the development data, then evaluate
+the selected procedure on a separate test set. Here ``X`` is the named
+DataFrame with numerical columns ``x1`` and ``x2`` from
+:doc:`../notebooks/01_getting_started`, and ``y = y_reg`` is its regression
+response. The group feature is excluded.
 
 .. code-block:: python
 
+   import pandas as pd
    from sklearn.model_selection import train_test_split
    from nampy.models import GAMRegressor
 
@@ -277,9 +295,12 @@ Use cross-validation to choose settings on the development data, then evaluate t
    ).fit(numeric_X, y_development)
 
    pd.DataFrame({
-       "Mean CV R2": [float(cv_scores.mean())],
+       "Baseline mean CV R2": [float(cv_scores.mean())],
        "Selected basis dimension": [search.best_params_["k"]],
-   }).style.hide(axis="index").format({"Mean CV R2": "{:.3f}"})
+   }).style.hide(axis="index").format({"Baseline mean CV R2": "{:.3f}"})
+
+The R² above belongs to the baseline, while the basis dimension is chosen
+by a separate negative-MSE search; these are different results.
 
 The selected model is refit on the development rows. Evaluate
 ``search.best_estimator_`` on ``X_test`` and ``y_test`` once to report final

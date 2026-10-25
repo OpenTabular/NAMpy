@@ -6,43 +6,50 @@ preprocessing through constructor keywords, or pass a PreTab instance to the
 low-level neural data module. The statistical GAM backend builds its own
 formula/design matrices and does not use PreTab.
 
-Using PreTab with NAMpy
------------------------
+Configure preprocessing through the estimator
+----------------------------------------------
 
-1. Create a PreTab preprocessor with the options you need (task, n_bins, numerical/categorical strategies, etc.). See the `PreTab documentation <https://pypi.org/project/pretab/>`_ for full options.
+Start with estimator keywords. The estimator fits transformations using its
+training rows and reuses them for validation and prediction; do not fit a new
+preprocessor on prediction rows. The small example below contains numerical
+age and a two-level category. Its final row is new input.
 
-2. Use it either:
+.. include:: /_generated/howto_preprocessing_input.inc
 
-   * **With the high-level sklearn-style API** — pass preprocessor-related keyword arguments when constructing the model; NAMpy will build a PreTab preprocessor internally and use it in ``fit``:
+.. literalinclude:: ../scripts/generate_howto_assets.py
+   :language: python
+   :start-after: # PREPROCESSING START
+   :end-before: # PREPROCESSING END
+   :dedent: 4
 
-   .. code-block:: python
+.. include:: /_generated/howto_preprocessing_blocks.inc
 
-      from nampy.models import NAMRegressor
+.. image:: /_static/howto_preprocessing.png
+   :alt: Feature blocks grouped by original feature, with a separate new-row transformation
+   :class: scientific-figure
 
-      model = NAMRegressor(
-          task="regression",
-          n_bins=50,
-          numerical_preprocessing="ple",  # or other PreTab options
-      )
-      model.fit(X_train, y_train, max_epochs=100)
-      predictions = model.predict(X_test)
+Age occupies one transformed column; the category occupies a one-hot block.
+The dashed boundary separates the new row. Its age and category use the
+already fitted scaling and vocabulary. Because this example also uses an
+internal validation split, the scaling range is determined by the estimator's
+actual training rows, not necessarily all six supplied rows.
 
-   * **With the data module directly** — build a PreTab preprocessor yourself and pass it to :class:`nampy.neural.data.datamodule.NAMpyDataModule`:
+Use PreTab directly with a data module
+--------------------------------------
 
-   .. code-block:: python
+For a custom Lightning workflow, supply a PreTab instance to the data module:
 
-      from pretab.preprocessor import Preprocessor
-      from nampy.neural.data.datamodule import NAMpyDataModule
+.. code-block:: python
 
-      preprocessor = Preprocessor(task="regression", n_bins=50)
-      data_module = NAMpyDataModule(
-          preprocessor=preprocessor,
-          batch_size=128,
-          shuffle=True,
-          regression=True,
-      )
-      data_module.setup_data(X_train, y_train, val_size=0.2)
-      # Use data_module with Lightning Trainer and NAMpy base models
+   from pretab.preprocessor import Preprocessor
+   from nampy.neural.data.datamodule import NAMpyDataModule
+
+   preprocessor = Preprocessor(task="regression", n_bins=50)
+   data_module = NAMpyDataModule(
+       preprocessor=preprocessor, batch_size=128,
+       shuffle=True, regression=True,
+   )
+   data_module.setup_data(X_train, y_train, val_size=0.2)
 
 Accessing the preprocessor
 --------------------------

@@ -88,8 +88,8 @@ Quick fit recipes
 
 :doc:`Fit a regression, classification, or distributional model </examples/fit_models>`.
 
-Extensions and compatibility
-----------------------------
+Extend NAMpy
+------------
 
 * :doc:`Build a custom neural model </user_guide/custom_models>`
 

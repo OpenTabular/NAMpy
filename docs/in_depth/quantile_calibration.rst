@@ -105,4 +105,34 @@ Ordering applies to complete quantile predictions. Individual centered feature c
 
 The predicted median broadly follows the known conditional median, but agreement in this plot is not enough to establish calibration. The coverage table shows the remaining bias and the wider errors in the tails.
 
+Diagnose the fit using validation rows
+--------------------------------------
+
+Before another final evaluation, use the validation split to investigate the
+failure. Here are the same coverage quantities computed without test outcomes:
+
+.. code-block:: python
+
+   validation_prediction = np.asarray(model.predict(X_val))
+   validation_coverage = pd.DataFrame({
+       "Quantile": quantiles,
+       "Fraction below": [np.mean(y_val <= validation_prediction[:, j])
+                          for j in range(len(quantiles))],
+   })
+   print(validation_coverage)
+
+Check validation pinball loss and coverage together: wider intervals can
+increase coverage while making quantile estimates worse. Inspect the training
+and validation objective histories for incomplete optimization; compare a
+prespecified learning-rate range with a longer training budget using the same
+validation rows and random seeds. If both losses remain high, examine target
+scaling and capacity. If training improves while validation worsens, investigate
+regularization and feature dependence. Check validation coverage within the
+same fixed age bins to distinguish a global bias from local shape errors.
+
+Choose any revised procedure using validation loss and these diagnostics,
+then freeze it before evaluating fresh test data. The test results already
+shown describe the original fit; this diagnostic recipe does not claim they
+have improved. Ordered predictions prevent crossing but do not ensure calibration.
+
 :download:`Download the complete example <../../examples/example_qnam.py>`

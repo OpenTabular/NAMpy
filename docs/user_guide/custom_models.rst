@@ -31,6 +31,10 @@ and mixed inputs. One-hot blocks keep their full encoded width. Its output is
 a global contextual contribution, not a collection of marginal feature effects:
 attention can make every token depend on the other tokens.
 
+.. image:: /_static/custom_architecture.svg
+   :alt: Separate feature heads preserve feature-specific dependence while the attention branch mixes tokens into one global contribution
+   :class: scientific-figure
+
 .. code-block:: python
 
    from dataclasses import dataclass
@@ -189,10 +193,16 @@ The `forward()` method MUST:
 * Return a dictionary with at least an ``"output"`` key
 * The output shape should be (batch_size, num_classes)
 
-For Interpretable Models
-~~~~~~~~~~~~~~~~~~~~~~~~
+Return feature-specific contributions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If you want feature-level predictions (like NAM):
+Return one named tensor per feature, with the same output-column shape as
+``output``. Each feature head must depend only on its declared inputs. The
+named tensors must sum to the output (with any declared intercept). Mixing
+features through attention instead gives contextual or global dependence;
+attention weights are not feature-contribution explanations.
+
+For separate feature heads (as in NAM):
 
 .. code-block:: python
 

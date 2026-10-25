@@ -63,6 +63,50 @@ Choose a representation from the :doc:`model guide <../models/index>` based
 on term dependence, interaction structure, objective support, and inferential
 needs.
 
+Decompose one prediction
+------------------------
+
+This Poisson example includes two main effects, an interaction, and a known
+exposure offset. The waterfall adds them on the log-mean scale. Its final bar
+is the total predictor; exponentiating that total gives the expected count.
+For logistic classification the corresponding sum would be log-odds, never
+additive probability contributions.
+
+.. literalinclude:: ../scripts/generate_howto_assets.py
+   :language: python
+   :start-after: # INTERPRETATION START
+   :end-before: # INTERPRETATION END
+   :dedent: 4
+
+.. image:: /_static/howto_waterfall.png
+   :alt: Link-scale waterfall of intercept, two main effects, interaction, and exposure offset for one count prediction
+   :class: scientific-figure
+
+Change the centering reference
+------------------------------
+
+The same fitted terms can be represented relative to all training rows or
+the subset with positive x. Subtract each reference mean from its term and
+add those constants to the intercept. This is an explicit re-expression of
+the fitted statistical components, not a refit or a change to the exposure.
+The neural estimator API performs the analogous shift through ``center=True``
+and ``reference_X``.
+
+.. literalinclude:: ../scripts/generate_howto_assets.py
+   :language: python
+   :start-after: # CENTERING START
+   :end-before: # CENTERING END
+   :dedent: 4
+
+.. image:: /_static/howto_centering.png
+   :alt: Shifted effect curves and compensating intercepts under two reference distributions, with unchanged predictions
+   :class: scientific-figure
+
+The effect curve moves vertically and the intercept compensates. Both
+prediction curves overlap exactly; the assertions verify reconstruction on
+the link scale. Centering does not remove dependence between overlapping
+main effects and interactions.
+
 Visualization
 -------------
 

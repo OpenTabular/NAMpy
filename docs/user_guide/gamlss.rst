@@ -4,7 +4,10 @@ Distributional GAMs and GAMLSS
 GAMLSS extends additive regression beyond the mean (Rigby and Stasinopoulos, 2005).
 
 This guide covers ``GAMLSS`` formulas, parameter ordering, predictions, and
-scoring. For a fitted example, see :doc:`../notebooks/04_distributional_models`.
+scoring. For fitted statistical examples, see :doc:`../notebooks/02_statistical_gams`
+and :doc:`../notebooks/gamma_location_scale`. For a separate comparison of neural
+distributional, quantile, and ensemble models, see
+:doc:`../notebooks/04_distributional_models`.
 
 The lower-level :class:`nampy.gam.GAM` also accepts supported multi-parameter
 families and exposes their statistical parameterization directly.
@@ -65,6 +68,19 @@ the additive linear predictors instead.
 ``predict_point`` returns the conditional mean. ``score`` returns mean log
 likelihood (higher is better), while the default ``evaluate`` result reports
 mean negative log likelihood.
+
+Read Gamma parameter meanings
+-----------------------------
+
+For Gamma responses, ``sigma`` is a coefficient of variation, so
+:math:`\operatorname{SD}(Y\mid x)=\mu(x)\sigma(x)`. These three panels
+use the same fitted model and prediction rows from the
+:doc:`Gamma location–scale example <../notebooks/gamma_location_scale>`.
+Absolute spread can change through either fitted parameter.
+
+.. image:: /_static/howto_gamma_parameters.png
+   :alt: Same Gamma fit showing conditional mean, coefficient of variation, and their product giving response standard deviation
+   :class: scientific-figure
 
 Formula and array modes
 -----------------------

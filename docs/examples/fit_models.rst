@@ -9,7 +9,7 @@ These examples show the minimum fitting and prediction calls for three common ta
    import pandas as pd
    from sklearn.datasets import make_regression, make_classification
    from sklearn.model_selection import train_test_split
-   from nampy.models import NAMRegressor, SNAMClassifier, TreeNAMLSS
+   from nampy.models import NAMRegressor, NAMClassifier, NAMLSS
 
 Predict a continuous response
 -----------------------------
@@ -31,9 +31,12 @@ Predict a continuous response
    )
 
    model = NAMRegressor(numerical_preprocessing="standardization")
-   model.fit(X_train, y_train, max_epochs=20, batch_size=64)
+   model.fit(X_train, y_train, max_epochs=20, batch_size=64, random_state=7)
    predictions = model.predict(X_test)
+   regression_preview = pd.DataFrame({"Prediction": predictions[:3]})
    effects = model.plot_terms(X_test, center=True, reference_X=X_train)
+
+.. include:: /_generated/howto_recipe_regression.inc
 
 ``predictions`` contains one response per test row. ``effects`` contains
 feature-contribution figures on the additive-predictor scale.
@@ -61,11 +64,16 @@ Predict class probabilities
        X, y, test_size=0.2, random_state=11, stratify=y
    )
 
-   model = SNAMClassifier(numerical_preprocessing="standardization")
-   model.fit(X_train, y_train, max_epochs=20, batch_size=64)
+   model = NAMClassifier(numerical_preprocessing="standardization")
+   model.fit(X_train, y_train, max_epochs=20, batch_size=64, random_state=7)
 
    labels = model.predict(X_test)
    probabilities = model.predict_proba(X_test)
+   classification_preview = pd.DataFrame({"Label": labels[:3],
+       **{f"P(class={label})": probabilities[:3, j]
+          for j, label in enumerate(model.classes_)}})
+
+.. include:: /_generated/howto_recipe_classification.inc
 
 ``labels`` contains the selected class for each row. ``probabilities`` has one
 column per class and is the appropriate output for threshold selection,
@@ -86,7 +94,7 @@ Predict a response distribution
        X, y, test_size=0.2, random_state=13
    )
 
-   model = TreeNAMLSS(
+   model = NAMLSS(
        family="normal", numerical_preprocessing="standardization"
    )
    model.fit(
@@ -94,13 +102,18 @@ Predict a response distribution
        y_train,
        max_epochs=20,
        batch_size=64,
+       random_state=7,
    )
    distribution_parameters = model.predict(X_test)
+   distribution_preview = pd.DataFrame(distribution_parameters[:3],
+                                        columns=["mean", "scale"])
    figures = model.plot_distributional_effects(
        X_test,
        reference_X=X_train,
        feature_names=["feature_0"],
    )
+
+.. include:: /_generated/howto_recipe_distribution.inc
 
 For a normal family, the two prediction columns are conditional location and
 standard deviation. The plotted black envelope represents conditional spread,
@@ -118,7 +131,7 @@ multi-column contributions.
 
    y_multi = np.column_stack([regression_target, 0.5 * regression_target])
    multi_model = NAMRegressor(numerical_preprocessing="standardization")
-   multi_model.fit(regression_train, y_multi, max_epochs=20, batch_size=64)
+   multi_model.fit(regression_train, y_multi, max_epochs=20, batch_size=64, random_state=7)
    multi_predictions = multi_model.predict(regression_test)
    components = multi_model.predict_components(regression_test)
    for name, contribution in components.terms.items():

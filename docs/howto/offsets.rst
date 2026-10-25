@@ -3,25 +3,20 @@ Predict with an Offset
 
 An offset is a known contribution to the linear predictor with coefficient fixed at one. It must be included consistently during fitting and prediction.
 
-Supply it for new rows when it cannot be recovered from the formula:
+Compare two supplied exposures
+------------------------------
 
-.. code-block:: python
+Here the same fitted rows receive exposure one or two at prediction:
+log-mean increases by log(2), while the expected response doubles. The fitted
+age smooth is unchanged.
 
-   model = GAM(
-       formula="count ~ s(age)",
-       family="poisson",
-       optimize_smoothing=True,
-       smoothing_method="reml",
-   ).fit(data, offset=np.log(data["exposure"]))
+.. literalinclude:: ../scripts/generate_howto_assets.py
+   :language: python
+   :start-after: # OFFSETS START
+   :end-before: # OFFSETS END
+   :dedent: 4
 
-   prediction = model.predict(
-       new_data,
-       type="response",
-       offset=np.log(new_data["exposure"]),
-   )
-
-``predict_components`` records the offset separately so the reported terms
-still reconstruct the link-scale prediction.
+.. include:: /_generated/howto_offset_comparison.inc
 
 Neural binary-classification offsets at inference
 -------------------------------------------------

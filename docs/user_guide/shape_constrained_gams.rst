@@ -131,11 +131,9 @@ smooth covariate and the weight column as ``by``::
 Inference and diagnostics
 -------------------------
 
-Prediction uses the shape-valid coefficient space, while optimization state
-remains available as ``fit_result().coef_optimization``.  The corresponding
-Bayesian and frequentist covariance matrices are exposed in both spaces.
-``predict(..., return_se=True)``, ``summary()``, and all ordinary residual
-types use the transformed covariance, as ``scam`` does.
+Use ``predict(..., return_se=True)`` for prediction standard errors and
+``summary()`` for fitted-term inference. Coefficient-space and transformed
+covariance details are in :doc:`../api/gam_advanced`.
 
 ``derivative(smooth_number=1, deriv=1)`` returns first- or second-derivative
 values and Bayesian standard errors for a univariate constrained smooth. The

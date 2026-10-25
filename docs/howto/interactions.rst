@@ -5,18 +5,24 @@ Add an interaction when the effect of one input is allowed to depend on another.
 
 Use ``s(x) + s(z) + ti(x, z)`` to represent separate main effects and an additional interaction. Use ``te(x, z)`` for a full joint surface. ``t2(x, z)`` provides an alternative tensor construction with a different penalty decomposition.
 
-.. code-block:: python
+Inspect an interaction contribution
+-----------------------------------
 
-   from nampy.gam import GAM
+The following complete fit has separate main effects and a ``ti`` interaction.
+The heatmap and slices contain only that interaction's centered contribution
+on the identity-link scale (response units). They exclude the intercept and
+main effects, so they are not complete predictions. There are no other
+predictors to hold fixed; each slice fixes z at the value in its legend.
 
-   model = GAM(
-       formula="y ~ s(x1) + s(x2) + ti(x1, x2, k=c(8, 8))",
-       family="gaussian",
-       optimize_smoothing=True,
-       smoothing_method="reml",
-   ).fit(data)
+.. literalinclude:: ../scripts/generate_howto_assets.py
+   :language: python
+   :start-after: # INTERACTION START
+   :end-before: # INTERACTION END
+   :dedent: 4
 
-   model.plot(scheme=2)
+.. image:: /_static/howto_interaction.png
+   :alt: Fitted interaction-only heatmap and slices at three fixed z values
+   :class: scientific-figure
 
 See :ref:`formula-visual-reference` for side-by-side tensor constructions.
 

@@ -159,20 +159,6 @@ look up a specific method.
       Look up estimator classes, method arguments, return values,
       and statistical and neural interfaces.
 
-Contributors
-------------
-
-.. raw:: html
-
-   <div class="contributors-grid" id="github-contributors">
-   <a class="contributor-profile" href="https://github.com/Ananyapam7"><img src="https://avatars.githubusercontent.com/u/39508435?v=4&amp;s=96" alt="" width="64" height="64" loading="lazy"><span>Ananyapam7</span></a>
-   <a class="contributor-profile" href="https://github.com/AnFreTh"><img src="https://avatars.githubusercontent.com/u/51477933?v=4&amp;s=96" alt="" width="64" height="64" loading="lazy"><span>AnFreTh</span></a>
-   <a class="contributor-profile" href="https://github.com/22GC22"><img src="https://avatars.githubusercontent.com/u/80445708?v=4&amp;s=96" alt="" width="64" height="64" loading="lazy"><span>22GC22</span></a>
-   <a class="contributor-profile" href="https://github.com/eltociear"><img src="https://avatars.githubusercontent.com/u/22633385?v=4&amp;s=96" alt="" width="64" height="64" loading="lazy"><span>eltociear</span></a>
-   </div>
-
-`All contributors on GitHub <https://github.com/OpenTabular/NAMpy/graphs/contributors>`_.
-
 .. toctree::
    :caption: Getting Started
    :maxdepth: 2
