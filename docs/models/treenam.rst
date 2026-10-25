@@ -13,7 +13,7 @@ Model structure
 TreeNAM assigns one differentiable decision tree to each main effect and,
 optionally, to each explicit interaction. Soft routing makes the leaf values
 and split parameters trainable by gradient descent. Each tree supplies one
-term in the :doc:`shared decomposition <../concepts/additive_predictors>`.
+term in the :ref:`shared decomposition <additive-predictor-interpretation>`.
 
 The tree depth controls the number of routing decisions and therefore the
 piecewise complexity of each term. Evaluation can retain soft routing or use

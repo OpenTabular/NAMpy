@@ -13,8 +13,8 @@ Model structure
 
 Statistical GAMs use penalized spline bases for smooth effects, alongside
 parametric terms and explicit interactions. See
-:doc:`../concepts/additive_predictors` for the decomposition and
-:doc:`../concepts/smoothness` for the basis and penalty equations.
+:ref:`additive-predictor-interpretation` for the decomposition and
+:ref:`smoothness-and-basis-dimension` for the basis and penalty equations.
 
 Smoothing parameters can be supplied directly or estimated with GCV, UBRE, ML,
 REML, or the supported LAML routes. The statistical backend provides

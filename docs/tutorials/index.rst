@@ -39,11 +39,15 @@ prerequisites for the core tutorials.
       Handle missing values, compare a logistic baseline, inspect probabilities,
       and save/reload the complete preprocessing and prediction workflow.
 
+      :download:`Download notebook <../notebooks/05_real_data_classification.ipynb>`
+
    .. grid-item-card:: Fit, diagnose, and extend a statistical GAM
       :link: first_gam
       :link-type: doc
 
       Follow an energy-demand analysis, then extend it with shape constraints and interaction surfaces.
+
+      :notebook-download:`first_gam`
 
    .. grid-item-card:: Compare GAM, NAM, and shared-basis models
       :link: gam_nam
@@ -51,11 +55,15 @@ prerequisites for the core tutorials.
 
       Compare statistical and neural feature effects, then see how shared neural bases change the representation.
 
+      :notebook-download:`gam_nam`
+
    .. grid-item-card:: Learn conditional location and spread
       :link: changing_variability
       :link-type: doc
 
       Move from predicting a response to modeling how both its location and variability depend on features.
+
+      :notebook-download:`changing_variability`
 
 .. toctree::
    :maxdepth: 1

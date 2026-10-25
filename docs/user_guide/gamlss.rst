@@ -2,12 +2,42 @@ Distributional GAMs and GAMLSS
 ==============================
 
 This guide covers ``GAMLSS`` formulas, parameter ordering, predictions, and
-scoring. For the underlying model, see
-:doc:`../concepts/distributional_regression`; for a fitted example, see
-:doc:`../tutorials/changing_variability`.
+scoring. For a fitted example, see :doc:`../tutorials/changing_variability`.
 
 The lower-level :class:`nampy.gam.GAM` also accepts supported multi-parameter
 families and exposes their statistical parameterization directly.
+
+.. _distributional-model-concepts:
+
+Decide which aspects of the response to model
+---------------------------------------------
+
+A mean model assumes that the conditional expectation is the main quantity
+that changes with predictors. Distributional regression is useful when
+variability, skewness, tail behavior, or another parameter also changes.
+
+For parameter :math:`\theta_k`, NAMpy fits an additive predictor
+:math:`\eta_k` and applies the parameter's inverse link,
+
+.. math::
+
+   \eta_k(x)=\beta_{0k}+\sum_j f_{jk}(x_j)
+   +\sum_{S\in\mathcal I_k}f_{Sk}(x_S)+o_k(x),\qquad
+   \theta_k(x)=h_k^{-1}\{\eta_k(x)\}.
+
+Together these parameters specify the response distribution,
+:math:`Y\mid x\sim\mathcal D\{\theta_1(x),\ldots,\theta_K(x)\}`.
+The term definitions and identifiability considerations follow
+:ref:`additive-predictor-interpretation`, separately for each parameter.
+
+Terms add on the :math:`\eta_k` scale. Natural parameters generally do not add
+after a nonlinear inverse link. Conditional standard deviation describes
+observation-level predictive spread. It is different from a standard error
+for an estimated mean and from variation across repeated fits.
+
+Quantile models instead estimate selected conditional quantiles using pinball
+loss. These quantiles do not by themselves specify a complete probability
+density; their spacing and empirical coverage describe different properties.
 
 Public parameter contract
 -------------------------

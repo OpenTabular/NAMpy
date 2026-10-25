@@ -123,12 +123,12 @@ Choose the statistical, neural, or distributional branch in :doc:`tutorials/inde
       Match smooths, cycles, group curves, random effects, tensor products,
       and offsets to fitted examples.
 
-   .. grid-item-card:: Understand additive models
-      :link: concepts/index
+   .. grid-item-card:: Interpret additive effects
+      :link: user_guide/interpretability
       :link-type: doc
 
-      Learn the statistical, neural, distributional, and interpretation
-      foundations.
+      Understand centering and term dependence, then inspect components
+      and plot feature effects.
 
    .. grid-item-card:: Work through tutorials
       :link: tutorials/index
@@ -189,14 +189,23 @@ Contributors
    :maxdepth: 2
    :hidden:
 
-   howto/index
-
-.. toctree::
-   :caption: Concepts
-   :maxdepth: 2
-   :hidden:
-
-   concepts/index
+   Prepare feature data <user_guide/preprocessing>
+   Train and tune neural models <user_guide/training>
+   Specify and diagnose a statistical GAM <user_guide/statistical_gams>
+   Model location and spread <user_guide/gamlss>
+   Add an interaction <howto/interactions>
+   Select interactions <howto/interaction_selection>
+   Impose monotonicity <howto/monotonicity>
+   Choose other shape constraints <user_guide/shape_constrained_gams>
+   Predict with an offset <howto/offsets>
+   Interpret and plot effects <user_guide/interpretability>
+   Choose a prediction output <howto/prediction_outputs>
+   Save and reload a model <howto/persistence>
+   Quick regression recipe <examples/basic_regression>
+   Quick classification recipe <examples/basic_classification>
+   Quick distributional recipe <examples/distributional_regression>
+   Build a custom neural model <user_guide/custom_models>
+   Check pretab compatibility <user_guide/pretab_compatibility>
 
 .. toctree::
    :caption: Reference

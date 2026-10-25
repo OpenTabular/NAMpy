@@ -14,8 +14,7 @@ NodeGAM builds an additive predictor from ensembles of differentiable oblivious
 decision trees. Sparse feature selectors assign a tree to a feature, and
 differentiable binning routes observations to leaves. With pairwise structure
 enabled, a tree may depend on two selected features. The resulting main effects
-and interactions follow the :doc:`shared additive decomposition
-<../concepts/additive_predictors>`.
+and interactions follow the :ref:`shared additive decomposition <additive-predictor-interpretation>`.
 
 Temperature annealing sharpens the selectors during training. NAMpy also
 supports the architecture's masked-pretraining path.

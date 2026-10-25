@@ -16,8 +16,7 @@ NAM learns each feature's contribution with a separate network,
 
    f_j(x_j)=h_j(x_j;w_j).
 
-These contributions follow the :doc:`shared decomposition
-<../concepts/additive_predictors>`.
+These contributions follow the :ref:`shared decomposition <additive-predictor-interpretation>`.
 
 NAMpy can add explicitly requested interaction subnetworks
 :math:`f_S(x_S)`. A reported main effect depends only on its named source

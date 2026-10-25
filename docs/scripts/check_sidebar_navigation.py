@@ -59,6 +59,11 @@ def main():
                 "Advanced examples",
                 "Frequently Asked Questions",
             ], getting_started
+            assert "Concepts" not in [section["title"] for section in sections]
+            for title, minimum in [("How-to Guides", 17)]:
+                section = next(item for item in sections if item["title"] == title)
+                assert title not in section["items"], section
+                assert len(section["items"]) >= minimum, section
             page.evaluate("""() => sessionStorage.setItem('nampy-sidebar-navigation',
                 JSON.stringify({destination: location.pathname, scrollTop: 400,
                     expanded: ['/api/gam.html', '/api/gam_formula.html',

@@ -43,6 +43,8 @@ quantiles and mixed numerical/categorical tree effects using repository scripts.
       Fit ordered quantiles, compare them with known synthetic truth, check
       coverage, and interpret grouped categorical contributions.
 
+      :notebook-download:`quantile_calibration`
+
    .. grid-item-card:: Recover step effects with additive trees
       :link: tree_effects
       :link-type: doc
@@ -50,12 +52,16 @@ quantiles and mixed numerical/categorical tree effects using repository scripts.
       Compare a single additive tree with a jointly trained tree ensemble on
       numerical thresholds and categorical level shifts.
 
+      :notebook-download:`tree_effects`
+
    .. grid-item-card:: Statistical, neural, and distributional workflows
       :link: ../tutorials/modeling_workflows
       :link-type: doc
 
       Complete fit-and-plot examples with predictions, components, importance,
       and model-specific figures.
+
+      :notebook-download:`../tutorials/modeling_workflows`
 
 .. toctree::
    :maxdepth: 1

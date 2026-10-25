@@ -43,6 +43,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.mathjax",
     "myst_parser",  # For Markdown support
+    "tutorial_downloads",
     "nbsphinx",  # Render checked-in notebook sources (via nbconvert/Pandoc)
     "sphinx_design",
 ]
@@ -50,6 +51,9 @@ extensions = [
 nbsphinx_execute = "never"
 nbsphinx_allow_errors = False
 nbsphinx_kernel_name = "python3"
+nbsphinx_prolog = r"""
+:download:`Download notebook <{{ env.docname.split('/')[-1] ~ '.ipynb' }}>`
+"""
 highlight_language = "python3"  # Use python3 for syntax highlighting
 pygments_style = "default"
 pygments_style_dark = "monokai"

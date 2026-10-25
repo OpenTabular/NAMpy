@@ -5,6 +5,10 @@ import subprocess
 from pathlib import Path
 
 REDIRECTS = {
+    "concepts/index": "howto/index",
+    "concepts/additive_predictors": "user_guide/interpretability#additive-predictor-interpretation",
+    "concepts/smoothness": "user_guide/statistical_gams#smoothness-and-basis-dimension",
+    "concepts/distributional_regression": "user_guide/gamlss#distributional-model-concepts",
     "quickstart": "notebooks/01_getting_started",
     "overview": "index#additive-models",
     "installation": "faq#installation-and-setup",

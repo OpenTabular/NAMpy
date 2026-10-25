@@ -225,6 +225,13 @@ Manual Search
    
    print(f"Best params: {best_params}")
 
+Use validation rows to choose hyperparameters and checkpoints. Keep test rows
+outside both decisions, and fit any external preprocessing inside each
+training fold. A good regression score does not establish probability or
+interval calibration. Compare probability predictions and reliability in
+:doc:`../notebooks/05_real_data_classification`, or quantile coverage and
+interval width in :doc:`../in_depth/quantile_calibration`.
+
 Using scikit-learn
 ~~~~~~~~~~~~~~~~~~
 
@@ -244,7 +251,7 @@ Training Tips
 -------------
 
 1. **Start with defaults** - nampy's defaults work well for most cases
-2. **Use early stopping** - Set `patience` to avoid overfitting
+2. **Use early stopping** - Set `patience` to monitor a validation criterion
 3. **Monitor validation loss** - Ensure the model is learning
 4. **Try different learning rates** - Start with 1e-4, adjust as needed
 5. **Use GPU** - Significantly speeds up training
