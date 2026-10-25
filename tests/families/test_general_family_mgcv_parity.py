@@ -1020,8 +1020,10 @@ def test_gammals_reml_outer_fit_matches_mgcv():
     expected = _run_mgcv_snapshot(data, formula, "gammals", "REML")
 
     # The folded-LAML optimum moves by up to 4.8e-6 between the supported
-    # SciPy/OpenBLAS wheels while criterion, EDF and predictions remain at the
-    # stricter bounds below.
+    # SciPy/OpenBLAS wheels. A log-SP change of 1e-5 changes EDF by about
+    # 3.5e-6 on this dataset, so the outer-fit EDF bound must accommodate it.
+    # Keep criterion/prediction bounds strict and check EDF at identical SP
+    # separately below to distinguish endpoint drift from fitting errors.
     np.testing.assert_allclose(
         np.asarray(actual["fit"]["log_smoothing_params"], dtype=np.float64),
         np.asarray(expected["fit"]["log_smoothing_params"], dtype=np.float64),
@@ -1037,7 +1039,7 @@ def test_gammals_reml_outer_fit_matches_mgcv():
     np.testing.assert_allclose(
         float(np.asarray(actual["fit"]["edf_total"], dtype=np.float64)),
         float(np.asarray(expected["fit"]["edf_total"], dtype=np.float64)),
-        atol=1e-6,
+        atol=4e-6,
         rtol=0.0,
     )
     np.testing.assert_allclose(
@@ -1045,6 +1047,16 @@ def test_gammals_reml_outer_fit_matches_mgcv():
         np.asarray(expected["predictions"]["response"], dtype=np.float64),
         atol=1e-6,
         rtol=1e-6,
+    )
+
+    reference_sp = np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)
+    fixed = _fit_nampy_model_fixed_sp(data, formula, "gammals", reference_sp)
+    fixed_snapshot = fixed.parity_snapshot(X=data)
+    np.testing.assert_allclose(
+        float(np.asarray(fixed_snapshot["fit"]["edf_total"], dtype=np.float64)),
+        float(np.asarray(expected["fit"]["edf_total"], dtype=np.float64)),
+        atol=1e-6,
+        rtol=0.0,
     )
 
 
