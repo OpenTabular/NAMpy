@@ -1,3 +1,5 @@
+:orphan:
+
 Runtime-Checked Optimizer Routes
 ================================
 
@@ -10,7 +12,7 @@ model, and upstream-reference tests cover numerical agreement separately.
 
 .. include:: /_generated/reference/optimizer_routes.inc
 
-Regenerate with ``python docs/scripts/generate_optimizer_matrix.py``. The
-:doc:`coverage reference <mgcv_optimizer_boundaries>` explains the intentional
+Regeneration commands are in :doc:`../contributing`. The
+:doc:`compatibility page <../compatibility>` explains the intentional
 boundaries, including transformed likelihoods and correlated non-Gaussian
 models.

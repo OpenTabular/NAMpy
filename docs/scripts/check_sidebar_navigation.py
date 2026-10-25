@@ -50,6 +50,35 @@ def main():
                 "li.querySelector(':scope > a')?.textContent.trim())}))"
             )
             assert "Tutorials" not in [section["title"] for section in sections]
+            development = next(section for section in sections if section["title"] == "Development")
+            assert development["items"] == [
+                "Contributing to NAMpy", "Architecture and validation"
+            ], development
+            reference = next(section for section in sections if section["title"] == "Reference")
+            assert "Compatibility" in reference["items"], reference
+            # Links in shared Markdown must not leave a local/versioned build.
+            linked_page = browser.new_page()
+            linked_page.route("https://**/*", lambda route: route.abort())
+            linked_page.goto(f"{origin}/contributing.html", wait_until="domcontentloaded")
+
+            def sidebar_outline():
+                return linked_page.locator(".wy-menu-vertical p.caption").evaluate_all(
+                    "nodes => nodes.map(n => ({title: n.textContent.trim(), "
+                    "items: Array.from(n.nextElementSibling.children).map(li => "
+                    "li.querySelector(':scope > a')?.textContent.trim())}))"
+                )
+
+            outline = sidebar_outline()
+            for _ in range(2):
+                linked_page.get_by_role("link", name="compatibility page", exact=True).click()
+                linked_page.wait_for_url(f"{origin}/compatibility.html")
+                assert sidebar_outline() == outline
+                assert linked_page.locator("h1").inner_text().startswith("Compatibility")
+                linked_page.reload(wait_until="domcontentloaded")
+                assert sidebar_outline() == outline
+                linked_page.go_back(wait_until="domcontentloaded")
+            assert linked_page.locator('a[href*="reference_sources"]').count() == 0
+            linked_page.close()
             getting_started = next(
                 section for section in sections if section["title"] == "Getting Started"
             )

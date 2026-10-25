@@ -322,7 +322,7 @@ def statistical_text(cls):
         (f"``{parameter}``", f"``{literal(value)}``", GAM_PARAMETERS[parameter])
         for parameter, value in cls().get_params(deep=False).items()
     ]
-    text = ":doc:`Statistical GAM workflow </tutorials/first_gam>` and :doc:`runtime-checked optimizer routes </development/optimizer_matrix>`.\n\n"
+    text = ":doc:`Statistical GAM workflow </tutorials/first_gam>` and :doc:`Compatibility </compatibility>`.\n\n"
     text += "Constructor parameters\n~~~~~~~~~~~~~~~~~~~~~~\n\n" + table(
         ["Parameter", "Default", "Meaning"], rows
     )

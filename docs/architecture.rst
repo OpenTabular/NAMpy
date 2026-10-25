@@ -1,117 +1,104 @@
-Architecture
-============
+Architecture and validation
+===========================
 
-NAMpy separates fitted estimators from their numerical backends:
+Backend organization
+--------------------
 
-.. code-block:: text
+``nampy.models`` owns the public estimator interfaces. Statistical adapters
+compile formulas and delegate fitting to ``nampy.gam``; neural estimators
+combine a registered architecture with an objective and delegate training to
+``nampy.neural``. The statistical engine uses mgcv and scam as behavioral
+references. They are not runtime dependencies or additional NAMpy backends.
 
-   nampy.models                  public sklearn-style estimator facade
-       |-- GAM adapters -------> nampy.gam
-       |                         |-- ordinary GAM functionality (mgcv-aligned)
-       |                         `-- shape constraints (scam-aligned)
-       `-- neural estimators --> nampy.neural
-                                 |-- architectures/  torch forward models
-                                 |-- objectives.py   output/loss semantics
-                                 |-- distributions/  LSS families
-                                 `-- data/, task.py  training runtime
+.. image:: /_static/backend_architecture.svg
+   :alt: Public estimators delegate to statistical or neural backends, which return shared additive prediction contracts
+   :class: scientific-figure
 
-``nampy.models`` is therefore the generic public layer. NAMpy has two numerical
-backends: ``nampy.gam`` and ``nampy.neural``. They remain separate because they
-use fundamentally different fitting algorithms, while both expose additive
-predictions through the shared contracts and plotting surfaces. ``mgcv`` and
-``scam`` are upstream behavioral specifications within the GAM backend, not
-additional NAMpy backends.
+The backends share result contracts, including
+:class:`nampy.contracts.AdditivePrediction`, rather than numerical family
+implementations. A GAM family supplies derivatives and fitting behavior; a
+neural distribution supplies target support, output transforms, and loss.
+Grouping them by a common response name does not make their internal
+parameterizations interchangeable.
 
-A more detailed, publication-ready rendering of these ownership and control-flow
-boundaries is available as :download:`standalone TikZ source
-<nampy_architecture.tex>`.
+Extension points
+----------------
 
-Neural architecture contract
-----------------------------
+* **Architecture:** add a forward model and configuration under
+  ``nampy/neural/architectures/`` and ``nampy/neural/configs/``, then declare
+  capabilities through :class:`nampy.neural.registry.NeuralArchitecture`.
+  :func:`nampy.models.estimator_family` generates compatible estimator classes.
+  The :doc:`custom-model guide <user_guide/custom_models>` explains feature
+  blocks, output width, and named contribution tensors.
+* **Neural objective or distribution:** put target encoding, per-row loss,
+  prediction semantics, and metrics in ``objectives.py`` or
+  ``neural/distributions/``. Keep them independent of the forward architecture.
+* **Smooth or statistical fitting change:** work in ``nampy/gam/`` and identify
+  the relevant basis, penalty, coefficient solver, or smoothing-selection
+  layer. Preserve explicit compatibility checks and the upstream statistical
+  objective.
+* **Execution contract:** the facade owns splitting, train-only preprocessing,
+  seeded construction, offsets, persistence, and inference batching. Fixed
+  linear designs and native-training providers expose specialized solves
+  without moving those shared responsibilities into architecture classes.
+  See :doc:`api/contracts` and :doc:`api/neural_training`.
 
-A neural architecture always defines a forward model. It accepts transformed
-feature dictionaries and an output width, then returns a dictionary containing
-an ``"output"`` tensor. Ordinarily it does not choose a loss, encode targets,
-or interpret the output. Architectures with a published non-gradient optimizer
-may additionally implement the native-training contract described below.
+Validation approach
+-------------------
 
-Each architecture is declared once with
-:class:`nampy.neural.registry.NeuralArchitecture`. Its capability set controls
-which public estimators are generated. The declaration can also own
-architecture-specific preprocessing defaults and input requirements. Regression,
-binary/multiclass, and LSS behavior comes from objective objects rather than
-architecture subclasses.
+Interface tests check shapes, domains, cloning, persistence, and reconstruction
+of the reported link prediction. Reconstruction verifies component accounting;
+it does not establish uniqueness, effect stability, or calibration. Metadata
+must distinguish parameter identity from feature dependence, and global terms
+must not be presented as marginal feature curves. These invariants are checked
+in ``tests/neural/test_documented_component_contracts.py`` and
+``tests/docs/test_example_semantics.py``.
 
-.. code-block:: text
+Numerical comparisons use versioned fixtures for design matrices, penalties,
+fitted quantities, covariance, and diagnostics. Each case selects tolerances
+appropriate to its representation and numerical objective. Agreement in one
+case is evidence for that case, not the entire family/optimizer Cartesian
+product. Finite coefficients are also distinct from convergence: the
+:doc:`optimizer route report <development/optimizer_matrix>` currently checks
+the former and expected rejection. Convergence must be assessed separately from finite output.
 
-   architecture + objective/distribution = fitted neural estimator
+Executed examples test the public workflow and preserve useful outputs.
+Notebook records identify source content, package versions, and code hashes;
+the structural checker verifies links, anchors, navigation, and saved execution
+records. These checks complement numerical tests: a runnable example can
+still contain incorrect logic or misleading interpretation. Build and execution
+commands have one home in :doc:`contributing`.
 
-For LSS, the selected distribution determines the required output width,
-target representation, per-row loss, prediction transform, and metrics. Any
-registered architecture with the ``"distributional"`` capability therefore
-supports every registered compatible distribution without an LSS-specific
-architecture implementation.
+Detailed evidence
+-----------------
 
-Optional training and inference contracts
------------------------------------------
+* :doc:`development/notebooks/02_statistical_gams` exercises statistical
+  interfaces; focused comparisons live in `statistical parity tests
+  <https://github.com/OpenTabular/NAMpy/tree/main/tests/parity>`_, smooth,
+  optimization, diagnostics, and SCAM test directories.
+* :doc:`development/notebooks/04_distributional_models` is the consolidated
+  neural task/objective report. :doc:`development/notebooks/03_neural_models`
+  retains architecture-specific checks. Their small fitting budgets are
+  interface evidence, not comparative performance benchmarks.
+* :doc:`development/optimizer_matrix` contains the generated route sample.
+  User-facing restrictions belong in :doc:`compatibility`.
+* The `fixture manifest <https://github.com/OpenTabular/NAMpy/blob/main/tests/reference_fixtures/manifest.json>`_
+  records upstream versions, namespaces, and the declared mgcv source
+  difference. Check it when interpreting numerical comparisons.
 
-Staged estimators can resolve a train-data-dependent architecture configuration
-after the shared train/validation split and train-only preprocessing, but before
-the final Torch module is constructed. Registry-provided estimator mixins own
-this lifecycle step; the forward architecture remains objective- and
-data-loader-independent. SIAN uses it for reference-model interaction
-discovery, and stores the resolved copy as ``fitted_config_`` without mutating
-the constructor configuration used by cloning and parameter search.
+.. _specialized-neural-evidence:
 
-Interaction detection itself lives under
-``nampy.neural.interaction_selection``. Detectors consume grouped transformed
-features and implement a common score contract; hierarchical frontier
-construction and thresholding are separate from the detector. The generic
-block-masked additive component similarly remains independent of SIAN and can
-be reused by equal-depth explicit-term architectures.
+Specialized capability checks
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Architectures that are linear over a fixed basis can implement the
-``FixedLinearDesignProvider`` protocol. The shared estimator engine then allows
-a strict conjugate-gradient regression solve without adding solver logic to the
-public wrapper. GPNAM is the first implementation of this contract. Its
-classification and distributional estimators still use the ordinary objective
-engine because those objectives are not the released least-squares solve.
-
-Architectures with a complete non-gradient fitting algorithm can instead
-implement ``NativeTrainingProvider`` and declare ``"native_training"``.
-The estimator facade still owns splitting, train-only preprocessing, target
-encoding, offsets, persistence, batched inference, and public result objects;
-the architecture receives prepared train/validation tensors and owns only its
-optimizer. IGANN uses this contract for its sequential Newton/ELM ridge solves.
-Native diagnostics are exposed uniformly through ``native_training_info_`` and
-``training_history()``.
-
-The shared estimator facade also owns seeded model construction, batched
-inference, and total/trainable parameter diagnostics. Fixed-basis architectures
-may additionally expose ``basis_transform`` and ``basis_metadata``.
-Architectures can augment ``model_complexity()`` with effective fitted counts
-through ``complexity_metadata``.
-
-Adding an architecture
-----------------------
-
-An architecture contribution consists of:
-
-1. one class under ``nampy/neural/architectures/``;
-2. one configuration dataclass under ``nampy/neural/configs/``;
-3. one :class:`~nampy.neural.registry.NeuralArchitecture` declaration;
-4. architecture-focused tests.
-
-The :func:`nampy.models.estimator_family` factory generates every estimator
-surface allowed by the declaration. Unsupported surfaces, such as
-classification for ``SplineNAM``, are represented explicitly by capabilities
-instead of being inferred from missing wrapper files.
-
-GAM isolation
--------------
-
-The GAM backend intentionally does not reuse Torch distribution objectives.
-An mgcv family participates in PIRLS, derivative calculation, smoothing
-selection, and diagnostics, so it is part of the fitting engine rather than a
-replaceable neural output head. The two backends share public result contracts,
-not numerical family implementations.
+Higher-order SIAN terms are compared with upstream states in
+`test_sian_reference.py <https://github.com/OpenTabular/NAMpy/blob/main/tests/neural/test_sian_reference.py>`_.
+Sparse NBM tensors and SPAM local expansions are checked in
+`test_nbm_spam_reference.py <https://github.com/OpenTabular/NAMpy/blob/main/tests/neural/test_nbm_spam_reference.py>`_.
+Public estimator local-importance calls are exercised in
+`test_neural_estimator_fit_smoke.py <https://github.com/OpenTabular/NAMpy/blob/main/tests/neural/test_neural_estimator_fit_smoke.py>`_,
+and registry declarations in
+`test_neural_registry_objectives.py <https://github.com/OpenTabular/NAMpy/blob/main/tests/neural/test_neural_registry_objectives.py>`_.
+These focused tests provide evidence beyond the consolidated report's small
+main/task sweeps; they do not imply exhaustive coverage of every interaction
+order, sparsity configuration, or objective combination.

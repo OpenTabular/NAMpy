@@ -1,5 +1,5 @@
-mgcv and scam Compatibility
-===========================
+Compatibility
+=============
 
 NAMpy contains a Python-native statistical GAM engine. ``mgcv`` is its
 methodological and compatibility reference; ``scam`` is the reference for
@@ -69,8 +69,7 @@ Shape-constrained comparisons include monotone, curvature, positive,
 numeric-by, local, bivariate, derivative, uncertainty, residual, and AR(1)
 behavior.
 
-The reference provenance and regeneration process are documented in
-:doc:`development/reference_sources`. The repository keeps the executable
+The repository keeps the executable
 comparison cases under ``tests/parity/``, ``tests/smooths/``,
 ``tests/optimization/``, ``tests/diagnostics/``, and ``tests/scam/``.
 
@@ -111,20 +110,9 @@ to wider prediction-space tolerances for independently optimized fits. The
 test case is the source of truth; the documentation does not collapse those
 different comparisons into one accuracy claim.
 
-Reproduce the fixture comparisons
----------------------------------
-
-The committed fixtures allow the main comparisons to run without an R
-installation:
-
-.. code-block:: bash
-
-   pytest -q tests/parity/test_mgcv_snapshot_core_matrix.py
-   pytest -q tests/scam/test_scam_fixed_smoothing_fit_parity.py
-
-To regenerate upstream outputs with the recorded R package versions, follow
-:doc:`development/reference_sources`. Review both the fixture provenance and
-the per-case assertion before interpreting a passing comparison.
+To run or regenerate focused comparisons, follow :doc:`contributing`.
+Review fixture provenance and the
+per-case assertions before interpreting agreement.
 
 Intentional differences
 -----------------------
@@ -152,8 +140,8 @@ The following combinations remain unsupported and fail explicitly:
 * NCV/QNCV for general and extended families, and the optional post-fit
   jackknife pass when another criterion is fitted with ``nei=``.
 
-The detailed optimizer matrix is maintained in
-:doc:`development/mgcv_optimizer_boundaries`.
+Representative executed routes are shown in the
+:doc:`optimizer report <development/optimizer_matrix>`.
 
 Choosing an interface
 ---------------------

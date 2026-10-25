@@ -95,7 +95,6 @@ templates_path = ["_templates"]
 exclude_patterns = [
     "_build",
     "README.md",
-    "notebooks/README.md",
     "Thumbs.db",
     ".DS_Store",
 ]

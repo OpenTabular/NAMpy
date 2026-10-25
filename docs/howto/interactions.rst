@@ -17,8 +17,16 @@ predictors to hold fixed; each slice fixes z at the value in its legend.
 .. literalinclude:: ../scripts/generate_howto_assets.py
    :language: python
    :start-after: # INTERACTION START
-   :end-before: # INTERACTION END
+   :end-before: # INTERACTION PLOTTING
    :dedent: 4
+
+.. dropdown:: Plotting code
+
+   .. literalinclude:: ../scripts/generate_howto_assets.py
+      :language: python
+      :start-after: # INTERACTION PLOTTING
+      :end-before: # INTERACTION END
+      :dedent: 4
 
 .. image:: /_static/howto_interaction.png
    :alt: Fitted interaction-only heatmap and slices at three fixed z values

@@ -121,6 +121,12 @@ failure. Here are the same coverage quantities computed without test outcomes:
    })
    print(validation_coverage)
 
+.. include:: /_generated/detailed_quantile_validation_coverage.inc
+
+Validation shows the same tail pattern: about 4.6% of responses fall below
+the lower quantile and 98.9% below the upper one. The median fraction is
+45.0%, closer to its target than the test fraction but still below 50%.
+
 Check validation pinball loss and coverage together: wider intervals can
 increase coverage while making quantile estimates worse. Inspect the training
 and validation objective histories for incomplete optimization; compare a

@@ -5,6 +5,9 @@ import subprocess
 from pathlib import Path
 
 REDIRECTS = {
+    "development/mgcv_optimizer_boundaries": "compatibility#guarded-boundaries",
+    "development/validation_reports": "architecture#detailed-evidence",
+    "development/documentation_validation": "contributing#improve-documentation",
     "examples/basic_regression": "examples/fit_models#predict-a-continuous-response",
     "examples/basic_classification": "examples/fit_models#predict-class-probabilities",
     "examples/distributional_regression": "examples/fit_models#predict-a-response-distribution",
@@ -65,6 +68,7 @@ def setup(app):
     app.connect("html-collect-pages", pages)
     app.connect("html-page-context", navigation_context)
     app.connect("builder-inited", provenance)
+    app.connect("doctree-resolved", local_documentation_links)
     app.connect("doctree-resolved", notebook_image_descriptions)
     app.connect("doctree-resolved", training_anchor_alias)
     app.connect("build-finished", version_local_images)
@@ -176,3 +180,33 @@ def training_anchor_alias(app, doctree, docname):
     for signature in doctree.findall(addnodes.desc_signature):
         if canonical in signature["ids"] and alias not in signature["ids"]:
             signature["ids"].append(alias)
+
+
+def local_documentation_links(app, doctree, docname):
+    """Keep canonical documentation links inside the current build/version.
+
+    Shared Markdown files use published URLs so they also work on GitHub.
+    In the built docs, those URLs must not switch a preview or version to
+    another site's navigation. Other hosts and explicit versions stay intact.
+    """
+    from urllib.parse import unquote, urlsplit
+    from docutils import nodes
+
+    prefix = "/en/latest/"
+    for reference in doctree.findall(nodes.reference):
+        parts = urlsplit(reference.get("refuri", ""))
+        if parts.netloc != "nampy.readthedocs.io" or not parts.path.startswith(prefix):
+            continue
+        path = unquote(parts.path[len(prefix):])
+        target = path[:-5] if path.endswith(".html") else path.rstrip("/") + "/index"
+        if target == "/index":
+            target = "index"
+        if target not in app.env.found_docs:
+            continue
+        uri = app.builder.get_relative_uri(docname, target)
+        if parts.query:
+            uri += "?" + parts.query
+        if parts.fragment:
+            uri += "#" + parts.fragment
+        reference["refuri"] = uri
+        reference["internal"] = True

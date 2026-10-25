@@ -199,16 +199,13 @@ look up a specific method.
    api/neural
    api/contracts
    api/plotting
+   compatibility
+   license
 
 .. toctree::
    :caption: Development
    :maxdepth: 1
    :hidden:
 
-   compatibility
    contributing
-   development/validation_reports
    architecture
-   development/reference_sources
-   development/mgcv_optimizer_boundaries
-   license

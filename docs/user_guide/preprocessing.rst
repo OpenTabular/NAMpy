@@ -19,8 +19,16 @@ age and a two-level category. Its final row is new input.
 .. literalinclude:: ../scripts/generate_howto_assets.py
    :language: python
    :start-after: # PREPROCESSING START
-   :end-before: # PREPROCESSING END
+   :end-before: # PREPROCESSING PLOTTING
    :dedent: 4
+
+.. dropdown:: Plotting code
+
+   .. literalinclude:: ../scripts/generate_howto_assets.py
+      :language: python
+      :start-after: # PREPROCESSING PLOTTING
+      :end-before: # PREPROCESSING END
+      :dedent: 4
 
 .. include:: /_generated/howto_preprocessing_blocks.inc
 
@@ -29,10 +37,9 @@ age and a two-level category. Its final row is new input.
    :class: scientific-figure
 
 Age occupies one transformed column; the category occupies a one-hot block.
-The dashed boundary separates the new row. Its age and category use the
-already fitted scaling and vocabulary. Because this example also uses an
-internal validation split, the scaling range is determined by the estimator's
-actual training rows, not necessarily all six supplied rows.
+The dashed boundary separates the new row. The six supplied training rows
+define the fitted age transformation and category vocabulary. The explicit
+validation rows and the new row reuse that fitted state; neither updates it.
 
 Use PreTab directly with a data module
 --------------------------------------

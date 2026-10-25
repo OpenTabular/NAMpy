@@ -91,6 +91,7 @@ column:
 X_train = data[["x"]].iloc[::2]
 y_train = data["y"].iloc[::2]
 X_test = data[["x"]].iloc[1::2]
+y_test = data["y"].iloc[1::2]
 
 model = GAMRegressor(k=10, basis="tp").fit(X_train, y_train)
 prediction = model.predict(X_test)
@@ -144,7 +145,7 @@ result, and prediction interfaces.
 | ------------------ | ----------------------------------------------------------------------------------------------------- |
 | Metric smooths     | `s(..., bs='bs')`, `cr`, `cs`, `cc`, `cp`, `ds`, `gp`, `ps`, `sos`, `tp`, `ts`                        |
 | Structured smooths | Markov random fields `mrf`, random effects `re`, factor smooths `fs`, sum-to-zero factor smooths `sz` |
-| Tensor products    | `te(...)` and `ti(...)` over supported metric or MRF marginals                                        |
+| Tensor products    | `te(...)`, `ti(...)`, and `t2(...)` with constructor-specific supported marginals (see the [smooth-basis reference](https://nampy.readthedocs.io/en/latest/api/gam_smooths.html))                                        |
 | Parametric terms   | numeric and factor terms, supported interactions, intercept policies, and formula offsets             |
 | Shared smoothing   | supported `id=` groups, fixed/free smoothing parameters, `select=True`, and `pc=` on supported bases  |
 
@@ -227,6 +228,7 @@ model.fit(
     X,
     y,
     max_epochs=100,
+    lr=0.005,
     batch_size=128,
     patience=12,
     random_state=7,
@@ -235,8 +237,28 @@ model.fit(
 prediction = model.predict(X)
 components = model.predict_components(X, center=True, reference_X=X)
 importance = model.term_importance(X, center=True, reference_X=X)
-figures = model.plot_terms(X, center=True, reference_X=X)
+figures = model.plot_terms(X, center=True, reference_X=X, pages=1)
 ```
+
+<details>
+<summary>Plotting code: compare with known centered effects</summary>
+
+```python
+truth_functions = {
+    "median_income": lambda x: 2.2*np.tanh((x-5)/1.7),
+    "house_age": lambda x: .9*np.sin((x-5)/8),
+    "latitude": lambda x: -.55*(x-37)**2/6,
+    "rooms_per_household": lambda x: .75*np.log1p(x),
+}
+for axis, feature in zip(figures[0].axes, X.columns):
+    values = np.sort(X[feature].to_numpy())
+    truth = truth_functions[feature]
+    axis.lines[0].set_label("Fitted NAM")
+    axis.plot(values, truth(values)-truth(values).mean(), "--", label="Known centered truth")
+    axis.legend()
+```
+
+</details>
 
 ![Centered NAM feature effects](docs/_static/homepage_demo_light.png)
 
@@ -311,9 +333,6 @@ contract, so it is not tied to a particular distribution or parameter order.
 
 `Regressor`, `Classifier`, and `LSS` suffixes form the concrete class names, for example `NBMRegressor`, `NBMClassifier`, and `NBMLSS`. Most architectures support all three estimator types; QNAM is distributional-only, SplineNAM is regression-only, and IGANN does not advertise interaction terms.
 
-`NodeGAMLSS` extends the tree-based architecture to distributional regression;
-see De, Thielmann, and Säfken (2024),
-[NODE-GAMLSS: Interpretable Uncertainty Modelling via Deep Distributional Regression](https://openreview.net/forum?id=sWvTLlRkzy).
 For the implemented dependence conventions, see the
 [published model catalog](https://nampy.readthedocs.io/en/latest/models/index.html).
 
@@ -336,7 +355,7 @@ model = NAMLSS(family="normal").fit(
 )
 
 parameters = model.predict(X_test)
-negative_nll = model.score(X_test, y_test)
+mean_log_likelihood = model.score(X_test, y_test)
 components = model.predict_components(X_test)
 components.validate_additive_reconstruction()  # raw parameter/link scale
 ```

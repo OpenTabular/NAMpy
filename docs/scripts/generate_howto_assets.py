@@ -37,6 +37,7 @@ def training():
     X_train, X_val, y_train, y_val = train_test_split(
         X_fit, y_fit, test_size=.25, random_state=62
     )
+    # TRAINING FIT
     with tempfile.TemporaryDirectory() as directory:
         logger = CSVLogger(directory, name="losses")
         model = NAMRegressor(layer_sizes=[16, 8], dropout=0.,
@@ -49,6 +50,7 @@ def training():
         losses = pd.read_csv(Path(logger.log_dir) / "metrics.csv")
         checkpoint = torch.load(model.best_model_path_, map_location="cpu", weights_only=False)
         retained_epoch = int(checkpoint["epoch"])
+    # TRAINING PLOTTING
     fig, axis = plt.subplots(figsize=(7, 4), constrained_layout=True)
     for column, label in [("train_loss_epoch", "Training"), ("val_loss", "Validation")]:
         values = losses.dropna(subset=[column]).groupby("epoch")[column].last()
@@ -73,14 +75,17 @@ def preprocessing():
     X_train = pd.DataFrame({"age": [20., 30., 40., 50., 60., 70.],
                             "group": ["A", "B", "A", "B", "A", "B"]})
     y_train = np.array([1., 2., 1.8, 3., 2.5, 3.8])
+    X_val = pd.DataFrame({"age": [35., 55.], "group": ["A", "B"]})
+    y_val = np.array([1.6, 3.2])
     X_new = pd.DataFrame({"age": [45.], "group": ["B"]})
     model = NAMRegressor(layer_sizes=[4], numerical_preprocessing="minmax",
                          categorical_preprocessing="one-hot", cat_cutoff=0.)
     with tempfile.TemporaryDirectory() as directory:
-        model.fit(X_train, y_train, max_epochs=2, random_state=63,
+        model.fit(X_train, y_train, X_val=X_val, y_val=y_val,
+                  max_epochs=2, random_state=63,
                   logger=False, enable_progress_bar=False, enable_model_summary=False,
                   checkpoint_path=directory)
-    # The estimator fits PreTab on its training split, then reuses that state.
+    # All six training rows fit PreTab; validation and new rows reuse its state.
     transformed = model.preprocessor.transform(pd.concat([X_train, X_new], ignore_index=True))
     blocks = {name: np.asarray(block) for name, block in transformed.items()}
     new_blocks = model.preprocessor.transform(X_new)
@@ -91,6 +96,7 @@ def preprocessing():
                for i in range(block.shape[1])]
     block_table = pd.DataFrame(matrix, columns=columns)
     block_table.insert(0, "Rows", ["Training input"] * len(X_train) + ["New row"])
+    # PREPROCESSING PLOTTING
     fig, axis = plt.subplots(figsize=(7, 3.5), constrained_layout=True)
     image = axis.imshow(matrix, aspect="auto", cmap="Blues")
     axis.set(xticks=np.arange(len(columns)), xticklabels=columns,
@@ -133,6 +139,7 @@ def interpretability():
     total = np.cumsum([0., *values])
     assert np.isclose(total[-1], np.asarray(parts.link).item())
     assert np.isclose(np.exp(total[-1]), model.predict(row).item())
+    # INTERPRETATION PLOTTING
     fig, axis = plt.subplots(figsize=(9, 4), constrained_layout=True)
     for i, value in enumerate(values):
         axis.bar(i, abs(value), bottom=min(total[i], total[i+1]),
@@ -153,7 +160,7 @@ def interpretability():
     raw = model.predict_components(grid)
     references = {"All training rows": data, "Training rows with x > 0": data[data.x > 0]}
     feature = next(name for name in raw.terms if name.startswith("s(x"))
-    fig, axes = plt.subplots(1, 2, figsize=(10, 4), constrained_layout=True)
+    representations = []
     for label, reference in references.items():
         reference_parts = model.predict_components(reference)
         shifts = {name: np.asarray(value).mean(axis=0)
@@ -162,8 +169,12 @@ def interpretability():
         intercept = np.asarray(raw.intercept) + sum(shifts.values())
         reconstructed = intercept + sum(centered.values()) + np.asarray(raw.offset)
         np.testing.assert_allclose(reconstructed, raw.link, atol=1e-10)
-        axes[0].plot(grid.x, centered[feature], label=f"{label}; intercept {float(intercept):.2f}")
-        axes[1].plot(grid.x, np.exp(reconstructed), label=label)
+        representations.append((label, float(intercept), centered[feature], np.exp(reconstructed)))
+    # CENTERING PLOTTING
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4), constrained_layout=True)
+    for style, (label, intercept, effect, prediction) in zip(["-", "--"], representations):
+        axes[0].plot(grid.x, effect, style, label=f"{label}; intercept {intercept:.2f}")
+        axes[1].plot(grid.x, prediction, style, label=label)
     axes[0].set(xlabel="x", ylabel="Centered log-count contribution")
     axes[1].set(xlabel="x (z=0, exposure=1)", ylabel="Expected count")
     for axis in axes: axis.legend(fontsize=8)
@@ -190,6 +201,7 @@ def interaction():
     column = next(i for i, term in enumerate(model.fit_result().term_results)
                   if term.label.startswith("ti("))
     surface = terms[:, column].reshape(gx.shape)
+    # INTERACTION PLOTTING
     fig, axes = plt.subplots(1, 2, figsize=(10, 4), constrained_layout=True)
     image = axes[0].pcolormesh(gx, gz, surface, cmap="coolwarm", shading="auto")
     fig.colorbar(image, ax=axes[0], label="Interaction contribution (response units)")
@@ -274,10 +286,29 @@ def quick_recipes():
     plt.close('all')
 
 
+def quantile_validation():
+    """Fit the tutorial's unchanged procedure and render its validation output."""
+    import runpy
+    import textwrap
+    path = ROOT / 'examples/example_qnam.py'
+    namespace = runpy.run_path(str(path))
+    source = path.read_text().split('def main():', 1)[1].split('    # Predictions', 1)[0]
+    exec(compile(textwrap.dedent(source), str(path), 'exec'), namespace)
+    model = namespace['model']
+    prediction = np.asarray(model.predict(namespace['X_val']))
+    coverage = pd.DataFrame({
+        'Quantile': namespace['quantiles'],
+        'Fraction below': [np.mean(namespace['y_val'] <= prediction[:, j])
+                           for j in range(len(namespace['quantiles']))],
+    })
+    csv_table('detailed_quantile_validation_coverage',
+              'Quantile coverage on validation rows', coverage)
+
+
 def main():
     torch.set_num_threads(1)
     logging.getLogger('lightning.pytorch').setLevel(logging.ERROR)
-    for run in [training, preprocessing, interpretability, interaction, offsets, prediction_outputs, gamma_parameters, quick_recipes]:
+    for run in [training, preprocessing, interpretability, interaction, offsets, prediction_outputs, gamma_parameters, quick_recipes, quantile_validation]:
         run()
         print('PASS', run.__name__, flush=True)
 

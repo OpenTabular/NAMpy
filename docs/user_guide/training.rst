@@ -7,6 +7,15 @@ architecture-native solvers use their model-specific fitting controls.
 Basic Training
 --------------
 
+Create one development/test split and one training/validation split. All
+examples on this page reuse these rows:
+
+.. literalinclude:: ../scripts/generate_howto_assets.py
+   :language: python
+   :start-after: # TRAINING START
+   :end-before: # TRAINING FIT
+   :dedent: 4
+
 Gradient-trained neural estimators share the following fit controls:
 
 .. code-block:: python
@@ -105,9 +114,17 @@ retained checkpoint; the complete logging and plotting code is included.
 
 .. literalinclude:: ../scripts/generate_howto_assets.py
    :language: python
-   :start-after: # TRAINING START
-   :end-before: # TRAINING END
+   :start-after: # TRAINING FIT
+   :end-before: # TRAINING PLOTTING
    :dedent: 4
+
+.. dropdown:: Plotting code
+
+   .. literalinclude:: ../scripts/generate_howto_assets.py
+      :language: python
+      :start-after: # TRAINING PLOTTING
+      :end-before: # TRAINING END
+      :dedent: 4
 
 .. image:: /_static/howto_training.png
    :alt: Actual training and validation losses with the retained validation checkpoint marked
@@ -209,16 +226,16 @@ The following sample-weight and cross-validation recipes use statistical
 
 Sample weights change each training row's contribution to the fitting
 objective; they are different from a fixed offset in the predictor.
-Using the numerical inputs from :doc:`../notebooks/01_getting_started`:
+Using the numerical ``x`` column from the split above:
 
 .. code-block:: python
 
    import numpy as np
    from nampy.models import GAMRegressor
 
-   sample_weight = np.where(X_train["x1"].to_numpy() > 0, 2.0, 1.0)
+   sample_weight = np.where(X_train["x"].to_numpy() > 0, 2.0, 1.0)
    weighted_gam = GAMRegressor(k=8, basis="cr").fit(
-       X_train[["x1", "x2"]], y_train, sample_weight=sample_weight
+       X_train[["x"]], y_train, sample_weight=sample_weight
    )
 
 Hyperparameter Tuning
@@ -227,8 +244,8 @@ Hyperparameter Tuning
 Manual Search
 ~~~~~~~~~~~~~
 
-Use the ``X_train``, ``y_train``, ``X_val``, and ``y_val`` arrays created in
-the logging example above. Every candidate receives the same validation rows
+Use the ``X_train``, ``y_train``, ``X_val``, and ``y_val`` arrays created
+above. Every candidate receives the same validation rows
 and random seed; validation selects both checkpoints and hyperparameters.
 
 .. code-block:: python
@@ -265,25 +282,20 @@ Cross-validation
 
 Cross-validation evaluates a fitting procedure across several train–validation splits. Any transformation learned from the data must be fitted separately within each training fold.
 
-Use cross-validation to choose settings on the development data, then evaluate
-the selected procedure on a separate test set. Here ``X`` is the named
-DataFrame with numerical columns ``x1`` and ``x2`` from
-:doc:`../notebooks/01_getting_started`, and ``y = y_reg`` is its regression
-response. The group feature is excluded.
+Use the same development rows (``X_fit``, ``y_fit``) and untouched test
+split introduced above. These statistical recipes use only numerical
+``x``; the group column is excluded. One smooth needs one fixed penalty.
 
 .. code-block:: python
 
    import pandas as pd
-   from sklearn.model_selection import train_test_split
    from nampy.models import GAMRegressor
 
    from sklearn.model_selection import GridSearchCV, KFold, cross_val_score
 
-   X_development, X_test, y_development, y_test = train_test_split(
-       X[["x1", "x2"]], y, test_size=0.2, random_state=7
-   )
-   numeric_X = X_development[["x1", "x2"]]
-   model = GAMRegressor(optimize_smoothing=False, smoothing_method="fixed", smoothing_params=[0.7, 0.7])
+   X_development, y_development = X_fit[["x"]], y_fit
+   numeric_X = X_development
+   model = GAMRegressor(optimize_smoothing=False, smoothing_method="fixed", smoothing_params=[0.7])
    cv = KFold(n_splits=10, shuffle=True, random_state=7)
    cv_scores = cross_val_score(model, numeric_X, y_development, cv=cv, scoring="r2")
 
@@ -303,7 +315,7 @@ The R² above belongs to the baseline, while the basis dimension is chosen
 by a separate negative-MSE search; these are different results.
 
 The selected model is refit on the development rows. Evaluate
-``search.best_estimator_`` on ``X_test`` and ``y_test`` once to report final
+``search.best_estimator_`` on ``X_test[["x"]]`` and ``y_test`` once to report final
 performance.
 
 Troubleshooting

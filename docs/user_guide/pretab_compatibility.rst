@@ -81,5 +81,3 @@ GAM backend
 ~~~~~~~~~~~
 
 ``nampy.gam`` does not import or use PreTab and is completely unaffected.
-
-For historical changes, see :doc:`../development/pretab_migration`.

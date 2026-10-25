@@ -75,8 +75,16 @@ additive probability contributions.
 .. literalinclude:: ../scripts/generate_howto_assets.py
    :language: python
    :start-after: # INTERPRETATION START
-   :end-before: # INTERPRETATION END
+   :end-before: # INTERPRETATION PLOTTING
    :dedent: 4
+
+.. dropdown:: Plotting code
+
+   .. literalinclude:: ../scripts/generate_howto_assets.py
+      :language: python
+      :start-after: # INTERPRETATION PLOTTING
+      :end-before: # INTERPRETATION END
+      :dedent: 4
 
 .. image:: /_static/howto_waterfall.png
    :alt: Link-scale waterfall of intercept, two main effects, interaction, and exposure offset for one count prediction
@@ -95,8 +103,16 @@ and ``reference_X``.
 .. literalinclude:: ../scripts/generate_howto_assets.py
    :language: python
    :start-after: # CENTERING START
-   :end-before: # CENTERING END
+   :end-before: # CENTERING PLOTTING
    :dedent: 4
+
+.. dropdown:: Plotting code
+
+   .. literalinclude:: ../scripts/generate_howto_assets.py
+      :language: python
+      :start-after: # CENTERING PLOTTING
+      :end-before: # CENTERING END
+      :dedent: 4
 
 .. image:: /_static/howto_centering.png
    :alt: Shifted effect curves and compensating intercepts under two reference distributions, with unchanged predictions

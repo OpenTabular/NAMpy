@@ -184,3 +184,26 @@ def test_statistical_tutorial_fits_converge_without_warning(name):
         diagnostic = build_optimizer_trace(model)["fit"]
         assert diagnostic["converged"], (name, key, diagnostic)
         assert model.fit_result().core.converged, (name, key)
+
+
+def test_readme_nam_example_matches_homepage():
+    """The shared figure must have the same fit and truth overlay in both places."""
+    readme = (ROOT / "README.md").read_text()
+    blocks = re.findall(r"```python\n(.*?)\n```", readme, re.S)
+    start = next(i for i, block in enumerate(blocks) if "from nampy.models import NAMRegressor" in block)
+    readme_code = blocks[start] + "\n" + blocks[start + 1]
+    homepage = (ROOT / "docs/_includes/model_showcases.inc").read_text().split("Neural Additive Model (NAM)", 1)[1]
+    block = re.search(r"^\.\. code-block:: python\n\n((?:(?:   [^\n]*)?\n)+)", homepage, re.M)[1]
+    assert ast.dump(ast.parse(readme_code)) == ast.dump(ast.parse(textwrap.dedent(block)))
+
+
+def test_readme_distributional_example_has_matching_targets(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    blocks = re.findall(r"```python\n(.*?)\n```", (ROOT / "README.md").read_text(), re.S)
+    namespace = {}
+    for block in blocks[:3]:
+        exec(compile(block, "README", "exec"), namespace)
+    example = next(block for block in blocks if "mean_log_likelihood =" in block)
+    exec(compile(example.replace("max_epochs=150", "max_epochs=2"), "README", "exec"), namespace)
+    assert len(namespace["X_test"]) == len(namespace["y_test"])
+    assert np.isfinite(namespace["mean_log_likelihood"])

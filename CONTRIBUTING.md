@@ -95,10 +95,26 @@ Regenerating fixtures requires the recorded upstream versions and an explicit
 refresh using `NAMPY_REFRESH_REFERENCE_FIXTURES=1`. Update the fixture provenance
 when reference results change.
 
-See the [upstream-reference guide](https://nampy.readthedocs.io/en/latest/development/reference_sources.html)
-for the regeneration workflow and the
+For a fixture refresh, select the recorded source libraries when needed and
+run only the affected test. Refresh mode fills missing keys; rebuild mode is
+for an intentional, reviewed source rebaseline:
+
+```bash
+export MGCV_LIB_PATH="$PWD/.cache/mgcv-lib"
+export SCAM_LIB_PATH="$PWD/.cache/scam-lib"
+NAMPY_REFRESH_REFERENCE_FIXTURES=1 pytest path/to/test.py::test_name -v
+# Only for an intentional baseline replacement:
+NAMPY_REBUILD_REFERENCE_FIXTURES=1 pytest path/to/test.py::test_name -v
+pytest path/to/test.py::test_name -v
+```
+
+The final run uses committed fixtures without refresh flags. Review the source
+revision, manifest, fixture diff, and assertions together. R is needed only
+when generating R-reference results; neural fixture regeneration requires the
+relevant reference checkout. The [fixture manifest](https://github.com/OpenTabular/NAMpy/blob/main/tests/reference_fixtures/manifest.json)
+records source versions, namespaces, and the declared mgcv source difference. The
 [compatibility page](https://nampy.readthedocs.io/en/latest/compatibility.html)
-for supported behavior and known differences.
+records supported behavior and intentional restrictions.
 
 ## Improve documentation
 
@@ -117,9 +133,42 @@ python -m pip install -e ".[dev,docs]"
 make docs
 ```
 
-The documentation build treats warnings as errors. Follow the
-[documentation-validation guide](https://nampy.readthedocs.io/en/latest/development/documentation_validation.html)
-when changing notebook execution or generated reference material.
+The documentation build treats warnings as errors. Run checks appropriate to
+the change; the following commands cover contracts, example execution, strict
+HTML, structural integrity, and browser navigation:
+
+```bash
+python -m pytest -q tests/docs tests/neural/test_documented_component_contracts.py
+python docs/scripts/check_short_examples.py
+python docs/scripts/execute_notebooks.py docs/notebooks/changed_example.ipynb
+python -m sphinx -E -a -b html docs docs/_build/html -W --keep-going
+python docs/scripts/check_documentation.py
+python docs/scripts/check_sidebar_navigation.py
+```
+
+Replace the notebook path with the affected example. With no paths, the
+execution script reruns the teaching collection. Development reports can be
+rerun explicitly with `docs/development/notebooks/*.ipynb`. Keep assertions
+that verify scientific identities or prediction contracts, and inspect the
+actual saved outputs; execution alone does not establish that an explanation
+or metric label is correct.
+
+Regenerate the relevant figures and reports from their displayed code:
+
+```bash
+python docs/scripts/generate_howto_assets.py
+python docs/scripts/generate_detailed_assets.py
+python docs/scripts/generate_practical_assets.py
+python docs/scripts/generate_optimizer_matrix.py
+```
+
+Run only the relevant generator. The detailed-assets generator executes its
+complete examples, so review both example and documentation outputs. The
+homepage showcase code is shared through `docs/_includes/model_showcases.inc`.
+Notebook records retain package versions, source revision and content hashes;
+retain the corresponding source to reproduce a saved execution. Preserve
+meaningful warnings, fitted plots, and scientific tables. Inspect the deployed
+footer and outputs after publication to confirm the intended revision is live.
 
 ## Submit a pull request
 
