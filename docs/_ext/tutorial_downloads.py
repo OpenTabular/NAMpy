@@ -7,6 +7,7 @@ from pathlib import Path
 
 import nbformat
 from docutils import nodes
+from sphinx import addnodes
 from sphinx.util.docutils import SphinxRole
 
 WALKTHROUGHS = {
@@ -44,7 +45,13 @@ class NotebookDownload(SphinxRole):
 
 
 def export_notebook(app, doctree, docname):
-    if app.builder.format != "html":
+    if app.builder.name not in {"html", "dirhtml", "singlehtml"}:
+        for reference in list(doctree.findall(nodes.reference)):
+            if isinstance(reference, DownloadReference) or (
+                isinstance(reference, addnodes.download_reference)
+                and reference.get("reftarget", "").endswith(".ipynb")
+            ):
+                reference.parent.remove(reference)
         return
     for reference in doctree.findall(nodes.reference):
         uri = reference.get("refuri", "")
@@ -150,8 +157,16 @@ def download_url(docname, target):
     )
 
 
+def exclude_epub_downloads(app, config):
+    """Ignore exports left in a reused EPUB output directory as well."""
+    config.epub_exclude_files = list(config.epub_exclude_files) + [
+        "_downloads/notebooks/" + docname + ".ipynb" for docname in sorted(WALKTHROUGHS)
+    ]
+
+
 def setup(app):
     app.add_node(DownloadReference, html=(visit_download, depart_download))
+    app.connect("config-inited", exclude_epub_downloads)
     app.add_role("notebook-download", NotebookDownload())
     app.connect("doctree-resolved", export_notebook)
     return {"parallel_read_safe": True, "parallel_write_safe": True}

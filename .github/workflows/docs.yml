@@ -114,8 +114,13 @@ jobs:
       - name: Build Sphinx documentation
         run: python -m sphinx -E -a -b html docs docs/_build/html -W --keep-going
 
+      - name: Check EPUB and PDF source builds
+        run: |
+          python -m sphinx -b epub -d docs/_build/ebook-doctrees docs docs/_build/epub -W --keep-going
+          python -m sphinx -b latex -d docs/_build/ebook-doctrees docs docs/_build/latex -W --keep-going
+
       - name: Check published visual content and source provenance
-        run: python -m pytest -q tests/docs/test_learning_assets.py
+        run: python -m pytest -q tests/docs/test_learning_assets.py tests/docs/test_tutorial_downloads.py
 
       - name: Check links, redirects, navigation, and notebook records
         run: python docs/scripts/check_documentation.py
