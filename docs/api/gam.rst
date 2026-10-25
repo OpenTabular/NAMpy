@@ -7,6 +7,18 @@ prediction, and inference conventions familiar from R's ``mgcv``. The
 bases, families, selection methods, and analysis utilities with short usage
 examples.
 
+.. toctree::
+   :maxdepth: 1
+
+   gam_formula
+   gam_smooths
+   gam_families
+   gam_diagnostics
+   gam_inference
+   gam_results
+   gam_advanced
+   ../user_guide/formula_visual_reference
+
 High-level model
 ----------------
 

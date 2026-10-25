@@ -64,6 +64,11 @@ def main():
                 section = next(item for item in sections if item["title"] == title)
                 assert title not in section["items"], section
                 assert len(section["items"]) >= minimum, section
+            reference = next(item for item in sections if item["title"] == "Reference")
+            assert "Statistical GAM API" in reference["items"], reference
+            assert "Formula API" not in reference["items"], reference
+            gam_branch = page.locator(".wy-menu-vertical li.toctree-l1:has(> a.current)")
+            assert gam_branch.locator(":scope > ul > li").count() == 8
             page.evaluate("""() => sessionStorage.setItem('nampy-sidebar-navigation',
                 JSON.stringify({destination: location.pathname, scrollTop: 400,
                     expanded: ['/api/gam.html', '/api/gam_formula.html',
@@ -72,8 +77,10 @@ def main():
             def check(name):
                 page.wait_for_function("document.querySelector('.wy-menu-vertical')")
                 selected = page.locator(
-                    ".wy-menu-vertical li.toctree-l1.current > a"
+                    ".wy-menu-vertical li.current > a.current"
                 ).evaluate_all("links => links.map(a => new URL(a.href).pathname)")
+                # A nested page also marks its GAM ancestor; only its own link
+                # receives the active-link class.
                 assert selected == [f"/api/{name}"], selected
                 # A new source must never be shipped under the old asset URL.
                 src = page.locator('script[src*="site-navigation.js"]').get_attribute(

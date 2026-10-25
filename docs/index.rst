@@ -213,16 +213,8 @@ Contributors
    :hidden:
 
    models/index
-   user_guide/formula_visual_reference
    api/models
    api/gam
-   api/gam_formula
-   api/gam_smooths
-   api/gam_families
-   api/gam_diagnostics
-   api/gam_inference
-   api/gam_results
-   api/gam_advanced
    api/basemodels
    api/configs
    api/utils
