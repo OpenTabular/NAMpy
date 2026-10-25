@@ -14,6 +14,8 @@ from ._base import NeuralEstimatorBase, TrainingPlan, _training_tensor
 
 
 class NeuralLSS(NeuralEstimatorBase):
+    """Shared estimator interface for neural distributional models."""
+
     def __init__(
         self,
         model,

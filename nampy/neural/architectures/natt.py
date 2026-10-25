@@ -19,6 +19,8 @@ from .components.transformer import CustomTransformerEncoderLayer
 
 
 class NATT(BaseModel):
+    """Attention-based architecture for additive tabular modeling."""
+
     def __init__(
         self,
         cat_feature_info,

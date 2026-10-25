@@ -4,6 +4,8 @@ from typing import Optional, Sequence
 
 @dataclass
 class DefaultSplineNAMConfig:
+    """Default configuration for spline-based neural additive models."""
+
     lr: float = 1e-04
     lr_patience: int = 10
     weight_decay: float = 1e-06

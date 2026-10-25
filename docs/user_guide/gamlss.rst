@@ -1,6 +1,8 @@
 Distributional GAMs and GAMLSS
 ==============================
 
+GAMLSS extends additive regression beyond the mean (Rigby and Stasinopoulos, 2005).
+
 This guide covers ``GAMLSS`` formulas, parameter ordering, predictions, and
 scoring. For a fitted example, see :doc:`../notebooks/04_distributional_models`.
 
@@ -102,3 +104,22 @@ Offsets must be a list or tuple with one entry per parameter. Contributions in
 
 For neural LSS effect plots, centering references, and uncertainty envelopes,
 see :doc:`interpretability`.
+
+Statistical smoothness selection
+--------------------------------
+
+Supported multi-parameter fitting routes use the general smooth-model
+framework described by Wood, Pya, and Säfken (2016), including Laplace
+approximate marginal likelihood where available. See :doc:`../api/gam_advanced`
+for compatible family and fitting combinations.
+
+References
+----------
+
+Rigby and Stasinopoulos (2005), `Generalized additive models for location,
+scale and shape <https://doi.org/10.1111/j.1467-9876.2005.00510.x>`_. Journal
+of the Royal Statistical Society: Series C 54:507–554.
+
+Wood, Pya, and Säfken (2016), `Smoothing Parameter and Model Selection for
+General Smooth Models <https://doi.org/10.1080/01621459.2016.1180986>`_. Journal
+of the American Statistical Association 111:1548–1563.

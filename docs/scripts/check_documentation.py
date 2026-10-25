@@ -29,10 +29,20 @@ class Page(HTMLParser):
         self.nav_labels = []
         self.stack = []
         self.anchor = None
+        self.autosummary_rows = []
+        self.summary_row = None
+        self.summary_cell = None
         self.feed(text)
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
+        in_autosummary = any(
+            "autosummary" in classes.split() for _, classes in self.stack
+        )
+        if in_autosummary and tag == "tr":
+            self.summary_row = []
+        if in_autosummary and tag == "td":
+            self.summary_cell = ""
         if tag == "img":
             self.images.append((attrs.get("src", ""), attrs.get("alt", "")))
         if attrs.get("id"):
@@ -69,6 +79,12 @@ class Page(HTMLParser):
             self.anchor = ""
 
     def handle_endtag(self, tag):
+        if tag == "td" and self.summary_cell is not None:
+            self.summary_row.append(self.summary_cell.strip())
+            self.summary_cell = None
+        if tag == "tr" and self.summary_row is not None:
+            self.autosummary_rows.append(self.summary_row)
+            self.summary_row = None
         if tag == "a" and self.anchor is not None:
             self.nav_labels.append(self.anchor.strip())
             self.anchor = None
@@ -78,6 +94,8 @@ class Page(HTMLParser):
                 break
 
     def handle_data(self, data):
+        if self.summary_cell is not None:
+            self.summary_cell += data
         if self.anchor is not None:
             self.anchor += data
 
@@ -116,6 +134,13 @@ def main():
                 and unquote(url.fragment) not in pages[target].ids
             ):
                 errors.append(f"{path.relative_to(build)}: missing anchor {href}")
+    for path, page in pages.items():
+        if path.parent == build / "api":
+            for row in page.autosummary_rows:
+                if len(row) >= 2 and not row[1]:
+                    errors.append(
+                        f"{path.relative_to(build)}: missing API description for {row[0]}"
+                    )
     for path, page in pages.items():
         if any(label.startswith("nampy.") for label in page.nav_labels):
             errors.append(

@@ -1,91 +1,134 @@
 # Contributing to NAMpy
 
-NAMpy accepts bug fixes, tests, documentation, and focused feature work. Python
-3.11 and 3.12 are the supported development interpreters.
+Contributions to NAMpy can include bug fixes, documentation improvements, tests,
+examples, and new modeling capabilities. Small, focused changes are welcome.
 
-## Development setup
+For a substantial feature or a change to a public interface, open an
+[issue](https://github.com/OpenTabular/NAMpy/issues) first so that the proposed
+behavior and scope can be discussed.
+
+## Report a problem
+
+Include a minimal example, the behavior you expected, and what happened instead.
+For errors, include the traceback and your NAMpy and Python versions.
+
+For documentation problems, link to the affected page and identify the example,
+statement, or output that needs correction.
+
+## Set up a development environment
+
+NAMpy supports Python 3.11 and 3.12. Fork
+[OpenTabular/NAMpy](https://github.com/OpenTabular/NAMpy), clone your fork, and
+create a virtual environment.
 
 ```bash
-git clone https://github.com/OpenTabular/NAMpy.git
-cd NAMpy
 python3.11 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e ".[dev]"
 pre-commit install
 ```
 
-The configured static checks are:
+On Windows, activate the environment with `.venv\Scripts\Activate.ps1`.
+
+Create a branch for your change and keep unrelated formatting or refactoring
+out of the patch.
+
+## Find the relevant code
+
+- `nampy/models/` contains the public estimator interfaces.
+- `nampy/neural/architectures/` contains neural architectures and shared components.
+- `nampy/neural/configs/` contains architecture configurations.
+- `nampy/gam/` contains the statistical GAM implementation.
+- `docs/` contains the documentation and tutorials.
+- `tests/` contains behavioral, numerical, and compatibility tests.
+
+Use NumPy-style docstrings for public Python interfaces.
+
+## Test your change
+
+For a bug fix, add a regression test that reproduces the problem. Start with the
+relevant test function or file, then broaden the checks when the change affects
+shared behavior. For example:
 
 ```bash
-ruff check nampy tests examples
+pytest tests/neural/test_neural_sklearn_contracts.py -v
+```
+
+The Makefile also supports a targeted test selection:
+
+```bash
+make test TEST=tests/neural/test_neural_sklearn_contracts.py
+```
+
+Run the relevant static checks:
+
+```bash
+ruff check nampy tests
 mypy nampy
 ```
 
-Common Make targets: `make format` (black + isort), `make lint` (ruff),
-`make test TEST=...` (targeted slice), `make type-check` (mypy),
-`make quality` (all checks), `make docs` / `make docs-serve`, `make build`.
-Release validation is enforced by the tracked CI and publishing workflows.
+`make quality` runs the configured static checks and repository-hygiene check.
+It does not run the test suite.
 
-Do not run Black as a routine validation step. Keep formatting changes scoped to
-the files you are deliberately changing.
+Report the checks you ran in the pull request. The full test suite is not the
+default local development step.
 
-## Testing
+## Change statistical GAM behavior
 
-Run the smallest pytest slice that proves the change, in this order:
+The statistical engine uses mgcv as a behavioral reference and scam for
+shape-constrained smooths. Changes should preserve the documented statistical
+construction and supported behavior.
 
-1. one exact test function;
-2. one exact test file;
-3. a narrow `-k` expression in one file;
-4. neighboring tests only when the change crosses their ownership boundary.
+For a compatibility fix:
 
-For example:
+1. Reproduce the discrepancy in a focused test.
+2. Identify the responsible NAMpy code and upstream routine.
+3. Explain the numerical or statistical difference.
+4. Implement the correction and run the relevant comparison tests.
+
+Preserve numerically stable operations and the upstream treatment of indexing,
+constraints, and matrix factorizations. Do not silently substitute an approximate
+fitting route for an unsupported combination.
+
+Most compatibility tests use committed reference fixtures and do not require R.
+Regenerating fixtures requires the recorded upstream versions and an explicit
+refresh using `NAMPY_REFRESH_REFERENCE_FIXTURES=1`. Update the fixture provenance
+when reference results change.
+
+See the [upstream-reference guide](https://nampy.readthedocs.io/en/latest/development/reference_sources.html)
+for the regeneration workflow and the
+[compatibility page](https://nampy.readthedocs.io/en/latest/compatibility.html)
+for supported behavior and known differences.
+
+## Improve documentation
+
+Explain the modeling question, show the relevant code, and interpret the
+resulting output. Retain figures and tables that help readers understand the
+fit; omit routine training logs and tables that only report successful internal
+checks.
+
+When changing an executable example, rerun it and update its saved outputs and
+numerical discussion together.
+
+Install the documentation dependencies and build the site:
 
 ```bash
-pytest tests/neural/test_neural_sklearn_contracts.py::test_name -v
-pytest tests/optimization/test_mgcv_outer_optimization_parity.py -k endpoint -v
+python -m pip install -e ".[dev,docs]"
+make docs
 ```
 
-`make test TEST=...` enforces the same targeted-test policy. Do not run the full
-suite by default; explain why a broader run is necessary before doing so.
+The documentation build treats warnings as errors. Follow the
+[documentation-validation guide](https://nampy.readthedocs.io/en/latest/development/documentation_validation.html)
+when changing notebook execution or generated reference material.
 
-## GAM parity work
+## Submit a pull request
 
-`nampy/gam/` is a faithful port of `mgcv`, not a loosely inspired GAM library.
-The local `mgcv` R/C source under ignored `upstreams/` is the behavioral specification. For a GAM
-change:
+Describe the problem and the resulting behavior. Include:
 
-1. reproduce the issue in a targeted test;
-2. locate the owning Python subsystem;
-3. locate the corresponding upstream `mgcv` function;
-4. port its control flow, ordering, indexing, and factorization behavior;
-5. run the smallest relevant parity slice.
+- The tests and checks run.
+- Documentation changes needed for public behavior.
+- Any compatibility implications or remaining limitations.
+- For statistical compatibility fixes, the upstream routine used as a reference.
+- For new methods, the relevant research and implementation sources.
 
-Do not add heuristic parity fallbacks, use matrix inverses where upstream uses a
-solve, silently broaden unsupported behavior, or force arbitrary eigenspace
-orientation. If a probe cannot be expressed cleanly as a test, retain it as a
-small purpose-built local script; development probes are intentionally not
-versioned.
-
-Normal parity tests read committed, compressed JSON from
-`tests/reference_fixtures/`; they do not require R or any local upstream clone.
-To add or update a parity case, obtain the relevant upstream source locally,
-opt into generation with
-`NAMPY_REFRESH_REFERENCE_FIXTURES=1`, run only the relevant test slice, and
-update the source provenance in `tests/reference_fixtures/manifest.json`.
-
-## Pull requests
-
-- Add or update tests for user-visible behavior.
-- Update public documentation when appropriate.
-- Keep refactors separate from parity fixes.
-- Report the exact tests and static checks run.
-- For GAM fixes, name the upstream `mgcv` file and function used as reference.
-- Call out remaining uncertainty or deliberately unsupported surfaces.
-
-Use NumPy-style docstrings for public Python APIs. Public neural models belong in
-`nampy/models/`, their PyTorch implementations in `nampy/neural/architectures/` (shared building blocks in `nampy/neural/architectures/components/`), and their
-configuration dataclasses in `nampy/neural/configs/`.
-
-Please use the issue tracker for bug reports and include a minimal reproducer,
-expected and actual behavior, NAMpy/Python versions, operating system, and the
-relevant traceback.
+Keep the change focused enough that a reviewer can understand and verify it.

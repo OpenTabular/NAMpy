@@ -17,7 +17,8 @@ parametric terms and explicit interactions. See
 :ref:`smoothness-and-basis-dimension` for the basis and penalty equations.
 
 Smoothing parameters can be supplied directly or estimated with GCV, UBRE, ML,
-REML, or the supported LAML routes. The statistical backend provides
+REML, or the supported LAML routes. General smooth-model selection follows
+the methodology of Wood, Pya, and Säfken (2016), cited below. The statistical backend provides
 model-based covariance matrices, effective degrees of freedom, and term tests.
 
 Fit and inspect
@@ -79,3 +80,6 @@ References
 * Wood (2017), *Generalized Additive Models: An Introduction with R*, second
   edition.
 
+
+* Wood, Pya, and Säfken (2016), `Smoothing Parameter and Model Selection
+  for General Smooth Models <https://doi.org/10.1080/01621459.2016.1180986>`_.

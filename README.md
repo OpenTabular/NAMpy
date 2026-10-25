@@ -26,37 +26,29 @@ NAMpy supports Python 3.11 and 3.12. Install it with:
 pip install nampy
 ```
 
-## Interpretability
+## Interpreting predictions
 
-An additive model builds its prediction from one effect per feature:
-
-$$
-\eta(x)=\beta_0+\sum_{j=1}^{p}f_j(x_j).
-$$
-
-Here $\beta_0$ is the intercept and $f_j$ describes how feature $x_j$
-contributes. GAMs represent these effects with penalized splines; neural
-additive models learn them with feature networks or other learned functions.
-The inverse link maps the additive predictor to the conditional mean:
+An additive model represents its predictor as a baseline plus contributions from its terms:
 
 $$
-\mu(x)=\mathbb{E}[Y\mid x]=g^{-1}\!\left(\eta(x)\right).
+\eta(x)=\beta_0+\sum_{t\in\mathcal T}f_t(x_{S_t})+o(x),
+\qquad
+\mu(x)=g^{-1}\{\eta(x)\}.
 $$
 
-For distributional regression, each distribution parameter gets its own
-additive predictor:
+A term may describe one feature or an interaction. Some architectures also include a global component, whose dependence should be interpreted separately.
+
+Distributional models use one predictor for each distribution parameter:
 
 $$
-\eta_k(x)=\beta_{0k}+\sum_{j=1}^{p}f_{jk}(x_j),
-\qquad \theta_k(x)=h_k^{-1}\!\left(\eta_k(x)\right).
+\eta_k(x)=\beta_{0k}+\sum_{t\in\mathcal T_k}f_{tk}(x_{S_t})+o_k(x),
+\qquad
+\boldsymbol{\theta}(x)=T\{\boldsymbol{\eta}(x)\}.
 $$
 
-$$
-Y\mid x\sim\mathcal D\!\left(\theta_1(x),\ldots,\theta_K(x)\right).
-$$
+Here, $T$ applies the family’s parameter transformations. Contributions add before these transformations.
 
-This lets quantities such as the conditional mean and spread vary with the
-inputs. Contributions add on each predictor's link scale.
+Use `predict_components()` to inspect the decomposition and the plotting methods to examine fitted effects. See the [interpretability guide](https://nampy.readthedocs.io/en/latest/user_guide/interpretability.html) for centering, interactions, and uncertainty.
 
 ## Quick start — Fitting a model
 
@@ -300,15 +292,15 @@ contract, so it is not tied to a particular distribution or parameter order.
 | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | Neural Linear Regression (LinReg)                                                                                                                 | Neural-objective-compatible linear baseline                                                |
 | [Neural Additive Models (NAM)](https://proceedings.nips.cc/paper_files/paper/2021/hash/251bd0442dfcc53b5a761e050f8022b8-Abstract.html)            | One feature network per logical feature, with optional explicit interactions               |
-| [Sparse Interaction Additive Networks (SIAN)](https://arxiv.org/abs/2209.09326)                                                                   | Sparse higher-order additive terms discovered with Archipelago/FIS                         |
+| [Sparse Interaction Additive Networks (SIAN)](https://arxiv.org/abs/2209.09326)                                                                   | Sparse higher-order additive terms discovered with [Archipelago](https://proceedings.neurips.cc/paper_files/paper/2020/hash/443dec3062d0286986e21dc0631734c9-Abstract.html)/FIS                         |
 | [Sparse Neural Additive Models (SNAM)](https://arxiv.org/abs/2202.12482)                                                                          | NAM subnetworks with group-lasso feature and term sparsity                                 |
 | [Gaussian Process Neural Additive Models (GPNAM)](https://arxiv.org/abs/2402.12518)                                                               | Random Fourier feature approximations to GP shape functions and GP-NA2M terms              |
 | [Interpretable Generalized Additive Neural Networks (IGANN)](https://doi.org/10.1016/j.ejor.2023.06.032)                                          | Linear initialization followed by sequential feature-wise ELM boosting                     |
 | [Neural Basis Models (NBM)](https://proceedings.neurips.cc/paper_files/paper/2022/hash/37da88965c016dca016514df0e420c72-Abstract-Conference.html) | Learned basis functions shared across features, with dense, sparse, and higher-order modes |
 | [Scalable Polynomial Additive Model (SPAM)](https://arxiv.org/abs/2205.14108)                                                                     | Low-rank polynomial additive effects with local term importance                            |
 | [Neural Basis Model](https://arxiv.org/abs/2205.14120)-[Scalable Polynomial Additive Model](https://arxiv.org/abs/2205.14108) (NBM-SPAM)          | NBM concepts combined with SPAM polynomial interaction structure                           |
-| [Neural Attentive Tabular Transformer (NATT)](https://openreview.net/forum?id=TdJ7lpzAkD)                                                         | Additive tabular transformer representations                                               |
-| [Transformer-based Neural Additive Model (NAMformer)](https://arxiv.org/abs/2504.08712)                                                           | Transformer backbone with identifiable marginal feature effects                            |
+| [Interpretable Additive Tabular Transformer Networks (NATT)](https://openreview.net/forum?id=TdJ7lpzAkD)                                                         | Additive tabular transformer representations                                               |
+| [Transformer-based Neural Additive Model (NAMformer)](https://arxiv.org/abs/2504.08712)                                                           | Feature-specific marginal heads alongside a global transformer contribution; overlap requires explicit interpretation                            |
 | Tree-based Neural Additive Model (TreeNAM)                                                                                                        | One differentiable neural decision tree per term                                           |
 | [Neural Generalized Additive Model (NodeGAM)](https://arxiv.org/abs/2106.01613)                                                                   | Differentiable oblivious trees with additive term extraction                               |
 | Quantile Neural Additive Model (QNAM)                                                                                                             | Non-crossing additive quantile outputs                                                     |
@@ -316,6 +308,13 @@ contract, so it is not tied to a particular distribution or parameter order.
 
 
 `Regressor`, `Classifier`, and `LSS` suffixes form the concrete class names, for example `NBMRegressor`, `NBMClassifier`, and `NBMLSS`. Most architectures support all three estimator types; QNAM is distributional-only, SplineNAM is regression-only, and IGANN does not advertise interaction terms.
+
+`NodeGAMLSS` extends the tree-based architecture to distributional regression;
+see De, Thielmann, and Säfken (2024),
+[NODE-GAMLSS: Interpretable Uncertainty Modelling via Deep Distributional Regression](https://openreview.net/forum?id=sWvTLlRkzy).
+For the implemented dependence conventions, see the
+[published model catalog](https://nampy.readthedocs.io/en/latest/models/index.html).
+
 
 ### Distributional regression
 
@@ -351,44 +350,6 @@ components.validate_additive_reconstruction()  # raw parameter/link scale
 
 
 
-
-## Shared interpretation contract
-
-Both GAM and neural estimators expose `predict_components()`. It
-returns an `AdditivePrediction` containing:
-
-
-| Field       | Meaning                                                               |
-| ----------- | --------------------------------------------------------------------- |
-| `response`  | Prediction after the inverse link or distribution parameter transform |
-| `link`      | Additive prediction before that transform                             |
-| `terms`     | Ordered mapping from term names to link-scale contributions           |
-| `intercept` | Fitted intercept contribution                                         |
-| `offset`    | Optional link-scale offset                                            |
-
-
-For an ordinary scalar predictor, the central invariant is:
-
-```python
-components.link == (
-    components.intercept
-    + sum(components.terms.values())
-    + (0.0 if components.offset is None else components.offset)
-)
-```
-
-Use the built-in check in application code:
-
-```python
-table = model.explain_terms(X_test)
-importance = model.term_importance(X_test)
-interaction_importance = model.interaction_importance(X_test)
-```
-
-Neural models additionally provide component centering and term/interaction
-plots. GAM estimators provide statistical smooth plots through the same public
-plotting interface. For LSS models, reconstruction is defined on the raw
-distribution-parameter/link scale.
 
 ## Estimator lifecycle and sklearn behavior
 
@@ -450,12 +411,6 @@ restored = type(model).load_model(path)
 
 These artifacts use Python pickle. Load them only from trusted sources.
 
-Both model families keep predictions decomposable into named terms:
+## License
 
-```text
-prediction = intercept + main effects + optional interactions + optional offset
-```
-
-NAMpy gives them a shared estimator and interpretation surface without hiding
-their different numerical semantics. GAM inference remains statistical GAM
-inference; neural architectures retain their own training algorithms.
+NAMpy is distributed under the [MIT License](LICENSE).

@@ -14,6 +14,14 @@ To create a custom model, you need to:
 3. Register the architecture and generate its estimator family
 4. Use your custom model
 
+Preprocessor contract
+---------------------
+
+Any preprocessor supplied to the neural data module must:
+
+* Implement ``fit(X, y)`` and ``transform(X)``.
+* Expose ``get_feature_info(verbose=False)`` returning a tuple ``(num_feature_info, cat_feature_info, emb_feature_info)`` — three dicts of feature names to metadata (e.g. ``preprocessing``, ``dimension``) so that NAMpy can build the right input tensors.
+
 Build an attentive model
 ------------------------
 
@@ -252,11 +260,3 @@ Resources
 * :class:`nampy.neural.registry.NeuralArchitecture` - architecture declaration
 * :func:`nampy.models.estimator_family` - generated estimator surfaces
 * Existing models in `nampy/neural/architectures/` for reference
-
-Preprocessor contract
----------------------
-
-Any preprocessor supplied to the neural data module must:
-
-* Implement ``fit(X, y)`` and ``transform(X)``.
-* Expose ``get_feature_info(verbose=False)`` returning a tuple ``(num_feature_info, cat_feature_info, emb_feature_info)`` — three dicts of feature names to metadata (e.g. ``preprocessing``, ``dimension``) so that NAMpy can build the right input tensors.

@@ -55,6 +55,10 @@ Reported components reconstruct the link predictor. Identifiability additionally
 requires assumptions or constraints on how the unrestricted global term can
 overlap with the marginal heads.
 
+The complete component output includes ``global_transformer``. Its metadata
+marks dependence on all source features. Marginal heads and named interaction
+heads are reported separately; their sum alone is not the full prediction.
+
 Available estimators
 --------------------
 
@@ -68,8 +72,3 @@ Reference
 Thielmann, Reuter, and Säfken (2025), `Beyond Black-Box Predictions:
 Identifying Marginal Feature Effects in Tabular Transformer Networks
 <https://arxiv.org/abs/2504.08712>`_.
-
-
-The complete component output includes ``global_transformer``. Its metadata
-marks dependence on all source features. Marginal heads and named interaction
-heads are reported separately; their sum alone is not the full prediction.

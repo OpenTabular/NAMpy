@@ -13,6 +13,8 @@ from ._base import NeuralEstimatorBase, TrainingPlan
 
 
 class NeuralClassifier(NeuralEstimatorBase):
+    """Shared estimator interface for neural classification models."""
+
     _estimator_type = "classifier"
 
     def __init__(self, model, config, **kwargs):

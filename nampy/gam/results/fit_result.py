@@ -11,6 +11,8 @@ from .solution import FitResult
 
 @dataclass
 class TermFitResult:
+    """Fitted information for an individual model term."""
+
     label: str
     term_type: str
     basis_name: str

@@ -137,3 +137,65 @@ def test_schedulers_match_implementation_and_training_guide():
     for name in allowed:
         assert f'"{name}"' in description
         assert f'"{name}"' in guide
+
+
+def test_api_overview_symbols_have_written_summaries():
+    """Autosummary must show descriptions rather than empty class-name rows."""
+    import importlib
+    import inspect
+
+    groups = {
+        "nampy.neural.architectures": ["BaseModel", "NATT", "NAMformer"],
+        "nampy.neural.task": ["TaskModule"],
+        "nampy.neural.configs": ["DefaultSplineNAMConfig"],
+        "nampy.gam": ["solve_fit", "FitCoreSolution"],
+        "nampy.gam.inference": ["anova_gam", "AnovaGAMSingle", "AnovaGAMComparison"],
+        "nampy.gam.results": ["TermFitResult", "FitResult"],
+        "nampy.models": ["NeuralRegressor", "NeuralClassifier", "NeuralLSS"],
+        "nampy.neural.registry": ["get_architecture"],
+        "nampy.neural.objectives": [
+            "RegressionObjective",
+            "BinaryObjective",
+            "MulticlassObjective",
+            "DistributionObjective",
+            "classification_objective",
+        ],
+    }
+    for module_name, symbols in groups.items():
+        module = importlib.import_module(module_name)
+        for name in symbols:
+            summary = inspect.getdoc(getattr(module, name))
+            assert summary and summary.splitlines()[0].endswith("."), (
+                module_name,
+                name,
+            )
+
+
+def test_built_api_summary_descriptions_include_nested_text():
+    module = runpy.run_path(
+        str(Path(__file__).resolve().parents[2] / "docs/scripts/check_documentation.py")
+    )
+    page = module["Page"](
+        '<table class="autosummary"><tr><td><p>Model</p></td><td><p>A <em>useful</em> description.</p></td></tr><tr><td>Undocumented</td><td><p> </p></td></tr></table>'
+    )
+    assert page.autosummary_rows == [
+        ["Model", "A useful description."],
+        ["Undocumented", ""],
+    ]
+
+
+def test_training_contract_keeps_both_viewcode_anchor_spellings():
+    from docutils import nodes
+    from sphinx import addnodes
+
+    module = runpy.run_path(
+        str(Path(__file__).resolve().parents[2] / "docs/_ext/site_integrity.py")
+    )
+    canonical = "nampy.models._base.NeuralEstimatorBase.fit"
+    alias = "nampy.models.NeuralEstimatorBase.fit"
+    tree = nodes.container()
+    signature = addnodes.desc_signature(ids=[canonical])
+    tree += signature
+    module["training_anchor_alias"](None, tree, "api/neural_training")
+    module["training_anchor_alias"](None, tree, "api/neural_training")
+    assert signature["ids"] == [canonical, alias]

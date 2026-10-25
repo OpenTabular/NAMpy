@@ -120,6 +120,7 @@ def register_architecture(spec: NeuralArchitecture) -> NeuralArchitecture:
 
 
 def get_architecture(name: str) -> NeuralArchitecture:
+    """Retrieve a registered neural architecture by name."""
     try:
         return _REGISTRY[str(name).lower()]
     except KeyError as exc:

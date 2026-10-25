@@ -222,7 +222,7 @@ The tutorials work through complete modeling examples, from fitting a first addi
 
       :download:`Download notebook <../notebooks/functional_inputs.ipynb>`
 
-   .. grid-item-card:: Constrain curvature or positivity
+   .. grid-item-card:: Fit a convex effect and inspect its curvature
       :link: ../notebooks/curvature_constraints
       :link-type: doc
 
@@ -261,4 +261,4 @@ The tutorials work through complete modeling examples, from fitting a first addi
    Allow smoothness to vary across a predictor <../notebooks/adaptive_smoothing>
    Fit a smooth on the sphere <../notebooks/spherical_smoothing>
    Model weighted functional inputs <../notebooks/functional_inputs>
-   Constrain curvature or positivity <../notebooks/curvature_constraints>
+   Fit a convex effect and inspect its curvature <../notebooks/curvature_constraints>

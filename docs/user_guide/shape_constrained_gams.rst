@@ -5,7 +5,7 @@ Use a shape constraint when the direction or curvature of an effect follows
 from the problem rather than from the observed sample alone. For example, a
 dose effect may be expected to increase but not decrease over the studied
 range. A constrained smooth encodes that assumption during fitting; it is not
-a visual adjustment applied afterward.
+a visual adjustment applied afterward. The SCAM construction follows Pya and Wood (2015), cited below.
 
 .. _tutorial-monotone:
 
@@ -158,3 +158,9 @@ Current boundaries
 For transformed shape-constrained models, use fixed smoothing or a supported GCV/UBRE route. Automatic ML, REML, and LAML selection is not available for these models. The compatibility reference lists restrictions for multi-parameter models and other combinations.
 
 See :doc:`../api/gam_advanced` for fitting compatibility and coefficient-space details.
+
+References
+----------
+
+Pya and Wood (2015), `Shape constrained additive models
+<https://doi.org/10.1007/s11222-013-9448-7>`_. Statistics and Computing 25:543–559.

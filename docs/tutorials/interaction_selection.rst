@@ -115,6 +115,6 @@ intercept and main effects. A blank surface means no such term was selected;
 the detector table records the decision. This single split does not establish
 selection stability or a unique separation between overlapping effects.
 
-Recommended next: :doc:`../user_guide/interpretability` for dependence and
-centering conventions. Optional: :doc:`../models/sian` for detector controls,
-sparsity, and the unrestricted residual-network caveat.
+The :doc:`interpretability guide <../user_guide/interpretability>` explains
+centering and overlapping term contributions. The :doc:`SIAN model guide
+<../models/sian>` describes the selection controls and optional residual network.

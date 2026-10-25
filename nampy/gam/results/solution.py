@@ -9,6 +9,15 @@ import numpy as np
 
 @dataclass(frozen=True)
 class FitResult:
+    """Stable numerical fit outputs shared across statistical solvers.
+
+    Stores coefficients, fitted predictors, effective degrees of freedom, and
+    covariance matrices. :class:`nampy.gam.results.GAMFitResult` wraps this
+    record as ``core`` and adds criterion and per-term reporting information.
+    :class:`nampy.gam.results.GAMResult` aggregates the compiled design, core
+    solution, and reporting summary for a fitted model.
+    """
+
     coef_full: np.ndarray
     intercept: float
     beta: np.ndarray

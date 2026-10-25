@@ -5,6 +5,8 @@ from ...contracts import validate_feature_names
 
 
 class BaseModel(nn.Module):
+    """Base class for NAMpy neural architectures."""
+
     extra_reserved_feature_names = ()
 
     def __init__(self, **kwargs):

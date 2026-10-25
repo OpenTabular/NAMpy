@@ -8,7 +8,7 @@ This guide covers component extraction, effect tables, and plot controls.
 Understand the decomposition before plotting
 ---------------------------------------------
 
-For a scalar response, NAMpy represents a link-scale prediction as named
+For a scalar conditional-mean model, NAMpy represents a link-scale prediction as named
 contributions:
 
 .. math::
@@ -54,10 +54,10 @@ contract:
    model = NAMRegressor()
    model.fit(X_train, y_train, max_epochs=100)
    
-   components = model.predict_components(X_test, center=True)
-   table = model.explain_terms(X_test)
-   importance = model.term_importance(X_test)
-   figures = model.plot_terms(X_test)
+   components = model.predict_components(X_test, center=True, reference_X=X_train)
+   table = model.explain_terms(X_test, center=True, reference_X=X_train)
+   importance = model.term_importance(X_test, center=True, reference_X=X_train)
+   figures = model.plot_terms(X_test, center=True, reference_X=X_train)
 
 Choose a representation from the :doc:`model guide <../models/index>` based
 on term dependence, interaction structure, objective support, and inferential
@@ -86,6 +86,8 @@ parameter links before plotting, through ``predict_point`` and
 
 .. code-block:: python
 
+   from nampy.models import NAMLSS
+
    model = NAMLSS(family="normal").fit(X_train, y_train)
    figures = model.plot_distributional_effects(
        X_test,
@@ -99,9 +101,7 @@ result to ``render_distributional_effects``. The renderer then adds a
 between-fit quantile ribbon, which describes variation across fitted models
 rather than conditional predictive spread.
 
-Continue the analysis
----------------------
+For prediction shapes and parameter scales, see :doc:`../howto/prediction_outputs`.
 
-* :doc:`../models/index` - Model comparison
-* :doc:`../howto/index` - Practical examples
-* GitHub: https://github.com/Ananyapam7/NAMpy
+For worked examples, compare :doc:`GAM and NAM feature effects <../tutorials/gam_nam>`,
+or examine :doc:`distributions, quantiles, and ensemble spread <../notebooks/04_distributional_models>`.

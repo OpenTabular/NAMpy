@@ -66,6 +66,7 @@ def setup(app):
     app.connect("html-page-context", navigation_context)
     app.connect("builder-inited", provenance)
     app.connect("doctree-resolved", notebook_image_descriptions)
+    app.connect("doctree-resolved", training_anchor_alias)
     app.connect("build-finished", version_local_images)
     return {"parallel_read_safe": True, "parallel_write_safe": True}
 
@@ -162,3 +163,16 @@ def version_local_images(app, exception):
         updated = attributes.sub(replace, original)
         if updated != original:
             page.write_text(updated)
+
+
+def training_anchor_alias(app, doctree, docname):
+    """Keep viewcode backlinks valid when Sphinx uses the public module alias."""
+    if docname != "api/neural_training":
+        return
+    from sphinx import addnodes
+
+    canonical = "nampy.models._base.NeuralEstimatorBase.fit"
+    alias = "nampy.models.NeuralEstimatorBase.fit"
+    for signature in doctree.findall(addnodes.desc_signature):
+        if canonical in signature["ids"] and alias not in signature["ids"]:
+            signature["ids"].append(alias)

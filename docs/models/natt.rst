@@ -60,6 +60,6 @@ Available estimators
 Reference
 ---------
 
-Thielmann et al., `Neural Additive Tabular Transformer Networks
-<https://openreview.net/forum?id=TdJ7lpzAkD>`_.
+Thielmann et al. (2024), `Interpretable Additive Tabular Transformer Networks
+<https://openreview.net/forum?id=TdJ7lpzAkD>`_. Transactions on Machine Learning Research.
 

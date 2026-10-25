@@ -53,8 +53,8 @@ Available estimator
 
 * :class:`nampy.models.SplineNAMRegressor`
 
-Reference
----------
+Related methodology
+-------------------
 
 Scardapane et al. (2019), `Learning activation functions from data using cubic
 spline interpolation <https://doi.org/10.1007/978-3-319-95098-3_7>`_.

@@ -47,6 +47,12 @@ class FitState:
 
 @dataclass(frozen=True)
 class FitCoreSolution:
+    """Structured output from the statistical fitting core.
+
+    Combines the stable numerical ``fit_result`` with transient ``fit_state``
+    workspace used during fitting.
+    """
+
     fit_result: FitResult
     fit_state: FitState
 

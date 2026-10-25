@@ -20,7 +20,7 @@ higher-order interaction functions,
 where :math:`\mathcal{T}` contains selected feature subsets. NAMpy can fit the
 terms with independent networks or a block-masked network that retains
 term-specific inputs. The optional interaction-selection workflow scores
-candidates with an Archipelago-style detector before fitting the additive
+candidates with an Archipelago-style detector (Tsang, Rambhatla, and Liu, 2020) before fitting the additive
 terms.
 
 Fit and inspect
@@ -53,10 +53,15 @@ Available estimators
 * :class:`nampy.models.SIANClassifier`
 * :class:`nampy.models.SIANLSS`
 
-Reference
----------
+References
+----------
 
 Enouen and Liu (2023), `Sparse Interaction Additive Networks via Feature
 Interaction Detection and Sparse Selection
 <https://arxiv.org/abs/2209.09326>`_.
 
+
+Tsang, Rambhatla, and Liu (2020), `How does This Interaction Affect Me?
+Interpretable Attribution for Feature Interactions
+<https://proceedings.neurips.cc/paper_files/paper/2020/hash/443dec3062d0286986e21dc0631734c9-Abstract.html>`_.
+NeurIPS 33.

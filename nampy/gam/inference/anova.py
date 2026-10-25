@@ -230,6 +230,8 @@ def _retest_like_stat(
 
 @dataclass(frozen=True)
 class AnovaGAMSingle:
+    """Results of term tests for a single fitted GAM."""
+
     family_name: str
     link_name: str
     covariance: str
@@ -241,6 +243,8 @@ class AnovaGAMSingle:
 
 @dataclass(frozen=True)
 class AnovaGAMComparison:
+    """Results of a comparison between fitted GAMs."""
+
     family_name: str
     test: str | None
     table: pd.DataFrame
@@ -849,6 +853,7 @@ def anova_gam(
     test: str | None = None,
     freq: bool = False,
 ):
+    """Compute term tests or comparisons between fitted GAMs."""
     _require_fitted(model)
     if len(models) == 0:
         return _term_table(model, freq=bool(freq), dispersion=dispersion)

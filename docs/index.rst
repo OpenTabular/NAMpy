@@ -11,6 +11,12 @@ NAMpy combines statistical and neural additive models in one Python workflow.
 Fit nonlinear feature effects, inspect their contributions, and model changing
 response distributions through a scikit-learn-style estimator interface.
 
+Its statistical engine reimplements a broad range of mgcv methods in Python,
+including smoothness selection, inference, and diagnostics, alongside
+SCAM-style shape constraints. Fitting and prediction do not require R.
+
+:doc:`Coming from R’s mgcv or scam? See compatibility and interface differences. <compatibility>`
+
 Quick installation
 ------------------
 
@@ -104,7 +110,7 @@ Explore the documentation
 
 Start with :doc:`your first additive models <notebooks/01_getting_started>`,
 then :doc:`a real-data classification workflow <notebooks/05_real_data_classification>`.
-Choose the statistical, neural, or distributional branch in :doc:`tutorials/index`.
+Choose another example from the :doc:`tutorials <tutorials/index>`.
 
 .. grid:: 1 1 2 2
    :gutter: 2
@@ -142,12 +148,6 @@ Choose the statistical, neural, or distributional branch in :doc:`tutorials/inde
 
       Find constructors, methods, defaults, return values, and extension
       interfaces.
-
-   .. grid-item-card:: Explore detailed examples
-      :link: tutorials/index
-      :link-type: doc
-
-      Work through longer statistical, neural, and distributional analyses.
 
    .. grid-item-card:: Choose a model
       :link: models/index

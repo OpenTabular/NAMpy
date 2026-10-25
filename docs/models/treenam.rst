@@ -51,7 +51,11 @@ Available estimators
 References
 ----------
 
-TreeNAM combines the additive decomposition of Agarwal et al. (2021) with
-differentiable oblivious-tree components related to `NODE-GAM
-<https://arxiv.org/abs/2106.01613>`_.
+This NAMpy implementation adapts additive and differentiable-tree components;
+the papers below do not introduce the exact ``TreeNAM`` classes.
 
+* Agarwal et al. (2021), `Neural Additive Models: Interpretable Machine
+  Learning with Neural Nets <https://arxiv.org/abs/2004.13912>`_.
+* Chang, Caruana, and Goldenberg (2022), `NODE-GAM: Neural Generalized
+  Additive Model for Interpretable Deep Learning
+  <https://arxiv.org/abs/2106.01613>`_.

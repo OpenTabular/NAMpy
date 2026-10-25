@@ -54,6 +54,7 @@ def resolve_fit_backend(model):
 
 
 def solve_fit(model, y, smoothing_params, backend=None, weights=None):
+    """Dispatch a fixed-smoothing fit to the appropriate statistical solver."""
     validate_observation_transform_support(model)
     backend = resolve_fit_backend(model) if backend is None else str(backend).lower()
 

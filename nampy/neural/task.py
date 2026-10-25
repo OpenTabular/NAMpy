@@ -10,6 +10,8 @@ from .objectives import objective_from_legacy
 
 
 class TaskModule(pl.LightningModule):
+    """Lightning module connecting a neural architecture to its training objective."""
+
     def __init__(
         self,
         model_class: Type[nn.Module],

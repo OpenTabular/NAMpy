@@ -311,5 +311,4 @@ Next Steps
 ----------
 
 * Learn about :doc:`preprocessing`
-* Implement :doc:`custom_models`
 * Check :doc:`interpretability`

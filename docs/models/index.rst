@@ -78,7 +78,7 @@ interpretation limits.
      - One neural network per feature, with optional explicit interactions
    * - :doc:`SNAM <snam>` :sup:`4`
      - NAM feature networks with group-lasso sparsity
-   * - :doc:`SIAN <sian>` :sup:`5`
+   * - :doc:`SIAN <sian>` :sup:`5, 16`
      - Sparse higher-order terms selected through feature-interaction detection
    * - :doc:`GPNAM <gpnam>` :sup:`6`
      - Random Fourier feature approximations to additive Gaussian processes
@@ -94,16 +94,20 @@ interpretation limits.
      - One differentiable decision tree per main effect or explicit interaction
    * - :doc:`EnsembleTreeNAM <ensemble_treenam>` :sup:`3, 10`
      - A jointly trained ensemble of TreeNAM components
-   * - :doc:`NodeGAM <nodegam>` :sup:`10`
-     - Additive ensembles of differentiable oblivious trees
+   * - :doc:`NodeGAM <nodegam>` :sup:`10, 14`
+     - Additive ensembles of differentiable oblivious trees; NodeGAMLSS models distribution parameters
    * - :doc:`NATT <natt>` :sup:`11`
      - Additive tabular-transformer representations with optional interactions
    * - :doc:`NAMformer <namformer>` :sup:`12`
-     - Transformer representations designed to recover marginal feature effects
+     - Feature-specific marginal heads plus a global transformer contribution
    * - :doc:`QNAM <qnam>` :sup:`3, 13`
      - Additive quantile functions constrained to remain ordered
-   * - :doc:`SplineNAM <spline_nam>` :sup:`1, 2`
+   * - :doc:`SplineNAM <spline_nam>`
      - Learnable cubic-spline feature and interaction functions
+
+The neural distributional framework follows Thielmann et al. (2024), reference 15.
+TreeNAM and EnsembleTreeNAM adapt additive and differentiable-tree components;
+the cited papers do not introduce those exact NAMpy implementations.
 
 ``Regressor``, ``Classifier``, and ``LSS`` suffixes identify the estimator
 task, for example ``NAMRegressor``, ``NAMClassifier``, and ``NAMLSS``. QNAM is
@@ -162,10 +166,23 @@ References
 10. Chang, Caruana, and Goldenberg (2022). `NODE-GAM: Neural Generalized
     Additive Model for Interpretable Deep Learning
     <https://arxiv.org/abs/2106.01613>`_.
-11. Thielmann et al. `Neural Additive Tabular Transformer Networks
-    <https://openreview.net/forum?id=TdJ7lpzAkD>`_.
+11. Thielmann et al. (2024). `Interpretable Additive Tabular Transformer Networks
+    <https://openreview.net/forum?id=TdJ7lpzAkD>`_. Transactions on Machine Learning Research.
 12. Thielmann, Reuter, and Säfken (2025). `Beyond Black-Box Predictions:
     Identifying Marginal Feature Effects in Tabular Transformer Networks
     <https://arxiv.org/abs/2504.08712>`_.
 13. Koenker and Bassett (1978). `Regression Quantiles
     <https://doi.org/10.2307/1913643>`_.
+
+14. De, Thielmann, and Säfken (2024), `NODE-GAMLSS: Interpretable Uncertainty
+    Modelling via Deep Distributional Regression
+    <https://openreview.net/forum?id=sWvTLlRkzy>`_. NeurIPS 2024 Workshop on Bayesian
+    Decision-Making and Uncertainty.
+15. Thielmann, Kruse, Kneib, and Säfken (2024), `Neural Additive Models for
+    Location Scale and Shape: A Framework for Interpretable Neural Regression
+    Beyond the Mean <https://proceedings.mlr.press/v238/frederik-thielmann24a.html>`_.
+    AISTATS, PMLR 238:1783–1791.
+16. Tsang, Rambhatla, and Liu (2020), `How does This Interaction Affect Me?
+    Interpretable Attribution for Feature Interactions
+    <https://proceedings.neurips.cc/paper_files/paper/2020/hash/443dec3062d0286986e21dc0631734c9-Abstract.html>`_.
+    NeurIPS 33.

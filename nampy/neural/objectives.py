@@ -72,6 +72,8 @@ class NeuralObjective(nn.Module):
 
 
 class RegressionObjective(NeuralObjective):
+    """Target preparation, loss, and metrics for regression."""
+
     kind = "regression"
 
     def __init__(self, output_dim: int = 1, loss_fct: Any = None):
@@ -109,6 +111,8 @@ class RegressionObjective(NeuralObjective):
 
 
 class BinaryObjective(NeuralObjective):
+    """Target preparation, loss, and metrics for binary classification."""
+
     kind = "binary"
     datamodule_regression = False
 
@@ -155,6 +159,8 @@ class BinaryObjective(NeuralObjective):
 
 
 class MulticlassObjective(NeuralObjective):
+    """Target preparation, loss, and metrics for multiclass classification."""
+
     kind = "multiclass"
     datamodule_regression = False
 
@@ -199,6 +205,8 @@ class MulticlassObjective(NeuralObjective):
 
 
 class DistributionObjective(NeuralObjective):
+    """Distribution-specific target handling, loss, and metrics."""
+
     kind = "distributional"
     allows_offset = False
 
@@ -224,6 +232,7 @@ class DistributionObjective(NeuralObjective):
 
 
 def classification_objective(num_classes: int) -> NeuralObjective:
+    """Construct the appropriate binary or multiclass classification objective."""
     if int(num_classes) < 2:
         raise ValueError("Classification requires at least two classes.")
     if int(num_classes) == 2:

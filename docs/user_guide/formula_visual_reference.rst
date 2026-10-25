@@ -159,6 +159,8 @@ predicting counts: doubling exposure doubles the fitted count without asking
 the model to estimate that scaling. Formula offsets are recomputed from the
 corresponding column in new prediction data.
 
+.. include:: ../_includes/tutorial_interaction_surface.inc
+
 Deeper statistical analyses
 ---------------------------
 
@@ -173,5 +175,3 @@ Next steps
 Use :doc:`statistical_gams` for fitting, prediction, and diagnostic controls;
 use :doc:`../howto/interactions` for interaction workflow details; and use
 :ref:`gam-smooth-bases` when you need every accepted ``bs=`` code.
-
-.. include:: ../_includes/tutorial_interaction_surface.inc

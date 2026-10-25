@@ -11,6 +11,8 @@ from ._base import NeuralEstimatorBase, TrainingPlan
 
 
 class NeuralRegressor(NeuralEstimatorBase):
+    """Shared estimator interface for neural regression models."""
+
     _estimator_type = "regressor"
 
     def __init__(self, model, config, **kwargs):

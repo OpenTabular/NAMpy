@@ -54,8 +54,12 @@ Available estimators
 References
 ----------
 
-* Agarwal et al. (2021), `Neural Additive Models
-  <https://arxiv.org/abs/2004.13912>`_.
-* Chang, Caruana, and Goldenberg (2022), `NODE-GAM
-  <https://arxiv.org/abs/2106.01613>`_.
+This NAMpy implementation jointly trains additive tree components. The cited
+methods provide related additive and tree methodology, rather than introducing
+the exact ``EnsembleTreeNAM`` estimator.
 
+* Agarwal et al. (2021), `Neural Additive Models: Interpretable Machine
+  Learning with Neural Nets <https://arxiv.org/abs/2004.13912>`_.
+* Chang, Caruana, and Goldenberg (2022), `NODE-GAM: Neural Generalized
+  Additive Model for Interpretable Deep Learning
+  <https://arxiv.org/abs/2106.01613>`_.
