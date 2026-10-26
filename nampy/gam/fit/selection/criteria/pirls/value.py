@@ -9,6 +9,7 @@ import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
 from .....model_state import _coef_column_offset
+from .....response import response_values
 from ....backends import solve_pirls_given_smoothing
 from ....smoothing_params import expand_smoothing_params_from_log
 from ...reparam import (
@@ -22,7 +23,7 @@ from .common import _prior_weights
 
 
 def _saturated_loglik(model, y, *, scale):
-    y_arr = np.asarray(y, dtype=np.float64)
+    y_arr = response_values(y)
     weights = _prior_weights(model, y_arr)
     nobs = float(len(y_arr))
     n_true = getattr(model, "n_true_", None)
@@ -49,7 +50,7 @@ def _saturated_loglik(model, y, *, scale):
         # routes (notably ``ocat``) still require this term for LAML/REML.
         theta_getter = getattr(model.family, "getTheta", None)
         theta = theta_getter(False) if callable(theta_getter) else None
-        ls = model.family.ls(y_arr, weights, theta=theta, scale=scale)
+        ls = model.family.ls(y, weights, theta=theta, scale=scale)
         value = ls["ls"] if isinstance(ls, dict) else np.asarray(ls).ravel()[0]
     return float(fac * value)
 

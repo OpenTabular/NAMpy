@@ -13,6 +13,7 @@ import pandas as pd
 import pytest
 
 from nampy.gam import GAM
+from nampy.gam.families.cnorm import CensoredNormalFamily
 from nampy.gam.fit.state import FitCoreSolution
 from nampy.gam.smooths.univariate.cr import CubicSplineTerm
 from tests.mgcv_parity_utils import _run_mgcv_predict_on_newdata
@@ -30,7 +31,7 @@ class _PipelineCase:
     gam: GAM
 
 
-@pytest.fixture(scope="module", params=["gaussian", "quasi", "scat", "zip"])
+@pytest.fixture(scope="module", params=["gaussian", "quasi", "scat", "zip", "cnorm"])
 def pipeline_case(request) -> _PipelineCase:
     x = np.linspace(-1.25, 1.25, 96)
     z = 0.4 + np.cos(1.3 * x)
@@ -41,6 +42,10 @@ def pipeline_case(request) -> _PipelineCase:
     if request.param == "zip":
         data = pd.DataFrame(json.loads((Path(__file__).parents[1] / "reference_fixtures/mgcv_zip_pipeline/inputs.json").read_text()))
 
+    if request.param == "cnorm":
+        data = pd.DataFrame(json.loads((Path(__file__).parents[1] / "reference_fixtures/mgcv_cnorm_pipeline/inputs.json").read_text()))
+        data["bound"] = data["bound"].astype(float)
+
     new_x = np.linspace(-1.1, 1.1, 19)
     newdata = pd.DataFrame(
         {
@@ -50,8 +55,8 @@ def pipeline_case(request) -> _PipelineCase:
         }
     )
     gam = GAM(
-        family=({"name": "ziP", "theta": [-.5, float(np.log(.5))], "b": .3} if request.param == "zip" else {"name": "scat", "theta": [5, .3]} if request.param == "scat" else request.param),
-        formula=_FORMULA,
+        family=(CensoredNormalFamily(theta=1.0) if request.param == "cnorm" else {"name": "ziP", "theta": [-.5, float(np.log(.5))], "b": .3} if request.param == "zip" else {"name": "scat", "theta": [5, .3]} if request.param == "scat" else request.param),
+        formula=_FORMULA.replace("y ~", "cbind(y, bound) ~") if request.param == "cnorm" else _FORMULA,
         optimize_smoothing=False,
         smoothing_method="fixed",
     )
@@ -73,7 +78,7 @@ def test_stage_1_formula_and_specs_preserve_declarative_contract(pipeline_case):
     parsed = gam.formula_
     predictor = gam.predictor_specs[0]
 
-    assert parsed.response_name == "y"
+    assert parsed.response_name == ("cbind(y, bound)" if gam.family.name == "cnorm" else "y")
     assert parsed.nlp == 1
     assert predictor.name == "eta1"
     assert predictor.has_intercept is True
@@ -248,7 +253,7 @@ def test_stage_7_prediction_and_diagnostics_match_mgcv_and_fitted_state(
         atol=1e-12,
     )
     training_response = np.asarray(
-        (gam.predict(type="response") if gam.family.name == "zip" else gam.predict(pipeline_case.data, type="response")), dtype=np.float64
+        (gam.predict(type="response") if gam.family.name in {"zip", "cnorm"} else gam.predict(pipeline_case.data, type="response")), dtype=np.float64
     )
     np.testing.assert_allclose(
         gam.residuals(type="response"),
@@ -260,8 +265,8 @@ def test_stage_7_prediction_and_diagnostics_match_mgcv_and_fitted_state(
     # Constant-variance identity quasi has the same fixed-smoothing mean as
     # Gaussian. Reuse that reference while checking quasi likelihood semantics
     # independently in stage 6 (fresh quasi references live in tests/families).
-    if gam.family.name in {"scat", "zip"}:
-        expected = _zip_pipeline_reference(pipeline_case) if gam.family.name == "zip" else _scat_pipeline_reference(pipeline_case)
+    if gam.family.name in {"scat", "zip", "cnorm"}:
+        expected = _cnorm_pipeline_reference(pipeline_case) if gam.family.name == "cnorm" else _zip_pipeline_reference(pipeline_case) if gam.family.name == "zip" else _scat_pipeline_reference(pipeline_case)
         prediction, se = gam.predict(newdata, return_se=True)
         np.testing.assert_allclose(se, expected["se"], atol=2e-7, rtol=2e-7)
     else:
@@ -321,3 +326,49 @@ def _zip_pipeline_reference(case):
             result = json.loads(output.read_text())
         save_reference("mgcv_zip_pipeline", key, result)
     return result
+
+
+_CNORM_PIPELINE_R = """
+library(mgcv);library(jsonlite)
+a<-commandArgs(TRUE);p<-fromJSON(a[1]);d<-as.data.frame(p$data);nd<-as.data.frame(p$newdata)
+d$bound<-as.numeric(d$bound)
+b<-gam(as.formula(p$formula),data=d,family=cnorm(theta=1),method='REML')
+pr<-predict(b,nd,se.fit=TRUE,type='response')
+write_json(list(pred=pr$fit,se=pr$se.fit,version=as.character(packageVersion('mgcv')),
+ R=as.character(getRversion())),a[2],digits=17,auto_unbox=TRUE)
+"""
+
+
+def _cnorm_pipeline_reference(case):
+    data = case.data.to_dict("list")
+    data["bound"] = [str(v) for v in data["bound"]]
+    payload = {"data": data, "newdata": case.newdata.to_dict("list"), "formula": _FORMULA.replace("y ~", "cbind(y, bound) ~")}
+    key = reference_key("cnorm-seven-stage", {"payload": payload, "script": _CNORM_PIPELINE_R}, normalize_floats=True)
+    result = load_reference("mgcv_cnorm_pipeline", key)
+    if result is None:
+        with tempfile.TemporaryDirectory() as directory:
+            source, inputs, output = [Path(directory)/name for name in ("reference.R", "inputs.json", "output.json")]
+            source.write_text(_CNORM_PIPELINE_R)
+            inputs.write_text(json.dumps(payload))
+            subprocess.run(["Rscript", str(source), str(inputs), str(output)], check=True, capture_output=True, text=True)
+            result = json.loads(output.read_text())
+        save_reference("mgcv_cnorm_pipeline", key, result)
+    return result
+
+
+def test_cnorm_pipeline_reference_preserves_exact_observation_encoding():
+    root = Path(__file__).parents[1] / "reference_fixtures/mgcv_cnorm_pipeline"
+    data = json.loads((root / "inputs.json").read_text())
+    source = json.loads((root / "candidate_inventory.json").read_text())["cases"][2]
+    assert source["accepted"] and source["converged"]
+    # Mixed JSON numbers and infinity strings cause R's jsonlite to coerce
+    # numeric entries to shorter strings. Uniform strings preserve exact rows.
+    assert all(isinstance(value, str) for value in data["bound"])
+    y, bound = np.asarray(data["y"]), np.asarray(data["bound"], dtype=float)
+    ry, rb = np.asarray(source["y"]), np.asarray(source["bounds"], dtype=float)
+    np.testing.assert_array_equal(ry, y)
+    np.testing.assert_array_equal(rb, bound)
+    np.testing.assert_array_equal(ry == rb, y == bound)
+    assert np.sum(y == bound) == 92
+    assert np.sum(np.isneginf(bound)) == np.sum(np.isposinf(bound)) == 1
+    assert np.sum(np.isfinite(bound) & (y != bound)) == 2

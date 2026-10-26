@@ -1,0 +1,194 @@
+{
+  "namespace": "mgcv_cnorm_workflows",
+  "upstream": {
+    "mgcv": "1.9-4",
+    "R": "4.6.1"
+  },
+  "generator": "tests/families/test_mgcv_cnorm_workflows.py::_reference",
+  "fixture_files": 42,
+  "inputs_sha256": {
+    "inputs.json": "a33fa59a2e9ee27d9e9c8ba804f8890e14577a9001becd36aa3b274b2f5c8478",
+    "extension_inputs.json": "43d81b484e95301ff64bde831abfc7a88557bc7d6daba3cd5d6ef6557c8fe2eb",
+    "input_roundtrip_audit.json": "481a1725794e12d2865c0d12244c87e2402060d4b712c522874ca1c0908f1015"
+  },
+  "source_files_sha256": {
+    "R/efam.r": "30d5858b3a9a3d7c0d0397d4967a81e58e5b09da9bb9b3b2fd4c8ac7a0f3f391",
+    "R/misc.r": "65e77004d092d4d1f3f289b402e3a1d830a673208802d81b31e8ab01b98ab87d",
+    "R/gam.fit4.r": "8fec39370c5f33a046bcc3d12ee1f0f11fb6543d7a646f8c59718fdcb0745236"
+  },
+  "execution": "Actual installed CRAN /usr/lib/R/library/mgcv; no source files sourced. Named source hashes match vendored files. Normal tests load static captures and cannot invoke R.",
+  "coverage": "FixedSD1/2, estimatedSD, fixedSP/REML/ML and source GCV.Cp/P-ML aliases; identity/log/sqrt links; vector and genuinely mixed censoring; offsets, two smooths, no intercept/no smooth, rank conditional and guarded outer uncertainty, positive precision weights, zero-weight source inventory, explicit scale2. Paired-row permutations/subsets/duplicates, pickle/refit atomicity and estimated endpoint persistence. Full coefficient/working-state/covariance/EDF/inference/prediction and off-optimum joint derivatives.",
+  "representation_policy": "The fixed-scale structurally rank-deficient x/z case has exactly identical parametric columns. gam.fit4 notes that rank deficiency need not drop the same coefficient on every iteration. Compare coefficient effects and Bayesian/frequentist covariance kernels at the original 2e-7 tolerances, retaining direct coefficient/covariance comparisons for identified cases. Newdata preserve z=x: predictions and uncertainty away from this training alias relation are not estimable. A deterministic alias-pivot permutation regression exercises both retained covariance coordinates. Fixture values are unchanged.",
+  "source_anomalies": [
+    "Mixed censoring initial Dd emits two local ld helper replacement warnings (efam.r825/826): dp[ii] <- p1 and dp[ii] <- p0 use unindexed RHS. Captures preserve exact warning strings/calls. All seven fits converge.",
+    "Pearson residual requests warn and return deviance residuals; source has no GLM variance.",
+    "AIC exact/nonpositive-bound branch anomalies remain upstream semantics; this first vertical slice uses positive exact and finite-bound values."
+  ],
+  "validation": "Combined-branch censored-response, leaf, public-contract, workflow, optimizer and example acceptance: 192 passed with unchanged tolerances. Estimated-SD nonunit external dispersion is explicitly guarded after a preserved R outer trace showed stale returned coefficients at a failed fit; fixed-SD external dispersion remains supported. Remote CI and merge acceptance remain separate.",
+  "selection_inventory": [
+    {
+      "response": "vector",
+      "theta": 2.0,
+      "method": "fixed",
+      "physical_theta": 2,
+      "sp": [],
+      "score": 205.26279526940618,
+      "warnings": {
+        "Pearson residuals not available for this family - returning deviance residuals": 1
+      }
+    },
+    {
+      "response": "mixed",
+      "theta": 2.0,
+      "method": "fixed",
+      "physical_theta": 2,
+      "sp": [],
+      "score": 177.45302217510056,
+      "warnings": {
+        "number of items to replace is not a multiple of replacement length": 2,
+        "Pearson residuals not available for this family - returning deviance residuals": 1
+      }
+    },
+    {
+      "response": "vector",
+      "theta": null,
+      "method": "fixed",
+      "physical_theta": 0.5096688672355789,
+      "sp": [],
+      "score": 103.31010304083786,
+      "warnings": {
+        "Pearson residuals not available for this family - returning deviance residuals": 1
+      }
+    },
+    {
+      "response": "vector",
+      "theta": null,
+      "method": "REML",
+      "physical_theta": 0.5088262112166196,
+      "sp": 42.609506758220256,
+      "score": 96.28508795133159,
+      "warnings": {
+        "Pearson residuals not available for this family - returning deviance residuals": 1
+      }
+    },
+    {
+      "response": "vector",
+      "theta": null,
+      "method": "ML",
+      "physical_theta": 0.5045836172508468,
+      "sp": 43.41729428594864,
+      "score": 93.23424312335847,
+      "warnings": {
+        "Pearson residuals not available for this family - returning deviance residuals": 1
+      }
+    },
+    {
+      "response": "mixed",
+      "theta": null,
+      "method": "fixed",
+      "physical_theta": 0.556390208195213,
+      "sp": [],
+      "score": 122.51279293233009,
+      "warnings": {
+        "number of items to replace is not a multiple of replacement length": 2,
+        "Pearson residuals not available for this family - returning deviance residuals": 1
+      }
+    },
+    {
+      "response": "mixed",
+      "theta": null,
+      "method": "REML",
+      "physical_theta": 0.5552439640869485,
+      "sp": 37.91843756290748,
+      "score": 115.97929231126612,
+      "warnings": {
+        "number of items to replace is not a multiple of replacement length": 4,
+        "Pearson residuals not available for this family - returning deviance residuals": 1
+      }
+    },
+    {
+      "response": "mixed",
+      "theta": null,
+      "method": "ML",
+      "physical_theta": 0.5477614893732256,
+      "sp": 38.68235976847661,
+      "score": 113.35242810409264,
+      "warnings": {
+        "number of items to replace is not a multiple of replacement length": 4,
+        "Pearson residuals not available for this family - returning deviance residuals": 1
+      }
+    },
+    {
+      "response": "mixed",
+      "theta": null,
+      "method": "REML",
+      "offset": true,
+      "physical_theta": 0.5552211108701538,
+      "sp": 37.302197711014095,
+      "score": 116.00496284095733,
+      "warnings": {
+        "number of items to replace is not a multiple of replacement length": 4,
+        "Pearson residuals not available for this family - returning deviance residuals": 1
+      }
+    }
+  ],
+  "selection_source": "First full gam.fit4 score derivatives captured before outer optimization, including input logtheta/logSP and fitted coefficient state; endpoint snapshots separately retained. All9newsourcefitsconverged.",
+  "hard_inventory": [
+    {
+      "kind": "two_smooths",
+      "estimated": false,
+      "accepted": true
+    },
+    {
+      "kind": "two_smooths",
+      "estimated": true,
+      "accepted": true
+    },
+    {
+      "kind": "no_intercept",
+      "estimated": false,
+      "accepted": true
+    },
+    {
+      "kind": "no_intercept",
+      "estimated": true,
+      "accepted": true
+    },
+    {
+      "kind": "no_smooths",
+      "estimated": false,
+      "accepted": true
+    },
+    {
+      "kind": "no_smooths",
+      "estimated": true,
+      "accepted": true
+    },
+    {
+      "kind": "rank",
+      "estimated": false,
+      "accepted": true
+    },
+    {
+      "kind": "rank",
+      "estimated": true,
+      "accepted": true
+    },
+    {
+      "kind": "scale2",
+      "estimated": false,
+      "accepted": true
+    },
+    {
+      "kind": "scale2",
+      "estimated": true,
+      "accepted": true
+    }
+  ],
+  "source_input_audit": "Actual R jsonlite fromJSON -> as.data.frame -> as.numeric reproduced both frozen input files. All primary and finite bound doubles are bit-identical to Python;24exact/48interval/24left/24right rows retained in each. Uppercase Inf/-Inf recognized as numeric infinities. Snapshot input_roundtrip_audit.json pins primary values, finite bounds and exact row indices; regression protects sentinel spellings. No source capture needed regeneration.",
+  "input_audit_R": "lapply(c(\"inputs.json\",\"extension_inputs.json\"),function(f){d<-as.data.frame(fromJSON(f));d$bound<-as.numeric(d$bound);list(y=d$y,finite_bound=d$bound[is.finite(d$bound)],exact=which(d$y==d$bound))})",
+  "zero_weight_inventory": "Vector zero-precision fixedSP source converges. Mixed zero precision fails with inner loop1 cannot correct step size; runtime zero weights remain guarded until source-stable acceptance.",
+  "tests_collected": 107,
+  "summary_validation": "Four vector/mixed fixed/estimated summaries match source p-table/s-table/adjustedR2/deviance explained at2e-7.",
+  "anova_validation": "Two actualR model captures with parametric z and cr smooth, fixed/estimatedSD; all4Bayes/frequentist ANOVA parametric/smooth tables passed2e-7."
+}

@@ -86,7 +86,10 @@ def fit_model_core(
 
     model.X_ = X
     model.feature_names = list(feature_names)
-    model.y_ = y
+    from ..response import response_values
+
+    model.response_ = y
+    model.y_ = response_values(y)
     model.offset_train_ = fit_offset
     model.n_samples_ = X.shape[0]
     model.prior_weights_ = None
@@ -114,6 +117,28 @@ def fit_model_core(
             "has not met convergence and parity acceptance checks."
         )
 
+    if (
+        model.family.name == "cnorm"
+        and model.prior_weights_ is not None
+        and np.any(model.prior_weights_ == 0)
+    ):
+        raise NotImplementedError(
+            "cnorm fitting requires positive precision weights: zero-weight "
+            "censor intervals collapse in upstream derivatives and have not "
+            "met fit parity acceptance."
+        )
+
+    if (
+        model.family.name == "cnorm"
+        and model.family.estimate_theta
+        and float(model.family.known_scale) != 1.0
+    ):
+        raise NotImplementedError(
+            "Estimated cnorm SD with nonunit external dispersion is unsupported: "
+            "the captured mgcv scale=2 outer fit fails and returns coefficients "
+            "from a different parameter state. Use external scale=1 or fixed SD."
+        )
+
     # ``fit_model_core`` is a public array-facing integration surface as well
     # as the facade's internal entry point.  A directly constructed GAM has no
     # predictor specs until feature names are known, so create the same specs
@@ -128,7 +153,7 @@ def fit_model_core(
     compile_designs(model, X, model.feature_names)
 
     if (
-        model.family.name in {"scat", "zip"}
+        model.family.name in {"scat", "zip", "cnorm"}
         and model.min_sp_ is not None
         and np.any(np.asarray(model.min_sp_) > 0)
     ):
@@ -197,7 +222,7 @@ def fit_model_core(
             method=method,
             optimizer=model.smoothing_optimizer,
         )
-    elif model.family.name in {"scat", "zip"} and model.family.estimate_theta:
+    elif model.family.name in {"scat", "zip", "cnorm"} and model.family.estimate_theta:
         if not supports_smoothing_method(model, method):
             raise NotImplementedError(
                 f"Ancillary estimation with method={method!r} is not supported "

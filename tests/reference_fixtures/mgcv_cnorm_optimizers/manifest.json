@@ -1,0 +1,25 @@
+{
+  "namespace": "mgcv_cnorm_optimizers",
+  "upstream": {
+    "mgcv": "1.9-4",
+    "R": "4.6.1"
+  },
+  "generator": "tests/families/test_mgcv_cnorm_optimizers.py::_reference",
+  "execution": "Actual installed CRAN mgcv captures; normal tests cannot invoke R. Local vendored Newton source has the separately documented one-line descent-sign difference.",
+  "coverage": "Fixed/estimated SD with bfgs/optim/nlm; fixed-SD EFS; tighter nlm endpoints; preserved scale2 failed-outer-fit trace proving stale returned coefficients.",
+  "fixture_files": 9,
+  "files_sha256": {
+    "6c054afa340a418c8320121ce3ce246589824de8268932d9906bc26b546f2796.json.gz": "845bf8bbc7db4b7038584f4532e3e833a88590aa703365f37d3d0ea348790e4c",
+    "77bae16d8c3f88e14ece229712018d6b35073d0a197f43422057ccf94b5212b0.json.gz": "badadf0658332f3a7ebe53c55f9de72cfb1691d2be3f101a80279a23f087b7fa",
+    "872df482fd83d1b9be0ead601ac7450607a6ee0d99448b92f9746bac6e7d6858.json.gz": "4e7b8c0cf6e7fc42e898605817af08bbac0d6734e83754d2b8eb208160902450",
+    "8a4b5d6dbd4f50ce6fed5bda593aaa0fb292168cc081ff8ed9e72b6596c307bd.json.gz": "cc49ed36f8366f1c1ce6a753b57acdb13e0e48f191bae2cfcc0110bf66deade0",
+    "9ce7ec5145c9532dd5070fd2c61bb0a288f5a81ae1766b5cce6e75d0110f65a1.json.gz": "178a981f7c54b1d4bb9fc477025621dffff54a018d553b4daf8b72cbdbdd3151",
+    "a9be2b0a2fa8ccafe8c2dad58cbb4f6011b251e3b741c6999926efb14e1d4c84.json.gz": "6d8149cddfc3af60dc530e8e2250e56d7f8ec72fdeb9b9d26cbe705a45662d17",
+    "ae2c613c5e9d43a7dbb277abe5175a43317bb93417dfe01739a8c484ab7185cd.json.gz": "ec699ae94942e70c6cb81cc97f6b422414138359faff46beb344235b1c281540",
+    "e09be216d8b802e13a030bcf1758e2b306a48ca9e6fbc95a87675439e2349344.json.gz": "e3a26be70e84ac2202c3bf9da7f320d0e0b513cc625a69139b9ee8a4f583769e",
+    "e2755648a798d07c714221b238a5c833a2a785eaa68ae5c93718f844f31057fe.json.gz": "e8d6627cbd4ae1ff1837db5540cd4d664739af6c108c658484aca197b529f981",
+    "generate_scale2_outer_trace.R": "beca5d430de26d1ee3f399aff2f4c6db2d1f8be5a6dd7d706687be4d7965db1e",
+    "scale2_outer_input.json": "d2c5936186bb07cc3ab33cd8eeabc5dbbb36eca79c7b5b6700dbdbbdf17bd096",
+    "scale2_outer_trace.json": "3b07bcd9903b4a582cdc6e1a486851b391917dbe31d8bf515112d53b1efc33d3"
+  }
+}

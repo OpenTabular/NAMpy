@@ -24,7 +24,7 @@ def extended_unconditional_postfit(model, sol, fit_result, fit_state):
     This differs from the full observed-Hessian derivatives used for db.drho.
     """
     unavailable = (None, None, FIT_PARAMETER_SPACE)
-    if str(getattr(model.family, "name", "")).lower() not in {"scat", "zip"}:
+    if str(getattr(model.family, "name", "")).lower() not in {"scat", "zip", "cnorm"}:
         return unavailable
     method = str(getattr(model, "_optim_method", "")).upper()
     if method not in {"ML", "REML", "LAML"}:
@@ -66,15 +66,16 @@ def extended_unconditional_postfit(model, sol, fit_result, fit_state):
         if nsp
         else np.empty(0, dtype=float)
     )
+    family_y = getattr(model, "response_", model.y_)
     if ntheta:
         kernel = gdi2_theta_joint_kernel(
-            model, model.y_, sol, sp, method=method, need_hessian=False
+            model, family_y, sol, sp, method=method, need_hessian=False
         )
         current = kernel.gdi1.current
         derivatives = kernel.ift.dbeta
         keep = np.r_[np.arange(ntheta), ntheta + free]
     else:
-        kernel = _gdi1_kernel(model, model.y_, sol, sp, method=method)
+        kernel = _gdi1_kernel(model, family_y, sol, sp, method=method)
         current = kernel.current
         derivatives = kernel.ift.dbeta
         keep = free

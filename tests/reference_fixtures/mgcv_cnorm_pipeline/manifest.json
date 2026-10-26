@@ -1,0 +1,13 @@
+{
+  "namespace": "mgcv_cnorm_pipeline",
+  "upstream": "R 4.6.1, mgcv 1.9-4",
+  "source": "mgcv/R/efam.r::cnorm and predict.gam",
+  "generator": "tests/parity/test_gam_seven_stage_pipeline_contracts.py::_cnorm_pipeline_reference",
+  "inventory_generator": "tests/reference_fixtures/mgcv_cnorm_pipeline/generate_inventory.R",
+  "scope": "Identity link, fixed SD1 and SP0.8, z plus cr6 smooth and known offset, exact/left/right/forward and reversed finite intervals; response prediction and SE at19 new rows.",
+  "normal_tests": "Static references only, no R required.",
+  "encoding": "Every bound in accepted inputs/payload is a full-precision string. Mixed numbers and infinity strings otherwise trigger jsonlite character coercion with lost precision, changing exact observations into tiny intervals.",
+  "candidate_history": "candidate_dense_example.json and candidate_dense_workflow.json preserve the originally rejected mixed-JSON candidate payloads, with actual R errors in candidate_inventory.json. These outcomes reflect changed censor bounds during JSON coercion; they do not establish a model-level restriction on dense censoring. The chosen96-row dataset keeps all four observation types and a reversed interval while isolating the seven pipeline contracts. The inventory captures its source response, coefficients, covariance and derivatives for review.",
+  "superseded_snapshot": "32ea25f65bf24d52c73cc1b12c9c99e14ef6e3b1656d7ce750a8ede46c1a7a82.json.gz retains the initially rounded-bound reference as encoding-error evidence; not used for acceptance.",
+  "accepted_snapshot": "fe3fa764fca9f955b5d8aba192b273972babd483b3e792ecc58c6740ae18e5f9.json.gz"
+}

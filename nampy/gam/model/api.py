@@ -320,6 +320,7 @@ class GAM:
             "ocat",
             "scat",
             "zip",
+            "cnorm",
         }
         if self.scale > 0.0:
             self.family.known_scale = float(self.scale)

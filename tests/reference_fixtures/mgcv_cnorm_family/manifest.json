@@ -1,0 +1,61 @@
+{
+  "namespace": "mgcv_cnorm_family",
+  "upstream": {
+    "R": "4.6.1",
+    "mgcv": "1.9-4"
+  },
+  "fixture_files": 31,
+  "tests": 53,
+  "generator": "tests/families/test_cnorm_family_contracts.py",
+  "coverage": "Fresh actual-R constructor/three links/five theta modes; all Dd levels; deviance, AIC, saturated likelihood; plain/matrix/structured encodings, subset/pickle, precision and zero weights, extreme tails, symmetric and endpoint-zero intervals, external scale, invalid constructors. Normal tests never execute R.",
+  "source_files_sha256": {
+    "R/efam.r": "30d5858b3a9a3d7c0d0397d4967a81e58e5b09da9bb9b3b2fd4c8ac7a0f3f391",
+    "R/misc.r": "65e77004d092d4d1f3f289b402e3a1d830a673208802d81b31e8ab01b98ab87d"
+  },
+  "source_provenance": {
+    "execution": "Fixtures load library(mgcv) from the installed R package; no vendored or checkout source files are sourced.",
+    "installed_package": {
+      "library": "/usr/lib/R/library/mgcv",
+      "Version": "1.9-4",
+      "Repository": "CRAN",
+      "Packaged": "2025-11-06 12:01:15 UTC; sw283",
+      "Built": "R 4.5.2; x86_64-pc-linux-gnu; 'Fri, 28 Nov 2025 21:31:40 +0000'; unix",
+      "capture_R": "4.6.1"
+    },
+    "audited_source_checkout": {
+      "repository": "https://github.com/cran/mgcv",
+      "commit": "1b6a4c8374612da27e36420b4459e93acb183f2d",
+      "local_path": "/home/ad32/projects/package/mgcv",
+      "working_tree": "clean"
+    },
+    "vendored_source_difference": {
+      "path": "nampy_notes/upstreams/mgcv/R/gam.fit3.r",
+      "vendored_sha256": "c7b31bdd3073e785d5bb322e8c474c3d2e154565e713b5d5d0e192b1cc08202d",
+      "CRAN_sha256": "1dcf5a92dca8cda48f29c545c1382b861e53630d73fd460a51cb894144761245",
+      "difference": "Only substantive difference is newton steepest-descent direction: vendor uses Sstep <- grad/max(abs(grad)); CRAN uses Sstep <- -grad/max(abs(grad)). Installed mgcv:::newton body was inspected and has the CRAN negative sign. Recorded CRAN hash is deliberate, not a transcription error. Other source hashes listed in this manifest match both trees."
+    }
+  },
+  "source_anomalies": [
+    "Negative theta retained directly as working log SD, because source writes log(-theta) to unused local theta rather than iniTheta.",
+    "AIC left-censor condition yat<=0 overwrites negative uncensored or interval cases; uncensored AIC omits log SD normalizing contribution.",
+    "ls returns nonzero saturated log likelihood but zero theta derivative arrays.",
+    "ddnorm zero-sign branches assign full vector RHS into subset: endpoint-zero derivative values depend on other interval rows and higher derivatives contain NaNs.",
+    "Zero precision interval rows return NaNs in Dd level0 and error NAs are not allowed in subscripted assignments at levels1/2.",
+    "Nonidentity initialize uses min(y>0), a logical minimum, rather than the minimum positive response."
+  ],
+  "validation": "53 passed, 7 expected upstream-analogous warnings in a normal no-R run. Original strict tolerances retained, including extreme fourth-derivative tails.",
+  "mathlib_sources": {
+    "pnorm.c": {
+      "sha256": "01d86add6dd5c272852559603f11ae504533c2b4a798d2be5cc88027e7a4c873",
+      "function": "pnorm_both",
+      "url": "https://github.com/wch/r-source/blob/4e14f6f495b302086c0262d95a4db639066e3c6a/src/nmath/pnorm.c",
+      "retrieved": "2026-10-26"
+    },
+    "dnorm.c": {
+      "sha256": "c58a286891465f3260ac0d7da36710fdc46b57219e7dc70542e0f95379b7f495",
+      "function": "dnorm4",
+      "url": "https://github.com/wch/r-source/blob/4e14f6f495b302086c0262d95a4db639066e3c6a/src/nmath/dnorm.c",
+      "retrieved": "2026-10-26"
+    }
+  }
+}

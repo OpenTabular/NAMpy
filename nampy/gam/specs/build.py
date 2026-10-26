@@ -91,7 +91,9 @@ def _is_bare_formula_name(expr: str | None) -> bool:
     return _FORMULA_NAME_RE.fullmatch(str(expr)) is not None
 
 
-def _evaluate_formula_numeric_expr_node(node, data: pd.DataFrame, *, expr: str):
+def _evaluate_formula_numeric_expr_node(
+    node, data: pd.DataFrame, *, expr: str, allow_infinite=False
+):
     if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
         return float(node.value)
 
@@ -102,19 +104,27 @@ def _evaluate_formula_numeric_expr_node(node, data: pd.DataFrame, *, expr: str):
                 f"Formula expression {expr!r} references variable {name!r}, "
                 "but it is not in `data`."
             )
-        return numeric_1d_values(data[name], name=name)
+        return numeric_1d_values(data[name], name=name, allow_infinite=allow_infinite)
 
     if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
-        return -_evaluate_formula_numeric_expr_node(node.operand, data, expr=expr)
+        return -_evaluate_formula_numeric_expr_node(
+            node.operand, data, expr=expr, allow_infinite=allow_infinite
+        )
 
     if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.UAdd):
-        return _evaluate_formula_numeric_expr_node(node.operand, data, expr=expr)
+        return _evaluate_formula_numeric_expr_node(
+            node.operand, data, expr=expr, allow_infinite=allow_infinite
+        )
 
     if isinstance(node, ast.BinOp) and isinstance(
         node.op, (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Pow)
     ):
-        left = _evaluate_formula_numeric_expr_node(node.left, data, expr=expr)
-        right = _evaluate_formula_numeric_expr_node(node.right, data, expr=expr)
+        left = _evaluate_formula_numeric_expr_node(
+            node.left, data, expr=expr, allow_infinite=allow_infinite
+        )
+        right = _evaluate_formula_numeric_expr_node(
+            node.right, data, expr=expr, allow_infinite=allow_infinite
+        )
         if isinstance(node.op, ast.Add):
             return left + right
         if isinstance(node.op, ast.Sub):
@@ -146,7 +156,9 @@ def _evaluate_formula_numeric_expr_node(node, data: pd.DataFrame, *, expr: str):
                 f"Unsupported formula expression function {func_name!r} in {expr!r}."
             )
         args = [
-            _evaluate_formula_numeric_expr_node(arg, data, expr=expr)
+            _evaluate_formula_numeric_expr_node(
+                arg, data, expr=expr, allow_infinite=allow_infinite
+            )
             for arg in node.args
         ]
         return func(*args)
@@ -154,11 +166,15 @@ def _evaluate_formula_numeric_expr_node(node, data: pd.DataFrame, *, expr: str):
     raise NotImplementedError(f"Unsupported formula expression {expr!r}.")
 
 
-def _evaluate_formula_numeric_expression(expr: str, data: pd.DataFrame):
+def _evaluate_formula_numeric_expression(
+    expr: str, data: pd.DataFrame, *, allow_infinite=False
+):
     from ..formula.parse import all_vars1
 
     parsed = ast.parse(str(expr), mode="eval")
-    values = _evaluate_formula_numeric_expr_node(parsed.body, data, expr=str(expr))
+    values = _evaluate_formula_numeric_expr_node(
+        parsed.body, data, expr=str(expr), allow_infinite=allow_infinite
+    )
     out = np.asarray(values, dtype=np.float64)
     if out.ndim == 0:
         out = np.full(len(data), float(out), dtype=np.float64)
@@ -169,7 +185,7 @@ def _evaluate_formula_numeric_expression(expr: str, data: pd.DataFrame):
             f"Formula expression {expr!r} produced length {out.shape[0]}, "
             f"expected {len(data)}."
         )
-    if not np.isfinite(out).all():
+    if np.isnan(out).any() or (not allow_infinite and not np.isfinite(out).all()):
         raise ValueError(f"Formula expression {expr!r} produced NaN or Inf.")
     return out, [str(name) for name in all_vars1(str(expr))]
 
@@ -466,11 +482,11 @@ def safe_token(x) -> str:
     return txt or "level"
 
 
-def numeric_1d_values(s: pd.Series, *, name: str):
+def numeric_1d_values(s: pd.Series, *, name: str, allow_infinite=False):
     vals = np.asarray(s, dtype=np.float64).ravel()
     if vals.ndim != 1:
         raise ValueError(f"Column {name!r} did not coerce to a 1D numeric array.")
-    if not np.isfinite(vals).all():
+    if np.isnan(vals).any() or (not allow_infinite and not np.isfinite(vals).all()):
         raise ValueError(f"Column {name!r} contains NaN or Inf.")
     return vals
 
@@ -1253,6 +1269,7 @@ def build_formula_model(
     default_k=10,
     default_basis=None,
     default_select=False,
+    response_infinite_bounds=False,
 ):
     if not isinstance(data, pd.DataFrame):
         raise TypeError(
@@ -1307,14 +1324,18 @@ def build_formula_model(
                 )
             y_out = np.asarray(data_work[response_name]).ravel()
         else:
-            from ..formula.parse import grouped_binomial_response_expressions
+            from ..formula.parse import matrix_response_expressions
 
-            grouped = grouped_binomial_response_expressions(response_name)
+            grouped = matrix_response_expressions(response_name)
             if grouped is not None:
                 y_out = np.column_stack(
                     [
-                        _evaluate_formula_numeric_expression(expr, data_work)[0]
-                        for expr in grouped
+                        _evaluate_formula_numeric_expression(
+                            expr,
+                            data_work,
+                            allow_infinite=response_infinite_bounds and index == 1,
+                        )[0]
+                        for index, expr in enumerate(grouped)
                     ]
                 )
             else:
@@ -1322,7 +1343,9 @@ def build_formula_model(
                     response_name, data_work
                 )
     else:
-        y_out = np.asarray(y)
+        from ..response import CensoredResponse
+
+        y_out = y if isinstance(y, CensoredResponse) else np.asarray(y)
 
     component_lpi = tuple(
         tuple(int(v) for v in (getattr(pred, "metadata", {}) or {}).get("lpi", (1,)))

@@ -296,6 +296,9 @@ Families and links
    * - ``scat``
      - Scaled Student t location; identity, log, or inverse link.
      - ``GAM(family={"name": "scat", "theta": [5, 0.3]})``
+   * - ``cnorm``
+     - Censored normal location; identity, log, or square-root link.
+     - ``GAM(family={"name": "cnorm", "theta": 1})``
    * - ``betar``
      - Beta regression.
      - ``GAM(family="betar")``
@@ -412,6 +415,46 @@ Designs that drop dependent coefficients are guarded when outer-parameter
 uncertainty is required; fixed-theta, fixed-smoothing conditional fits remain
 available. The example ``examples/example_zip_gam.py`` simulates hurdle counts and fits a
 model with fixed ancillary parameters and smoothing.
+
+Censored normal observations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use a paired response to retain a detection limit or an interval instead of
+pretending its endpoint is an exactly observed outcome. This example fixes
+the underlying normal standard deviation at one and fixes smoothing:
+
+.. code-block:: python
+
+   from nampy.gam.families import CensoredNormalFamily
+
+   censored_model = GAM(
+       formula="cbind(value, bound) ~ s(x, bs='cr', k=7)",
+       family=CensoredNormalFamily(theta=1.0),
+       smoothing_params=[0.7],
+       optimize_smoothing=False,
+   ).fit(data=data)
+
+   location, location_se = censored_model.predict(
+       data[["x"]], type="response", return_se=True
+   )
+
+For an exact observation set ``bound=value``. Set ``bound=-np.inf`` for a
+left-censor threshold, ``bound=np.inf`` for a right-censor threshold, or a
+different finite bound for an interval. Both finite endpoint orders are
+accepted. For example, ``[2, np.inf]`` means the response exceeds two;
+``[2, 3]`` means it lies between two and three. Predictions require only the
+covariates and describe the latent normal location.
+
+``examples/example_cnorm_gam.py`` creates all four observation types and
+fits this fixed-SD, fixed-smoothing model with unit weights. Positive weights
+have precision semantics in the upstream family, rather than frequency
+semantics. Simulation and quantile diagnostics are unavailable. See
+:doc:`../api/gam_families` for the source constructor and AIC quirks and the
+current validation scope. Omitting ``theta`` estimates SD; use
+``smoothing_method="REML", optimize_smoothing=True`` to estimate smoothing
+too. ML and REML have direct endpoint and joint-derivative references.
+Zero precision weights and positive ``min_sp`` are rejected; estimated SD
+with ``smoothing_optimizer="efs"`` is also guarded.
 
 Quasi families
 ~~~~~~~~~~~~~~

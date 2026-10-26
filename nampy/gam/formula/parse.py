@@ -1135,7 +1135,7 @@ __all__ = [
 ]
 
 
-def grouped_binomial_response_expressions(expression: str) -> tuple[str, str] | None:
+def matrix_response_expressions(expression: str) -> tuple[str, str] | None:
     """Return the two cbind response expressions without evaluating any code."""
     node = _parse_formula_expr(str(expression)).body
     if not (
@@ -1146,6 +1146,11 @@ def grouped_binomial_response_expressions(expression: str) -> tuple[str, str] | 
         return None
     if len(node.args) != 2 or node.keywords:
         raise ValueError(
-            "cbind response requires exactly two arguments: successes, failures."
+            "cbind response requires exactly two arguments."
         )
     return ast.unparse(node.args[0]), ast.unparse(node.args[1])
+
+
+def grouped_binomial_response_expressions(expression: str) -> tuple[str, str] | None:
+    """Compatibility wrapper for the grouped-binomial response parser."""
+    return matrix_response_expressions(expression)

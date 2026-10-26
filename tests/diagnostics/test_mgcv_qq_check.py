@@ -149,6 +149,7 @@ def test_qq_and_all_check_panels_match_actual_mgcv(family, type, rep):
     expected = _reference(case)
     model = _fit(case)
     original = model.y_.copy()
+    original_response = model.response_.copy()
     options = {
         "type": type,
         "rep": rep,
@@ -179,6 +180,7 @@ def test_qq_and_all_check_panels_match_actual_mgcv(family, type, rep):
             actual[panel]["y"], expected[y], rtol=2e-6, atol=2e-7
         )
     np.testing.assert_array_equal(model.y_, original)
+    np.testing.assert_array_equal(model.response_, original_response)
 
 
 @pytest.mark.parametrize(

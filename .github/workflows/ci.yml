@@ -114,11 +114,23 @@ jobs:
     - name: Run portable ziP-family slices
       run: >-
         pytest
+        tests/families/test_source_scalar_math.py
         tests/families/test_zip_family_contracts.py
         tests/families/test_mgcv_zip_workflows.py
         tests/families/test_mgcv_zip_optimizers.py
         tests/families/test_zip_public_contracts.py
         tests/docs/test_zip_example.py
+        -v
+
+    - name: Run portable censored-normal slices
+      run: >-
+        pytest
+        tests/families/test_cnorm_family_contracts.py
+        tests/families/test_mgcv_cnorm_workflows.py
+        tests/families/test_mgcv_cnorm_optimizers.py
+        tests/families/test_censored_response_contracts.py
+        tests/families/test_cnorm_public_contracts.py
+        tests/docs/test_cnorm_example.py
         -v
 
     - name: Run matrix-functional and soap tensor references

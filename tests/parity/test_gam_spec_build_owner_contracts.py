@@ -46,6 +46,16 @@ def _compile_from_formula(formula, data: pd.DataFrame):
     )
 
 
+def test_formula_compilation_without_fitting_family_keeps_response_validation():
+    """Compiler model-like inputs need no family for ordinary responses."""
+    data = pd.DataFrame({"y": [1.0, 2.0, 3.0], "x": [0.0, 0.5, 1.0]})
+    model_like = SimpleNamespace(k=10, basis="tp", select=False)
+    result = prepare_formula_inputs(model_like, data=data, formula="y ~ x")
+    np.testing.assert_array_equal(result[4], data["y"])
+    with pytest.raises(ValueError, match="cbind response requires family"):
+        prepare_formula_inputs(model_like, data=data, formula="cbind(y, y) ~ x")
+
+
 def test_build_formula_model_routes_multi_predictor_offsets_in_declared_order():
     """
     Owner-contract coverage verifying that build formula model routes multi predictor
