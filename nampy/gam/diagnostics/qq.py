@@ -192,6 +192,10 @@ def prepare_qq_gam_data(
         if response is None:
             return _normal_qq(observed, type)
         proxy.y_ = np.asarray(response, dtype=float)
+        # qq.gam replaces object$y before evaluating each residual series.
+        # The normalized response owner must follow that replacement too;
+        # otherwise deviance residuals retain the original response magnitude.
+        proxy.response_ = proxy.y_
         simulated[:, i] = np.sort(residuals_gam(proxy, type=type))
     lower = upper = None
     if rep:
