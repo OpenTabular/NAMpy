@@ -1,0 +1,25 @@
+{
+  "namespace": "mgcv_matrix_cs_invariants",
+  "upstream": {
+    "mgcv": "1.9-4",
+    "R": "4.6.1"
+  },
+  "source": "R/smooth.r::smooth.construct.cr.smooth.spec, smooth.construct.cs.smooth.spec, smoothCon, Predict.matrix.cr.smooth; gam Gaussian fitting",
+  "generator": "tests/smooths/test_mgcv_matrix_cs_invariants.py",
+  "generator_sha256": "327327692ad35cb96b74586eab6d7ee91bb991972d1ce616cd5dab1009415307",
+  "execution": "Actual installed CRAN mgcv captures; ordinary tests require no R.",
+  "shared_frozen_inputs": [
+    "mgcv_spline_linear_functionals",
+    "mgcv_functional_packing"
+  ],
+  "scope": "Distinct and repeated matrix quadrature with variable/unit/constant-sum weights. Raw CR/CS operators, cardinal-point prediction matrices, full fitted/prediction design, source scale and absorbed penalty, fit/covariance/EDF. Tests compare common-coordinate penalty transport, spectra AND non-null operator, and demonstrate that rotating unequal null floors changes actual fitted functions and covariance despite identical spectra/function spaces.",
+  "guard": "Matrix cs stays unsupported: unequal null floors are source-basis-dependent and can change the function-space penalty. Raw coordinate/eigenvector differences alone are not evidence of a model gap. Source-penalty injection is diagnostic only and is not production parity.",
+  "fixture_sha256": {
+    "0940221386d26b623e90d2403e44254888daec9155e726fc1e585b50bcc18c6b.json.gz": "4b7524f629634e2b48a51bbd6e1efab6f8add29218747c80f7c177c6f2e26bc6",
+    "3f77cb63afe41373b9adc0a6fb55bef716f298b31714404c2fd1968c5d83d9e0.json.gz": "632901f23a55f87ffacfefbd86de5de1b08ed6ad31974c1d68bbd2ff766b67d5",
+    "77405bd37e587c0ea5bdbf0d7325d41dd50408431ad21047a09169d8370534b2.json.gz": "f0d0cb52bd94dcf605fd2c215e5ebeaf0ea26ea4d5db7ab7101bf6ea710b6bab",
+    "aaa3a4a9b8b579c8f710311d640404886bf36e2d530b58e9461e400aaccbf794.json.gz": "adce2f27169c84aee13351b5a7def1103dceca46b01d9dbe44d04f4ed11b6ae1",
+    "c87377b75c32c7a5f4d887ea44e5386371feea725842c94089c4435bba4baa43.json.gz": "0ac2fee7358717895340c41bf40f13a03e959f3826a6d24e5df7643d96fb918f",
+    "d260e5b1dfc338c6dba630464bfb5d16a02fbf177d349cba8eaabf0407bb203d.json.gz": "83eeb137a8f7b9ac5ac2d840ebf4b34f8258680ad5bb286db3ea917df3369332"
+  }
+}

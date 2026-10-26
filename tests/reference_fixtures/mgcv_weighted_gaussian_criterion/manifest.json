@@ -1,0 +1,25 @@
+{
+  "namespace": "mgcv_weighted_gaussian_criterion",
+  "upstream": {
+    "mgcv": "1.9-4",
+    "R": "4.6.1"
+  },
+  "source": "R/gam.fit3.r::gam.fit3, gam.reparam; R/mgcv.r::gam.outer",
+  "generator": "tests/optimization/test_mgcv_weighted_gaussian_criterion.py",
+  "generator_sha256": "d7e24fdda094ad08ebeb3f8c9f4739242528e75b07bc4968306b7c5e69f7a045",
+  "source_sha256": "5b334693c0d844fef126a5c32dbad21b978ef48304c21f77c088b6aefa905b7b",
+  "inputs_sha256": "f832855abcd81143c0235e7555926a07272afea3136a3873a065d4de3c79a1f1",
+  "execution": "Actual installed CRAN mgcv capture; normal tests consume static outputs and require no R.",
+  "input_origin": "Frozen full binary-double scalar first coordinate, response, offset and prior weights from mgcv_tensor_linear_functionals/t2-bs-fixed-unweighted.",
+  "scope": "Eight fixed-SP Gaussian scalar cr fits: ML/REML crossed with omitted, explicit-one, constant-two and nonuniform/zero prior weights. Source variance-optimized criterion and separately reported Pearson scale; production criterion_value plus direct exact-criterion callers, fitted functions, full prediction covariance kernel and EDF. Ninth analytic invariant checks unit whitened penalty and covariance operator rather than raw eigenvectors.",
+  "fixture_sha256": {
+    "22761aa5052dd3cf8bfb090865e5a19bf1991a13f08d3d1197dd501a8add3959.json.gz": "91a6fc33a098ac1f18a9ce6b80a6105888b42d399ac427ed7bb1501826e1ccd4",
+    "2ea95d1114d374eaa43d97937ec40db07f7f01b1d8a6c1c47f1989083c1dce87.json.gz": "729925a811e6a4fe12d5aaada3c054e8c933e5261b378baf55ee1de649caabe9",
+    "370e3883c302e5d1b68b09f953dd8a21fcc20a32391ade2154f312d42d8fb884.json.gz": "a896ae28845375c4403e4768c815b3f272f247375890f8f222cc35d6bb56fc4b",
+    "87a9433f4ebc31f569b873892c22cbc335ddc1d19062e15b3f429c001b243d2a.json.gz": "d55ffbf58c7cf188e107e689f04c8e49bb13f816e611e1eb32c392f5af5b46c4",
+    "9b3ce441a1e07b60ca0f129ee052699d7ba6622f97db0b78a0e625e7f0574844.json.gz": "42112c48c5913fb32619231aa46e1dc3932ea5b6b07c1a1075ef1318dd9cf49d",
+    "a03a2a25a648b0e71ff9cce69dcb764a51f69bf299170fa39bc1202d031a1996.json.gz": "91a6fc33a098ac1f18a9ce6b80a6105888b42d399ac427ed7bb1501826e1ccd4",
+    "aa947bb3fc5aa601bbe619fa58e342d131aa90925b0273020fb8e9fd99da220e.json.gz": "729925a811e6a4fe12d5aaada3c054e8c933e5261b378baf55ee1de649caabe9",
+    "b04c04ef5660162040331ee089c8b4cf3d7435a703584bda74733a695b17b45a.json.gz": "8ebc771481b8cfa0eca68c96e7e2c3e9f4391de2494171294f4fffa72bc43fe4"
+  }
+}

@@ -62,6 +62,14 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
             "components through null-space penalties."
         )
 
+    # The Schur-complement algebra below is for identity observation precision:
+    # it forms unweighted crossproducts and sets w=1. Use the existing gam.fit3
+    # weighted criterion for nonunit prior precision, including zero weights.
+    # Keep the structural reparameterization capability unchanged.
+    prior_weights = getattr(model, "prior_weights_", None)
+    if prior_weights is not None and np.any(np.asarray(prior_weights) != 1.0):
+        return criterion_ml_reml_exact_dynamic(model, y, log_sp, method)
+
     # `mgcv`'s fs / sz constructors remain in the direct coefficient
     # parameterization with replicated group penalties. Our current mixed-model
     # Laplace port is not exact for those surfaces, while the Wood-style

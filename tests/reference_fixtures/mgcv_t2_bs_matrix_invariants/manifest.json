@@ -1,0 +1,83 @@
+{
+  "namespace": "mgcv_t2_bs_matrix_invariants",
+  "upstream": {
+    "mgcv": "1.9-4",
+    "R": "4.6.1"
+  },
+  "sources": [
+    {
+      "path": "nampy_notes/upstreams/mgcv/R/smooth.r",
+      "sha256": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d"
+    }
+  ],
+  "generators": [
+    {
+      "path": "tests/smooths/probes/mgcv_t2_bs_matrix_invariants.R",
+      "sha256": "0009b86e59383df9dd380f6be016ea858a7cff1ab7170f6d5a9e6a7e4cf050b7"
+    },
+    {
+      "path": "tests/smooths/test_t2_bs_functional_invariants.py",
+      "sha256": "46b1a23979ed0cae535c284e8ecfcad2f181e75bc156326a66688cab318d5130"
+    }
+  ],
+  "fixture_files": 48,
+  "reference_cases": 48,
+  "generation": "Fresh actual R mgcv fits under NAMPY_REFRESH_REFERENCE_FIXTURES=1; ordinary tests read static snapshots. Superseded development captures removed before acceptance.",
+  "inputs": "Frozen paired coordinate matrix data from mgcv_tensor_linear_functionals; scalar controls use the first coordinate column without random generation or runtime transcendental fixture identities.",
+  "coverage": "36 matrix fits and 12 scalar controls: range-only ord=2, bs m=list(c(3,1),c(3,1)) with one null direction, and full-rank bs m=list(c(3,0),c(3,0)); full FALSE/TRUE, fixed smoothing parameters/selected REML, matrix by omitted/varying/constant. Prediction, prediction covariance, EDF, SP, REML criterion, training/newdata basis alignment and all fitting-coordinate penalty congruences.",
+  "limitations": [
+    "Default matrix t2 bs margins with multidimensional null spaces remain guarded unless ord retains only the all-range block.",
+    "A valid multidimensional null rotation preserves marginal S and complete tensor function spaces, but source-style per-null-column normalization changes the reconstructed tensor penalty metric.",
+    "Audit tests transport every penalty and newdata transform before diagnosing operator differences; smoothCon fitting constraints and model.matrix prediction constraints are aligned separately."
+  ],
+  "fixture_sha256": {
+    "07d7febc4461bec2a80fa86d97ec718f2e97b965d792803c8721b36b7f14a0e2.json.gz": "40c6ff461124200c5b40e0f4f9eb8273c138133a55b4bf574ce4450e08277333",
+    "098e77d83cd3d4ac0fe76be68f3489fd40ad03f350454b0a82b75b60dc61ccbf.json.gz": "f0662b03a06a0dbb27544c7109332f85551167362352c07fe88ea0bad4860cdf",
+    "1db2bee9310aa79787aa32b1d5e9b70ff455127ab04bf7dd58af29fac064c5c5.json.gz": "b05a9db9e75f404d49d1b1b1042d8fe5c0f24181307f1a2a5068b9da9599fd1a",
+    "1e794836cbc383f0db1ed22cf71aef224bc30fecc75adebc9776ba79877d042a.json.gz": "b04e83e21a35c1e26efd2d76425ee75445a04765030d8b5b9e158e7a807c7850",
+    "22e2561bcd2d12c564eec1741b4e35f9077d6208f3a283e1253d316d0c4536c4.json.gz": "e823017e3d623b4dcdda7955e539201cc9bf4b88f92c707355f6f6f4d84bd15e",
+    "2db04ca1efe58955a9caf3cacceffa5e9f48a92e9d63b2040fd73d8b7c47c2a7.json.gz": "73a12a9261f77a7455e0f99099cb8cb9d8234130c5a7793e640801901eabe7eb",
+    "3c48bf4d4072549f67e99d46bd94230a4012472d05ca1ac526613dc1f2f864a7.json.gz": "21526c33299e6859653d1f9676f5b55d4558d7f412299040274b1b49952e516d",
+    "441caf7f0b9fc1f73e87a191efaaf4f8e450dac67cf36cb58f4d9dac703be190.json.gz": "59527a4418a59577d428e7803a6bdd302daefc59ebb6c15ad82e17ed96c4c77b",
+    "4558d6833a958b5b5f54dd328eeaec3615a791d65af248fc01521f2e07c1b319.json.gz": "6028bd99a00444f6421aa17f36fcfcde1500d93ea1575f892f34924f22e6e284",
+    "4a9eab1ba2e4433ddd78da4884ac645cffb9b338fd7fd359645a933344a288ab.json.gz": "edf119cc1988e8247191bf5f2297e3f7e3e1672b9e1c261ea8b6290f6dd42c09",
+    "566e337b2eeb36aa2caacc71f520d01d7d25060685a3ce5ea242a0c2c08d76f7.json.gz": "dc0f3091d8085ec07d1d73d82392a3603cdbcfbee8e31902119710c4919ca386",
+    "62d5c596749dfdfcbda0634677c7d9497f4a346b13f09087445e8e680a120e2b.json.gz": "2e75852674cf167d6fd640406287e54baa2f941280695bb215dc7b31bb6c0846",
+    "6b118e743e6d1191717f3544b9554496e46a7a21a480a6e0aa0e000bb36b0e61.json.gz": "6bef1686e32555a4141a3f0d25ada2a877c791710e977391ecf530cd53ece6e8",
+    "6ff101fe2b57e963b59d5c263843be073b3d9b76f6ee3c97f85cff465fc940b1.json.gz": "27f4469cc03f02ec8f8f6d4e30887b74d6044b8cd5a02b54399f00b89a423870",
+    "731900d2fef1119bcb43c068228b75f76d1fc98cba134ec80b1c1080304e52fb.json.gz": "3440f444951b12d78836aaf7a18225c6b217c5fff60b1a7d62f7acea58f7107d",
+    "73e936257f655e3da563884e4790d052bfc81be1ea6ff2c07e0aa668958ef89f.json.gz": "72d5128654bf999dd25a190e4bd4f6f408fe117105de0e838fb625b846c3f417",
+    "7f21927d98728a54fe45db8dda93d281452b40ae21e1bd09bef1cb77e07e6170.json.gz": "5c72bbb734e9e513072e579e0438446259db7d79c2f10110ada5556bd1dc366e",
+    "82d9ceec09dfc742ddc1b05e1a0b419507816038ac648ad43a2a1a317b22e433.json.gz": "3f2857d92f6c8d63e2be6b2c1c135813eb8b3bda5054e6b05d10b5847a837040",
+    "8631a5a3504b0337f6ade3a80f8a8115acf26013d1eaa737651151eabf1d37a1.json.gz": "f0662b03a06a0dbb27544c7109332f85551167362352c07fe88ea0bad4860cdf",
+    "937989d0ed3ba91bcaa7f06fcf6dc74e87018cc91bea2b9a825c31aaea7c2d4c.json.gz": "9996111a2d8c9a1c59e184d178e3c1fffc7347eb6488c2108e77db4b0f570bde",
+    "93af8d3f6a7e63f70968ff5c8d47ba8f9879a81bf2824831ea227194f98b31ad.json.gz": "b59c760bef312447c7e0f0f3c09b69bf92deca3846f3ee6aa0b4a364864dc2f6",
+    "98bad57c1ba091eb1b90ad0ce8bd5554f80444783173a9ee19eec8c8a43a3d7a.json.gz": "27f4469cc03f02ec8f8f6d4e30887b74d6044b8cd5a02b54399f00b89a423870",
+    "a23162bb58c5c4a8abe7f5f2a2404fb82ec1f2485c72cee90225eb5eee212ea7.json.gz": "b2716d85dca457467e7b74b9ddb0ea3619d8155564df372fd29cf3d2f6b028e0",
+    "a3d4e44bc770663da270578ec404e43532d6c896c3b92b2efafa563102c83eb9.json.gz": "e823017e3d623b4dcdda7955e539201cc9bf4b88f92c707355f6f6f4d84bd15e",
+    "a5bfdf742a28acc13e606b59ac0502e541e0fcd3dce722c5802fef1441780ab8.json.gz": "2e75852674cf167d6fd640406287e54baa2f941280695bb215dc7b31bb6c0846",
+    "b0a238b3dd6be78b0b9d6c63eba60ca13a22b9fed045ce553f8667a079c69a51.json.gz": "43af400738a2d35555b6ed6882f08f5b15321e6c02777ff19d4aa86f8fc4706a",
+    "b566f73593f9d3f171dd21df5350cde9ae25be60094b54f70a30f70d0e5e10d9.json.gz": "494361d01cc82b18060dc7140b6f6e76372cd0c1a8e3a578c4c3aed7139b6c33",
+    "b56d656beca41e3a99558395824c9165d9c8ed6a6b5f66ab5355061e8a263849.json.gz": "dc0f3091d8085ec07d1d73d82392a3603cdbcfbee8e31902119710c4919ca386",
+    "baa18b12e8a3057a7cf0cc7337b9ba1699b663a310be3fe209ef4dcd620e8d45.json.gz": "3440f444951b12d78836aaf7a18225c6b217c5fff60b1a7d62f7acea58f7107d",
+    "c2cd21f8daff34a33d30f2f17efa180541e030f6af6cf4424c78498a4622222b.json.gz": "d4c445b6a277e676e5424b19ba9eaaee8cb483533cdb17359d956352983ff7d0",
+    "c3775cc01428915360ce1b0c40431c1f2b2786ce89d6f632b89dd02ad802b876.json.gz": "72d5128654bf999dd25a190e4bd4f6f408fe117105de0e838fb625b846c3f417",
+    "c8f7c6cca7c9ee1d428d01c4ecb9213a45dc7574383344939f03d2a107204612.json.gz": "a74a50b24e9da1cbe3d798c4391c2e6a269a64d8ab5c0fe2255234e887e2a335",
+    "c93f43ff6e19f1818ee0e024a9ac581af67ee7892eecf6caddeb9405ee75ea2d.json.gz": "b59c760bef312447c7e0f0f3c09b69bf92deca3846f3ee6aa0b4a364864dc2f6",
+    "ca87f4ab60bfac6b00e03fc8466e50647bc2d9130d1e07bb61d25b49a31eb467.json.gz": "494361d01cc82b18060dc7140b6f6e76372cd0c1a8e3a578c4c3aed7139b6c33",
+    "cbf2a5cf8e7c40934d5bbe783514b390079cbb7c278c75eaede1ce1276df3979.json.gz": "a4cf0016ff2cdcb4f29e04ff8aaa7399198ac91581b5739843d905802ec62923",
+    "d5dcd2059221280fd57f4e78cd89e2546ecf499a5f5bc2d41273654bdc323d02.json.gz": "73a12a9261f77a7455e0f99099cb8cb9d8234130c5a7793e640801901eabe7eb",
+    "d694ab1d2b9535d416711192226bd979f06feace5810f199d5cf66099391ca99.json.gz": "8ae9be00557589a94f6774c680fffd18e8ae63202faa0d4320ed124f0152d451",
+    "d92db17022197f218829e4d78b1429a57b115e548beb084b5953c1f7ec52d4ca.json.gz": "f3bf44b56ad1023027b5e97a81bd09774851c9588336392e7535d75c593223cc",
+    "e11263c6bfc370a43078d4ada60ce9789528b7744dcfa08596ed5ed50c5bf15f.json.gz": "21526c33299e6859653d1f9676f5b55d4558d7f412299040274b1b49952e516d",
+    "e5372584a451b90423c9e39a4a60318c1f783e4d034d656df990a4fc296ecfc1.json.gz": "7ef4a427f7b23822362d8576de7d0cdb16de8b48ef3a7a23e84678a1a7ad5858",
+    "e758f59038b87e5f5bd4794272777ea3bc35709fe94adcaf30763cfd2a925f24.json.gz": "3f2857d92f6c8d63e2be6b2c1c135813eb8b3bda5054e6b05d10b5847a837040",
+    "e77142ee79da07c409f159548ea0ddefd25fdf74dfa55c738b8bacccc8993abc.json.gz": "07ef3041fc28e66bb852cabe8a97cb374f00450d187a56ff34ca65e41740d97b",
+    "e832f9cd776a09789850679b7a00354e93218e30f8033d1a07632d8cc7b843de.json.gz": "4167d857b2a90489cc88e6454c6d4867b83fce3ac6dc8bd687de78f85d68d704",
+    "ef63e04b29cb55d22d5cac30e85bb602957940808cc06cc9c52b12f1db1e2d78.json.gz": "f3bf44b56ad1023027b5e97a81bd09774851c9588336392e7535d75c593223cc",
+    "f474ab068a0e75660a34d915e345fc4be08872a442a385e86cbf859cfc54c96b.json.gz": "4db5a2d357149968a892b66601f12018da3dc386c30b46534ebfe75ccbd45cbf",
+    "f75dda39c0b99c3d0b4a2eee59883710f93c6722ccf30825f26135d422895888.json.gz": "b04e83e21a35c1e26efd2d76425ee75445a04765030d8b5b9e158e7a807c7850",
+    "fb8cbd6320612abe50514e63ef93b03d8cc9eae0fe2d04426db329eaf6ecaf81.json.gz": "b2716d85dca457467e7b74b9ddb0ea3619d8155564df372fd29cf3d2f6b028e0",
+    "fe6e94f698d73554e20c7bca052d7f4551f969a13e1b328264f303dd7fe1bb5e.json.gz": "9996111a2d8c9a1c59e184d178e3c1fffc7347eb6488c2108e77db4b0f570bde"
+  }
+}

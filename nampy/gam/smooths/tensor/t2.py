@@ -338,14 +338,6 @@ class AlternativeTensorProductSplineTerm(BaseSmoothTerm):
 
     def fit(self, X, feature_names):
         X = prepare_tensor_functional_fit(self, X, feature_names)
-        if self._tensor_functional_shape is not None and "bs" in self.basis:
-            # smooth.r::nat.param(type=3) scales null eigenvectors separately
-            # before rotation. Repeated bs null eigenvalues therefore change
-            # the tensor penalty metric across valid LAPACK orientations.
-            raise NotImplementedError(
-                "Matrix t2 with bs margins requires reproducible upstream "
-                "natural null-space normalization."
-            )
         self._set_by_state(X, feature_names)
         set_tensor_functional_by_state(self)
         shared_setups = self._linked_id_marginal_setups(self.feature)
@@ -369,6 +361,24 @@ class AlternativeTensorProductSplineTerm(BaseSmoothTerm):
             marginals
         )
         setup_bases, local_bases, transforms, ranks = self._reparameterized_marginals(X)
+        if self._tensor_functional_shape is not None:
+            # nat.param(type=3) normalizes each null eigenvector before its
+            # constant-direction rotation. A multidimensional bs null block
+            # can therefore change the metric of a range/null tensor penalty.
+            # A one-dimensional null space has only sign indeterminacy. The
+            # highest-order range-only tensor never uses these null columns.
+            rotation_sensitive = any(
+                basis == "bs" and setup.shape[1] - rank > 1
+                for basis, setup, rank in zip(self.basis, setup_bases, ranks, strict=True)
+            )
+            range_only = self.ord is not None and set(self.ord) == {len(marginals)}
+            if rotation_sensitive and not range_only:
+                raise NotImplementedError(
+                    "Matrix t2 with multidimensional bs null spaces requires "
+                    "reproducible upstream natural null-space normalization. "
+                    "Use range-only ord=[number_of_margins] or bs margins "
+                    "with at most one null direction."
+                )
         setup_result = t2_model_matrix(setup_bases, ranks, full=self.full, ord=self.ord)
         local_result = t2_model_matrix(local_bases, ranks, full=self.full, ord=self.ord)
         if setup_result.penalty_widths != local_result.penalty_widths:
@@ -467,6 +477,7 @@ class AlternativeTensorProductSplineTerm(BaseSmoothTerm):
             absorbed_by=(
                 "runtime"
                 if constraint_transform is not None
+                or local_result.null_space_dim == 0
                 or any(
                     not getattr(marginal, "tensor_requires_centering", True)
                     for marginal in marginals
