@@ -410,8 +410,8 @@
       "fixture_namespace": "mgcv_scat_workflows",
       "generator": "tests/families/test_mgcv_scat_workflows.py",
       "manifest": "tests/reference_fixtures/mgcv_scat_workflows/manifest.json",
-      "fixture_files": 75,
-      "scope": "Fixed and selected workflows, joint derivatives, uncertainty, boundaries;66 successful snapshots and9 captured upstream ML/zero-weight crashes"
+      "fixture_files": 84,
+      "scope": "Fixed and selected workflows, explicit fixed-SP ML/REML/LAML ancillary estimation, joint derivatives, uncertainty, boundaries;75 successful snapshots and9 captured upstream ML/zero-weight crashes"
     },
     "mgcv_scat_optimizers": {
       "package_version": "1.9-4",

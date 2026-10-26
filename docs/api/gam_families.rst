@@ -103,12 +103,18 @@ The implementation follows mgcv 1.9-4 ``R/efam.r::scat``, including its
 observed and Fisher derivatives. See the
 `upstream scat documentation <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/scat.html>`_.
 Fixed smoothing and ``ML``/``REML`` selection support fixed or estimated
-ancillary parameters. ``LAML`` is a REML alias; ``GCV.Cp`` uses the upstream
+ancillary parameters. With ``optimize_smoothing=False``, an explicitly
+selected ``ML`` or ``REML`` criterion still governs ancillary estimation;
+``smoothing_method="fixed"`` uses REML. ``LAML`` is a REML alias; ``GCV.Cp`` uses the upstream
 extended-family REML route, not a separate GCV or UBRE objective. Joint
 estimation with the ``efs`` optimizer is unsupported and raises an explicit
 error. ``ML`` with zero observation weights is also explicitly guarded:
 actual mgcv 1.9-4 reference runs crash in this combination. Zero weights are
 covered for fixed smoothing and REML.
+Positive ``min_sp`` values are unsupported for SCAT with either fixed or
+estimated ancillary parameters. The fixed-penalty offset parameterization
+has not been ported for joint fitting and smoothing-uncertainty corrections;
+zero ``min_sp`` retains the ordinary supported path.
 
 The default external dispersion is one. A positive ``GAM(scale=...)``
 override follows the upstream criterion and covariance scaling. For fixed

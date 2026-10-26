@@ -116,6 +116,10 @@ def _reference(case):
         with tempfile.TemporaryDirectory() as tmp:
             script, inp, out = [Path(tmp) / s for s in ["ref.R", "in.json", "out.json"]]
             script_code = _SCRIPT
+            if case.get("fixed_sp"):
+                script_code = script_code.replace(
+                    "b<-do.call(gam,args)", "args$sp<-p$sp;b<-do.call(gam,args)"
+                )
             if case.get("joint"):
                 script_code = script_code.replace(
                     "print=FALSE,exit=",
@@ -230,8 +234,10 @@ def _fit(case, method=None, family_override=None):
         smoothing_method=method,
         scale=case.get("scale", 0),
         control=case.get("control"),
-        optimize_smoothing=method != "fixed",
-        smoothing_params=case["sp"] if method == "fixed" else None,
+        optimize_smoothing=method != "fixed" and not case.get("fixed_sp", False),
+        smoothing_params=(
+            case["sp"] if method == "fixed" or case.get("fixed_sp") else None
+        ),
     ).fit(data=pd.DataFrame(case["data"]), sample_weight="w")
 
 
@@ -299,7 +305,7 @@ def _assert_fit(case, reference, model):
         rtol=tolerance,
     )
     linear_limit = False
-    if case["method"] != "fixed":
+    if case["method"] != "fixed" and not case.get("fixed_sp"):
         expected_sp = np.atleast_1d(reference["sp"])
         if (
             case["method"] in {"ML", "REML"}
@@ -870,3 +876,44 @@ def test_scat_upstream_tight_endpoint_reference(options):
     if options.get("zero"):
         uncertainty = _uncertainty_reference(case)
         assert uncertainty["Vc"] is not None
+
+
+@pytest.mark.parametrize("link", ["identity", "log", "inverse"])
+@pytest.mark.parametrize("method", ["ML", "REML", "LAML"])
+def test_scat_fixed_smoothing_explicit_method_reference(link, method):
+    case = _case(link=link, method=method, estimated=True)
+    case["fixed_sp"] = True
+    reference = _reference(case)
+    assert reference["accepted"], reference
+    assert reference["method"] == ("ML" if method == "ML" else "REML")
+    assert np.asarray(reference["sp"]).size == 0
+
+
+@pytest.mark.parametrize("link", ["identity", "log", "inverse"])
+@pytest.mark.parametrize("method", ["ML", "REML", "LAML"])
+def test_scat_fixed_smoothing_preserves_explicit_method(link, method):
+    case = _case(link=link, method=method, estimated=True)
+    case["fixed_sp"] = True
+    reference = _reference(case)
+    model = _fit(case)
+    _assert_fit(case, reference, model)
+    np.testing.assert_allclose(model.smoothing_params, case["sp"], atol=0, rtol=0)
+    assert model._optim_result.fun == pytest.approx(
+        reference["score"], abs=5e-5, rel=5e-5
+    )
+
+
+@pytest.mark.parametrize("link", ["identity", "log", "inverse"])
+@pytest.mark.parametrize("estimated", [False, True])
+def test_scat_fixed_smoothing_ml_zero_weight_guard(link, estimated):
+    case = _case(link=link, method="ML", estimated=estimated, zero=True)
+    case["fixed_sp"] = True
+    if estimated:
+        with pytest.raises(NotImplementedError, match="mgcv 1.9-4.*crashes"):
+            _fit(case)
+    else:
+        # No outer criterion is evaluated when both theta and SP are fixed.
+        # This conditional operation does not claim ML selection on zero rows.
+        model = _fit(case)
+        assert np.isfinite(model.predict()).all()
+        np.testing.assert_allclose(model.family.getTheta(True), case["theta"])

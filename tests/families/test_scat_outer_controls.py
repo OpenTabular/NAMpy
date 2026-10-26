@@ -3,6 +3,7 @@
 from dataclasses import replace
 
 import numpy as np
+import pytest
 
 from nampy.gam.fit.postprocess.unconditional_covariance import (
     apply_unconditional_postfit,
@@ -109,3 +110,24 @@ def test_scat_initial_spg_uses_observed_weights_and_global_fisher_fallback(monke
             # the zero-prior row: upstream SCAT EDmu2 is intentionally unweighted.
             expected = np.full(3, (nu + 1) / ((nu + 3) * sigma**2))
         np.testing.assert_allclose(weighted_designs[-1], np.sqrt(expected)[:, None] * X)
+
+
+@pytest.mark.parametrize("estimated", [False, True])
+@pytest.mark.parametrize("optimize", [False, True])
+def test_scat_positive_min_sp_is_explicitly_guarded_for_all_fit_routes(estimated, optimize):
+    import pandas as pd
+
+    from nampy.gam import GAM
+    from nampy.gam.families.scat import ScaledTFamily
+
+    case = _case(estimated=estimated)
+    model = GAM(
+        formula=case["formula"],
+        family=ScaledTFamily(theta=case["theta"]),
+        min_sp=[0.1],
+        smoothing_method="REML" if optimize else "fixed",
+        optimize_smoothing=optimize,
+        smoothing_params=case["sp"],
+    )
+    with pytest.raises(NotImplementedError, match="scat with positive min_sp"):
+        model.fit(data=pd.DataFrame(case["data"]))

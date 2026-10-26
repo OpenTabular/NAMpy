@@ -116,6 +116,17 @@ def fit_model_core(
 
     compile_designs(model, X, model.feature_names)
 
+    if (
+        model.family.name == "scat"
+        and model.min_sp_ is not None
+        and np.any(np.asarray(model.min_sp_) > 0)
+    ):
+        raise NotImplementedError(
+            "scat with positive min_sp is not supported: joint ancillary "
+            "optimization and smoothing-uncertainty corrections require the "
+            "fixed-penalty offset parameterization."
+        )
+
     # mgcv gam.setup includes fixed smooth boundary values in the fit offset.
     model.offset_train_ = combine_offsets(fit_offset, smooth_offsets(model))
 
@@ -132,7 +143,7 @@ def fit_model_core(
 
     if (
         model.family.name == "scat"
-        and optimize_smoothing
+        and (optimize_smoothing or model.family.estimate_theta)
         and method == "ml"
         and model.prior_weights_ is not None
         and np.any(model.prior_weights_ == 0)
@@ -176,14 +187,15 @@ def fit_model_core(
             optimizer=model.smoothing_optimizer,
         )
     elif model.family.name == "scat" and model.family.estimate_theta:
-        # Fixed smoothing does not freeze the distribution parameters. Run the
-        # same REML outer objective with only its two theta coordinates free.
+        # Fixed smoothing does not freeze the distribution parameters. Retain
+        # an explicitly selected likelihood criterion; the convenience fixed
+        # method follows upstream's default REML ancillary estimation.
         model.smoothing_fixed_mask_ = np.ones(_n_smoothing_params(model), dtype=bool)
         optimize_smoothing_params(
             model,
             y=y,
             initial_smoothing_params=model.smoothing_params,
-            method="reml",
+            method=method if method in {"ml", "reml", "laml"} else "reml",
             optimizer=model.smoothing_optimizer,
         )
     elif theta_only_fixed_reml:
