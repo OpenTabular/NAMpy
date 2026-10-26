@@ -356,9 +356,12 @@ unknown regions; random effects give unseen levels zero contribution.
 metric locations and a scalar factor per observation. They support weighted,
 unit and constant-row-sum functionals, including repeated paired locations.
 Matrix ``fs`` with its default ``tp`` base remains rejected because its
-natural-parameter null-space orientation has unresolved parity. Specify an
-accepted base explicitly, for example ``s(X, group, bs='fs', k=7,
-xt={'bs': 'cr'}, by=L)``.
+multiple independently penalized null directions have unresolved parity.
+Univariate ``tp`` with ``m=1`` has a single null direction and is supported,
+for example ``s(X, group, bs='fs', k=6, m=1, by=L)``. The requested ``m``
+is passed to thin-plate bases inside both ``fs`` and ``sz``.
+Alternatively specify an accepted base explicitly, for example
+``s(X, group, bs='fs', k=7, xt={'bs': 'cr'}, by=L)``.
 
 ``sz`` matrix functionals support ``tp`` (one or two metric coordinates),
 ``cr`` and ``ps`` bases, with one or more scalar factor columns per observation.
@@ -369,8 +372,12 @@ inside either ``fs`` or ``sz`` remain unavailable.
 ``te``, ``ti`` and ``t2`` support paired matrix coordinates with tested
 ``cr``, ``ps``, ``tp``, ``ds``, ``gp``, ``sf`` and ``sw`` margins.
 ``te`` and ``ti`` additionally support ``bs`` margins.
-Matrix ``t2`` terms with any ``bs`` margin are rejected because portable
-null-space normalization parity remains unresolved. ``te``/``ti`` with ``bs``
+Matrix ``t2`` also supports ``bs`` margins when each B-spline null space has
+at most one dimension, such as ``m=[[3, 1], [3, 1]]``, or when only the
+highest range-space order is retained, such as ``ord=[2]`` for two margins.
+These cases avoid the ambiguous null-space metric. Mixed range/null terms
+with multidimensional ``bs`` null spaces remain rejected because portable
+null-space normalization parity is unresolved. ``te``/``ti`` with ``bs``
 and ordinary scalar-input ``t2`` remain supported; matrix ``t2`` with tested
 ``cr``, ``ds``, ``gp``, ``tp`` and ``ps`` margins remains supported.
 They sum pointwise tensor products, rather than multiplying separately summed

@@ -175,14 +175,18 @@ jobs:
         tests/smooths/test_mgcv_tp_linear_functionals.py
         tests/smooths/test_mgcv_single_penalty_functionals.py
         tests/smooths/test_mgcv_spline_linear_functionals.py
+        tests/smooths/test_mgcv_matrix_cs_invariants.py
         tests/smooths/test_mgcv_ad_functionals.py
         tests/smooths/test_mgcv_categorical_functionals.py
         tests/smooths/test_mgcv_functional_packing.py
         tests/smooths/test_mgcv_fs_functional.py
+        tests/smooths/test_mgcv_fs_tp_functional.py
         tests/smooths/test_mgcv_sz_functional.py
         tests/smooths/test_mgcv_soap_functional.py
         tests/smooths/test_mgcv_soap_repeated_functional.py
         tests/smooths/test_mgcv_tensor_linear_functionals.py
+        tests/smooths/test_t2_bs_functional_invariants.py
+        tests/optimization/test_mgcv_weighted_gaussian_criterion.py
         tests/smooths/test_mgcv_soap_tensor.py
         tests/smooths/test_mgcv_re_tensor.py
         tests/smooths/test_mgcv_re_tensor_numeric_labels.py

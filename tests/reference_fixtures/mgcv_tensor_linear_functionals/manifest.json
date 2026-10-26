@@ -25,7 +25,7 @@
   "limitations": [
     "Linked tensor matrix arguments explicitly unsupported pending shared linked setup.",
     "Known-boundary soap matrix offsets remain unsupported upstream.",
-    "Matrix t2 with any bs margin is explicitly unsupported in NAMpy because type-3 natural parameterization normalizes null columns separately and numerical null rotations change the fitted metric. te/ti with bs, scalar-input t2, and tested matrix t2 cr/ds/gp/tp/ps remain supported."
+    "Default mixed range/null matrix t2 with multidimensional bs null spaces stays guarded: type-3 natural parameterization normalizes null columns separately, changing the fitted metric under null rotation. Range-only ord=[number_of_margins] and bs margins with zero or one null direction are supported with separate actual-R references in mgcv_t2_bs_matrix_invariants. te/ti with bs and scalar-input t2 remain supported."
   ],
   "matrix_t2_bs_guarded_reference_cases": 6,
   "portability_evidence": {

@@ -121,6 +121,21 @@ Its initializer tests therefore compare exact values on a captured common
 basis and separately check the design invariant. End-to-end fit and inference
 tests remain separate checks of the native implementation.
 
+For a non-unique basis, parity checks compare represented function spaces,
+penalty operators in common coordinates, fitted predictions, EDF, criteria
+and prediction covariance. If ``X_other = X @ T``, the corresponding penalty
+is ``T.T @ S @ T``; changing design columns without transporting every penalty
+does not test a coordinate change. Raw coefficient arrays, coefficient
+covariances and individual smoothing-parameter labels are compared only after
+the corresponding alignment. Equal penalty spectra alone do not establish
+equal penalized models: the penalty must act on the same functions.
+
+Some upstream constructors assign unequal penalties to numerically chosen
+null directions, or normalize those directions individually before adding
+new penalties. Repeating that construction after rotating its input can
+change the model itself. Such a discrepancy must be demonstrated through
+fitted functions or covariance, rather than inferred from differing columns.
+
 Numerical differences in identified quantities still require investigation.
 At a large smoothing parameter, the negative-binomial criterion evaluates its
 penalty through roots, matching ``gam.fit4`` and ``get_bSb``. A dedicated R
@@ -162,14 +177,19 @@ The following combinations remain unsupported and fail explicitly:
   drops the ``by`` variable. Free-boundary soap matrix fits, 1D adaptive matrix
   fits, and unit-weight 2D adaptive matrix fits are supported;
 * matrix ``fs`` terms with the default ``tp`` base, because natural-parameter
-  null-space orientation parity remains unresolved. Explicit ``cr`` and ``ps``
-  bases support matrix functionals with a scalar group factor;
+  null-space orientation parity remains unresolved when several null directions
+  receive independent penalties. Univariate ``tp`` with ``m=1`` has one null
+  direction and is supported. Explicit ``cr`` and ``ps`` bases also support
+  matrix functionals with a scalar group factor;
 * linked matrix-valued tensor ``id`` groups and matrix pooling combinations
   without an implemented setup path; basis-specific guards remain authoritative;
-* matrix ``t2`` with any ``bs`` margin: upstream type-3 natural parameterization
+* matrix ``t2`` mixing range/null components with multidimensional ``bs`` null
+  spaces: upstream type-3 natural parameterization
   normalizes null columns individually, so numerical null-space rotations can
   change the fitted metric. This is a NAMpy portable-parity limitation;
-  ``te``/``ti`` with ``bs`` and scalar-input ``t2`` remain supported;
+  range-only ``ord=[number_of_margins]`` and ``bs`` margins with zero or one
+  null direction are supported. ``te``/``ti`` with ``bs`` and scalar-input
+  ``t2`` remain supported;
 * all ``cs`` matrix fits, including distinct locations: unequal
   penalties on the nominal null space can amplify platform-dependent
   eigenvector orientation into different fixed and REML fits. Scalar ``cs``

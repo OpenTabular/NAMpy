@@ -153,7 +153,8 @@ class SoapFilmTerm(BaseSmoothTerm):
         if self._linear_functional:
             if offset is not None:
                 raise NotImplementedError(
-                    "mgcv does not support known-boundary offsets with matrix-valued soap arguments."
+                    "The mgcv 1.9-4 reference fails when aggregating known-boundary offsets "
+                    "with matrix-valued soap arguments; NAMpy retains this guard."
                 )
             basis = linear_functional_basis(
                 locations,

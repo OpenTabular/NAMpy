@@ -23,6 +23,6 @@
   "cases": 12,
   "supported_fit_cases": 8,
   "upstream_mismatch_cases": 4,
-  "guard": "Weighted two-dimensional adaptive matrix terms: constructor builds te without by, returning by=NA; smoothCon fits with original by but PredictMat ignores it. Static point_aggregate and summation_error record this mismatch.",
+  "guard": "Weighted two-dimensional adaptive matrix terms: constructor builds te without by, returning by=NA; smoothCon fits with original by but PredictMat ignores it. Static point_aggregate and summation_error record this mismatch. Invariant checks using the captured coefficients and covariance establish function discrepancies of 1.125-1.790 and covariance-kernel discrepancies of 0.017-0.053, rather than merely differences in design columns.",
   "generation": "NAMPY_REFRESH_REFERENCE_FIXTURES=1 pytest tests/smooths/test_mgcv_ad_functionals.py -k upstream"
 }

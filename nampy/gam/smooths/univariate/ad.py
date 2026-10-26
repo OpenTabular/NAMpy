@@ -365,7 +365,8 @@ class AdaptiveSmoothTerm(BaseSmoothTerm):
             if self.dim == 2 and self._by_state.is_present:
                 raise NotImplementedError(
                     "Two-dimensional adaptive matrix terms with by weights are unsupported: "
-                    "mgcv drops the by variable during prediction, causing a fit/predict mismatch."
+                    "The mgcv 1.9-4 reference drops the by variable during prediction, "
+                    "causing a fit/predict mismatch."
                 )
             weights = self._by_state.values
             if weights is None:

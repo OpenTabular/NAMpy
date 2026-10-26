@@ -979,7 +979,9 @@ def build_penalty_reparameterization_state(
     else:
         E = np.asarray(rp["E"], dtype=np.float64)
         try:
-            Z_rand = np.linalg.solve(E, X_range.T).T
+            # gam.reparam returns E with E.T @ E = St. Whiten the coefficient
+            # penalty with E^{-1}: X_range @ E^{-1} = solve(E.T, X_range.T).T.
+            Z_rand = np.linalg.solve(E.T, X_range.T).T
         except np.linalg.LinAlgError:
             Z_rand = np.full_like(X_range, np.nan)
 

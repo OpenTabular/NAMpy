@@ -551,6 +551,15 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         self._range_rank = None
         self._null_dim = None
 
+    def _validate_matrix_tp_null_space(self, null_dim):
+        if null_dim > 1:
+            raise NotImplementedError(
+                "Matrix fs smooths with a tp base require unresolved natural-null-space "
+                "parameterization parity when there are multiple independently penalized "
+                "null directions; use a one-dimensional null space (univariate m=1), "
+                "or a validated cr or ps base."
+            )
+
     def fit(self, X, feature_names):
         if self._build_delegate_base_or_re(
             X, feature_names, default_bs="tp", mode="fs"
@@ -583,14 +592,9 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             )
 
         base_spec = _parse_factor_smooth_xt(self.xt, default_bs="tp")
-        if locations.ndim == 3 and base_spec.bs == "tp":
+        if locations.ndim == 3 and base_spec.bs not in {"cr", "ps", "tp"}:
             raise NotImplementedError(
-                "Matrix fs smooths with a tp base require unresolved natural-null-space "
-                "parameterization parity; use a validated cr or ps base."
-            )
-        if locations.ndim == 3 and base_spec.bs not in {"cr", "ps"}:
-            raise NotImplementedError(
-                "Matrix fs smooths currently support only validated cr and ps bases."
+                "Matrix fs smooths currently support only validated cr, ps and tp bases."
             )
         # mgcv::smooth.construct.fs.smooth.spec calls smooth.construct on the
         # marginal spec without extra side constraints before duplicating by
@@ -630,6 +634,8 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         null_d = int(B_setup.shape[1] - base_rank)
         if null_d <= 0:
             raise NotImplementedError(_fs_full_rank_base_error(base_spec.bs))
+        if locations.ndim == 3 and base_spec.bs == "tp":
+            self._validate_matrix_tp_null_space(null_d)
 
         fac_idx = self._factor_feature_indices[0]
         fac_name = self._factor_feature_names[0]

@@ -57,6 +57,14 @@ def test_upstream_functional_fit_prediction_invariants(
     if dimensions == 2 and weighted != "unweighted":
         # Upstream ad constructs a tensor with by="NA": prediction loses L.
         assert ref["summation_error"] > 0.1
+        # Establish a behavioral failure, not just a basis-matrix difference:
+        # weighted point evaluation and native prediction disagree both in
+        # the fitted function and in its covariance kernel. These quantities
+        # survive any consistent coefficient/basis coordinate transformation.
+        aggregate = np.asarray(ref["point_aggregate"])
+        assert np.max(np.abs((P - aggregate) @ beta)) > 0.1
+        aggregate_kernel = aggregate @ covariance @ aggregate.T
+        assert np.max(np.abs(kernel - aggregate_kernel)) > 1e-3
         return
     np.testing.assert_allclose(P, ref["point_aggregate"], atol=3e-13)
     assert ref["summation_error"] < 3e-13

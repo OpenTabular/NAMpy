@@ -706,6 +706,46 @@
       "generator_sha256": "809097d8cf6d67d3518c839a92706db60c2e225dd7ade6d79d1ab019b65e9018",
       "fixture_files": 2,
       "scope": "Original/sign-flipped source shash and twlss EFS fits with default initialization and shared explicit initial SP [100,100]. Physical design and penalty invariants agree; uncontrolled initial.spg starts and finite fitted endpoints differ. Common-start source fitted values, SP, EDF and score agree within unchanged 2e-7 tolerance."
+    },
+    "mgcv_matrix_cs_invariants": {
+      "package_version": "1.9-4",
+      "R_version": "4.6.1",
+      "fixture_namespace": "mgcv_matrix_cs_invariants",
+      "manifest": "tests/reference_fixtures/mgcv_matrix_cs_invariants/manifest.json",
+      "fixture_files": 6,
+      "generator": "tests/smooths/test_mgcv_matrix_cs_invariants.py",
+      "generator_sha256": "327327692ad35cb96b74586eab6d7ee91bb991972d1ce616cd5dab1009415307",
+      "scope": "Distinct and repeated matrix quadrature with variable/unit/constant-sum weights. Raw CR/CS operators, cardinal-point prediction matrices, full fitted/prediction design, source scale and absorbed penalty, fit/covariance/EDF. Tests compare common-coordinate penalty transport, spectra AND non-null operator, and demonstrate that rotating unequal null floors changes actual fitted functions and covariance despite identical spectra/function spaces."
+    },
+    "mgcv_fs_tp_functional": {
+      "package_version": "1.9-4",
+      "R_version": "4.6.1",
+      "fixture_namespace": "mgcv_fs_tp_functional",
+      "manifest": "tests/reference_fixtures/mgcv_fs_tp_functional/manifest.json",
+      "fixture_files": 16,
+      "generator": "tests/smooths/test_mgcv_fs_tp_functional.py",
+      "generator_sha256": "a8222b78a61c1c48784bf6453b0fdfec8025efec18d0a3ab5e066e9de2f3ba0a",
+      "scope": "Matrix fs with a tp marginal having exactly one null direction (univariate m=1); Fixed and REML-selected smoothing at the original source SP units; Unit, varying and constant-row-sum quadrature weights, including zero quadrature rows; Distinct and repeated paired metric/factor packing, prediction width changes and persistence; Function-space/projector and transported individual penalty comparisons; no raw coefficient/column assertions; Fitted/newdata values, standard errors, covariance kernels, EDF and SP references; Scalar derivative-order forwarding: FS(tp,m=1), SZ(tp,m=3), SZ(ts,m=1)"
+    },
+    "mgcv_t2_bs_matrix_invariants": {
+      "package_version": "1.9-4",
+      "R_version": "4.6.1",
+      "fixture_namespace": "mgcv_t2_bs_matrix_invariants",
+      "manifest": "tests/reference_fixtures/mgcv_t2_bs_matrix_invariants/manifest.json",
+      "fixture_files": 48,
+      "generator": "tests/smooths/test_t2_bs_functional_invariants.py",
+      "generator_sha256": "46b1a23979ed0cae535c284e8ecfcad2f181e75bc156326a66688cab318d5130",
+      "scope": "36 matrix fits and 12 scalar controls: range-only ord=2, bs m=list(c(3,1),c(3,1)) with one null direction, and full-rank bs m=list(c(3,0),c(3,0)); full FALSE/TRUE, fixed smoothing parameters/selected REML, matrix by omitted/varying/constant. Prediction, prediction covariance, EDF, SP, REML criterion, training/newdata basis alignment and all fitting-coordinate penalty congruences."
+    },
+    "mgcv_weighted_gaussian_criterion": {
+      "package_version": "1.9-4",
+      "R_version": "4.6.1",
+      "fixture_namespace": "mgcv_weighted_gaussian_criterion",
+      "manifest": "tests/reference_fixtures/mgcv_weighted_gaussian_criterion/manifest.json",
+      "fixture_files": 8,
+      "generator": "tests/optimization/test_mgcv_weighted_gaussian_criterion.py",
+      "generator_sha256": "d7e24fdda094ad08ebeb3f8c9f4739242528e75b07bc4968306b7c5e69f7a045",
+      "scope": "Eight fixed-SP Gaussian scalar cr fits: ML/REML crossed with omitted, explicit-one, constant-two and nonuniform/zero prior weights. Source variance-optimized criterion and separately reported Pearson scale; production criterion_value plus direct exact-criterion callers, fitted functions, full prediction covariance kernel and EDF. Ninth analytic invariant checks unit whitened penalty and covariance operator rather than raw eigenvectors."
     }
   }
 }

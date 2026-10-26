@@ -1,0 +1,57 @@
+{
+  "namespace": "mgcv_fs_tp_functional",
+  "upstream": {
+    "mgcv": "1.9-4",
+    "R": "4.6.1"
+  },
+  "source_functions": [
+    "smooth.construct.fs.smooth.spec",
+    "smooth.construct.sz.smooth.spec",
+    "smooth.construct.tp.smooth.spec",
+    "smooth.construct.ts.smooth.spec",
+    "nat.param(type=1)",
+    "smoothCon",
+    "Predict.matrix.fs.interaction"
+  ],
+  "source_files_sha256": {
+    "R/smooth.r": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d",
+    "src/tprs.c": "2d96001cbf176d7598d9264f2a448f1e61fae8ac47f7b47d1df0af359bdc7897"
+  },
+  "generators_sha256": {
+    "tests/smooths/test_mgcv_fs_tp_functional.py": "a8222b78a61c1c48784bf6453b0fdfec8025efec18d0a3ab5e066e9de2f3ba0a",
+    "tests/smooths/probes/mgcv_fs_tp_functional.R": "f0ae508023918066e98a110459750157ec28e524ed0816e08cb061e9334f0b7d",
+    "tests/smooths/probes/mgcv_factor_tp_orders.R": "c2f58aacea8ea0758025caedf6ce9ed336dc1a4ed8bfbf9f4e4b8c65f3d17639"
+  },
+  "input_provenance": "Committed mgcv_fs_functional source fixture 2ace31a9840cf9cf6c86efef9abe13c31184f0f5de7acb5643e76fb63bb0a3fd supplies all frozen inputs. Distinct rows use the original tp cases; repeated rows use existing ps repeated cases. Numerical inputs are never regenerated at test time.",
+  "execution": "Actual installed CRAN mgcv 1.9-4. The probe traces nat.param only to retain its exact X/S/rank inputs, then evaluates the original routine. No derivative, basis or fitting code is replaced. Ordinary tests load static captures without R.",
+  "supported_scope": [
+    "Matrix fs with a tp marginal having exactly one null direction (univariate m=1)",
+    "Fixed and REML-selected smoothing at the original source SP units",
+    "Unit, varying and constant-row-sum quadrature weights, including zero quadrature rows",
+    "Distinct and repeated paired metric/factor packing, prediction width changes and persistence",
+    "Function-space/projector and transported individual penalty comparisons; no raw coefficient/column assertions",
+    "Fitted/newdata values, standard errors, covariance kernels, EDF and SP references",
+    "Scalar derivative-order forwarding: FS(tp,m=1), SZ(tp,m=3), SZ(ts,m=1)"
+  ],
+  "guarded_scope": "Matrix tp/fs with more than one independently penalized null direction remains guarded. Frozen-source X/S injection and a deterministic null rotation prove that valid coordinate transport preserves operators, whereas recreating diagonal rank-one penalties after rotation changes anisotropic models. Even equal-null SPs retain an orientation-dependent common scale from smoothCon norm(X,type='I')^2. nat.param unit.fnorm is rotation invariant; no runtime reference-specific rescaling or canonicalization is applied.",
+  "validation": "Existing fs tolerances retained: 4e-5 fitted/covariance/EDF, 2e-7 basis transport, 3e-6 penalties, 3e-4 absolute/3e-3 relative SP. Source input/projection and operator identities have tighter 2e-8/2e-10 checks. No tolerance was widened. One repeated/constant REML case reports backend step failure at explicit 1e-10 outer controls while its fitted/uncertainty/EDF/SP checks pass; no optimizer rescue is added.",
+  "fixture_sha256": {
+    "1488bd544fa5e41c76333f3b7bc28fbf408169aa489958b123310d892b1926b3.json.gz": "7e89a33c24468b957b4197fcfd2e71443831afa3b6c7601b06c61e1b1b9abee3",
+    "1643d40ba25edb3f70dea7314716ff37d79deefd8285dcdc95754dc840864f69.json.gz": "78811f80c86930d788c7f8cde784112556c8507dfb0baa9c134f8302c33e8247",
+    "16bcacefeb9db3d39515c66fcfea396d59ed5b841e4fa28c7f1099721b771385.json.gz": "45612e7028004c149208871b3cd6d56258e884b847ec97f5121eadacf0842115",
+    "1ca304f62a10499e5ee1e3ee483cf67571b03660d2da66e821f924a6b3ad4172.json.gz": "8e91899af8a149c5720859e2caee72bf5954bd301f97af7001868726330b69ae",
+    "3d97477adf844ac5723233353632815f3dfe276ee3f9fab2b3b34f92b18cd6ba.json.gz": "17319b5ea82fb3cea6f22145c5538534ebfcfbbf6d08d39a0f87fca204104ebf",
+    "3f4d3ef8d6140d580e711500a9ba41b8e7be4c307d4dd822758b37501927a9ec.json.gz": "7b8ff824151e878fe2ef04803de66f30684d77db4c6885ec931d9b5525180549",
+    "6dbf25e533b9b0da62205f7ef9fecfe550e1ac269beba1529db642a7b21060ff.json.gz": "ab67d1c3f18664028aeed5ba45ba43fb01f48a53c456ca11603e8b86e0e5fee4",
+    "82c1e7e88df211a9dffffbb92035a06088d4b40daceaefa1b6fe8ded185a8154.json.gz": "3156ee1ac4ba3b5ff2cd74b435a8fb09ab6e68775b1d2ebada694bf2d353bf96",
+    "9e68f85537f9267346a8c962cad719a1f123d6347097aa1cab5e2331e2e9a0ac.json.gz": "b73d011bbb7d9f6fb6512979ee0bfbed1c2b4df83c05e226da520a2874e512fe",
+    "b1da25eb056bb619de7dc12d36f808042611f5648105d9dd143be801b959c5fa.json.gz": "101cca5db82bce04e2dd8419c4a60074c9a5e5ae55d6c7cb17698ea29a04bc08",
+    "b48f24c17a106d797046c63ecc5c53e1f13d7ea951ccfae18836dbb81780c203.json.gz": "963ea8c310f2562b6c6af716372e42585ce35e4790e7fa6d9dd7955220383859",
+    "b576e4d485ccb35f7ac316de6b2fd4309660d39f47c68a05007970cfbd99ff82.json.gz": "0fb2d1ec6eec3edc6203a060983324e2631d21a6e9f58e7315f8ea7e6c3deffe",
+    "cc74a013631f04422715eb7c3931fd16713d64bd4549ab90af05a9a4e3859cde.json.gz": "6f1648facd5dedd24013e5cd26a129d15331a06ef49cb63424d89b846b201408",
+    "d1179a640a22ada7a2daefc30be95fc022257eab528a8d475b17b11db11c84e3.json.gz": "937c931cd8d342b0d469e8d78618d087403476d1075403b4b60cc2cd0b0f3374",
+    "e401c3ab481c9fd4c1153a09e60d24e677545834657e8c35f7b7a5ab3c05e281.json.gz": "c1564e8871efc8cc5fe8a94889e82a73be4e931d73003f3cb6dc081a7a02aacf",
+    "ea4d3b31a04bc62744a690bf45a772c77831287829c73edcf2695b9868d63fff.json.gz": "b03d8c50e6ec2035bef80e62de15e700ca8ffbfe454158b9fd96706d25dc1600"
+  },
+  "fixture_count": 16
+}
