@@ -1,0 +1,22 @@
+{
+  "namespace": "mgcv_gumbls",
+  "upstream": {
+    "mgcv": "1.9-4",
+    "R": "4.6.1"
+  },
+  "generator": "tests/families/test_mgcv_gumbls_workflows.py",
+  "generator_sha256": "3d7e082bfa56411a98158eed0467a0bf7595044942aaf75ff2636bdf0f94d607",
+  "execution": "Actual installed CRAN mgcv capture; normal tests use static fixtures and require no R.",
+  "source": "R/gamlss.r::gumbls, gamlss.etamu, gamlss.gH",
+  "scope": "Analytic derivatives through fourth order, source initialization, two smooths and offsets with fixed and REML-selected smoothing, coefficients, covariance, score, fitted values, predictions/SE and residuals. Both identity and bounded log-scale links.",
+  "inputs_sha256": "948d68ce45727815eb2a859a7480161e8755a376ad654616a2b18626c0808f9d",
+  "fixture_sha256": {
+    "2292c24e1012d9e88f5772215ee8dbb67e60a90dfab0c7683c042ac37fe8b2d9.json.gz": "775df2e80b1b127268fe6c518d5f133923c13cfe8f17cf0d8c5d213a514dd58c",
+    "4796798f17927deaafbb7cafd5722177b125a685ebb090cb2a6a6af465a88ff9.json.gz": "1ec270efb548b551a185a18e9e5417498a97e7ec5191e355e1603490d946aa51",
+    "8bc26927fa0907ea71c25274acf30d262df561e22ba367588d0ee92a664f1cd9.json.gz": "e6f9d8379284c8ddb96e906d040c2c0beeba79ef7d817bc957fdec96d55f49fd",
+    "aa043321bfcd05726c0cb70c164b3060f85471c63259e7bd4b215b70c1b1c079.json.gz": "c113f1db4fcab3b470f28101afcb9db390204dffdfab85ac64237900ef24f656",
+    "aa082a07e07595f68a8fa080513d3a4c62d173b439ef6a23d0769550e4e8a82a.json.gz": "1f213a4ba75983cd671bfff20de34131352ffa4021091235e998a4f5381bce0f",
+    "b55b92ebfff9662f9420a660401afc5ac0e02c38a037c9356c0dbd949bf2853e.json.gz": "25d80de30bb690dc0fc7b96efdc3b4e8a4aad0bdaef44cf7b81d9532e593c03f",
+    "b8cfb6169054d67b2aad6aa3725a7edf13bdb436b93e0f8b47760df9d3611312.json.gz": "f74750296c0ef93b3b1828e68fda023eccb2e463bd586388dfe575d23d4f0ad5"
+  }
+}

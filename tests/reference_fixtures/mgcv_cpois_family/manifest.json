@@ -1,0 +1,52 @@
+{
+  "namespace": "mgcv_cpois_family",
+  "upstream": {
+    "R": "4.6.1",
+    "mgcv": "1.9-4"
+  },
+  "generator": "tests/families/test_cpois_family_contracts.py",
+  "generator_sha256": "e01a42d3385bd453ad8ee6a37992f45e46e3342963ce16cc87f3c8936a2fbe22",
+  "generator_files_sha256": {
+    "tests/families/test_cpois_family_contracts.py": "e01a42d3385bd453ad8ee6a37992f45e46e3342963ce16cc87f3c8936a2fbe22",
+    "tests/families/test_cnorm_family_contracts.py": "18c75ad59b17b57598aa170cf8fe8441b874ee047730b5c37dbd841cc713cfa8"
+  },
+  "source": "mgcv R/efam.r::cpois, dppois; R4.6 nmath::dpois_raw, ppois, pgamma, bd0, stirlerr",
+  "source_files_sha256": {
+    "R/efam.r": "30d5858b3a9a3d7c0d0397d4967a81e58e5b09da9bb9b3b2fd4c8ac7a0f3f391",
+    "R/misc.r": "65e77004d092d4d1f3f289b402e3a1d830a673208802d81b31e8ab01b98ab87d"
+  },
+  "r_math_reference_files_sha256": {
+    "nampy_notes/debug/r_math_reference/bd0.c": "550aa20e1ba3d90f709e554b540859e0f860cb38189c2cb9c219c32d1f039e8d",
+    "nampy_notes/debug/r_math_reference/dpois.c": "a59ca7b10dbd515f4f311752477e7124a5d31375f8d3a23ff088f3ad07ddc412",
+    "nampy_notes/debug/r_math_reference/pgamma.c": "68c75e333a6979a1edffad17ab99263f0d1725bb0f0fad4a224dd6402942a262",
+    "nampy_notes/debug/r_math_reference/ppois.c": "f2611879d551073b9ca34428f4e7c4eee8ec0bdbddff17ec7da772928b290d76",
+    "nampy_notes/debug/r_math_reference/stirlerr.c": "e62848cfccfb63aa232564b941d41ec039243621c62dab40a200c768a57df334"
+  },
+  "r_math_reference": "Ignored development references under nampy_notes/debug/r_math_reference; source routines ported into committed scalar Python helpers and constants, no runtime R/library dependency.",
+  "execution": "Actual installed CRAN mgcv 1.9-4 on R4.6.1. Normal tests load committed static captures; explicit refresh is required for source execution.",
+  "scope": "Censored Poisson family kernels: all identity/log/sqrt links, exact/vector/mixed responses, fractional and negative endpoints, zero/nonunit ignored-weight semantics, extreme-tail dppois/ppois probabilities, Dd through fourth location order, source deviance/AIC/ls and initialization. Includes retained superseded development captures.",
+  "historical_capture_policy": "Superseded source captures from preserved development investigations remain inventoried. Acceptance is determined by the active source-contract tests; retaining a capture alone is not a claim that every historical configuration is supported.",
+  "fixture_files": 20,
+  "fixture_sha256": {
+    "0bc953bf9fb26a0c5a8c80d6bc37438123900ccc7f89757de4e9924e72936ff4.json.gz": "96912e53ea74321ff18ffd87324170875082dab890f25d07765e214c599b682c",
+    "1223af57acc28d42fda06628892524577bdefe6ebb6f305c1b91c4a9081970af.json.gz": "200f1b8987666a9f213adf533c0cc381c33f61c63356a7248818326dba2e292b",
+    "22d477c8caea2836529a1e93c99e77ca8037acc09c3640b6bd94cf100589910e.json.gz": "659b27d130f13d5fa9f34ce6abaaf20b4b4048be5479a0e74b007a3ba1217fbb",
+    "251f874ede8d061fa7192c15d85496c27f4253bfa22b0b0ffaa4a0caac6a58b8.json.gz": "b1ea098b4b1d9bb1d4421bf8b063ec57b922b49ce79c72bfddd2e84f56501e62",
+    "2dffddf010d4770669dc5fc232e8c60b2eb4b6b26cb01232e8c2d5c5ebff7697.json.gz": "4893bea9ff3429e47e630d7f620e9a3425ac80c2706026bdb24e6804a94092a7",
+    "3c66784e076d7f9a18924b634591b279766f822007b39151c983d23146f2dcf3.json.gz": "671123f906e6aef9ebb3c0fb7b947be13040e42655a8db1f070b7138839a271e",
+    "43e7c89221e607749c254ff17e86788dc6ce05fc39d32dfafbcb53d563e4817d.json.gz": "2bc1be98fc86ffe1ab60ac7215809146c2a5249afb67b7495e63f6aa5f8b9407",
+    "46b7f6754a3c9b86bbad45b1133bb138a62bdf6e132c187b28d567a2d745b126.json.gz": "2280c95b1cb63f4beaf76edbd6036084a70f6df82db1357576b9e9c0f2ce7ce8",
+    "6bae1ed8147047b6a8f8ad1dabe74a5d52bd1120ff0b34718eb501ae3e83d9af.json.gz": "96912e53ea74321ff18ffd87324170875082dab890f25d07765e214c599b682c",
+    "6bdcf9aafe34b3ff89091352d6ccaff7c3420514de7e943f8158ca3a4a3801d7.json.gz": "2e3a8177749ce48da0a225d7b1bae2aa5ff89764eb3a92f042808c12d87e419e",
+    "6da9bf6f7b70f759dc08041b31c37f1959309e80beab1dfea56d177a1866333e.json.gz": "bec1a66ec7d8edbace3f0fa2b7a8fd69159e2f20bdafd2c6c6a9a0b768e59f73",
+    "7fd7cd1df35f6144784a48b0f89b9b8b013699b0856a9d67d84f7825930326ff.json.gz": "2280c95b1cb63f4beaf76edbd6036084a70f6df82db1357576b9e9c0f2ce7ce8",
+    "a7c24c229f3ed917071bc6974825bb8351ceaa571eeeb31f7bdaf4eb702e5890.json.gz": "4a13a2b6fda95e04dafb899813c2ddca5343b45c1b826bf15d3db63022b2aa3b",
+    "bb6143d00d863c693babdcd98d2800d8ed72b744449c6ce174e502e561e05ae1.json.gz": "bcab197881cca558dc19003a6b9c8825b1fdc6382bc604118c19bfa01dc5f911",
+    "be0b750f72725b7ed7e62a9a0a39d97a45c021bd2eb6bde35c7c566fbb4cb34b.json.gz": "f1690b0f6282517fc2b28948fd2192856c3fffe31f8635dfe7f7ec74cdb97ff6",
+    "c0f96def59c3d886ddeabd965f4983753c0177c68aeb55e448a8ebb663a03cbf.json.gz": "58c5b9603597ea16807e6b7496123cdf9b13c5d54a90b935786fcbb3aae1cd79",
+    "ca833983ec39c71a62241a69f2d074f37eeeba5423abdea0c859771cbb18bdba.json.gz": "0804e40cd0039c476b1358c705046ecae5e2709b9e9cb63e9ba35b61e821c31c",
+    "ee699b40885434bd196883bd701a3fe991c012cf5260e5206765e2cfe60a08b7.json.gz": "87a740c316963b4659e027fb17bc235f57852ee3411f2939af806d9d99e441de",
+    "f89210f11fa42b86f263c5189cf73858a19d20923658d519e365e3d74ea0bbaa.json.gz": "6199c4b09d3eb53f06b514dad08d6d252181ef0e4a3cb8e44524403b2046aa7f",
+    "f9e046b66aad16d642aca9a22427df6b25a540756cc488d7eda8b6a53e546245.json.gz": "4893bea9ff3429e47e630d7f620e9a3425ac80c2706026bdb24e6804a94092a7"
+  }
+}

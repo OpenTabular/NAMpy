@@ -1,0 +1,32 @@
+{
+  "namespace": "mgcv_twlss",
+  "upstream": {
+    "mgcv": "1.9-4",
+    "R": "4.6.1"
+  },
+  "generator": "tests/families/test_twlss_family_contracts.py",
+  "generator_sha256": "02e960cafa9bb23db47e621214d45fe201d9a15d94b09fab689866bab711b582",
+  "source_files_sha256": {
+    "R/gamlss.r": "d82fbc72b270dc1bd062c90d867c4f445043d79094a3cf0bae5c5479f12c8fa0",
+    "R/gam.fit3.r": "c7b31bdd3073e785d5bb322e8c474c3d2e154565e713b5d5d0e192b1cc08202d"
+  },
+  "inputs_sha256": "6868e728f17de4eb08ef0a1cb93bc3ff543ca8e31eb6afb5e398dcc90e78b690",
+  "execution": "Actual installed CRAN mgcv 1.9-4, with unmodified source family algebra. Normal tests use committed static captures and require no R. Numerical inputs are frozen JSON, not regenerated at test time.",
+  "scope": "Three-predictor log/identity/sqrt mean links, identity transformed-power/log-dispersion links and bounded power. Analytic gradient/Hessian from ldTweedie, vector parameters, zeros, offsets, penalized/unscaled initialization, fixed/EFS fits, Bayesian/frequentist covariance, EDF, criterion, AIC/logLik, null fit/null deviance, fitted/prediction/SE/residuals, public natural parameters/mean/components/persistence.",
+  "boundaries": [
+    "available.derivs=0 supplies only first/second likelihood derivatives; EFS smoothing uses no invented third/fourth derivatives or numerical outer fallback.",
+    "Source gam.setup.list rejects global fixed-SP input when a parametric-only middle predictor precedes another smooth; the fixed-SP R capture sets the same SP inside each smooth formula instead.",
+    "Source ll ignores prior weights; deviance residuals and null deviance apply source weights. tw.null.fit defaults retain their independent a=1.001,b=1.999 bounds."
+  ],
+  "fixture_sha256": {
+    "450b30782ea7bd2417f41809216d81ab019a4c85ab6dc2ee0181c62863f04748.json.gz": "f6ca7c690586108b74eff99822863c875bac8134bdbabe7cdc73ac8fcd32b7ab",
+    "5c22273cceb29d50ef53ff0194901849e447aa3bf88de4829ae9c9277e354cbc.json.gz": "b39506e727cff57562332c93e1e0f5d5e67709f47180175c1034a01ce41db71d",
+    "6be3f647e63c168a042f9d899baa733f80ab9221a56e055cd2c2ecc47277c880.json.gz": "d8a10d3c4488162a596a92e11aa4e36afdbdcb825224d4bfcb5fb5d6674af7ec",
+    "a410466ec0271c1c986e3d2ee1ddb034ceb88677140de16ab3af3cb1c5b0c3c6.json.gz": "f44938e16a459708e8deef4b0474f05c4cbbd643782e837e06f149ba47b45dfc",
+    "c4326f3579a8e8b74b96ddfa1108e1e4e9e1338d3f6b5c9000e4246eb51693a5.json.gz": "5fcd3c52f1c900eacef78eeb5582385d38ec4165987fad7ae4b2cd6feb1bc84b",
+    "d39e9a7c38b27e26f0190b75b412e4022c42a727622e5453a77f9149b8b4a6c2.json.gz": "eb69341b157c951c30f2480c9b0dae5edcd58892338003e47d1521de68682da4",
+    "d61d7f93409cc14049e4496a5c15d1719da5a34c85e69d1dd039484504341dac.json.gz": "57684398d14ca49951abfafdd6f5d6a864b9b105a3291838fe2f42946ab2d4f1",
+    "ec7266bd01a4b2c70dd72790d68bbe8e83a50e231f605691a34971807ebd5db2.json.gz": "06bf5216b5b290039fcdd3047f8a3f16e61c9bcb42fca3a4392a5d130c4221ff"
+  },
+  "fixture_files": 8
+}

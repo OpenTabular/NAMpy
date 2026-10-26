@@ -460,8 +460,8 @@ class GaulssFamily(GamlssFamily):
         off1 = off2 = None
         if offset is not None:
             if isinstance(offset, (list, tuple)):
-                off1 = offset[0]
-                off2 = offset[1]
+                off1 = offset[0] if len(offset) else None
+                off2 = offset[1] if len(offset) > 1 else None
             else:
                 off1 = offset
 

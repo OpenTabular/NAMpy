@@ -1,0 +1,21 @@
+{
+  "upstream": "CRAN mgcv 1.9-4, installed R 4.6.1 (2026-06-24)",
+  "source": "R/gamlss.r::gevlss, gamlss.etamu, gamlss.gH, pen.reg",
+  "generators": {
+    "tests/families/test_gevlss_family_contracts.py": "6ca030f84df9913b725b3e573bcc46c31c265d9b4c1f1bcf473ba3b79280caae",
+    "tests/families/test_mgcv_gevlss_workflows.py": "7e3c364156fa5440773d22192224efdad8243b7b3dd05a925930cde128d7f7ef"
+  },
+  "capture_count": 8,
+  "captures": {
+    "3171e608e5d4f2f7695f279d4d114eade4888c4862736e810365de3456761c32.json.gz": "836b98f274ff4439b23028834ec28f5df25dcba5684125ea335a8ed124dbba25",
+    "401a4f986c2188c11d7b13b8b18b6fac3afa6d09b1ab37ae28a6a9f6bcdb98b2.json.gz": "2ea55649118e543ccc05fc065dc876f81479234e0895f640e0617067038889ea",
+    "67a3cfdea86c2cf15e8cc3c8058ec5434757db70ad6ae240afcb16ec1dfeb778.json.gz": "954c2962988be5845b4e8a04b810c835f335d88209089f593b9df74b37902f08",
+    "7d549f4188abcce52b6f4a32c704f86b39d6cf4d4144f414b9489f92af543a23.json.gz": "468ef9ae53a1aa21b54032fd558b00849438a2ab709acc18e6024cef56240e28",
+    "8cb9fa60bca99e89828d3a0e7523f625811e2fa87f502505f3bb63319bac03d7.json.gz": "f66098e0e97b4ab4fabd4829488d29261899defbdde9b5dcc8d7269b282ebc36",
+    "9e956986e342f6adeee4fe99bdb0bc15fc49b2f8a78ef6479635406c08570ab6.json.gz": "3cd0084b4d69189308d389acb707953624a9f90e5b612dbb23d65e5ba74d5b9d",
+    "e4a8bb56516e7264bb46f8b5a03fcc3bc5a1611704bbdee099baa454e5e4cd10.json.gz": "2f9185cbbe581105e2dbffcb09dba42318aa43a98149cbf532e5dcdd5ea94f89",
+    "ffd0dca007ee8a88213f2d6ebc0c5a4d4068ee609fad9c9b3fc58e96a80cd8a8.json.gz": "65307561ba8059f0e6162d0001d844803174b6727942d5592bbbe43c4eb4f689"
+  },
+  "scope": "All four supported link combinations: likelihood, packed analytic derivatives through fourth order, links, initialization and residuals; identity/log location fixed-SP and selected REML fits.",
+  "validation": "Ordinary tests consume committed captures without R. No tolerance widening or numerical derivative fallback."
+}

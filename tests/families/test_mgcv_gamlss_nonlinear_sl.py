@@ -713,6 +713,11 @@ def test_solve_general_family_fit_applies_exact_nonlinear_vb_corr():
         penalty_derivatives=setup.penalty_derivatives,
     )
 
+    fixed = solve_general_family_fit(model, y, sp)
+    assert_allclose(fixed.cov_unconditional, fixed.cov_bayes, atol=1e-12)
+    # gam.fit5.post.proc requires an actual outer Hessian. An inner REML2
+    # alone must not invent smoothing uncertainty for a fixed-SP model.
+    model._optim_result = SimpleNamespace(hess=np.asarray(fit["REML2"]))
     sol = solve_general_family_fit(model, y, sp)
 
     assert float(np.trace(with_exact["Vc"])) > float(np.trace(without_exact["Vc"]))

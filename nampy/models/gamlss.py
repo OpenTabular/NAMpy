@@ -8,6 +8,7 @@ import numpy as np
 
 from ..contracts import AdditivePrediction, AdditiveTermMetadata
 from ..gam.families.gamlss import GamlssFamily, gammals, gaulss
+from ..gam.families.registry import make_gam_family
 from .gam import _GAMAdapterBase
 
 _FAMILY_ALIASES = {
@@ -23,14 +24,14 @@ def _resolve_gamlss_family(family) -> GamlssFamily:
     if isinstance(family, GamlssFamily):
         return family
     key = str(family).lower()
-    try:
-        factory = _FAMILY_ALIASES[key]
-    except KeyError:
-        supported = ", ".join(sorted(_FAMILY_ALIASES))
+    if key in _FAMILY_ALIASES:
+        return _FAMILY_ALIASES[key]()
+    result = make_gam_family(family)
+    if not isinstance(result, GamlssFamily):
         raise ValueError(
-            f"Unknown GAMLSS family {family!r}. Supported aliases: {supported}."
-        ) from None
-    return factory()
+            f"Unknown GAMLSS family {family!r}: a general distribution family is required."
+        )
+    return result
 
 
 class GAMLSS(_GAMAdapterBase):
@@ -98,8 +99,8 @@ class GAMLSS(_GAMAdapterBase):
                 "GAMLSS requires a multi-predictor GamlssFamily; "
                 f"got {type(family).__name__}."
             )
-        if int(family.n_linear_predictors) < 2:
-            raise ValueError("GAMLSS families must define at least two predictors.")
+        if int(family.n_linear_predictors) < 1:
+            raise ValueError("GAMLSS families must define at least one predictor.")
 
     def _resolved_formula(self):
         family = self._resolved_family()
@@ -165,7 +166,12 @@ class GAMLSS(_GAMAdapterBase):
         result = self._fit_gam(
             X, y, data=data, sample_weight=sample_weight, offset=offset
         )
-        self.parameter_names_ = tuple(self.gam_.family.parameter_names)
+        fitted_family = self.gam_.family
+        self.predictor_names_ = tuple(fitted_family.parameter_names)
+        self.parameter_names_ = tuple(
+            getattr(fitted_family, "distribution_parameter_names", ())
+            or fitted_family.parameter_names
+        )
         return result
 
     def predict(
@@ -250,6 +256,26 @@ class GAMLSS(_GAMAdapterBase):
             unconditional=unconditional,
         )
         jacobian = self.gam_.family.distribution_parameter_jacobian(eta)
+        if np.asarray(jacobian).ndim == 3:
+            # Coupled natural parameters (multinom probabilities) require the
+            # cross-predictor covariance, not independent marginal eta SEs.
+            from ..gam.model_state import _predictor_full_indices
+            from ..gam.predict.general import _general_family_covariance_for_prediction
+            from ..gam.predict.predictions import select_prediction_covariance_matrix
+
+            P = np.asarray(self.gam_.predict(
+                X, type="lpmatrix", offset=offset, block_size=block_size,
+                newdata_guaranteed=newdata_guaranteed, na_action=na_action,
+            ), dtype=float)
+            covariance = select_prediction_covariance_matrix(
+                self.gam_, cov=self.covariance, unconditional=unconditional
+            )
+            covariance = _general_family_covariance_for_prediction(self.gam_, covariance)
+            gradient = np.zeros((P.shape[0], jacobian.shape[1], P.shape[1]))
+            for k, indices in enumerate(_predictor_full_indices(self.gam_)):
+                gradient[:, :, indices] += jacobian[:, :, k, None] * P[:, None, indices]
+            variance = np.einsum("npi,ij,npj->np", gradient, covariance, gradient)
+            return np.sqrt(np.maximum(variance, 0))
         return np.abs(jacobian) * np.asarray(eta_se, dtype=np.float64)
 
     def score(self, X, y, sample_weight=None):
@@ -295,12 +321,16 @@ class GAMLSS(_GAMAdapterBase):
             newdata_guaranteed=newdata_guaranteed,
             na_action=na_action,
         )
-        link = np.asarray(vals["output"], dtype=np.float64)
-        response = self.gam_.family.distribution_parameters_from_eta(link)
+        eta = np.asarray(vals["output"], dtype=np.float64)
+        family = self.gam_.family
+        response = family.distribution_parameters_from_eta(eta)
+        additive_link = getattr(family, "additive_link_from_eta", None)
+        link = np.asarray(additive_link(eta) if callable(additive_link) else eta, dtype=float)
         n_samples, n_parameters = link.shape
 
         compiled = self.gam_.gam_result_.require_compiled_model()
-        predictor_index = {f"eta{index + 1}": index for index in range(n_parameters)}
+        positions = tuple(getattr(family, "additive_predictor_indices", range(eta.shape[1])))
+        predictor_index = {f"eta{index + 1}": target for index, target in enumerate(positions)}
         label_map = {}
         feature_map = {}
         for term in compiled.compiled_terms:

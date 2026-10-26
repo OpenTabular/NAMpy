@@ -1,4 +1,8 @@
-"""Direct contracts for the repository's seven public GAM pipeline stages."""
+"""Direct contracts for the repository's seven public GAM pipeline stages.
+
+The additional censored and multi-predictor families have independent source
+captures and seven-stage coverage in test_remaining_family_pipeline_contracts.
+"""
 
 from __future__ import annotations
 

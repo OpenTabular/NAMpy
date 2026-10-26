@@ -95,6 +95,12 @@ def fit_model_core(
     model.offset_train_ = fit_offset
     model.n_samples_ = X.shape[0]
     model.prior_weights_ = None
+    if model.family.name == "bcg" and np.asarray(model.family.getTheta()).size == 3:
+        raise ValueError(
+            "mgcv bcg's fixed constructor produces three working theta values "
+            "and gam.fit4 rejects that state. To fix lambda and SD explicitly, "
+            "call family.putTheta([lambda, log_sd]) before fitting."
+        )
     if sample_weight is not None:
         sw = np.asarray(sample_weight, dtype=np.float64).ravel()
         if sw.shape[0] != int(model.n_samples_):
@@ -155,7 +161,7 @@ def fit_model_core(
     compile_designs(model, X, model.feature_names)
 
     if (
-        model.family.name in {"scat", "zip", "cnorm", "clog"}
+        model.family.name in {"scat", "zip", "cnorm", "clog", "bcg"}
         and model.min_sp_ is not None
         and np.any(np.asarray(model.min_sp_) > 0)
     ):
@@ -173,6 +179,11 @@ def fit_model_core(
     method = resolve_smoothing_method(
         model, model.smoothing_method if smoothing_method is None else smoothing_method
     )
+    if (getattr(model.family, "family_class", "") == "general"
+            and getattr(model.family, "available_derivs", None) == 0):
+        # mgcv.r::estimate.gam unconditionally selects EFS for a general
+        # family with no higher likelihood derivatives (twlss).
+        model.smoothing_optimizer = "efs"
     method = coerce_general_family_smoothing_method(
         model,
         method,
@@ -209,13 +220,13 @@ def fit_model_core(
         else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
     )
     if (
-        model.family.name == "clog"
+        model.family.name in {"clog", "bcg"}
         and model.family.estimate_theta
         and str(model.smoothing_optimizer).lower() == "efs"
         and (not optimize_smoothing or method == "fixed" or bool(np.all(fixed_mask_for_theta)))
     ):
         raise NotImplementedError(
-            "clog EFS ancillary estimation requires a free smoothing parameter: "
+            f"{model.family.name} EFS ancillary estimation requires a free smoothing parameter: "
             "the captured mgcv all-fixed-SP route errors in its foreign-function call. "
             "Use Newton, BFGS or optim when smoothing parameters are fixed."
         )
@@ -247,7 +258,7 @@ def fit_model_core(
             method=method,
             optimizer=model.smoothing_optimizer,
         )
-    elif model.family.name in {"scat", "zip", "cnorm", "clog"} and model.family.estimate_theta:
+    elif model.family.name in {"scat", "zip", "cnorm", "clog", "bcg"} and model.family.estimate_theta:
         if not supports_smoothing_method(model, method):
             raise NotImplementedError(
                 f"Ancillary estimation with method={method!r} is not supported "

@@ -1,0 +1,32 @@
+{
+  "namespace": "mgcv_shash",
+  "upstream": {
+    "mgcv": "1.9-4",
+    "R": "4.6.1"
+  },
+  "generator": "tests/families/test_shash_family_contracts.py",
+  "generator_sha256": "07aede3566a891d141b2d28d304820c68c74a62e058134701734207981e65d03",
+  "source_files_sha256": {
+    "R/gamlss.r": "d82fbc72b270dc1bd062c90d867c4f445043d79094a3cf0bae5c5479f12c8fa0",
+    "R/gam.fit3.r": "c7b31bdd3073e785d5bb322e8c474c3d2e154565e713b5d5d0e192b1cc08202d"
+  },
+  "inputs_sha256": "f00d611852012ff89639318f3c245cd7d1d1e43ac83624f9fbbef3728d02f508",
+  "execution": "Actual installed CRAN mgcv 1.9-4, with unmodified source family algebra. Normal tests use committed static captures and require no R. Numerical inputs are frozen JSON, not regenerated at test time.",
+  "scope": "Four-predictor identity/logeb/identity/identity links, positive scale bound b and phiPen ridge. Analytic derivatives through fourth order, source-link derivatives, penalized/unscaled initialization, fixed/Newton-selected/EFS fits, conditional covariance, EDF, criterion, AIC/logLik, fitted/prediction/SE, source residuals/quantile/CDF and public natural parameters/median/components/persistence.",
+  "boundaries": [
+    "shash fitting ll includes per-observation -phiPen*phi^2; normalized public density omits this ridge.",
+    "Source residual centering contains an epsilon-independent Bessel expression, not the conditional mean; public point prediction uses source qf(0.5), the conditional median.",
+    "Source .log1pexp leaves -Inf unchanged under .bincode, producing positive-infinite ll at an exact zero standardized residual. An explicit anomaly fixture records this. Source residual/Rd density instead uses log1p(z^2) and remains finite.",
+    "Nonzero offsets are rejected by the source family."
+  ],
+  "fixture_sha256": {
+    "13e93c5618fc5b5f08864b311e1d50d8916aeb2807442da9bd6de42a5e338813.json.gz": "acc2a928129b4fac03e9e2cb45849b2d4bfef71b257b8a6ed37a9824c22dad8d",
+    "4f81ab65593dc3368cca5a7cc16837bb2c7279d7d6395216d3c015652d1d9cc7.json.gz": "28307282c72231b35104565c97a646a27877b338ff642b7641cd3db53dde1159",
+    "7009b747626183461cd70b3eac41908ed34d2cedadc51c2ed73cef1e79feaa03.json.gz": "3702449c8f4746fc101d028879352214f7fcb2b9894756a9e7ea87876a650339",
+    "95dc1917af5911b8ad740c7bb166e6c04b5b160fcf5b519b55180655ec4799ac.json.gz": "0419c3178afa3127856b2388626f4d723688d9737c37924835d23e67755a90f5",
+    "a8fbf6309fdf7e11fbbe306e39dca689233e04705f74a57651957be1f57694d1.json.gz": "e99ca51356cbed8f0b31127556b2fbbfa15ef92b8fc53276dcc080b9bc79f028",
+    "b61c28af5f15db0955f4db19b22b2dc22882ce7d31bc59993da57f0020c8f98a.json.gz": "511875455ea1ce889c646fb7de31cc604e5550f4b4fa3a96ecd3ba06de5a7e92",
+    "f6eefb10ff13e48af8d7c7062ba4aa57f8362372f4d9da889b7124a6340094d7.json.gz": "51fed6b40f79b2d4d06d959a6f866cb27f3f9e822b3fb3eab98c43438b178f9c"
+  },
+  "fixture_files": 7
+}

@@ -191,7 +191,12 @@ def solve_transformed_general_family_fit(
         ),
         dtype=np.float64,
     )
-    mu = np.asarray(model.family.predict(eta=eta), dtype=np.float64)
+    fitted_hook = getattr(model.family, "predict_fitted", None)
+    mu = np.asarray(
+        fitted_hook(setup.X_full, setup.jj, beta, offset=setup.offset_list)
+        if callable(fitted_hook) else model.family.predict(eta=eta),
+        dtype=np.float64,
+    )
     reduced = np.asarray(beta[setup.reduced_to_full_idx], dtype=np.float64)
     intercept = (
         float(beta[int(np.asarray(setup.predictor_full_slices[0], dtype=int)[0])])
