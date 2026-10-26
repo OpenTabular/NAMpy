@@ -1,0 +1,30 @@
+{
+  "namespace": "mgcv_general_efs_invariants",
+  "upstream": {
+    "mgcv": "1.9-4",
+    "R": "4.6.1"
+  },
+  "generator": "tests/families/test_general_efs_initialization_invariants.py",
+  "generator_sha256": "809097d8cf6d67d3518c839a92706db60c2e225dd7ade6d79d1ab019b65e9018",
+  "helper_files_sha256": {
+    "tests/families/_general_efs_invariants.py": "8648c0a21e8914c45a4c6dd06cdae3c68d7cf781dbd1fcc24aab4e1b3d2543b0"
+  },
+  "source_sha256": "de9d190f7c28445a7abefb90e63390bf29a0c9a6a5b9f888f8c0506b4f8e4141",
+  "source_files_sha256": {
+    "R/mgcv.r": "f2c782d23d361c987836d936b3c01d14846829377fbb1768504298094a7b0120",
+    "R/fast-REML.r": "6367012b40ce91ab9d2018e376bb954ae95a5ee8eee2f4d761ec5f8af582d988",
+    "R/gam.fit4.r": "8fec39370c5f33a046bcc3d12ee1f0f11fb6543d7a646f8c59718fdcb0745236",
+    "R/gamlss.r": "d82fbc72b270dc1bd062c90d867c4f445043d79094a3cf0bae5c5479f12c8fa0"
+  },
+  "input_files_sha256": {
+    "tests/reference_fixtures/mgcv_shash/inputs.json": "f00d611852012ff89639318f3c245cd7d1d1e43ac83624f9fbbef3728d02f508",
+    "tests/reference_fixtures/mgcv_twlss/inputs.json": "6868e728f17de4eb08ef0a1cb93bc3ff543ca8e31eb6afb5e398dcc90e78b690"
+  },
+  "execution": "Actual installed CRAN mgcv 1.9-4; source Sl.setup instrumented only to flip one arbitrary penalty eigenvector sign and its inverse; initial.spg return recorded without changing its algebra. Ordinary tests read static source captures and require no R.",
+  "scope": "Original/sign-flipped source shash and twlss EFS fits with default initialization and shared explicit initial SP [100,100]. Physical design and penalty invariants agree; uncontrolled initial.spg starts and finite fitted endpoints differ. Common-start source fitted values, SP, EDF and score agree within unchanged 2e-7 tolerance.",
+  "fixture_sha256": {
+    "0e5c462c0b52220608f3fb1ff76db16556f766f27856ed9ce4c6d3e077c1f585.json.gz": "815ec4fa1d6525c4815a1bdeed7cdb8bf9b52dbb70f145ea2c57b29c6147e80e",
+    "3f1ba0a18c5c0a3be46f941857388331721648f22abdbfce4426d2c8fc3c361d.json.gz": "99dfae8c6c2d1e05fc4ff277a039afc4a3b193a7376df05b426e951b59082295"
+  },
+  "fixture_files": 2
+}

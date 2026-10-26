@@ -609,6 +609,13 @@ fourth order are supplied. Fixed SP, Newton-selected REML and EFS references
 cover initialization, covariance, criterion/EDF, AIC/logLik, predictions/SE,
 residuals and summary tables.
 
+The EFS parity captures provide the same explicit initial smoothing parameters
+to both implementations. Source ``initial.spg`` uses the initially
+reparameterized design with the original penalty coordinates: an arbitrary
+eigenvector sign can change its starting parameters and the finite EFS
+endpoint. Static source sign-transport checks record this dependence and
+verify common-start prediction, covariance, penalty and EDF invariants.
+
 Nonzero offsets are rejected. The source fitting likelihood's bin lookup
 excludes a lower ``-Inf`` endpoint: an exactly zero standardized residual
 therefore produces positive-infinite source likelihood. The normalized density
@@ -643,6 +650,12 @@ parametric-only middle predictor precedes another smooth. Equivalent source
 captures fix the parameters inside their ``s(..., sp=...)`` terms. All three
 predictor offsets, zero/positive responses, custom power bounds and both source
 initialization branches have kernel references.
+Selected-EFS parity uses the same explicit initial smoothing parameters in
+both implementations. As for ``shash``, source ``initial.spg`` depends on
+arbitrary initial penalty eigenvector signs; its uncontrolled finite EFS
+endpoint need not agree across platforms. Common-start references compare
+predicted functions, full prediction covariance, transported penalties, EDF
+and criterion without fixing eigenvector orientation.
 Example: ``examples/example_twlss_gamlss.py``.
 
 Source for these six ports: mgcv 1.9-4 ``R/gamlss.r`` family constructors,

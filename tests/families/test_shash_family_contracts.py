@@ -12,6 +12,11 @@ import pytest
 
 from nampy.gam import GAM
 from nampy.gam.families.gamlss.shash import ShashFamily
+from tests.families._general_efs_invariants import (
+    INITIAL_SP,
+    assert_efs_function_space,
+    capture_source,
+)
 from tests.mgcv_parity_utils import _build_r_command
 from tests.reference_fixtures import load_reference, reference_key, save_reference
 
@@ -64,12 +69,13 @@ write_json(ans,a[2],digits=17,auto_unbox=TRUE,null='null',na='null')
 
 
 def reference(payload):
-    key = reference_key("shash-v1", {"payload": payload, "source": SOURCE})
+    source_text = capture_source(SOURCE, payload)
+    key = reference_key("shash-v1", {"payload": payload, "source": source_text})
     result = load_reference("mgcv_shash", key)
     if result is None:
         with tempfile.TemporaryDirectory() as directory:
             source, inputs, output = [Path(directory) / name for name in ("run.R", "in.json", "out.json")]
-            source.write_text(SOURCE)
+            source.write_text(source_text)
             inputs.write_text(json.dumps(payload))
             run = subprocess.run(_build_r_command(source, str(inputs), str(output)), capture_output=True, text=True, timeout=120)
             assert run.returncode == 0, run.stderr
@@ -131,18 +137,24 @@ def test_shash_fits_match_mgcv(kind):
 
     data = json.loads((ROOT / "inputs.json").read_text())
     payload = {"data": data, "kind": kind, "b": .01, "phi_pen": .001}
+    if kind == "efs":
+        payload["initial_sp"] = INITIAL_SP
     ref = reference(payload)
     model = GAM(formula=["y~s(x,bs='cr',k=6)", "~s(x,bs='cr',k=5)", "~1", "~1"],
-                family=ShashFamily(), smoothing_params=[.7, .9] if kind == "fixed" else None,
+                family=ShashFamily(), smoothing_params=[.7, .9] if kind == "fixed" else INITIAL_SP if kind == "efs" else None,
                 smoothing_method="fixed" if kind == "fixed" else "REML",
                 smoothing_optimizer="efs" if kind == "efs" else "outer_newton",
                 optimize_smoothing=kind != "fixed",
                 control={"epsilon": 1e-10, "newton": {"conv.tol": 1e-10}}).fit(pd.DataFrame(data))
     nd = pd.DataFrame({"x": np.linspace(-1.4, 1.4, 17)})
     prediction, se = model.predict(nd, type="response", return_se=True)
-    for actual, expected in ((_coef_full(model), ref["coef"]), (model.vcov(), ref["Vp"]),
-                             (model.vcov(freq=True), ref["Ve"]),
-                             (prediction, ref["prediction"]), (se, ref["se"]),
+    if kind == "efs":
+        assert_efs_function_space(model, nd, ref)
+    else:
+        for actual, expected in ((_coef_full(model), ref["coef"]), (model.vcov(), ref["Vp"]),
+                                 (model.vcov(freq=True), ref["Ve"])):
+            np.testing.assert_allclose(actual, expected, atol=2e-7, rtol=2e-7)
+    for actual, expected in ((prediction, ref["prediction"]), (se, ref["se"]),
                              (_edf_total(model), ref["edf"]), (model.aic(), ref["aic"]),
                              (model.loglik(), ref["loglik"])):
         np.testing.assert_allclose(actual, expected, atol=2e-7, rtol=2e-7)

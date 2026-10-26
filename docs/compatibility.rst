@@ -246,6 +246,12 @@ support boundaries and constructor quirks are documented in
 :doc:`api/gam_families`; no numerical derivative substitute is used for fitting.
 ``cox.ph``/``cox.pht``, ``mvn`` and ``gfam`` remain outside this task's scope.
 
+General-family unconditional covariance requires the outer derivative state
+from smoothing selection. A genuinely fixed-SP fit does not acquire that
+uncertainty just because its smoothing parameters equal a selected model's
+endpoint. Tests that isolate selected-endpoint postprocessing explicitly
+reconstruct the analytic outer Hessian at that endpoint.
+
 Grouped-binomial ``cbind(success, failure)`` and two-column array responses
 retain trial counts for initialization, likelihood and prediction semantics.
 Inverse Gaussian supports ``1/mu^2``, inverse, log and identity links. Static

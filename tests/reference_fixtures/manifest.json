@@ -646,20 +646,46 @@
       "R_version": "4.6.1",
       "fixture_namespace": "mgcv_shash",
       "manifest": "tests/reference_fixtures/mgcv_shash/manifest.json",
-      "fixture_files": 7,
+      "fixture_files": 8,
       "scope": "Four-predictor identity/logeb/identity/identity links, positive scale bound b and phiPen ridge. Analytic derivatives through fourth order, source-link derivatives, penalized/unscaled initialization, fixed/Newton-selected/EFS fits, conditional covariance, EDF, criterion, AIC/logLik, fitted/prediction/SE, source residuals/quantile/CDF and public natural parameters/median/components/persistence.",
       "generator": "tests/families/test_shash_family_contracts.py",
-      "generator_sha256": "07aede3566a891d141b2d28d304820c68c74a62e058134701734207981e65d03"
+      "generator_sha256": "3a8c636e16fc5b50b46d6ba52a7f1d1aa9d787c83574b994e8edc5d9490c3ac4",
+      "efs_initialization": {
+        "common_start": [
+          100.0,
+          100.0
+        ],
+        "source_option": "gam(..., in.out=list(sp=c(100,100), scale=1))",
+        "python_option": "GAM(..., smoothing_params=[100.0,100.0], optimize_smoothing=True)",
+        "common_start_capture": "dcf468df6794a96c3b70006189e237695075ad40595ef9e7d8f01d1527ba2a1e.json.gz",
+        "historical_uncontrolled_capture": "13e93c5618fc5b5f08864b311e1d50d8916aeb2807442da9bd6de42a5e338813.json.gz",
+        "historical_status": "Retained unchanged as provenance, not a portable source endpoint assertion. initial.spg uses the initially reparameterized design with original penalties; arbitrary Sl eigenvector signs change source starting SP and finite EFS endpoints.",
+        "source_sign_evidence_namespace": "mgcv_general_efs_invariants",
+        "comparison": "Predicted functions, full prediction covariance, transported design and penalties, EDF, likelihood and criterion; unchanged 2e-7 numerical parity tolerance."
+      }
     },
     "mgcv_twlss": {
       "package_version": "1.9-4",
       "R_version": "4.6.1",
       "fixture_namespace": "mgcv_twlss",
       "manifest": "tests/reference_fixtures/mgcv_twlss/manifest.json",
-      "fixture_files": 8,
+      "fixture_files": 9,
       "scope": "Three-predictor log/identity/sqrt mean links, identity transformed-power/log-dispersion links and bounded power. Analytic gradient/Hessian from ldTweedie, vector parameters, zeros, offsets, penalized/unscaled initialization, fixed/EFS fits, Bayesian/frequentist covariance, EDF, criterion, AIC/logLik, null fit/null deviance, fitted/prediction/SE/residuals, public natural parameters/mean/components/persistence.",
       "generator": "tests/families/test_twlss_family_contracts.py",
-      "generator_sha256": "02e960cafa9bb23db47e621214d45fe201d9a15d94b09fab689866bab711b582"
+      "generator_sha256": "a30a571bd5e2d10eab07d7d091e1eea5a5b5110567df06bd0982b12c51ed86ac",
+      "efs_initialization": {
+        "common_start": [
+          100.0,
+          100.0
+        ],
+        "source_option": "gam(..., in.out=list(sp=c(100,100), scale=1))",
+        "python_option": "GAM(..., smoothing_params=[100.0,100.0], optimize_smoothing=True)",
+        "common_start_capture": "ed31b933a6c0247b50280c3438c012c3f0ea3d6bf061d7cfae8c5794f4e945c3.json.gz",
+        "historical_uncontrolled_capture": "c4326f3579a8e8b74b96ddfa1108e1e4e9e1338d3f6b5c9000e4246eb51693a5.json.gz",
+        "historical_status": "Retained unchanged as provenance, not a portable source endpoint assertion. initial.spg uses the initially reparameterized design with original penalties; arbitrary Sl eigenvector signs change source starting SP and finite EFS endpoints.",
+        "source_sign_evidence_namespace": "mgcv_general_efs_invariants",
+        "comparison": "Predicted functions, full prediction covariance, transported design and penalties, EDF, likelihood and criterion; unchanged 2e-7 numerical parity tolerance."
+      }
     },
     "mgcv_remaining_family_pipeline": {
       "package_version": "1.9-4",
@@ -670,6 +696,16 @@
       "scope": "All seven formula/spec, runtime basis, compiled term/penalty, predictor/smoothing assembly, identifiability, fitted state and public prediction/component/persistence stages. Eight actual-R captures compare fixed-SP coefficients, covariance, EDF and out-of-sample prediction/SE.",
       "generator": "tests/parity/test_remaining_family_pipeline_contracts.py",
       "generator_sha256": "cf13f287439ce0e3847b8d188304deb12d5c020c10a5625b54885ff59cd91a21"
+    },
+    "mgcv_general_efs_invariants": {
+      "package_version": "1.9-4",
+      "R_version": "4.6.1",
+      "fixture_namespace": "mgcv_general_efs_invariants",
+      "manifest": "tests/reference_fixtures/mgcv_general_efs_invariants/manifest.json",
+      "generator": "tests/families/test_general_efs_initialization_invariants.py",
+      "generator_sha256": "809097d8cf6d67d3518c839a92706db60c2e225dd7ade6d79d1ab019b65e9018",
+      "fixture_files": 2,
+      "scope": "Original/sign-flipped source shash and twlss EFS fits with default initialization and shared explicit initial SP [100,100]. Physical design and penalty invariants agree; uncontrolled initial.spg starts and finite fitted endpoints differ. Common-start source fitted values, SP, EDF and score agree within unchanged 2e-7 tolerance."
     }
   }
 }

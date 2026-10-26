@@ -11,6 +11,11 @@ import pytest
 
 from nampy.gam import GAM
 from nampy.gam.families.gamlss.twlss import TwlssFamily, _tw_null_fit
+from tests.families._general_efs_invariants import (
+    INITIAL_SP,
+    assert_efs_function_space,
+    capture_source,
+)
 from tests.mgcv_parity_utils import _build_r_command
 from tests.reference_fixtures import load_reference, reference_key, save_reference
 
@@ -56,12 +61,13 @@ write_json(ans,a[2],digits=17,auto_unbox=TRUE,null='null',na='null')
 
 
 def reference(payload):
-    key = reference_key("twlss-v1", {"payload": payload, "source": SOURCE})
+    source_text = capture_source(SOURCE, payload)
+    key = reference_key("twlss-v1", {"payload": payload, "source": source_text})
     result = load_reference("mgcv_twlss", key)
     if result is None:
         with tempfile.TemporaryDirectory() as directory:
             source, inputs, output = [Path(directory) / name for name in ("run.R", "in.json", "out.json")]
-            source.write_text(SOURCE)
+            source.write_text(source_text)
             inputs.write_text(json.dumps(payload))
             run = subprocess.run(_build_r_command(source, str(inputs), str(output)), capture_output=True, text=True, timeout=120)
             assert run.returncode == 0, run.stderr
@@ -112,16 +118,23 @@ def test_twlss_fits_match_mgcv(kind):
     from nampy.gam.model_state import _coef_full, _edf_total
 
     data = json.loads((ROOT / "inputs.json").read_text())
-    ref = reference({"data": data, "kind": kind, "link": "log", "a": 1.01, "b": 1.99})
+    payload = {"data": data, "kind": kind, "link": "log", "a": 1.01, "b": 1.99}
+    if kind == "efs":
+        payload["initial_sp"] = INITIAL_SP
+    ref = reference(payload)
     model = GAM(formula=["y~s(x,bs='cr',k=6)", "~1", "~s(x,bs='cr',k=5)"],
-                family=TwlssFamily(), smoothing_params=[.7, .9] if kind == "fixed" else None,
+                family=TwlssFamily(), smoothing_params=[.7, .9] if kind == "fixed" else INITIAL_SP,
                 smoothing_method="fixed" if kind == "fixed" else "REML", smoothing_optimizer="efs",
                 optimize_smoothing=kind != "fixed", control={"epsilon": 1e-10}).fit(pd.DataFrame(data))
     nd = pd.DataFrame({"x": np.linspace(-1.4, 1.4, 17)})
     prediction, se = model.predict(nd, type="response", return_se=True)
-    for actual, expected in ((_coef_full(model), ref["coef"]), (model.vcov(), ref["Vp"]),
-                             (model.vcov(freq=True), ref["Ve"]),
-                             (prediction, ref["prediction"]), (se, ref["se"]),
+    if kind == "efs":
+        assert_efs_function_space(model, nd, ref)
+    else:
+        for actual, expected in ((_coef_full(model), ref["coef"]), (model.vcov(), ref["Vp"]),
+                                 (model.vcov(freq=True), ref["Ve"])):
+            np.testing.assert_allclose(actual, expected, atol=2e-7, rtol=2e-7)
+    for actual, expected in ((prediction, ref["prediction"]), (se, ref["se"]),
                              (_edf_total(model), ref["edf"]), (model.aic(), ref["aic"]),
                              (model.loglik(), ref["loglik"])):
         np.testing.assert_allclose(actual, expected, atol=2e-7, rtol=2e-7)
@@ -172,13 +185,27 @@ def test_twlss_rejects_invalid_response(y):
 
 
 def test_twlss_default_selection_uses_source_efs():
-    from nampy.gam.model_state import _coef_full
-
     data = json.loads((ROOT / "inputs.json").read_text())
-    ref = reference({"data": data, "kind": "efs", "link": "log", "a": 1.01, "b": 1.99})
+    ref = reference({"data": data, "kind": "efs", "link": "log", "a": 1.01, "b": 1.99,
+                     "initial_sp": INITIAL_SP})
     model = GAM(formula=["y~s(x,bs='cr',k=6)", "~1", "~s(x,bs='cr',k=5)"],
-                family=TwlssFamily(), smoothing_method="REML",
+                family=TwlssFamily(), smoothing_method="REML", smoothing_params=INITIAL_SP,
                 optimize_smoothing=True, control={"epsilon": 1e-10}).fit(pd.DataFrame(data))
     assert model._optim_result.outer_info["optimizer"] == "efs"
-    np.testing.assert_allclose(_coef_full(model), ref["coef"], atol=2e-7, rtol=2e-7)
+    nd = pd.DataFrame({"x": np.linspace(-1.4, 1.4, 17)})
+    np.testing.assert_allclose(model.predict(nd, type="response"), ref["prediction"], atol=2e-7, rtol=2e-7)
+    assert_efs_function_space(model, nd, ref)
     np.testing.assert_allclose(model.smoothing_params, ref["sp"], atol=2e-7, rtol=2e-7)
+
+
+def test_twlss_default_initialization_matches_explicit_efs():
+    data = pd.DataFrame(json.loads((ROOT / "inputs.json").read_text()))
+    kwargs = {"formula": ["y~s(x,bs='cr',k=6)", "~1", "~s(x,bs='cr',k=5)"],
+              "smoothing_method": "REML", "optimize_smoothing": True,
+              "control": {"epsilon": 1e-10}}
+    default = GAM(family=TwlssFamily(), **kwargs).fit(data)
+    explicit = GAM(family=TwlssFamily(), smoothing_optimizer="efs", **kwargs).fit(data)
+    assert default._optim_result.outer_info["optimizer"] == "efs"
+    np.testing.assert_allclose(default.predict(data, type="response"),
+                               explicit.predict(data, type="response"), atol=2e-7, rtol=2e-7)
+    np.testing.assert_allclose(default.smoothing_params, explicit.smoothing_params, atol=2e-7, rtol=2e-7)

@@ -4,6 +4,7 @@ import numpy as np
 
 from ...fit.solvers.gamlss_utils import gamlss_etamu, gamlss_gH, trind_generator
 from .._function_maps import LogLink, SqrtLink
+from .._scalar_math import exp
 from ..tweedie import _tw_dp_dth, _tw_p_from_theta, ldTweedie
 from ._base import (
     GamlssFamily,
@@ -89,9 +90,11 @@ class TwlssFamily(GamlssFamily):
         eta = np.asarray(eta, dtype=float)
         if eta.ndim != 2 or eta.shape[1] != 3:
             raise ValueError("twlss eta must have shape (n, 3).")
+        # R/gamlss.r::twlss uses exp(rho); R's math1 evaluates scalar libm.
+        # Keep this public conversion independent of NumPy SIMD/layout dispatch.
         return np.column_stack((self.linfo[0].linkinv(eta[:, 0]),
                                 _tw_p_from_theta(eta[:, 1], self.a, self.b),
-                                np.exp(eta[:, 2])))
+                                exp(eta[:, 2])))
 
     def distribution_parameter_jacobian(self, eta):
         eta = np.asarray(eta, dtype=float)

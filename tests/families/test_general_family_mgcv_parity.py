@@ -280,6 +280,49 @@ def _assert_general_term_labels_match(gam: GAM, expected_names) -> None:
     assert actual_labels == expected_labels
 
 
+def _reconstruct_general_selected_endpoint_postfit(gam: GAM, snapshot, method):
+    """Reconstruct selected-state uncertainty at a captured source endpoint.
+
+    ``gam.fit5.post.proc`` requires an outer Hessian and matching ``db.drho``.
+    A genuinely fixed-SP fit has neither source outer state nor its uncertainty
+    correction. These isolation tests instead supply the SPs selected by the
+    source optimizer, so explicitly evaluate Python's analytic outer Hessian at
+    that endpoint before repeating the normal fit/postprocessing owners. No
+    source derivative values or fabricated optimizer convergence are inserted.
+    """
+    from scipy.optimize import OptimizeResult
+
+    from nampy.gam.fit.result_builders import build_gam_result
+    from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
+        solve_general_family_fit,
+    )
+    from nampy.gam.fit.state import assign_fit_solution
+
+    source_outer = snapshot["fit"]["outer_info"]
+    assert source_outer["hess"] is not None
+    assert gam._optim_result is None
+    np.testing.assert_allclose(
+        gam.vcov(unconditional=True), gam.vcov(), atol=1e-12, rtol=1e-12
+    )
+    sp = np.asarray(gam.smoothing_params, dtype=np.float64)
+    np.testing.assert_array_equal(sp, snapshot["fit"]["smoothing_params"])
+    hessian = np.asarray(
+        criterion_hessian(gam, gam.y_, np.log(sp), method=method.lower()),
+        dtype=np.float64,
+    )
+    assert hessian.shape == (sp.size, sp.size)
+    assert np.all(np.isfinite(hessian))
+    np.testing.assert_allclose(hessian, hessian.T, atol=1e-12, rtol=1e-12)
+    gam._optim_method = method.lower()
+    gam._optim_result = OptimizeResult(hess=hessian, outer_info={"hess": hessian})
+    solution = solve_general_family_fit(
+        gam, gam.y_, sp, weights=gam.prior_weights_
+    )
+    assign_fit_solution(gam, solution)
+    gam.gam_result_ = build_gam_result(gam, prefer_cached_summary=False)
+    return gam
+
+
 @pytest.mark.parametrize("method", ["ML", "LAML"])
 def test_gaulss_fixed_sp_outer_derivatives_match_mgcv(method):
     """Verify that gaulss fixed sp outer derivatives match mgcv."""
@@ -930,6 +973,7 @@ def test_general_family_newdata_unconditional_standard_errors_match_mgcv(
     snapshot = _run_mgcv_snapshot(data, formula, family, method, select=select)
     sp = np.asarray(snapshot["fit"]["smoothing_params"], dtype=np.float64)
     gam = _fit_nampy_model_fixed_sp(data, formula, family, sp, select=select)
+    _reconstruct_general_selected_endpoint_postfit(gam, snapshot, method)
     expected = _run_mgcv_predict_on_newdata(
         data,
         newdata,

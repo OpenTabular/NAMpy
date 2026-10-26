@@ -5,10 +5,13 @@
     "R": "4.6.1"
   },
   "generator": "tests/families/test_twlss_family_contracts.py",
-  "generator_sha256": "02e960cafa9bb23db47e621214d45fe201d9a15d94b09fab689866bab711b582",
+  "generator_sha256": "a30a571bd5e2d10eab07d7d091e1eea5a5b5110567df06bd0982b12c51ed86ac",
   "source_files_sha256": {
     "R/gamlss.r": "d82fbc72b270dc1bd062c90d867c4f445043d79094a3cf0bae5c5479f12c8fa0",
-    "R/gam.fit3.r": "c7b31bdd3073e785d5bb322e8c474c3d2e154565e713b5d5d0e192b1cc08202d"
+    "R/gam.fit3.r": "c7b31bdd3073e785d5bb322e8c474c3d2e154565e713b5d5d0e192b1cc08202d",
+    "R/mgcv.r": "f2c782d23d361c987836d936b3c01d14846829377fbb1768504298094a7b0120",
+    "R/fast-REML.r": "6367012b40ce91ab9d2018e376bb954ae95a5ee8eee2f4d761ec5f8af582d988",
+    "R/gam.fit4.r": "8fec39370c5f33a046bcc3d12ee1f0f11fb6543d7a646f8c59718fdcb0745236"
   },
   "inputs_sha256": "6868e728f17de4eb08ef0a1cb93bc3ff543ca8e31eb6afb5e398dcc90e78b690",
   "execution": "Actual installed CRAN mgcv 1.9-4, with unmodified source family algebra. Normal tests use committed static captures and require no R. Numerical inputs are frozen JSON, not regenerated at test time.",
@@ -26,7 +29,24 @@
     "c4326f3579a8e8b74b96ddfa1108e1e4e9e1338d3f6b5c9000e4246eb51693a5.json.gz": "5fcd3c52f1c900eacef78eeb5582385d38ec4165987fad7ae4b2cd6feb1bc84b",
     "d39e9a7c38b27e26f0190b75b412e4022c42a727622e5453a77f9149b8b4a6c2.json.gz": "eb69341b157c951c30f2480c9b0dae5edcd58892338003e47d1521de68682da4",
     "d61d7f93409cc14049e4496a5c15d1719da5a34c85e69d1dd039484504341dac.json.gz": "57684398d14ca49951abfafdd6f5d6a864b9b105a3291838fe2f42946ab2d4f1",
-    "ec7266bd01a4b2c70dd72790d68bbe8e83a50e231f605691a34971807ebd5db2.json.gz": "06bf5216b5b290039fcdd3047f8a3f16e61c9bcb42fca3a4392a5d130c4221ff"
+    "ec7266bd01a4b2c70dd72790d68bbe8e83a50e231f605691a34971807ebd5db2.json.gz": "06bf5216b5b290039fcdd3047f8a3f16e61c9bcb42fca3a4392a5d130c4221ff",
+    "ed31b933a6c0247b50280c3438c012c3f0ea3d6bf061d7cfae8c5794f4e945c3.json.gz": "255d835a92cf6f098936ff551e7d819aa4904b1d119a4bb45375fa322e868353"
   },
-  "fixture_files": 8
+  "fixture_files": 9,
+  "helper_files_sha256": {
+    "tests/families/_general_efs_invariants.py": "8648c0a21e8914c45a4c6dd06cdae3c68d7cf781dbd1fcc24aab4e1b3d2543b0"
+  },
+  "efs_initialization": {
+    "common_start": [
+      100.0,
+      100.0
+    ],
+    "source_option": "gam(..., in.out=list(sp=c(100,100), scale=1))",
+    "python_option": "GAM(..., smoothing_params=[100.0,100.0], optimize_smoothing=True)",
+    "common_start_capture": "ed31b933a6c0247b50280c3438c012c3f0ea3d6bf061d7cfae8c5794f4e945c3.json.gz",
+    "historical_uncontrolled_capture": "c4326f3579a8e8b74b96ddfa1108e1e4e9e1338d3f6b5c9000e4246eb51693a5.json.gz",
+    "historical_status": "Retained unchanged as provenance, not a portable source endpoint assertion. initial.spg uses the initially reparameterized design with original penalties; arbitrary Sl eigenvector signs change source starting SP and finite EFS endpoints.",
+    "source_sign_evidence_namespace": "mgcv_general_efs_invariants",
+    "comparison": "Predicted functions, full prediction covariance, transported design and penalties, EDF, likelihood and criterion; unchanged 2e-7 numerical parity tolerance."
+  }
 }
