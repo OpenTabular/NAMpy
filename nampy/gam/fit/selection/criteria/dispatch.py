@@ -109,7 +109,7 @@ def criterion_value(model, y, log_sp, method="gcv"):
     if method in {"ubre", "aic", "ubreaic"}:
         return criterion_ubre_pirls(model, y, log_sp)
     if method == "ml":
-        if model.family.name in {"scat", "zip", "cnorm", "clog"}:
+        if model.family.name in {"scat", "zip", "cnorm", "clog", "cpois", "bcg"}:
             return criterion_ml_reml_pirls_vector_theta(model, y, log_sp, "ML")
         if is_joint_negbin_theta_model(model):
             return criterion_ml_reml_pirls_frozen_negbin(model, y, log_sp, "ML")
@@ -122,7 +122,7 @@ def criterion_value(model, y, log_sp, method="gcv"):
             return handler.value(model, y, log_sp, "ML")
         return criterion_ml_reml(model, y, log_sp, "ml")
     if method in {"reml", "laml"}:
-        if model.family.name in {"scat", "zip", "cnorm", "clog"}:
+        if model.family.name in {"scat", "zip", "cnorm", "clog", "cpois", "bcg"}:
             return criterion_ml_reml_pirls_vector_theta(model, y, log_sp, "REML")
         if is_joint_negbin_theta_model(model):
             return criterion_ml_reml_pirls_frozen_negbin(model, y, log_sp, "REML")

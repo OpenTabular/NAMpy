@@ -17,6 +17,14 @@ use the [API reference](../docs/api/index.rst).
 | `example_zip_gam.py` | zero-inflated count prediction with fixed ancillary parameters |
 | `example_cnorm_gam.py` | normal location with exact and censored responses |
 | `example_clog_gam.py` | logistic location, paired censor bounds, and additive reconstruction |
+| `example_cpois_gam.py` | censored Poisson counts, latent means, and prediction uncertainty |
+| `example_bcg_gam.py` | censored Box-Cox Gaussian location with estimated lambda and SD |
+| `example_gumbls_gam.py` | Gumbel location and scale with separate distribution predictors |
+| `example_ziplss_gam.py` | hurdle counts with independent intensity and presence predictors |
+| `example_multinom_gam.py` | two log-odds predictors and three category probabilities |
+| `example_gevlss_gam.py` | generalized extreme value location, log scale, and shape |
+| `example_shash_gamlss.py` | sinh-arcsinh location, scale, skewness, tail shape, and additive components |
+| `example_twlss_gamlss.py` | Tweedie mean, power, and dispersion with EFS selection |
 | `example_nam.py` | mixed-feature NAM regression |
 | `example_gpnam.py` | GPNAM smooth additive regression |
 | `example_nbm.py` | NBM main effects and a pairwise interaction |

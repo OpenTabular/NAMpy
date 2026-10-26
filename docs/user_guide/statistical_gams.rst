@@ -299,6 +299,15 @@ Families and links
    * - ``cnorm``
      - Censored normal location; identity, log, or square-root link.
      - ``GAM(family={"name": "cnorm", "theta": 1})``
+   * - ``clog``
+     - Censored logistic location; identity, log, or square-root link.
+     - ``GAM(family="clog")``
+   * - ``cpois``
+     - Censored Poisson mean; log, identity, or square-root link.
+     - ``GAM(family="cpois")``
+   * - ``bcg``
+     - Censored Box-Cox Gaussian location; estimated lambda and SD.
+     - ``GAM(family="bcg")``
    * - ``betar``
      - Beta regression.
      - ``GAM(family="betar")``
@@ -314,6 +323,24 @@ Families and links
    * - ``gammals`` / ``gamma``
      - Gamma mean and scale.
      - ``GAMLSS(family="gamma", formula=formulas)``
+   * - ``gumbls``
+     - Gumbel location and log scale.
+     - ``GAMLSS(family="gumbls", formula=formulas)``
+   * - ``ziplss``
+     - Separate hurdle-Poisson intensity and presence predictors.
+     - ``GAMLSS(family="ziplss", formula=formulas)``
+   * - ``multinom``
+     - ``K`` log-odds predictors for categories ``0,...,K``.
+     - ``GAMLSS(family={"name": "multinom", "K": 2}, formula=formulas)``
+   * - ``gevlss``
+     - Generalized extreme value location, log scale, and shape.
+     - ``GAMLSS(family="gevlss", formula=formulas)``
+   * - ``shash``
+     - Sinh-arcsinh location, scale, skewness, and tail shape.
+     - ``GAMLSS(family="shash", formula=formulas)``
+   * - ``twlss``
+     - Tweedie mean, power, and dispersion; EFS smoothing selection.
+     - ``GAMLSS(family="twlss", formula=formulas)``
 
 Scaled Student t responses
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -491,6 +518,168 @@ See :doc:`../api/gam_families` for the source AIC convention, failed-source
 state evidence, and shared extended-family restrictions. With all smoothing
 parameters fixed, estimate scale using Newton, BFGS or optim; the equivalent
 EFS source call errors.
+
+Censored counts and Box-Cox responses
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use ``cpois`` for a Poisson mean observed exactly or through censor bounds:
+
+.. code-block:: python
+
+   count_model = GAM(
+       formula="cbind(count, bound) ~ s(x, bs='cr', k=7)",
+       family="cpois",
+       smoothing_method="REML",
+       optimize_smoothing=True,
+   ).fit(data=data)
+
+   mean, mean_se = count_model.predict(newdata, return_se=True)
+
+Equal endpoints denote an exact count; a ``-np.inf`` bound denotes a left
+threshold and ``np.inf`` a right threshold. A finite interval has discrete
+semantics ``lo < Y <= hi``: ``[2, 4]`` includes three and four. The source
+likelihood hooks ignore observation weights, so they do not act as frequency
+weights. All three mean links, fixed/ML/REML smoothing and the tested Newton,
+BFGS, optim, nlm and EFS routes have direct references. Source quantile and
+simulation hooks are unavailable. ``examples/example_cpois_gam.py`` demonstrates
+censored count fitting.
+
+``bcg`` models Gaussian location after a Box-Cox transformation, with lambda
+and log SD estimated by default. It accepts identity, log and square-root
+location links. Use ``cbind(value, bound)``; here a nonpositive second-column
+bound denotes left censoring. Predictions remain on the transformed Gaussian
+location scale. Positive weights have precision semantics.
+
+.. code-block:: python
+
+   transformed_model = GAM(
+       formula="cbind(value, bound) ~ s(x, bs='cr', k=6)",
+       family="bcg",
+       smoothing_method="REML",
+       optimize_smoothing=True,
+   ).fit(data=data)
+
+   lambda_and_sd = transformed_model.family.getTheta(trans=True)
+
+Fixed/estimated parameters, exact/mixed censoring and fixed/ML/REML smoothing
+have source references. EFS supports the referenced two-parameter ancillary
+updates and selected fits; estimating the parameters with EFS requires a free
+smoothing parameter. The source's positive fixed constructor creates an
+invalid three-entry state and is rejected. To specify a fixed working state,
+create the family then call its own ``putTheta([lambda, log_sd])`` before
+fitting, as shown in :doc:`../api/gam_families`. That page also documents
+source likelihood/Jacobian conventions and guarded combinations.
+``examples/example_bcg_gam.py`` uses the default estimated family.
+
+Multiple distribution predictors
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use ``GAMLSS`` to fit separate additive predictors for distribution
+parameters. Supply one formula per predictor, with a response only in the
+first formula. ``predict`` returns natural parameters in ``parameter_names_``
+order; ``predict_link`` or ``predict(raw=True)`` returns the additive
+predictors. Natural-parameter uncertainty comes from
+``standard_errors(type="response")``. These parameter errors differ from
+the response quantities and source SE conventions of low-level ``GAM``.
+
+.. list-table:: Natural parameters and point predictions
+   :header-rows: 1
+   :widths: 18 45 37
+
+   * - Family
+     - ``GAMLSS.predict`` columns
+     - ``predict_point``
+   * - ``gumbls``
+     - ``location, scale``
+     - ``location + EulerGamma * scale``
+   * - ``ziplss``
+     - ``lambda, presence``
+     - Expected hurdle count.
+   * - ``multinom``
+     - ``p0,...,pK`` for ``K+1`` categories.
+     - First most-probable category.
+   * - ``gevlss``
+     - ``mu, sigma, xi``
+     - Source conditional-mean expression.
+   * - ``shash``
+     - ``mu, sigma, epsilon, delta``
+     - Conditional median.
+   * - ``twlss``
+     - ``mu, p, phi``
+     - Mean ``mu``.
+
+For example, fit a GEV location smooth with constant scale and shape:
+
+.. code-block:: python
+
+   from nampy import GAMLSS
+
+   model = GAMLSS(
+       family="gevlss",
+       formula={"mu": "y ~ s(x, bs='cr', k=6)",
+                "sigma": "~ 1", "xi": "~ 1"},
+       smoothing_method="REML",
+   ).fit(data)
+
+   parameters = model.predict(newdata)
+   parameter_se = model.standard_errors(newdata)
+   components = model.predict_components(newdata)
+   components.validate_additive_reconstruction()
+
+Gumbel location uses identity, with identity or the bounded source log-scale
+link. Hurdle-Poisson ``ziplss`` uses two identity links on latent intensity
+and presence predictors, with independently specified formulas. GEV location
+accepts identity/log, log scale uses identity, and shape accepts identity or a
+shifted logit confining it to ``(-1, 0.5)``. Its source zero-shape cutoff and
+residual expressions are retained, including an undefined point-mean ratio
+at exactly zero shape.
+
+For multinomial responses use integer categories ``0,...,K`` and one log-odds
+formula for each nonreference category:
+
+.. code-block:: python
+
+   categories = GAMLSS(
+       family={"name": "multinom", "K": 2},
+       formula={"eta1": "category ~ s(x, bs='cr', k=6)",
+                "eta2": "~ s(z, bs='cr', k=6)"},
+   ).fit(data)
+
+   probabilities = categories.predict(newdata)       # p0, p1, p2
+   log_odds = categories.predict_link(newdata)       # eta1, eta2
+   predicted_category = categories.predict_point(newdata)
+
+Multinomial raw prediction has ``K`` columns. Its additive components include
+an additional zero-logit baseline column, and natural-probability standard
+errors use the full probability Jacobian and cross-predictor covariance.
+``GAM`` probability SEs preserve the source covariance-clipping expression.
+The source likelihood includes a class-zero constant; normalized public
+density scoring uses actual probabilities. See :doc:`../api/gam_families`
+for its fourth-order source return-value quirk.
+
+Sinh-arcsinh ``shash`` uses identity/logeb/identity/identity links and a
+positive lower scale bound. Its source fitting ridge on log tail shape is
+omitted from normalized public density scoring. Nonzero offsets are rejected;
+an exactly zero standardized residual retains the source infinite fitting
+likelihood anomaly, while public density stays finite there.
+
+Tweedie ``twlss`` accepts log/identity/sqrt mean links and identity links for
+transformed power and log dispersion, with ``1 < a < b < 2`` power bounds.
+Smoothing selection automatically uses EFS because the source exposes
+likelihood derivatives only through second order. Fixed smoothing and EFS
+fits are supported. Source captures for a smooth after a parametric-only
+middle predictor specify fixed smoothing inside the individual ``s(...,
+sp=...)`` terms because the equivalent external-SP source call is rejected.
+
+The six native source likelihoods ignore prior weights; residual and
+initialization weighting can still differ by family. Direct tests cover
+their documented fixed/selected routes, all seven pipeline stages, additive
+reconstruction and save/load. Examples are
+``example_gumbls_gam.py``, ``example_ziplss_gam.py``,
+``example_multinom_gam.py``, ``example_gevlss_gam.py``,
+``example_shash_gamlss.py`` and ``example_twlss_gamlss.py`` in ``examples/``.
+The API family reference gives exact links, residual availability, source
+SE/likelihood conventions and the bounded validation scope for each family.
 
 Quasi families
 ~~~~~~~~~~~~~~

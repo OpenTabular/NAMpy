@@ -24,7 +24,7 @@ def extended_unconditional_postfit(model, sol, fit_result, fit_state):
     This differs from the full observed-Hessian derivatives used for db.drho.
     """
     unavailable = (None, None, FIT_PARAMETER_SPACE)
-    if str(getattr(model.family, "name", "")).lower() not in {"scat", "zip", "cnorm", "clog"}:
+    if str(getattr(model.family, "name", "")).lower() not in {"scat", "zip", "cnorm", "clog", "cpois", "bcg"}:
         return unavailable
     method = str(getattr(model, "_optim_method", "")).upper()
     if method not in {"ML", "REML", "LAML"}:

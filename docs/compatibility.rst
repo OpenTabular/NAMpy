@@ -237,6 +237,41 @@ For a first complete analysis, continue with :doc:`tutorials/first_gam`.
 Additional workflow coverage
 ----------------------------
 
+The remaining extended families ``cpois`` and ``bcg`` and general families
+``gumbls``, ``ziplss``, ``multinom``, ``gevlss``, ``shash`` and ``twlss`` are
+implemented. Static mgcv references cover analytic likelihood derivatives,
+initialization, fixed and selected smoothing, fitted values, predictions,
+covariance, EDF, residuals and likelihood criteria. Separate public tests cover
+natural parameters, additive components and persistence. These references
+establish the tested routes, not every family/smooth/optimizer composition.
+
+``cpois`` uses discrete intervals ``lo < Y <= hi`` and supports identity, log
+and square-root links. ``bcg`` supports fixed and estimated Box--Cox and
+Gaussian scale parameters, including the source vector EFS update. Upstream's
+positive two-parameter fixed BCG constructor stores an invalid three-entry
+working state and fails during fitting. NAMpy rejects that state explicitly;
+the documented ``putTheta`` workaround supplies the source two-entry state.
+Estimated BCG EFS requires at least one free smoothing parameter.
+
+General-family predictions retain mgcv's family-specific response conventions;
+``GAMLSS.predict`` returns natural distribution parameters instead. Multinomial
+models have ``K`` predictors and ``K+1`` probability columns, including baseline
+class zero. Natural-parameter standard errors use the full coefficient
+covariance and transformation Jacobian. This public convention differs from
+source prediction routines that clip cross-covariances or reuse a predictor
+variance. Native prediction routines retain those source behaviors.
+``twlss`` uses source EFS selection because its likelihood supplies only first
+and second derivatives. Source likelihood weight conventions, offset guards,
+support boundaries and constructor quirks are documented in
+:doc:`api/gam_families`; no numerical derivative substitute is used for fitting.
+``cox.ph``/``cox.pht``, ``mvn`` and ``gfam`` remain outside this task's scope.
+
+General-family unconditional covariance requires the outer derivative state
+from smoothing selection. A genuinely fixed-SP fit does not acquire that
+uncertainty just because its smoothing parameters equal a selected model's
+endpoint. Tests that isolate selected-endpoint postprocessing explicitly
+reconstruct the analytic outer Hessian at that endpoint.
+
 Grouped-binomial ``cbind(success, failure)`` and two-column array responses
 retain trial counts for initialization, likelihood and prediction semantics.
 Inverse Gaussian supports ``1/mu^2``, inverse, log and identity links. Static

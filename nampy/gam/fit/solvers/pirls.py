@@ -282,7 +282,7 @@ def solve_pirls_fit(
         model.family._disable_theta_efs = True
 
     efs_theta_updates = str(getattr(model, "smoothing_optimizer", "")).lower() == "efs"
-    if efs_theta_updates and getattr(model.family, "name", "") == "clog" and scale_reference is None:
+    if efs_theta_updates and getattr(model.family, "name", "") in {"clog", "bcg"} and scale_reference is None:
         scale_reference = float(model.family.known_scale)
 
     try:

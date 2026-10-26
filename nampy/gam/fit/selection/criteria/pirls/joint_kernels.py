@@ -31,7 +31,7 @@ def gdi2_joint_kernel(model, y, sol, sp, *, method, need_hessian) -> _GDI2Kernel
         JointOuterStrategy.OCAT_THETA,
         JointOuterStrategy.SCAT_THETA,
         JointOuterStrategy.ZIP_THETA,
-        JointOuterStrategy.CNORM_THETA, JointOuterStrategy.CLOG_THETA,
+        JointOuterStrategy.CNORM_THETA, JointOuterStrategy.CLOG_THETA, JointOuterStrategy.BCG_THETA,
     }:
         return gdi2_theta_joint_kernel(
             model, y, sol, sp, method=method, need_hessian=need_hessian

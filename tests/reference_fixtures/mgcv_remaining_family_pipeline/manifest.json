@@ -1,0 +1,41 @@
+{
+  "upstream": "CRAN mgcv 1.9-4, installed R 4.6.1 (2026-06-24)",
+  "generator": "tests/parity/test_remaining_family_pipeline_contracts.py",
+  "generator_sha256": "cf13f287439ce0e3847b8d188304deb12d5c020c10a5625b54885ff59cd91a21",
+  "families": [
+    "cpois",
+    "bcg",
+    "gumbls",
+    "ziplss",
+    "multinom",
+    "gevlss",
+    "shash",
+    "twlss"
+  ],
+  "scope": "All seven formula/spec, runtime basis, compiled term/penalty, predictor/smoothing assembly, identifiability, fitted state and public prediction/component/persistence stages. Eight actual-R captures compare fixed-SP coefficients, covariance, EDF and out-of-sample prediction/SE.",
+  "frozen_inputs": {
+    "../mgcv_cpois_workflows/inputs.json": "d7406ea96100d6bf50cc787932ca3a0bf31c783864a9c7af06de423f9d6134b3",
+    "../mgcv_gevlss_workflows/inputs.json": "58e0483688495c285dba3bc24625a8d64d6a716051a3be047220fec1eeef188a",
+    "../mgcv_gumbls/inputs.json": "948d68ce45727815eb2a859a7480161e8755a376ad654616a2b18626c0808f9d",
+    "../mgcv_ziplss/inputs.json": "8f3897d058cf413bd3359c241038c731d7a685ce94b11fa0d489d41a0fb9215a",
+    "../mgcv_multinom_workflows/inputs.json": "5d4f87d0b59624b85327d1cde15c082b07d0efdab54cdd67f0f14d73e88efe80",
+    "../mgcv_shash/inputs.json": "f00d611852012ff89639318f3c245cd7d1d1e43ac83624f9fbbef3728d02f508",
+    "../mgcv_twlss/inputs.json": "6868e728f17de4eb08ef0a1cb93bc3ff543ca8e31eb6afb5e398dcc90e78b690"
+  },
+  "capture_count": 8,
+  "captures": {
+    "1c23fe58c6a6649a0669907db6ee58f9f62796f97f6d3e4d11c4af17b5358694.json.gz": "95ebb35da84b4c20021c717d688771e7c587545338983499b01e63f503600c42",
+    "46d9f4b711829d58f6ce938cd309e44f13bcb5f5cc97828a4c0216bfd065386d.json.gz": "d571adef040a63c70d97622f1b88acce0743aa4bab4694e165f55d7f5f6fb1a2",
+    "86f779ff1c961693856e122ad9279254ad39a4ff4a1e983c9af3df348f644a8f.json.gz": "6a41df913532c20ba11474628779554353b613c4e2fc0c1c84e24bcd59568257",
+    "89d7dac549f456e10c254a2c05f78e30cf97d2c13bc1af5f172b1e0eae6f85dc.json.gz": "151bb571061de2495ea6a53f7591cf200cbdc0c2b21b4de59083185faf61a677",
+    "b977d73bca13c8b2bc15e45c40f395f49773ed0dd4623a9beb56c74f4d768e69.json.gz": "0f4b272b3a2c6d4840d39c92dd9fbdb89b7b87ef7104b12fd2bdc6ca3e98abea",
+    "c49cc6a2cd99f1853aa01209b0a01a4c0915a6866b4e86169561bc411130b305.json.gz": "994e948155e8908a4eb9d420cb77514bb01ccf333eeec047bd94501e27710094",
+    "e256342870282d4cfec549dc4f832f94ee0f2cda22877dd52b2d9c4dda5c0ac7.json.gz": "a94a2d47a014ce8999251eb301f1175d6e99df87d39a0371bb21221d1e31739f",
+    "ecb1e71d57597d4bc5004f7694dc06b8076205fa5a212d1ab634c1af70d9632d.json.gz": "62b819cb3ce88862b2edaaf7d66b745f58dad1013417fd696f0a8776ae78fc73"
+  },
+  "source_restrictions": [
+    "BCG fixed constructor produces erroneous 3-entry theta; the source-owned putTheta setter is explicitly used to select a valid fixed 2-entry state.",
+    "Twlss fixed smoothing parameters are passed through s(...,sp=...) in R; upstream rejects this formula-list composition with top-level external sp."
+  ],
+  "validation": "Normal tests consume frozen exact doubles and committed captures; no R installation required. Family-specific workflow numerical budgets retained."
+}

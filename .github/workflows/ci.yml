@@ -143,6 +143,32 @@ jobs:
         tests/docs/test_clog_example.py
         -v
 
+    - name: Run portable remaining-family slices
+      run: >-
+        pytest
+        tests/families/test_cpois_family_contracts.py
+        tests/families/test_mgcv_cpois_workflows.py
+        tests/families/test_bcg_family_contracts.py
+        tests/families/test_mgcv_bcg_workflows.py
+        tests/families/test_mgcv_gumbls_workflows.py
+        tests/families/test_mgcv_ziplss_workflows.py
+        tests/families/test_multinom_family_contracts.py
+        tests/families/test_mgcv_multinom_workflows.py
+        tests/families/test_gevlss_family_contracts.py
+        tests/families/test_mgcv_gevlss_workflows.py
+        tests/families/test_shash_family_contracts.py
+        tests/families/test_twlss_family_contracts.py
+        tests/families/test_twlss_persistence_contracts.py
+        tests/families/test_general_efs_initialization_invariants.py
+        tests/families/test_general_family_mgcv_parity.py::test_general_family_newdata_unconditional_standard_errors_match_mgcv
+        tests/optimization/test_mgcv_postprocessing_final_fit_parity.py::test_gam_fit5_select_true_postprocessing_at_mgcv_endpoint_matches_mgcv
+        tests/parity/test_remaining_family_pipeline_contracts.py
+        tests/public_api/test_remaining_gamlss_families.py
+        tests/docs/test_cpois_example.py
+        tests/docs/test_shash_twlss_examples.py
+        tests/docs/test_remaining_family_examples.py
+        -v
+
     - name: Run matrix-functional and soap tensor references
       run: >-
         pytest

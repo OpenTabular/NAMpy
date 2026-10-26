@@ -46,7 +46,7 @@ def _validate_extended_family_pirls_hooks(family: Any) -> None:
         "getTheta",
         "putTheta",
     )
-    if getattr(family, "name", "") in {"zip", "cnorm", "clog"}:
+    if getattr(family, "name", "") in {"zip", "cnorm", "clog", "cpois", "bcg"}:
         # gam.fit4 requires Dd curvature, not a GLM mean/variance relation.
         required = tuple(name for name in required if name not in {"variance", "dvar"})
     missing = [name for name in required if not callable(getattr(family, name, None))]
@@ -96,7 +96,7 @@ def _use_exact_extended_family_terms(family: Any) -> bool:
     return (
         str(getattr(family, "family_class", "")).lower() == "extended"
         and str(getattr(family, "name", "")).lower()
-        in {"negbin", "betar", "ocat", "scat", "zip", "cnorm", "clog"}
+        in {"negbin", "betar", "ocat", "scat", "zip", "cnorm", "clog", "cpois", "bcg"}
         and callable(getattr(family, "Dd", None))
     )
 

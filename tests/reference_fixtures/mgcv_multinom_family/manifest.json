@@ -1,0 +1,21 @@
+{
+  "upstream": "CRAN mgcv 1.9-4, installed R 4.6.1 (2026-06-24)",
+  "source": "R/gamlss.r::multinom, gamlss.etamu, gamlss.gH, pen.reg",
+  "generators": {
+    "tests/families/test_multinom_family_contracts.py": "e8fb18edfe6483674ca3d2f8a4c0c17303a5af7611edceab9648fe70e44f051b",
+    "tests/families/test_mgcv_multinom_workflows.py": "f4cd8b200446ad14cfd6787e1b6526932ab0cf4ae8d3468710a299e9c21e509c"
+  },
+  "capture_count": 8,
+  "captures": {
+    "2c495e594e9834cacfeab087550bb529f4c455ba96ba61a38d5d3228182e446e.json.gz": "87a4f3a4ef5850a8339e3467b62f2e66cc7ab4d9bc0bc93816998cfded0efcf3",
+    "3bc56cb57465bd7fa94c0b91aaba73ee04fe60351b415d132f3843f12ed4c229.json.gz": "a1e65bf591d754523d480acf0f9ba33b1856a5c57f306d11901a0190fa09240b",
+    "508b336dbba453a3d64f76350629e2e6d18ca620ecc2fe688d309710b36ae68f.json.gz": "35090dc48b3cf8334928aa32726de5c977559ac184f5364cbcf3d328dfba6027",
+    "844030350842337c4754a9575d928aee7509934323f4e60054b35cf394966673.json.gz": "c21a3d27d23844354b132405f8bbb039500a24440fd79980781ec32136ea090c",
+    "c6879b8475bf5c142f46ca315948807305b51e3b8bd19db9c03515c37ffe5f77.json.gz": "a552288a1bce2f3a43f2925ff2f855bddf13737217bdfb538ce4909401d47b29",
+    "d475146173519020004f10dc0d43e7cacd3abb52006771a6436a2573452ee521.json.gz": "dbd71f9b34c41ccd95b5782db5796c254f28d259459f901ce77e118724453fdd",
+    "dcd0063492aef9a4c0fd847dc71267299b7b222138932cb4db03d33db54889ba.json.gz": "1e057d5c725de42d64780a440d7c339f7676c7d9e9721f40770e4d94d362af58",
+    "edb42536a8824882911e588f3f1e9ef677e6e3e40e8548898ba0eb75eef6dbe5.json.gz": "d9cd072c1ca9f78fc83c1f435a6f15fa0e7c2c08f7bc28819d943d08996d08aa"
+  },
+  "scope": "K=1..4 likelihood, all packed analytic derivatives through fourth order, source probability SE, initializer and residuals; fixed-SP K=1..3 and selected REML K=2 actual-R fits.",
+  "validation": "Ordinary tests consume committed captures without R. No tolerance widening or numerical derivative fallback."
+}
