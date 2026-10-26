@@ -9,12 +9,13 @@
   "reference": "reference.json",
   "source_functions": [
     "mgcv/R/mgcv.r::initial.spg",
-    "mgcv/R/gamlss.r::Sl.initial.repara",
+    "mgcv/R/fast-REML.r::Sl.initial.repara",
     "mgcv/R/gamlss.r::gammals initialize"
   ],
   "source_files_sha256": {
     "R/mgcv.r": "f2c782d23d361c987836d936b3c01d14846829377fbb1768504298094a7b0120",
-    "R/gamlss.r": "d82fbc72b270dc1bd062c90d867c4f445043d79094a3cf0bae5c5479f12c8fa0"
+    "R/gamlss.r": "d82fbc72b270dc1bd062c90d867c4f445043d79094a3cf0bae5c5479f12c8fa0",
+    "R/fast-REML.r": "6367012b40ce91ab9d2018e376bb954ae95a5ee8eee2f4d761ec5f8af582d988"
   },
   "probe_sha256": "6c451f02b0b1d6b5f8b9091200fdd4722bf7a7ca1c4e780209ba4a70ff18e882",
   "execution": "Installed mgcv loaded with library(mgcv); no vendored functions sourced. Capture: NAMPY_REFRESH_REFERENCE_FIXTURES=1 Rscript tests/optimization/probes/mgcv_gammals_initialsp_basis.R tests/reference_fixtures/mgcv_gammals_initialsp_basis/inputs.json tests/reference_fixtures/mgcv_gammals_initialsp_basis/reference.json",
