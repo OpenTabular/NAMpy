@@ -105,8 +105,9 @@ observed and Fisher derivatives. See the
 Fixed smoothing and ``ML``/``REML`` selection support fixed or estimated
 ancillary parameters. With ``optimize_smoothing=False``, an explicitly
 selected ``ML`` or ``REML`` criterion still governs ancillary estimation;
-``smoothing_method="fixed"`` uses REML. ``LAML`` is a REML alias; ``GCV.Cp`` uses the upstream
-extended-family REML route, not a separate GCV or UBRE objective. Joint
+``smoothing_method="fixed"`` uses REML. ``LAML`` is a REML alias. ``GCV.Cp``, ``P-ML`` and ``P-REML`` use the
+upstream extended-family REML route. Unsupported criteria such as NCV
+raise an explicit error, including with fixed smoothing parameters. Joint
 estimation with the ``efs`` optimizer is unsupported and raises an explicit
 error. ``ML`` with zero observation weights is also explicitly guarded:
 actual mgcv 1.9-4 reference runs crash in this combination. Zero weights are

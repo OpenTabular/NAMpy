@@ -6,8 +6,8 @@
   },
   "generator": "tests/families/test_mgcv_scat_workflows.py::_reference",
   "R_script_sha256": "726c3e55dca3ffa9423fd5b817a285aee7856a392c2dadbc01fa1699cb816e9b",
-  "fixture_count": 85,
-  "successful_fit_snapshots": 76,
+  "fixture_count": 87,
+  "successful_fit_snapshots": 78,
   "upstream_crash_observations": 9,
   "sources": {
     "R/efam.r": "30d5858b3a9a3d7c0d0397d4967a81e58e5b09da9bb9b3b2fd4c8ac7a0f3f391",
@@ -40,5 +40,7 @@
   "tight_control_scope": "Three dedicated fit and two uncertainty snapshots use matching epsilon=1e-10 and Newton conv_tol=1e-10 for identity/log zero-weight two-smooth REML and inverse two-smooth ML. Original default-control references are retained. Only the two zero-weight uncertainty runtime cases use tighter matching controls: default endpoint EDF2 differed by2.55e-4 (identity) and SPcov by6.92e-4(log); all uncertainty comparisons pass at unchanged5e-5. Full-fit tests retain default controls.",
   "explicit_fixed_sp_method_snapshots": 9,
   "explicit_fixed_sp_method_scope": "Estimated ancillary parameters with all smoothing parameters fixed: actual ML and REML fits for identity/log/inverse, plus LAML alias references using upstream REML. Fixed smoothing does not override an explicitly selected ML ancillary-parameter criterion.",
-  "rank_deficiency": "Conditional fixed-theta/fixed-SP fit is validated. Outer smoothing uncertainty with dropped coefficients is guarded: the upstream full-Hessian unpivoted Cholesky success depends on rounding, affecting identifiable prediction covariance and AIC. Static source evidence and one-ULP audit are in mgcv_scat_solver."
+  "rank_deficiency": "Conditional fixed-theta/fixed-SP fit is validated. Outer smoothing uncertainty with dropped coefficients is guarded: the upstream full-Hessian unpivoted Cholesky success depends on rounding, affecting identifiable prediction covariance and AIC. Static source evidence and one-ULP audit are in mgcv_scat_solver.",
+  "p_ml_alias_snapshots": 2,
+  "p_ml_alias": "Fresh fixed/estimatedtheta P-ML references equal REML exactly. Two runtimefits and two fixedSPestimatedtheta unsupportedNCV/unknownmethod rejection checks pass. Additional6checks:2source2.64s,4runtime1.06s; no warnings. Workflow collection176; root owns subsequent coherent run."
 }

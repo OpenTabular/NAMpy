@@ -410,16 +410,16 @@
       "fixture_namespace": "mgcv_scat_workflows",
       "generator": "tests/families/test_mgcv_scat_workflows.py",
       "manifest": "tests/reference_fixtures/mgcv_scat_workflows/manifest.json",
-      "fixture_files": 85,
-      "scope": "Fixed and selected workflows, explicit fixed-SP ML/REML/LAML ancillary estimation, derivatives, uncertainty and boundaries; 76 successful snapshots and nine upstream crashes. Rank-deficient outer uncertainty is guarded; fixed-parameter conditional rank fits remain supported."
+      "fixture_files": 87,
+      "scope": "Fixed and selected workflows, explicit fixed-SP ML/REML/LAML ancillary estimation, derivatives, uncertainty and boundaries; 78 successful snapshots and nine upstream crashes. Rank-deficient outer uncertainty is guarded; fixed-parameter conditional rank fits remain supported. P-ML routing matches REML for fixed and estimated ancillary parameters."
     },
     "mgcv_scat_optimizers": {
       "package_version": "1.9-4",
       "fixture_namespace": "mgcv_scat_optimizers",
       "generator": "tests/families/test_mgcv_scat_optimizers.py",
       "manifest": "tests/reference_fixtures/mgcv_scat_optimizers/manifest.json",
-      "fixture_files": 8,
-      "scope": "REML bfgs/optim/nlm endpoints with fixed/estimated ancillary parameters; six default references plus two matching-control optim references"
+      "fixture_files": 9,
+      "scope": "REML bfgs/optim/nlm endpoints with fixed/estimated ancillary parameters; six default references plus two matching-control optim references; pinned upstream BFGS initialization"
     },
     "mgcv_scat_pipeline": {
       "package_version": "1.9-4",

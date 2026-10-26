@@ -66,6 +66,13 @@ def _normalize_criterion_method(model, method):
     method = aliases.get(method, method)
     if (
         method in {"p-ml", "p-reml"}
+        and getattr(model.family, "family_class", "") == "extended"
+    ):
+        # estimate.gam resets extended-family criteria before the ordinary
+        # known-scale Pearson shortcut can turn P-ML into ML.
+        return "reml"
+    if (
+        method in {"p-ml", "p-reml"}
         and getattr(model.family, "known_scale", None) is not None
     ):
         return "ml" if method == "p-ml" else "reml"

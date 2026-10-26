@@ -112,9 +112,12 @@ class NegativeBinomialLogFamily(ExtendedFamily):
             raise ValueError("NegativeBinomialLogFamily requires non-negative targets.")
         return y
 
-    def initialize_mu(self, y):
+    def initialize_mu(self, y, weights=None):
+        # mgcv's negative-binomial initialize expression does not use weights;
+        # accept them for the shared gam.fit4 initialization call contract.
+        del weights
         y = np.asarray(y, dtype=np.float64)
-        # Match common negative-binomial initialization (MASS-style).
+        # Match mgcv/R/gam.fit3.r::negbin initialize.
         return np.clip(y + (y == 0.0).astype(np.float64) / 6.0, self.eps, None)
 
     def valid_mu(self, mu):

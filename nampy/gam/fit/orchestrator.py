@@ -187,6 +187,11 @@ def fit_model_core(
             optimizer=model.smoothing_optimizer,
         )
     elif model.family.name == "scat" and model.family.estimate_theta:
+        if not supports_smoothing_method(model, method):
+            raise NotImplementedError(
+                f"Ancillary estimation with method={method!r} is not supported "
+                f"for family={model.family.name!r}."
+            )
         # Fixed smoothing does not freeze the distribution parameters. Retain
         # an explicitly selected likelihood criterion; the convenience fixed
         # method follows upstream's default REML ancillary estimation.
@@ -195,7 +200,7 @@ def fit_model_core(
             model,
             y=y,
             initial_smoothing_params=model.smoothing_params,
-            method=method if method in {"ml", "reml", "laml"} else "reml",
+            method="reml" if method == "fixed" else method,
             optimizer=model.smoothing_optimizer,
         )
     elif theta_only_fixed_reml:

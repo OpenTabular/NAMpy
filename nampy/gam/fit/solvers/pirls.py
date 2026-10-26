@@ -104,7 +104,15 @@ def _pirls_gdi_report_state(
         signed_pseudoinverse=True,
     )
 
-    coef_canonical = np.asarray(qr_state.beta_full, dtype=np.float64)
+    # gam.fit4 returns the converged IRLS coefficients, not oo$beta from
+    # the final gdi2 factorization (that refreshed value is used only by NCV).
+    # gam.fit3 instead reports gdi1's refreshed coefficient representative.
+    coef_canonical = np.asarray(
+        sol["coef_full"]
+        if str(getattr(model.family, "family_class", "")).lower() == "extended"
+        else qr_state.beta_full,
+        dtype=np.float64,
+    )
     coef_full = np.asarray(transform @ coef_canonical, dtype=np.float64)
 
     # mgcv/src/gdi.c::{gdi1,gdi2} first fixes the rank/drop/pivot gauge using

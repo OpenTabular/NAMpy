@@ -90,3 +90,84 @@ def test_scat_alternative_optimizer_matches_mgcv(optimizer, estimated):
         np.testing.assert_allclose(
             actual, ref[name], atol=5e-5, rtol=5e-5, err_msg=name
         )
+
+
+def _initial_bfgs_reference():
+    case = _case(method="REML", estimated=True)
+    case["optimizer"] = "bfgs"
+    source = _SCRIPT.replace(
+        "b<-gam(",
+        "initial_calls<-list();"
+        "trace('gam.fit3',where=asNamespace('mgcv'),print=FALSE,"
+        "exit=quote({v<-returnValue();if(length(initial_calls)<4)"
+        "initial_calls[[length(initial_calls)+1]]<<-list(coef=v$coefficients,"
+        "score=v$REML,gradient=v$REML1)}));b<-gam(",
+    ).replace("write_json(list(", "write_json(list(initial_calls=initial_calls,")
+    key = reference_key("scat-bfgs-initial-v1", {"case": case, "source": source})
+    result = load_reference("mgcv_scat_optimizers", key)
+    if result is None:
+        with tempfile.TemporaryDirectory() as directory:
+            script, inputs, output = [
+                Path(directory) / n for n in ("ref.R", "in.json", "out.json")
+            ]
+            script.write_text(source)
+            inputs.write_text(json.dumps(case))
+            run = subprocess.run(
+                _build_r_command(script, str(inputs), str(output)),
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            assert run.returncode == 0, run.stderr
+            result = json.loads(output.read_text())
+        save_reference("mgcv_scat_optimizers", key, result)
+    return result["initial_calls"]
+
+
+def test_scat_bfgs_initial_fit_and_finite_difference_hessian_match_mgcv(monkeypatch):
+    """gam.fit4 keeps the converged beta when final gdi2 refreshes its QR."""
+    from nampy.gam.fit.selection.optimize import bfgs_strict
+
+    reference = _initial_bfgs_reference()
+    calls = []
+    inverses = []
+    original_eval = bfgs_strict._eval_objective_at
+    original_hessian = bfgs_strict._finite_difference_initial_inverse_hessian
+
+    def evaluate(*args, **kwargs):
+        result = original_eval(*args, **kwargs)
+        if len(calls) < 4:
+            calls.append(result)
+        return result
+
+    def initial_hessian(*args, **kwargs):
+        result = original_hessian(*args, **kwargs)
+        inverses.append(result)
+        return result
+
+    monkeypatch.setattr(bfgs_strict, "_eval_objective_at", evaluate)
+    monkeypatch.setattr(
+        bfgs_strict, "_finite_difference_initial_inverse_hessian", initial_hessian
+    )
+    case = _case(method="REML", estimated=True)
+    GAM(
+        formula=case["formula"],
+        family={"name": "scat", "theta": case["theta"]},
+        smoothing_method="REML",
+        smoothing_optimizer="bfgs",
+        optimize_smoothing=True,
+    ).fit(data=pd.DataFrame(case["data"]), sample_weight="w")
+    for actual, expected in zip(calls, reference, strict=True):
+        np.testing.assert_allclose(actual[4], expected["coef"], rtol=1e-11, atol=1e-11)
+        np.testing.assert_allclose(
+            actual[1], np.ravel(expected["gradient"]), rtol=1e-11, atol=1e-11
+        )
+    initial_gradient = np.ravel(reference[0]["gradient"])
+    hessian = np.array(
+        [(np.ravel(row["gradient"]) - initial_gradient) / 1e-4 for row in reference[1:]]
+    )
+    hessian = (hessian + hessian.T) / 2
+    values, vectors = np.linalg.eigh(hessian)
+    values = np.maximum(np.abs(values), np.max(np.abs(values)) * 1e-4)
+    inverse = (vectors / values) @ vectors.T
+    np.testing.assert_allclose(inverses[0], inverse, rtol=1e-8, atol=1e-8)

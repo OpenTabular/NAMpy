@@ -927,3 +927,27 @@ def test_scat_fixed_smoothing_ml_zero_weight_guard(link, estimated):
 def test_scat_rank_deficient_conditional_fit_without_outer_uncertainty():
     case = _case(method="fixed", estimated=False, rank_deficient=True)
     _assert_fit(case, _reference(case), _fit(case))
+
+
+@pytest.mark.parametrize("estimated", [False, True])
+def test_scat_p_ml_upstream_reml_alias(estimated):
+    reference = _reference(_case(method="P-ML", estimated=estimated))
+    assert reference["accepted"], reference
+    assert reference["method"] == "REML"
+    reml = _reference(_case(method="REML", estimated=estimated))
+    for key in ("coef", "theta", "sp", "score", "Vp"):
+        np.testing.assert_array_equal(reference[key], reml[key])
+
+
+@pytest.mark.parametrize("estimated", [False, True])
+def test_scat_p_ml_uses_reml_fit(estimated):
+    case = _case(method="P-ML", estimated=estimated)
+    _assert_fit(case, _reference(case), _fit(case))
+
+
+@pytest.mark.parametrize("method", ["NCV", "unknown-method"])
+def test_scat_fixed_sp_estimated_theta_rejects_unsupported_method(method):
+    case = _case(method=method, estimated=True)
+    case["fixed_sp"] = True
+    with pytest.raises((NotImplementedError, ValueError), match="method"):
+        _fit(case)
