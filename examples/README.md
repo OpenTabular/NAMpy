@@ -22,6 +22,7 @@ use the [API reference](../docs/api/index.rst).
 | `example_soap_compositions.py` | known-boundary soap tensors and matrix-coordinate factor smooths |
 | `example_bs_constraints.py` | derivative-penalized B-splines with explicit coefficient constraints |
 | `example_matrix_factor.py` | soap functionals with explicit factors varying across quadrature locations |
+| `example_parametric_penalty_map.py` | signed and fractional log-SP maps for parametric penalties |
 | `example_gumbls_gam.py` | Gumbel location and scale with separate distribution predictors |
 | `example_ziplss_gam.py` | hurdle counts with independent intensity and presence predictors |
 | `example_multinom_gam.py` | two log-odds predictors and three category probabilities |

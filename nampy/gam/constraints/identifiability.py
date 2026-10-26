@@ -757,10 +757,19 @@ def apply_global_side_conditions(
 
     old_to_new_sp: dict[int, int] = {}
     for pb in final_penalty_blocks:
-        old_idx = int(pb.smoothing_index)
-        if old_idx not in old_to_new_sp:
-            old_to_new_sp[old_idx] = len(old_to_new_sp)
-        pb.smoothing_index = old_to_new_sp[old_idx]
+        indices = pb.metadata.get("log_sp_map", {int(pb.smoothing_index): 1.0})
+        for old_idx in indices:
+            if int(old_idx) not in old_to_new_sp:
+                old_to_new_sp[int(old_idx)] = len(old_to_new_sp)
+    # Preserve declared paraPen coordinates, including source-accepted fixed
+    # columns which do not affect any penalty row.
+    if any("log_sp_map" in pb.metadata for pb in final_penalty_blocks):
+        old_to_new_sp = {i: i for i in range(design.n_smoothing_params)}
+    from ..penalty_maps import remap_penalty_log_sp
+
+    for pb in final_penalty_blocks:
+        pb.smoothing_index = old_to_new_sp[int(pb.smoothing_index)]
+        remap_penalty_log_sp(pb, old_to_new_sp)
 
     smoothing_parameter_map = {
         sid: old_to_new_sp[int(old_idx)]

@@ -159,6 +159,14 @@ def _gaussian_fit3_pls_current_eta(model, X, smoothing_params, z_work, w):
 
 
 def solve_gaussian_fit(model, y, smoothing_params, weights=None):
+    from ..penalty_coordinates import (
+        penalty_coordinate_model,
+        uses_penalty_coordinate_map,
+    )
+
+    if uses_penalty_coordinate_map(model):
+        with penalty_coordinate_model(model, smoothing_params) as (view, full_sp, _map):
+            return solve_gaussian_fit(view, y, full_sp, weights=weights)
     y = model.family.validate_y(y)
     y_original = np.asarray(y, dtype=np.float64).copy()
     n = int(y.shape[0])

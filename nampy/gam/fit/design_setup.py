@@ -12,6 +12,11 @@ from .smoothing_params import resolve_min_sp, resolve_smoothing_params
 
 
 def compile_designs(model, X, feature_names):
+    if model.hparams.get("para_pen") is not None and getattr(model.family, "family_class", "") == "general":
+        raise ValueError(
+            "para_pen is unsupported for general-family formula-list or multi-formula models; "
+            "mgcv rejects paraPen in gam.setup.list, including one predictor."
+        )
     from ..compiler.compile_model import compile_model
 
     compiled_model = compile_model(
@@ -35,6 +40,12 @@ def compile_designs(model, X, feature_names):
         softplus_beta=float(getattr(model, "softplus_beta", 1.0)),
         softplus_threshold=float(getattr(model, "softplus_threshold", 20.0)),
     )
+    from ..penalty_maps import has_mapped_penalties
+
+    if has_mapped_penalties(compiled_model.compiled_penalties) and np.any(compiled_model.positive_coefficient_mask):
+        raise NotImplementedError(
+            "Mapped para_pen penalties are not implemented for transformed-coefficient fits."
+        )
     from ..observations import make_observation_transform
 
     compiled_model.observation_transform = make_observation_transform(

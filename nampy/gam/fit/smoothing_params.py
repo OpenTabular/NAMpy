@@ -28,6 +28,18 @@ def resolve_min_sp(model, min_sp):
         return np.empty((0,), dtype=np.float64)
     if np.any(~np.isfinite(arr)) or np.any(arr < 0):
         raise ValueError("min_sp values must be finite and >= 0.")
+    from ..penalty_maps import penalty_log_sp_map
+
+    mapping = penalty_log_sp_map(penalty_blocks, n_smoothing_params)
+    if np.any(arr > 0) and any(block.metadata.get("para_pen") for block in penalty_blocks) and not (
+        mapping.shape == (n_smoothing_params, n_smoothing_params)
+        and np.array_equal(mapping, np.eye(n_smoothing_params))
+    ):
+        raise NotImplementedError(
+            "Positive min_sp with a para_pen log-SP map is not implemented: "
+            "mgcv minimum penalties enter H in full-penalty coordinates, "
+            "rather than as floors on underlying mapped smoothing parameters."
+        )
 
     if arr.shape == (n_smoothing_params,):
         return arr.copy()

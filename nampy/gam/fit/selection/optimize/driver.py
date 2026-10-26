@@ -90,7 +90,7 @@ def _optimize_negbin_reml_joint_native(
             objective=j_obj,
             x0=x_joint0,
             bounds=[(float(np.log(LOG_GUARD_MIN)), np.inf)] + list(sp_bounds),
-            conv_tol=1e-6,
+            conv_tol=float(_control_for(model).newton.get("conv_tol", 1e-6)),
         )
     elif optimizer == "bfgs":
         # `mgcv/R/mgcv.r::gam.outer()` sends the prepended transformed
@@ -1577,6 +1577,21 @@ def optimize_smoothing_params(
     )
     free_mask = ~fixed_mask
     n_free = int(np.sum(free_mask))
+    if optimizer == "efs" and n_free:
+        from ....model_state import _penalty_blocks_seq
+        from ....penalty_maps import penalty_log_sp_map
+
+        blocks = _penalty_blocks_seq(model)
+        mapping = penalty_log_sp_map(blocks, n_sp)[:, free_mask]
+        if any(block.metadata.get("para_pen") for block in blocks) and not (
+            mapping.shape == (n_free, n_free) and np.array_equal(mapping, np.eye(n_free))
+        ):
+            raise NotImplementedError(
+                "EFS smoothing selection with a nonidentity para_pen log-SP map "
+                "is unsupported: mgcv efsudr does not receive L/lsp0; rectangular "
+                "maps fail upstream and square maps optimize an inconsistent "
+                "unmapped penalty state. Use an outer optimizer."
+            )
     ml_reml_backend = (
         resolve_ml_reml_scoring_backend(model, method=method)
         if method in {"ml", "reml", "laml"}

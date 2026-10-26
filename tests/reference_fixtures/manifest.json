@@ -143,7 +143,8 @@
       "fixture_count": 28,
       "source_files_sha256": {
         "R/mgcv.r": "f2c782d23d361c987836d936b3c01d14846829377fbb1768504298094a7b0120"
-      }
+      },
+      "generator_sha256": "5664d488510fb49b617a0027a258be26bde66a2cde9e62481c788eacd5e31b78"
     },
     "mgcv_public_constraints": {
       "package_version": "1.9-4",
@@ -796,6 +797,39 @@
       "generator": "tests/smooths/test_mgcv_explicit_matrix_factor.py",
       "generator_sha256": "4375aad849315508fe6a8e6b2b27f0785de117b1c92082b0c66cd8778a9f75f9",
       "scope": "Explicit categorical-row factor+dim metadata in fs/sz. Fixed and REML; repeated/varying factor columns, prior precision, offsets, repeated metric points, changing quadrature width, functional weights, declared levels, covariance/EDF/common-coordinate individual penalties and fitted weighted operators. Distinct unequal fixed SP fixtures. Multiple matrix-factor sz with observed joint groups. Source-owned unused-level rejection; retained guards for fs multi-null external-SP ordering and sz empty joint-group rank/side conditions."
+    },
+    "mgcv_parametric_map_vcomp": {
+      "package_version": "1.9-4",
+      "R_version": "4.6.1",
+      "fixture_namespace": "mgcv_parametric_map_vcomp",
+      "manifest": "tests/reference_fixtures/mgcv_parametric_map_vcomp/manifest.json",
+      "fixture_files": 4,
+      "generator": "tests/parity/test_parametric_map_vcomp.py",
+      "generator_sha256": "9f37ce9534131054c81d27250cdc322cd5917b7dea9d18e51d357b52338cd717",
+      "scope": "Four actual-source Gaussian/Poisson mixed/selected dense log-SP fits: gam.vcomp(rescale=FALSE) underlying CI-row names, point standard deviations, full-penalty standard deviations and names; full bands owned by existing vcomp parity tests. Gaussian uses accepted reml.scale, not reporting sig2. Inputs frozen in the main parametric-map namespace; no prior captures changed."
+    },
+    "mgcv_parametric_penalty_maps": {
+      "package_version": "1.9-4",
+      "R_version": "4.6.1",
+      "fixture_namespace": "mgcv_parametric_penalty_maps",
+      "manifest": "tests/reference_fixtures/mgcv_parametric_penalty_maps/manifest.json",
+      "fixture_files": 47,
+      "generator": "tests/parity/test_mgcv_parametric_penalty_maps.py",
+      "generator_sha256": "945cc87eae071c18fcb47e805969dc48ffc27ece485acd816eaf1fd56eaa6e07",
+      "scope": [
+        "Arbitrary finite dense/signed/fractional/constant rows; fixed, mixed and estimated underlying SPs; effective fixed-zero semantics; unused/dependent coordinates when fixed.",
+        "Gaussian and Poisson source predictions, conditional/frequentist/unconditional prediction covariance, EDF, likelihood/AIC, source G$L/lsp0 and transported design/penalty operators.",
+        "Shared one-hot and arbitrary map composition with ordinary smooths, including source gam.setup smooth-first L versus PP-first S/sp ordering.",
+        "Two distinct parametric terms with local map-column offsets; coefficient/prediction/covariance persistence; coordinate-view transaction/cache invariants.",
+        "Source first/second analytic REML derivatives for Gaussian/Poisson and joint theta/SP derivatives for NB/scat and theta/SP/scale for Tweedie; Gaussian GCV, Poisson UBRE and ordinary NCV score/gradient."
+      ],
+      "boundaries": [
+        "Automatically initialized rank-deficient free maps are rejected: source initial.spg lm returns nonfinite starting values. Fixed unused/dependent coordinates remain accepted.",
+        "EFS with a nonidentity effective paraPen map is guarded. Rectangular source maps fail; square source maps are accepted but efsudr ignores L/lsp0 and returns an unmapped fitted state inconsistent with exported mapped full.sp. Fixed mapped SPs without selection remain usable with the EFS spelling.",
+        "Positive min_sp with nonidentity maps is guarded: source minimum penalties enter full penalty H, while the existing underlying-SP floor route cannot represent that composition. A square-map source acceptance capture records this as a current implementation boundary.",
+        "General-family formula lists reject paraPen upstream, including multinom K=1; the flat source variant also fails. Mapped transformed-coefficient compositions remain explicitly unimplemented.",
+        "Default rescaled gam.vcomp retains the existing paraPen metadata guard; gam.vcomp(rescale=False) is covered separately in mgcv_parametric_map_vcomp."
+      ]
     }
   }
 }

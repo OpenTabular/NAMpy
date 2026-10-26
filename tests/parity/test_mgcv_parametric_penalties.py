@@ -210,7 +210,7 @@ def test_parametric_penalty_shared_L(optimized):
         ({"penalties": [np.eye(3)], "rank": [4]}, ValueError, "rank must"),
         ({"penalties": [np.eye(3)], "sp": [1, 2]}, ValueError, "sp.*dimension"),
         ({"penalties": [np.eye(3)], "L": [[1], [1]]}, ValueError, "L has wrong"),
-        ({"penalties": [np.eye(3)], "L": [[0.5]]}, NotImplementedError, "one-hot"),
+        ({"penalties": [np.eye(3)], "L": [[np.nan]]}, ValueError, "nonfinite"),
         ({"penalties": [np.full((3, 3), np.nan)]}, ValueError, "nonfinite"),
     ],
 )

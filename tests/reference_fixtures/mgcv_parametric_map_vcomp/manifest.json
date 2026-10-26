@@ -1,0 +1,23 @@
+{
+  "namespace": "mgcv_parametric_map_vcomp",
+  "upstream": {
+    "mgcv": "1.9-4",
+    "R": "4.6.1"
+  },
+  "source_files_sha256": {
+    "R/mgcv.r": "f2c782d23d361c987836d936b3c01d14846829377fbb1768504298094a7b0120"
+  },
+  "generators_sha256": {
+    "tests/parity/probes/mgcv_parametric_map_vcomp.R": "cbc60da3c161722292d5c6d7d268bfe4836de0c19fb9438e0100a98a13f1683f",
+    "tests/parity/test_parametric_map_vcomp.py": "9f37ce9534131054c81d27250cdc322cd5917b7dea9d18e51d357b52338cd717",
+    "tests/parity/test_mgcv_parametric_penalty_maps.py": "945cc87eae071c18fcb47e805969dc48ffc27ece485acd816eaf1fd56eaa6e07",
+    "tests/reference_fixtures/mgcv_parametric_penalty_maps/inputs.json": "5d1bdac5ca6181d391ed895c5c6526981cd9a7489c0be541513c7d235bfe0255"
+  },
+  "fixture_sha256": {
+    "a34081d4c8c411a09cb7a13ff0377137483324d8c2a9d6ea2b936fe376edcf2d.json.gz": "7ae3d6eb21283dde144005e25c4f723125cbee15d02cb3964e92273577184e8b",
+    "f4b4efb5a460de9abab7d229502ccf582952908d5ea02fee9e4dc997996b13c6.json.gz": "a04a3f7345f4e86863689cfde85c5a62ca5626b53b92dc964bbdb7554037a2ea",
+    "c166d9d439c8a804f2c38074840d9a50795cd1fea0f729f8db862231289014e0.json.gz": "8a74d7580c10b1223c638f6fa0b687596397bcc9236f13b159dcf15a90e482ed",
+    "40fb5981e5c50728b42a309a4db9ffc6aa0ec0dfdc70ab67d3d35ae911764ef6.json.gz": "bd1035a84ccc99e0313d5108458960f452f14c0c30c23ae6da377bd3a57fdac8"
+  },
+  "scope": "Four actual-source Gaussian/Poisson mixed/selected dense log-SP fits: gam.vcomp(rescale=FALSE) underlying CI-row names, point standard deviations, full-penalty standard deviations and names; full bands owned by existing vcomp parity tests. Gaussian uses accepted reml.scale, not reporting sig2. Inputs frozen in the main parametric-map namespace; no prior captures changed."
+}

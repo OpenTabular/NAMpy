@@ -5,6 +5,7 @@ from dataclasses import replace
 
 import numpy as np
 
+from ..penalty_maps import penalty_log_sp_map
 from .structures import CompiledPenalty
 
 
@@ -70,12 +71,14 @@ def add_parametric_penalties(predictor, para_pen):
         L = np.eye(count) if L is None else np.asarray(L, dtype=float)
         if L.ndim != 2 or L.shape[0] != count or not np.isfinite(L).all():
             raise ValueError("L has wrong dimension or nonfinite values in para_pen")
-        # A shared one-hot map is exactly the existing linked-penalty contract.
-        if not (np.all((L == 0) | (L == 1)) and np.all(L.sum(axis=1) == 1)):
-            raise NotImplementedError("para_pen L currently requires one-hot rows")
+        one_hot = (
+            np.all((L == 0) | (L == 1))
+            and np.all(L.sum(axis=1) == 1)
+            and np.all(np.any(L != 0, axis=0))
+        )
         nsp = L.shape[1]
-        if np.any(L.sum(axis=0) == 0):
-            raise ValueError("para_pen L contains an unused smoothing parameter")
+        if nsp == 0:
+            raise ValueError("para_pen L must have at least one column")
         sp = (
             np.full(nsp, -1.0)
             if sp is None
@@ -108,7 +111,8 @@ def add_parametric_penalties(predictor, para_pen):
                     "para_pen rank must lie between zero and coefficient count"
                 )
             ranks.append(rank_j)
-            idx = base + int(np.argmax(L[j]))
+            nonzero = np.flatnonzero(L[j])
+            idx = base + (int(nonzero[0]) if nonzero.size else 0)
             sid = next(k for k, v in ids.items() if v == idx)
             blocks.append(
                 CompiledPenalty(
@@ -123,7 +127,19 @@ def add_parametric_penalties(predictor, para_pen):
                     null_space_dim=width - rank_j,
                     sp_mode=modes[idx],
                     sp_value=values[idx] if modes[idx] else None,
-                    metadata={"para_pen": True, "term_indices": [i for i, _ in terms]},
+                    metadata={
+                        "para_pen": True,
+                        "term_indices": [i for i, _ in terms],
+                        **(
+                            {}
+                            if one_hot
+                            else {
+                                "log_sp_map": {
+                                    base + int(k): float(L[j, k]) for k in nonzero
+                                }
+                            }
+                        ),
+                    },
                 )
             )
         records.append(
@@ -142,6 +158,29 @@ def add_parametric_penalties(predictor, para_pen):
         replace(pb, smoothing_index=pb.smoothing_index + shift)
         for pb in predictor.compiled_penalties
     )
+    # gam.setup (mgcv.r:1490) builds blockdiag(L_smooth, PP$L), while
+    # prepending PP$S and PP$sp. Preserve that source ordering even when a
+    # nonidentity PP map makes it differ from a PP-first block diagonal map.
+    n_smooth_pen = len(predictor.compiled_penalties)
+    n_smooth_sp = predictor.n_smoothing_params
+    source_map = np.zeros((len(penalties), shift + n_smooth_sp))
+    source_map[:n_smooth_pen, :n_smooth_sp] = penalty_log_sp_map(
+        predictor.compiled_penalties, n_smooth_sp
+    )
+    source_map[n_smooth_pen:, n_smooth_sp:] = penalty_log_sp_map(blocks, shift)
+    if not np.array_equal(
+        source_map, penalty_log_sp_map(penalties, shift + n_smooth_sp)
+    ):
+        penalties = tuple(
+            replace(
+                block,
+                metadata=dict(
+                    block.metadata,
+                    log_sp_map={int(k): float(row[k]) for k in np.flatnonzero(row)},
+                ),
+            )
+            for block, row in zip(penalties, source_map, strict=True)
+        )
     terms = []
     for term in predictor.compiled_terms:
         terms.append(

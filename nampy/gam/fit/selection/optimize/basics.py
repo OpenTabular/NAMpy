@@ -132,6 +132,7 @@ def _initial_smoothing_params_from_packed_penalties(
     *,
     L: np.ndarray | None = None,
     lsp0: np.ndarray | None = None,
+    source_lm: bool = False,
 ) -> np.ndarray | None:
     """
     Mirror `mgcv::initial.sp()` plus the linked-penalty regression in
@@ -211,7 +212,22 @@ def _initial_smoothing_params_from_packed_penalties(
         if lsp0.shape != (L.shape[0],):
             return None
         rhs = np.asarray(lsp - lsp0, dtype=np.float64)
-        coef, *_ = np.linalg.lstsq(L, rhs, rcond=None)
+        if source_lm:
+            from scipy.linalg import solve_triangular
+
+            from ....splines.basis.natparam import _r_linpack_qr
+
+            try:
+                Q, R = _r_linpack_qr(L, tol=1e-7)
+            except ValueError as error:
+                raise ValueError(
+                    "Automatic para_pen smoothing initialization has a rank-deficient "
+                    "log-SP map; upstream initial.spg lm returns nonfinite starts. "
+                    "Supply explicit initial smoothing_params to bypass initialization."
+                ) from error
+            coef = solve_triangular(R, Q.T @ rhs, check_finite=False)
+        else:
+            coef, *_ = np.linalg.lstsq(L, rhs, rcond=None)
         def_sp = np.exp(np.asarray(coef, dtype=np.float64))
 
     return np.maximum(np.asarray(def_sp, dtype=np.float64), 1e-12)
@@ -505,6 +521,8 @@ def _initial_smoothing_params_from_design(model, y):
         w = np.sqrt(
             np.clip(prior_w * mu_eta * mu_eta / np.maximum(var_mu, 1e-12), 1e-12, None)
         )
+    from ...penalty_coordinates import uses_penalty_coordinate_map
+
     return _initial_smoothing_params_from_packed_penalties(
         w[:, None] * X,
         [np.asarray(S_i, dtype=np.float64) for S_i in list(setup.S)],
@@ -515,4 +533,5 @@ def _initial_smoothing_params_from_design(model, y):
             else np.asarray(setup.L, dtype=np.float64)
         ),
         lsp0=np.asarray(setup.lsp0, dtype=np.float64),
+        source_lm=uses_penalty_coordinate_map(model),
     )

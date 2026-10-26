@@ -349,8 +349,19 @@ not imply identical random streams; parity fixtures share explicit permutations
 or response draws. Existing ``gam_check`` numerical reports remain available.
 
 ``para_pen`` supports multiple matrices per original parametric term, supplied
-ranks, fixed/estimated smoothing and shared one-hot ``L`` maps. Arbitrary ``L``
-maps and multi-formula parametric penalties are unavailable. In aliased models,
+ranks, fixed/estimated smoothing and arbitrary finite log-SP ``L`` maps,
+including signed/fractional entries and rectangular maps. Analytic derivatives
+and supported smoothing uncertainty are transported into the underlying
+parameter coordinates. Combined smooth/parametric maps preserve mgcv's setup
+ordering, including its ordering quirks. Nonidentity maps with automatic EFS
+selection remain guarded because upstream omits the map in that optimizer;
+unused free map coordinates and multi-formula parametric penalties are rejected.
+Automatic initialization of rank-deficient free maps follows the source
+rejection. Positive ``min_sp`` combined with nonidentity maps needs separate
+full-penalty minimum-penalty assembly and remains unsupported, as do mapped
+transformed-coefficient fits. General-family formula lists reject ``para_pen``
+even when there is only one predictor.
+In aliased models,
 individual smoothing parameters and coefficient covariance allocations need not
 be uniquely identified; compare estimable fitted functions and their covariance.
 
