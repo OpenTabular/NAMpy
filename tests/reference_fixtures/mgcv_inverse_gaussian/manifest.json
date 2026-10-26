@@ -19,5 +19,12 @@
     "R/mgcv.r": "f2c782d23d361c987836d936b3c01d14846829377fbb1768504298094a7b0120",
     "src/gdi.c": "c458d6521282a241f2b226c88316e31826d2b46705aa42acd843039fb9cd4fd1"
   },
-  "policy": "Normal tests consume committed fixtures only; generation requires NAMPY_REFRESH_REFERENCE_FIXTURES=1."
+  "policy": "Normal tests consume committed fixtures only; generation requires NAMPY_REFRESH_REFERENCE_FIXTURES=1.",
+  "portable_inputs": {
+    "file": "input_data.json",
+    "origin": "Exact existing R input doubles frozen from test data generation on the reference host; no reference outputs changed.",
+    "base_recipe": "x=linspace(-1,1,100); mu=exp(.25+.35*sin(3*x)); y=default_rng(931).wald(mu,7); weights unit or repeating .5,1,1.5,2.",
+    "two_smooth_recipe": "z=default_rng(53).permutation(x); y=default_rng(17).wald(exp(.25+.35*sin(3*x)+.3*z**2),7).",
+    "reason": "libm/SIMD differences in exp/sin and dependent Wald samples change raw input hashes across runners."
+  }
 }

@@ -232,7 +232,7 @@ def test_sos_order_knots_and_dimension_guards():
     )
 
 
-def test_sos_array_and_derivative_surfaces_are_explicitly_unsupported():
+def test_sos_array_and_derivative_limits_and_supported_plot():
     data = _sos_data(seed=950, n=80)
     with pytest.raises(NotImplementedError, match="formula with both latitude"):
         GAM(
@@ -249,5 +249,12 @@ def test_sos_array_and_derivative_surfaces_are_explicitly_unsupported():
     ).fit(data=data)
     with pytest.raises(NotImplementedError, match="only 1D smooths"):
         model.derivative(data, smooth_number=1)
-    with pytest.raises(NotImplementedError, match="rotated hemisphere"):
-        model.plot()
+    import matplotlib.pyplot as plt
+
+    rendered = model.plot(n2=12)
+    try:
+        assert rendered["pd"][0]["kind"] == "sos"
+        assert len(rendered["figures"]) == 1
+    finally:
+        for figure in rendered["figures"]:
+            plt.close(figure)

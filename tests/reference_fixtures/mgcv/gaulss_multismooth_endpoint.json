@@ -1,0 +1,21 @@
+{
+  "fixture": "b6b72c09608bb995d34ae91683580dfafb136e32457b6cceff18fa1165294107.json.gz",
+  "test": "tests/parity/test_mgcv_snapshot_extended_matrix.py::test_general_family_multismooth_fit_inference_and_diagnostics_match_mgcv",
+  "upstream": {
+    "R": "4.6.1",
+    "mgcv": "1.9-4"
+  },
+  "control": {
+    "epsilon": 1e-10,
+    "newton": {
+      "conv.tol": 1e-10
+    }
+  },
+  "generation": "Fresh actual R mgcv_snapshot.R run with NAMPY_REFRESH_REFERENCE_FIXTURES=1; normal tests do not use R. Portable data identity retained in fixture key.",
+  "reason": "Source initial.spg applies pen.reg with Sl.initial.repara design and original-coordinate balanced root E. Valid eigenvector signs affect regularized starting coefficients and the default-tolerance outer path. Matching tighter inner/outer convergence controls isolates the endpoint while preserving every existing parity acceptance threshold.",
+  "source_routines": [
+    "mgcv/R/mgcv.r::estimate.gam and initial.spg",
+    "mgcv/R/gamlss.r::gaulss initialize and pen.reg"
+  ],
+  "snapshot_script_sha256": "48852272f75d9682c74114ed20531ad87450904dca9304817acfac3b12350651"
+}

@@ -104,12 +104,23 @@ ans <- list(version=as.character(packageVersion("mgcv")),eta=predict(fit,type="l
 """
 
 
-def _data(weighted):
+def _generate_data(weighted):
     x = np.linspace(-1, 1, 100)
     mu = np.exp(0.25 + 0.35 * np.sin(3 * x))
     y = np.random.default_rng(931).wald(mu, 7.0)
     w = np.resize([0.5, 1.0, 1.5, 2.0], len(x)) if weighted else np.ones(len(x))
     return pd.DataFrame({"x": x, "y": y, "w": w})
+
+
+def _data(weighted):
+    # Freeze the exact R input doubles: libm/SIMD ULP differences in exp/sin
+    # propagate through the Wald sampler and otherwise change fixture hashes.
+    path = (
+        Path(__file__).parents[1]
+        / "reference_fixtures/mgcv_inverse_gaussian/input_data.json"
+    )
+    inputs = json.loads(path.read_text())
+    return pd.DataFrame(inputs["weighted" if weighted else "base"])
 
 
 @pytest.mark.parametrize("link", LINKS)
@@ -319,9 +330,12 @@ def test_inverse_gaussian_two_smooth_gcv_derivatives(link):
 def test_noncanonical_two_smooth_gcv_mgcv(family, link):
     dat = _data(True)
     dat["z"] = np.random.default_rng(53).permutation(dat.x.to_numpy())
-    dat["y"] = np.random.default_rng(17).wald(
-        np.exp(0.25 + 0.35 * np.sin(3 * dat.x) + 0.3 * dat.z**2), 7.0
+    path = (
+        Path(__file__).parents[1]
+        / "reference_fixtures/mgcv_inverse_gaussian/input_data.json"
     )
+    inputs = json.loads(path.read_text())["two_smooth"]
+    dat["z"], dat["y"] = inputs["z"], inputs["y"]
     payload = {
         **{k: dat[k].tolist() for k in dat},
         "link": link,

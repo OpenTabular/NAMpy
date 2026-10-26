@@ -813,8 +813,20 @@ def test_general_family_multismooth_fit_inference_and_diagnostics_match_mgcv():
     """Close the wrapped-block surface across both gaulss predictors."""
     data = _gaulss_multismooth_data()
     formula = GENERAL_MULTISMOOTH_FORMULA
-    expected = _run_mgcv_snapshot(data, formula, "gaulss", "ML")
-    model = _fit_nampy_model(data, formula, "gaulss", "ML")
+    # initial.spg regularizes in an eigenvector-dependent coordinate system.
+    # Different valid eigenvector signs change the default optimizer path and
+    # stopping point. Tighten both fits to compare the converged endpoint;
+    # retain the strict inference/prediction acceptance thresholds below.
+    control = {"epsilon": 1e-10, "newton": {"conv.tol": 1e-10}}
+    expected = _run_mgcv_snapshot(
+        data,
+        formula,
+        "gaulss",
+        "ML",
+        control=control,
+        portable_fixture_identity=True,
+    )
+    model = _fit_nampy_model(data, formula, "gaulss", "ML", control=control)
     core = model.gam_result_.fit_summary.core
     expected_fit = expected["fit"]
     diagnostics = expected["parity"]["diagnostics"]

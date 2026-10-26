@@ -1,5 +1,5 @@
 # Usage:
-#   Rscript mgcv_snapshot.R <csv_path> <output_json> <formula> <family> <method> <select> [weights_column] [optimizer]
+#   Rscript mgcv_snapshot.R <csv_path> <output_json> <formula> <family> <method> <select> [weights_column] [optimizer] [control_json]
 #
 # Fits mgcv::gam at fixed linear smoothing parameters sp (JSON array) and writes
 # REML / GCV criterion value, sum(edf), and deviance scale for parity with
@@ -8,7 +8,7 @@
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 6) {
   stop(
-    "Usage: Rscript mgcv_snapshot.R <csv_path> <output_json> <formula> <family> <method> <select> [weights_column] [optimizer]"
+    "Usage: Rscript mgcv_snapshot.R <csv_path> <output_json> <formula> <family> <method> <select> [weights_column] [optimizer] [control_json]"
   )
 }
 
@@ -152,6 +152,10 @@ capture_warnings <- function(expr) {
     }
   )
   list(value = value, warnings = warnings)
+}
+
+if (length(args) >= 9) {
+  gam_args$control <- do.call(gam.control, fromJSON(args[[9]]))
 }
 
 fit_capture <- capture_warnings(do.call(gam, gam_args))

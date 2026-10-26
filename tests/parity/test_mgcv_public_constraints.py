@@ -70,6 +70,42 @@ write_json(ans,commandArgs(TRUE)[2],digits=17,auto_unbox=TRUE)
     return dat, load_reference("mgcv_public_constraints", key)
 
 
+def _assert_cs_penalty_invariants(actual, expected):
+    # smooth.r assigns unequal .1/.01 shrinkage floors to the two numerically
+    # zero eigenvectors. Their orientation is not unique across LAPACK builds;
+    # smoothCon's norm-based scaling consequently need not be identical either.
+    # Check the complete normalized spectrum and the identifiable range operator.
+    operators = []
+    spectra = []
+    for penalty in (actual, expected):
+        values, vectors = np.linalg.eigh(np.asarray(penalty, dtype=float))
+        values = values / values[-1]
+        spectra.append(values)
+        operators.append((vectors[:, 2:] * values[2:]) @ vectors[:, 2:].T)
+    np.testing.assert_allclose(spectra[0], spectra[1], atol=2e-9)
+    np.testing.assert_allclose(operators[0], operators[1], atol=2e-9)
+
+
+def _assert_absorbed_penalty(bs, con, raw, reference, atol):
+    actual = con.penalty_specs[0].matrix
+    if bs != "cs":
+        np.testing.assert_allclose(actual, reference["S"], atol=atol)
+        return
+    _assert_cs_penalty_invariants(raw.penalty_specs[0].matrix, reference["Sraw"])
+    transform = con.compiled_term.predict_coefficient_map
+    np.testing.assert_allclose(
+        actual, transform.T @ raw.penalty_specs[0].matrix @ transform, atol=atol
+    )
+    reference_transform = np.linalg.lstsq(reference["raw"], reference["X"], rcond=None)[
+        0
+    ]
+    np.testing.assert_allclose(
+        reference["S"],
+        reference_transform.T @ np.asarray(reference["Sraw"]) @ reference_transform,
+        atol=atol,
+    )
+
+
 def spec(bs):
     return TermSpec(
         kind="smooth",
@@ -90,10 +126,11 @@ def test_raw_and_absorbed_reference(bs, custom):
     )
     con = smooth_con(spec(bs), dat[["x"]].to_numpy(), ["x"], constraints=C)
     np.testing.assert_allclose(raw.compiled_term.basis_train, r["raw"], atol=2e-9)
-    np.testing.assert_allclose(raw.penalty_specs[0].matrix, r["Sraw"], atol=2e-9)
+    if bs != "cs":
+        np.testing.assert_allclose(raw.penalty_specs[0].matrix, r["Sraw"], atol=2e-9)
     np.testing.assert_allclose(raw.fit_constraint_operator, r["C"], atol=2e-9)
     np.testing.assert_allclose(con.compiled_term.basis_train, r["X"], atol=2e-9)
-    np.testing.assert_allclose(con.penalty_specs[0].matrix, r["S"], atol=2e-9)
+    _assert_absorbed_penalty(bs, con, raw, r, atol=2e-9)
     assert con.penalty_specs[0].rank == r["rank"]
     assert con.penalty_specs[0].null_space_dim == r["null_dim"]
     xp = np.linspace(-0.1, 1.1, 25)[:, None]
@@ -242,8 +279,14 @@ def test_selection_penalty_after_constraint_absorption(bs, rows):
     )
     con = smooth_con(term, dat[["x"]].to_numpy(), ["x"], constraints=C)
     assert len(con.penalty_specs) == len(r["Sall"])
-    for p, S in zip(con.penalty_specs, r["Sall"], strict=True):
-        np.testing.assert_allclose(p.matrix, S, atol=1e-10)
+    if bs == "cs":
+        raw = smooth_con(
+            spec(bs), dat[["x"]].to_numpy(), ["x"], absorb_cons=False, constraints=C
+        )
+        _assert_absorbed_penalty(bs, con, raw, r, atol=1e-10)
+    else:
+        for p, S in zip(con.penalty_specs, r["Sall"], strict=True):
+            np.testing.assert_allclose(p.matrix, S, atol=1e-10)
     model = GAM(
         formula=f"y ~ s(x,bs='{bs}',k=7)",
         constraints={1: C},

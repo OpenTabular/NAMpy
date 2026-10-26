@@ -22,6 +22,11 @@ from nampy.gam.splines._low_rank import (
 )
 
 REGULAR_BASES = {
+    "sc",
+    "scad",
+    "so",
+    "sf",
+    "sw",
     "ad",
     "bs",
     "cc",
@@ -37,7 +42,7 @@ REGULAR_BASES = {
     "ts",
 }
 
-TENSOR_BASES = REGULAR_BASES - {"ad"}
+TENSOR_BASES = (REGULAR_BASES - {"ad", "sc", "scad", "so"}) | {"re"}
 
 
 def test_regular_basis_descriptors_own_all_construction_capabilities():
@@ -52,10 +57,9 @@ def test_regular_basis_descriptors_own_all_construction_capabilities():
     for descriptor in descriptors.values():
         assert descriptor.runtime_class is not None
         assert descriptor.spec_builder is not None
-        assert (
-            descriptor.runtime_class.supports_tensor_marginal
-            is descriptor.supports_tensor
-        )
+        # Runtime classes may implement several bases with different support
+        # (so/sf/sw); capabilities are owned by each descriptor.
+        assert (descriptor.name in TENSOR_BASES) is descriptor.supports_tensor
 
 
 def test_generic_runtime_factory_constructs_every_regular_basis():
@@ -67,7 +71,7 @@ def test_generic_runtime_factory_constructs_every_regular_basis():
         elif descriptor.max_features is None:
             features = ["x", "z"]
         else:
-            features = ["x"]
+            features = ["x", "z"][: descriptor.min_features]
 
         term = make_basis_term(descriptor.name, feature=features, k=10)
 

@@ -77,6 +77,13 @@ def _case(
         if family == "gaussian"
         else rng.poisson(np.exp(eta))
     )
+    # Keep response inputs identical to those used for the committed R fits.
+    # BLAS reductions in basis @ coefficients can cross hash rounding bounds.
+    input_path = (
+        Path(__file__).parents[1]
+        / "reference_fixtures/scam_displays/input_responses.json"
+    )
+    data["y"] = json.loads(input_path.read_text())[f"{code}/{family}"]
     data["weight"] = rng.uniform(0.5, 2, len(data)) if weighted else 1.0
     if mixed:
         formula += " + s(z,bs='cr',k=6)"
