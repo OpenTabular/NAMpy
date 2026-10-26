@@ -23,7 +23,13 @@ from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
     _normalize_knots,
+    _resolve_feature,
     build_penalty_definition,
+    by_values_from_new_data,
+    linear_functional_basis,
+    linear_functional_by_state,
+    linear_functional_locations,
+    linear_functional_setup_points,
 )
 from .cr import CubicSplineTerm
 from .ps import PSplineTerm1D
@@ -348,9 +354,35 @@ class AdaptiveSmoothTerm(BaseSmoothTerm):
     def fit(self, X, feature_names):
         X = np.asarray(X, dtype=object)
         self._set_by_state(X, feature_names)
+        original_indices = [
+            _resolve_feature(feature, feature_names)[0] for feature in self.features
+        ]
+        locations = linear_functional_locations(X, original_indices)
+        self._linear_functional = locations.ndim == 3
+        weights = None
+        setup_X = X
+        if self._linear_functional:
+            if self.dim == 2 and self._by_state.is_present:
+                raise NotImplementedError(
+                    "Two-dimensional adaptive matrix terms with by weights are unsupported: "
+                    "mgcv drops the by variable during prediction, causing a fit/predict mismatch."
+                )
+            weights = self._by_state.values
+            if weights is None:
+                weights = np.ones(locations.shape[:2])
+            if np.shape(weights) != locations.shape[:2]:
+                raise ValueError(
+                    "Linear-functional locations and by weights must have equal shape."
+                )
+            self._by_state = linear_functional_by_state(self._by_state, weights=weights)
+            setup_points, _ = linear_functional_setup_points(locations)
+            setup_X = np.zeros((len(setup_points), len(feature_names)))
+            setup_X[:, original_indices] = setup_points
         marginals, indices, names, bases, base_penalties = self._fit_base(
-            X, feature_names
+            setup_X, feature_names
         )
+        self._marginals = marginals
+        self._feature_indices = indices
         basis = bases[0] if self.dim == 1 else rowwise_kronecker(bases)
         raw_penalties, ranks = (
             self._one_dimensional_penalties(basis.shape[1], base_penalties[0])
@@ -365,6 +397,14 @@ class AdaptiveSmoothTerm(BaseSmoothTerm):
             self.fixed = True
         penalty_scales = [penalty_rescale_factor(basis, S) for S in raw_penalties]
         penalties = [scale_penalty(basis, S) for S in raw_penalties]
+
+        # smoothCon scales penalties and forms its constraint on point locations,
+        # before summing the basis over each observation's quadrature locations.
+        constraint_row = basis.mean(axis=0)
+        if self._linear_functional:
+            basis = linear_functional_basis(
+                locations, weights, self._predict_point_basis
+            )
 
         factor_by = bool(self.metadata.get("factor_by", None))
         should_constrain = self.constraint_mode == "always" or (
@@ -407,7 +447,7 @@ class AdaptiveSmoothTerm(BaseSmoothTerm):
             basis, penalties, transform = apply_linear_constraint(
                 basis,
                 [] if self.fixed else penalties,
-                basis.mean(axis=0),
+                constraint_row,
             )
             basis = self._apply_cached_by(basis)
             constraint_kind = "factor_by" if factor_by else "sum_to_zero"
@@ -475,15 +515,38 @@ class AdaptiveSmoothTerm(BaseSmoothTerm):
         )
         return definitions
 
-    def transform_new(self, X_new):
-        self._require_fitted()
+    def _predict_point_basis(self, locations):
+        points = np.zeros((len(locations), max(self._feature_indices) + 1))
+        points[:, self._feature_indices] = locations
         blocks = [
             marginal.tensor_marginal_predict_matrix(
-                X_new, centered=False, np_transform=None
+                points, centered=False, np_transform=None
             )
             for marginal in self._marginals
         ]
-        basis = blocks[0] if self.dim == 1 else rowwise_kronecker(blocks)
+        return blocks[0] if self.dim == 1 else rowwise_kronecker(blocks)
+
+    def transform_new(self, X_new):
+        self._require_fitted()
+        locations = linear_functional_locations(X_new, self._feature_indices)
+        if self._linear_functional:
+            weights = by_values_from_new_data(X_new, self._by_state)
+            if locations.ndim == 3:
+                basis = linear_functional_basis(
+                    locations, weights, self._predict_point_basis
+                )
+            else:
+                basis = self._predict_point_basis(locations)
+                if weights is not None:
+                    if np.asarray(weights).ndim != 1:
+                        raise ValueError(
+                            "Pointwise by weights must have equal shape to locations."
+                        )
+                    basis = basis * np.asarray(weights)[:, None]
+            if self.constraint_transform is not None:
+                basis = basis @ self.constraint_transform
+            return np.asarray(basis, dtype=np.float64)
+        basis = self._predict_point_basis(locations)
         return self._apply_constraint_transform_and_by(basis, X_new)
 
 

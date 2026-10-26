@@ -25,8 +25,8 @@ class _PipelineCase:
     gam: GAM
 
 
-@pytest.fixture(scope="module")
-def pipeline_case() -> _PipelineCase:
+@pytest.fixture(scope="module", params=["gaussian", "quasi"])
+def pipeline_case(request) -> _PipelineCase:
     x = np.linspace(-1.25, 1.25, 96)
     z = 0.4 + np.cos(1.3 * x)
     off = 0.15 * np.sin(0.7 * x)
@@ -42,7 +42,7 @@ def pipeline_case() -> _PipelineCase:
         }
     )
     gam = GAM(
-        family="gaussian",
+        family=request.param,
         formula=_FORMULA,
         optimize_smoothing=False,
         smoothing_method="fixed",
@@ -213,6 +213,8 @@ def test_stage_6_fit_solution_is_consistent_with_compiled_design(pipeline_case):
     fit_summary = gam.fit_result(include_covariances=True)
     np.testing.assert_allclose(fit_summary.coef_full, result.coef_full)
     np.testing.assert_allclose(fit_summary.edf_total, result.trace_H)
+    if gam.family.name == "quasi":
+        assert np.isnan(gam.loglik()) and np.isnan(gam.aic()) and np.isnan(gam.bic())
 
 
 def test_stage_7_prediction_and_diagnostics_match_mgcv_and_fitted_state(
@@ -246,6 +248,9 @@ def test_stage_7_prediction_and_diagnostics_match_mgcv_and_fitted_state(
         atol=5e-16,
     )
 
+    # Constant-variance identity quasi has the same fixed-smoothing mean as
+    # Gaussian. Reuse that reference while checking quasi likelihood semantics
+    # independently in stage 6 (fresh quasi references live in tests/families).
     expected = _run_mgcv_predict_on_newdata(
         pipeline_case.data,
         newdata,

@@ -200,7 +200,13 @@ def predict_values(
         exclude=exclude_filter,
     )
 
-    offset_vec = resolve_prediction_offset(model, X, offset)
+    excluded_offset_terms = set(skip_term_ids) | {
+        term.term_id for group, keep in zip(groups, selected, strict=True)
+        if not keep for term in group["blocks"]
+    }
+    offset_vec = resolve_prediction_offset(
+        model, X, offset, skip_term_ids=excluded_offset_terms
+    )
     coef_full = np.asarray(_coef_full(model), dtype=np.float64)
     eta = Xp @ coef_full
     if offset_vec is not None:
@@ -223,7 +229,7 @@ def predict_values(
             np.column_stack(
                 [
                     (
-                        _group_term_contribution(model, Z_new, group)
+                        _group_term_contribution(model, Z_new, group, X=X)
                         if keep
                         else np.zeros(Z_new.shape[0], dtype=np.float64)
                     )

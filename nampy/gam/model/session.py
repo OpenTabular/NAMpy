@@ -14,6 +14,7 @@ _FIT_STATE_DEFAULTS = {
     "formula_mode_": False,
     "formula_response_name_": None,
     "formula_preprocess_state_": None,
+    "vis_training_data_": None,
     "feature_names": None,
     "X_": None,
     "y_": None,

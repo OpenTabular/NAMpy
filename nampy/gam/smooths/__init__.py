@@ -27,6 +27,8 @@ from .univariate.cr import CubicSplineTerm
 from .univariate.ds import DuchonSplineTerm
 from .univariate.gp import GaussianProcessTerm
 from .univariate.ps import PSplineTerm1D
+from .univariate.sc import ShapeConstrainedAdaptiveTerm, ShapeConstrainedBSplineTerm
+from .univariate.soap import SoapFilmTerm
 from .univariate.sos import SphericalSplineTerm
 from .univariate.tp import ThinPlateSplineTerm
 
@@ -72,6 +74,9 @@ __all__ = [
     "DuchonSplineTerm",
     "GaussianProcessTerm",
     "SphericalSplineTerm",
+    "SoapFilmTerm",
+    "ShapeConstrainedAdaptiveTerm",
+    "ShapeConstrainedBSplineTerm",
     "MarkovRandomFieldTerm",
     "DerivativeBSplineTerm1D",
     "AdaptiveSmoothTerm",

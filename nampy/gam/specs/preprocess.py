@@ -43,8 +43,19 @@ def apply_formula_preprocess_to_new_data(
     for item in preprocess_state.get("formula_expression_columns", []):
         if str(item["hidden_name"]) in skipped_outputs:
             continue
-        values, _src_vars = _evaluate_formula_numeric_expression(item["expr"], out)
-        out[item["hidden_name"]] = values
+        if "transform_state" in item:
+            from ..formula.transforms import evaluate_transform
+
+            values, _ = evaluate_transform(
+                item["expr"], out, state=item["transform_state"]
+            )
+        else:
+            values, _src_vars = _evaluate_formula_numeric_expression(item["expr"], out)
+        out[item["hidden_name"]] = (
+            list(values)
+            if isinstance(values, np.ndarray) and values.ndim == 2
+            else values
+        )
 
     for item in preprocess_state.get("parametric_expansions", []):
         if str(item["hidden_name"]) in skipped_outputs:
@@ -60,6 +71,12 @@ def apply_formula_preprocess_to_new_data(
 
             if comp["type"] == "numeric":
                 vals = vals * numeric_1d_values(out[src], name=src)
+            elif comp["type"] == "matrix":
+                vals *= np.asarray(list(out[src]), dtype=float)[:, comp["column"]]
+            elif comp["type"] == "contrast":
+                validate_factor_levels(src, comp["levels"])
+                codes = pd.Categorical(out[src], categories=comp["levels"]).codes
+                vals *= np.asarray(comp["scores"])[codes]
             elif comp["type"] == "factor":
                 validate_factor_levels(src, comp["levels"])
                 vals = vals * np.asarray(

@@ -1,0 +1,9 @@
+{
+  "namespace": "mgcv_formula_transforms",
+  "operation": "rhs-transforms-v1",
+  "generator": "tests/parity/test_mgcv_formula_transforms.py::_reference",
+  "upstream": ["mgcv::gam", "mgcv::predict.gam", "base::factor", "base::ordered", "base::interaction", "base::cut.default", "stats::poly", "stats::predict.poly", "stats::contr.poly"],
+  "refresh_command": "NAMPY_REFRESH_REFERENCE_FIXTURES=1 .venv/bin/python -m pytest tests/parity/test_mgcv_formula_transforms.py",
+  "normal_test_requires_R": false,
+  "outputs": ["training design", "new-data design", "prediction", "standard error", "Bayesian covariance"]
+}

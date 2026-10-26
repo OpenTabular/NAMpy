@@ -136,6 +136,11 @@ def _single_constraint_null_space_basis_r_qr(C, d: int | None = None):
     x = np.asarray(C.T.copy(), dtype=np.float64, order="F")
     qraux = np.zeros(1, dtype=np.float64)
 
+    # Homogeneous constraints are invariant to scale. Normalize first so the
+    # reflector remains valid even when squaring C would overflow/underflow.
+    magnitude = float(np.max(np.abs(x[:, 0])))
+    if magnitude:
+        x[:, 0] /= magnitude
     nrmxl = float(np.linalg.norm(x[:, 0]))
     if nrmxl == 0.0:
         return np.eye(q, dtype=np.float64), 0

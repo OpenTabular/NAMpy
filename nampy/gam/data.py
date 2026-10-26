@@ -6,6 +6,14 @@ import numpy as np
 import pandas as pd
 
 
+def feature_values_for_levels(values):
+    """Flatten scalar or array-valued cells for categorical level metadata."""
+    cells = np.asarray(values, dtype=object).reshape(-1)
+    if not any(np.asarray(value).ndim > 0 for value in cells):
+        return cells
+    return np.concatenate([np.asarray(value, dtype=object).reshape(-1) for value in cells])
+
+
 def coerce_X(
     model,
     X,
@@ -184,8 +192,18 @@ def coerce_formula_predict_inputs(
         for feature, info in factor_info.items():
             if feature not in X.columns:
                 continue
+            if (
+                not validate_structured_factor_levels
+                and feature in (getattr(term, "metadata", {}) or {}).get(
+                    "zero_unseen_factor_features", ()
+                )
+            ):
+                continue
             allowed = list(info.get("levels", ()))
-            observed = [value for value in pd.unique(X[feature]) if not pd.isna(value)]
+            observed = [
+                value for value in pd.unique(feature_values_for_levels(X[feature]))
+                if not pd.isna(value)
+            ]
             unseen = [value for value in observed if value not in allowed]
             if unseen:
                 raise ValueError(

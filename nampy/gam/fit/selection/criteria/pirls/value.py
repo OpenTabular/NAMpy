@@ -176,7 +176,7 @@ def criterion_ml_reml_pirls(model, y, log_sp, method):
 
 def criterion_p_ml_reml_pirls(model, y, log_sp, method):
     """Pearson-scale Laplace ML/REML from ``gam.fit3``."""
-    from .derivatives import _gdi1_kernel
+    from .derivatives import _fit3_pearson_scale_factor, _gdi1_kernel
 
     method = str(method).upper()
     if method not in {"P-ML", "P-REML"}:
@@ -192,10 +192,8 @@ def criterion_p_ml_reml_pirls(model, y, log_sp, method):
     mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     nobs = float(len(np.asarray(y)))
     ntrue = float(getattr(model, "n_true_", nobs) or nobs)
-    denom = ntrue - mp
-    if denom <= 0.0:
-        return np.inf
-    phi = float(kernel.P / denom)
+    factor = _fit3_pearson_scale_factor(model, y, sol, mp)
+    phi = float(kernel.P * factor)
     if not np.isfinite(phi) or phi <= 0.0:
         return np.inf
     weights = _prior_weights(model, np.asarray(y, dtype=np.float64))
@@ -273,7 +271,9 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
             if method == "REML":
                 objective -= 0.5 * mp * (np.log(2.0 * np.pi * phi) - np.log(gamma))
             return float(objective)
-        if family_name == "gamma":
+        if family_name in {"gamma", "inverse_gaussian"} or getattr(
+            model.family, "is_quasi", False
+        ):
             from .family_gamma import (
                 _gamma_profile_objective_curvature,
                 _solve_gamma_profile_scale,

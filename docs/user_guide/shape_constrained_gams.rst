@@ -148,6 +148,20 @@ Continuous quantile residuals are available with
 ``residuals(type="rquantile")`` in addition to ``deviance``, ``pearson``,
 ``scaled.pearson``, ``working``, and ``response``.
 
+``plot`` now follows SCAM-specific uncertainty and partial-residual semantics:
+default bands use two standard errors for curves and one for surfaces;
+partial residuals use normalized square-root IRLS weights. Bivariate term
+plots center effects on the plotting grid, while ``vis`` shows full-model
+conditional predictions. Shape-term uncertainty uses transformed coefficient
+covariance and ignores ``se_with_mean``.
+
+``qq(rep=200, seed=7)`` draws family-based quantiles and simulation envelopes.
+``plot_check(seed=7)`` draws four diagnostic panels; ``type="rquantile"`` is
+also supported. These displays return numerical data with Matplotlib figures.
+SCAM check panels do not run the GAM k-index test. NumPy seeds are reproducible
+but do not reproduce R's random-number stream. See
+:doc:`statistical_gams` for plotting-free preparation helpers and controls.
+
 For correlated Gaussian errors, see :doc:`../notebooks/correlated_errors`.
 
 Current boundaries

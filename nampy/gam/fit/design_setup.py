@@ -19,6 +19,7 @@ def compile_designs(model, X, feature_names):
         feature_names=feature_names,
         predictor_specs=model.predictor_specs,
         fit_intercept=model.fit_intercept,
+        para_pen=model.hparams.get("para_pen"),
         apply_side_conditions=bool(model.hparams.get("apply_side_conditions", True)),
         # Fixed internal tolerance: upstream gam.side has no user-facing
         # knob either (mgcv/R/mgcv.r:1266 hard-codes its call-site tol).

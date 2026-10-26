@@ -19,6 +19,16 @@ class BaseSmoothSpec:
 
 
 @dataclass(frozen=True)
+class SoapFilmSmoothSpec(BaseSmoothSpec):
+    """Bivariate soap film with supplied boundary loops and interior knots."""
+
+    bs: str = "so"
+    xt: Any = None
+    constraint_mode: str = "auto"
+    pc: Any = None
+
+
+@dataclass(frozen=True)
 class AdaptiveSmoothSpec(BaseSmoothSpec):
     """One- or two-dimensional adaptive P-spline smooth."""
 
@@ -66,6 +76,14 @@ class DerivativeBSplineSmoothSpec(BaseSmoothSpec):
     m: Any = None
     constraint_mode: str = "auto"
     pc: Any = None
+
+
+@dataclass(frozen=True)
+class ConstrainedBSplineSmoothSpec(DerivativeBSplineSmoothSpec):
+    """mgcv sc constructor; inequalities require the separate scasm fitter."""
+
+    bs: str = "sc"
+    xt: Any = None
 
 
 @dataclass(frozen=True)
@@ -187,6 +205,8 @@ class AlternativeTensorProductSmoothSpec(BaseSmoothSpec):
 
 
 SmoothSpec = Union[
+    ConstrainedBSplineSmoothSpec,
+    SoapFilmSmoothSpec,
     AdaptiveSmoothSpec,
     CubicRegressionSmoothSpec,
     CyclicCubicRegressionSmoothSpec,

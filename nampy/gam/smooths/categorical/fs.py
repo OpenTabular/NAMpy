@@ -14,7 +14,14 @@ from ...penalties import (
 from ...splines.basis.natparam import nat_param_type1
 from ..algebra import rowwise_kronecker
 from ..registry import make_basis_term
-from ..smooth_base import BaseSmoothTerm, by_values_from_new_data, column_as_object
+from ..smooth_base import (
+    BaseSmoothTerm,
+    by_values_from_new_data,
+    column_as_numeric_array,
+    column_as_object,
+    linear_functional_by_state,
+    linear_functional_locations,
+)
 from .categorical_utils import (
     as_object_1d,
     factor_indicator_matrix,
@@ -361,6 +368,11 @@ class _FactorSmoothBase(BaseSmoothTerm):
             if factor_levels_from_metadata(self.metadata, fname) is not None:
                 factor_feature_indices.append(idx)
                 factor_feature_names.append(fname)
+            elif any(np.asarray(value).ndim > 0 for value in col):
+                # Array-valued numeric cells are quadrature locations, not factors.
+                column_as_numeric_array(X, idx)
+                metric_feature_indices.append(idx)
+                metric_feature_names.append(fname)
             elif is_factor_like_vector(col):
                 factor_feature_indices.append(idx)
                 factor_feature_names.append(fname)
@@ -442,6 +454,54 @@ class _FactorSmoothBase(BaseSmoothTerm):
         return self._base_term.tensor_marginal_predict_matrix(X_new, centered=False)
 
 
+def _functional_factor_point_data(X, metric_indices, locations, by_state):
+    """Repeat vector factors alongside paired quadrature locations."""
+    n, width, _ = locations.shape
+    points = np.tile(np.asarray(X, dtype=object), (width, 1))
+    for coordinate, index in enumerate(metric_indices):
+        points[:, index] = locations[:, :, coordinate].reshape(-1, order="F")
+    if by_state.is_present:
+        points[:, by_state.feature_index] = 1.0
+    return points
+
+
+def _pack_functional_factor_data(points, feature_indices, metric_indices):
+    """ExtractData packing uses numeric coordinates *and* factor levels."""
+    if feature_indices[0] not in metric_indices:
+        return points, np.arange(len(points))
+    first = []
+    inverse = []
+    seen = {}
+    for row_index, row in enumerate(points):
+        key = tuple(
+            format(0.0 if row[index] == 0 else float(row[index]), ".15g")
+            if index in metric_indices
+            else row[index]
+            for index in feature_indices
+        )
+        if key not in seen:
+            seen[key] = len(first)
+            first.append(row_index)
+        inverse.append(seen[key])
+    if len(first) < 0.9 * len(points):
+        return points[np.asarray(first)], np.asarray(inverse)
+    return points, np.arange(len(points))
+
+
+def _sum_factor_functional_basis(basis, locations, weights):
+    n, width, _ = locations.shape
+    quadrature = (
+        np.ones((n, width)) if weights is None else np.asarray(weights, dtype=float)
+    )
+    if quadrature.shape != (n, width):
+        raise ValueError(
+            "Linear-functional feature locations and by weights must have equal shape."
+        )
+    return np.einsum(
+        "nq,nqk->nk", quadrature, np.asarray(basis).reshape(n, width, -1, order="F")
+    )
+
+
 class FSmoothInteractionTerm(_FactorSmoothBase):
     """
     mgcv-like bs="fs":
@@ -502,8 +562,36 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
 
         X = _as_object_2d(X)
         self._set_by_state(X, feature_names)
+        locations = linear_functional_locations(X, self._metric_feature_indices)
+        functional_weights = None
+        if locations.ndim == 3:
+            functional_weights = self._by_state.values
+            if functional_weights is None:
+                functional_weights = np.ones(locations.shape[:2])
+            if np.asarray(functional_weights).shape != locations.shape[:2]:
+                raise ValueError(
+                    "Linear-functional feature locations and by weights must have equal shape."
+                )
+            X = _functional_factor_point_data(
+                X, self._metric_feature_indices, locations, self._by_state
+            )
+            X, functional_index = _pack_functional_factor_data(
+                X, self._feature_indices, self._metric_feature_indices
+            )
+            self._by_state = linear_functional_by_state(
+                self._by_state, weights=functional_weights
+            )
 
         base_spec = _parse_factor_smooth_xt(self.xt, default_bs="tp")
+        if locations.ndim == 3 and base_spec.bs == "tp":
+            raise NotImplementedError(
+                "Matrix fs smooths with a tp base require unresolved natural-null-space "
+                "parameterization parity; use a validated cr or ps base."
+            )
+        if locations.ndim == 3 and base_spec.bs not in {"cr", "ps"}:
+            raise NotImplementedError(
+                "Matrix fs smooths currently support only validated cr and ps bases."
+            )
         # mgcv::smooth.construct.fs.smooth.spec calls smooth.construct on the
         # marginal spec without extra side constraints before duplicating by
         # factor level, so the base smooth must retain its full null space.
@@ -557,6 +645,10 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         if len(base_term.penalties) == 0:
             X_full = rowwise_kronecker([Ifac, B0])
             X_full = self._apply_cached_by(X_full)
+            if locations.ndim == 3:
+                X_full = _sum_factor_functional_basis(
+                    X_full[functional_index], locations, functional_weights
+                )
             self._basis_train = np.asarray(X_full, dtype=np.float64)
             self._penalties = []
             self._smoothing_ids = []
@@ -639,6 +731,10 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         )
 
         X_full = self._apply_cached_by(X_full)
+        if locations.ndim == 3:
+            X_full = _sum_factor_functional_basis(
+                X_full[functional_index], locations, functional_weights
+            )
         self._basis_train = np.asarray(X_full, dtype=np.float64)
         self._penalties = penalties
         self._smoothing_ids = smoothing_ids
@@ -653,6 +749,16 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             return self._delegate_term.transform_new(X_new)
 
         self._require_fitted()
+        locations = linear_functional_locations(X_new, self._metric_feature_indices)
+        if locations.ndim == 3:
+            points = _functional_factor_point_data(
+                X_new, self._metric_feature_indices, locations, self._by_state
+            )
+            return _sum_factor_functional_basis(
+                self.transform_new(points),
+                locations,
+                by_values_from_new_data(X_new, self._by_state),
+            )
 
         fac_idx = self._factor_feature_indices[0]
         fac = as_object_1d(column_as_object(X_new, fac_idx))
@@ -795,8 +901,31 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
 
         X = _as_object_2d(X)
         self._set_by_state(X, feature_names)
+        locations = linear_functional_locations(X, self._metric_feature_indices)
+        functional_weights = None
+        if locations.ndim == 3:
+            functional_weights = self._by_state.values
+            if functional_weights is None:
+                functional_weights = np.ones(locations.shape[:2])
+            if np.asarray(functional_weights).shape != locations.shape[:2]:
+                raise ValueError(
+                    "Linear-functional feature locations and by weights must have equal shape."
+                )
+            X = _functional_factor_point_data(
+                X, self._metric_feature_indices, locations, self._by_state
+            )
+            X, functional_index = _pack_functional_factor_data(
+                X, self._feature_indices, self._metric_feature_indices
+            )
+            self._by_state = linear_functional_by_state(
+                self._by_state, weights=functional_weights
+            )
 
         base_spec = _parse_factor_smooth_xt(self.xt, default_bs="tp")
+        if locations.ndim == 3 and base_spec.bs not in {"cr", "ps", "tp"}:
+            raise NotImplementedError(
+                "Matrix sz smooths currently support only validated cr, ps and tp bases."
+            )
         base_term = _build_base_smooth_term(
             metric_features=self._metric_feature_names,
             k=self.k,
@@ -849,10 +978,21 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         level_sizes = [len(lev) for lev in level_lists]
         self._n_groups = int(np.prod(level_sizes, dtype=np.int64))
         T = _sum_to_zero_contrast_transform(level_sizes, p0)
+        # smoothCon removes even the special sz contrast when a varying
+        # numeric by variable makes the term identifiable without it.
+        if self._by_state.is_present or functional_weights is not None:
+            by = (
+                np.sum(functional_weights, axis=1)
+                if functional_weights is not None
+                else np.asarray(self._by_state.values, dtype=float)
+            )
+            sd = float(np.std(by, ddof=1)) if by.size > 1 else 0.0
+            if sd > float(np.mean(by)) * np.finfo(float).eps * 1000:
+                T = np.eye(self._n_groups * p0)
         self._factor_transform = T
 
         if T.shape[1] == 0:
-            self._basis_train = np.empty((X_raw.shape[0], 0), dtype=np.float64)
+            self._basis_train = np.empty((locations.shape[0], 0), dtype=np.float64)
             self._penalties = []
             self._smoothing_ids = []
             self._ranks = []
@@ -864,6 +1004,10 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
 
         if self.fixed or len(base_term.penalties) == 0:
             X_con = self._apply_cached_by(X_con)
+            if locations.ndim == 3:
+                X_con = _sum_factor_functional_basis(
+                    X_con[functional_index], locations, functional_weights
+                )
             self._basis_train = np.asarray(X_con, dtype=np.float64)
             self._penalties = []
             self._smoothing_ids = []
@@ -915,6 +1059,10 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             self._set_penalty_rescale_factors([])
 
         X_con = self._apply_cached_by(X_con)
+        if locations.ndim == 3:
+            X_con = _sum_factor_functional_basis(
+                X_con[functional_index], locations, functional_weights
+            )
         self._basis_train = np.asarray(X_con, dtype=np.float64)
         self._penalties = penalties
         self._smoothing_ids = smoothing_ids
@@ -928,6 +1076,16 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             return self._delegate_term.transform_new(X_new)
 
         self._require_fitted()
+        locations = linear_functional_locations(X_new, self._metric_feature_indices)
+        if locations.ndim == 3:
+            points = _functional_factor_point_data(
+                X_new, self._metric_feature_indices, locations, self._by_state
+            )
+            return _sum_factor_functional_basis(
+                self.transform_new(points),
+                locations,
+                by_values_from_new_data(X_new, self._by_state),
+            )
 
         indicator_mats = []
         invalid_factor_row = np.zeros(len(X_new), dtype=bool)
@@ -945,7 +1103,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         X_raw = rowwise_kronecker(indicator_mats + [B0_new])
 
         if self._factor_transform.shape[1] == 0:
-            return np.empty((X_raw.shape[0], 0), dtype=np.float64)
+            return np.empty((locations.shape[0], 0), dtype=np.float64)
 
         B_new = X_raw @ self._factor_transform
         z = by_values_from_new_data(X_new, self._by_state)

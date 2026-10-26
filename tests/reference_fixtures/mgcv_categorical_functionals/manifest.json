@@ -1,0 +1,40 @@
+{
+  "namespace": "mgcv_categorical_functionals",
+  "upstream": {
+    "R": "4.6.1",
+    "mgcv": "1.9-4"
+  },
+  "sources": [
+    {
+      "path": "nampy_notes/upstreams/mgcv/R/smooth.r",
+      "sha256": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d"
+    },
+    {
+      "path": "tests/smooths/probes/mgcv_categorical_functionals.R",
+      "sha256": "7c3aa7c6eae4800f876c31fb5918e50ea33bc37ad48990b8c15f775548445df8"
+    }
+  ],
+  "functions": [
+    "smooth.construct.re.smooth.spec",
+    "smooth.construct.mrf.smooth.spec",
+    "ExtractData",
+    "smoothCon",
+    "PredictMat"
+  ],
+  "fixture_count": 1,
+  "cases": 42,
+  "generation": "NAMPY_REFRESH_REFERENCE_FIXTURES=1 pytest tests/smooths/test_mgcv_categorical_functionals.py -k upstream",
+  "coverage": [
+    "numeric RE",
+    "numeric interaction RE",
+    "factor RE",
+    "numeric-factor RE",
+    "factor-factor RE",
+    "full-rank MRF",
+    "reduced-rank MRF",
+    "fixed and REML",
+    "weighted, unit and constant-row-sum matrix functionals",
+    "zero prior and quadrature weights",
+    "prediction covariance and penalties aligned by observed basis"
+  ]
+}

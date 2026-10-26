@@ -52,9 +52,7 @@ def _quantile_residuals(model, y, mu, weights, *, seed=None) -> np.ndarray:
     return np.asarray(norm.ppf(cdf), dtype=np.float64)
 
 
-def residuals_gam(
-    model, type: str = "deviance", *, setseed=None
-) -> np.ndarray:
+def residuals_gam(model, type: str = "deviance", *, setseed=None) -> np.ndarray:
     """Compute response, working, Pearson, deviance, or quantile residuals."""
 
     _require_fitted(model)
@@ -105,9 +103,7 @@ def residuals_gam(
         return np.asarray(y.reshape(-1, 1) - fitted, dtype=np.float64).ravel()
     if type == "working":
         if has_transformed_coefficients(model):
-            return np.asarray(
-                (y - mu) / model.family.mu_eta(eta), dtype=np.float64
-            )
+            return np.asarray((y - mu) / model.family.mu_eta(eta), dtype=np.float64)
         fit_state = _fit_state(model)
         z_work = (
             None if fit_state is None else getattr(fit_state, "working_response", None)
@@ -115,6 +111,13 @@ def residuals_gam(
         if z_work is not None:
             z_work = np.asarray(z_work, dtype=np.float64).ravel()
             offset = None if fit_state is None else getattr(fit_state, "offset", None)
+            if str(getattr(model.family, "name", "")) == "binomial" or getattr(model.family, "is_quasi", False):
+                # gam.fit3: residuals[good] <- z - (eta - offset)[good].
+                result = z_work - eta
+                if offset is not None:
+                    result += np.asarray(offset, dtype=np.float64).ravel()
+                result[w == 0] = np.nan
+                return result
             if (
                 str(getattr(getattr(model, "family", None), "name", "")).lower()
                 == "gaussian"

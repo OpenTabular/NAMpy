@@ -43,7 +43,7 @@ The public statistical engine covers:
   Gaussian-process, adaptive, spherical, and shape-constrained bases;
 * fixed smoothing and supported GCV, UBRE/Cp, ML, REML, P-ML, P-REML,
   LAML, NCV, and QNCV selection routes;
-* ordinary, discrete, ordered-categorical, and supported multi-parameter
+* ordinary, quasi, discrete, ordered-categorical, and supported multi-parameter
   response families;
 * response, link, term, interaction, and linear-predictor-matrix prediction,
   including supported conditional and unconditional uncertainty;
@@ -131,10 +131,31 @@ Guarded boundaries
 
 The following combinations remain unsupported and fail explicitly:
 
+* shape inequalities requested through mgcv's newer ``sc``/``scad`` bases;
+  these need its separate ``scasm`` fitter. Their unconstrained constructor
+  branches are available. SCAM's existing constrained bases remain separate;
+* ``so`` and multi-penalty ``sf`` tensor/factor-smooth margins, full-rank ``sw``
+  inside ``fs``, and soap factor nesting with matrix coordinates. Single-penalty
+  ``sf``/``sw`` tensor margins, ordinary-input ``fs`` with ``sf``, and ``sz``
+  with ``sf``/``sw`` are supported; see :ref:`soap-film-smooths`;
+* known-boundary ``so``/``sf`` matrix fits, which fail during upstream offset
+  aggregation, and weighted 2D adaptive matrix fits, whose upstream prediction
+  drops the ``by`` variable. Free-boundary soap matrix fits, 1D adaptive matrix
+  fits, and unit-weight 2D adaptive matrix fits are supported;
+* matrix ``fs`` terms with the default ``tp`` base, because natural-parameter
+  null-space orientation parity remains unresolved. Explicit ``cr`` and ``ps``
+  bases support matrix functionals with a scalar group factor;
+* linked matrix-valued tensor ``id`` groups and matrix pooling combinations
+  without an implemented setup path; basis-specific guards remain authoritative;
+* repeated-location ``cs`` matrix fits requiring setup packing: unequal
+  penalties on the nominal null space can amplify platform-dependent
+  eigenvector orientation into different REML fits. This is an unresolved
+  NAMpy parity restriction, rather than an upstream constructor rejection;
 * automatic ML, REML, or LAML selection for transformed SCAM models;
 * automatic smoothing for transformed models with several linear predictors;
 * ordinary-GAM ``nlm.fd`` and ``magic`` outside its Gaussian
   GCV/UBRE/Cp performance-iteration route;
+* inverse-Gaussian and quasi EFS selection on the joint smoothing/scale route;
 * AR(1) likelihood selection outside supported Gaussian identity models with
   unknown scale;
 * NCV/QNCV for general and extended families, and the optional post-fit
@@ -164,7 +185,86 @@ Both interfaces accept formulas, but they serve different workflows:
      - You want estimator conventions such as ``score``, cloning, and a
        matrix-or-formula ``fit`` workflow.
    * - :class:`nampy.models.GAMClassifier`
-     - Automatic REML smoothing selection for a binary binomial model.
+     - Automatic REML smoothing selection for a binary binomial or quasibinomial model.
      - You want class labels, probabilities, and estimator conventions.
 
 For a first complete analysis, continue with :doc:`tutorials/first_gam`.
+
+Additional workflow coverage
+----------------------------
+
+Grouped-binomial ``cbind(success, failure)`` and two-column array responses
+retain trial counts for initialization, likelihood and prediction semantics.
+Inverse Gaussian supports ``1/mu^2``, inverse, log and identity links. Static
+mgcv references exercise numerical family functions and public fit outputs.
+
+Quasipoisson, quasibinomial and general quasi families support nine named
+links; general quasi supports five variance functions and numeric power links.
+Static references cover family derivatives and boundary behavior, fixed and
+optimized fits, weights, offsets, grouped fractional quasibinomial responses,
+predictions and covariance. ML/REML selection uses extended quasi-likelihood;
+public log likelihood, AIC and BIC are ``NaN``. Distribution-dependent
+randomized quantile residuals and custom R variance/link closures are
+unavailable. See :doc:`user_guide/statistical_gams` for constructors and domains.
+
+Fitted ``factor``, ``ordered``, ``interaction``, ``cut`` and ``poly``
+transformations support merged factor labels, automatic cut breaks/labels, and
+multivariate polynomials. Polynomial recurrence state persists for prediction;
+scalar cut breaks and implicit factor-label mappings follow R reevaluation
+semantics. Unsupported R options and unseen levels are rejected. These
+functions do not imply general R evaluation.
+
+MRF polygon-map effects are compared with ``plot.mrf.smooth``; the display uses
+Matplotlib. Derivative plots reuse the supported derivative API and pointwise
+Bayesian uncertainty. GP/SOS and other bases without derivative providers,
+and new-data SCAM derivatives, remain unsupported.
+
+Conditional prediction surfaces and SOS hemispheres use the upstream grid,
+conditioning, rotation and masking rules. ``GAM.vis`` supports link/response
+predictions, factors, selected linear predictors and pointwise SE surfaces;
+``GAM.plot`` supports SOS hemisphere schemes 0/1 and generic schemes 2+.
+Static fixtures compare data from ``vis.gam`` and ``plot.sos.smooth``; graphics
+use Matplotlib rather than reproducing R device output.
+
+Matrix-functional validation
+----------------------------
+
+Committed references compare numeric, categorical, adaptive and soap matrix
+functionals, including numeric/factor random-effect interactions and full or
+reduced-rank MRFs. They check fixed and REML fits, observation and quadrature
+weights, prediction covariance kernels, EDF, smoothing parameters, aligned
+penalties and persistence. Repeated-location fixtures test mgcv's setup packing
+and constraint ordering. The ``cs`` packing restriction above records a real
+fitted-value discrepancy; it is not hidden by broader tolerances.
+
+``fs`` matrix terms with ``cr``/``ps`` bases and scalar group factors, and
+``sz`` matrix terms with ``tp``/``cr``/``ps`` bases and one or more scalar
+factor columns, have separate references. Tensor tests cover paired coordinates and summation of
+pointwise products, including numeric/factor random-effect margins with one
+precision penalty. Multiple random-effect precision matrices remain rejected
+as tensor margins. These checks establish the documented combinations,
+not arbitrary nesting or every family/basis combination. See
+:ref:`matrix-functional-smooths` and the runnable
+``examples/example_matrix_functionals.py`` example.
+
+Diagnostics and penalty controls
+--------------------------------
+
+``GAM.qq`` and ``GAM.plot_check`` implement family QQ/envelope and four-panel
+check data. Shape-constrained fits use SCAM-specific term uncertainty, partial
+residuals and check behavior. Static mgcv/SCAM comparisons cover numerical
+coordinates and envelopes, not pixel-identical graphics. NumPy and R seeds do
+not imply identical random streams; parity fixtures share explicit permutations
+or response draws. Existing ``gam_check`` numerical reports remain available.
+
+``para_pen`` supports multiple matrices per original parametric term, supplied
+ranks, fixed/estimated smoothing and shared one-hot ``L`` maps. Arbitrary ``L``
+maps and multi-formula parametric penalties are unavailable. In aliased models,
+individual smoothing parameters and coefficient covariance allocations need not
+be uniquely identified; compare estimable fitted functions and their covariance.
+
+Explicit homogeneous constraints and raw/absorbed ``smooth_con`` construction
+are available for ``cr/cs/cc/ps/cp`` without ``by``, ``pc`` or linked IDs.
+Other bases/compositions and cancelling constraint-column sums are rejected.
+Absorption can be disabled for construction inspection, but never for fitted
+GAMs. See :doc:`user_guide/statistical_gams` for matrix coordinates and ordering.

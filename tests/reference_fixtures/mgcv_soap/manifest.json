@@ -1,0 +1,13 @@
+{
+  "namespace": "mgcv_soap",
+  "operation": "soap-end-to-end-v1",
+  "upstream_package": "mgcv",
+  "upstream_version": "Recorded in each fixture's version field",
+  "upstream_sources": ["R/soap.r", "src/soap.c", "R/smooth.r", "R/mgcv.r"],
+  "upstream_functions": ["smooth.construct.so.smooth.spec", "smooth.construct.sf.smooth.spec", "smooth.construct.sw.smooth.spec", "Predict.matrix.soap.film", "Predict.matrix.sf.film", "Predict.matrix.sf.wiggly", "smoothCon", "gam", "predict.gam"],
+  "generator": "tests/smooths/test_mgcv_soap_parity.py::_reference",
+  "refresh_command": "NAMPY_REFRESH_REFERENCE_FIXTURES=1 .venv/bin/python -m pytest tests/smooths/test_mgcv_soap_parity.py",
+  "normal_test_requires_R": false,
+  "identity": "SHA-256 of operation and case payload using tests.reference_fixtures.reference_key(normalize_floats=True)",
+  "outputs": ["raw design and penalties", "penalty ranks and null space", "smoothCon design and penalties", "new-data design", "coefficients", "Bayesian and frequentist covariance", "smoothing parameters", "EDF", "fitted values", "predictions and standard errors", "linear predictor matrix"]
+}

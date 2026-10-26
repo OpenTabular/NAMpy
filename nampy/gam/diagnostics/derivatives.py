@@ -98,4 +98,61 @@ def smooth_derivative(model, *, X=None, smooth_number: int = 1, deriv: int = 1):
     )
 
 
-__all__ = ["SmoothDerivativeResult", "smooth_derivative"]
+def prepare_derivative_plot(model, *, X=None, smooth_number=1, deriv=1, level=0.95):
+    """Prepare a sorted derivative curve with a pointwise Bayesian band.
+
+    Uses observed rows by default, preserving the training-only SCAM
+    derivative contract. The horizontal axis is the smooth's covariate,
+    including any fitted formula transformation.
+    """
+    from scipy.stats import norm
+
+    if not 0 < float(level) < 1:
+        raise ValueError("level must be strictly between zero and one.")
+    result = smooth_derivative(model, X=X, smooth_number=smooth_number, deriv=deriv)
+    smooths = [t for t in _term_blocks_seq(model) if t.term_type != "parametric"]
+    term = smooths[int(smooth_number) - 1]
+    idx = int(term.feature_info.feature_indices[0])
+    rows = np.asarray(model.X_ if X is None else X)
+    x = np.asarray(rows[:, idx], dtype=float)
+    order = np.argsort(x, kind="stable")
+    fit, se = result.derivative[order], result.se[order]
+    width = norm.ppf((1 + float(level)) / 2) * se
+    names = getattr(model, "formula_feature_columns_", None)
+    xlab = str(names[idx]) if names is not None else f"x{idx}"
+    state = getattr(model, "formula_preprocess_state_", None) or {}
+    for expression in state.get("formula_expression_columns", []):
+        if expression["hidden_name"] == xlab:
+            xlab = expression["expr"]
+            break
+    return {
+        "pd": [
+            {
+                "kind": "1d",
+                "x": x[order],
+                "fit": fit,
+                "se_fit": se,
+                "ll": (fit - width)[:, None],
+                "ul": (fit + width)[:, None],
+                "raw": x,
+                "plot_ci": True,
+                "plot_me": True,
+                "scheme": 1,
+                "zero_line": True,
+                "xlab": xlab,
+                "ylab": f"Derivative (order {deriv})",
+                "main": result.term_label,
+                "level": float(level),
+            }
+        ],
+        "trans": lambda values: values,
+        "shift": 0.0,
+        "ylim": None,
+        "select": None,
+        "partial_resids": False,
+        "jit": False,
+        "rug_default": False,
+    }
+
+
+__all__ = ["SmoothDerivativeResult", "smooth_derivative", "prepare_derivative_plot"]

@@ -61,8 +61,9 @@ The array API cannot express this joint two-coordinate term, so SOS models use
 the formula interface.  The ``m=-1`` null space is four-dimensional; combining
 that order with an ``fs`` factor smooth is rejected because the corresponding
 upstream penalty split is LAPACK-orientation dependent.  Upstream SOS smooths
-also do not define derivative matrices, and NAMpy does not expose the
-hemisphere-specific ``plot.gam`` schemes 0 and 1 through its generic plotter.
+also do not define derivative matrices. ``model.plot(scheme=0)`` and
+``scheme=1`` provide rotated hemisphere displays; ``theta`` and ``phi``
+control the view, with numerical grids checked against mgcv.
 
 Shape-constrained smooths
 -------------------------

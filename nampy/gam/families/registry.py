@@ -15,9 +15,11 @@ from .gamlss.gammals import gammals
 from .gamlss.gaulss import gaulss
 from .gamma import GammaIdentityFamily, GammaInverseFamily, GammaLogFamily
 from .gaussian import GaussianIdentityFamily, GaussianInverseFamily, GaussianLogFamily
+from .inverse_gaussian import InverseGaussianFamily
 from .negbin import NegativeBinomialLogFamily
 from .ocat import OrderedCategoricalFamily
 from .poisson import PoissonIdentityFamily, PoissonLogFamily, PoissonSqrtFamily
+from .quasi import QuasiBinomialFamily, QuasiFamily, QuasiPoissonFamily
 from .tweedie import TweedieTwFamily
 
 _BINOMIAL_LINK_MAP = {
@@ -74,6 +76,19 @@ def clone_gam_family(family: BaseFamily) -> BaseFamily:
     return cloned
 
 
+def _make_quasi_family(name, options):
+    classes = {
+        "quasi": QuasiFamily,
+        "quasipoisson": QuasiPoissonFamily,
+        "quasibinomial": QuasiBinomialFamily,
+    }
+    allowed = {"link", "variance", "power"} if name == "quasi" else {"link"}
+    unknown = set(options) - allowed
+    if unknown:
+        raise ValueError(f"Unsupported {name} options: {', '.join(sorted(unknown))}.")
+    return classes[name](**options)
+
+
 def make_gam_family(family):
     if isinstance(family, BaseFamily):
         return clone_gam_family(family)
@@ -83,6 +98,8 @@ def make_gam_family(family):
 
     if isinstance(family, dict):
         name = str(family.get("name", "")).lower()
+        if name in {"quasi", "quasipoisson", "quasibinomial"}:
+            return _make_quasi_family(name, {k: v for k, v in family.items() if k != "name"})
         link = str(family.get("link", "")).lower() or None
         if name in {"nb"}:
             theta = family.get("theta", 1.0)
@@ -159,6 +176,8 @@ def make_gam_family(family):
                     f"Supported: {', '.join(sorted(_POISSON_LINK_MAP))}."
                 ) from None
             return cls()
+        if name in {"inverse_gaussian", "inverse.gaussian", "inversegaussian"}:
+            return InverseGaussianFamily(link=link or "1/mu^2")
         if name in {"gamma"}:
             resolved = (link or "inverse").lower()
             try:
@@ -174,6 +193,8 @@ def make_gam_family(family):
     if isinstance(family, tuple) and len(family) == 2:
         key = str(family[0]).lower()
         spec = family[1]
+        if key in {"quasi", "quasipoisson", "quasibinomial"}:
+            return _make_quasi_family(key, spec if isinstance(spec, dict) else {"link": spec})
         if key in {"gaussian", "normal"}:
             link_spec = (
                 str(spec.get("link", "identity")).lower()
@@ -213,6 +234,9 @@ def make_gam_family(family):
                     f"Unknown poisson link {link_spec!r}. "
                     f"Supported: {', '.join(sorted(_POISSON_LINK_MAP))}."
                 ) from None
+        if key in {"inverse_gaussian", "inverse.gaussian", "inversegaussian"}:
+            link_spec = spec.get("link", "1/mu^2") if isinstance(spec, dict) else spec
+            return InverseGaussianFamily(link=link_spec)
         if key in {"gamma"}:
             link_spec = (
                 str(spec.get("link", "inverse")).lower()
@@ -291,8 +315,12 @@ def make_gam_family(family):
         return GaussianIdentityFamily()
     if key in {"binomial", "bernoulli", "logistic"}:
         return BinomialLogitFamily()
+    if key in {"quasi", "quasipoisson", "quasibinomial"}:
+        return _make_quasi_family(key, {})
     if key in {"poisson"}:
         return PoissonLogFamily()
+    if key in {"inverse_gaussian", "inverse.gaussian", "inversegaussian"}:
+        return InverseGaussianFamily()
     if key in {"gamma"}:
         return GammaInverseFamily()
     if key in {"negbin", "negativebinomial", "negative_binomial"}:
@@ -309,6 +337,6 @@ def make_gam_family(family):
         return gammals()
     raise ValueError(
         f"Unknown GAM family {family!r}. "
-        "Valid options: gaussian, binomial, poisson, gamma, nb, negbin, tw, "
-        "betar, gaulss, gammals."
+        "Valid options: gaussian, binomial, poisson, gamma, inverse_gaussian, nb, negbin, tw, "
+        "betar, gaulss, gammals, quasi, quasipoisson, quasibinomial."
     )

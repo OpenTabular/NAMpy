@@ -37,6 +37,7 @@ from ..smooth_base import (
     column_as_numeric_array,
     linear_functional_basis,
     linear_functional_by_state,
+    linear_functional_setup_points,
 )
 
 
@@ -168,20 +169,37 @@ class CubicSplineTerm(BaseSmoothTerm):
 
         x_values = column_as_numeric_array(X, idx)
         self._linear_functional = np.asarray(x_values).ndim == 2
-        xj = np.asarray(x_values, dtype=np.float64).reshape(-1)
+        xj = (
+            linear_functional_setup_points(np.asarray(x_values)[:, :, None])[0][:, 0]
+            if self._linear_functional
+            else np.asarray(x_values, dtype=np.float64).reshape(-1)
+        )
+
+        if (
+            self._linear_functional
+            and self.basis_name == "cs"
+            and len(xj) < np.asarray(x_values).size
+        ):
+            raise NotImplementedError(
+                "Matrix cs terms with packed repeated locations are unsupported: "
+                "unequal null-space shrinkage orientation parity remains unresolved. "
+                "This is a NAMpy limitation, not an mgcv input restriction."
+            )
 
         self._set_by_state(X, feature_names)
         if self._linear_functional:
-            if self._by_state is None or np.asarray(self._by_state.values).ndim != 2:
-                raise ValueError(
-                    "Cubic linear-functional terms require matrix-valued by weights."
-                )
-            by_weights = np.asarray(self._by_state.values, dtype=np.float64)
+            by_weights = (
+                np.ones_like(x_values, dtype=np.float64)
+                if self._by_state.values is None
+                else np.asarray(self._by_state.values, dtype=np.float64)
+            )
             if by_weights.shape != np.asarray(x_values).shape:
                 raise ValueError(
                     "Linear-functional feature locations and by weights must have equal shape."
                 )
-            self._by_state = linear_functional_by_state(self._by_state)
+            self._by_state = linear_functional_by_state(
+                self._by_state, weights=by_weights
+            )
 
         self._pc_value = None
 
@@ -256,14 +274,25 @@ class CubicSplineTerm(BaseSmoothTerm):
                     by_weights,
                     self._spline.transform_new_raw,
                 )
-                self._basis_train = np.asarray(raw_base, dtype=np.float64)
-                self._penalties = (
-                    []
-                    if self.fixed
-                    else [np.asarray(self._main_penalty(raw=True), dtype=np.float64)]
+                result = fit_single_penalty_with_setup_basis(
+                    raw_base,
+                    self._spline.raw_basis,
+                    self._main_penalty(raw=True),
+                    self._by_state,
+                    constraint_mode=self.constraint_mode,
+                    fixed=self.fixed,
+                    auto_constrain_when=True,
                 )
+                self._basis_train = result.basis_train
+                self._penalties = result.penalties
                 self._use_centered_basis = False
-                self._record_constraint_result(None, None, absorbed_by=None)
+                self._record_constraint_result(
+                    result.constraint_kind,
+                    result.constraint_transform,
+                    absorbed_by="runtime"
+                    if result.constraint_transform is not None
+                    else None,
+                )
                 return self
 
             if self.pc is not None:
@@ -422,7 +451,7 @@ class CubicSplineTerm(BaseSmoothTerm):
             else point_base
         )
         setup_base = (
-            cyclic_cubic_predict_matrix(setup_x, k, BD) if pooled_setup else base
+            cyclic_cubic_predict_matrix(setup_x, k, BD) if pooled_setup else point_base
         )
 
         self._cc_knots = np.asarray(k, dtype=np.float64)
@@ -430,9 +459,7 @@ class CubicSplineTerm(BaseSmoothTerm):
 
         S_raw = D.T @ BD
         S_sym = 0.5 * (S_raw + S_raw.T)
-        self._set_penalty_rescale_factors(
-            [penalty_rescale_factor(setup_base, S_sym)]
-        )
+        self._set_penalty_rescale_factors([penalty_rescale_factor(setup_base, S_sym)])
         main_penalty = scale_penalty(setup_base, S_sym)
 
         if self.pc is not None:
@@ -524,7 +551,7 @@ class CubicSplineTerm(BaseSmoothTerm):
 
         xj = column_as_numeric_array(X_new, self._feature_index)
 
-        if self._linear_functional:
+        if self._linear_functional and np.asarray(xj).ndim == 2:
             weights = by_values_from_new_data(X_new, self._by_state)
             if self.basis_name == "cc":
                 B = linear_functional_basis(
@@ -535,9 +562,7 @@ class CubicSplineTerm(BaseSmoothTerm):
                     ),
                 )
             else:
-                B = linear_functional_basis(
-                    xj, weights, self._spline.transform_new_raw
-                )
+                B = linear_functional_basis(xj, weights, self._spline.transform_new_raw)
             if self.constraint_transform is not None:
                 B = B @ self.constraint_transform
             return np.asarray(B, dtype=np.float64)

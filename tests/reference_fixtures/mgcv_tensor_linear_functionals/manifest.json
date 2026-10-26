@@ -1,0 +1,30 @@
+{
+  "namespace": "mgcv_tensor_linear_functionals",
+  "upstream": {
+    "mgcv": "1.9-4",
+    "R": "4.6.1"
+  },
+  "sources": [
+    {
+      "path": "nampy_notes/upstreams/mgcv/R/smooth.r",
+      "sha256": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d"
+    },
+    {
+      "path": "nampy_notes/upstreams/mgcv/R/soap.r",
+      "sha256": "5e9651df5ae13bf998cdcf49921e687a3bec6c5c03810f4a49f0a2e2c944ef59"
+    }
+  ],
+  "fixture_files": 2,
+  "reference_cases": 138,
+  "probes": [
+    "mgcv_tensor_linear_functionals.R",
+    "mgcv_tensor_soap_functional.R"
+  ],
+  "generation": "Fresh actual R mgcv fits before implementation; NAMPY_REFRESH_REFERENCE_FIXTURES=1 only, ordinary tests read static snapshots.",
+  "coverage": "te/ti/t2: six ordinary margins cr/ps/bs/tp/ds/gp, fixed and REML, unit/matrix/constant-row-sum weights, nonuniform repeated paired locations; weighted sf/sw plus cr margins fixed and REML. Predictions, SE, covariance kernels, EDF, SP, fitted-coordinate penalty forms.",
+  "limitations": [
+    "Linked tensor matrix arguments explicitly unsupported pending shared linked setup.",
+    "Known-boundary soap matrix offsets remain unsupported upstream.",
+    "re marginals remain outside current tensor descriptor support."
+  ]
+}

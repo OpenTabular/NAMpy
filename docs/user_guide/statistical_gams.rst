@@ -141,6 +141,53 @@ For a modeling-question-first introduction with fitted plots, see
      - Numeric transformations evaluated from data columns.
      - ``y ~ s(log(x)) + I(z**2)``
 
+Fitted formula transformations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``factor(group)`` uses treatment coding; ``ordered(group)`` uses R-style
+orthogonal polynomial contrasts. Both accept explicit ``levels`` and ``labels``;
+repeated labels merge levels. Supply explicit levels when supplying labels to
+make their mapping stable across new-data subsets. ``interaction(a, b)``
+constructs a factor, with ``drop``, ``sep`` and ``lex_order`` options.
+
+``poly(x, 3)`` produces three orthogonal polynomial columns;
+``poly(x, 3, raw=True)`` produces ordinary powers. For multivariate polynomials,
+use ``poly(cbind(x, z), degree=2)``; orthogonal recurrence coefficients are
+retained for prediction and persistence. The alternative ``poly(x, z,
+degree=2)`` follows R's positional-argument rules, which can fail on single-row
+prediction; the ``cbind`` form avoids that ambiguity.
+
+``cut(x, breaks=[0, 1, 2], labels=["low", "high"], include_lowest=True)``
+uses explicit bins. ``cut(x, breaks=4)`` selects equal-width intervals and
+creates R-style interval labels. Use ``labels=False`` for numeric bin codes.
+As in R, a scalar break count recomputes the range on each evaluation batch;
+new labels may then fail the fitted model's factor-level check. Use explicit
+break points and labels for stable prediction bins.
+
+Unseen factor values and values outside supplied cut breaks are rejected
+explicitly; prediction rows with missing inputs follow ``na_action``. These
+functions form a supported formula subset, not an arbitrary R evaluator.
+
+Grouped binomial responses
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use two response columns with the low-level statistical GAM:
+
+.. code-block:: python
+
+   model = GAM(
+       formula="cbind(success, failure) ~ s(x, bs='ps', k=8)",
+       family="binomial",
+       optimize_smoothing=True,
+       smoothing_method="REML",
+   ).fit(data=df)
+   probability = model.predict(df, type="response")
+
+The array API also accepts an ``(n, 2)`` response in success/failure order.
+Trial counts multiply any observation weights, and zero-trial rows contribute
+zero weight. Predictions remain success probabilities. ``GAMClassifier``
+continues to require one binary class label per row; grouped counts use ``GAM``.
+
 Smooth options
 --------------
 
@@ -183,6 +230,29 @@ Shape constraints use the same ``s(..., bs=...)`` syntax as ordinary
 smooths. See :doc:`shape_constrained_gams` for the modeling workflow and
 :ref:`shape-constrained-basis-codes` for the exhaustive code inventory.
 
+Matrix-valued linear functionals
+--------------------------------
+
+Store each observation's evaluation locations as an array-valued DataFrame
+cell. ``s(X, Z, by=L, bs='tp')`` sums the smooth over paired locations using
+quadrature weights from ``L``. All coordinate and weight rows must have the
+same width. Omitting ``by`` uses unit weights; ``sample_weight`` separately
+weights observations. New-data rows can use a different quadrature width.
+
+Numeric and factor random effects and full/reduced-rank MRFs also support this
+summation convention. Use lists of labels for categorical matrix cells.
+For ``fs`` functionals, the group factor remains scalar per observation and
+an explicitly selected ``cr`` or ``ps`` base is supported. ``sz`` accepts
+``tp``, ``cr`` and ``ps`` bases with one or more scalar factor columns per
+observation. Tensor functionals
+sum products evaluated at each paired location.
+
+Run ``python examples/example_matrix_functionals.py`` from a source checkout
+for complete surface and tensor fits with prediction standard errors.
+See :ref:`matrix-functional-smooths` for basis-specific compositions, repeated
+location packing, and explicit restrictions on shrinkage, soap offsets,
+adaptive terms and linked tensor groups.
+
 Families and links
 ------------------
 
@@ -205,6 +275,15 @@ Families and links
    * - ``Gamma``
      - Inverse, log, and identity.
      - ``GAM(family="Gamma")``
+   * - ``inverse_gaussian``
+     - ``1/mu^2`` (default), inverse, log, and identity; positive responses.
+     - ``GAM(family=("inverse_gaussian", "log"))``
+   * - ``quasipoisson`` / ``quasibinomial``
+     - Quasi variance ``mu`` / ``mu(1-mu)``; default log / logit links.
+     - ``GAM(family="quasipoisson")``
+   * - ``quasi``
+     - Five variance functions; default constant variance and identity link.
+     - ``GAM(family={"name": "quasi", "variance": "mu^2", "link": "log"})``
    * - ``nb`` / ``negbin``
      - Estimated or fixed negative-binomial shape.
      - ``GAM(family="nb")``
@@ -223,6 +302,47 @@ Families and links
    * - ``gammals`` / ``gamma``
      - Gamma mean and scale.
      - ``GAMLSS(family="gamma", formula=formulas)``
+
+Quasi families
+~~~~~~~~~~~~~~
+
+Quasi families specify a mean/variance relationship and estimate dispersion.
+All three accept ``log``, ``identity``, ``sqrt``, ``inverse``, ``1/mu^2``,
+``logit``, ``probit``, ``cloglog`` and ``cauchit`` links. General ``quasi``
+accepts ``constant``, ``mu``, ``mu(1-mu)``, ``mu^2`` and ``mu^3`` variance
+functions. A valid response and fitted mean must satisfy the selected
+variance and link domains; unusual combinations can fail to converge.
+
+Names select defaults; tuples select a link or an options dictionary.
+Family objects from ``nampy.gam.families`` are also accepted:
+
+.. code-block:: python
+
+   GAM(family="quasipoisson")
+   GAM(family=("quasibinomial", "probit"))
+   GAM(family={"name": "quasi", "variance": "mu^2", "link": "log"})
+   GAM(family=("quasi", {"variance": "mu^3", "power": 0.5}))
+
+``("quasi", "log")`` retains constant variance. The ``power`` option belongs
+only to general ``quasi``: a positive nonunit power uses ``mu**power``, one
+uses identity, and nonpositive values use log, following R's ``power()``.
+Use it with the default link or ``link="power"``; combining it with another
+named link is rejected. Custom R variance/link closures are not accepted.
+
+Raw ``GAM`` accepts quasibinomial proportions and grouped
+``cbind(success, failure)`` or two-column array responses, including fractional
+counts and zero-weight rows. ``GAMClassifier(family="quasibinomial")`` provides
+binary-label classification. Regression quasi families can be used with
+``GAMRegressor``.
+
+Fixed smoothing, GCV and the supported ML/REML and Pearson-scale selection
+routes use quasi deviance and dispersion. ML/REML here use extended
+quasi-likelihood for selection: there is no response probability distribution.
+Consequently public log likelihood, AIC and BIC are ``NaN``; randomized
+quantile residuals are unavailable. Deviance, Pearson, response and working
+residuals, predictions, covariance and standard errors remain available.
+See ``examples/example_quasi_gam.py`` for complete count, grouped-proportion
+and general-quasi fits.
 
 Smoothing and fitting
 ---------------------
@@ -379,3 +499,170 @@ For low-level fitting and extension interfaces, see :doc:`../api/gam_advanced`.
 
 For fitted illustrations of marginal and joint terms, see the
 :ref:`formula visual reference <formula-visual-reference>`.
+
+Derivative curves and region maps
+---------------------------------
+
+``model.plot_derivative(smooth_number=1, deriv=1, level=0.95)`` displays a
+supported univariate smooth's slope and pointwise Bayesian band. Use
+``deriv=2`` for curvature. It returns matplotlib figures and is also available
+on the estimator adapters. By default it sorts the observed covariate values;
+``X=`` supplies evaluation rows where the derivative API permits them. Bands
+are conditional, not simultaneous, and derivatives are on the additive
+predictor scale. Formula-transformed covariates retain their transformed axis.
+The existing basis restrictions apply: ``ps`` and ``bs`` provide derivative
+matrices; ``cr``, GP and SOS do not. SCAM derivatives remain training-data only.
+
+``model.plot()`` renders an MRF region map when its smooth has
+``xt={"polys": polygons}``. ``polygons`` maps region names to two-column
+coordinate arrays; NaN rows separate disconnected loops or nested holes.
+Map values follow the polygon names, including when their order differs from
+factor-level order. Scheme 0 uses heat colors and other schemes use gray.
+MRF smooths supplied only with a neighbor graph or penalty have no polygon
+geometry and are omitted from plots. Matplotlib rendering is not pixel-identical
+to R graphics; the plotted fitted effects are checked against ``mgcv``.
+
+Conditional prediction surfaces
+-------------------------------
+
+``vis`` displays a full-model prediction surface while holding other predictors
+fixed. It differs from a term plot, which displays an individual smooth's
+contribution.
+
+.. code-block:: python
+
+   surface = model.vis(
+       view=["x", "z"], cond={"group": "control"},
+       type="response", plot_type="contour", n_grid=40, too_far=0.1,
+   )
+   figures = surface["figures"]
+   predictions = surface["fit"]
+
+The default view uses the first two varying predictors. Other numeric predictors
+use mgcv's observed type-3 median; factors use their most frequent level.
+``cond`` overrides those values. Factor views are supported; distance masking
+with ``too_far`` requires numeric view variables. ``lp`` selects a one-based
+linear predictor for multi-predictor fits.
+
+Use ``plot_type="persp"`` for a perspective surface. A positive ``se`` adds
+plus/minus that many pointwise standard errors; requesting contour plots with
+positive ``se`` warns and draws perspective surfaces, following mgcv. ``color``
+accepts ``heat``, ``topo``, ``cm``, ``terrain``, ``gray`` or ``bw``. The returned
+``fit`` and ``se_fit`` arrays vary the first view fastest; reshape them to
+``(n_grid, n_grid)`` for rows along the second view and columns along the first.
+Use ``prepare_vis_gam_data`` from ``nampy.gam.diagnostics`` to obtain data without
+rendering. Estimator adapters also expose ``vis``.
+
+Spherical hemisphere plots
+--------------------------
+
+``model.plot(scheme=0, theta=30, phi=30)`` draws a rotated SOS hemisphere with
+colored fitted effects, latitude/longitude lines, contours and visible
+observations. Scheme 1 gives a contour-only hemisphere. Coordinates remain
+latitude then longitude in degrees; ``theta`` and ``phi`` set the viewing
+orientation. ``n2`` controls the disk resolution. Schemes 2 and above delegate
+to the ordinary rectangular smooth plots with the scheme reduced by two, as
+in mgcv. Hemisphere plots do not add standard-error bands, and SOS derivative
+matrices remain unavailable.
+
+These displays use Matplotlib; numerical projection and prediction data are
+compared against mgcv, while graphics are not claimed to be pixel-identical.
+
+QQ and four-panel model checks
+------------------------------
+
+``model.qq(rep=200, level=0.9, seed=7)`` plots observed residuals against
+family-based reference quantiles, with a pointwise simulation envelope.
+``rep=0`` averages randomized quantile calculations where the family supplies a
+quantile function; otherwise it uses 50 simulations without an envelope.
+``level>=1`` draws individual simulated curves. These are diagnostic envelopes,
+not simultaneous confidence bands or a calibrated goodness-of-fit test.
+
+``model.plot_check(type="deviance", seed=7)`` draws the QQ panel, residuals
+against the linear predictor, a residual histogram using R's bin rules, and
+response against fitted values. ``old_style=True`` uses normal QQ quantiles.
+Both methods return prepared numerical data plus a ``figures`` list and are
+also available on the sklearn-style GAM adapters. ``model.gam_check()`` retains
+its numerical convergence/rank/basis-check report.
+
+Use ``prepare_qq_gam_data`` and ``prepare_gam_check_data`` from
+``nampy.gam.diagnostics`` for plotting-free data. Quantile and simulation support
+covers the implemented ordinary, extended and location-scale families; families
+without either capability use the upstream normal-QQ fallback. A NumPy ``seed``
+is reproducible but does not reproduce R's RNG stream. Exact reference tests
+supply ``quantile_permutations`` (zero-based, shape ``(s_rep, n)``) or
+``response_draws`` (shape ``(rep, n)``) to both implementations.
+
+Shape-constrained fits automatically use SCAM display semantics: one-dimensional
+term plots default to two standard errors, two-dimensional plots to one;
+partial residuals use SCAM's normalized square-root IRLS weights. Bivariate
+shape plots center on their plotting grid; ``vis`` continues to show full-model
+predictions. Shape uncertainty uses transformed coefficient covariance;
+``se_with_mean`` does not alter shape-term uncertainty. ``plot_check`` additionally
+accepts ``type="rquantile"`` for SCAM fits. The explicit preparation functions
+``prepare_plot_scam_data``, ``prepare_vis_scam_data``, ``prepare_qq_scam_data`` and
+``prepare_scam_check_data`` are available for custom displays. SCAM check panels
+do not run a k-index test. Graphics use Matplotlib and do not promise identical
+R pixels.
+
+Parametric penalties and explicit smooth constraints
+----------------------------------------------------
+
+``para_pen`` is the Python spelling of mgcv's ``paraPen``. It maps original
+parametric formula labels to one or more matrices, in that term's fitted column
+order. For example, this shrinks the coefficient of ``x`` while fitting a smooth
+of ``z``:
+
+.. code-block:: python
+
+   model = GAM(
+       formula="y ~ x + s(z, bs='cr', k=7)",
+       para_pen={"x": {"penalties": [np.eye(1)], "sp": [-1]}},
+       optimize_smoothing=True,
+       smoothing_method="reml",
+   ).fit(data=df)
+
+Each entry accepts ``penalties``, optional ``rank`` (one integer per matrix),
+``sp`` (nonnegative for fixed, negative for estimated), and ``L``. Omitting
+``sp`` marks its parameters for estimation; smoothing optimization must be
+enabled to estimate them. Matrices are not rescaled. A factor term uses its
+expanded contrast columns; a matrix-valued term uses its expanded columns.
+Several penalties may act on the same term. Identity and shared one-hot ``L``
+maps are supported; arbitrary log-smoothing-parameter maps are rejected.
+Parametric smoothing parameters precede smooth parameters, in formula-term
+order. As in mgcv, unmatched labels are ignored and the intercept is not a
+parametric-penalty target. Multi-formula ``para_pen`` is rejected.
+
+``constraints={1: C}`` replaces the first smooth's default centering with
+``C @ beta_raw = 0``. A unique smooth label may replace the one-based index.
+This surface supports ``cr``, ``cs``, ``cc``, ``ps`` and ``cp`` without ``by``,
+point constraints, or linked IDs. ``C`` acts on the uncentered basis, must be
+finite with independent rows, and must leave at least one coefficient.
+A matrix with zero rows requests no local constraint; global model
+identifiability conditions still apply. Columns with cancelling nonzero row
+sums are rejected because upstream's localized absorption cannot represent them.
+Other bases/compositions remain guarded rather than accepting a constraint in
+a different raw parameterization.
+
+Inspect the raw basis before specifying ``C``:
+
+.. code-block:: python
+
+   from nampy.gam.compiler.construct import smooth_con
+   from nampy.gam.specs import TermSpec, build_smooth_spec
+
+   term = TermSpec(
+       kind="smooth", features=("x",), label="s(x)",
+       smooth_spec=build_smooth_spec(special="s", bs="cr", k=7),
+   )
+   raw = smooth_con(term, df[["x"]].to_numpy(), ["x"], absorb_cons=False)
+   C = raw.fit_constraint_operator
+   constrained = smooth_con(term, df[["x"]].to_numpy(), ["x"], constraints=C)
+   X_new = constrained.compiled_term.predict_matrix(new_df[["x"]].to_numpy())
+
+The returned object contains ``compiled_term``, ``penalty_specs`` and
+``fit_constraint_operator``. Absorption transports the basis, every penalty,
+prediction and derivative coefficient maps together. ``absorb_cons=False`` is
+a construction/inspection control; fitted GAMs always absorb constraints,
+matching mgcv's high-level fitting route. It is not a switch to fit an
+unconstrained model accidentally.

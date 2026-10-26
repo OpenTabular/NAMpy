@@ -90,6 +90,29 @@ def construct_smooth(
     null_space_penalty=False,
 ):
     runtime = instantiate_term(term_like)
+    controls = dict(getattr(runtime, "metadata", {}) or {})
+    explicit = "user_constraint" in controls
+    raw_construction = bool(controls.get("raw_constraint_construction", False))
+    deferred_select = False
+    if explicit or raw_construction:
+        if (
+            getattr(runtime, "basis_name", None) not in {"cr", "cs", "cc", "ps", "cp"}
+            or getattr(runtime, "by", None) is not None
+            or getattr(runtime, "pc", None) is not None
+            or getattr(runtime, "shared_basis_setup", None) is not None
+            or getattr(runtime, "smoothing_id", None) is not None
+        ):
+            raise NotImplementedError(
+                "Explicit/raw constraints support cr/cs/cc/ps/cp smooths "
+                "without by, pc, or linked id setup."
+            )
+        runtime = copy.deepcopy(runtime)
+        runtime.constraint_mode = "never"
+        deferred_select = bool(getattr(runtime, "select", False))
+        if deferred_select:
+            runtime.select = False
+            original_sp = runtime.sp
+            runtime.sp = None
     runtime.fit(X, feature_names)
     B, penalty_defs = _extract_runtime_state(runtime)
     runtime_transform_applied = bool(
@@ -107,6 +130,14 @@ def construct_smooth(
         )
     )
     fit_constraint = getattr(runtime, "fit_constraint_matrix", None)
+    if explicit or raw_construction:
+        from .constraint_controls import validate_constraint_matrix
+
+        fit_constraint = validate_constraint_matrix(
+            controls["user_constraint"] if explicit else B.mean(axis=0), B.shape[1]
+        )
+        runtime_transform_applied = False
+        runtime_skip_centering = True
     predict_coefficient_map = getattr(runtime, "predict_coefficient_map", None)
     prediction_offset = getattr(runtime, "prediction_offset", None)
     _by_state = getattr(runtime, "_by_state", None)
@@ -186,6 +217,22 @@ def construct_smooth(
             "runtime" if predict_coefficient_map_arr is not None else "none"
         )
 
+    if deferred_select and penalty_defs:
+        # smoothCon adds null-space selection after absorbing C, never before.
+        from ..penalties import build_null_space_selection_spec
+
+        selection = build_null_space_selection_spec(
+            main_penalty=sum(p.matrix for p in penalty_defs), smoothing_id=None,
+            tol=np.finfo(float).eps ** 0.66,
+            metadata={"is_selection_penalty": True},
+        )
+        if selection is not None:
+            penalty_defs.append(selection)
+        runtime.sp = original_sp
+        for pdef, value in zip(penalty_defs, runtime._normalized_term_sp(len(penalty_defs)), strict=True):
+            pdef.sp_mode = None if value is None else "fixed" if value >= 0 else "estimate"
+            pdef.sp_value = float(value) if value is not None and value >= 0 else None
+
     if predict_coefficient_map_arr is not None and not any(
         cmap.reason == "local_constraint_absorption" for cmap in coefficient_maps
     ):
@@ -233,6 +280,10 @@ def construct_smooth(
         basis_train=np.asarray(B, dtype=np.float64),
         predict_fn=getattr(runtime, "transform_new", None),
         derivative_fn=getattr(runtime, "derivative_matrix", None),
+        offset_train=prediction_offset,
+        offset_fn=(
+            None if prediction_offset is None else getattr(runtime, "offset_new", None)
+        ),
         predict_coefficient_map=(
             compose_coefficient_maps(tuple(coefficient_maps))
             if predict_coefficient_map_arr is None
@@ -284,3 +335,22 @@ def construct_smooth(
 
 
 __all__ = ["ConstructedSmooth", "construct_smooth"]
+
+
+def smooth_con(term: TermSpec, X, feature_names, *, absorb_cons=True, constraints=None):
+    """Construct a smooth with an inspectable raw basis and constraint operator.
+
+    Supports cr/cs/cc/ps/cp without by variables, point constraints or linked
+    ids. ``constraints`` replaces default centering with C @ beta = 0 in raw
+    coefficient coordinates. ``absorb_cons=False`` retains that raw basis;
+    fitted GAMs always absorb constraints. Returns :class:`ConstructedSmooth`.
+    """
+    if not isinstance(term, TermSpec) or term.kind != "smooth":
+        raise TypeError("smooth_con requires a smooth TermSpec.")
+    metadata = {**term.metadata, "raw_constraint_construction": True}
+    if constraints is not None:
+        metadata["user_constraint"] = np.asarray(constraints, dtype=float)
+    return construct_smooth(
+        replace(term, metadata=metadata), np.asarray(X), list(feature_names),
+        absorb_cons=bool(absorb_cons),
+    )

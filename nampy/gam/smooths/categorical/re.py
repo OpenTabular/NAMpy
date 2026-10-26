@@ -22,17 +22,20 @@ from ...linalg import symmetrize_matrix
 from ...penalties import PenaltySpec
 from ...penalties.algebra import penalty_rescale_factor, scale_penalty
 from ..algebra import rowwise_kronecker
+from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
     _resolve_feature,
     by_values_from_new_data,
-    column_as_object,
+    linear_functional_by_state,
 )
 from .categorical_utils import (
+    aggregate_functional_basis,
     all_bool_like,
     as_object_1d,
     factor_indicator_matrix,
     factor_levels_from_metadata,
+    functional_object_columns,
     stable_unique_levels,
     try_numeric_1d,
 )
@@ -109,6 +112,7 @@ def _combine_random_effect_blocks(blocks):
     return np.asarray(rowwise_kronecker(blocks[::-1]), dtype=np.float64)
 
 
+@register_smooth("re")
 class RandomEffectTerm(BaseSmoothTerm):
     """
     mgcv-style simple random effect smooth:
@@ -132,7 +136,9 @@ class RandomEffectTerm(BaseSmoothTerm):
 
     term_type = "random_effect"
     basis_name = "re"
-    supports_tensor_marginal = False
+    supports_tensor_marginal = True
+    tensor_requires_centering = False
+    tensor_no_reparameterization = True
 
     def __init__(
         self,
@@ -145,7 +151,12 @@ class RandomEffectTerm(BaseSmoothTerm):
         select=False,
         xt=None,
         metadata=None,
+        k=-1,
+        fixed=False,
+        constraint_mode="auto",
+        knots=None,
     ):
+        del k, fixed, constraint_mode, knots
         features = list(feature) if not isinstance(feature, (str, int)) else [feature]
 
         if smoothing_id is not None:
@@ -185,20 +196,32 @@ class RandomEffectTerm(BaseSmoothTerm):
         blocks = []
         specs = []
 
-        for feat in self.feature:
+        columns = functional_object_columns(
+            X, [_resolve_feature(feat, feature_names)[0] for feat in self.feature]
+        )
+        self._linear_functional = columns[0].ndim == 2
+        for feat, column in zip(self.feature, columns, strict=True):
             idx, fname = _resolve_feature(feat, feature_names)
             feature_indices.append(idx)
             feature_names_resolved.append(fname)
 
             levels = factor_levels_from_metadata(self.metadata, fname)
-            B_i, spec_i = _fit_re_component(X[:, idx], levels=levels)
+            B_i, spec_i = _fit_re_component(column.reshape(-1), levels=levels)
             blocks.append(B_i)
             specs.append(spec_i)
 
         self._set_by_state(X, feature_names)
 
         B_raw = _combine_random_effect_blocks(blocks)
-        B = self._apply_cached_by(B_raw, allow_missing=True)
+        if self._linear_functional:
+            weights = self._by_state.values
+            B = aggregate_functional_basis(B_raw, columns[0].shape, weights)
+            self._by_state = linear_functional_by_state(
+                self._by_state,
+                weights=np.ones(columns[0].shape) if weights is None else weights,
+            )
+        else:
+            B = self._apply_cached_by(B_raw, allow_missing=True)
 
         self._feature_indices = feature_indices
         self._feature_names = feature_names_resolved
@@ -207,15 +230,15 @@ class RandomEffectTerm(BaseSmoothTerm):
         self._basis_train = np.asarray(B, dtype=np.float64)
         self._record_constraint_result(None, None, absorbed_by=None)
 
+        self._tensor_basis_raw = B_raw
         q = self._basis_train.shape[1]
 
         if self.xt is None or self.xt.get("S", None) is None:
             S_raw = np.eye(q, dtype=np.float64)
+            self._tensor_penalties_raw = [S_raw]
             self._penalties = [scale_penalty(B_raw, S_raw)]
             self._ranks = [q]
-            self._set_penalty_rescale_factors(
-                [penalty_rescale_factor(B_raw, S_raw)]
-            )
+            self._set_penalty_rescale_factors([penalty_rescale_factor(B_raw, S_raw)])
         else:
             S_in = self.xt["S"]
             S_list = S_in if isinstance(S_in, list) else [S_in]
@@ -239,6 +262,7 @@ class RandomEffectTerm(BaseSmoothTerm):
                 )
 
             S_raw_list = [symmetrize_matrix(S) for S in S_list]
+            self._tensor_penalties_raw = S_raw_list
             self._penalties = [scale_penalty(B_raw, S_raw) for S_raw in S_raw_list]
             self._ranks = [int(r) for r in ranks.tolist()]
             self._set_penalty_rescale_factors(
@@ -246,6 +270,27 @@ class RandomEffectTerm(BaseSmoothTerm):
             )
 
         return self
+
+    @property
+    def zero_unseen_factor_features(self):
+        return tuple(
+            name
+            for name, component in zip(
+                self._feature_names or (), self._component_specs or (), strict=True
+            )
+            if component.kind == "factor"
+        )
+
+    def tensor_marginal_fit_matrices(
+        self, *, centered=False, apply_np=False, x_train=None
+    ):
+        del centered, apply_np, x_train
+        self._require_fitted()
+        if len(self._tensor_penalties_raw) != 1:
+            raise NotImplementedError(
+                "Tensor products of smooths with multiple penalties are not supported."
+            )
+        return self._tensor_basis_raw, self._tensor_penalties_raw[0], None
 
     @property
     def basis_train(self):
@@ -350,14 +395,15 @@ class RandomEffectTerm(BaseSmoothTerm):
         self._require_fitted()
 
         blocks = []
-        for idx, spec in zip(
-            self._feature_indices, self._component_specs, strict=True
-        ):
-            blocks.append(_predict_re_component(column_as_object(X_new, idx), spec))
+        columns = functional_object_columns(X_new, self._feature_indices)
+        for column, spec in zip(columns, self._component_specs, strict=True):
+            blocks.append(_predict_re_component(column.reshape(-1), spec))
 
         B = _combine_random_effect_blocks(blocks)
 
         z = by_values_from_new_data(X_new, self._by_state)
+        if columns[0].ndim == 2:
+            return aggregate_functional_basis(B, columns[0].shape, z)
         return np.asarray(
             self._apply_by_scale(B, z, allow_missing=True), dtype=np.float64
         )

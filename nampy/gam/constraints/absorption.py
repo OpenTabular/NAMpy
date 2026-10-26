@@ -103,6 +103,11 @@ def absorb_explicit_constraints(B, penalty_specs, C, tol: float = 1e-12):
     for p, S_new in zip(penalty_specs, mats_new, strict=True):
         p_new = copy.copy(p)
         p_new.matrix = S_new
+        # smoothCon updates declared rank/null space after removing constraints.
+        if p_new.rank is not None:
+            p_new.rank = min(int(p_new.rank), int(S_new.shape[0]))
+        if p_new.null_space_dim is not None:
+            p_new.null_space_dim = max(0, int(p_new.null_space_dim) - int(n_cons))
         out_specs.append(normalize_penalty_spec(p_new))
     return B_new, out_specs, T, int(n_cons)
 
