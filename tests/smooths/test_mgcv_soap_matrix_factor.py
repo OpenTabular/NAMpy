@@ -161,9 +161,9 @@ def test_matrix_soap_factor_new_width_point_sum_and_persistence(mode, basis, bou
 
 @pytest.mark.parametrize("shape,accepted", [("factor_repeated", True), ("factor_varying", True), ("character", False), ("numeric", False)])
 def test_source_matrix_factor_class_is_distinct_from_classless_matrices(shape, accepted):
-    # A factor+dim object is an accepted source composition. The current public
-    # input schema has no corresponding matrix factor metadata; do not silently
-    # reinterpret classless arrays to emulate the missing representation.
+    # Explicit categorical rows now represent the accepted factor+dim object.
+    # Classless arrays must retain the separate source classification here;
+    # they are not silently reinterpreted as factors.
     p = case(factor_shape=shape)
     ref = reference(p, PROBE.with_name("mgcv_soap_matrix_factor_shapes.R"))
     assert ref["accepted"] is accepted

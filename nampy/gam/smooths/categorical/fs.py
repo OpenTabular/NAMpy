@@ -6,6 +6,7 @@ from typing import Any
 import numpy as np
 
 from ...basis_registry import get_basis_descriptor
+from ...data import categorical_matrix_metadata
 from ...penalties import (
     PenaltySpec,
     penalty_id_for_local_index,
@@ -383,10 +384,14 @@ class _FactorSmoothBase(BaseSmoothTerm):
 
         for idx, fname in zip(feature_indices, feature_names_resolved, strict=True):
             col = X[:, idx]
-            if factor_levels_from_metadata(self.metadata, fname) is not None:
+            array_valued = any(np.asarray(value).ndim > 0 for value in col)
+            factor_info = self.metadata.get("factor_levels_by_feature", {}).get(fname, {})
+            if factor_levels_from_metadata(self.metadata, fname) is not None and (
+                not array_valued or factor_info.get("matrix_factor", False)
+            ):
                 factor_feature_indices.append(idx)
                 factor_feature_names.append(fname)
-            elif any(np.asarray(value).ndim > 0 for value in col):
+            elif array_valued:
                 # Array-valued numeric cells are quadrature locations, not factors.
                 column_as_numeric_array(X, idx)
                 metric_feature_indices.append(idx)
@@ -476,12 +481,22 @@ class _FactorSmoothBase(BaseSmoothTerm):
         return self._base_term.tensor_marginal_predict_matrix(X_new, centered=False)
 
 
-def _functional_factor_point_data(X, metric_indices, locations, by_state):
-    """Repeat vector factors alongside paired quadrature locations."""
+def _functional_factor_point_data(X, metric_indices, locations, by_state, factor_indices=()):
+    """Port get.var's factor-matrix flattening and vector-factor repetition."""
     n, width, _ = locations.shape
     points = np.tile(np.asarray(X, dtype=object), (width, 1))
     for coordinate, index in enumerate(metric_indices):
         points[:, index] = locations[:, :, coordinate].reshape(-1, order="F")
+    for index in factor_indices:
+        rows = list(np.asarray(X, dtype=object)[:, index])
+        if not any(np.asarray(row).ndim > 0 for row in rows):
+            continue
+        if categorical_matrix_metadata(rows) is None:
+            raise ValueError("Matrix factors require explicit pandas.Categorical rows.")
+        factors = np.stack([np.asarray(row, dtype=object) for row in rows])
+        if factors.shape != (n, width):
+            raise ValueError("Matrix factor and linear-functional coordinates must have equal shape.")
+        points[:, index] = factors.reshape(-1, order="F")
     if by_state.is_present:
         points[:, by_state.feature_index] = 1.0
     return points
@@ -604,7 +619,8 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
                     "Linear-functional feature locations and by weights must have equal shape."
                 )
             X = _functional_factor_point_data(
-                X, self._metric_feature_indices, locations, self._by_state
+                X, self._metric_feature_indices, locations, self._by_state,
+                self._factor_feature_indices,
             )
             X, functional_index = _pack_functional_factor_data(
                 X, self._feature_indices, self._metric_feature_indices
@@ -656,6 +672,18 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         null_d = int(B_setup.shape[1] - base_rank)
         if null_d <= 0:
             raise NotImplementedError(_fs_full_rank_base_error(base_spec.bs))
+        if null_d > 1 and any(
+            self.metadata.get("factor_levels_by_feature", {}).get(name, {}).get(
+                "matrix_factor", False
+            )
+            for name in self._factor_feature_names
+        ):
+            raise NotImplementedError(
+                "Explicit matrix-factor fs smooths require a one-dimensional "
+                "base null space: independently penalized natural null directions "
+                "have unresolved source ordering. Use sf, ps with m=[2,1], "
+                "or univariate tp with m=1."
+            )
         if locations.ndim == 3 and base_spec.bs == "tp":
             self._validate_matrix_tp_null_space(null_d)
 
@@ -780,7 +808,8 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         locations = linear_functional_locations(X_new, self._metric_feature_indices)
         if locations.ndim == 3:
             points = _functional_factor_point_data(
-                X_new, self._metric_feature_indices, locations, self._by_state
+                X_new, self._metric_feature_indices, locations, self._by_state,
+                self._factor_feature_indices,
             )
             return _sum_factor_functional_basis(
                 self.transform_new(points),
@@ -940,7 +969,8 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
                     "Linear-functional feature locations and by weights must have equal shape."
                 )
             X = _functional_factor_point_data(
-                X, self._metric_feature_indices, locations, self._by_state
+                X, self._metric_feature_indices, locations, self._by_state,
+                self._factor_feature_indices,
             )
             X, functional_index = _pack_functional_factor_data(
                 X, self._feature_indices, self._metric_feature_indices
@@ -996,6 +1026,17 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             level_lists.append(lev)
             indicator_mats.append(factor_indicator_matrix(fac, lev))
             contrast_mats.append(_sum_to_zero_contrast(len(lev)))
+
+        if len(indicator_mats) > 1 and any(
+            self.metadata.get("factor_levels_by_feature", {}).get(name, {}).get(
+                "matrix_factor", False
+            )
+            for name in self._factor_feature_names
+        ) and np.any(np.sum(rowwise_kronecker(indicator_mats), axis=0) == 0):
+            raise NotImplementedError(
+                "Explicit matrix-factor sz smooths with empty joint factor groups "
+                "require unresolved source rank-deficiency side-condition handling."
+            )
 
         self._factor_levels = level_lists
         self._contrast_mats = contrast_mats
@@ -1107,7 +1148,8 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         locations = linear_functional_locations(X_new, self._metric_feature_indices)
         if locations.ndim == 3:
             points = _functional_factor_point_data(
-                X_new, self._metric_feature_indices, locations, self._by_state
+                X_new, self._metric_feature_indices, locations, self._by_state,
+                self._factor_feature_indices,
             )
             return _sum_factor_functional_basis(
                 self.transform_new(points),

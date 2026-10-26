@@ -14,6 +14,33 @@ def feature_values_for_levels(values):
     return np.concatenate([np.asarray(value, dtype=object).reshape(-1) for value in cells])
 
 
+def categorical_matrix_metadata(values):
+    """Read explicit factor+dim metadata from a column of categorical rows.
+
+    Object arrays of labels carry no factor class. Each categorical row instead
+    supplies the same levels and ordered flag, independently of its observations.
+    """
+    rows = list(values)
+    if not any(isinstance(row, pd.Categorical) for row in rows):
+        return None
+    if not all(isinstance(row, pd.Categorical) for row in rows):
+        raise ValueError("Matrix factor rows must all be pandas.Categorical objects.")
+    first = rows[0]
+    if len(first) < 2 or any(len(row) != len(first) for row in rows):
+        raise ValueError("Matrix factor rows must have equal width of at least two.")
+    if any(
+        not row.categories.equals(first.categories)
+        or row.ordered != first.ordered
+        for row in rows
+    ):
+        raise ValueError("Matrix factor rows must have identical levels and ordered metadata.")
+    return {
+        "levels": list(first.categories),
+        "ordered": bool(first.ordered),
+        "matrix_factor": True,
+    }
+
+
 def coerce_X(
     model,
     X,

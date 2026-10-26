@@ -174,8 +174,9 @@ The following combinations remain unsupported and fail explicitly:
   single-penalty ``sf/sw`` tensor and accepted matrix-coordinate factor
   compositions are also available. Full-rank ``sw`` inside a real ``fs``
   interaction reaches an upstream zero-null indexing failure and remains
-  rejected. Explicit matrix-valued factors need additional factor-plus-dim
-  metadata support; scalar factors with paired matrix soap coordinates work.
+  rejected. Scalar factors with paired matrix soap coordinates work, as do
+  explicit matrix-valued factors supplied as categorical rows with consistent
+  levels and quadrature widths of at least two.
   See :ref:`soap-film-smooths` for the source boundary-offset convention;
 * known-boundary ``so``/``sf`` matrix fits, which fail during upstream offset
   aggregation, and weighted 2D adaptive matrix fits, whose upstream prediction
@@ -186,6 +187,12 @@ The following combinations remain unsupported and fail explicitly:
   receive independent penalties. Univariate ``tp`` with ``m=1`` has one null
   direction and is supported. Explicit ``cr`` and ``ps`` bases also support
   matrix functionals with a scalar group factor;
+* explicit matrix-factor ``fs`` bases with multiple independently penalized
+  null directions, and multiple matrix factors in ``sz`` with empty joint
+  training groups. These remain NAMpy penalty/rank parity limitations.
+  Supported single-null ``fs`` and fully observed ``sz`` routes are documented
+  under :ref:`matrix-functional-smooths`. Unused declared matrix-factor levels
+  fail upstream during dimension-dropping level removal and are rejected;
 * linked matrix-valued tensor ``id`` groups and matrix pooling combinations
   without an implemented setup path; basis-specific guards remain authoritative;
 * matrix ``t2`` mixing range/null components with multidimensional ``bs`` null

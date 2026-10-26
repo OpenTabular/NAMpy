@@ -774,8 +774,8 @@
       "manifest": "tests/reference_fixtures/mgcv_soap_matrix_factor/manifest.json",
       "fixture_files": 68,
       "generator": "tests/smooths/test_mgcv_soap_matrix_factor.py",
-      "generator_sha256": "2e749ada4d81a602f65e0f6fd9dda3f6871a80599fc3c4e96729eb7e1f7c1109",
-      "scope": "Matrix-valued paired soap metric coordinates with scalar factors: fs/sf, sz/sf, sz/sw, all-known sz/so. Fixed and selected REML, unit/varying/constant row-sum functional weights, prior precision, formula offsets, repeated points, mixed known/free boundaries, train/new prediction covariance, EDF and common-coordinate penalty transport. Source-only classification distinguishes factor+dim from classless matrices; explicit matrix-factor public metadata remains unsupported."
+      "generator_sha256": "99dc09234c446dbbea0187bf3496d3cb0da11d856f751dda12da8e2fb3e3652c",
+      "scope": "Matrix-valued paired soap metric coordinates with scalar factors: fs/sf, sz/sf, sz/sw, all-known sz/so. Fixed and selected REML, unit/varying/constant row-sum functional weights, prior precision, formula offsets, repeated points, mixed known/free boundaries, train/new prediction covariance, EDF and common-coordinate penalty transport. Source-only classification distinguishes factor+dim from classless matrices; explicit matrix-factor runtime coverage lives in mgcv_explicit_matrix_factor."
     },
     "mgcv_bs_constraints": {
       "package_version": "1.9-4",
@@ -786,6 +786,16 @@
       "generator": "tests/parity/test_mgcv_bs_constraints.py",
       "generator_sha256": "0f6e18eac071dee338e2c0838fcfbb9225ce6e865dcdfcee05f1e9838559984a",
       "scope": "k=8 cubic bs with m=c(3,2) and m=c(3,2,1); ordinary centering, independent one-row/two-row explicit homogeneous constraints and empty constraints; select FALSE/TRUE; raw and absorbed design/all penalty operators, analytic first/second/third derivatives, fixed-SP/REML/GCV fits, prediction/SE/covariance/EDF, full coefficient-space and every penalty congruence, persistence, invalid constraints and existing by/pc/id composition guards. Independent constraint-row transformations also preserve all transported operators."
+    },
+    "mgcv_explicit_matrix_factor": {
+      "package_version": "1.9-4",
+      "R_version": "4.6.1",
+      "fixture_namespace": "mgcv_explicit_matrix_factor",
+      "manifest": "tests/reference_fixtures/mgcv_explicit_matrix_factor/manifest.json",
+      "fixture_files": 69,
+      "generator": "tests/smooths/test_mgcv_explicit_matrix_factor.py",
+      "generator_sha256": "4375aad849315508fe6a8e6b2b27f0785de117b1c92082b0c66cd8778a9f75f9",
+      "scope": "Explicit categorical-row factor+dim metadata in fs/sz. Fixed and REML; repeated/varying factor columns, prior precision, offsets, repeated metric points, changing quadrature width, functional weights, declared levels, covariance/EDF/common-coordinate individual penalties and fitted weighted operators. Distinct unequal fixed SP fixtures. Multiple matrix-factor sz with observed joint groups. Source-owned unused-level rejection; retained guards for fs multi-null external-SP ordering and sz empty joint-group rank/side conditions."
     }
   }
 }
