@@ -200,6 +200,9 @@ jobs:
         tests/parity/test_mgcv_bs_constraints.py
         tests/docs/test_bs_constraints_example.py
         tests/parity/test_gam_seven_stage_pipeline_contracts.py::test_explicit_bs_constraints_cover_seven_stage_pipeline
+        tests/smooths/test_mgcv_explicit_matrix_factor.py
+        tests/docs/test_matrix_factor_example.py
+        tests/parity/test_gam_seven_stage_pipeline_contracts.py::test_explicit_matrix_factors_cover_seven_stage_pipeline
         -q
 
     - name: Run portable spline-constructor slices

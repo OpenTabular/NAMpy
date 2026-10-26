@@ -5,7 +5,7 @@
     "R": "4.6.1"
   },
   "generator": "tests/smooths/test_mgcv_soap_matrix_factor.py",
-  "generator_sha256": "2e749ada4d81a602f65e0f6fd9dda3f6871a80599fc3c4e96729eb7e1f7c1109",
+  "generator_sha256": "99dc09234c446dbbea0187bf3496d3cb0da11d856f751dda12da8e2fb3e3652c",
   "generators_sha256": {
     "tests/smooths/probes/mgcv_soap_matrix_factor.R": "b3b0b4cdb65249e7748b8953b0f4ccbec3a42b0289d8d6dc05a01b9bd36dd9ff",
     "tests/smooths/probes/mgcv_soap_matrix_factor_shapes.R": "e5d01521056ebc572f3cd1add7cca27a26835120090f8245567f548876de4ee5",
@@ -16,7 +16,7 @@
     "R/soap.r": "5e9651df5ae13bf998cdcf49921e687a3bec6c5c03810f4a49f0a2e2c944ef59",
     "R/smooth.r": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d"
   },
-  "scope": "Matrix-valued paired soap metric coordinates with scalar factors: fs/sf, sz/sf, sz/sw, all-known sz/so. Fixed and selected REML, unit/varying/constant row-sum functional weights, prior precision, formula offsets, repeated points, mixed known/free boundaries, train/new prediction covariance, EDF and common-coordinate penalty transport. Source-only classification distinguishes factor+dim from classless matrices; explicit matrix-factor public metadata remains unsupported.",
+  "scope": "Matrix-valued paired soap metric coordinates with scalar factors: fs/sf, sz/sf, sz/sw, all-known sz/so. Fixed and selected REML, unit/varying/constant row-sum functional weights, prior precision, formula offsets, repeated points, mixed known/free boundaries, train/new prediction covariance, EDF and common-coordinate penalty transport. Source-only classification distinguishes factor+dim from classless matrices; explicit matrix-factor runtime coverage lives in mgcv_explicit_matrix_factor.",
   "tolerances": {
     "fit_covariance_edf": 4e-05,
     "design_transport": 2e-07,

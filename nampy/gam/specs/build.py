@@ -444,7 +444,7 @@ def factor_info(s: pd.Series):
 
 
 def _factor_levels_metadata_for_features(data_work, features):
-    from ..data import feature_values_for_levels
+    from ..data import categorical_matrix_metadata, feature_values_for_levels
 
     out = {}
     for feature in features:
@@ -452,6 +452,18 @@ def _factor_levels_metadata_for_features(data_work, features):
         if name not in data_work:
             continue
         s = data_work[name]
+        matrix_factor = categorical_matrix_metadata(s)
+        if matrix_factor is not None:
+            values = feature_values_for_levels(s)
+            if pd.isna(values).any():
+                raise ValueError(f"Matrix factor column {name!r} contains missing values.")
+            if any(not np.any(values == level) for level in matrix_factor["levels"]):
+                raise ValueError(
+                    f"Matrix factor column {name!r} contains unused declared levels; "
+                    "source model.frame drops the matrix dimensions when removing them."
+                )
+            out[name] = matrix_factor
+            continue
         if not is_factor_like_series(s):
             continue
         if any(np.asarray(value).ndim > 0 for value in s):

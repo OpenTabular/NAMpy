@@ -241,11 +241,18 @@ weights observations. New-data rows can use a different quadrature width.
 
 Numeric and factor random effects and full/reduced-rank MRFs also support this
 summation convention. Use lists of labels for categorical matrix cells.
-For ``fs`` functionals, the group factor remains scalar per observation;
+For ``fs`` functionals with scalar group factors,
 validated bases include ``cr``, ``ps``, one-null-direction ``tp`` and
 single-penalty ``sf``. ``sz`` accepts ``tp``, ``cr``, ``ps``, single-penalty
 ``sf``, ``sw`` and fully known-boundary ``so`` with scalar factors.
 Soap factor interactions discard marginal boundary offsets, following mgcv.
+Factors may also vary across quadrature columns when each factor row is an
+explicit ``pandas.Categorical`` with consistent declared levels and width of
+at least two. For these matrix factors, ``fs`` supports ``sf``, univariate
+``tp`` with ``m=1``, and ``ps`` with ``m=[2,1]``. ``sz`` supports the documented
+numeric and soap bases, with every joint group observed when using several
+matrix factors. See ``examples/example_matrix_factor.py`` and
+:ref:`matrix-functional-smooths` for the input recipe and remaining guards.
 Tensor functionals
 sum products evaluated at each paired location.
 

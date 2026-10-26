@@ -191,9 +191,9 @@ Matrix-valued paired coordinates and summation weights are supported for
 categorical factors. For example, use ``s(X,Y,group,bs='fs',by=L,
 xt={'bs':'sf','bnd':boundary})`` with array-valued ``X``, ``Y`` and ``L``
 cells and a categorical ``group`` column. Boundary and knot names must match
-the coordinate names. Explicit matrix-valued factors with R's factor-plus-dim
-metadata remain unsupported; classless character arrays are not silently
-converted to factors. Analytic soap derivatives remain unavailable.
+the coordinate names. A group that varies across quadrature columns can instead
+use explicit categorical rows, as described below. Classless character arrays
+are not silently converted to factors. Analytic soap derivatives remain unavailable.
 See ``examples/example_soap_compositions.py`` for runnable recipes.
 The static reference tests cover basis and penalty matrices, domains with
 holes, known boundaries, fitting, prediction uncertainty, and persistence.
@@ -391,6 +391,33 @@ Unit, varying and constant-row-sum weights follow upstream constraint handling;
 repeated-location ``cr``/``ps`` cases are also validated. Paired matrix soap
 coordinates with scalar factors support ``fs(sf)``, ``sz(sf/sw)`` and fully
 known-boundary ``sz(so)``; their source offset conventions are described above.
+
+To supply a matrix-valued factor, store each row as a ``pandas.Categorical``
+with the same declared categories and ordered flag. For example:
+
+.. code-block:: python
+
+   df["group"] = pd.Series(
+       [pd.Categorical(row, categories=["a", "b", "c"]) for row in groups],
+       dtype=object,
+   )
+
+``groups`` has the same row count and quadrature width as the metric matrices.
+Each location may have its own factor level. The categorical rows carry the
+equivalent of R's factor-plus-dim metadata; plain arrays of labels do not.
+With matrix-valued factors, ``fs`` supports single-penalty ``sf``, ``tp`` with
+``m=1`` in one dimension, and ``ps`` with ``m=[2,1]``. Multiple independent null
+penalties remain guarded: matching the function space alone does not preserve
+the independently weighted null-space penalty operator across representations.
+``sz`` supports the documented ``cr/ps/tp`` and soap bases.
+With multiple matrix-valued factors, every joint training group must be
+observed; empty joint groups remain guarded pending matching rank and side
+conditions. Both this restriction and the multi-null ``fs`` restriction are
+NAMpy parity limitations, rather than upstream input rejections.
+Use at least two columns: upstream converts a one-column factor matrix to a
+numeric vector. Prediction may change the quadrature width while preserving
+the factor levels and pairing with the metric coordinates and weights.
+See ``examples/example_matrix_factor.py`` for a complete soap fit.
 
 ``te``, ``ti`` and ``t2`` support paired matrix coordinates with tested
 ``cr``, ``ps``, ``tp``, ``ds``, ``gp``, ``sf`` and ``sw`` margins.

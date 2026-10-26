@@ -111,6 +111,33 @@ def soap_pipeline_cases():
     return fit_examples()
 
 
+def test_explicit_matrix_factors_cover_seven_stage_pipeline():
+    from examples.example_matrix_factor import fit_example
+
+    adapter, frame = fit_example()
+    gam = adapter.gam_
+    assert gam.predictor_specs[0].terms[0].smooth_spec.bs == "fs"
+    compiled = gam.gam_result_.require_compiled_model()
+    term = compiled.compiled_terms[0]
+    runtime = term.predict_fn.__self__
+    assert runtime.metadata["factor_levels_by_feature"]["group"]["matrix_factor"]
+    np.testing.assert_allclose(term.predict_matrix(gam.X_), term.basis_train, atol=2e-12)
+    assert compiled.n_smoothing_params == len(compiled.compiled_penalties) == 2
+    np.testing.assert_allclose(
+        compiled.predictors[0].build_new_matrix(gam.X_), compiled.design_matrix,
+        atol=2e-12,
+    )
+    solution = gam.gam_result_.fit_core_solution
+    assert isinstance(solution, FitCoreSolution)
+    P = gam.lpmatrix(frame)
+    np.testing.assert_allclose(P @ solution.fit_result.coef_full, adapter.predict(frame), atol=2e-12)
+    np.testing.assert_allclose(
+        np.einsum("ij,jk,ik->i", P, gam.vcov(), P),
+        adapter.standard_errors(frame)**2, atol=2e-12,
+    )
+    adapter.predict_components(frame).validate_additive_reconstruction()
+
+
 @pytest.mark.parametrize("name", ["known_boundary_tensor", "matrix_factor"])
 def test_soap_compositions_cover_seven_stage_pipeline(soap_pipeline_cases, name):
     """New soap routes retain the same compiler, fit and prediction owners."""
