@@ -12,5 +12,16 @@
   "source_files_sha256": {
     "R/smooth.r": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d",
     "R/mgcv.r": "f2c782d23d361c987836d936b3c01d14846829377fbb1768504298094a7b0120"
-  }
+  },
+  "guard": "All matrix cs terms, including distinct locations, are rejected by NAMpy because unequal null-space shrinkage eigenvalues make the penalty depend on platform-dependent numerical null eigenvectors. Scalar cs is unchanged. Actual mgcv references are retained; this is not an upstream input restriction.",
+  "portability_evidence": {
+    "platform": "macOS GitHub Actions Python 3.11",
+    "failed_distinct_grid_cases": 5,
+    "max_prediction_difference_fixed": 8.97638416e-05,
+    "max_prediction_difference_REML": 0.00977856,
+    "source": "mgcv/R/smooth.r::smooth.construct.cr.smooth.spec unequal trailing eigenvalues (shrink=.1, then .01)",
+    "reference_policy": "Retain original R fits; six distinct-grid CS cases and four packed-grid CS cases test explicit NAMpy rejection; no tolerance changes."
+  },
+  "accepted_fit_cases": 30,
+  "guarded_fit_cases": 6
 }

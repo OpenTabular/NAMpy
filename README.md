@@ -163,7 +163,8 @@ weighted surfaces and tensors with prediction uncertainty. Matrix cells can
 also hold categorical labels for random effects and MRFs; supported `fs`
 compositions use a scalar group factor. See the
 [smooth-basis reference](docs/api/gam_smooths.rst) for accepted combinations
-and the explicit repeated-location `cs` restriction.
+and the explicit matrix `cs` and matrix `t2`-with-`bs` restrictions. Scalar
+`cs`, scalar-input `t2`, and `te`/`ti` with `bs` remain supported.
 
 ### Shape-constrained functionality
 

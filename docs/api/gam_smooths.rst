@@ -318,7 +318,7 @@ Omitting ``by`` uses unit weights. For a surface,
 ``sum_j L[i,j] * f(X[i,j], Z[i,j])``; all coordinate and weight matrices must
 have matching shapes.
 
-The same weighted or unit-weight summation is supported by ``cr``, ``cs``,
+The same weighted or unit-weight summation is supported by ``cr``,
 ``cc``, ``ps``, ``cp``, ``bs``, ``ds``, ``gp`` and ``sos``. Duchon and GP
 terms accept paired multivariate locations; spherical terms use paired
 latitude/longitude matrices. Penalties are scaled on the underlying pointwise
@@ -327,9 +327,10 @@ constraint even when the individual quadrature weights vary.
 Repeated coordinates follow mgcv's setup packing rule: coordinates are pooled
 in column-major order and packed to their first occurrences when fewer than
 90% of the point tuples are unique. Penalty scaling and centering use that
-setup basis; prediction expands the pointwise basis before summation. ``cs`` matrix fits
-that trigger packing remain guarded because their unequal null-space
-shrinkage penalties have an unresolved eigenvector-orientation parity issue.
+setup basis; prediction expands the pointwise basis before summation. All ``cs``
+matrix fits are rejected, including distinct locations: unequal null-space
+shrinkage penalties have an unresolved portable eigenvector-orientation parity
+issue. Scalar ``cs`` terms remain supported.
 
 Adaptive ``ad`` terms support weighted or unit-weight one-dimensional
 matrices and unit-weight paired two-dimensional matrices. Weighted 2D
@@ -366,7 +367,12 @@ repeated-location ``cr``/``ps`` cases are also validated. Matrix soap bases
 inside either ``fs`` or ``sz`` remain unavailable.
 
 ``te``, ``ti`` and ``t2`` support paired matrix coordinates with tested
-``cr``, ``ps``, ``bs``, ``tp``, ``ds``, ``gp``, ``sf`` and ``sw`` margins.
+``cr``, ``ps``, ``tp``, ``ds``, ``gp``, ``sf`` and ``sw`` margins.
+``te`` and ``ti`` additionally support ``bs`` margins.
+Matrix ``t2`` terms with any ``bs`` margin are rejected because portable
+null-space normalization parity remains unresolved. ``te``/``ti`` with ``bs``
+and ordinary scalar-input ``t2`` remain supported; matrix ``t2`` with tested
+``cr``, ``ds``, ``gp``, ``tp`` and ``ps`` margins remains supported.
 They sum pointwise tensor products, rather than multiplying separately summed
 margins. Numeric, factor and mixed ``re`` margins also support these tensor
 constructors with ordinary or matrix inputs. Their default identity precision

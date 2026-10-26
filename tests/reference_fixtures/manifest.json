@@ -191,13 +191,22 @@
       "package_version": "1.9-4",
       "fixture_namespace": "mgcv_spline_linear_functionals",
       "generator": "tests/smooths/probes/mgcv_spline_linear_functionals.R",
-      "scope": "Weighted/unit/constant-row-sum matrix functionals; actual fixed/REML fit, prediction and covariance references",
+      "scope": "36 retained R matrix spline fits:30 accepted fits and6 explicit NAMpy matrix-CS portability guards",
       "fixture_count": 1,
       "source_files_sha256": {
         "R/smooth.r": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d"
       },
       "probe_files_sha256": {
         "tests/smooths/probes/mgcv_spline_linear_functionals.R": "18ce9c9b27beb543737f5c14440f12727830161d6603d8c0b01102151cd1cbe1"
+      },
+      "guard": "All matrix cs terms, including distinct locations, are rejected by NAMpy because unequal null-space shrinkage eigenvalues make the penalty depend on platform-dependent numerical null eigenvectors. Scalar cs is unchanged. Actual mgcv references are retained; this is not an upstream input restriction.",
+      "portability_evidence": {
+        "platform": "macOS GitHub Actions Python 3.11",
+        "failed_distinct_grid_cases": 5,
+        "max_prediction_difference_fixed": 8.97638416e-05,
+        "max_prediction_difference_REML": 0.00977856,
+        "source": "mgcv/R/smooth.r::smooth.construct.cr.smooth.spec unequal trailing eigenvalues (shrink=.1, then .01)",
+        "reference_policy": "Retain original R fits; six distinct-grid CS cases and four packed-grid CS cases test explicit NAMpy rejection; no tolerance changes."
       }
     },
     "mgcv_single_penalty_functionals": {
@@ -271,14 +280,15 @@
       "package_version": "1.9-4",
       "fixture_namespace": "mgcv_functional_packing",
       "generator": "tests/smooths/probes/mgcv_functional_packing.R",
-      "scope": "50 repeated-grid numeric fit references:46 accepted cases and4 explicit NAMpy cs packing guards; column-major ordering and first-occurrence threshold evidence",
+      "scope": "50 repeated-grid numeric fit references:46 accepted cases and4 explicit NAMpy matrix-CS portability guards; column-major ordering and first-occurrence threshold evidence",
       "fixture_count": 1,
       "source_files_sha256": {
         "R/smooth.r": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d"
       },
       "probe_files_sha256": {
         "tests/smooths/probes/mgcv_functional_packing.R": "79c9dbbc20688e856c85cc828b5946115453ab98692d829c8b19b960d4f9c271"
-      }
+      },
+      "guard": "All matrix cs terms, including distinct locations, are rejected by NAMpy because unequal null-space shrinkage eigenvalues make the penalty depend on platform-dependent numerical null eigenvectors. Scalar cs is unchanged. Actual mgcv references are retained; this is not an upstream input restriction."
     },
     "mgcv_fs_functional": {
       "package_version": "1.9-4",
@@ -315,7 +325,7 @@
       "package_version": "1.9-4",
       "fixture_namespace": "mgcv_tensor_linear_functionals",
       "generator": "tests/smooths/probes/mgcv_tensor_linear_functionals.R",
-      "scope": "Numeric and single-penalty soap matrix tensor fits; paired point products, fixed/REML, repeated coordinate packing, covariance and penalties",
+      "scope": "138 retained R numeric/soap tensor matrix cases in2snapshots; six t2-bs cases now explicit NAMpy portability guards; remaining accepted compositions retain strict fit/uncertainty/penalty checks",
       "fixture_count": 2,
       "source_files_sha256": {
         "R/smooth.r": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d",
@@ -324,6 +334,14 @@
       "probe_files_sha256": {
         "tests/smooths/probes/mgcv_tensor_linear_functionals.R": "ed4cf223dcd1e22d2f15a235d1483b3a6d473767649da59ce65410007409f25b",
         "tests/smooths/probes/mgcv_tensor_soap_functional.R": "ea76aad5dc95bb61319b53da3a300c795eb9b856260f271c3b06f9c70008918b"
+      },
+      "guard": "Matrix t2 with any bs margin is explicitly unsupported in NAMpy because type-3 natural parameterization normalizes null columns separately and numerical null rotations change the fitted metric. te/ti with bs, scalar-input t2, and tested matrix t2 cr/ds/gp/tp/ps remain supported.",
+      "portability_evidence": {
+        "failed_macos_fit_cases": 6,
+        "retained_R_fit_cases_now_guarded": 6,
+        "probe": "tests/smooths/test_mgcv_tensor_linear_functionals.py::test_type3_null_normalization_depends_on_valid_eigenvector_orientation",
+        "mechanism": "A valid rotation of the two-dimensional null space reconstructs the marginal penalty within 3e-15 but changes predictions after upstream nat.param type-3 per-column normalization.",
+        "policy": "Retain the original six R fits as explicit NAMpy rejection evidence; no tolerances weakened and no platform-specific branch."
       }
     },
     "mgcv_re_tensor": {

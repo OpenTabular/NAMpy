@@ -7,6 +7,13 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+env:
+  # These small numerical problems run concurrently across CI jobs; avoid
+  # oversubscribing each runner with BLAS/OpenMP worker pools.
+  OPENBLAS_NUM_THREADS: "1"
+  OMP_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+
 jobs:
   test:
     name: Test Python ${{ matrix.python-version }}

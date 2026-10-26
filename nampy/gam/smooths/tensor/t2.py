@@ -338,6 +338,14 @@ class AlternativeTensorProductSplineTerm(BaseSmoothTerm):
 
     def fit(self, X, feature_names):
         X = prepare_tensor_functional_fit(self, X, feature_names)
+        if self._tensor_functional_shape is not None and "bs" in self.basis:
+            # smooth.r::nat.param(type=3) scales null eigenvectors separately
+            # before rotation. Repeated bs null eigenvalues therefore change
+            # the tensor penalty metric across valid LAPACK orientations.
+            raise NotImplementedError(
+                "Matrix t2 with bs margins requires reproducible upstream "
+                "natural null-space normalization."
+            )
         self._set_by_state(X, feature_names)
         set_tensor_functional_by_state(self)
         shared_setups = self._linked_id_marginal_setups(self.feature)

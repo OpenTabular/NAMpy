@@ -21,10 +21,18 @@
     "mgcv_tensor_soap_functional.R"
   ],
   "generation": "Fresh actual R mgcv fits before implementation; NAMPY_REFRESH_REFERENCE_FIXTURES=1 only, ordinary tests read static snapshots.",
-  "coverage": "te/ti/t2: six ordinary margins cr/ps/bs/tp/ds/gp, fixed and REML, unit/matrix/constant-row-sum weights, nonuniform repeated paired locations; weighted sf/sw plus cr margins fixed and REML. Predictions, SE, covariance kernels, EDF, SP, fitted-coordinate penalty forms.",
+  "coverage": "138 retained actual-R cases across te/ti/t2 numeric and soap matrix functionals, fixed/REML, unit/varying/constant weights and repeats; six t2-bs references now test explicit NAMpy portability rejection. Other accepted fits retain prediction, SE, covariance, EDF, SP and penalty-form checks.",
   "limitations": [
     "Linked tensor matrix arguments explicitly unsupported pending shared linked setup.",
     "Known-boundary soap matrix offsets remain unsupported upstream.",
-    "re marginals remain outside current tensor descriptor support."
-  ]
+    "Matrix t2 with any bs margin is explicitly unsupported in NAMpy because type-3 natural parameterization normalizes null columns separately and numerical null rotations change the fitted metric. te/ti with bs, scalar-input t2, and tested matrix t2 cr/ds/gp/tp/ps remain supported."
+  ],
+  "matrix_t2_bs_guarded_reference_cases": 6,
+  "portability_evidence": {
+    "failed_macos_fit_cases": 6,
+    "retained_R_fit_cases_now_guarded": 6,
+    "probe": "tests/smooths/test_mgcv_tensor_linear_functionals.py::test_type3_null_normalization_depends_on_valid_eigenvector_orientation",
+    "mechanism": "A valid rotation of the two-dimensional null space reconstructs the marginal penalty within 3e-15 but changes predictions after upstream nat.param type-3 per-column normalization.",
+    "policy": "Retain the original six R fits as explicit NAMpy rejection evidence; no tolerances weakened and no platform-specific branch."
+  }
 }

@@ -24,7 +24,15 @@
   "fit_cases": 50,
   "generation": "NAMPY_REFRESH_REFERENCE_FIXTURES=1 pytest tests/smooths/test_mgcv_functional_packing.py -k upstream",
   "coverage": "Skew-frequency repeated locations with36unique independentpairs; packed setup centering/penalty scaling;13basis variants fixed+selectedREML; weighted/unit/constant row sums; directR ordering/index reference.",
-  "guard": "NAMpy rejects matrix cs when ExtractData would pack repeated locations: unequal null-space shrinkage orientation differs across numerical kernels. Source spectrum/non-null action match2e-12, aligned penalty difference7.8e-5, repeated-grid REML fitted difference0.0227. This is a NAMpy parity limitation, not an upstream input restriction.",
+  "guard": "All matrix cs terms, including distinct locations, are rejected by NAMpy because unequal null-space shrinkage eigenvalues make the penalty depend on platform-dependent numerical null eigenvectors. Scalar cs is unchanged. Actual mgcv references are retained; this is not an upstream input restriction.",
   "supported_fit_cases": 46,
-  "guarded_fit_cases": 4
+  "guarded_fit_cases": 4,
+  "portability_evidence": {
+    "platform": "macOS GitHub Actions Python 3.11",
+    "failed_distinct_grid_cases": 5,
+    "max_prediction_difference_fixed": 8.97638416e-05,
+    "max_prediction_difference_REML": 0.00977856,
+    "source": "mgcv/R/smooth.r::smooth.construct.cr.smooth.spec unequal trailing eigenvalues (shrink=.1, then .01)",
+    "reference_policy": "Retain original R fits; six distinct-grid CS cases and four packed-grid CS cases test explicit NAMpy rejection; no tolerance changes."
+  }
 }

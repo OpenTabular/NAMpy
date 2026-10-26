@@ -46,7 +46,15 @@ def test_spline_matrix_functions_match_mgcv(references, basis, method, kind):
         smoothing_method=method,
         optimize_smoothing=method != "fixed",
         smoothing_params=[0.4] if method == "fixed" else None,
-    ).fit(data=_frame(ref["data"]), sample_weight=np.asarray(ref["data"]["w"]))
+    )
+    if basis == "cs":
+        # Actual mgcv references are retained: this is a NAMpy portability
+        # limitation, not an upstream rejection. Unequal shrinkage eigenvalues
+        # make the numerically null eigenvector orientation affect fitted curves.
+        with pytest.raises(NotImplementedError, match="Matrix cs terms are unsupported"):
+            model.fit(data=_frame(ref["data"]), sample_weight=np.asarray(ref["data"]["w"]))
+        return
+    model.fit(data=_frame(ref["data"]), sample_weight=np.asarray(ref["data"]["w"]))
     prediction, se = model.predict(_frame(ref["newdata"]), return_se=True)
     np.testing.assert_allclose(prediction, ref["fit"], atol=3e-5, rtol=3e-5)
     np.testing.assert_allclose(se, ref["se"], atol=3e-5, rtol=3e-5)

@@ -147,9 +147,14 @@ The following combinations remain unsupported and fail explicitly:
   bases support matrix functionals with a scalar group factor;
 * linked matrix-valued tensor ``id`` groups and matrix pooling combinations
   without an implemented setup path; basis-specific guards remain authoritative;
-* repeated-location ``cs`` matrix fits requiring setup packing: unequal
+* matrix ``t2`` with any ``bs`` margin: upstream type-3 natural parameterization
+  normalizes null columns individually, so numerical null-space rotations can
+  change the fitted metric. This is a NAMpy portable-parity limitation;
+  ``te``/``ti`` with ``bs`` and scalar-input ``t2`` remain supported;
+* all ``cs`` matrix fits, including distinct locations: unequal
   penalties on the nominal null space can amplify platform-dependent
-  eigenvector orientation into different REML fits. This is an unresolved
+  eigenvector orientation into different fixed and REML fits. Scalar ``cs``
+  remains supported. This is an unresolved
   NAMpy parity restriction, rather than an upstream constructor rejection;
 * automatic ML, REML, or LAML selection for transformed SCAM models;
 * automatic smoothing for transformed models with several linear predictors;
@@ -234,7 +239,7 @@ functionals, including numeric/factor random-effect interactions and full or
 reduced-rank MRFs. They check fixed and REML fits, observation and quadrature
 weights, prediction covariance kernels, EDF, smoothing parameters, aligned
 penalties and persistence. Repeated-location fixtures test mgcv's setup packing
-and constraint ordering. The ``cs`` packing restriction above records a real
+and constraint ordering. The matrix ``cs`` restriction above records a real
 fitted-value discrepancy; it is not hidden by broader tolerances.
 
 ``fs`` matrix terms with ``cr``/``ps`` bases and scalar group factors, and

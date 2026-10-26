@@ -66,7 +66,7 @@ def test_runtime_packed_fit_and_penalties(references, bs, kind, method):
     ns = 9 if bs == "ad2" else 3 if bs == "ad" else 1
     if bs == "cs":
         with pytest.raises(
-            NotImplementedError, match="packed repeated locations.*unsupported"
+            NotImplementedError, match="Matrix cs terms are unsupported"
         ):
             GAM(
                 formula=formula,

@@ -247,6 +247,9 @@ an explicitly selected ``cr`` or ``ps`` base is supported. ``sz`` accepts
 observation. Tensor functionals
 sum products evaluated at each paired location.
 
+Matrix ``cs`` terms are rejected even for distinct locations because portable
+null-space shrinkage parity remains unresolved. Scalar ``cs`` is supported.
+
 Run ``python examples/example_matrix_functionals.py`` from a source checkout
 for complete surface and tensor fits with prediction standard errors.
 See :ref:`matrix-functional-smooths` for basis-specific compositions, repeated

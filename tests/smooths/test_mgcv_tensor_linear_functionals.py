@@ -49,6 +49,16 @@ def _frame(values):
 def test_tensor_matrix_functions_match_mgcv(references, tensor, basis, method, kind):
     ref = references[f"{tensor}/{basis}/{method}/{kind}"]
     formula = f"y ~ {tensor}(X,Z,bs=['{basis}','{basis}'],k=[5,5]{',by=L' if kind != 'unweighted' else ''}) + offset(o)"
+    if tensor == "t2" and basis == "bs":
+        # Retain actual-R fixtures as evidence for the portability boundary.
+        with pytest.raises(NotImplementedError, match="natural null-space"):
+            GAM(
+                formula=formula,
+                smoothing_method=method,
+                optimize_smoothing=method != "fixed",
+                smoothing_params=ref["sp"] if method == "fixed" else None,
+            ).fit(data=_frame(ref["data"]), sample_weight=np.asarray(ref["data"]["w"]))
+        return
     model = GAM(
         formula=formula,
         smoothing_method=method,
@@ -249,3 +259,41 @@ def test_tensor_matrix_factor_by_is_rejected(references, tensor):
             optimize_smoothing=False,
             smoothing_params=ref["sp"],
         ).fit(data=data)
+
+
+def test_type3_null_normalization_depends_on_valid_eigenvector_orientation(monkeypatch):
+    """Upstream's per-column null scaling is not rotation invariant."""
+    from nampy.gam.splines.basis import natparam
+
+    x = np.linspace(-0.8, 1.3, 31)
+    X = np.column_stack([x**2, x**3, np.ones_like(x), x])
+    S = np.diag([3.0, 1.0, 0.0, 0.0])
+    original = natparam._r_symmetric_eigh_descending
+    baseline = natparam.nat_param_type3(X, S)
+
+    def rotated(matrix):
+        values, vectors = original(matrix)
+        if matrix.shape == S.shape:
+            angle = 0.4
+            rotation = np.array(
+                [[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]
+            )
+            vectors[:, -2:] = vectors[:, -2:] @ rotation
+            np.testing.assert_allclose((vectors * values) @ vectors.T, S, atol=1e-14)
+            np.testing.assert_allclose(vectors.T @ vectors, np.eye(4), atol=1e-14)
+        return values, vectors
+
+    monkeypatch.setattr(natparam, "_r_symmetric_eigh_descending", rotated)
+    alternative = natparam.nat_param_type3(X, S)
+    original_null = baseline["X"][:, 2:]
+    rotated_null = alternative["X"][:, 2:]
+    # Equal spaces, unequal ridge metrics: t2's range/null blocks penalize
+    # these coordinates, changing fitted functions rather than merely signs.
+    np.testing.assert_allclose(
+        original_null @ np.linalg.pinv(original_null),
+        rotated_null @ np.linalg.pinv(rotated_null),
+        atol=1e-13,
+    )
+    assert not np.allclose(
+        original_null @ original_null.T, rotated_null @ rotated_null.T
+    )

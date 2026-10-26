@@ -27,8 +27,14 @@
   single-penalty random-effect tensor margins, and `fs` matrix terms with
   explicit `cr`/`ps` bases; support `sz` matrix functionals with `tp`/`cr`/`ps`
   and scalar factor columns. Preserve explicit
-  restrictions for packed repeated-location `cs`, matrix `fs` with `tp`,
+  restrictions for all matrix `cs` terms, matrix `fs` with `tp`,
   weighted 2D adaptive terms and known-boundary soap functionals.
+  macOS CI exposed distinct-grid CS prediction differences up to 0.00978;
+  retained R references now verify the explicit matrix-CS restriction while
+  scalar CS remains supported.
+  Guard matrix `t2` with any `bs` margin after macOS exposed null-column
+  normalization differences; retain six actual-R cases as rejection evidence.
+  Scalar-input `t2` and `te`/`ti` with `bs` remain supported.
 - Standardize `predict_point()` across GAM-backed and neural LSS estimators.
 - Add committed parametric semantic parity references from mgcv 1.9-4,
   gamlss 5.5-0, and gamlss.dist 6.1-1.

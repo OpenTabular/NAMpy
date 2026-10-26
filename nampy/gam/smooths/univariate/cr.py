@@ -175,14 +175,15 @@ class CubicSplineTerm(BaseSmoothTerm):
             else np.asarray(x_values, dtype=np.float64).reshape(-1)
         )
 
-        if (
-            self._linear_functional
-            and self.basis_name == "cs"
-            and len(xj) < np.asarray(x_values).size
-        ):
+        # mgcv smooth.r's cr constructor assigns unequal shrinkage eigenvalues
+        # to its two numerical null directions. LAPACK-dependent rotations then
+        # change the penalty itself; retained matrix fixtures fail even without
+        # repeated-location packing on macOS. Keep scalar CS semantics intact.
+        if self._linear_functional and self.basis_name == "cs":
             raise NotImplementedError(
-                "Matrix cs terms with packed repeated locations are unsupported: "
-                "unequal null-space shrinkage orientation parity remains unresolved. "
+                "Matrix cs terms are unsupported: portable parity of the unequal "
+                "null-space shrinkage orientation remains unresolved, including "
+                "distinct locations. "
                 "This is a NAMpy limitation, not an mgcv input restriction."
             )
 
