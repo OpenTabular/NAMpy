@@ -3,6 +3,8 @@
 import numpy as np
 from scipy.special import gammaln
 
+from ._scalar_math import cube, exp, log
+
 _EPS = np.finfo(float).eps
 _XMAX = np.finfo(float).max
 
@@ -11,12 +13,12 @@ def l1ee(x):
     """mgcv log(1-exp(-exp(x))), retaining its tail branches."""
     x = np.atleast_1d(np.asarray(x, dtype=float))
     with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
-        ex = np.exp(x)
-        value = np.log(1 - np.exp(-ex))
-        small = x < np.log(_EPS) / 3
+        ex = exp(x)
+        value = log(1 - exp(-ex))
+        small = x < log(_EPS) / 3
         exi = ex[small]
-        value[small] = np.log(exi - exi**2 / 2 + exi**3 / 6)
-        value[x < -np.log(_XMAX)] = x[x < -np.log(_XMAX)]
+        value[small] = log(exi - exi**2 / 2 + cube(exi) / 6)
+        value[x < -log(_XMAX)] = x[x < -log(_XMAX)]
     return value
 
 
@@ -24,13 +26,13 @@ def lee1(x):
     """mgcv log(exp(exp(x))-1)."""
     x = np.atleast_1d(np.asarray(x, dtype=float))
     with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
-        ex = np.exp(x)
-        value = np.log(np.exp(ex) - 1)
-        small = x < np.log(_EPS) / 3
+        ex = exp(x)
+        value = log(exp(ex) - 1)
+        small = x < log(_EPS) / 3
         exi = ex[small]
-        value[small] = np.log(exi + exi**2 / 2 + exi**3 / 6)
-        value[x < -np.log(_XMAX)] = x[x < -np.log(_XMAX)]
-        large = x > np.log(np.log(_XMAX))
+        value[small] = log(exi + exi**2 / 2 + cube(exi) / 6)
+        value[x < -log(_XMAX)] = x[x < -log(_XMAX)]
+        large = x > log(log(_XMAX))
         value[large] = ex[large]
     return value
 
@@ -39,12 +41,12 @@ def ldg(g, deriv=4):
     """Derivatives of the positive-count log density in log Poisson mean."""
     g = np.atleast_1d(np.asarray(g, dtype=float))
     with np.errstate(all="ignore"):
-        eg = np.exp(g)
+        eg = exp(g)
         a = 1 + eg / 2 + eg**2 / 12
-        ordinary = g > np.log(_EPS) / 3
-        a[ordinary] = eg[ordinary] / (1 - np.exp(-eg[ordinary]))
-        small = g < np.log(_EPS) / 3
-        high = g > np.log(np.log(_XMAX)) + 1
+        ordinary = g > log(_EPS) / 3
+        a[ordinary] = eg[ordinary] / (1 - exp(-eg[ordinary]))
+        small = g < log(_EPS) / 3
+        high = g > log(log(_XMAX)) + 1
         egi = eg[small]
         b = egi * (1 + egi / 6) / 2
         l2 = a * (a - eg - 1)
@@ -57,12 +59,12 @@ def ldg(g, deriv=4):
             l3[high] = -eg[high]
         if deriv > 2:
             l4 = a * (
-                6 * a**3
+                6 * cube(a)
                 - 12 * (eg + 1) * a**2
                 + 4 * eg * a
                 + 7 * (eg + 1) ** 2 * a
                 - (4 + 3 * eg) * eg
-                - (eg + 1) ** 3
+                - cube(eg + 1)
             )
             l4[small] = a[small] * (
                 6 * b * (3 + 3 * b + b**2)
@@ -75,20 +77,20 @@ def ldg(g, deriv=4):
             )
             l4[high] = -eg[high]
         l1 = -a
-        limit = np.log(_XMAX) / 5
+        limit = log(_XMAX) / 5
         capped = g > limit
         # R chained replacement also creates zero-filled higher derivative
         # arrays here when those arrays were previously NULL.
         for derivative in (l1, l2, l3, l4):
             if derivative is not None:
-                derivative[capped] = -np.exp(limit)
+                derivative[capped] = -exp(limit)
         if np.any(capped):
             if l3 is None:
                 l3 = np.zeros(g.size)
-                l3[capped] = -np.exp(limit)
+                l3[capped] = -exp(limit)
             if l4 is None:
                 l4 = np.zeros(g.size)
-                l4[capped] = -np.exp(limit)
+                l4[capped] = -exp(limit)
     return {"l1": l1, "l2": l2, "l3": l3, "l4": l4}
 
 
@@ -96,12 +98,12 @@ def lde(eta, deriv=4):
     """Derivatives of log probability of presence in cloglog predictor."""
     eta = np.atleast_1d(np.asarray(eta, dtype=float))
     with np.errstate(all="ignore"):
-        small = eta < np.log(_EPS) / 3
-        high = eta > np.log(_XMAX)
-        et = np.exp(eta)
+        small = eta < log(_EPS) / 3
+        high = eta > log(_XMAX)
+        et = exp(eta)
         eti = et[small]
         l1 = et.copy()
-        l1[~small] = et[~small] / (np.exp(et[~small]) - 1)
+        l1[~small] = et[~small] / (exp(et[~small]) - 1)
         b = -eti * (1 + eti / 6) / 2
         l1[small] = 1 + b
         l1[high] = 0
@@ -110,26 +112,26 @@ def lde(eta, deriv=4):
         l2[high] = 0
         l3 = l4 = None
         if deriv > 1:
-            high = eta > np.log(_XMAX) / 2
+            high = eta > log(_XMAX) / 2
             l3 = l1 * ((1 - et) ** 2 - et - 3 * (1 - et) * l1 + 2 * l1**2)
             l3[small] = l1[small] * (
                 -3 * eti + eti**2 - 3 * (-eti + b - eti * b) + 2 * b * (2 + b)
             )
             l3[high] = 0
         if deriv > 2:
-            high = eta > np.log(_XMAX) / 3
+            high = eta > log(_XMAX) / 3
             l4 = l1 * (
                 (3 * et - 4) * et
                 + 4 * et * l1
-                + (1 - et) ** 3
+                + cube(1 - et)
                 - 7 * (1 - et) ** 2 * l1
                 + 12 * (1 - et) * l1**2
-                - 6 * l1**3
+                - 6 * cube(l1)
             )
             l4[high] = 0
             l4[small] = l1[small] * (
                 4 * l1[small] * eti
-                - eti**3
+                - cube(eti)
                 - b
                 - 7 * b * eti**2
                 - eti**2
@@ -137,7 +139,7 @@ def lde(eta, deriv=4):
                 - 10 * b * eti
                 - 12 * eti * b**2
                 - 6 * b**2
-                - 6 * b**3
+                - 6 * cube(b)
             )
     return {"l1": l1, "l2": l2, "l3": l3, "l4": l4}
 
@@ -151,7 +153,7 @@ def zipll(y, g, eta, deriv=0):
     )
     zero = y == 0
     with np.errstate(all="ignore"):
-        et = np.exp(eta)
+        et = exp(eta)
         value = et.copy()
         value[zero] = -et[zero]
         value[~zero] = (
@@ -160,7 +162,7 @@ def zipll(y, g, eta, deriv=0):
             - lee1(g[~zero])
             - gammaln(y[~zero] + 1)
         )
-        p = 1 - np.exp(-et)
+        p = 1 - exp(-et)
         l1 = l2 = l3 = l4 = expected = None
         if deriv:
             le, lg = lde(eta, deriv), ldg(g, deriv)

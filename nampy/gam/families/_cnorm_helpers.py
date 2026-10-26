@@ -4,8 +4,10 @@ import warnings
 
 import numpy as np
 
-_LOG_2PI = np.log(2 * np.pi)
-_CUTOFF = np.log(1 / np.finfo(float).eps) + 1
+from ._scalar_math import exp, expm1, log, log1p
+
+_LOG_2PI = log(2 * np.pi)
+_CUTOFF = log(1 / np.finfo(float).eps) + 1
 
 
 def logexm1(x):
@@ -14,7 +16,7 @@ def logexm1(x):
         raise ValueError("NAs are not allowed in subscripted assignments")
     small = x < _CUTOFF
     with np.errstate(divide="ignore", invalid="ignore"):
-        x[small] = np.log(np.expm1(x[small]))
+        x[small] = log(expm1(x[small]))
     return x
 
 
@@ -23,7 +25,7 @@ def logexp1(x):
     if np.any(np.isnan(x)):
         raise ValueError("NAs are not allowed in subscripted assignments")
     small = x < _CUTOFF
-    x[small] = np.log(np.exp(x[small]) + 1)
+    x[small] = log(exp(x[small]) + 1)
     return x
 
 
@@ -42,7 +44,7 @@ def dpnorm(x0, x1, log_p=True):
     x1[positive] = -old
     p0, p1 = log_pnorm(x0), log_pnorm(x1)
     result = p0 + logexm1(p1 - p0)
-    return result if log_p else np.exp(result)
+    return result if log_p else exp(result)
 
 
 def ddnorm(x0, x1, a0=0, a1=0, s0=1, s1=1):
@@ -155,7 +157,7 @@ def log_pnorm(x):
     tiny = np.abs(xx) <= np.finfo(float).eps * 0.5
     num[tiny], den[tiny] = 0, 0
     temp = xx * (num + a[3]) / (den + b[3])
-    result[small] = np.log(0.5 + temp)
+    result[small] = log(0.5 + temp)
     for central in (True, False):
         mask = (
             (y > 0.67448975) & (y <= np.sqrt(32))
@@ -181,11 +183,11 @@ def log_pnorm(x):
         split = np.ldexp(np.trunc(np.ldexp(split_arg, 4)), -4)
         delta = (split_arg - split) * (split_arg + split)
         with np.errstate(over="ignore", under="ignore"):
-            log_tail = -split * (split / 2) - delta / 2 + np.log(temp)
+            log_tail = -split * (split / 2) - delta / 2 + log(temp)
             positive = xx > 0
-            log_tail[positive] = np.log1p(
-                -np.exp(-split[positive] * (split[positive] / 2))
-                * np.exp(-delta[positive] / 2)
+            log_tail[positive] = log1p(
+                -exp(-split[positive] * (split[positive] / 2))
+                * exp(-delta[positive] / 2)
                 * temp[positive]
             )
         result[mask] = log_tail

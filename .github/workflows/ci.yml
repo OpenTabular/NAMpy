@@ -114,6 +114,7 @@ jobs:
     - name: Run portable ziP-family slices
       run: >-
         pytest
+        tests/families/test_source_scalar_math.py
         tests/families/test_zip_family_contracts.py
         tests/families/test_mgcv_zip_workflows.py
         tests/families/test_mgcv_zip_optimizers.py
