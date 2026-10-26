@@ -19,6 +19,7 @@ use the [API reference](../docs/api/index.rst).
 | `example_clog_gam.py` | logistic location, paired censor bounds, and additive reconstruction |
 | `example_cpois_gam.py` | censored Poisson counts, latent means, and prediction uncertainty |
 | `example_bcg_gam.py` | censored Box-Cox Gaussian location with estimated lambda and SD |
+| `example_soap_compositions.py` | known-boundary soap tensors and matrix-coordinate factor smooths |
 | `example_gumbls_gam.py` | Gumbel location and scale with separate distribution predictors |
 | `example_ziplss_gam.py` | hurdle counts with independent intensity and presence predictors |
 | `example_multinom_gam.py` | two log-odds predictors and three category probabilities |

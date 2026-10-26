@@ -248,6 +248,15 @@ class SoapFilmTerm(BaseSmoothTerm):
         """Zero-boundary films supply an explicit zero-row constraint in mgcv."""
         return bool(self._setup.need_constraint)
 
+    def factor_smooth_penalty_rank(self):
+        """FS passes the soap constructor's declared rank to nat.param."""
+        self._require_fitted()
+        if len(self._setup.ranks) != 1:
+            raise NotImplementedError(
+                "Factor smooths require a single soap penalty."
+            )
+        return int(self._setup.ranks[0])
+
     def tensor_marginal_fit_matrices(
         self, *, centered=False, apply_np=False, x_train=None
     ):

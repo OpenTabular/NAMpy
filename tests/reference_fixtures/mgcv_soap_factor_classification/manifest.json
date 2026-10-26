@@ -1,0 +1,48 @@
+{
+  "namespace": "mgcv_soap_factor_classification",
+  "upstream": {
+    "mgcv": "1.9-4",
+    "R": "4.6.1"
+  },
+  "generator": "tests/smooths/test_mgcv_soap_factor_classification.py",
+  "generator_sha256": "a3585563c446c02bb68ff6d667580b4db9aceca80b93a5eaab710dc573542216",
+  "probe": "tests/smooths/probes/mgcv_soap_factor_classification.R",
+  "probe_sha256": "dc8367a04bd66e16cea4e45e2e9e3335e306dffb204a31934e16600167d9a83f",
+  "term_sp_probe": "tests/smooths/probes/mgcv_soap_factor_delegated_sp.R",
+  "term_sp_probe_sha256": "2394827d0609aad910fb938902f81fe133b0f4228d9b79bbd7f7b1e4f7cad745",
+  "term_sp_fixture": "44bf32b275e925628c016f305e62063d580c1fe0cff3f2203549768d816f9c37.json.gz",
+  "active_fixture": "82b4e753e01bf69f206d1862ea495c2e0f60a0fed12d99472846d15238bcdac6.json.gz",
+  "source_files_sha256": {
+    "R/smooth.r": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d",
+    "R/soap.r": "5e9651df5ae13bf998cdcf49921e687a3bec6c5c03810f4a49f0a2e2c944ef59"
+  },
+  "execution": "Unmodified installed CRAN mgcv 1.9-4 smooth.construct, smoothCon and fixed-SP gam. Deterministic decimal grid, factor levels, boundary coordinates, interior knots, responses and held-out observations generated only by the source probe and frozen in the capture; ordinary tests are static and require no R.",
+  "scope": "76 source cases: ordinary fs/sz with so/sf/sw over six boundary domains, with and without a factor; four additional no-factor fs/sz so/sw fits with explicit per-term SP. Raw constructor, constrained constructor and actual fixed-SP fitting acceptance/errors; base ncol/rank/nullity and offset; predictions, fitted values, prediction covariance, EDF, design/penalty operators. Runtime comparisons use transported designs/penalties and predicted functions/covariances, never raw eigenvectors or coefficients.",
+  "domains": {
+    "free": "One free outer boundary.",
+    "mixed": "Free outer boundary and known-valued hole.",
+    "multiple_free": "Free outer boundary and free hole.",
+    "known": "One known-valued outer boundary.",
+    "all_known": "Known-valued outer boundary and known-valued hole.",
+    "outer_known": "Known-valued outer boundary and free hole."
+  },
+  "classification": [
+    "With an actual factor, so containing any free boundary has multiple penalties and is rejected by fs/sz; sf with two free boundaries is rejected by the same guard.",
+    "Full-rank sw inside fs fails upstream subscript assignment because 1:null.d becomes 1:0 at null.d=0. Fully known so has the same full-rank failure in fs.",
+    "With an actual factor, so/sz with all boundaries known is accepted with its sole full-rank interior penalty.",
+    "sf with all boundaries known has no free coefficients and fails in the base constructor.",
+    "Single-penalty sf is accepted in fs/sz; full-rank sw is accepted in sz.",
+    "Without an actual factor, fs/sz delegates directly to the requested base constructor before the multiple-penalty and full-rank factor guards.",
+    "No-factor delegation preserves explicit per-term smoothing parameters; their positive source values fix the associated smoothing parameters.",
+    "Soap base offsets are retained by no-factor delegation. Actual factor constructor reconstruction discards the X offset attribute; captures record this source behavior explicitly."
+  ],
+  "tolerances": "Existing ordinary-soap-factor tolerances retained: fit/prediction/covariance/EDF 4e-5; design transport 2e-7; penalty transport 3e-6.",
+  "fixture_sha256": {
+    "44bf32b275e925628c016f305e62063d580c1fe0cff3f2203549768d816f9c37.json.gz": "a838a76dd32f5e7e7e160bffd34e36deaeff5e63f7284a6c06706d3e83cadb3f",
+    "82b4e753e01bf69f206d1862ea495c2e0f60a0fed12d99472846d15238bcdac6.json.gz": "95b17f6884c5cdfdfdffbbdb4493373a0cddab37d5084d9d36867ffbac35dcb2"
+  },
+  "fixture_files": 2,
+  "generators_sha256": {
+    "tests/smooths/test_mgcv_soap_factor_classification.py": "a3585563c446c02bb68ff6d667580b4db9aceca80b93a5eaab710dc573542216"
+  }
+}

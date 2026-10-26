@@ -746,6 +746,36 @@
       "generator": "tests/optimization/test_mgcv_weighted_gaussian_criterion.py",
       "generator_sha256": "d7e24fdda094ad08ebeb3f8c9f4739242528e75b07bc4968306b7c5e69f7a045",
       "scope": "Eight fixed-SP Gaussian scalar cr fits: ML/REML crossed with omitted, explicit-one, constant-two and nonuniform/zero prior weights. Source variance-optimized criterion and separately reported Pearson scale; production criterion_value plus direct exact-criterion callers, fitted functions, full prediction covariance kernel and EDF. Ninth analytic invariant checks unit whitened penalty and covariance operator rather than raw eigenvectors."
+    },
+    "mgcv_soap_factor_classification": {
+      "package_version": "1.9-4",
+      "R_version": "4.6.1",
+      "fixture_namespace": "mgcv_soap_factor_classification",
+      "manifest": "tests/reference_fixtures/mgcv_soap_factor_classification/manifest.json",
+      "fixture_files": 2,
+      "generator": "tests/smooths/test_mgcv_soap_factor_classification.py",
+      "generator_sha256": "a3585563c446c02bb68ff6d667580b4db9aceca80b93a5eaab710dc573542216",
+      "scope": "76 source cases: ordinary fs/sz with so/sf/sw over six boundary domains, with and without a factor; four additional no-factor fs/sz so/sw fits with explicit per-term SP. Raw constructor, constrained constructor and actual fixed-SP fitting acceptance/errors; base ncol/rank/nullity and offset; predictions, fitted values, prediction covariance, EDF, design/penalty operators. Runtime comparisons use transported designs/penalties and predicted functions/covariances, never raw eigenvectors or coefficients."
+    },
+    "mgcv_soap_tensor_compositions": {
+      "package_version": "1.9-4",
+      "R_version": "4.6.1",
+      "fixture_namespace": "mgcv_soap_tensor_compositions",
+      "manifest": "tests/reference_fixtures/mgcv_soap_tensor_compositions/manifest.json",
+      "fixture_files": 1,
+      "generator": "tests/smooths/test_mgcv_soap_tensor_compositions.py",
+      "generator_sha256": "a041d6dfcc2d5d10ab6fefdb782ff1ab2c3ea1d1cd26109430757e8a7efb968f",
+      "scope": "te/ti/t2 with so/sf, single free boundary, two free boundaries, fully known single boundary, mixed free/known boundaries, fully known two boundaries. Accepted source constructors have fixed-SP and REML fit references. New fit tests cover18 newly classified cases; existing soap tensor tests retain free-single-boundary sf coverage."
+    },
+    "mgcv_soap_matrix_factor": {
+      "package_version": "1.9-4",
+      "R_version": "4.6.1",
+      "fixture_namespace": "mgcv_soap_matrix_factor",
+      "manifest": "tests/reference_fixtures/mgcv_soap_matrix_factor/manifest.json",
+      "fixture_files": 68,
+      "generator": "tests/smooths/test_mgcv_soap_matrix_factor.py",
+      "generator_sha256": "2e749ada4d81a602f65e0f6fd9dda3f6871a80599fc3c4e96729eb7e1f7c1109",
+      "scope": "Matrix-valued paired soap metric coordinates with scalar factors: fs/sf, sz/sf, sz/sw, all-known sz/so. Fixed and selected REML, unit/varying/constant row-sum functional weights, prior precision, formula offsets, repeated points, mixed known/free boundaries, train/new prediction covariance, EDF and common-coordinate penalty transport. Source-only classification distinguishes factor+dim from classless matrices; explicit matrix-factor public metadata remains unsupported."
     }
   }
 }

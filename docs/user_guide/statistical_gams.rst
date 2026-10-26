@@ -241,10 +241,12 @@ weights observations. New-data rows can use a different quadrature width.
 
 Numeric and factor random effects and full/reduced-rank MRFs also support this
 summation convention. Use lists of labels for categorical matrix cells.
-For ``fs`` functionals, the group factor remains scalar per observation and
-an explicitly selected ``cr`` or ``ps`` base is supported. ``sz`` accepts
-``tp``, ``cr`` and ``ps`` bases with one or more scalar factor columns per
-observation. Tensor functionals
+For ``fs`` functionals, the group factor remains scalar per observation;
+validated bases include ``cr``, ``ps``, one-null-direction ``tp`` and
+single-penalty ``sf``. ``sz`` accepts ``tp``, ``cr``, ``ps``, single-penalty
+``sf``, ``sw`` and fully known-boundary ``so`` with scalar factors.
+Soap factor interactions discard marginal boundary offsets, following mgcv.
+Tensor functionals
 sum products evaluated at each paired location.
 
 Matrix ``cs`` terms are rejected even for distinct locations because portable

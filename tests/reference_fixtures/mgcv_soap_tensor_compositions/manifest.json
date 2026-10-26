@@ -1,0 +1,47 @@
+{
+  "namespace": "mgcv_soap_tensor_compositions",
+  "upstream": {
+    "mgcv": "1.9-4",
+    "R": "4.6.1"
+  },
+  "sources": [
+    {
+      "path": "nampy_notes/upstreams/mgcv/R/smooth.r",
+      "sha256": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d"
+    },
+    {
+      "path": "nampy_notes/upstreams/mgcv/R/soap.r",
+      "sha256": "5e9651df5ae13bf998cdcf49921e687a3bec6c5c03810f4a49f0a2e2c944ef59"
+    }
+  ],
+  "generators": [
+    {
+      "path": "tests/smooths/probes/mgcv_soap_tensor_compositions.R",
+      "sha256": "e6f5cf640587fbe9469dfea1bc844e1b54b7f52f16cbf8fd3c2876284fe1796c"
+    },
+    {
+      "path": "tests/smooths/test_mgcv_soap_tensor_compositions.py",
+      "sha256": "a041d6dfcc2d5d10ab6fefdb782ff1ab2c3ea1d1cd26109430757e8a7efb968f"
+    }
+  ],
+  "fixture_files": 1,
+  "reference_cases": 30,
+  "fit_reference_cases": 24,
+  "generation": "Fresh actual R mgcv smooth.construct/smoothCon/gam/predict captures under NAMPY_REFRESH_REFERENCE_FIXTURES=1. Ordinary tests use committed fixtures. Superseded untracked development captures removed.",
+  "inputs": "Frozen data/newdata/knots/outer boundary from existing mgcv_soap_tensor te/sf/fixed fixture; hole and prescribed boundary values are explicit decimal literals. No runtime random/transcendental fixture identity.",
+  "coverage": "te/ti/t2 with so/sf, single free boundary, two free boundaries, fully known single boundary, mixed free/known boundaries, fully known two boundaries. Accepted source constructors have fixed-SP and REML fit references. New fit tests cover18 newly classified cases; existing soap tensor tests retain free-single-boundary sf coverage.",
+  "source_classification": [
+    "smooth.r constructors reject any marginal with more than one penalty; ordinary so and multiple-free-loop sf are intentional upstream rejections.",
+    "Fully known-boundary so has one full-rank interior penalty and is accepted, including a hole.",
+    "sf with one free boundary and any known boundary retains one penalty and is accepted. sf with no free coefficients is rejected upstream.",
+    "Upstream tensor construction discards soap marginal offset attributes. Captures explicitly retain nonzero marginal_offset and zero tensor_offset; supported Python routes mirror this source behavior."
+  ],
+  "validation": "Prediction and fitted values, SE, covariance kernels, EDF, SP, REML criterion, complete train/new coefficient-space transport and all fitting-coordinate penalty congruences. No basis-column or eigenvector sign matching.",
+  "fixture_sha256": {
+    "c4ce888af31df110a3e9d3374c522673cd46cb3b9625982d14b15fd9e2c5022c.json.gz": "2a7911f69a23ea38203943d0345cec5a934bf02b1acc39022448e6f295dba6ff"
+  },
+  "generators_sha256": {
+    "tests/smooths/probes/mgcv_soap_tensor_compositions.R": "e6f5cf640587fbe9469dfea1bc844e1b54b7f52f16cbf8fd3c2876284fe1796c",
+    "tests/smooths/test_mgcv_soap_tensor_compositions.py": "a041d6dfcc2d5d10ab6fefdb782ff1ab2c3ea1d1cd26109430757e8a7efb968f"
+  }
+}

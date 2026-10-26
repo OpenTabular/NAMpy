@@ -77,9 +77,11 @@ _BASIS_REGISTRY: dict[str, SmoothBasisDescriptor] = {
             name,
             min_features=2,
             max_features=2,
-            supports_tensor=name in {"sf", "sw"},
-            supports_factor_smooth=name in {"sf", "sw"},
-            supports_fs=name == "sf",
+            # Actual penalty count is boundary-dependent and checked by the
+            # composition owner. Fully known-boundary so has one penalty.
+            supports_tensor=True,
+            supports_factor_smooth=True,
+            supports_fs=name != "sw",
             factor_accepts_xt=True,
             supports_pc=True,
             accepts_xt=True,

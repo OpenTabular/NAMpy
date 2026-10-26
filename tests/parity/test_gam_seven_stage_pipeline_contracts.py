@@ -77,6 +77,46 @@ def _smooth_term(case: _PipelineCase):
     )
 
 
+@pytest.fixture(scope="module")
+def soap_pipeline_cases():
+    from examples.example_soap_compositions import fit_examples
+
+    return fit_examples()
+
+
+@pytest.mark.parametrize("name", ["known_boundary_tensor", "matrix_factor"])
+def test_soap_compositions_cover_seven_stage_pipeline(soap_pipeline_cases, name):
+    """New soap routes retain the same compiler, fit and prediction owners."""
+    gam, frame = soap_pipeline_cases[name]
+    # 1. The parsed specification retains the requested smooth composition.
+    assert gam.predictor_specs[0].terms[0].smooth_spec is not None
+    compiled = gam.gam_result_.require_compiled_model()
+    term = compiled.compiled_terms[0]
+    # 2. The fitted runtime owns basis semantics and its matching penalties.
+    runtime = term.predict_fn.__self__
+    assert runtime.basis_train.shape[0] == len(frame)
+    assert len(runtime.get_penalty_definitions()) == 2
+    # 3. Constructed terms retain train/newdata evaluation in common coordinates.
+    np.testing.assert_allclose(term.predict_matrix(gam.X_), term.basis_train,
+                               atol=2e-12, rtol=2e-12)
+    # 4. Predictor/penalty assembly retains both smoothing parameters.
+    assert compiled.n_smoothing_params == len(gam.smoothing_params) == 2
+    assert len(compiled.compiled_penalties) == 2
+    # 5. Identifiability preserves the fitting/prediction function map.
+    np.testing.assert_allclose(compiled.predictors[0].build_new_matrix(gam.X_),
+                               compiled.design_matrix, atol=2e-12, rtol=2e-12)
+    # 6. The shared fit solution reconstructs the public fitted function.
+    solution = gam.gam_result_.fit_core_solution
+    assert isinstance(solution, FitCoreSolution)
+    prediction, se = gam.predict(frame, return_se=True)
+    P = gam.lpmatrix(frame)
+    np.testing.assert_allclose(P @ solution.fit_result.coef_full, prediction,
+                               atol=2e-11, rtol=2e-11)
+    # 7. Public uncertainty is the corresponding prediction covariance kernel.
+    kernel = P @ gam.vcov() @ P.T
+    np.testing.assert_allclose(se**2, np.diag(kernel), atol=2e-12, rtol=2e-12)
+
+
 def test_stage_1_formula_and_specs_preserve_declarative_contract(pipeline_case):
     """Stage 1 owns parsing, offsets, and canonical predictor/term specs."""
     gam = pipeline_case.gam

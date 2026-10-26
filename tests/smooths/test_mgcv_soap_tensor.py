@@ -87,7 +87,7 @@ def test_soap_tensor_fits_predictions_and_uncertainty_match_mgcv(
 
 
 @pytest.mark.parametrize("fun", ["te", "ti", "t2"])
-@pytest.mark.parametrize("basis", ["so", "ad", "fs", "sz"])
+@pytest.mark.parametrize("basis", ["ad", "fs", "sz"])
 def test_upstream_unsupported_marginals_remain_rejected(fun, basis):
     frame = pd.DataFrame(
         {
