@@ -116,8 +116,8 @@ def test_scat_positive_weight_retry_retains_supplied_weighted_response():
     import json
     from pathlib import Path
 
-    from nampy.gam.fit.selection.criteria.pirls.family_scat import (
-        criterion_ml_reml_pirls_scat,
+    from nampy.gam.fit.selection.criteria.pirls.family_vector_theta import (
+        criterion_ml_reml_pirls_vector_theta,
     )
 
     root = Path(__file__).parents[1] / "reference_fixtures" / "mgcv_scat_solver"
@@ -134,7 +134,7 @@ def test_scat_positive_weight_retry_retains_supplied_weighted_response():
             result.coef_full, expected["coef"], atol=2e-7, rtol=2e-7
         )
         assert result.deviance == pytest.approx(expected["dev"], abs=2e-7)
-        score = criterion_ml_reml_pirls_scat(
+        score = criterion_ml_reml_pirls_vector_theta(
             model, model.y_, np.log(model.smoothing_params), "REML"
         )
         assert score == pytest.approx(expected["score"], abs=2e-7)

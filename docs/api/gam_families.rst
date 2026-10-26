@@ -34,6 +34,8 @@ Family classes
      - Negative-binomial response with fixed or estimated shape.
    * - ``ScaledTFamily``
      - Scaled Student t location model; identity, log, or inverse link.
+   * - ``ZeroInflatedPoissonFamily``
+     - Single-predictor hurdle Poisson model; identity link on log intensity.
    * - ``BetaRegressionFamily``
      - Beta regression for responses in the unit interval.
    * - ``OrderedCategoricalFamily``
@@ -149,3 +151,60 @@ on zero-weight rows. Near zero observed curvature, tiny differences between
 converged fits can produce appreciable working-residual differences; parity
 checks compare the working-score invariant and separately verify raw
 residuals at the exact upstream fitted parameters.
+
+
+Hurdle Poisson family
+---------------------
+
+``ZeroInflatedPoissonFamily(theta=None, link="identity", b=0)`` implements
+mgcv's single-predictor ``ziP`` family. Public names ``"ziP"`` and ``"zip"``
+resolve to the same family. Only the identity link is supported.
+
+The fitted latent value ``gamma`` is the logarithm of a Poisson intensity
+``lambda = exp(gamma)``. The probability of a positive count is
+``p = 1 - exp(-exp(theta[0] + (b + exp(theta[1])) * gamma))``.
+Conditional on presence, counts have a zero-truncated Poisson distribution.
+``predict(type="response")`` returns the expected count
+``p * lambda / (1 - exp(-lambda))``; ``predict(type="link")`` and stored
+fitted values remain on the latent log-intensity scale. Response standard
+errors describe the expected count, not an interval for a new observation.
+
+A supplied ``theta`` pair fixes both working parameters, even when entries
+are zero or negative. Omitting ``theta`` estimates both, starting from
+``[0, 0]``. ``getTheta()`` returns the working intercept and log slope;
+``getTheta(trans=True)`` returns the intercept and ``b + exp(theta[1])``.
+``putTheta()`` accepts working parameters. Negative ``b`` is reset to zero,
+following mgcv. Larger ``b`` enforces stronger dependence between intensity
+and the probability of presence.
+
+The response must contain nonnegative integer counts; binary data containing
+both zero and one are rejected. The public model is a count regressor.
+Deviance, working, and response residuals are supported. Pearson and quantile
+residuals are explicitly unavailable. Reported deviance includes the
+family-specific saturated-likelihood correction; adjusted R-squared is not
+reported for this family.
+
+The reference scope covers fixed and estimated ancillary parameters, fixed
+smoothing, ML/REML (including the LAML alias), offsets, multiple smooths,
+no-intercept and parametric-only formulas, and unit observation weights.
+Positive external dispersion overrides are covered, including scale two. Nonunit or zero
+prior weights are explicitly guarded: mgcv's ``ziP`` deviance ignores weights
+while its derivatives and AIC use them, so the ordinary weighted-GLM contract
+does not apply. Positive ``min_sp`` and joint estimation with ``efs`` are
+also unsupported. Rank-deficient designs that drop coefficients are rejected when fitting
+requires outer-parameter uncertainty corrections: the upstream Cholesky
+branch for the full singular Hessian is sensitive to rounding, changing AIC
+and unconditional covariance. Conditional fitting with both theta and
+smoothing fixed remains available.
+
+The ``bfgs``, ``optim`` and ``nlm`` outer optimizers have fixed- and
+estimated-theta references for a unit-weight cubic smooth. BFGS and nlm use
+default controls; optim comparisons use matching
+``control={"epsilon": 1e-10, "optim": {"factr": 10}}``. BFGS retains its
+approximate outer Hessian. The derivative-free final fits from optim and nlm
+do not expose smoothing-parameter covariance or unconditional corrections.
+``GCV.Cp``, ``P-ML`` and ``P-REML`` follow mgcv's extended-family REML route, rather than a separate
+GCV objective. Default ``b=0`` and a near-boundary slope have direct references.
+
+Source: mgcv 1.9-4 ``R/efam.r::ziP`` and ``R/gamlss.r::zipll``; see the
+`upstream ziP documentation <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/ziP.html>`_.

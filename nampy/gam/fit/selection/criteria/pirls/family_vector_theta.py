@@ -1,4 +1,4 @@
-"""Scaled-t fixed-scale criteria, following mgcv gam.fit4's theta blocks."""
+"""Fixed-scale vector-theta criteria from mgcv gam.fit4 (scat and ziP)."""
 
 from contextlib import contextmanager
 
@@ -33,13 +33,16 @@ def _saturation(model, y):
     )
 
 
-def _score(model, sol, kernel, saturation, method):
+def _score(model, y, sol, kernel, saturation, method):
     gamma = float(model.score_gamma)
     if not np.isfinite(gamma) or gamma <= 0:
         return np.inf
     scale = float(model.family.known_scale)
+    # gam.fit4 optimizes raw dev.resids; ziP reporting deviance subtracts a
+    # theta-dependent saturated likelihood only after fitting.
+    deviance = model.family.deviance(y, sol["mu"], weights=_prior_weights(model, y))
     score = (
-        (float(sol["deviance"]) + float(kernel.bSb)) / (2 * scale) - float(saturation["ls"])
+        (float(deviance) + float(kernel.bSb)) / (2 * scale) - float(saturation["ls"])
     ) / gamma + float(kernel.K)
     if str(method).upper() in {"REML", "LAML"}:
         mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
@@ -47,7 +50,7 @@ def _score(model, sol, kernel, saturation, method):
     return float(score)
 
 
-def criterion_ml_reml_pirls_scat(model, y, log_sp, method):
+def criterion_ml_reml_pirls_vector_theta(model, y, log_sp, method):
     method = "REML" if str(method).upper() == "LAML" else str(method).upper()
     sp = expand_smoothing_params_from_log(model, log_sp)
     sol = solve_pirls_given_smoothing(
@@ -57,7 +60,7 @@ def criterion_ml_reml_pirls_scat(model, y, log_sp, method):
     kernel = _gdi1_kernel(
         model, y, sol, sp, method=method, rank_tol=_MGCV_GAM_FIT4_RANK_TOL
     )
-    return _score(model, sol, kernel, _saturation(model, y), method)
+    return _score(model, y, sol, kernel, _saturation(model, y), method)
 
 
 def _joint(model, y, log_sp, method):
@@ -79,13 +82,13 @@ def _joint(model, y, log_sp, method):
     return sol, kernel, _saturation(model, y)
 
 
-def criterion_ml_reml_pirls_scat_joint(model, y, log_sp, log_theta, method):
+def criterion_ml_reml_pirls_vector_theta_joint(model, y, log_sp, log_theta, method):
     with _temporary_theta(model, log_theta):
         sol, kernel, saturation = _joint(model, y, log_sp, method)
-        return _score(model, sol, kernel.gdi1, saturation, method)
+        return _score(model, y, sol, kernel.gdi1, saturation, method)
 
 
-def criterion_gradient_ml_reml_pirls_scat_joint(model, y, log_sp, log_theta, method):
+def criterion_gradient_ml_reml_pirls_vector_theta_joint(model, y, log_sp, log_theta, method):
     with _temporary_theta(model, log_theta):
         _, kernel, saturation = _joint(model, y, log_sp, method)
         gamma = float(model.score_gamma)
@@ -99,7 +102,7 @@ def criterion_gradient_ml_reml_pirls_scat_joint(model, y, log_sp, log_theta, met
         )
 
 
-def criterion_hessian_ml_reml_pirls_scat_joint(model, y, log_sp, log_theta, method):
+def criterion_hessian_ml_reml_pirls_vector_theta_joint(model, y, log_sp, log_theta, method):
     with _temporary_theta(model, log_theta):
         _, kernel, saturation = _joint(model, y, log_sp, method)
         gamma = float(model.score_gamma)

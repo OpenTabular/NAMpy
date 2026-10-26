@@ -1,0 +1,57 @@
+{
+  "namespace": "mgcv_zip_workflows",
+  "upstream": {
+    "mgcv": "1.9-4",
+    "R": "4.6.1"
+  },
+  "generator": "tests/families/test_mgcv_zip_workflows.py::_reference",
+  "R_script_sha256": "d3ac1c39d3bab5ccfbc908df76180379d7ab57064832c82d37803cc81e64ac2d",
+  "fixture_files": 56,
+  "sources": {
+    "R/efam.r": "30d5858b3a9a3d7c0d0397d4967a81e58e5b09da9bb9b3b2fd4c8ac7a0f3f391",
+    "R/gamlss.r": "d82fbc72b270dc1bd062c90d867c4f445043d79094a3cf0bae5c5479f12c8fa0",
+    "R/gam.fit4.r": "8fec39370c5f33a046bcc3d12ee1f0f11fb6543d7a646f8c59718fdcb0745236",
+    "R/mgcv.r": "f2c782d23d361c987836d936b3c01d14846829377fbb1768504298094a7b0120"
+  },
+  "inputs": {
+    "tests/reference_fixtures/mgcv_zip_workflows/inputs.json": "f48ff5a8996b7c14144a6c2a87c366145aa5b0a67638b57b82b66985c9fcb03a",
+    "tests/reference_fixtures/mgcv_zip_workflows/extension_inputs.json": "d32c96648e5a28b3162ed654c97e52781a90236abd8be86eb66795acbfdb712d"
+  },
+  "input_generation": "Frozen180row deterministic hurdle sample; _generate_inputs records NumPy default_rng(261026) recipe. Extension z from default_rng(261027), offset=.08*cos(2*x), frozen before capture. Normal tests never regenerate inputs.",
+  "policy": "Fresh actual R snapshots; ordinary tests read static fixtures and cannot execute R. Generation requires NAMPY_REFRESH_REFERENCE_FIXTURES=1.",
+  "coverage": "Fixed/estimated two working-theta parameters, unit weights, b=.3 initialcore; fixedSP/ML/REML/LAML, explicit fixedSPcriterion, offset, two smooths, rank deficiency, nointercept/no smooths, defaultb0 and slopeboundaryb.9. Captures conditional/unconditional covariance, EDF/SP, latent vsresponse prediction/SE, raw/corrected/null deviance, likelihood/AIC/BIC, residuals/summary and firstoffoptimum joint criterion derivatives.",
+  "weighted_inventory": "Eight actual nonunit/zero-weight fits captured. Fixedtheta+fixedSP2cases return fits; remaining6outerselection cases warn fitting terminated with step failure. This inventory is not Python weightedworkflow acceptance. dev.resids ignoresweights upstream while Dd/AIC applyweights.",
+  "scale_inventory": "Sixteen explicit scale snapshots (-1,0,1,2) \u00d7fixed/estimatedtheta\u00d7fixedSP/REML. -1/0/1 agree exactly with default; scale2 fixedtheta/fixedSP preservescoefficients; other3scale2fits change optimum. All4scale2runtimecases accepted at unchangedtolerances.",
+  "slope_boundary": "b=.9 estimated Rfit converges with workingtheta2=-10.67430353854 and naturalslope=.90002313177; existing strictworkingtheta andfitchecks pass, no boundarytolerance exception.",
+  "validation_status": "Final coherent family acceptance slice: 183 passed in 22.54s, including 105 workflow checks, after coefficient-retention and criterion-routing fixes. Normal tests use static references without R; no tolerance changes.",
+  "rank_uncertainty_boundary": "Actual R rank-deficient fixed/estimated-theta REML snapshots retained. At pinned Rtheta/SP/outerHessian, fixedtheta training prediction covariance differed0.00484641; source Vb.corr maximum0.0064180177 vsPythonzero. Replaying identical serialized H shows R Cholesky succeeds while SciPy fails. Estimatedtheta fittedkernel agrees atpinnedpoint butnull-coordinate Vc differs6.54835e-5. Runtime explicitly guards rank-deficient outer uncertainty; conditionalfixedtheta+fixedSP rank fit has a freshRreference and passes unchangedtolerances.",
+  "public_default": "Default b0 fixed/estimated REML, string aliases ziP/zip and GAMRegressor response predictions/standard_errors checked against b0source. b=.9 slopeboundary preserved strictworkingtheta comparisons.",
+  "criterion_derivatives": "Firstoffoptimum fulltheta-first score/gradient/Hessian checked for fixedSP,REML,ML,LAML alias against captured gam.fit4 inputs; fixedSPkernel still includes fullSPderivative upstream.",
+  "accepted_tests": 105,
+  "gcv_cp_alias": "Two fresh actualR fixed/estimatedtheta GCV.Cp snapshots are exactly equal to REML coef/theta/SP/criterion/Vp; two public GCV.Cp runtime fullfits pass. This validates coercion, not a separate GCV objective.",
+  "p_ml_alias": "Two fresh fixed/estimatedtheta P-ML Rreferences equal REML exactly; two runtime fits pass. Extended-family reset precedes known-scale Pearson method normalization. Fixed-SP estimatedtheta NCV and unknownmethods explicitly rejected in two focusedchecks.",
+  "routing_validation": "Six focused source-alias/runtime/rejection checks passed and are included in the final coherent slice.",
+  "source_provenance": {
+    "execution": "Fixtures load library(mgcv) from the installed R package; no vendored or checkout source files are sourced.",
+    "installed_package": {
+      "library": "/usr/lib/R/library/mgcv",
+      "Version": "1.9-4",
+      "Repository": "CRAN",
+      "Packaged": "2025-11-06 12:01:15 UTC; sw283",
+      "Built": "R 4.5.2; x86_64-pc-linux-gnu; 'Fri, 28 Nov 2025 21:31:40 +0000'; unix",
+      "capture_R": "4.6.1"
+    },
+    "audited_source_checkout": {
+      "repository": "https://github.com/cran/mgcv",
+      "commit": "1b6a4c8374612da27e36420b4459e93acb183f2d",
+      "local_path": "/home/ad32/projects/package/mgcv",
+      "working_tree": "clean"
+    },
+    "vendored_source_difference": {
+      "path": "nampy_notes/upstreams/mgcv/R/gam.fit3.r",
+      "vendored_sha256": "c7b31bdd3073e785d5bb322e8c474c3d2e154565e713b5d5d0e192b1cc08202d",
+      "CRAN_sha256": "1dcf5a92dca8cda48f29c545c1382b861e53630d73fd460a51cb894144761245",
+      "difference": "Only substantive difference is newton steepest-descent direction: vendor uses Sstep <- grad/max(abs(grad)); CRAN uses Sstep <- -grad/max(abs(grad)). Installed mgcv:::newton body was inspected and has the CRAN negative sign. Recorded CRAN hash is deliberate, not a transcription error. Other source hashes listed in this manifest match both trees."
+    }
+  }
+}

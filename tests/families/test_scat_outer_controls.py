@@ -42,16 +42,16 @@ def test_scat_vector_newton_forwards_all_controls(monkeypatch):
 
 
 def test_scat_explicit_scale_reaches_inner_and_outer_stopping(monkeypatch):
-    from nampy.gam.fit.selection.criteria.pirls import family_scat
+    from nampy.gam.fit.selection.criteria.pirls import family_vector_theta
 
-    original = family_scat.solve_pirls_given_smoothing
+    original = family_vector_theta.solve_pirls_given_smoothing
     seen = []
 
     def capture(*args, **kwargs):
         seen.append(kwargs["scale_reference"])
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(family_scat, "solve_pirls_given_smoothing", capture)
+    monkeypatch.setattr(family_vector_theta, "solve_pirls_given_smoothing", capture)
     model = _fit(_case(estimated=False, method="REML", scale=2))
     assert seen and all(scale == 2 for scale in seen)
     assert _fit_workspace(model).pirls_outer_scale_est == 2

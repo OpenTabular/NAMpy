@@ -484,10 +484,10 @@ def test_scat_upstream_fixed_theta_ml_zero_weights(link):
 
 @pytest.mark.parametrize("link", ["identity", "log", "inverse"])
 def test_scat_exact_off_optimum_joint_derivatives(link):
-    from nampy.gam.fit.selection.criteria.pirls.family_scat import (
-        criterion_gradient_ml_reml_pirls_scat_joint,
-        criterion_hessian_ml_reml_pirls_scat_joint,
-        criterion_ml_reml_pirls_scat_joint,
+    from nampy.gam.fit.selection.criteria.pirls.family_vector_theta import (
+        criterion_gradient_ml_reml_pirls_vector_theta_joint,
+        criterion_hessian_ml_reml_pirls_vector_theta_joint,
+        criterion_ml_reml_pirls_vector_theta_joint,
     )
 
     case = _case(link=link, method="REML", estimated=True, joint=True)
@@ -496,19 +496,19 @@ def test_scat_exact_off_optimum_joint_derivatives(link):
     parameters = np.asarray(reference["parameters"]).ravel()
     args = (model, model.y_, parameters[2:], parameters[:2], "REML")
     np.testing.assert_allclose(
-        criterion_ml_reml_pirls_scat_joint(*args),
+        criterion_ml_reml_pirls_vector_theta_joint(*args),
         reference["value"],
         atol=2e-6,
         rtol=2e-7,
     )
     np.testing.assert_allclose(
-        criterion_gradient_ml_reml_pirls_scat_joint(*args),
+        criterion_gradient_ml_reml_pirls_vector_theta_joint(*args),
         reference["gradient"],
         atol=2e-6,
         rtol=2e-6,
     )
     np.testing.assert_allclose(
-        criterion_hessian_ml_reml_pirls_scat_joint(*args),
+        criterion_hessian_ml_reml_pirls_vector_theta_joint(*args),
         reference["hessian"],
         atol=3e-6,
         rtol=1e-5,
@@ -787,10 +787,10 @@ def test_scat_upstream_structural_joint_reference(kind, dimension):
 
 @pytest.mark.parametrize("kind", ["zero_two_smooths", "no_smooths"])
 def test_scat_structural_joint_derivatives(kind):
-    from nampy.gam.fit.selection.criteria.pirls.family_scat import (
-        criterion_gradient_ml_reml_pirls_scat_joint,
-        criterion_hessian_ml_reml_pirls_scat_joint,
-        criterion_ml_reml_pirls_scat_joint,
+    from nampy.gam.fit.selection.criteria.pirls.family_vector_theta import (
+        criterion_gradient_ml_reml_pirls_vector_theta_joint,
+        criterion_hessian_ml_reml_pirls_vector_theta_joint,
+        criterion_ml_reml_pirls_vector_theta_joint,
     )
 
     case = _structural_joint_case(kind)
@@ -806,19 +806,19 @@ def test_scat_structural_joint_derivatives(kind):
     model.family.n_theta = 2
     args = (model, model.y_, parameters[2:], parameters[:2], "REML")
     np.testing.assert_allclose(
-        criterion_ml_reml_pirls_scat_joint(*args),
+        criterion_ml_reml_pirls_vector_theta_joint(*args),
         reference["value"],
         atol=2e-6,
         rtol=2e-7,
     )
     np.testing.assert_allclose(
-        criterion_gradient_ml_reml_pirls_scat_joint(*args),
+        criterion_gradient_ml_reml_pirls_vector_theta_joint(*args),
         reference["gradient"],
         atol=2e-6,
         rtol=2e-6,
     )
     np.testing.assert_allclose(
-        criterion_hessian_ml_reml_pirls_scat_joint(*args),
+        criterion_hessian_ml_reml_pirls_vector_theta_joint(*args),
         reference["hessian"],
         atol=3e-6,
         rtol=1e-5,

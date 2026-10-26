@@ -19,6 +19,7 @@ from .poisson import PoissonIdentityFamily, PoissonLogFamily, PoissonSqrtFamily
 from .quasi import QuasiBinomialFamily, QuasiFamily, QuasiPoissonFamily
 from .registry import clone_gam_family, make_gam_family
 from .scat import ScaledTFamily
+from .zip import ZeroInflatedPoissonFamily
 
 __all__ = [
     "QuasiFamily",
@@ -47,6 +48,7 @@ __all__ = [
     "NegativeBinomialLogFamily",
     "OrderedCategoricalFamily",
     "ScaledTFamily",
+    "ZeroInflatedPoissonFamily",
     "clone_gam_family",
     "make_gam_family",
     # GAMLSS families

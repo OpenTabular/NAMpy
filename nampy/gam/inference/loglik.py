@@ -23,6 +23,7 @@ from ..model_state import (
     _fit_result,
     _fit_scale,
     _fit_state,
+    _fitted_mu,
     _predictor_full_indices,
 )
 from ..observations import ar1_log_determinant_correction
@@ -195,9 +196,10 @@ def object_aic(model) -> float | None:
         raw_aic = -2.0 * float(
             np.sum(weights * (y * np.log(mu) - mu - gammaln(y + 1.0)))
         )
-    elif family_name == "scat":
+    elif family_name in {"scat", "zip"}:
         # gam.fit4 uses the family aic hook, which ignores external scale.
-        raw_aic = float(model.family.aic(y, mu, weights=weights))
+        # ziP's fitted mu is log(lambda), distinct from response predictions.
+        raw_aic = float(model.family.aic(y, _fitted_mu(model), weights=weights))
     elif family_name == "binomial":
         # stats::binomial()$aic owns the m <- wt reinterpretation of
         # non-unit prior weights as binomial denominators.

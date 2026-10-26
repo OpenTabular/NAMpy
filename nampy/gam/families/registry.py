@@ -22,6 +22,7 @@ from .poisson import PoissonIdentityFamily, PoissonLogFamily, PoissonSqrtFamily
 from .quasi import QuasiBinomialFamily, QuasiFamily, QuasiPoissonFamily
 from .scat import ScaledTFamily
 from .tweedie import TweedieTwFamily
+from .zip import ZeroInflatedPoissonFamily
 
 _BINOMIAL_LINK_MAP = {
     "logit": BinomialLogitFamily,
@@ -99,6 +100,12 @@ def make_gam_family(family):
 
     if isinstance(family, dict):
         name = str(family.get("name", "")).lower()
+        if name == "zip":
+            options = {k: v for k, v in family.items() if k != "name"}
+            unknown = set(options) - {"theta", "link", "b"}
+            if unknown:
+                raise ValueError(f"Unsupported ziP options: {', '.join(sorted(unknown))}.")
+            return ZeroInflatedPoissonFamily(**options)
         if name == "scat":
             options = {k: v for k, v in family.items() if k != "name"}
             unknown = set(options) - {"theta", "link", "min_df"}
@@ -200,9 +207,9 @@ def make_gam_family(family):
     if isinstance(family, tuple) and len(family) == 2:
         key = str(family[0]).lower()
         spec = family[1]
-        if key == "scat":
+        if key in {"scat", "zip"}:
             options = spec if isinstance(spec, dict) else {"theta": spec}
-            return make_gam_family({"name": "scat", **options})
+            return make_gam_family({"name": key, **options})
         if key in {"quasi", "quasipoisson", "quasibinomial"}:
             return _make_quasi_family(key, spec if isinstance(spec, dict) else {"link": spec})
         if key in {"gaussian", "normal"}:
@@ -323,6 +330,8 @@ def make_gam_family(family):
     key = str(family).lower()
     if key == "scat":
         return ScaledTFamily()
+    if key == "zip":
+        return ZeroInflatedPoissonFamily()
     if key in {"gaussian", "normal"}:
         return GaussianIdentityFamily()
     if key in {"binomial", "bernoulli", "logistic"}:

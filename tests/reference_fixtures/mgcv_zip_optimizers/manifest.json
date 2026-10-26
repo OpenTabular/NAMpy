@@ -1,0 +1,103 @@
+{
+  "namespace": "mgcv_zip_optimizers",
+  "upstream": {
+    "mgcv": "1.9-4"
+  },
+  "fixture_files": 8,
+  "tests": 14,
+  "generator": "tests/families/test_mgcv_zip_optimizers.py",
+  "diagnostic_probe": "tests/families/probes/zip_bfgs_endpoint.py",
+  "source_files_sha256": {
+    "R/efam.r": "30d5858b3a9a3d7c0d0397d4967a81e58e5b09da9bb9b3b2fd4c8ac7a0f3f391",
+    "R/gam.fit3.r": "1dcf5a92dca8cda48f29c545c1382b861e53630d73fd460a51cb894144761245",
+    "R/gam.fit4.r": "8fec39370c5f33a046bcc3d12ee1f0f11fb6543d7a646f8c59718fdcb0745236"
+  },
+  "coverage": "Fixed and estimated theta BFGS/nlm defaults; optim with matched epsilon=1e-10 and factr=10; coefficients, theta, SP, conditional/unconditional covariance, EDF, prediction SE, likelihood, AIC/BIC and sp.vcov availability. Default estimated BFGS passes unchanged covariance tolerances after source-correct retained IRLS coefficients. Normal tests do not execute R.",
+  "captures": [
+    {
+      "name": "bfgs-fixed-theta",
+      "purpose": "endpoint acceptance",
+      "controls": "mgcv defaults",
+      "file": "f60391c2f3a882321a1676d07977934735aae7372e895bfc5caa380cf5757964.json.gz"
+    },
+    {
+      "name": "optim-fixed-theta",
+      "purpose": "endpoint acceptance",
+      "controls": {
+        "epsilon": 1e-10,
+        "optim": {
+          "factr": 10.0
+        }
+      },
+      "file": "6dbb82aeffe5977a3e604dd169e84c980fb011554e85964c3374e5e570d992dd.json.gz"
+    },
+    {
+      "name": "nlm-fixed-theta",
+      "purpose": "endpoint acceptance",
+      "controls": "mgcv defaults",
+      "file": "db587227bd1044d6a8905773575ab994c1196778888d05858e9e3f2aa027593e.json.gz"
+    },
+    {
+      "name": "bfgs-estimated-theta",
+      "purpose": "endpoint acceptance",
+      "controls": "mgcv defaults",
+      "file": "79fe2413f73dbf05ceb127e7db27008a2474b1a84a1668920287c52156284212.json.gz"
+    },
+    {
+      "name": "optim-estimated-theta",
+      "purpose": "endpoint acceptance",
+      "controls": {
+        "epsilon": 1e-10,
+        "optim": {
+          "factr": 10.0
+        }
+      },
+      "file": "507b42cd69554e3422fa6d998d319e9026fe32cfba32e06183d92c716c113a46.json.gz"
+    },
+    {
+      "name": "nlm-estimated-theta",
+      "purpose": "endpoint acceptance",
+      "controls": "mgcv defaults",
+      "file": "fa7a983fafc73ed5f8ad50ec53a275f3eb1a4fdb98cb9ad640bf2928715ac226.json.gz"
+    },
+    {
+      "name": "bfgs-estimated-theta-tight-diagnostic",
+      "purpose": "retained diagnostic evidence; not needed for default acceptance",
+      "controls": {
+        "epsilon": 1e-11,
+        "newton": {
+          "conv.tol": 1e-09
+        }
+      },
+      "file": "a21e3d3b7d72ff98f811dd879479634661303454f345876416d6e28007ebc504.json.gz"
+    },
+    {
+      "name": "bfgs-initial-state",
+      "purpose": "first fit and three gradient perturbations; pins coefficients, gradient and initial inverse Hessian",
+      "file": "168603568462b0da0a96ab761692a6fa4bdd513b3c93f05e8a61f88c39f06c9b.json.gz"
+    }
+  ],
+  "source_provenance": {
+    "execution": "Fixtures load library(mgcv) from the installed R package; no vendored or checkout source files are sourced.",
+    "installed_package": {
+      "library": "/usr/lib/R/library/mgcv",
+      "Version": "1.9-4",
+      "Repository": "CRAN",
+      "Packaged": "2025-11-06 12:01:15 UTC; sw283",
+      "Built": "R 4.5.2; x86_64-pc-linux-gnu; 'Fri, 28 Nov 2025 21:31:40 +0000'; unix",
+      "capture_R": "4.6.1"
+    },
+    "audited_source_checkout": {
+      "repository": "https://github.com/cran/mgcv",
+      "commit": "1b6a4c8374612da27e36420b4459e93acb183f2d",
+      "local_path": "/home/ad32/projects/package/mgcv",
+      "working_tree": "clean"
+    },
+    "vendored_source_difference": {
+      "path": "nampy_notes/upstreams/mgcv/R/gam.fit3.r",
+      "vendored_sha256": "c7b31bdd3073e785d5bb322e8c474c3d2e154565e713b5d5d0e192b1cc08202d",
+      "CRAN_sha256": "1dcf5a92dca8cda48f29c545c1382b861e53630d73fd460a51cb894144761245",
+      "difference": "Only substantive difference is newton steepest-descent direction: vendor uses Sstep <- grad/max(abs(grad)); CRAN uses Sstep <- -grad/max(abs(grad)). Installed mgcv:::newton body was inspected and has the CRAN negative sign. Recorded CRAN hash is deliberate, not a transcription error. Other source hashes listed in this manifest match both trees."
+    }
+  }
+}

@@ -10,6 +10,7 @@ from nampy.gam.families.betar import BetaRegressionFamily
 from nampy.gam.families.negbin import NegativeBinomialLogFamily
 from nampy.gam.families.ocat import OrderedCategoricalFamily
 from nampy.gam.families.scat import ScaledTFamily
+from nampy.gam.families.zip import ZeroInflatedPoissonFamily
 from nampy.gam.fit.solvers.irls_core import _use_exact_extended_family_terms, irls_core
 
 INITIALIZERS = [
@@ -17,6 +18,7 @@ INITIALIZERS = [
     (BetaRegressionFamily(theta=5), [0.1, 0.3, 0.6, 0.9]),
     (OrderedCategoricalFamily(R=3), [1, 2, 3, 1]),
     (ScaledTFamily(theta=[5, 1]), [0, 1, 3, 5]),
+    (ZeroInflatedPoissonFamily(theta=[0, 0]), [0, 1, 3, 5]),
 ]
 
 
