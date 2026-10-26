@@ -96,14 +96,14 @@ def construct_smooth(
     deferred_select = False
     if explicit or raw_construction:
         if (
-            getattr(runtime, "basis_name", None) not in {"cr", "cs", "cc", "ps", "cp"}
+            getattr(runtime, "basis_name", None) not in {"cr", "cs", "cc", "ps", "cp", "bs"}
             or getattr(runtime, "by", None) is not None
             or getattr(runtime, "pc", None) is not None
             or getattr(runtime, "shared_basis_setup", None) is not None
             or getattr(runtime, "smoothing_id", None) is not None
         ):
             raise NotImplementedError(
-                "Explicit/raw constraints support cr/cs/cc/ps/cp smooths "
+                "Explicit/raw constraints support cr/cs/cc/ps/cp/bs smooths "
                 "without by, pc, or linked id setup."
             )
         runtime = copy.deepcopy(runtime)
@@ -340,7 +340,7 @@ __all__ = ["ConstructedSmooth", "construct_smooth"]
 def smooth_con(term: TermSpec, X, feature_names, *, absorb_cons=True, constraints=None):
     """Construct a smooth with an inspectable raw basis and constraint operator.
 
-    Supports cr/cs/cc/ps/cp without by variables, point constraints or linked
+    Supports cr/cs/cc/ps/cp/bs without by variables, point constraints or linked
     ids. ``constraints`` replaces default centering with C @ beta = 0 in raw
     coefficient coordinates. ``absorb_cons=False`` retains that raw basis;
     fitted GAMs always absorb constraints. Returns :class:`ConstructedSmooth`.

@@ -1022,7 +1022,7 @@ parametric-penalty target. Multi-formula ``para_pen`` is rejected.
 
 ``constraints={1: C}`` replaces the first smooth's default centering with
 ``C @ beta_raw = 0``. A unique smooth label may replace the one-based index.
-Fitting supports ``cr``, ``cc``, ``ps`` and ``cp`` without ``by``,
+Fitting supports ``cr``, ``cc``, ``ps``, ``cp`` and ``bs`` without ``by``,
 point constraints, or linked IDs. ``C`` acts on the uncentered basis, must be
 finite with independent rows, and must leave at least one coefficient.
 A matrix with zero rows requests no local constraint; global model
@@ -1035,6 +1035,18 @@ numerically arbitrary null eigenvectors, which changes fitted predictions
 across LAPACK implementations. Use ``cr`` with ``select=True`` for a portable
 penalized null space. Raw ``smooth_con`` inspection of ``cs`` remains available
 with invariant penalty and constraint checks.
+
+Derivative-penalized B-splines (``bs='bs'``) also support multiple derivative
+penalties through ``m``. The same constraint transform applies to every
+penalty, and ``select=True`` adds a null-space penalty after constraint
+absorption when a null space remains. See ``examples/example_bs_constraints.py``
+for a runnable fit with an explicit coefficient-sum constraint.
+For an empty constraint matrix combined with multiple B-spline penalties and
+``select=True``, default GCV performance iteration can stop at different
+endpoints in NAMpy and mgcv. Fixed-SP reconstruction agrees; the targeted
+automatic-selection comparison uses the same tighter ``mgcv_tol=1e-12`` in
+both implementations. This is an optimizer stopping limitation, not a
+constraint-operator difference.
 
 Inspect the raw basis before specifying ``C``:
 

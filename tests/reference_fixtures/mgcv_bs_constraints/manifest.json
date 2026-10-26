@@ -1,0 +1,46 @@
+{
+  "namespace": "mgcv_bs_constraints",
+  "upstream": {
+    "mgcv": "1.9-4",
+    "R": "4.6.1"
+  },
+  "sources": [
+    {
+      "path": "nampy_notes/upstreams/mgcv/R/smooth.r",
+      "sha256": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d"
+    }
+  ],
+  "generators": [
+    {
+      "path": "tests/parity/probes/mgcv_bs_constraints.R",
+      "sha256": "55593f9435cb3843e5d24249bcaaf32366cdc9c23d4521fb608daae20822a9ca"
+    },
+    {
+      "path": "tests/parity/test_mgcv_bs_constraints.py",
+      "sha256": "0f6e18eac071dee338e2c0838fcfbb9225ce6e865dcdfcee05f1e9838559984a"
+    },
+    {
+      "path": "tests/reference_fixtures/mgcv_bs_constraints/inputs.json",
+      "sha256": "220f4671a18d17ec8a1dbd08e5b3eff13fe14a3597b52bf9d603e1a465afedce"
+    }
+  ],
+  "fixture_files": 1,
+  "reference_cases": 16,
+  "fit_reference_cases": 49,
+  "input_file": "inputs.json",
+  "generation": "Fresh actual R smooth.construct.bs.smooth.spec/smoothCon/PredictMat/gam captures under NAMPY_REFRESH_REFERENCE_FIXTURES=1. Ordinary tests load static snapshots; superseded untracked development capture removed.",
+  "inputs": "Committed decimal/rational polynomial-response data and deterministic alternating perturbations; no runtime random data or transcendental fixture keys.",
+  "coverage": "k=8 cubic bs with m=c(3,2) and m=c(3,2,1); ordinary centering, independent one-row/two-row explicit homogeneous constraints and empty constraints; select FALSE/TRUE; raw and absorbed design/all penalty operators, analytic first/second/third derivatives, fixed-SP/REML/GCV fits, prediction/SE/covariance/EDF, full coefficient-space and every penalty congruence, persistence, invalid constraints and existing by/pc/id composition guards. Independent constraint-row transformations also preserve all transported operators.",
+  "optimizer_limitation": {
+    "case": "m=c(3,2,1), explicit empty C, select TRUE, GCV",
+    "default_source_score": 0.002859042298414262,
+    "default_python_score_observed": 0.0028590033119796233,
+    "default_prediction_delta_observed": 0.0021812445028687177,
+    "classification": "Both source and Python use magic performance iteration; generic stopping and curvature implementations differ in a flat redundant selection direction shared with the intercept. This is not a constructor/constraint defect or upstream rejection.",
+    "acceptance": "Default source endpoint remains in the fixture and receives strict fixed-source-SP reconstruction including prediction/covariance/EDF/all penalties and GCV score. Automatic-selection acceptance uses additional actual source and Python runs with explicitly matched mgcv.tol=1e-12; all original fit tolerances remain unchanged.",
+    "scope": "No generic optimizer changes, no tolerance widening, no automatic endpoint fallback or rejection guard."
+  },
+  "fixture_sha256": {
+    "52867ded6b99c83fa2b6f9e67dede4f2f4e2895c4e821a8a2e27c9a8f96edb5e.json.gz": "b58301851b6a2390fc085e17e67980c1335bfc068dc59b9170b2e24d5cb1bd68"
+  }
+}

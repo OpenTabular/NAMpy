@@ -77,6 +77,33 @@ def _smooth_term(case: _PipelineCase):
     )
 
 
+def test_explicit_bs_constraints_cover_seven_stage_pipeline():
+    from examples.example_bs_constraints import fit_example
+
+    adapter, frame, constraint = fit_example()
+    gam = adapter.gam_
+    assert gam.predictor_specs[0].terms[0].smooth_spec.bs == "bs"
+    compiled = gam.gam_result_.require_compiled_model()
+    term = compiled.compiled_terms[0]
+    assert term.basis_train.shape == (len(frame), 7)
+    assert len(compiled.compiled_penalties) == compiled.n_smoothing_params == 1
+    np.testing.assert_allclose(constraint @ term.predict_coefficient_map, 0, atol=2e-12)
+    np.testing.assert_allclose(term.predict_matrix(gam.X_), term.basis_train, atol=2e-12)
+    np.testing.assert_allclose(
+        compiled.predictors[0].build_new_matrix(gam.X_), compiled.design_matrix,
+        atol=2e-12,
+    )
+    solution = gam.gam_result_.fit_core_solution
+    assert isinstance(solution, FitCoreSolution)
+    P = gam.lpmatrix(frame)
+    np.testing.assert_allclose(P @ solution.fit_result.coef_full, adapter.predict(frame), atol=2e-12)
+    np.testing.assert_allclose(
+        np.einsum("ij,jk,ik->i", P, gam.vcov(), P),
+        adapter.standard_errors(frame)**2, atol=2e-12,
+    )
+    adapter.predict_components(frame).validate_additive_reconstruction()
+
+
 @pytest.fixture(scope="module")
 def soap_pipeline_cases():
     from examples.example_soap_compositions import fit_examples
