@@ -1,0 +1,45 @@
+{
+  "purpose": "Diagnostic captured on Linux; branch outcomes are platform-dependent, never required of a test host.",
+  "records": [
+    {
+      "family": "scat",
+      "estimated": true,
+      "index": 1,
+      "direction": "-inf",
+      "H_delta": -5.684341886080802e-14,
+      "chol_ok": false,
+      "correction_max": 0.0,
+      "AIC_uncapped_correction": 0.0
+    },
+    {
+      "family": "scat",
+      "estimated": true,
+      "index": 1,
+      "direction": "inf",
+      "H_delta": 5.684341886080802e-14,
+      "chol_ok": true,
+      "correction_max": 7.003606438329983e-05,
+      "AIC_uncapped_correction": 0.07335294660671023
+    },
+    {
+      "family": "scat",
+      "estimated": true,
+      "index": 2,
+      "direction": "-inf",
+      "H_delta": -2.2737367544323206e-13,
+      "chol_ok": false,
+      "correction_max": 0.0,
+      "AIC_uncapped_correction": 0.0
+    },
+    {
+      "family": "scat",
+      "estimated": true,
+      "index": 2,
+      "direction": "inf",
+      "H_delta": 2.2737367544323206e-13,
+      "chol_ok": false,
+      "correction_max": 0.0,
+      "AIC_uncapped_correction": 0.0
+    }
+  ]
+}

@@ -353,6 +353,11 @@ references. Fixed smoothing and REML also support zero observation weights.
 mgcv 1.9-4 reference runs crash. Joint ancillary-parameter estimation with
 ``smoothing_optimizer="efs"`` is unsupported.
 
+When a design drops dependent coefficients, fits requiring outer-parameter
+uncertainty corrections raise an explicit error. The upstream full-Hessian
+Cholesky branch is sensitive to rounding in this case. Fixing both ancillary
+parameters and smoothing retains conditional fitting for such designs.
+
 The external ``GAM(scale=...)`` dispersion is distinct from the Student t
 scale in ``theta``. Its default is one. A positive override affects the
 selection criterion and covariance; it can change estimated smoothing or

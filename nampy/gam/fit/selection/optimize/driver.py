@@ -1196,6 +1196,9 @@ def _run_joint_vector_theta_outer(
             x0=x_joint0,
             bounds=joint_bounds,
             score_type=str(method).lower(),
+            conv_tol=float(_control_for(model).newton.get("conv_tol", 1e-6)),
+            max_nstep=float(_control_for(model).newton.get("max_n_step", 5.0)),
+            max_sstep=float(_control_for(model).newton.get("max_s_step", 2.0)),
         )
     elif optimizer == "optim":
         result_joint = _optimize_outer_optim_strict(

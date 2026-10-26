@@ -410,8 +410,8 @@
       "fixture_namespace": "mgcv_scat_workflows",
       "generator": "tests/families/test_mgcv_scat_workflows.py",
       "manifest": "tests/reference_fixtures/mgcv_scat_workflows/manifest.json",
-      "fixture_files": 84,
-      "scope": "Fixed and selected workflows, explicit fixed-SP ML/REML/LAML ancillary estimation, joint derivatives, uncertainty, boundaries;75 successful snapshots and9 captured upstream ML/zero-weight crashes"
+      "fixture_files": 85,
+      "scope": "Fixed and selected workflows, explicit fixed-SP ML/REML/LAML ancillary estimation, derivatives, uncertainty and boundaries; 76 successful snapshots and nine upstream crashes. Rank-deficient outer uncertainty is guarded; fixed-parameter conditional rank fits remain supported."
     },
     "mgcv_scat_optimizers": {
       "package_version": "1.9-4",
@@ -434,9 +434,10 @@
       "fixture_namespace": "mgcv_scat_solver",
       "generator": "tests/reference_fixtures/mgcv_scat_solver/generate.R",
       "generator_sha256": "8542bb62dfdf033d8fdd61e60717a766d3b4e8d9c7721efc5b7c7245605046b0",
-      "fixture_files": 1,
+      "fixture_files": 2,
       "scope": "Positive-weight retry at a pinned difficult ancillary-parameter point; actual upstream conditional fits and scores for deriv=0 and deriv=2",
-      "test": "tests/families/test_scat_postfit_reference_state.py"
+      "test": "tests/families/test_scat_postfit_reference_state.py",
+      "rank_manifest": "tests/reference_fixtures/mgcv_scat_solver/rank_manifest.json"
     }
   }
 }

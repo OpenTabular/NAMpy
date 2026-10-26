@@ -103,6 +103,7 @@ jobs:
         tests/families/test_mgcv_scat_workflows.py
         tests/families/test_mgcv_scat_optimizers.py
         tests/families/test_scat_postfit_reference_state.py
+        tests/families/test_scat_rank_uncertainty_source_contract.py
         tests/families/test_scat_outer_controls.py
         tests/families/test_scat_public_guards.py
         tests/diagnostics/test_scat_residuals.py

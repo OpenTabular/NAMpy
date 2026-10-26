@@ -434,6 +434,11 @@ def test_scat_laml_is_reml_alias(link):
 @pytest.mark.parametrize("options", [p for p in EXTRA if p.get("method") != "ML"])
 def test_scat_difficult_fits(options):
     case = _case(**options)
+    if options.get("rank_deficient"):
+        assert _reference(case)["accepted"]
+        with pytest.raises(NotImplementedError, match="rank-deficient.*portable"):
+            _fit(case)
+        return
     _assert_fit(case, _reference(case), _fit(case))
 
 
@@ -917,3 +922,8 @@ def test_scat_fixed_smoothing_ml_zero_weight_guard(link, estimated):
         model = _fit(case)
         assert np.isfinite(model.predict()).all()
         np.testing.assert_allclose(model.family.getTheta(True), case["theta"])
+
+
+def test_scat_rank_deficient_conditional_fit_without_outer_uncertainty():
+    case = _case(method="fixed", estimated=False, rank_deficient=True)
+    _assert_fit(case, _reference(case), _fit(case))

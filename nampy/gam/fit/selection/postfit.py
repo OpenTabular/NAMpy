@@ -239,6 +239,14 @@ def _postfit_hessian(model, method: str, *, edge_correct: bool) -> np.ndarray | 
 def sp_vcov(model, edge_correct: bool = True, reg: float = 1e-3):
     _require_fitted(model)
 
+    # gam.outer's nlm route has no outer.info$hess for sp.vcov, even if the
+    # internal optimizer computes a Hessian for its own diagnostics.
+    if (
+        getattr(model.family, "name", "") == "scat"
+        and str(getattr(model, "smoothing_optimizer", "")).lower() == "nlm"
+    ):
+        return None
+
     method = str(getattr(model, "_optim_method", "")).lower()
     if method not in {"ml", "reml", "p-ml", "p-reml", "laml"}:
         return None

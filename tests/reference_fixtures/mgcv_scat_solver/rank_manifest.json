@@ -1,0 +1,14 @@
+{
+  "upstream": {
+    "R": "4.6.1",
+    "mgcv": "1.9-4"
+  },
+  "capture": "rank_vb_correction.json",
+  "generator": "generate_rank_vb_correction.R",
+  "input": "rank_input.json",
+  "audit_generator": "audit_rank_rounding.py",
+  "source": "mgcv/R/gam.fit3.r::Vb.corr, lines869-904",
+  "source_sha256": "c7b31bdd3073e785d5bb322e8c474c3d2e154565e713b5d5d0e192b1cc08202d",
+  "evidence": "Duplicate z and I(2*z) leave the full coefficient Hessian rank deficient. Recorded R Cholesky fails and Vb.corr returns0. A one-ULP diagonal perturbation on the audit host flips the Cholesky branch and contributes AIC .07335294660671023, matching the Windows CI difference. Branch outcomes are not portable assertions. ziP same-H replay independently corroborated the ambiguity.",
+  "policy": "Normal test checks rank/null direction and recorded source outcome only, never requires local Cholesky failure. Fixed-theta fixed-SP conditional fitting remains supported; joint outer uncertainty on dropped coefficients is guarded."
+}

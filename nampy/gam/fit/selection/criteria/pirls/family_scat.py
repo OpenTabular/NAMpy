@@ -70,6 +70,12 @@ def _joint(model, y, log_sp, method):
     kernel = gdi2_theta_joint_kernel(
         model, y, sol, sp, method=method, need_hessian=True
     )
+    free = np.flatnonzero(_free_smoothing_mask(model))
+    # bfgs uses coefficient sensitivity curvature on smoothing coordinates,
+    # not the outer criterion Hessian and not ancillary theta coordinates.
+    _fit_workspace(model).pirls_reml_derivative_kernel_state = {
+        "dVkk": np.diag(np.asarray(kernel.gdi1.dVkk))[free]
+    }
     return sol, kernel, _saturation(model, y)
 
 

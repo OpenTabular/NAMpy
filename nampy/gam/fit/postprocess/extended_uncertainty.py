@@ -50,6 +50,17 @@ def extended_unconditional_postfit(model, sol, fit_result, fit_state):
     hessian = np.asarray(hessian, dtype=float)
     if hessian.shape != (count, count) or not np.isfinite(hessian).all():
         return unavailable
+    dropped = getattr(fit_state, "dropped_column_indices", None)
+    if dropped is not None and np.asarray(dropped).size:
+        # Vb.corr applies unpivoted Cholesky to the original full Hessian.
+        # With dropped coefficients its success depends on rounding: identical
+        # serialized R matrices can succeed in R and fail in SciPy, changing
+        # identifiable prediction covariance and EDF2, not just null entries.
+        raise NotImplementedError(
+            f"{model.family.name} smoothing uncertainty with rank-deficient "
+            "coefficients lacks portable mgcv parity. Remove redundant "
+            "parametric columns before estimating ancillary or smoothing parameters."
+        )
     sp = (
         np.asarray(model.smoothing_params, dtype=float).ravel()
         if nsp

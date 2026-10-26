@@ -116,6 +116,13 @@ estimated ancillary parameters. The fixed-penalty offset parameterization
 has not been ported for joint fitting and smoothing-uncertainty corrections;
 zero ``min_sp`` retains the ordinary supported path.
 
+Rank-deficient designs that drop coefficients are rejected when fitting
+requires outer-parameter uncertainty corrections. The upstream correction
+attempts Cholesky factorization of the full singular coefficient Hessian;
+rounding can change whether that correction is included, affecting AIC and
+unconditional covariance across platforms. Conditional fitting with both
+ancillary parameters and smoothing fixed remains available.
+
 The default external dispersion is one. A positive ``GAM(scale=...)``
 override follows the upstream criterion and covariance scaling. For fixed
 ancillary parameters and fixed smoothing, ``scale=2`` doubles the conditional

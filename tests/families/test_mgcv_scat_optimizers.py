@@ -68,6 +68,8 @@ def test_scat_alternative_optimizer_matches_mgcv(optimizer, estimated):
         control=case.get("control"),
     ).fit(data=pd.DataFrame(case["data"]), sample_weight="w")
     assert ref["version"] == "1.9.4"
+    if optimizer == "nlm":
+        assert model.sp_vcov() is None
     prediction, se = model.predict(return_se=True)
     np.testing.assert_allclose(
         model.smoothing_params, np.atleast_1d(ref["sp"]), atol=5e-5, rtol=5e-4
