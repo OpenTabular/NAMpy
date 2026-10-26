@@ -13,6 +13,7 @@ import pandas as pd
 import pytest
 
 from nampy.gam import GAM
+from nampy.gam.families.clog import CensoredLogisticFamily
 from nampy.gam.families.cnorm import CensoredNormalFamily
 from nampy.gam.fit.state import FitCoreSolution
 from nampy.gam.smooths.univariate.cr import CubicSplineTerm
@@ -31,7 +32,7 @@ class _PipelineCase:
     gam: GAM
 
 
-@pytest.fixture(scope="module", params=["gaussian", "quasi", "scat", "zip", "cnorm"])
+@pytest.fixture(scope="module", params=["gaussian", "quasi", "scat", "zip", "cnorm", "clog"])
 def pipeline_case(request) -> _PipelineCase:
     x = np.linspace(-1.25, 1.25, 96)
     z = 0.4 + np.cos(1.3 * x)
@@ -42,7 +43,7 @@ def pipeline_case(request) -> _PipelineCase:
     if request.param == "zip":
         data = pd.DataFrame(json.loads((Path(__file__).parents[1] / "reference_fixtures/mgcv_zip_pipeline/inputs.json").read_text()))
 
-    if request.param == "cnorm":
+    if request.param in {"cnorm", "clog"}:
         data = pd.DataFrame(json.loads((Path(__file__).parents[1] / "reference_fixtures/mgcv_cnorm_pipeline/inputs.json").read_text()))
         data["bound"] = data["bound"].astype(float)
 
@@ -55,8 +56,8 @@ def pipeline_case(request) -> _PipelineCase:
         }
     )
     gam = GAM(
-        family=(CensoredNormalFamily(theta=1.0) if request.param == "cnorm" else {"name": "ziP", "theta": [-.5, float(np.log(.5))], "b": .3} if request.param == "zip" else {"name": "scat", "theta": [5, .3]} if request.param == "scat" else request.param),
-        formula=_FORMULA.replace("y ~", "cbind(y, bound) ~") if request.param == "cnorm" else _FORMULA,
+        family=(CensoredLogisticFamily(theta=1.0) if request.param == "clog" else CensoredNormalFamily(theta=1.0) if request.param == "cnorm" else {"name": "ziP", "theta": [-.5, float(np.log(.5))], "b": .3} if request.param == "zip" else {"name": "scat", "theta": [5, .3]} if request.param == "scat" else request.param),
+        formula=_FORMULA.replace("y ~", "cbind(y, bound) ~") if request.param in {"cnorm", "clog"} else _FORMULA,
         optimize_smoothing=False,
         smoothing_method="fixed",
     )
@@ -78,7 +79,7 @@ def test_stage_1_formula_and_specs_preserve_declarative_contract(pipeline_case):
     parsed = gam.formula_
     predictor = gam.predictor_specs[0]
 
-    assert parsed.response_name == ("cbind(y, bound)" if gam.family.name == "cnorm" else "y")
+    assert parsed.response_name == ("cbind(y, bound)" if gam.family.name in {"cnorm", "clog"} else "y")
     assert parsed.nlp == 1
     assert predictor.name == "eta1"
     assert predictor.has_intercept is True
@@ -253,7 +254,7 @@ def test_stage_7_prediction_and_diagnostics_match_mgcv_and_fitted_state(
         atol=1e-12,
     )
     training_response = np.asarray(
-        (gam.predict(type="response") if gam.family.name in {"zip", "cnorm"} else gam.predict(pipeline_case.data, type="response")), dtype=np.float64
+        (gam.predict(type="response") if gam.family.name in {"zip", "cnorm", "clog"} else gam.predict(pipeline_case.data, type="response")), dtype=np.float64
     )
     np.testing.assert_allclose(
         gam.residuals(type="response"),
@@ -265,8 +266,8 @@ def test_stage_7_prediction_and_diagnostics_match_mgcv_and_fitted_state(
     # Constant-variance identity quasi has the same fixed-smoothing mean as
     # Gaussian. Reuse that reference while checking quasi likelihood semantics
     # independently in stage 6 (fresh quasi references live in tests/families).
-    if gam.family.name in {"scat", "zip", "cnorm"}:
-        expected = _cnorm_pipeline_reference(pipeline_case) if gam.family.name == "cnorm" else _zip_pipeline_reference(pipeline_case) if gam.family.name == "zip" else _scat_pipeline_reference(pipeline_case)
+    if gam.family.name in {"scat", "zip", "cnorm", "clog"}:
+        expected = _censored_pipeline_reference(pipeline_case) if gam.family.name in {"cnorm", "clog"} else _zip_pipeline_reference(pipeline_case) if gam.family.name == "zip" else _scat_pipeline_reference(pipeline_case)
         prediction, se = gam.predict(newdata, return_se=True)
         np.testing.assert_allclose(se, expected["se"], atol=2e-7, rtol=2e-7)
     else:
@@ -339,20 +340,23 @@ write_json(list(pred=pr$fit,se=pr$se.fit,version=as.character(packageVersion('mg
 """
 
 
-def _cnorm_pipeline_reference(case):
+def _censored_pipeline_reference(case):
+    family = case.gam.family.name
+    script = _CNORM_PIPELINE_R.replace("family=cnorm(", f"family={family}(")
+    namespace = f"mgcv_{family}_pipeline"
     data = case.data.to_dict("list")
     data["bound"] = [str(v) for v in data["bound"]]
     payload = {"data": data, "newdata": case.newdata.to_dict("list"), "formula": _FORMULA.replace("y ~", "cbind(y, bound) ~")}
-    key = reference_key("cnorm-seven-stage", {"payload": payload, "script": _CNORM_PIPELINE_R}, normalize_floats=True)
-    result = load_reference("mgcv_cnorm_pipeline", key)
+    key = reference_key(f"{family}-seven-stage", {"payload": payload, "script": script}, normalize_floats=True)
+    result = load_reference(namespace, key)
     if result is None:
         with tempfile.TemporaryDirectory() as directory:
             source, inputs, output = [Path(directory)/name for name in ("reference.R", "inputs.json", "output.json")]
-            source.write_text(_CNORM_PIPELINE_R)
+            source.write_text(script)
             inputs.write_text(json.dumps(payload))
             subprocess.run(["Rscript", str(source), str(inputs), str(output)], check=True, capture_output=True, text=True)
             result = json.loads(output.read_text())
-        save_reference("mgcv_cnorm_pipeline", key, result)
+        save_reference(namespace, key, result)
     return result
 
 

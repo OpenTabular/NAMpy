@@ -513,6 +513,27 @@
       "manifest": "tests/reference_fixtures/mgcv_cnorm_pipeline/manifest.json",
       "generator": "tests/parity/test_gam_seven_stage_pipeline_contracts.py",
       "scope": "Censored-normal source contracts and explicit paired response metadata; targeted acceptance and guards documented in namespace manifest. Remote CI remains separate."
+    },
+    "mgcv_clog_family": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_clog_family",
+      "manifest": "tests/reference_fixtures/mgcv_clog_family/manifest.json",
+      "generator": "tests/families/test_clog_family_contracts.py",
+      "scope": "Censored logistic source kernels, supported optimizer workflows and EFS ancillary updates, with explicitly classified source failures and shared backend restrictions."
+    },
+    "mgcv_clog_workflows": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_clog_workflows",
+      "manifest": "tests/reference_fixtures/mgcv_clog_workflows/manifest.json",
+      "generator": "tests/families/test_mgcv_clog_workflows.py",
+      "scope": "Censored logistic source kernels, supported optimizer workflows and EFS ancillary updates, with explicitly classified source failures and shared backend restrictions."
+    },
+    "mgcv_clog_pipeline": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_clog_pipeline",
+      "manifest": "tests/reference_fixtures/mgcv_clog_pipeline/manifest.json",
+      "generator": "tests/parity/test_gam_seven_stage_pipeline_contracts.py::_censored_pipeline_reference",
+      "scope": "Seven-stage censored logistic pipeline with retained paired bounds, fixed scale/SP, offset and parametric effect."
     }
   }
 }

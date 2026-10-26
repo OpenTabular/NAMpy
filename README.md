@@ -194,7 +194,7 @@ Shape-constrained functionality includes fixed smoothing, the supported automati
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Ordinary families         | Gaussian, binomial (including grouped counts), Poisson, Gamma, and inverse Gaussian with the implemented canonical and noncanonical links                                                       |
 | Quasi families            | `quasipoisson`, `quasibinomial`, and `quasi` with named links, five general variance functions, and power links |
-| Extended families         | negative binomial (`nb` and fixed-theta `negbin`), beta regression (`betar`), Tweedie (`tw`), and ordered categorical (`ocat`)                     |
+| Extended families         | negative binomial (`nb` and fixed-theta `negbin`), beta regression (`betar`), Tweedie (`tw`), ordered categorical (`ocat`), scaled t (`scat`), zero-inflated Poisson (`ziP`), and censored normal/logistic (`cnorm`, `clog`); see the [family reference](docs/api/gam_families.rst) for fitting and acceptance boundaries |
 | Multi-predictor families  | `GAMLSS` with `normal`/`gaulss` and `gamma`/`gammals`; raw `GAM` also accepts the mgcv family names                                                |
 | Smoothness criteria       | fixed smoothing, GCV/Cp, UBRE, ML, REML, and general-family LAML where the selected family and model combination supports them                     |
 | Smoothness optimizers     | outer Newton, BFGS, EFS, and guarded `optim`/L-BFGS-B routes                                                                                       |

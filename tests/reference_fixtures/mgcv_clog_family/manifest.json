@@ -1,0 +1,52 @@
+{
+  "namespace": "mgcv_clog_family",
+  "upstream": {
+    "mgcv": "1.9-4",
+    "R": "4.6.1"
+  },
+  "generator": "tests/families/test_clog_family_contracts.py",
+  "generator_sha256": "c757aeeb49996af8b130e4797419d3f70a468e6d54b52dce544fee42e10fbac7",
+  "source_files_sha256": {
+    "R/efam.r": "30d5858b3a9a3d7c0d0397d4967a81e58e5b09da9bb9b3b2fd4c8ac7a0f3f391"
+  },
+  "execution": "Actual installed CRAN mgcv; the separately documented local vendored Newton sign difference is not sourced during capture. Normal tests use static fixtures and cannot invoke R.",
+  "scope": "Constructors, links and every returned Dd/ls/deviance/aic field, precision/tail/zero-weight kernels, plus direct scalar estimate.theta EFS updates with unit/nonunit precision and external dispersion 1/2.",
+  "fixture_files": 28,
+  "fixture_sha256": {
+    "0f59d3a9f4c0d2d24c98d2d48cf351b6fa72d37b9c4956203282309e6a040506.json.gz": "86e2ee90a55b1fcb50083626dc7be13f75d0bef432f6f7b379901c515b441583",
+    "1274f3d607953c52e84b31451af44324f4d0cb330e8505af5d86ba8ec400d456.json.gz": "df46f2acfeafe1a7d7c5811d7d185ee328b004cf054e4a4bd733a2a4d0280064",
+    "1c0e1d9d34678d3c352285e8bb34331cb89ecaa0009dba0506e48da6f8907c23.json.gz": "73981d22454ad76a79353c2741610a599aa97b8a9c61d005f130357f6b50e201",
+    "2130053c8fc00d7f4d0b4e1936b2130612a8c86ab08b2937c0e61ed048765a06.json.gz": "33865ce080241a16f7ada1c4a3e73b620376dacd02685a72eed25b1c662cfb18",
+    "2d05d7d85d4a5ab6e63d0992e93bed3163f9994c9b4efaf7aa1075ba6a832af7.json.gz": "47f81a81d155f99b9e0af013652a09a77758a7e5be627cdb775e31d6122dcbd3",
+    "4646fcadc9b5c2bae7072f09158454491cd4aaab77deada86b486949c30499ab.json.gz": "112ab8ccc4cc0794fd0fe76dd8542879e67370444e329b5265837fe44d9d0592",
+    "528611116b9abc3632590d3b15979ed688ae1787d12d4970e98688b774a10373.json.gz": "5cea555106e9489a933119fa85e88d2d2bc9619fcd23e8b71e851ab23d57b843",
+    "5ebc7400d65b5b387116d1c715def286def3939e5d74c03ce079d0a5bb1260b4.json.gz": "1804c7f72bbfdd11d417474ebc9a747fe865764798065315c35ae10d63c3b237",
+    "60ad4adb7a959904a5826f1062d0bb238471ed7f68d9a5b08b34e2b50dca006d.json.gz": "e87ca374e95be309066797747624cab81ad182cfdaa759569f6a5d29b4f0e039",
+    "6fb7d883281751100a2db09ebfddf41bfbdce6dd238eea68a3f96bfb8da0b70d.json.gz": "1e3987ea1f6f2ef32d1af55eacab8e7516b6c2873ccb1c29a356d538022d282b",
+    "75db6711f0bd3470f95979c807351cae7b2517a3a3576646c0c5bc9b1ae92abf.json.gz": "aa0e8f83a8cb5d43fe46c7de02766e5190e0cd50f2111e84776ad6952ed42abd",
+    "7641bc5e1502d5b85cc0a0019f0535ed502738ec0363b033d73bc9f2020d94c1.json.gz": "1ba8a8f01757ff3f3358e8d6f9643fe25edd8ecd5724b00fa35c41d8d6dc1c59",
+    "7be0a5c12324ca0ca27bd18720f26f68334cf0b81937cb6d6b971fb0b078c266.json.gz": "67166321a3c5ffb3b9b282221df57b0ca05440e63410f3759de72d4e68a87691",
+    "86ae9180ff918f110c4a8cc62a58561ecb62f64622c24d108b015d37698ca7e1.json.gz": "5f0cf01ab4c02213ddcb41f7506481034b927b2374acd2da142f7ff2e8c54fed",
+    "9319ce8b1aaceeb13881dc075e135a8fe9cf8c6645faf97bb5ca26d1fa9719a4.json.gz": "208013045dc3cc244e2d54fa04246f709ffda31bbf79243ee445483fa8e94a62",
+    "a4a293b6c93785464cb12d4fee71de92858f9c71f1b64698da93565635b88bea.json.gz": "e8573e465bf8a050ca26e2ee4dd7a6820561c131ed8eb77d077dfe3b5d86cfbd",
+    "a8055fa23d380bfdb4a195674c4c2e5f73810b3f5b8dc27658e04caca4297c40.json.gz": "43fb9dcc9622b9a423f50800e715e43d645fc42ab955ab5765164fa23a523dc0",
+    "c67fa048c6dd5482a0b8a0748e3f5f42309838c9c2eaf94a2029b9fb100b3313.json.gz": "37ca5c65b2792457a5db7a1caaa5c446d160b63e5d244e347d6cd8c2f67a9b45",
+    "ceb9b4ca15cc28a8bb8d3e0a9f1081cc8013c679fd7a77e81a6ebb97b0dcd9e7.json.gz": "71cbc2ce16ea90bd96eb9144d5e3af16f087431ca240c8e2d04917380e2de4ad",
+    "d5a278a5db93bf00b9b76b5d87e5980f8d3dbfd9dfaefe1551b70e26c219f8ee.json.gz": "75fbb90e128ac1bb7e11b2c18858faa4aa83bb361e00b68a702d025f4af879f2",
+    "d82871bf18f8c3ff62157778f4d5a3405633541584b51d14d8ee40e8f0d7bbe8.json.gz": "e7aadf2357d3a02c026bb782c95cf1d43466d8c01759229f0568e39c21b3b34e",
+    "daa819c56d37fc4d16a80b46792f37c32658df15515a0bf0c40d4ac238a89d5c.json.gz": "3539c9043f5f43b4990902c6224fa0adb3395815f73001a504a28d32a9fa241f",
+    "deda6851c4026b0dbd9593bd12d4a60bff543187e2a47a343c1a3fce4736047c.json.gz": "348d6add7d8c9bbfd390be8e5ae828b78a2fa750cf3657980e0ccd8c1142d4b3",
+    "eb245df7a6f69e351ab882bd648ec71a2f42ce4b6e769d8d58d5775bf9f005ee.json.gz": "43fb9dcc9622b9a423f50800e715e43d645fc42ab955ab5765164fa23a523dc0",
+    "ed12e7dc3f4e3567bbb8eeda2be5e8e561ab94f4425ac3445cb6c726d0d0139e.json.gz": "7e5140759fe17d62e0e278b0aabcb927bd0b3ae234a9db8b8c7b7583f299698a",
+    "ee84c064854306d2edb334c6033b67eded2d7c4d0bd1cde1161619db98dd3914.json.gz": "73981d22454ad76a79353c2741610a599aa97b8a9c61d005f130357f6b50e201",
+    "efbc478bb7b9688307e631b442e33ca5c38220c5998830af526a41da7151bd45.json.gz": "5d271730a3b78411b9d3c2f4917e384e0d9a63cf0d3ddcf91974aa8e74eeabd9",
+    "fb90139856830ae2350e184c7828c96649297eb32fa53ee1962b7e91c6371604.json.gz": "1ba8a8f01757ff3f3358e8d6f9643fe25edd8ecd5724b00fa35c41d8d6dc1c59"
+  },
+  "acceptance_boundaries": [
+    "Estimated-scale nonidentity ML with Newton/BFGS is guarded after recorded mgcv subprocess crashes; optim ML references pass.",
+    "Failed Newton outer fits raise RuntimeError transactionally; source traces prove coefficients can belong to a different reported parameter state.",
+    "Nonconverged BFGS/nlm results warn. Failed nlm stopping states are not reference optima; successful estimated nlm numerical outputs are compared separately.",
+    "EFS ancillary estimation requires a free SP: the recorded all-fixed-SP source call errors.",
+    "Zero precision, positive min_sp and rank-deficient outer uncertainty retain shared extended-family restrictions."
+  ]
+}

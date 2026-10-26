@@ -13,6 +13,8 @@ It sequences the full fit:
 Everything below this layer is stateless with respect to the model object.
 """
 
+import warnings
+
 import numpy as np
 
 from .._mgcv_constants import LOG_GUARD_MIN
@@ -118,12 +120,12 @@ def fit_model_core(
         )
 
     if (
-        model.family.name == "cnorm"
+        model.family.name in {"cnorm", "clog"}
         and model.prior_weights_ is not None
         and np.any(model.prior_weights_ == 0)
     ):
         raise NotImplementedError(
-            "cnorm fitting requires positive precision weights: zero-weight "
+            f"{model.family.name} fitting requires positive precision weights: zero-weight "
             "censor intervals collapse in upstream derivatives and have not "
             "met fit parity acceptance."
         )
@@ -153,7 +155,7 @@ def fit_model_core(
     compile_designs(model, X, model.feature_names)
 
     if (
-        model.family.name in {"scat", "zip", "cnorm"}
+        model.family.name in {"scat", "zip", "cnorm", "clog"}
         and model.min_sp_ is not None
         and np.any(np.asarray(model.min_sp_) > 0)
     ):
@@ -176,6 +178,18 @@ def fit_model_core(
         method,
         optimizer=getattr(model, "smoothing_optimizer", None),
     )
+    if (
+        model.family.name == "clog"
+        and model.family.estimate_theta
+        and model.family.link_name != "identity"
+        and method == "ml"
+        and str(model.smoothing_optimizer).lower() in {"newton", "outer_newton", "bfgs"}
+    ):
+        raise NotImplementedError(
+            "clog estimated scale with a nonidentity ML link and Newton/BFGS "
+            "is guarded after captured mgcv gam.fit4 subprocess crashes. "
+            "Use smoothing_optimizer='optim' for this configuration."
+        )
 
     if (
         model.family.name == "scat"
@@ -194,6 +208,17 @@ def fit_model_core(
         if model.smoothing_fixed_mask_ is None
         else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
     )
+    if (
+        model.family.name == "clog"
+        and model.family.estimate_theta
+        and str(model.smoothing_optimizer).lower() == "efs"
+        and (not optimize_smoothing or method == "fixed" or bool(np.all(fixed_mask_for_theta)))
+    ):
+        raise NotImplementedError(
+            "clog EFS ancillary estimation requires a free smoothing parameter: "
+            "the captured mgcv all-fixed-SP route errors in its foreign-function call. "
+            "Use Newton, BFGS or optim when smoothing parameters are fixed."
+        )
     theta_only_fixed_reml = (
         method == "fixed"
         and str(getattr(model.family, "name", "")).lower() == "negbin"
@@ -222,7 +247,7 @@ def fit_model_core(
             method=method,
             optimizer=model.smoothing_optimizer,
         )
-    elif model.family.name in {"scat", "zip", "cnorm"} and model.family.estimate_theta:
+    elif model.family.name in {"scat", "zip", "cnorm", "clog"} and model.family.estimate_theta:
         if not supports_smoothing_method(model, method):
             raise NotImplementedError(
                 f"Ancillary estimation with method={method!r} is not supported "
@@ -258,7 +283,32 @@ def fit_model_core(
         model._optim_used_hessian = False
         model.smoothing_score_ = None
 
-    sol = solve_fit(model, y, model.smoothing_params, weights=model.prior_weights_)
+    if (
+        model.family.name == "clog"
+        and model._optim_result is not None
+        and not bool(getattr(model._optim_result, "success", False))
+        and str(model.smoothing_optimizer).lower() in {"newton", "outer_newton"}
+    ):
+        raise RuntimeError(
+            "clog smoothing selection failed: "
+            f"{model._optim_result.message}. No fitted state is committed. "
+            "The corresponding mgcv failed-Newton captures can return "
+            "coefficients from a different outer parameter state."
+        )
+
+    if (
+        model.family.name == "clog"
+        and model._optim_result is not None
+        and not bool(getattr(model._optim_result, "success", False))
+    ):
+        warnings.warn(
+            f"clog smoothing optimisation did not converge: {model._optim_result.message}",
+            RuntimeWarning, stacklevel=2,
+        )
+    efs_solution = getattr(model._optim_result, "efs_solution", None)
+    sol = efs_solution if efs_solution is not None else solve_fit(
+        model, y, model.smoothing_params, weights=model.prior_weights_
+    )
 
     assign_fit_solution(model, sol)
     if method != "fixed" and not (getattr(model, "_optim_trace", None) or []):

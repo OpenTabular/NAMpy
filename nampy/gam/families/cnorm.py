@@ -7,19 +7,14 @@ source/manual discrepancies; this is not an ordinary Gaussian shortcut.
 
 import numpy as np
 
-from ..response import normalize_censored_response
+from ._censored_location import CensoredLocationFamily
 from ._cnorm_helpers import ddnorm, dpnorm, log_dnorm, log_pnorm
 from ._function_maps import LINK_REGISTRY
 from ._scalar_math import exp, log
-from .family_base import ExtendedFamily, JointOuterStrategy
+from .family_base import JointOuterStrategy
 
 
-def _unpack(y):
-    response = normalize_censored_response(y)
-    return response.values, response.bounds
-
-
-class CensoredNormalFamily(ExtendedFamily):
+class CensoredNormalFamily(CensoredLocationFamily):
     """Normal location with fixed or estimated SD and optional censoring."""
 
     name = "cnorm"
@@ -54,73 +49,6 @@ class CensoredNormalFamily(ExtendedFamily):
             if value[0] > 0:
                 self.n_theta = 0
         self._theta_working = self.ini_theta.copy()
-
-    @property
-    def estimate_theta(self):
-        return self.n_theta > 0
-
-    def getTheta(self, trans=False):
-        return np.exp(self._theta_working) if trans else self._theta_working.copy()
-
-    def putTheta(self, theta):
-        value = np.asarray(theta, float).reshape(-1)
-        if value.size != 1 or not np.all(np.isfinite(value)):
-            raise ValueError("cnorm working theta must contain one finite value.")
-        self._theta_working = value.copy()
-
-    def validate_y(self, y):
-        return normalize_censored_response(y)
-
-    def initialize_mu(self, y, weights=None):
-        del weights
-        values = _unpack(y)[0]
-        return (
-            values.copy()
-            if self.link_name == "identity"
-            else np.maximum(values, np.min(values > 0))
-        )
-
-    def initialize_linear_predictors(self, y):
-        return [self.link(self.initialize_mu(y))]
-
-    def inverse_link(self, eta):
-        return self.link.inverse(eta)
-
-    def mu_eta(self, eta):
-        return self.link.mu_eta(eta)
-
-    def valid_mu(self, mu):
-        mu = np.asarray(mu)
-        return bool(
-            np.all(np.isfinite(mu)) if self.link_name == "identity" else np.all(mu > 0)
-        )
-
-    def valid_eta(self, eta):
-        eta = np.asarray(eta)
-        return (
-            bool(np.all(np.isfinite(eta)) and np.all(eta >= 0))
-            if self.link_name == "sqrt"
-            else True
-        )
-
-    def estimate_dispersion(self, y, mu, edf=None, weights=None):
-        return 1.0
-
-    def _state(self, y, weights=None, theta=None):
-        values, bounds = _unpack(y)
-        w = (
-            np.ones_like(values)
-            if weights is None
-            else np.broadcast_to(np.asarray(weights, float), values.shape)
-        )
-        theta = (
-            self.getTheta() if theta is None else np.asarray(theta, float).reshape(-1)
-        )
-        if theta.size != 1:
-            raise ValueError("cnorm working theta must have length one.")
-        with np.errstate(divide="ignore", invalid="ignore"):
-            th = theta[0] - np.log(w) / 2
-        return values, bounds, th
 
     def deviance_obs(self, y, mu, weights=None, theta=None):
         values, bounds, th = self._state(y, weights, theta)

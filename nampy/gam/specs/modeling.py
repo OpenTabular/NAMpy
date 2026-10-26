@@ -165,9 +165,10 @@ def prepare_formula_inputs(
             "binomial",
             "quasibinomial",
             "cnorm",
+            "clog",
         }:
             raise ValueError(
-                "cbind response requires family='binomial', 'quasibinomial', or 'cnorm'."
+                "cbind response requires family='binomial', 'quasibinomial', 'cnorm', or 'clog'."
             )
     extracted = extract_formula_terms(parsed, drop_intercept=drop_intercept)
     build_result: FormulaBuildResult = build_formula_model(
@@ -178,7 +179,7 @@ def prepare_formula_inputs(
         default_k=model.k,
         default_basis=model.basis,
         default_select=model.select,
-        response_infinite_bounds=family_name == "cnorm",
+        response_infinite_bounds=family_name in {"cnorm", "clog"},
     )
     # Specs remain component-owned; this metadata lets the compiler create
     # overlapping logical predictor index arrays without duplicating blocks.

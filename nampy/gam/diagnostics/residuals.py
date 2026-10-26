@@ -112,7 +112,7 @@ def residuals_gam(model, type: str = "deviance", *, setseed=None) -> np.ndarray:
         if z_work is not None:
             z_work = np.asarray(z_work, dtype=np.float64).ravel()
             offset = None if fit_state is None else getattr(fit_state, "offset", None)
-            if str(getattr(model.family, "name", "")) in {"scat", "cnorm"}:
+            if str(getattr(model.family, "name", "")) in {"scat", "cnorm", "clog"}:
                 # gam.fit4: z is on the offset-free predictor scale.
                 # residuals <- z - (eta-offset); nonfinite entries become NA.
                 result = z_work - eta

@@ -1177,7 +1177,7 @@ def _run_joint_vector_theta_outer(
     objective_class = (
         _JointFixedScaleVectorPirlsObjective
         if model.family.joint_outer_strategy in {
-            JointOuterStrategy.SCAT_THETA, JointOuterStrategy.ZIP_THETA, JointOuterStrategy.CNORM_THETA
+            JointOuterStrategy.SCAT_THETA, JointOuterStrategy.ZIP_THETA, JointOuterStrategy.CNORM_THETA, JointOuterStrategy.CLOG_THETA
         }
         else _JointOcatPirlsRemlObjective
     )
@@ -1619,8 +1619,11 @@ def optimize_smoothing_params(
         JointOuterStrategy.OCAT_THETA,
         JointOuterStrategy.SCAT_THETA,
         JointOuterStrategy.ZIP_THETA,
-        JointOuterStrategy.CNORM_THETA,
+        JointOuterStrategy.CNORM_THETA, JointOuterStrategy.CLOG_THETA,
     } and bool(getattr(model.family, "estimate_theta", False))
+    if joint_pirls_strategy is JointOuterStrategy.CLOG_THETA and optimizer == "efs":
+        # gam.fit4 estimates clog's scalar theta inside each EFS PIRLS step.
+        use_joint_vector_theta = False
     _fit_workspace(model).pirls_disable_theta_efs = False
 
     has_joint_outer_params = (
@@ -2025,7 +2028,9 @@ def optimize_smoothing_params(
 
     model._optim_method = method
     model._optim_result = result
-    if optimizer != "optim":
+    if optimizer != "optim" and not (
+        joint_pirls_strategy is JointOuterStrategy.CLOG_THETA and optimizer == "efs"
+    ):
         _refresh_final_outer_derivatives(
             model,
             y,

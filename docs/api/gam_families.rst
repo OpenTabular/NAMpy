@@ -38,6 +38,8 @@ Family classes
      - Single-predictor hurdle Poisson model; identity link on log intensity.
    * - ``CensoredNormalFamily``
      - Censored normal location; identity, log, or square-root link.
+   * - ``CensoredLogisticFamily``
+     - Censored logistic location; see the acceptance boundaries below.
    * - ``BetaRegressionFamily``
      - Beta regression for responses in the unit interval.
    * - ``OrderedCategoricalFamily``
@@ -295,3 +297,78 @@ See the executable ``examples/example_cnorm_gam.py`` and the
 `upstream cnorm documentation <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/cnorm.html>`_.
 Source authority is mgcv 1.9-4 ``R/efam.r::cnorm``; the old ``cnorm0`` is not
 used.
+
+Censored logistic family
+------------------------
+
+``CensoredLogisticFamily(theta=None, link="identity")`` ports
+``mgcv::clog``. String, dictionary and tuple family specifications accept
+``clog``; for example ``{"name": "clog", "theta": 0.7}`` fixes the
+logistic scale at 0.7. This scale is not the standard deviation; the
+uncensored logistic standard deviation is ``scale * pi / sqrt(3)``.
+The family describes a continuous logistic response, with one additive
+location predictor. Supported links are identity, log and square root.
+
+Responses use the same explicit paired encoding as ``cnorm`` above:
+equal values are exact observations, distinct finite values define an
+interval in either order, and infinite second bounds define one-sided
+censoring. Predictions return the latent logistic location and need no
+censor bounds. Observation weights are precision, giving each row a scale
+``exp(theta_working) / sqrt(weight)``. A positive constructor ``theta`` fixes
+scale; zero or ``None`` estimates it from working value zero; negative
+``theta`` starts estimation at ``log(abs(theta))``. This last convention
+differs from the source ``cnorm`` constructor.
+
+Static R references cover all returned deviance derivative fields through
+fourth order, saturation derivatives, tails, precision weights, mixed
+censoring, fixed/estimated scale, fixed smoothing and ML/REML selection,
+offsets, two smooths, parametric-only fits, covariance, EDF, likelihood
+criteria, predictions, residuals, persistence and additive reconstruction.
+Fixed- and estimated-scale optimizers have targeted references, including
+weighted ancillary estimation, successful estimated-scale nlm fits, and
+nonidentity REML/BFGS and ML/optim fits. EFS estimates scale inside each PIRLS
+iteration using the source ``estimate.theta`` update, and retains the
+accepted EFS fit rather than estimating theta again in a final solve.
+EFS references cover exact and mixed-censored responses, all three links,
+positive precision weights and positive external dispersion. EFS supplies
+no smoothing-parameter covariance or unconditional uncertainty correction.
+The example is ``examples/example_clog_gam.py``.
+
+In captured fixed-scale nlm/optim cases the smooth reaches its linear null
+space. Large raw smoothing parameters are not compared across endpoints;
+fitted effects, covariance, criterion, and the limiting EDF retain their
+original tolerances. Other accepted cases compare smoothing parameters
+directly, including fixed parameters stored in upstream ``full.sp``.
+
+Remaining restrictions have distinct causes:
+
+* Estimated scale with log/square-root links under ML and Newton/BFGS is
+  guarded after captured mgcv subprocess crashes. Use ``smoothing_optimizer="optim"``
+  for this configuration; these ML fits have direct reference comparisons.
+* A failed Newton selection raises ``RuntimeError`` and does not commit a
+  new fitted state. Captured failed weighted and nonidentity REML fits prove
+  that mgcv can report coefficients belonging to a different outer-parameter
+  state. The former blanket weight and nonidentity restrictions are removed;
+  successful weighted and nonidentity fits are supported. Select another
+  optimizer when Newton fails instead of interpreting that failed source
+  state as an optimum. A failed refit preserves the previous fitted model.
+* Nonconverged BFGS/nlm results emit an explicit warning. The existing nlm
+  compatibility backend can stop differently from R; failed nlm endpoints
+  are recorded as failures, not used to claim numerical optimum parity.
+  Successful estimated-scale nlm numerical outputs have separate references.
+* EFS ancillary estimation requires a free smoothing parameter. Its captured
+  all-fixed-SP source call errors; use Newton, BFGS or optim when smoothing
+  parameters are fixed. EFS selection uses REML/LAML.
+* Zero precision, positive ``min_sp``, and rank-deficient outer uncertainty
+  retain the documented extended-family restrictions. These do not imply
+  that every upstream composition or dataset is rejected.
+
+The port retains source arithmetic and formulas, including interval
+derivative expressions and the unusual ``aic`` hook, which is independent
+of fitted location. Consequently reported source-compatible AIC and derived
+log likelihood are not substitutes for an independently normalized logistic
+likelihood. Simulation and quantile hooks are unavailable upstream.
+
+Source: mgcv 1.9-4 ``R/efam.r::clog, estimate.theta`` and
+``R/gam.fit4.r::gam.fit4, efsudr``. These focused checks establish the
+listed scope; cross-platform CI and merge acceptance remain separate.

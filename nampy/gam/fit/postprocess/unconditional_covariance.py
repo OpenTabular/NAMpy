@@ -763,7 +763,7 @@ def _pirls_exact_unconditional_postfit(
 
 def apply_unconditional_postfit(model, sol, fit_result, fit_state):
     optimizer = str(getattr(model, "smoothing_optimizer", "")).lower()
-    extended_nlm = optimizer == "nlm" and getattr(model.family, "name", "") in {"scat", "zip", "cnorm"}
+    extended_nlm = optimizer == "nlm" and getattr(model.family, "name", "") in {"scat", "zip", "cnorm", "clog"}
     if optimizer in {"efs", "optim"} or extended_nlm:
         family_class = str(
             getattr(getattr(model, "family", None), "family_class", "")
@@ -805,7 +805,7 @@ def apply_unconditional_postfit(model, sol, fit_result, fit_state):
     if edf2_pirls is not None:
         edf2_post = np.asarray(edf2_pirls, dtype=np.float64).copy()
 
-    if getattr(model.family, "name", "") in {"scat", "zip", "cnorm"}:
+    if getattr(model.family, "name", "") in {"scat", "zip", "cnorm", "clog"}:
         from .extended_uncertainty import extended_unconditional_postfit
 
         Vc_ext, edf2_ext, space_ext = extended_unconditional_postfit(

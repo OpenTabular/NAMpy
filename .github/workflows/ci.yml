@@ -133,6 +133,16 @@ jobs:
         tests/docs/test_cnorm_example.py
         -v
 
+    - name: Run portable censored-logistic slices
+      run: >-
+        pytest
+        tests/families/test_clog_family_contracts.py
+        tests/families/test_clog_acceptance.py
+        tests/families/test_mgcv_clog_workflows.py
+        tests/families/test_clog_public_contracts.py
+        tests/docs/test_clog_example.py
+        -v
+
     - name: Run matrix-functional and soap tensor references
       run: >-
         pytest
