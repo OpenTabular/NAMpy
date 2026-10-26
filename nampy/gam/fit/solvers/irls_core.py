@@ -45,6 +45,9 @@ def _validate_extended_family_pirls_hooks(family: Any) -> None:
         "getTheta",
         "putTheta",
     )
+    if getattr(family, "name", "") == "zip":
+        # gam.fit4 requires Dd curvature, not a GLM mean/variance relation.
+        required = tuple(name for name in required if name not in {"variance", "dvar"})
     missing = [name for name in required if not callable(getattr(family, name, None))]
     if missing:
         raise NotImplementedError(
@@ -92,7 +95,7 @@ def _use_exact_extended_family_terms(family: Any) -> bool:
     return (
         str(getattr(family, "family_class", "")).lower() == "extended"
         and str(getattr(family, "name", "")).lower()
-        in {"negbin", "betar", "ocat", "scat"}
+        in {"negbin", "betar", "ocat", "scat", "zip"}
         and callable(getattr(family, "Dd", None))
     )
 
@@ -267,7 +270,10 @@ def irls_core(
     def _irls_state(eta_value):
         mu_value = np.asarray(family.inverse_link(eta_value), dtype=np.float64)
         mu_eta_value = np.asarray(family.mu_eta(eta_value), dtype=np.float64)
-        var_value = np.asarray(family.variance(mu_value), dtype=np.float64)
+        var_value = (
+            None if _use_exact_extended_family_terms(family)
+            else np.asarray(family.variance(mu_value), dtype=np.float64)
+        )
         return mu_value, mu_eta_value, var_value
 
     def _working_response_terms(eta_curr, mu_curr):
@@ -833,7 +839,6 @@ def irls_core(
             0.5 * np.asarray(dd_final["EDmu2"], dtype=np.float64) * ig1_final**2
         )
         mu_eta = ig1_final
-        var = np.asarray(family.variance(mu), dtype=np.float64)
         W_g = W_full[good]
         z_g = z_full[good]
         fisher_W_g = fisher_full[good]

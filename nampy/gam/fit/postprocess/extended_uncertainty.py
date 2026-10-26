@@ -17,14 +17,14 @@ from .unconditional_covariance import _restore_pirls_dbeta_to_original_parameter
 
 
 def extended_unconditional_postfit(model, sol, fit_result, fit_state):
-    """Port SCAT's joint-theta branch of gam.fit3.post.proc and Vb.corr.
+    """Port the joint-theta branch of gam.fit3.post.proc and Vb.corr.
 
     The latter is called with w=NULL upstream: only penalty derivatives enter
     its Hessian perturbations, including zero blocks for the family parameters.
     This differs from the full observed-Hessian derivatives used for db.drho.
     """
     unavailable = (None, None, FIT_PARAMETER_SPACE)
-    if str(getattr(model.family, "name", "")).lower() != "scat":
+    if str(getattr(model.family, "name", "")).lower() not in {"scat", "zip"}:
         return unavailable
     method = str(getattr(model, "_optim_method", "")).upper()
     if method not in {"ML", "REML", "LAML"}:

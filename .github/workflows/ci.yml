@@ -111,6 +111,16 @@ jobs:
         tests/docs/test_scat_example.py
         -v
 
+    - name: Run portable ziP-family slices
+      run: >-
+        pytest
+        tests/families/test_zip_family_contracts.py
+        tests/families/test_mgcv_zip_workflows.py
+        tests/families/test_mgcv_zip_optimizers.py
+        tests/families/test_zip_public_contracts.py
+        tests/docs/test_zip_example.py
+        -v
+
     - name: Run matrix-functional and soap tensor references
       run: >-
         pytest

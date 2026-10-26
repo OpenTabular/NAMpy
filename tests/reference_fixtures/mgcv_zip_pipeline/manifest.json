@@ -1,0 +1,36 @@
+{
+  "namespace": "mgcv_zip_pipeline",
+  "upstream": {
+    "R": "4.6.1",
+    "mgcv": "1.9-4"
+  },
+  "fixture_files": 1,
+  "generator": "tests/parity/test_gam_seven_stage_pipeline_contracts.py::_ZIP_PIPELINE_R",
+  "scope": "Seven-stage public ziP fixedtheta[-.5,log(.5)] b=.3 and fixedSP.8 with parametric z, cr smooth and formula offset. Actual R response predictions and coefficient-conditional SE on newdata. Frozen training doubles avoid platform input drift.",
+  "inputs_recipe": "x=linspace(-1.25,1.25,96); z=.4+cos(1.3*x); off=.15*sin(.7*x); gamma=off+.55*z+sin(pi*x)+.04*cos(7*x); y=ZeroInflatedPoissonFamily(theta=[-.5,log(.5)],b=.3).rd(gamma,rng=default_rng(265)).",
+  "inputs_sha256": "c5d3454ee96fc526fed6d602f26334f32bd304d6b2c7c0dd9966e6d01ffb37ef",
+  "policy": "Normal tests load committed actual-R snapshot; generation requires explicit refresh flag.",
+  "source_provenance": {
+    "execution": "Fixtures load library(mgcv) from the installed R package; no vendored or checkout source files are sourced.",
+    "installed_package": {
+      "library": "/usr/lib/R/library/mgcv",
+      "Version": "1.9-4",
+      "Repository": "CRAN",
+      "Packaged": "2025-11-06 12:01:15 UTC; sw283",
+      "Built": "R 4.5.2; x86_64-pc-linux-gnu; 'Fri, 28 Nov 2025 21:31:40 +0000'; unix",
+      "capture_R": "4.6.1"
+    },
+    "audited_source_checkout": {
+      "repository": "https://github.com/cran/mgcv",
+      "commit": "1b6a4c8374612da27e36420b4459e93acb183f2d",
+      "local_path": "/home/ad32/projects/package/mgcv",
+      "working_tree": "clean"
+    },
+    "vendored_source_difference": {
+      "path": "nampy_notes/upstreams/mgcv/R/gam.fit3.r",
+      "vendored_sha256": "c7b31bdd3073e785d5bb322e8c474c3d2e154565e713b5d5d0e192b1cc08202d",
+      "CRAN_sha256": "1dcf5a92dca8cda48f29c545c1382b861e53630d73fd460a51cb894144761245",
+      "difference": "Only substantive difference is newton steepest-descent direction: vendor uses Sstep <- grad/max(abs(grad)); CRAN uses Sstep <- -grad/max(abs(grad)). Installed mgcv:::newton body was inspected and has the CRAN negative sign. Recorded CRAN hash is deliberate, not a transcription error. Other source hashes listed in this manifest match both trees."
+    }
+  }
+}

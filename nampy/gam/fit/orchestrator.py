@@ -103,6 +103,17 @@ def fit_model_core(
             raise ValueError("sample_weight must sum to a positive value.")
         model.prior_weights_ = sw.copy()
 
+    if (
+        model.family.name == "zip"
+        and model.prior_weights_ is not None
+        and np.any(model.prior_weights_ != 1)
+    ):
+        raise NotImplementedError(
+            "ziP fitting currently supports unit prior weights only: upstream "
+            "deviance and derivative weighting differ, and weighted selection "
+            "has not met convergence and parity acceptance checks."
+        )
+
     # ``fit_model_core`` is a public array-facing integration surface as well
     # as the facade's internal entry point.  A directly constructed GAM has no
     # predictor specs until feature names are known, so create the same specs
@@ -117,12 +128,12 @@ def fit_model_core(
     compile_designs(model, X, model.feature_names)
 
     if (
-        model.family.name == "scat"
+        model.family.name in {"scat", "zip"}
         and model.min_sp_ is not None
         and np.any(np.asarray(model.min_sp_) > 0)
     ):
         raise NotImplementedError(
-            "scat with positive min_sp is not supported: joint ancillary "
+            f"{model.family.name} with positive min_sp is not supported: joint ancillary "
             "optimization and smoothing-uncertainty corrections require the "
             "fixed-penalty offset parameterization."
         )
@@ -186,7 +197,7 @@ def fit_model_core(
             method=method,
             optimizer=model.smoothing_optimizer,
         )
-    elif model.family.name == "scat" and model.family.estimate_theta:
+    elif model.family.name in {"scat", "zip"} and model.family.estimate_theta:
         if not supports_smoothing_method(model, method):
             raise NotImplementedError(
                 f"Ancillary estimation with method={method!r} is not supported "

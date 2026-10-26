@@ -453,6 +453,38 @@
       "package_version": "1.9-4",
       "manifest": "tests/reference_fixtures/mgcv_side_nesting/manifest.json",
       "scope": "Independent three-way nesting fit and SE; degenerate inputs retain rank-only coverage"
+    },
+    "mgcv_zip_family": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_zip_family",
+      "generator": "tests/families/test_zip_family_contracts.py",
+      "manifest": "tests/reference_fixtures/mgcv_zip_family/manifest.json",
+      "fixture_files": 33,
+      "scope": "ziP likelihood derivatives, stable tails, constructor/link/response encoding, response prediction, saturation/null deviance, residuals and controlled simulation"
+    },
+    "mgcv_zip_workflows": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_zip_workflows",
+      "generator": "tests/families/test_mgcv_zip_workflows.py",
+      "manifest": "tests/reference_fixtures/mgcv_zip_workflows/manifest.json",
+      "fixture_files": 56,
+      "scope": "Unit-weight fixed and estimated workflows, ML/REML/LAML/GCV.Cp, derivatives, offsets, multiple terms, rank boundaries, scale and public prediction/inference; weighted upstream behavior inventory is not an acceptance claim"
+    },
+    "mgcv_zip_optimizers": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_zip_optimizers",
+      "generator": "tests/families/test_mgcv_zip_optimizers.py",
+      "manifest": "tests/reference_fixtures/mgcv_zip_optimizers/manifest.json",
+      "fixture_files": 8,
+      "scope": "Actual upstream alternative-optimizer references; endpoint acceptance tracked by tests and namespace manifest"
+    },
+    "mgcv_zip_pipeline": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_zip_pipeline",
+      "generator": "tests/parity/test_gam_seven_stage_pipeline_contracts.py",
+      "manifest": "tests/reference_fixtures/mgcv_zip_pipeline/manifest.json",
+      "fixture_files": 1,
+      "scope": "Seven-stage fixed-theta/fixed-smoothing pipeline and response/link prediction SE"
     }
   }
 }

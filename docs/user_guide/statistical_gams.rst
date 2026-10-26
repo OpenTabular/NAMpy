@@ -290,6 +290,9 @@ Families and links
    * - ``nb`` / ``negbin``
      - Estimated or fixed negative-binomial shape.
      - ``GAM(family="nb")``
+   * - ``ziP`` / ``zip``
+     - Hurdle Poisson counts with linked intensity and presence probability.
+     - ``GAM(family={"name": "ziP", "theta": [-0.5, -0.7], "b": 0.3})``
    * - ``scat``
      - Scaled Student t location; identity, log, or inverse link.
      - ``GAM(family={"name": "scat", "theta": [5, 0.3]})``
@@ -374,6 +377,41 @@ contribution as a smooth becomes linear, rather than an arbitrary finite
 log-parameter representative. Working residuals can be sensitive near zero
 observed curvature and are undefined on zero-weight rows; see
 :doc:`../api/gam_families` for the residual comparison contract.
+
+Hurdle Poisson counts
+~~~~~~~~~~~~~~~~~~~~~
+
+``ziP`` models nonnegative counts using one latent log-intensity predictor.
+A positive count follows a zero-truncated Poisson distribution; its probability
+is tied to the same predictor. This is the single-predictor mgcv family,
+not a model with an independently specified presence formula.
+
+.. code-block:: python
+
+   count_model = GAM(
+       formula="y ~ s(x, bs='cr', k=7)",
+       family={"name": "ziP", "theta": [-0.5, -0.7], "b": 0.3},
+       smoothing_params=[0.4],
+       optimize_smoothing=False,
+   ).fit(data=data)
+
+   expected_count, mean_se = count_model.predict(type="response", return_se=True)
+   latent_log_intensity = count_model.predict(type="link")
+
+The two supplied ``theta`` values are working-scale parameters and fix both
+ancillary parameters. Omit ``theta`` to estimate both; use
+``smoothing_method="REML", optimize_smoothing=True`` to select smoothing too.
+The ``b`` argument is a lower bound on the slope tying presence to intensity.
+See :doc:`../api/gam_families` for the exact parameterization and current scope.
+
+Only unit observation weights are currently accepted. Binary responses,
+nonidentity links, positive ``min_sp``, and joint ancillary estimation with
+``smoothing_optimizer="efs"`` are rejected. Response residuals compare counts
+with predicted expected counts; stored fitted values are latent log intensities.
+Designs that drop dependent coefficients are guarded when outer-parameter
+uncertainty is required; fixed-theta, fixed-smoothing conditional fits remain
+available. The example ``examples/example_zip_gam.py`` simulates hurdle counts and fits a
+model with fixed ancillary parameters and smoothing.
 
 Quasi families
 ~~~~~~~~~~~~~~

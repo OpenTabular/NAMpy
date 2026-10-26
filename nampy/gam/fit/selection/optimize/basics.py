@@ -482,11 +482,12 @@ def _initial_smoothing_params_from_design(model, y):
             mu0 = np.asarray(model.family.initialize_mu(y), dtype=np.float64)
         eta0 = np.asarray(model.family.link(mu0), dtype=np.float64)
         mu_eta = np.asarray(model.family.mu_eta(eta0), dtype=np.float64)
-        var_mu = np.asarray(model.family.variance(mu0), dtype=np.float64)
+        if str(getattr(model.family, "name", "")).lower() not in {"scat", "zip"}:
+            var_mu = np.asarray(model.family.variance(mu0), dtype=np.float64)
     except Exception:
         return None
 
-    if str(getattr(model.family, "name", "")).lower() == "scat":
+    if str(getattr(model.family, "name", "")).lower() in {"scat", "zip"}:
         # initial.spg uses observed mu curvature for extended families and
         # switches the entire vector to expected curvature if any is negative.
         # Dd already includes prior weights; EDmu2 has its own family semantics.

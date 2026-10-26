@@ -30,13 +30,16 @@ class _PipelineCase:
     gam: GAM
 
 
-@pytest.fixture(scope="module", params=["gaussian", "quasi", "scat"])
+@pytest.fixture(scope="module", params=["gaussian", "quasi", "scat", "zip"])
 def pipeline_case(request) -> _PipelineCase:
     x = np.linspace(-1.25, 1.25, 96)
     z = 0.4 + np.cos(1.3 * x)
     off = 0.15 * np.sin(0.7 * x)
     y = off + 0.55 * z + np.sin(np.pi * x) + 0.04 * np.cos(7.0 * x)
     data = pd.DataFrame({"y": y, "x": x, "z": z, "off": off})
+
+    if request.param == "zip":
+        data = pd.DataFrame(json.loads((Path(__file__).parents[1] / "reference_fixtures/mgcv_zip_pipeline/inputs.json").read_text()))
 
     new_x = np.linspace(-1.1, 1.1, 19)
     newdata = pd.DataFrame(
@@ -47,7 +50,7 @@ def pipeline_case(request) -> _PipelineCase:
         }
     )
     gam = GAM(
-        family={"name": "scat", "theta": [5, .3]} if request.param == "scat" else request.param,
+        family=({"name": "ziP", "theta": [-.5, float(np.log(.5))], "b": .3} if request.param == "zip" else {"name": "scat", "theta": [5, .3]} if request.param == "scat" else request.param),
         formula=_FORMULA,
         optimize_smoothing=False,
         smoothing_method="fixed",
@@ -236,7 +239,8 @@ def test_stage_7_prediction_and_diagnostics_match_mgcv_and_fitted_state(
     offset = newdata["off"].to_numpy(dtype=np.float64)
 
     np.testing.assert_allclose(link, lpmatrix @ coef + offset, rtol=0.0, atol=1e-12)
-    np.testing.assert_allclose(response, link, rtol=0.0, atol=0.0)
+    expected_response = gam.family.response_from_eta(link) if gam.family.name == "zip" else link
+    np.testing.assert_allclose(response, expected_response, rtol=0.0, atol=0.0)
     np.testing.assert_allclose(
         link,
         float(coef[0]) + np.sum(terms, axis=1) + offset,
@@ -244,7 +248,7 @@ def test_stage_7_prediction_and_diagnostics_match_mgcv_and_fitted_state(
         atol=1e-12,
     )
     training_response = np.asarray(
-        gam.predict(pipeline_case.data, type="response"), dtype=np.float64
+        (gam.predict(type="response") if gam.family.name == "zip" else gam.predict(pipeline_case.data, type="response")), dtype=np.float64
     )
     np.testing.assert_allclose(
         gam.residuals(type="response"),
@@ -256,8 +260,8 @@ def test_stage_7_prediction_and_diagnostics_match_mgcv_and_fitted_state(
     # Constant-variance identity quasi has the same fixed-smoothing mean as
     # Gaussian. Reuse that reference while checking quasi likelihood semantics
     # independently in stage 6 (fresh quasi references live in tests/families).
-    if gam.family.name == "scat":
-        expected = _scat_pipeline_reference(pipeline_case)
+    if gam.family.name in {"scat", "zip"}:
+        expected = _zip_pipeline_reference(pipeline_case) if gam.family.name == "zip" else _scat_pipeline_reference(pipeline_case)
         prediction, se = gam.predict(newdata, return_se=True)
         np.testing.assert_allclose(se, expected["se"], atol=2e-7, rtol=2e-7)
     else:
@@ -299,4 +303,21 @@ def _scat_pipeline_reference(case):
             subprocess.run(["Rscript", str(source), str(inputs), str(output)], check=True, capture_output=True, text=True)
             result = json.loads(output.read_text())
         save_reference("mgcv_scat_pipeline", key, result)
+    return result
+
+
+_ZIP_PIPELINE_R = _SCAT_PIPELINE_R.replace("scat(theta=c(5,.3))", "ziP(theta=c(-.5,log(.5)),b=.3)")
+
+def _zip_pipeline_reference(case):
+    payload = {"data": case.data.to_dict("list"), "newdata": case.newdata.to_dict("list"), "formula": _FORMULA}
+    key = reference_key("zip-seven-stage", {"payload": payload, "script": _ZIP_PIPELINE_R}, normalize_floats=True)
+    result = load_reference("mgcv_zip_pipeline", key)
+    if result is None:
+        with tempfile.TemporaryDirectory() as directory:
+            source, inputs, output = [Path(directory)/name for name in ("reference.R", "inputs.json", "output.json")]
+            source.write_text(_ZIP_PIPELINE_R)
+            inputs.write_text(json.dumps(payload))
+            subprocess.run(["Rscript", str(source), str(inputs), str(output)], check=True, capture_output=True, text=True)
+            result = json.loads(output.read_text())
+        save_reference("mgcv_zip_pipeline", key, result)
     return result

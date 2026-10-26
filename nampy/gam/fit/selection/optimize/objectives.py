@@ -745,14 +745,14 @@ class _JointOcatPirlsRemlObjective(_JointVectorThetaPirlsObjective):
     """Ordinal cutpoint-gap objective using the shared vector-theta contract."""
 
 
-class _JointScatPirlsRemlObjective(_JointVectorThetaPirlsObjective):
-    """Joint log(df-min.df), log(sigma), log-SP objective for scaled t."""
+class _JointFixedScaleVectorPirlsObjective(_JointVectorThetaPirlsObjective):
+    """Joint working-theta/log-SP objective with family saturated likelihood."""
 
     def __init__(self, model, y, branch_method):
-        from ..criteria.pirls.family_scat import (
-            criterion_gradient_ml_reml_pirls_scat_joint,
-            criterion_hessian_ml_reml_pirls_scat_joint,
-            criterion_ml_reml_pirls_scat_joint,
+        from ..criteria.pirls.family_vector_theta import (
+            criterion_gradient_ml_reml_pirls_vector_theta_joint,
+            criterion_hessian_ml_reml_pirls_vector_theta_joint,
+            criterion_ml_reml_pirls_vector_theta_joint,
         )
 
         super().__init__(
@@ -760,9 +760,9 @@ class _JointScatPirlsRemlObjective(_JointVectorThetaPirlsObjective):
             y,
             branch_method,
             criterion_functions=(
-                criterion_ml_reml_pirls_scat_joint,
-                criterion_gradient_ml_reml_pirls_scat_joint,
-                criterion_hessian_ml_reml_pirls_scat_joint,
+                criterion_ml_reml_pirls_vector_theta_joint,
+                criterion_gradient_ml_reml_pirls_vector_theta_joint,
+                criterion_hessian_ml_reml_pirls_vector_theta_joint,
             ),
         )
 

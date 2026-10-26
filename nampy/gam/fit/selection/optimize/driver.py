@@ -46,10 +46,10 @@ from .objectives import (
     _GaussianRemlJointObjective,
     _GaussianRemlProfiledObjective,
     _JointBetarPirlsRemlObjective,
+    _JointFixedScaleVectorPirlsObjective,
     _JointGammaPirlsRemlObjective,
     _JointNegbinPirlsRemlObjective,
     _JointOcatPirlsRemlObjective,
-    _JointScatPirlsRemlObjective,
     _JointTweediePirlsRemlObjective,
 )
 from .shape_bfgs import optimize_transformed_bfgs
@@ -1175,8 +1175,10 @@ def _run_joint_vector_theta_outer(
     joint_bounds = [(-np.inf, np.inf)] * ntheta + list(bounds)
     branch_m = "LAML" if str(method).lower() == "laml" else str(method).upper()
     objective_class = (
-        _JointScatPirlsRemlObjective
-        if model.family.joint_outer_strategy is JointOuterStrategy.SCAT_THETA
+        _JointFixedScaleVectorPirlsObjective
+        if model.family.joint_outer_strategy in {
+            JointOuterStrategy.SCAT_THETA, JointOuterStrategy.ZIP_THETA
+        }
         else _JointOcatPirlsRemlObjective
     )
     objective = objective_class(model, y, branch_m)
@@ -1616,6 +1618,7 @@ def optimize_smoothing_params(
     use_joint_vector_theta = joint_pirls_strategy in {
         JointOuterStrategy.OCAT_THETA,
         JointOuterStrategy.SCAT_THETA,
+        JointOuterStrategy.ZIP_THETA,
     } and bool(getattr(model.family, "estimate_theta", False))
     _fit_workspace(model).pirls_disable_theta_efs = False
 

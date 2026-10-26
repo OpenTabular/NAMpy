@@ -1,0 +1,39 @@
+{
+  "namespace": "mgcv_zip_family",
+  "upstream": {
+    "R": "4.6.1",
+    "mgcv": "1.9-4"
+  },
+  "fixture_files": 33,
+  "tests": 40,
+  "generator": "tests/families/test_zip_family_contracts.py",
+  "coverage": "Constructor, all Dd/ls arrays, stable likelihood helper tail branches, scalar and zero weights, source deviance weighting quirk, response predictions and SE, saturated/null postprocessing, response initialization and controlled-uniform simulation. Normal tests never execute R.",
+  "source_files_sha256": {
+    "R/efam.r": "30d5858b3a9a3d7c0d0397d4967a81e58e5b09da9bb9b3b2fd4c8ac7a0f3f391",
+    "R/gamlss.r": "d82fbc72b270dc1bd062c90d867c4f445043d79094a3cf0bae5c5479f12c8fa0"
+  },
+  "validation": "40 passed with committed actual-R snapshots, no R in normal run. No acceptance tolerances relaxed.",
+  "source_provenance": {
+    "execution": "Fixtures load library(mgcv) from the installed R package; no vendored or checkout source files are sourced.",
+    "installed_package": {
+      "library": "/usr/lib/R/library/mgcv",
+      "Version": "1.9-4",
+      "Repository": "CRAN",
+      "Packaged": "2025-11-06 12:01:15 UTC; sw283",
+      "Built": "R 4.5.2; x86_64-pc-linux-gnu; 'Fri, 28 Nov 2025 21:31:40 +0000'; unix",
+      "capture_R": "4.6.1"
+    },
+    "audited_source_checkout": {
+      "repository": "https://github.com/cran/mgcv",
+      "commit": "1b6a4c8374612da27e36420b4459e93acb183f2d",
+      "local_path": "/home/ad32/projects/package/mgcv",
+      "working_tree": "clean"
+    },
+    "vendored_source_difference": {
+      "path": "nampy_notes/upstreams/mgcv/R/gam.fit3.r",
+      "vendored_sha256": "c7b31bdd3073e785d5bb322e8c474c3d2e154565e713b5d5d0e192b1cc08202d",
+      "CRAN_sha256": "1dcf5a92dca8cda48f29c545c1382b861e53630d73fd460a51cb894144761245",
+      "difference": "Only substantive difference is newton steepest-descent direction: vendor uses Sstep <- grad/max(abs(grad)); CRAN uses Sstep <- -grad/max(abs(grad)). Installed mgcv:::newton body was inspected and has the CRAN negative sign. Recorded CRAN hash is deliberate, not a transcription error. Other source hashes listed in this manifest match both trees."
+    }
+  }
+}
