@@ -1,5 +1,8 @@
 """SCAT stored working residuals follow gam.fit4's offset convention."""
 
+import json
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -11,18 +14,20 @@ from tests.families.test_scat_family_contracts import reference
 
 @pytest.mark.parametrize("zero", [False, True])
 def test_scat_working_residuals_offsets_and_zero_weights(zero):
-    x = np.linspace(-1, 1, 25)
-    offset = 0.1 * np.cos(x)
-    y = 0.2 * np.sin(2 * x) + offset + 0.03 * np.cos(17 * x)
-    weights = np.ones_like(x)
+    # Freeze the reference inputs: platform libm sin/cos implementations can
+    # differ by an ulp, changing the fixture key before parity is even tested.
+    data = json.loads(
+        (
+            Path(__file__).parents[1]
+            / "reference_fixtures"
+            / "mgcv_scat_family"
+            / "residual_inputs.json"
+        ).read_text()
+    )
+    weights = np.ones(len(data["x"]))
     if zero:
         weights[[0, 12]] = 0
-    data = {
-        "x": x.tolist(),
-        "y": y.tolist(),
-        "off": offset.tolist(),
-        "w": weights.tolist(),
-    }
+    data["w"] = weights.tolist()
     code = """
 d<-as.data.frame(a)
 b<-gam(y~s(x,bs='cr',k=5)+offset(off),data=d,weights=d$w,family=scat(theta=c(6,1)),sp=.4,method='REML')
