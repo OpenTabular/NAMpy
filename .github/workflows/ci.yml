@@ -136,6 +136,7 @@ jobs:
       run: >-
         pytest
         tests/families/test_clog_family_contracts.py
+        tests/families/test_clog_acceptance.py
         tests/families/test_mgcv_clog_workflows.py
         tests/families/test_clog_public_contracts.py
         tests/docs/test_clog_example.py

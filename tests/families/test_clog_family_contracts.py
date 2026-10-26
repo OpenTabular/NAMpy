@@ -20,14 +20,14 @@ from tests.reference_fixtures import (
 SOURCE = SCRIPT.replace("cnorm", "clog")
 
 
-def reference(payload):
-    key = reference_key("clog-leaf-v1", {"payload": payload, "script": SOURCE})
+def reference(payload, source_text=SOURCE):
+    key = reference_key("clog-leaf-v1", {"payload": payload, "script": source_text})
     if generation_enabled():
         with tempfile.TemporaryDirectory() as tmp:
             source, inputs, output = [Path(tmp) / name for name in ("run.R", "in.json", "out.json")]
             source.write_text(
                 'args<-commandArgs(TRUE)\nlib<-Sys.getenv("MGCV_LIB_PATH");if(nzchar(lib)) .libPaths(c(lib,.libPaths()))\nsuppressPackageStartupMessages(library(mgcv));library(jsonlite)\na<-fromJSON(args[1])\n'
-                + SOURCE + '\nwrite_json(ans,args[2],digits=17,auto_unbox=TRUE,na="string")'
+                + source_text + '\nwrite_json(ans,args[2],digits=17,auto_unbox=TRUE,na="string")'
             )
             inputs.write_text(json.dumps(payload))
             run = subprocess.run(["Rscript", str(source), str(inputs), str(output)], capture_output=True, text=True, timeout=60)
@@ -74,3 +74,17 @@ def assert_kernel(payload):
 def test_clog_invalid_constructor(kwargs):
     with pytest.raises(ValueError):
         CensoredLogisticFamily(**kwargs)
+
+
+@pytest.mark.parametrize("band", ["mixed", "precision", "uncensored"])
+@pytest.mark.parametrize("scale", [1, 2])
+def test_clog_efs_theta_update_matches_source(band, scale):
+    payload = case(band, theta=None)
+    payload["scale"] = scale
+    source = SOURCE + '\nans$efs<-capture(mgcv:::estimate.theta(f$getTheta(),f,y,mu,scale=a$scale,wt=w,tol=1e-7))\n'
+    ref = reference(payload, source)["efs"]
+    assert not ref["error"], ref
+    family = CensoredLogisticFamily()
+    family.update_theta_efs(_response(payload), np.asarray(payload["mu"]),
+                            np.asarray(payload["w"]), scale=scale)
+    np.testing.assert_allclose(family.getTheta(), _numeric(ref["value"]), rtol=3e-10, atol=3e-10)

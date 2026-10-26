@@ -1,0 +1,15 @@
+{
+  "namespace": "mgcv_clog_pipeline",
+  "upstream": {
+    "mgcv": "1.9-4",
+    "R": "4.6.1"
+  },
+  "generator": "tests/parity/test_gam_seven_stage_pipeline_contracts.py::_censored_pipeline_reference",
+  "execution": "Actual installed CRAN mgcv capture; ordinary tests require no R.",
+  "scope": "All seven public pipeline stages; paired mixed censor bounds with fixed logistic scale, formula-fixed smoothing, parametric term, offset, response predictions and SE.",
+  "shared_inputs": "../mgcv_cnorm_pipeline/inputs.json",
+  "inputs_sha256": "8ace4f8833f9fd74f6b4d891b8f5b8ce09bb4ad98218c357e5fb52905b3ccae4",
+  "fixture_sha256": {
+    "06cc059ae82d1ce91bcd139b2e635bac8e746c8996b9ed02608595d0bc642d3c.json.gz": "e88524dc025ffa40b74dd8994eb99bad71206c366525b5d2e72c97c479d69199"
+  }
+}

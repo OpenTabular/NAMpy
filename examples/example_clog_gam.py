@@ -29,7 +29,19 @@ def fit_example():
     ).fit(example_data())
 
 
+def fit_estimated_example():
+    """Jointly estimate logistic scale and smoothing with source EFS updates."""
+    return GAMRegressor(
+        formula="cbind(value, bound) ~ s(x, bs='cr', k=7)",
+        family="clog",
+        smoothing_method="REML",
+        smoothing_optimizer="efs",
+    ).fit(example_data())
+
+
 if __name__ == "__main__":
     model = fit_example()
     print("First logistic locations:", model.predict(example_data()[["x"]])[:5])
     print("Fixed logistic scale:", model.gam_.family.getTheta(trans=True))
+    estimated = fit_estimated_example()
+    print("Estimated logistic scale:", estimated.gam_.family.getTheta(trans=True))

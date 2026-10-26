@@ -281,6 +281,10 @@ def solve_pirls_fit(
     if disable_theta_efs:
         model.family._disable_theta_efs = True
 
+    efs_theta_updates = str(getattr(model, "smoothing_optimizer", "")).lower() == "efs"
+    if efs_theta_updates and getattr(model.family, "name", "") == "clog" and scale_reference is None:
+        scale_reference = float(model.family.known_scale)
+
     try:
         sol = irls_core(
             X_canonical,
@@ -304,6 +308,7 @@ def solve_pirls_fit(
             # supply the current outer scale, rather than using an estimated
             # deviance surrogate inside the inner iteration.
             scale_reference=scale_reference,
+            efs_theta_updates=efs_theta_updates,
         )
     finally:
         model.family._disable_theta_efs = bool(prev_disable_theta_efs)

@@ -248,7 +248,7 @@ def sp_vcov(model, edge_correct: bool = True, reg: float = 1e-3):
         return None
 
     if (
-        getattr(getattr(model, "family", None), "name", "") == "cnorm"
+        getattr(getattr(model, "family", None), "name", "") in {"cnorm", "clog"}
         and str(getattr(model, "smoothing_optimizer", "")).lower() == "efs"
     ):
         # EFS supplies no outer.info$hess to upstream sp.vcov.
@@ -314,7 +314,7 @@ def gam_vcomp(model, *, rescale: bool = True, conf_lev: float = 0.95):
     sd = np.sqrt(vc)
     names = _gam_vcomp_names(model)
     if (
-        getattr(getattr(model, "family", None), "name", "") == "cnorm"
+        getattr(getattr(model, "family", None), "name", "") in {"cnorm", "clog"}
         and str(getattr(model, "smoothing_optimizer", "")).lower() == "efs"
     ):
         # EFS supplies no outer.info$hess to upstream sp.vcov.

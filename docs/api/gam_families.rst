@@ -317,27 +317,44 @@ fourth order, saturation derivatives, tails, precision weights, mixed
 censoring, fixed/estimated scale, fixed smoothing and ML/REML selection,
 offsets, two smooths, parametric-only fits, covariance, EDF, likelihood
 criteria, predictions, residuals, persistence and additive reconstruction.
-Additional BFGS endpoints, estimated-scale optim and fixed-scale nlm have
-targeted references. The example is ``examples/example_clog_gam.py``.
-In the captured fixed-scale nlm case the smooth reaches its linear null
-space. Its large raw smoothing parameter is not compared across endpoints;
+Fixed- and estimated-scale optimizers have targeted references, including
+weighted ancillary estimation, successful estimated-scale nlm fits, and
+nonidentity REML/BFGS and ML/optim fits. EFS estimates scale inside each PIRLS
+iteration using the source ``estimate.theta`` update, and retains the
+accepted EFS fit rather than estimating theta again in a final solve.
+EFS references cover exact and mixed-censored responses, all three links,
+positive precision weights and positive external dispersion. EFS supplies
+no smoothing-parameter covariance or unconditional uncertainty correction.
+The example is ``examples/example_clog_gam.py``.
+
+In captured fixed-scale nlm/optim cases the smooth reaches its linear null
+space. Large raw smoothing parameters are not compared across endpoints;
 fitted effects, covariance, criterion, and the limiting EDF retain their
 original tolerances. Other accepted cases compare smoothing parameters
 directly, including fixed parameters stored in upstream ``full.sp``.
 
-The following acceptance boundaries are explicit:
+Remaining restrictions have distinct causes:
 
-* Estimated scale with nonunit precision weights: kernels and captured
-  joint objective states match, but selected endpoint coefficients remain
-  outside the existing tolerance. This is an unresolved NAMpy parity gap.
-* Estimated scale with nonidentity links: captured upstream ML subprocesses
-  crash in ``gam.fit4``; REML acceptance remains incomplete. Both routes
-  are guarded pending separate validation.
-* Fixed-scale optim, estimated-scale nlm, and EFS are guarded pending
-  endpoint acceptance. The captured fixed-scale optim fit does not converge;
-  the estimated-scale nlm endpoint still differs.
+* Estimated scale with log/square-root links under ML and Newton/BFGS is
+  guarded after captured mgcv subprocess crashes. Use ``smoothing_optimizer="optim"``
+  for this configuration; these ML fits have direct reference comparisons.
+* A failed Newton selection raises ``RuntimeError`` and does not commit a
+  new fitted state. Captured failed weighted and nonidentity REML fits prove
+  that mgcv can report coefficients belonging to a different outer-parameter
+  state. The former blanket weight and nonidentity restrictions are removed;
+  successful weighted and nonidentity fits are supported. Select another
+  optimizer when Newton fails instead of interpreting that failed source
+  state as an optimum. A failed refit preserves the previous fitted model.
+* Nonconverged BFGS/nlm results emit an explicit warning. The existing nlm
+  compatibility backend can stop differently from R; failed nlm endpoints
+  are recorded as failures, not used to claim numerical optimum parity.
+  Successful estimated-scale nlm numerical outputs have separate references.
+* EFS ancillary estimation requires a free smoothing parameter. Its captured
+  all-fixed-SP source call errors; use Newton, BFGS or optim when smoothing
+  parameters are fixed. EFS selection uses REML/LAML.
 * Zero precision, positive ``min_sp``, and rank-deficient outer uncertainty
-  remain guarded. No upstream-wide rejection is inferred from these guards.
+  retain the documented extended-family restrictions. These do not imply
+  that every upstream composition or dataset is rejected.
 
 The port retains source arithmetic and formulas, including interval
 derivative expressions and the unusual ``aic`` hook, which is independent
@@ -345,5 +362,6 @@ of fitted location. Consequently reported source-compatible AIC and derived
 log likelihood are not substitutes for an independently normalized logistic
 likelihood. Simulation and quantile hooks are unavailable upstream.
 
-Source: mgcv 1.9-4 ``R/efam.r::clog``. These focused checks establish the
+Source: mgcv 1.9-4 ``R/efam.r::clog, estimate.theta`` and
+``R/gam.fit4.r::gam.fit4, efsudr``. These focused checks establish the
 listed scope; cross-platform CI and merge acceptance remain separate.

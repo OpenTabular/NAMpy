@@ -34,8 +34,15 @@ def test_clog_zero_precision_is_an_acceptance_boundary():
             optimize_smoothing=False, smoothing_params=[0.7]).fit(data, sample_weight=weights)
 
 
-def test_clog_efs_is_explicitly_pending_acceptance():
+def test_clog_efs_estimation_has_public_component_contract(tmp_path):
     case = _case("mixed")
-    with pytest.raises(NotImplementedError, match="optimizer/ancillary"):
-        GAM(formula=case["formula"], family="clog", smoothing_method="reml",
+    model = GAMRegressor(formula=case["formula"], family="clog", smoothing_method="reml",
             smoothing_optimizer="efs").fit(_data(case))
+    model.predict_components(_newdata()).validate_additive_reconstruction()
+    assert model.gam_.family.n_theta == 1
+    path = tmp_path / "clog-efs.pkl"
+    model.save_model(path)
+    restored = GAMRegressor.load_model(path)
+    np.testing.assert_array_equal(restored.predict(_newdata()), model.predict(_newdata()))
+    np.testing.assert_array_equal(restored.gam_.family.getTheta(), model.gam_.family.getTheta())
+    assert not restored.gam_.response_.bounds.flags.writeable

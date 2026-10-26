@@ -1,5 +1,7 @@
 """Censored logistic location family, mgcv 1.9-4 R/efam.r::clog."""
 
+import warnings
+
 import numpy as np
 
 from ._censored_location import CensoredLocationFamily
@@ -127,6 +129,53 @@ class CensoredLogisticFamily(CensoredLocationFamily):
 
     def loglik(self, y, mu, scale=1.0):
         return self.weighted_loglik(y, mu, scale=scale)
+
+    def update_theta_efs(self, y, mu, weights, scale=1.0):
+        """Scalar fixed-dispersion branch of efam.r::estimate.theta.
+
+        Called inside gam.fit4's EFS PIRLS loop, before its fresh derivative
+        and convergence checks. No outer-optimizer approximation is involved.
+        """
+        theta = self.getTheta()
+
+        def state(value, derivatives=True):
+            dev = np.sum(self.deviance_obs(y, mu, weights, theta=value)) / scale
+            saturated = self.ls(y, weights, theta=value, scale=scale)
+            objective = dev / 2 - saturated["ls"]
+            if not derivatives:
+                return objective, None, None
+            dd = self.Dd(y, mu, value, weights, level=2)
+            gradient = np.sum(dd["Dth"]) / (2 * scale) - saturated["lsth1"][0]
+            hessian = np.sum(dd["Dth2"]) / (2 * scale) - saturated["lsth2"][0, 0]
+            return objective, gradient, hessian
+
+        value, gradient, hessian = state(theta)
+        if abs(gradient) > 1e-7 * (abs(value) + 1):
+            for _ in range(100):
+                # For one parameter the source symmetric eigendecomposition
+                # is scalar; its negative eigenvalue is replaced by abs(H).
+                step = np.array([-gradient / abs(hessian)])
+                length = np.max(np.abs(step))
+                if length > 4:
+                    step = step * 4 / length
+                candidate = state(theta + step)
+                halvings = 0
+                failed = False
+                while candidate[0] - value > np.finfo(float).eps**0.75 * abs(value):
+                    step = step / 2
+                    halvings += 1
+                    if not np.any(theta != theta + step) or halvings > 25:
+                        failed = True
+                        break
+                    candidate = state(theta + step, derivatives=False)
+                if failed:
+                    warnings.warn("step failure in theta estimation", RuntimeWarning, stacklevel=2)
+                    break
+                theta = theta + step
+                value, gradient, hessian = state(theta) if halvings else candidate
+                if abs(gradient) <= 1e-7 * (abs(value) + 1):
+                    break
+        self.putTheta(theta)
 
     def ls(self, y, w, theta=None, scale=1.0):
         del scale

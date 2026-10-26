@@ -13,6 +13,8 @@ It sequences the full fit:
 Everything below this layer is stateless with respect to the model object.
 """
 
+import warnings
+
 import numpy as np
 
 from .._mgcv_constants import LOG_GUARD_MIN
@@ -93,27 +95,6 @@ def fit_model_core(
     model.offset_train_ = fit_offset
     model.n_samples_ = X.shape[0]
     model.prior_weights_ = None
-    if model.family.name == "clog":
-        optimizer = str(model.smoothing_optimizer).lower()
-        if (
-            optimizer == "efs"
-            or (optimizer == "optim" and not model.family.estimate_theta)
-            or (optimizer == "nlm" and model.family.estimate_theta)
-        ):
-            raise NotImplementedError(
-                "This clog optimizer/ancillary configuration has not met "
-                "source endpoint acceptance. Use outer_newton or bfgs."
-            )
-    if (
-        model.family.name == "clog"
-        and model.family.estimate_theta
-        and model.family.link_name != "identity"
-    ):
-        raise NotImplementedError(
-            "clog estimated scale with a nonidentity link is unsupported: "
-            "captured upstream log/sqrt ML fits crash in gam.fit4; "
-            "REML acceptance remains incomplete."
-        )
     if sample_weight is not None:
         sw = np.asarray(sample_weight, dtype=np.float64).ravel()
         if sw.shape[0] != int(model.n_samples_):
@@ -126,18 +107,6 @@ def fit_model_core(
         if float(np.sum(sw)) <= 0.0:
             raise ValueError("sample_weight must sum to a positive value.")
         model.prior_weights_ = sw.copy()
-
-    if (
-        model.family.name == "clog"
-        and model.family.estimate_theta
-        and model.prior_weights_ is not None
-        and np.any(model.prior_weights_ != 1)
-    ):
-        raise NotImplementedError(
-            "clog estimated scale with nonunit precision weights has not met "
-            "endpoint parity acceptance. Kernels and captured joint states "
-            "match upstream; selected fitted coefficients remain unresolved."
-        )
 
     if (
         model.family.name == "zip"
@@ -209,6 +178,18 @@ def fit_model_core(
         method,
         optimizer=getattr(model, "smoothing_optimizer", None),
     )
+    if (
+        model.family.name == "clog"
+        and model.family.estimate_theta
+        and model.family.link_name != "identity"
+        and method == "ml"
+        and str(model.smoothing_optimizer).lower() in {"newton", "outer_newton", "bfgs"}
+    ):
+        raise NotImplementedError(
+            "clog estimated scale with a nonidentity ML link and Newton/BFGS "
+            "is guarded after captured mgcv gam.fit4 subprocess crashes. "
+            "Use smoothing_optimizer='optim' for this configuration."
+        )
 
     if (
         model.family.name == "scat"
@@ -227,6 +208,17 @@ def fit_model_core(
         if model.smoothing_fixed_mask_ is None
         else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
     )
+    if (
+        model.family.name == "clog"
+        and model.family.estimate_theta
+        and str(model.smoothing_optimizer).lower() == "efs"
+        and (not optimize_smoothing or method == "fixed" or bool(np.all(fixed_mask_for_theta)))
+    ):
+        raise NotImplementedError(
+            "clog EFS ancillary estimation requires a free smoothing parameter: "
+            "the captured mgcv all-fixed-SP route errors in its foreign-function call. "
+            "Use Newton, BFGS or optim when smoothing parameters are fixed."
+        )
     theta_only_fixed_reml = (
         method == "fixed"
         and str(getattr(model.family, "name", "")).lower() == "negbin"
@@ -291,7 +283,32 @@ def fit_model_core(
         model._optim_used_hessian = False
         model.smoothing_score_ = None
 
-    sol = solve_fit(model, y, model.smoothing_params, weights=model.prior_weights_)
+    if (
+        model.family.name == "clog"
+        and model._optim_result is not None
+        and not bool(getattr(model._optim_result, "success", False))
+        and str(model.smoothing_optimizer).lower() in {"newton", "outer_newton"}
+    ):
+        raise RuntimeError(
+            "clog smoothing selection failed: "
+            f"{model._optim_result.message}. No fitted state is committed. "
+            "The corresponding mgcv failed-Newton captures can return "
+            "coefficients from a different outer parameter state."
+        )
+
+    if (
+        model.family.name == "clog"
+        and model._optim_result is not None
+        and not bool(getattr(model._optim_result, "success", False))
+    ):
+        warnings.warn(
+            f"clog smoothing optimisation did not converge: {model._optim_result.message}",
+            RuntimeWarning, stacklevel=2,
+        )
+    efs_solution = getattr(model._optim_result, "efs_solution", None)
+    sol = efs_solution if efs_solution is not None else solve_fit(
+        model, y, model.smoothing_params, weights=model.prior_weights_
+    )
 
     assign_fit_solution(model, sol)
     if method != "fixed" and not (getattr(model, "_optim_trace", None) or []):

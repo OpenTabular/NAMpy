@@ -125,6 +125,7 @@ def irls_core(
     # default.
     rank_tol: float = float(np.finfo(np.float64).eps) * 100.0,
     scale_reference: float | None = None,
+    efs_theta_updates: bool = False,
     scale_est_method: str = "fletcher",
     trace: bool = False,
 ) -> dict[str, Any]:
@@ -740,6 +741,14 @@ def irls_core(
         theta_efs_enabled = bool(getattr(family, "estimate_theta", False)) and not bool(
             getattr(family, "_disable_theta_efs", False)
         )
+        update_source_theta = theta_efs_enabled and efs_theta_updates and callable(
+            getattr(family, "update_theta_efs", None)
+        )
+        if update_source_theta:
+            family.update_theta_efs(
+                family_y, mu, weights,
+                scale=1.0 if scale_reference is None else float(scale_reference),
+            )
         if theta_efs_enabled and hasattr(family, "estimate_theta_mle"):
             theta_efs = family.estimate_theta_mle(y, mu, weights=weights)
             if np.isfinite(theta_efs) and theta_efs > 0.0:
@@ -826,6 +835,10 @@ def irls_core(
         if converged_here:
             converged = True
             break
+        if update_source_theta:
+            # gam.fit4 checks convergence against the pre-theta-update pdev,
+            # then recomputes the reference for the next iteration's halving.
+            old_pdev = _weighted_deviance(mu) + penalty_new
 
     eta = offset + X @ beta
     mu = family.inverse_link(eta)
@@ -979,7 +992,12 @@ def irls_core(
     edf = trace_H
 
     scale = _estimate_gam_fit3_scale(mu, edf)
-    raw_deviance = _weighted_deviance(mu)
+    raw_deviance = (
+        float(dev_new)
+        if efs_theta_updates and callable(getattr(family, "update_theta_efs", None))
+        and bool(getattr(family, "estimate_theta", False)) and converged
+        else _weighted_deviance(mu)
+    )
     postprocess_deviance = getattr(family, "postprocess_deviance", None)
     deviance = (
         float(postprocess_deviance(y, mu, weights=weights))

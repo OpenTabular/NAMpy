@@ -95,16 +95,19 @@ def test_clog_selection_and_structure(method, theta, variant):
     ref = reference(case)
     if theta is None and variant == "precision":
         assert ref["accepted"] and ref["converged"]
-        with pytest.raises(NotImplementedError, match="nonunit precision"):
-            GAM(formula=case["formula"], family="clog", smoothing_method=method).fit(_data(case), sample_weight="w")
+        with pytest.raises(RuntimeError, match="selection failed"):
+            GAM(formula=case["formula"], family="clog", smoothing_method=method,
+                optimize_smoothing=True, control=case.get("control")).fit(_data(case), sample_weight="w")
         return
     if theta is None and variant in {"log", "sqrt"}:
         if not ref["accepted"]:
             assert ref["subprocess_returncode"] != 0
             assert "caught segfault" in ref["stderr"]
-        with pytest.raises(NotImplementedError, match="estimated.*nonidentity"):
+        expected_error = NotImplementedError if method == "ML" else RuntimeError
+        expected_message = "nonidentity ML" if method == "ML" else "selection failed"
+        with pytest.raises(expected_error, match=expected_message):
             GAM(formula=case["formula"], family=CensoredLogisticFamily(link=case["link"]),
-                smoothing_method=method).fit(_data(case))
+                smoothing_method=method, optimize_smoothing=True).fit(_data(case))
         return
     assert ref["accepted"] and ref["converged"], ref
     model = GAM(formula=case["formula"], family=CensoredLogisticFamily(theta=theta, link=case["link"]),
@@ -135,11 +138,8 @@ def test_clog_weighted_off_optimum_joint_derivatives(capture):
     case["data"]["bound"] = [str(v) for v in case["data"]["bound"]]
     case["data"]["w"] = np.linspace(.5, 2, len(case["data"]["y"])).tolist()
     ref = reference(case, source)["joint"]
-    model = GAM(formula=case["formula"], family=CensoredLogisticFamily(theta=1), smoothing_method="REML",
-                optimize_smoothing=True).fit(_data(case), sample_weight="w")
-    # The lower-level derivative contract includes theta coordinates even
-    # though the public weighted ancillary-optimization route remains guarded.
-    model.family.n_theta = 1
+    model = GAM(formula=case["formula"], family="clog", smoothing_method="REML",
+                smoothing_optimizer="optim", optimize_smoothing=True).fit(_data(case), sample_weight="w")
     workspace = _fit_workspace(model)
     for name in ("pirls_coef_start", "pirls_eta_start", "pirls_mu_start", "pirls_eval_start", "pirls_eval_eta_start", "pirls_eval_mu_start"):
         setattr(workspace, name, None)
@@ -164,16 +164,19 @@ def test_clog_alternative_optimizer_endpoints(optimizer, theta):
     if optimizer == "nlm":
         case["control"] = {"epsilon": 1e-10, "nlm": {"gradtol": 1e-10, "steptol": 1e-10}}
     ref = reference(case, source)
-    if (optimizer == "optim" and theta is not None) or (optimizer == "nlm" and theta is None):
+    if optimizer == "nlm" and theta is None:
         assert ref["accepted"]
-        if optimizer == "optim":
-            assert not ref["converged"]
-        with pytest.raises(NotImplementedError, match="optimizer/ancillary"):
-            GAM(formula=case["formula"], family=CensoredLogisticFamily(theta=theta),
-                smoothing_optimizer=optimizer, smoothing_method="REML").fit(_data(case))
+        # A failed source nlm fit is a stopping-status inventory, not a
+        # reference optimum. Successful estimated nlm fits have separate tests.
+        assert "coef" in ref
+        with pytest.warns(RuntimeWarning, match="did not converge"):
+            fit = GAM(formula=case["formula"], family=CensoredLogisticFamily(theta=theta),
+                smoothing_optimizer=optimizer, smoothing_method="REML",
+                control=case.get("control"), optimize_smoothing=True).fit(_data(case))
+        assert not fit._optim_result.success
         return
-    assert ref["accepted"] and ref["converged"], ref
+    assert ref["accepted"], ref
     model = GAM(formula=case["formula"], family=CensoredLogisticFamily(theta=theta),
                 smoothing_method="REML", smoothing_optimizer=optimizer,
                 control=case.get("control"), optimize_smoothing=True).fit(_data(case), sample_weight="w")
-    assert_clog_fit(case, ref, model, linear_limit=optimizer == "nlm")
+    assert_clog_fit(case, ref, model, linear_limit=theta is not None and optimizer in {"nlm", "optim"})

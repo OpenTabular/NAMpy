@@ -453,24 +453,44 @@ semantics. Simulation and quantile diagnostics are unavailable. See
 current validation scope. Omitting ``theta`` estimates SD; use
 ``smoothing_method="REML", optimize_smoothing=True`` to estimate smoothing
 too. ML and REML have direct endpoint and joint-derivative references.
+Zero precision weights and positive ``min_sp`` are rejected; estimated SD
+with ``smoothing_optimizer="efs"`` remains guarded for ``cnorm``.
 
 Censored logistic observations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Use ``family={"name": "clog", "theta": 0.7}`` with the same
 ``cbind(value, bound)`` formula to fit a latent logistic location with fixed
-scale. Omit ``theta`` to estimate scale with the identity link and unit
-precision weights. The logistic scale differs from its standard deviation.
+scale. Omit ``theta`` to estimate scale. Positive observation weights have
+precision semantics; each row's logistic scale is divided by the square
+root of its weight. The logistic scale differs from its standard deviation.
 Predictions need only the covariates; they return latent location rather
-than a censoring probability.
+than a censoring probability. To estimate logistic scale and smoothing together:
+
+.. code-block:: python
+
+   censored_model = GAM(
+       formula="cbind(value, bound) ~ s(x, bs='cr', k=7)",
+       family="clog",
+       smoothing_method="REML",
+       smoothing_optimizer="efs",
+       optimize_smoothing=True,
+   ).fit(data=data)
+
+EFS also supports log/square-root links and positive precision weights.
+For estimated-scale ML with a log/square-root link use
+``smoothing_optimizer="optim"``: the corresponding Newton/BFGS source
+routes have captured crashes. Newton fits that fail selection raise without
+replacing an earlier fitted state; successful weighted and nonidentity
+fits are supported. Nonconverged BFGS/nlm fits issue warnings.
 
 ``examples/example_clog_gam.py`` simulates logistic responses and records
 exact, interval, left- and right-censored observations. It uses
 ``GAMRegressor`` and checks the shared additive prediction contract.
-See :doc:`../api/gam_families` for the source AIC convention and the explicit
-weighted-estimation, nonidentity-link and optimizer acceptance boundaries.
-Zero precision weights and positive ``min_sp`` are rejected; estimated SD
-with ``smoothing_optimizer="efs"`` is also guarded.
+See :doc:`../api/gam_families` for the source AIC convention, failed-source
+state evidence, and shared extended-family restrictions. With all smoothing
+parameters fixed, estimate scale using Newton, BFGS or optim; the equivalent
+EFS source call errors.
 
 Quasi families
 ~~~~~~~~~~~~~~
