@@ -196,7 +196,7 @@ def object_aic(model) -> float | None:
         raw_aic = -2.0 * float(
             np.sum(weights * (y * np.log(mu) - mu - gammaln(y + 1.0)))
         )
-    elif family_name in {"scat", "zip", "cnorm"}:
+    elif family_name in {"scat", "zip", "cnorm", "clog"}:
         # gam.fit4 uses the family aic hook, which ignores external scale.
         # ziP's fitted mu is log(lambda), distinct from response predictions.
         family_y = getattr(model, "response_", None)

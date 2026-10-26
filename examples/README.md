@@ -13,6 +13,10 @@ use the [API reference](../docs/api/index.rst).
 |---|---|
 | `example_gam.py` | binomial GAM classification and link-scale decomposition |
 | `example_gam2.py` | Gaussian GAM smoothing with fixed, GCV, and REML fits |
+| `example_scat_gam.py` | scaled-t location with fixed ancillary parameters |
+| `example_zip_gam.py` | zero-inflated count prediction with fixed ancillary parameters |
+| `example_cnorm_gam.py` | normal location with exact and censored responses |
+| `example_clog_gam.py` | logistic location, paired censor bounds, and additive reconstruction |
 | `example_nam.py` | mixed-feature NAM regression |
 | `example_gpnam.py` | GPNAM smooth additive regression |
 | `example_nbm.py` | NBM main effects and a pairwise interaction |

@@ -1177,7 +1177,7 @@ def _run_joint_vector_theta_outer(
     objective_class = (
         _JointFixedScaleVectorPirlsObjective
         if model.family.joint_outer_strategy in {
-            JointOuterStrategy.SCAT_THETA, JointOuterStrategy.ZIP_THETA, JointOuterStrategy.CNORM_THETA
+            JointOuterStrategy.SCAT_THETA, JointOuterStrategy.ZIP_THETA, JointOuterStrategy.CNORM_THETA, JointOuterStrategy.CLOG_THETA
         }
         else _JointOcatPirlsRemlObjective
     )
@@ -1619,7 +1619,7 @@ def optimize_smoothing_params(
         JointOuterStrategy.OCAT_THETA,
         JointOuterStrategy.SCAT_THETA,
         JointOuterStrategy.ZIP_THETA,
-        JointOuterStrategy.CNORM_THETA,
+        JointOuterStrategy.CNORM_THETA, JointOuterStrategy.CLOG_THETA,
     } and bool(getattr(model.family, "estimate_theta", False))
     _fit_workspace(model).pirls_disable_theta_efs = False
 

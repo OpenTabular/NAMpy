@@ -453,6 +453,22 @@ semantics. Simulation and quantile diagnostics are unavailable. See
 current validation scope. Omitting ``theta`` estimates SD; use
 ``smoothing_method="REML", optimize_smoothing=True`` to estimate smoothing
 too. ML and REML have direct endpoint and joint-derivative references.
+
+Censored logistic observations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use ``family={"name": "clog", "theta": 0.7}`` with the same
+``cbind(value, bound)`` formula to fit a latent logistic location with fixed
+scale. Omit ``theta`` to estimate scale with the identity link and unit
+precision weights. The logistic scale differs from its standard deviation.
+Predictions need only the covariates; they return latent location rather
+than a censoring probability.
+
+``examples/example_clog_gam.py`` simulates logistic responses and records
+exact, interval, left- and right-censored observations. It uses
+``GAMRegressor`` and checks the shared additive prediction contract.
+See :doc:`../api/gam_families` for the source AIC convention and the explicit
+weighted-estimation, nonidentity-link and optimizer acceptance boundaries.
 Zero precision weights and positive ``min_sp`` are rejected; estimated SD
 with ``smoothing_optimizer="efs"`` is also guarded.
 

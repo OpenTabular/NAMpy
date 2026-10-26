@@ -93,6 +93,27 @@ def fit_model_core(
     model.offset_train_ = fit_offset
     model.n_samples_ = X.shape[0]
     model.prior_weights_ = None
+    if model.family.name == "clog":
+        optimizer = str(model.smoothing_optimizer).lower()
+        if (
+            optimizer == "efs"
+            or (optimizer == "optim" and not model.family.estimate_theta)
+            or (optimizer == "nlm" and model.family.estimate_theta)
+        ):
+            raise NotImplementedError(
+                "This clog optimizer/ancillary configuration has not met "
+                "source endpoint acceptance. Use outer_newton or bfgs."
+            )
+    if (
+        model.family.name == "clog"
+        and model.family.estimate_theta
+        and model.family.link_name != "identity"
+    ):
+        raise NotImplementedError(
+            "clog estimated scale with a nonidentity link is unsupported: "
+            "captured upstream log/sqrt ML fits crash in gam.fit4; "
+            "REML acceptance remains incomplete."
+        )
     if sample_weight is not None:
         sw = np.asarray(sample_weight, dtype=np.float64).ravel()
         if sw.shape[0] != int(model.n_samples_):
@@ -107,6 +128,18 @@ def fit_model_core(
         model.prior_weights_ = sw.copy()
 
     if (
+        model.family.name == "clog"
+        and model.family.estimate_theta
+        and model.prior_weights_ is not None
+        and np.any(model.prior_weights_ != 1)
+    ):
+        raise NotImplementedError(
+            "clog estimated scale with nonunit precision weights has not met "
+            "endpoint parity acceptance. Kernels and captured joint states "
+            "match upstream; selected fitted coefficients remain unresolved."
+        )
+
+    if (
         model.family.name == "zip"
         and model.prior_weights_ is not None
         and np.any(model.prior_weights_ != 1)
@@ -118,12 +151,12 @@ def fit_model_core(
         )
 
     if (
-        model.family.name == "cnorm"
+        model.family.name in {"cnorm", "clog"}
         and model.prior_weights_ is not None
         and np.any(model.prior_weights_ == 0)
     ):
         raise NotImplementedError(
-            "cnorm fitting requires positive precision weights: zero-weight "
+            f"{model.family.name} fitting requires positive precision weights: zero-weight "
             "censor intervals collapse in upstream derivatives and have not "
             "met fit parity acceptance."
         )
@@ -153,7 +186,7 @@ def fit_model_core(
     compile_designs(model, X, model.feature_names)
 
     if (
-        model.family.name in {"scat", "zip", "cnorm"}
+        model.family.name in {"scat", "zip", "cnorm", "clog"}
         and model.min_sp_ is not None
         and np.any(np.asarray(model.min_sp_) > 0)
     ):
@@ -222,7 +255,7 @@ def fit_model_core(
             method=method,
             optimizer=model.smoothing_optimizer,
         )
-    elif model.family.name in {"scat", "zip", "cnorm"} and model.family.estimate_theta:
+    elif model.family.name in {"scat", "zip", "cnorm", "clog"} and model.family.estimate_theta:
         if not supports_smoothing_method(model, method):
             raise NotImplementedError(
                 f"Ancillary estimation with method={method!r} is not supported "

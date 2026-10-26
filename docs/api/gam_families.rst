@@ -38,6 +38,8 @@ Family classes
      - Single-predictor hurdle Poisson model; identity link on log intensity.
    * - ``CensoredNormalFamily``
      - Censored normal location; identity, log, or square-root link.
+   * - ``CensoredLogisticFamily``
+     - Censored logistic location; see the acceptance boundaries below.
    * - ``BetaRegressionFamily``
      - Beta regression for responses in the unit interval.
    * - ``OrderedCategoricalFamily``
@@ -288,3 +290,60 @@ See the executable ``examples/example_cnorm_gam.py`` and the
 `upstream cnorm documentation <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/cnorm.html>`_.
 Source authority is mgcv 1.9-4 ``R/efam.r::cnorm``; the old ``cnorm0`` is not
 used.
+
+Censored logistic family
+------------------------
+
+``CensoredLogisticFamily(theta=None, link="identity")`` ports
+``mgcv::clog``. String, dictionary and tuple family specifications accept
+``clog``; for example ``{"name": "clog", "theta": 0.7}`` fixes the
+logistic scale at 0.7. This scale is not the standard deviation; the
+uncensored logistic standard deviation is ``scale * pi / sqrt(3)``.
+The family describes a continuous logistic response, with one additive
+location predictor. Supported links are identity, log and square root.
+
+Responses use the same explicit paired encoding as ``cnorm`` above:
+equal values are exact observations, distinct finite values define an
+interval in either order, and infinite second bounds define one-sided
+censoring. Predictions return the latent logistic location and need no
+censor bounds. Observation weights are precision, giving each row a scale
+``exp(theta_working) / sqrt(weight)``. A positive constructor ``theta`` fixes
+scale; zero or ``None`` estimates it from working value zero; negative
+``theta`` starts estimation at ``log(abs(theta))``. This last convention
+differs from the source ``cnorm`` constructor.
+
+Static R references cover all returned deviance derivative fields through
+fourth order, saturation derivatives, tails, precision weights, mixed
+censoring, fixed/estimated scale, fixed smoothing and ML/REML selection,
+offsets, two smooths, parametric-only fits, covariance, EDF, likelihood
+criteria, predictions, residuals, persistence and additive reconstruction.
+Additional BFGS endpoints, estimated-scale optim and fixed-scale nlm have
+targeted references. The example is ``examples/example_clog_gam.py``.
+In the captured fixed-scale nlm case the smooth reaches its linear null
+space. Its large raw smoothing parameter is not compared across endpoints;
+fitted effects, covariance, criterion, and the limiting EDF retain their
+original tolerances. Other accepted cases compare smoothing parameters
+directly, including fixed parameters stored in upstream ``full.sp``.
+
+The following acceptance boundaries are explicit:
+
+* Estimated scale with nonunit precision weights: kernels and captured
+  joint objective states match, but selected endpoint coefficients remain
+  outside the existing tolerance. This is an unresolved NAMpy parity gap.
+* Estimated scale with nonidentity links: captured upstream ML subprocesses
+  crash in ``gam.fit4``; REML acceptance remains incomplete. Both routes
+  are guarded pending separate validation.
+* Fixed-scale optim, estimated-scale nlm, and EFS are guarded pending
+  endpoint acceptance. The captured fixed-scale optim fit does not converge;
+  the estimated-scale nlm endpoint still differs.
+* Zero precision, positive ``min_sp``, and rank-deficient outer uncertainty
+  remain guarded. No upstream-wide rejection is inferred from these guards.
+
+The port retains source arithmetic and formulas, including interval
+derivative expressions and the unusual ``aic`` hook, which is independent
+of fitted location. Consequently reported source-compatible AIC and derived
+log likelihood are not substitutes for an independently normalized logistic
+likelihood. Simulation and quantile hooks are unavailable upstream.
+
+Source: mgcv 1.9-4 ``R/efam.r::clog``. These focused checks establish the
+listed scope; cross-platform CI and merge acceptance remain separate.

@@ -513,6 +513,20 @@
       "manifest": "tests/reference_fixtures/mgcv_cnorm_pipeline/manifest.json",
       "generator": "tests/parity/test_gam_seven_stage_pipeline_contracts.py",
       "scope": "Censored-normal source contracts and explicit paired response metadata; targeted acceptance and guards documented in namespace manifest. Remote CI remains separate."
+    },
+    "mgcv_clog_family": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_clog_family",
+      "manifest": "tests/reference_fixtures/mgcv_clog_family/manifest.json",
+      "generator": "tests/families/test_clog_family_contracts.py",
+      "scope": "Censored logistic kernels and supported workflows, with explicitly classified source failures and unresolved NAMpy parity boundaries."
+    },
+    "mgcv_clog_workflows": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_clog_workflows",
+      "manifest": "tests/reference_fixtures/mgcv_clog_workflows/manifest.json",
+      "generator": "tests/families/test_mgcv_clog_workflows.py",
+      "scope": "Censored logistic kernels and supported workflows, with explicitly classified source failures and unresolved NAMpy parity boundaries."
     }
   }
 }

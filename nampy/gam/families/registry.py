@@ -10,6 +10,7 @@ from .binomial import (
     BinomialLogitFamily,
     BinomialProbitFamily,
 )
+from .clog import CensoredLogisticFamily
 from .cnorm import CensoredNormalFamily
 from .family_base import BaseFamily
 from .gamlss.gammals import gammals
@@ -101,12 +102,12 @@ def make_gam_family(family):
 
     if isinstance(family, dict):
         name = str(family.get("name", "")).lower()
-        if name == "cnorm":
+        if name in {"cnorm", "clog"}:
             options = {k: v for k, v in family.items() if k != "name"}
             unknown = set(options) - {"theta", "link"}
             if unknown:
-                raise ValueError(f"Unsupported cnorm options: {', '.join(sorted(unknown))}.")
-            return CensoredNormalFamily(**options)
+                raise ValueError(f"Unsupported {name} options: {', '.join(sorted(unknown))}.")
+            return {"cnorm": CensoredNormalFamily, "clog": CensoredLogisticFamily}[name](**options)
         if name == "zip":
             options = {k: v for k, v in family.items() if k != "name"}
             unknown = set(options) - {"theta", "link", "b"}
@@ -214,7 +215,7 @@ def make_gam_family(family):
     if isinstance(family, tuple) and len(family) == 2:
         key = str(family[0]).lower()
         spec = family[1]
-        if key in {"scat", "zip", "cnorm"}:
+        if key in {"scat", "zip", "cnorm", "clog"}:
             options = spec if isinstance(spec, dict) else {"theta": spec}
             return make_gam_family({"name": key, **options})
         if key in {"quasi", "quasipoisson", "quasibinomial"}:
@@ -337,6 +338,8 @@ def make_gam_family(family):
     key = str(family).lower()
     if key == "cnorm":
         return CensoredNormalFamily()
+    if key == "clog":
+        return CensoredLogisticFamily()
     if key == "scat":
         return ScaledTFamily()
     if key == "zip":
@@ -368,5 +371,5 @@ def make_gam_family(family):
     raise ValueError(
         f"Unknown GAM family {family!r}. "
         "Valid options: gaussian, binomial, poisson, gamma, inverse_gaussian, nb, negbin, tw, "
-        "betar, gaulss, gammals, quasi, quasipoisson, quasibinomial."
+        "betar, ocat, scat, ziP, cnorm, clog, gaulss, gammals, quasi, quasipoisson, quasibinomial."
     )
