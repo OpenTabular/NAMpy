@@ -438,6 +438,21 @@
       "scope": "Positive-weight retry at a pinned difficult ancillary-parameter point; actual upstream conditional fits and scores for deriv=0 and deriv=2",
       "test": "tests/families/test_scat_postfit_reference_state.py",
       "rank_manifest": "tests/reference_fixtures/mgcv_scat_solver/rank_manifest.json"
+    },
+    "mgcv_negbin_boundary": {
+      "package_version": "1.9-4",
+      "manifest": "tests/reference_fixtures/mgcv_negbin_boundary/manifest.json",
+      "scope": "Fixed large-SP penalty-root criterion from gam.fit4; strict optimizer termination regression"
+    },
+    "mgcv_gammals_initialsp_basis": {
+      "package_version": "1.9-4",
+      "manifest": "tests/reference_fixtures/mgcv_gammals_initialsp_basis/manifest.json",
+      "scope": "Shared-basis initial.spg arithmetic and actual R eigenvector-sign dependence"
+    },
+    "mgcv_side_nesting": {
+      "package_version": "1.9-4",
+      "manifest": "tests/reference_fixtures/mgcv_side_nesting/manifest.json",
+      "scope": "Independent three-way nesting fit and SE; degenerate inputs retain rank-only coverage"
     }
   }
 }
