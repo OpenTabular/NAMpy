@@ -58,7 +58,6 @@ def _find_null_dev(family, y, eta, offset, weights) -> float:
     """Port ``mgcv/R/efam.r:98-117`` ``find.null.dev`` exactly."""
     from scipy.optimize import minimize_scalar
 
-    y = np.asarray(y, dtype=np.float64)
     eta = np.asarray(eta, dtype=np.float64).ravel()
     offset = np.asarray(offset, dtype=np.float64).ravel()
     weights = np.asarray(weights, dtype=np.float64).ravel()
@@ -115,6 +114,9 @@ def compute_null_deviance(model) -> float:
         )
 
     if family_class == "extended":
+        family_y = getattr(model, "response_", None)
+        if family_y is not None:
+            y = family_y
         # mgcv/R/efam.r:283-289 (nb postproc): find.null.dev on the fitted
         # linear predictor.
         eta = np.asarray(_fitted_eta(model), dtype=np.float64)

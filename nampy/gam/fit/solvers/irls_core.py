@@ -13,6 +13,7 @@ import numpy as np
 
 from ..._mgcv_constants import LOG_GUARD_MIN
 from ...model_state import _fit_intercept
+from ...response import response_values
 from ..covariance import build_bayes_and_freq_covariances
 from .stacked_qr import (
     _stacked_penalized_ls_nonneg_solution,
@@ -45,7 +46,7 @@ def _validate_extended_family_pirls_hooks(family: Any) -> None:
         "getTheta",
         "putTheta",
     )
-    if getattr(family, "name", "") == "zip":
+    if getattr(family, "name", "") in {"zip", "cnorm"}:
         # gam.fit4 requires Dd curvature, not a GLM mean/variance relation.
         required = tuple(name for name in required if name not in {"variance", "dvar"})
     missing = [name for name in required if not callable(getattr(family, name, None))]
@@ -64,7 +65,7 @@ def _mgcv_null_coef(X: np.ndarray, y: np.ndarray, family: Any) -> np.ndarray:
     """
 
     X = np.asarray(X, dtype=np.float64)
-    y = np.asarray(y, dtype=np.float64).ravel()
+    y = response_values(y).ravel()
     if X.ndim != 2:
         raise ValueError("X must be a 2D array.")
     if y.ndim != 1 or y.shape[0] != X.shape[0]:
@@ -95,7 +96,7 @@ def _use_exact_extended_family_terms(family: Any) -> bool:
     return (
         str(getattr(family, "family_class", "")).lower() == "extended"
         and str(getattr(family, "name", "")).lower()
-        in {"negbin", "betar", "ocat", "scat", "zip"}
+        in {"negbin", "betar", "ocat", "scat", "zip", "cnorm"}
         and callable(getattr(family, "Dd", None))
     )
 
@@ -132,7 +133,8 @@ def irls_core(
     _validate_extended_family_pirls_hooks(family)
 
     X = np.asarray(X, dtype=np.float64)
-    y = family.validate_y(y)
+    family_y = family.validate_y(y)
+    y = response_values(family_y)
     nobs, q = X.shape
     S = np.asarray(S, dtype=np.float64)
     if S.shape != (q, q):
@@ -161,7 +163,7 @@ def irls_core(
     if q == 0:
         eta = offset.copy()
         mu = np.asarray(family.inverse_link(eta), dtype=np.float64)
-        dev = float(family.deviance(y, mu, weights=weights))
+        dev = float(family.deviance(family_y, mu, weights=weights))
         H_coef = np.zeros((0, 0), dtype=np.float64)
         return {
             "coef_full": np.zeros(0, dtype=np.float64),
@@ -279,7 +281,7 @@ def irls_core(
     def _working_response_terms(eta_curr, mu_curr):
         if _use_exact_extended_family_terms(family):
             mu_curr = np.asarray(mu_curr, dtype=np.float64)
-            dd = family.Dd(y, mu_curr, family.getTheta(False), weights, level=0)
+            dd = family.Dd(family_y, mu_curr, family.getTheta(False), weights, level=0)
             eta_curr = np.asarray(eta_curr, dtype=np.float64)
             ig1 = np.asarray(family.mu_eta(eta_curr), dtype=np.float64)
             g2g = np.asarray(family.d2link(mu_curr), dtype=np.float64) * ig1**2
@@ -375,21 +377,24 @@ def irls_core(
     def _weighted_deviance(mu_curr: np.ndarray) -> float:
         # Mirror mgcv::gam.fit3(), which uses dev.resids(..., weights) at every
         # PIRLS deviance / penalized-deviance update.
-        return float(family.deviance(y, mu_curr, weights=weights))
+        return float(family.deviance(family_y, mu_curr, weights=weights))
 
     def _weighted_loglik(mu_curr: np.ndarray, scale_curr: float) -> float | None:
+        weighted_hook = getattr(family, "weighted_loglik", None)
+        if callable(weighted_hook):
+            return float(weighted_hook(family_y, mu_curr, weights, scale_curr))
         if hasattr(family, "loglik_obs"):
             return float(
                 np.sum(
                     weights
                     * np.asarray(
-                        family.loglik_obs(y, mu_curr, scale=scale_curr),
+                        family.loglik_obs(family_y, mu_curr, scale=scale_curr),
                         dtype=np.float64,
                     )
                 )
             )
         if hasattr(family, "loglik"):
-            return float(family.loglik(y, mu_curr, scale=scale_curr))
+            return float(family.loglik(family_y, mu_curr, scale=scale_curr))
         return None
 
     def _estimate_gam_fit3_scale(
@@ -460,9 +465,9 @@ def irls_core(
     else:
         if coef_start is None:
             try:
-                mu_init = family.initialize_mu(y, weights=weights)
+                mu_init = family.initialize_mu(family_y, weights=weights)
             except TypeError:
-                mu_init = family.initialize_mu(y)
+                mu_init = family.initialize_mu(family_y)
             eta = family.link(mu_init)
         else:
             eta = offset + X @ beta
@@ -497,7 +502,7 @@ def irls_core(
             coefold = beta.copy()
         else:
             if mustart is None:
-                mustart = family.initialize_mu(y, weights=weights)
+                mustart = family.initialize_mu(family_y, weights=weights)
             eta = family.link(np.asarray(mustart, dtype=np.float64))
         mu = family.inverse_link(eta)
 
@@ -833,7 +838,7 @@ def irls_core(
         good = np.asarray(final_terms["good"], dtype=bool)
         W_full = np.asarray(final_terms["w_full"], dtype=np.float64)
         z_full = np.asarray(final_terms["z_full"], dtype=np.float64)
-        dd_final = family.Dd(y, mu, family.getTheta(False), weights, level=0)
+        dd_final = family.Dd(family_y, mu, family.getTheta(False), weights, level=0)
         ig1_final = np.asarray(family.mu_eta(eta), dtype=np.float64)
         fisher_full = (
             0.5 * np.asarray(dd_final["EDmu2"], dtype=np.float64) * ig1_final**2

@@ -29,7 +29,8 @@ def _deviance_residuals(model) -> np.ndarray:
     sign = np.sign(y - mu)
 
     # Per-observation deviance contributions (mgcv `family$dev.resids` analogue).
-    dev_obs = model.family.deviance_obs(y, mu, w)
+    family_y = getattr(model, "response_", None)
+    dev_obs = model.family.deviance_obs(y if family_y is None else family_y, mu, w)
     result: np.ndarray = sign * np.sqrt(np.clip(dev_obs, 0.0, None))
     return result
 
@@ -111,7 +112,7 @@ def residuals_gam(model, type: str = "deviance", *, setseed=None) -> np.ndarray:
         if z_work is not None:
             z_work = np.asarray(z_work, dtype=np.float64).ravel()
             offset = None if fit_state is None else getattr(fit_state, "offset", None)
-            if str(getattr(model.family, "name", "")) == "scat":
+            if str(getattr(model.family, "name", "")) in {"scat", "cnorm"}:
                 # gam.fit4: z is on the offset-free predictor scale.
                 # residuals <- z - (eta-offset); nonfinite entries become NA.
                 result = z_work - eta

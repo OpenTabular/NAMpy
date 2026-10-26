@@ -57,6 +57,7 @@ class JointOuterStrategy(str, Enum):
     OCAT_THETA = "ocat_theta"
     SCAT_THETA = "scat_theta"
     ZIP_THETA = "zip_theta"
+    CNORM_THETA = "cnorm_theta"
     TWEEDIE = "tweedie"
 
 

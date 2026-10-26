@@ -6,6 +6,7 @@ from .binomial import (
     BinomialLogitFamily,
     BinomialProbitFamily,
 )
+from .cnorm import CensoredNormalFamily
 from .family_base import BaseFamily, ExtendedFamily, GeneralFamily, GLMFamily
 from .gamlss._base import GamlssFamily
 from .gamlss.gammals import GammalsFamily, gammals
@@ -22,6 +23,7 @@ from .scat import ScaledTFamily
 from .zip import ZeroInflatedPoissonFamily
 
 __all__ = [
+    "CensoredNormalFamily",
     "QuasiFamily",
     "QuasiPoissonFamily",
     "QuasiBinomialFamily",

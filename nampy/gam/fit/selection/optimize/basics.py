@@ -12,6 +12,7 @@ from ....model_state import (
     _n_smoothing_params,
     _penalty_blocks_seq,
 )
+from ....response import CensoredResponse, response_values
 from ...backends import GENERAL_FAMILY_BACKEND
 from ...capabilities import uses_closed_form_solver
 from ...penalized_system import build_full_penalty_from_blocks
@@ -463,7 +464,7 @@ def _initial_smoothing_params_from_design(model, y):
 
     setup = build_estimate_gam_setup_state(model)
     X = np.asarray(setup.X, dtype=np.float64)
-    y = np.asarray(y, dtype=np.float64).ravel()
+    family_y = y if isinstance(y, CensoredResponse) else response_values(y).ravel()
     nobs, _q = X.shape
 
     prior_weights = getattr(model, "prior_weights_", None)
@@ -476,23 +477,23 @@ def _initial_smoothing_params_from_design(model, y):
     try:
         try:
             mu0 = np.asarray(
-                model.family.initialize_mu(y, weights=prior_w), dtype=np.float64
+                model.family.initialize_mu(family_y, weights=prior_w), dtype=np.float64
             )
         except TypeError:
-            mu0 = np.asarray(model.family.initialize_mu(y), dtype=np.float64)
+            mu0 = np.asarray(model.family.initialize_mu(family_y), dtype=np.float64)
         eta0 = np.asarray(model.family.link(mu0), dtype=np.float64)
         mu_eta = np.asarray(model.family.mu_eta(eta0), dtype=np.float64)
-        if str(getattr(model.family, "name", "")).lower() not in {"scat", "zip"}:
+        if str(getattr(model.family, "name", "")).lower() not in {"scat", "zip", "cnorm"}:
             var_mu = np.asarray(model.family.variance(mu0), dtype=np.float64)
     except Exception:
         return None
 
-    if str(getattr(model.family, "name", "")).lower() in {"scat", "zip"}:
+    if str(getattr(model.family, "name", "")).lower() in {"scat", "zip", "cnorm"}:
         # initial.spg uses observed mu curvature for extended families and
         # switches the entire vector to expected curvature if any is negative.
         # Dd already includes prior weights; EDmu2 has its own family semantics.
         derivatives = model.family.Dd(
-            y, mu0, model.family.getTheta(False), prior_w, level=0
+            family_y, mu0, model.family.getTheta(False), prior_w, level=0
         )
         initial_weights = 0.5 * np.asarray(derivatives["Dmu2"]) * mu_eta**2
         if np.any(initial_weights < 0):

@@ -13,6 +13,7 @@ from ....model_state import (
     _n_smoothing_params,
     _term_blocks_seq,
 )
+from ....response import response_values
 from ...capabilities import (
     coerce_general_family_smoothing_method,
     raise_ml_reml_backend_error,
@@ -339,21 +340,20 @@ def _optimize_outer_optim_strict(*, objective, x0, bounds):
             row["n_jac"] = int(row["n_jac"]) + 1
 
     model = getattr(objective, "model", None)
-    y = np.asarray(
-        getattr(objective, "y", np.array([], dtype=np.float64)), dtype=np.float64
-    ).ravel()
+    family_y = getattr(objective, "y", np.array([], dtype=np.float64))
+    y = response_values(family_y).ravel()
     if model is not None and y.size > 0:
         mum = np.mean(y, dtype=np.float64) + np.zeros_like(y, dtype=np.float64)
         try:
             dev = float(
                 model.family.deviance(
-                    y,
+                    family_y,
                     mum,
                     weights=getattr(model, "prior_weights_", None),
                 )
             )
         except TypeError:
-            dev = float(model.family.deviance(y, mum))
+            dev = float(model.family.deviance(family_y, mum))
         n_rows = int(getattr(model, "n_samples_", y.size) or y.size)
         if np.isfinite(dev) and dev > 0.0 and n_rows > 0:
             fscale = float(dev / n_rows)
@@ -1177,7 +1177,7 @@ def _run_joint_vector_theta_outer(
     objective_class = (
         _JointFixedScaleVectorPirlsObjective
         if model.family.joint_outer_strategy in {
-            JointOuterStrategy.SCAT_THETA, JointOuterStrategy.ZIP_THETA
+            JointOuterStrategy.SCAT_THETA, JointOuterStrategy.ZIP_THETA, JointOuterStrategy.CNORM_THETA
         }
         else _JointOcatPirlsRemlObjective
     )
@@ -1619,6 +1619,7 @@ def optimize_smoothing_params(
         JointOuterStrategy.OCAT_THETA,
         JointOuterStrategy.SCAT_THETA,
         JointOuterStrategy.ZIP_THETA,
+        JointOuterStrategy.CNORM_THETA,
     } and bool(getattr(model.family, "estimate_theta", False))
     _fit_workspace(model).pirls_disable_theta_efs = False
 

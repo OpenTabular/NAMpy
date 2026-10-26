@@ -155,11 +155,17 @@ def prepare_formula_inputs(
 ):
     parsed = parse_gam_formula(formula)
     if y is None and parsed.response_name is not None:
-        from ..formula.parse import grouped_binomial_response_expressions
+        from ..formula.parse import matrix_response_expressions
 
-        grouped = grouped_binomial_response_expressions(parsed.response_name)
-        if grouped is not None and str(getattr(model.family, "name", "")) not in {"binomial", "quasibinomial"}:
-            raise ValueError("cbind(successes, failures) requires family='binomial' or 'quasibinomial'.")
+        grouped = matrix_response_expressions(parsed.response_name)
+        if grouped is not None and str(getattr(model.family, "name", "")) not in {
+            "binomial",
+            "quasibinomial",
+            "cnorm",
+        }:
+            raise ValueError(
+                "cbind response requires family='binomial', 'quasibinomial', or 'cnorm'."
+            )
     extracted = extract_formula_terms(parsed, drop_intercept=drop_intercept)
     build_result: FormulaBuildResult = build_formula_model(
         extracted,
@@ -169,6 +175,7 @@ def prepare_formula_inputs(
         default_k=model.k,
         default_basis=model.basis,
         default_select=model.select,
+        response_infinite_bounds=model.family.name == "cnorm",
     )
     # Specs remain component-owned; this metadata lets the compiler create
     # overlapping logical predictor index arrays without duplicating blocks.

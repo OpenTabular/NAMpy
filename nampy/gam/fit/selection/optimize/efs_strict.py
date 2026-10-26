@@ -15,6 +15,7 @@ from ....model_state import (
     _n_smoothing_params,
     _penalty_blocks_seq,
 )
+from ....response import family_response
 from ...backends import solve_fit
 from ...solvers.general_family.fixed_smoothing import (
     run_general_family_fixed_smoothing,
@@ -110,7 +111,7 @@ def _criterion_from_solution(
         return float(
             _pirls_ml_reml_objective_from_solution(
                 model,
-                np.asarray(y, dtype=np.float64),
+                family_response(y),
                 sol,
                 np.asarray(sp, dtype=np.float64),
                 str(method).upper(),
@@ -124,7 +125,7 @@ def _criterion_from_solution(
         return float(
             criterion_ml_reml_gaussian_dynamic_joint(
                 model,
-                np.asarray(y, dtype=np.float64),
+                family_response(y),
                 np.asarray(log_sp_free, dtype=np.float64),
                 float(gaussian_log_scale),
                 method=method,
@@ -259,7 +260,7 @@ def _solve_efs_step(model, y, sp, *, coef_start):
         if _is_general_family(model):
             fit = run_general_family_fixed_smoothing(
                 model,
-                np.asarray(y, dtype=np.float64),
+                family_response(y),
                 sp,
                 weights=model.prior_weights_,
                 deriv=0,
@@ -268,7 +269,7 @@ def _solve_efs_step(model, y, sp, *, coef_start):
             coef_out = _copy_state_vector(fit["fit"].get("coef", None))
         else:
             fit = solve_fit(
-                model, np.asarray(y, dtype=np.float64), sp, weights=model.prior_weights_
+                model, family_response(y), sp, weights=model.prior_weights_
             )
             coef_out = _copy_state_vector(
                 _fit_workspace(model).get("pirls_last_coef", None)
@@ -280,7 +281,7 @@ def _solve_efs_step(model, y, sp, *, coef_start):
                     theta0 = float(model.family.getTheta(False))
                     _estimate_tweedie_theta_efs(
                         model.family,
-                        np.asarray(y, dtype=np.float64),
+                        family_response(y),
                         np.asarray(fit.fit_result.mu, dtype=np.float64),
                         getattr(model, "prior_weights_", None),
                         init_scale=float(fit.fit_result.scale),
@@ -289,7 +290,7 @@ def _solve_efs_step(model, y, sp, *, coef_start):
                         break
                     fit = solve_fit(
                         model,
-                        np.asarray(y, dtype=np.float64),
+                        family_response(y),
                         sp,
                         weights=model.prior_weights_,
                     )
@@ -443,7 +444,7 @@ def _optimize_outer_efs_strict(
     try:
         fit, current_start = _solve_efs_step(
             model,
-            np.asarray(y, dtype=np.float64),
+            family_response(y),
             sp,
             coef_start=_fit_workspace(model).get("pirls_coef_start", None),
         )
@@ -517,7 +518,7 @@ def _optimize_outer_efs_strict(
             sp1 = _expand_smoothing_params_from_log(model, x1)
             fit1, coef1 = _solve_efs_step(
                 model,
-                np.asarray(y, dtype=np.float64),
+                family_response(y),
                 sp1,
                 coef_start=iter_start,
             )
@@ -545,7 +546,7 @@ def _optimize_outer_efs_strict(
                     sp2 = _expand_smoothing_params_from_log(model, x2)
                     fit2, coef2 = _solve_efs_step(
                         model,
-                        np.asarray(y, dtype=np.float64),
+                        family_response(y),
                         sp2,
                         coef_start=iter_start,
                     )
@@ -588,7 +589,7 @@ def _optimize_outer_efs_strict(
                     sp1 = _expand_smoothing_params_from_log(model, x1)
                     fit1, coef1 = _solve_efs_step(
                         model,
-                        np.asarray(y, dtype=np.float64),
+                        family_response(y),
                         sp1,
                         coef_start=iter_start,
                     )

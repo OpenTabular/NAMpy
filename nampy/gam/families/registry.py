@@ -10,6 +10,7 @@ from .binomial import (
     BinomialLogitFamily,
     BinomialProbitFamily,
 )
+from .cnorm import CensoredNormalFamily
 from .family_base import BaseFamily
 from .gamlss.gammals import gammals
 from .gamlss.gaulss import gaulss
@@ -100,6 +101,12 @@ def make_gam_family(family):
 
     if isinstance(family, dict):
         name = str(family.get("name", "")).lower()
+        if name == "cnorm":
+            options = {k: v for k, v in family.items() if k != "name"}
+            unknown = set(options) - {"theta", "link"}
+            if unknown:
+                raise ValueError(f"Unsupported cnorm options: {', '.join(sorted(unknown))}.")
+            return CensoredNormalFamily(**options)
         if name == "zip":
             options = {k: v for k, v in family.items() if k != "name"}
             unknown = set(options) - {"theta", "link", "b"}
@@ -207,7 +214,7 @@ def make_gam_family(family):
     if isinstance(family, tuple) and len(family) == 2:
         key = str(family[0]).lower()
         spec = family[1]
-        if key in {"scat", "zip"}:
+        if key in {"scat", "zip", "cnorm"}:
             options = spec if isinstance(spec, dict) else {"theta": spec}
             return make_gam_family({"name": key, **options})
         if key in {"quasi", "quasipoisson", "quasibinomial"}:
@@ -328,6 +335,8 @@ def make_gam_family(family):
         family = key
 
     key = str(family).lower()
+    if key == "cnorm":
+        return CensoredNormalFamily()
     if key == "scat":
         return ScaledTFamily()
     if key == "zip":

@@ -18,6 +18,7 @@ _FIT_STATE_DEFAULTS = {
     "feature_names": None,
     "X_": None,
     "y_": None,
+    "response_": None,
     "prior_weights_": None,
     "offset_train_": None,
     "offset_predict_default_": None,

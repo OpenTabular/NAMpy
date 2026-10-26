@@ -18,6 +18,7 @@ from .....model_state import (
     _n_smoothing_params,
     _penalty_blocks_seq,
 )
+from .....response import CensoredResponse
 from ....backends import (
     solve_gaussian_given_smoothing,
     solve_pirls_given_smoothing,
@@ -544,11 +545,12 @@ def _family_ddeta_logtheta(family, y, mu, weights, *, deriv):
     branch and its ratio-of-link-derivatives transform for non-identity links.
     It is shared by the negative-binomial and Tweedie joint kernels.
     """
-    y = np.asarray(y, dtype=np.float64)
+    if not isinstance(y, CensoredResponse):
+        y = np.asarray(y, dtype=np.float64)
     mu = np.asarray(mu, dtype=np.float64)
     wt = np.asarray(weights, dtype=np.float64)
     link_name = str(getattr(family, "link_name", getattr(family, "link", ""))).lower()
-    if link_name != "identity" and getattr(family, "name", "") != "scat":
+    if link_name != "identity" and getattr(family, "name", "") not in {"scat", "cnorm"}:
         mu = np.clip(mu, 1e-14, None)
     dd = family.Dd(y, mu, family.getTheta(False), wt, level=int(deriv))
     if link_name == "identity":
@@ -690,7 +692,7 @@ def _gdi_pk_setup(model, sol, sp, *, deriv, rank_tol=None):
         # a working response is unavailable, the fitted predictor is the only
         # mgcv-shaped state present in the supplied solution.
         working_response = sol["eta"]
-    if getattr(model.family, "name", "") in {"scat", "zip"}:
+    if getattr(model.family, "name", "") in {"scat", "zip", "cnorm"}:
         # gam.fit4 replaces nonfinite z by zero before passing it to gdi2;
         # residual reporting retains the original undefined zero-weight rows.
         working_response = np.asarray(working_response, dtype=np.float64).copy()
@@ -881,7 +883,7 @@ def _gdi1_ift1_state(model, y, sol, sp, current, pk_state):
         P_derivs.append(np.asarray(Pj, dtype=np.float64))
 
     family_name = str(getattr(model.family, "name", "")).lower()
-    if family_name in {"negbin", "betar", "scat", "zip"}:
+    if family_name in {"negbin", "betar", "scat", "zip", "cnorm"}:
         dd = _family_ddeta_logtheta(
             model.family,
             y,
@@ -999,7 +1001,7 @@ def _gdi1_ift1_state(model, y, sol, sp, current, pk_state):
 def _gdi1_deviance_terms(model, y, sol, current, ift):
     eta = np.asarray(sol.get("gdi1_eta", sol["eta"]), dtype=np.float64)
     mu = np.asarray(sol.get("gdi1_mu", sol["mu"]), dtype=np.float64)
-    if str(getattr(model.family, "name", "")).lower() in {"negbin", "betar", "scat", "zip"}:
+    if str(getattr(model.family, "name", "")).lower() in {"negbin", "betar", "scat", "zip", "cnorm"}:
         dd = _family_ddeta_logtheta(
             model.family,
             y,
@@ -1225,7 +1227,7 @@ def _gdi1_reml_penalty_terms(model, sp, current, ift, pk_state, *, method):
     Structured determinant penalty stage corresponding to `get_ddetXWXpS()`
     plus REML Schur-complement augmentation on current-sp canonical state.
     """
-    if model.family.name in {"scat", "zip"} and str(method).upper() == "REML":
+    if model.family.name in {"scat", "zip", "cnorm"} and str(method).upper() == "REML":
         return _gdipk_reml_penalty_terms(
             model, sp, current, ift.dA, ift.d2A_mat, pk_state
         )
@@ -1508,9 +1510,9 @@ def _gdi1_kernel(model, y, sol, sp, *, method, rank_tol=None):
     pk_state = setup.pk
     ift = _gdi1_ift1_state(model, y, sol, sp, current, pk_state)
     D1, D2 = _gdi1_deviance_terms(model, y, sol, current, ift)
-    if getattr(model.family, "name", "") == "zip":
-        # ziP has no GLM variance function or Pearson-scale criterion. Its
-        # gam.fit4/gdi2 route uses only likelihood and determinant derivatives.
+    if getattr(model.family, "name", "") in {"zip", "cnorm"}:
+        # These families have no GLM variance or Pearson-scale criterion.
+        # Their gam.fit4/gdi2 route uses likelihood and determinant derivatives.
         nsp = len(ift.deta)
         P, P1, P2 = 0.0, np.zeros(nsp), np.zeros((nsp, nsp))
     else:
@@ -1550,7 +1552,7 @@ def _gdi1_kernel(model, y, sol, sp, *, method, rank_tol=None):
 
 
 def _gdi2_penalty_terms(model, sp, current, dA, d2A_mat, pk_state, *, n_theta, method):
-    if model.family.name in {"scat", "zip"} and str(method).upper() == "REML":
+    if model.family.name in {"scat", "zip", "cnorm"} and str(method).upper() == "REML":
         return _gdipk_reml_penalty_terms(
             model, sp, current, dA, d2A_mat, pk_state, n_theta
         )

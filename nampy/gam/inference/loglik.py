@@ -196,10 +196,13 @@ def object_aic(model) -> float | None:
         raw_aic = -2.0 * float(
             np.sum(weights * (y * np.log(mu) - mu - gammaln(y + 1.0)))
         )
-    elif family_name in {"scat", "zip"}:
+    elif family_name in {"scat", "zip", "cnorm"}:
         # gam.fit4 uses the family aic hook, which ignores external scale.
         # ziP's fitted mu is log(lambda), distinct from response predictions.
-        raw_aic = float(model.family.aic(y, _fitted_mu(model), weights=weights))
+        family_y = getattr(model, "response_", None)
+        if family_y is None:
+            family_y = y
+        raw_aic = float(model.family.aic(family_y, _fitted_mu(model), weights=weights))
     elif family_name == "binomial":
         # stats::binomial()$aic owns the m <- wt reinterpretation of
         # non-unit prior weights as binomial denominators.

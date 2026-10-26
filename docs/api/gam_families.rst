@@ -36,6 +36,8 @@ Family classes
      - Scaled Student t location model; identity, log, or inverse link.
    * - ``ZeroInflatedPoissonFamily``
      - Single-predictor hurdle Poisson model; identity link on log intensity.
+   * - ``CensoredNormalFamily``
+     - Censored normal location; identity, log, or square-root link.
    * - ``BetaRegressionFamily``
      - Beta regression for responses in the unit interval.
    * - ``OrderedCategoricalFamily``
@@ -208,3 +210,81 @@ GCV objective. Default ``b=0`` and a near-boundary slope have direct references.
 
 Source: mgcv 1.9-4 ``R/efam.r::ziP`` and ``R/gamlss.r::zipll``; see the
 `upstream ziP documentation <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/ziP.html>`_.
+
+
+Censored normal family
+----------------------
+
+``CensoredNormalFamily(theta=None, link="identity")`` implements mgcv's
+``cnorm`` location family. Import it from ``nampy.gam.families`` or use
+``family="cnorm"``. Dictionaries such as
+``{"name": "cnorm", "theta": 1, "link": "identity"}`` and tuples such as
+``("cnorm", {"theta": 1})`` also resolve the family. It is a regression
+family; the response's second column is a censor bound, not a class label.
+
+The reference scope covers fixed or estimated response SD, fixed smoothing
+or ML/REML smoothing selection, including joint objective gradients and
+Hessians. Identity, log and square-root links have family-kernel references;
+fixed-SD, fixed-smoothing fits also cover positive precision weights and
+log/square-root links. References additionally cover two smooths, offsets,
+no-intercept and parametric-only fits, conditional rank-deficient fits,
+BFGS/optim/nlm endpoints, and fixed-SD EFS. These targeted checks do not
+establish cross-platform CI acceptance.
+
+A vector response represents exact observations. A two-column response,
+provided as ``cbind(value, bound)`` in a formula or an explicit ``(n, 2)``
+array, encodes each observation as follows:
+
+.. list-table:: Censor response encoding
+   :header-rows: 1
+
+   * - Second column
+     - Observation
+   * - Equal to the first column
+     - Exact value
+   * - A different finite value
+     - Interval between the two columns, in either order
+   * - ``-np.inf``
+     - Left censored at the first column
+   * - ``np.inf``
+     - Right censored at the first column
+
+Primary values must be finite and bounds cannot be NaN. Stored censor
+bounds remain paired with their primary values through fitting and
+serialization. Predictions describe the underlying normal location;
+response standard errors describe the estimated location, not a new
+observation or censoring probability.
+
+A positive ``theta`` fixes the standard deviation and is stored on the log
+scale. ``None`` or zero requests estimation starting at working value zero.
+For a negative supplied value, mgcv 1.9-4 actually retains that value as the
+initial *log standard deviation*, despite the manual's negative-SD wording.
+``getTheta()`` returns working log SD and ``getTheta(trans=True)`` returns SD.
+
+The source uses observation weights as precision: each row's SD is
+``exp(theta_working) / sqrt(weight)``. They are not frequency weights.
+Zero weights are rejected during fitting: upstream mixed-censor interval
+observations can produce undefined derivatives and an error, even though
+some uncensored zero-weight fits converge. They are not automatically
+omitted rows. Positive ``min_sp`` is also unsupported, and estimated SD with
+the ``efs`` optimizer is guarded. Estimated SD with nonunit external
+dispersion is also guarded: a captured upstream failed outer fit returns
+coefficients from a different parameter state. Fixed-SD fits accept positive
+external dispersion. Rank-deficient outer uncertainty retains the shared
+extended-family guard. The executable example uses unit weights.
+
+The implementation preserves two mgcv 1.9-4 AIC quirks: its exact-observation
+branch omits the log-SD Jacobian after standardizing, and its later
+``bound <= 0`` branch also replaces contributions from nonpositive exact
+or finite interval bounds. Consequently source-compatible AIC and derived
+log likelihood need not equal the ordinarily normalized Gaussian likelihood.
+The fitting criterion retains the separate source deviance and saturated
+likelihood conventions. Do not use an ordinary Gaussian AIC calculation as
+a substitute.
+
+Source ``cnorm`` does not expose working simulation or quantile hooks;
+simulation-based QQ envelopes and quantile residuals are unavailable.
+See the executable ``examples/example_cnorm_gam.py`` and the
+`upstream cnorm documentation <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/cnorm.html>`_.
+Source authority is mgcv 1.9-4 ``R/efam.r::cnorm``; the old ``cnorm0`` is not
+used.
