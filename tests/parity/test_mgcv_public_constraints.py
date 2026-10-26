@@ -145,6 +145,18 @@ def test_custom_constraint_fit_prediction_covariance(bs, optimized, tmp_path):
     width = 6 if bs == "cc" else 7
     C = np.vstack([np.ones(width), np.arange(width)])
     dat, r = reference(bs, C, optimized)
+    if bs == "cs":
+        # Upstream's unequal shrinkage of arbitrary null eigenvectors changes
+        # predictions across LAPACK builds; retain fixture as guard evidence.
+        with pytest.raises(NotImplementedError, match="cs lack portable"):
+            model = GAM(
+                formula=f"y ~ s(x,bs='{bs}',k=7)",
+                constraints={1: C},
+                optimize_smoothing=optimized,
+                smoothing_method="REML",
+                smoothing_params=None if optimized else [0.7],
+            ).fit(data=dat)
+        return
     model = GAM(
         formula=f"y ~ s(x,bs='{bs}',k=7)",
         constraints={1: C},
@@ -287,6 +299,18 @@ def test_selection_penalty_after_constraint_absorption(bs, rows):
     else:
         for p, S in zip(con.penalty_specs, r["Sall"], strict=True):
             np.testing.assert_allclose(p.matrix, S, atol=1e-10)
+    if bs == "cs":
+        # Upstream's unequal shrinkage of arbitrary null eigenvectors changes
+        # predictions across LAPACK builds; retain fixture as guard evidence.
+        with pytest.raises(NotImplementedError, match="cs lack portable"):
+            model = GAM(
+                formula=f"y ~ s(x,bs='{bs}',k=7)",
+                constraints={1: C},
+                select=True,
+                optimize_smoothing=True,
+                smoothing_method="REML",
+            ).fit(data=dat)
+        return
     model = GAM(
         formula=f"y ~ s(x,bs='{bs}',k=7)",
         constraints={1: C},

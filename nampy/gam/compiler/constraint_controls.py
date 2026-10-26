@@ -32,6 +32,12 @@ def with_smooth_constraints(predictors, constraints):
                 f"Constraint selector {key!r} must identify exactly one smooth."
             )
         term = matches[0]
+        if getattr(term.smooth_spec, "bs", None) == "cs":
+            raise NotImplementedError(
+                "Explicit constraints with cs lack portable mgcv parity: "
+                "unequal shrinkage of numerical null vectors changes fitted "
+                "results across LAPACK implementations. Use cr with select=True."
+            )
         if term.term_id in selected:
             raise ValueError(
                 f"Multiple constraints supplied for smooth {term.label!r}."

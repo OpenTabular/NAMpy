@@ -905,12 +905,22 @@ def test_general_family_multismooth_fit_inference_and_diagnostics_match_mgcv():
 
     full = model.concurvity(full=True)
     assert list(full["labels"]) == list(diagnostics["concurvity_labels"])
-    # Two predictors contain smooths of the same covariates, making the
-    # function-space estimate nearly singular; the observed/worst rows remain
-    # tight while the estimate row is stable to about 0.7% across QR stacks.
+    # Duplicated predictor columns make the full design rank deficient. mgcv
+    # retains all columns in qr(tol=0), so its estimate includes arbitrary QR
+    # completion directions (see test_concurvity_rank_deficient_completion).
+    # The worst/observed rows remain stable for this particular fitted model;
+    # pairwise comparisons below remain identifiable and strictly referenced.
+    design = np.asarray(model.predict(type="lpmatrix"), dtype=np.float64)
+    assert np.linalg.matrix_rank(design) < design.shape[1]
     np.testing.assert_allclose(
-        full["values"], diagnostics["concurvity_full"], atol=7e-3, rtol=0.0
+        full["values"][:2],
+        np.asarray(diagnostics["concurvity_full"])[:2],
+        atol=1e-4,
+        rtol=0.0,
     )
+    estimate = np.asarray(full["values"])[2]
+    assert np.all(np.isfinite(estimate))
+    assert np.all((estimate >= 0.0) & (estimate <= 1.0 + 1e-14))
     pairwise = model.concurvity(full=False)
     expected_pairwise = diagnostics["concurvity_pairwise"]
     assert list(pairwise["labels"]) == list(expected_pairwise["labels"])

@@ -144,6 +144,12 @@ def concurvity(model, full: bool = True):
     overlapping smooths and repeated fits; neither a high score nor a low score
     establishes causal interpretation or unique identification. There is no
     universal cutoff for deleting a term.
+
+    As in mgcv, QR retains all columns, including dependent columns. For a
+    rank-deficient joint design (for example repeated covariates across
+    predictors), full measures can depend on numerical QR completion directions
+    and need not agree across numerical libraries. Pairwise comparisons avoid
+    this ambiguity when the individual compared blocks have full column rank.
     """
 
     _require_fitted(model)

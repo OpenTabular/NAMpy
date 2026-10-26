@@ -500,6 +500,13 @@ Inference and diagnostics
 
 For low-level fitting and extension interfaces, see :doc:`../api/gam_advanced`.
 
+Full concurvity follows mgcv's QR calculation without dropping dependent
+columns. With repeated covariates across predictors, the joint design can be
+rank deficient and these diagnostics can vary across numerical libraries.
+Pairwise comparisons remain identifiable when the individual compared blocks
+have full column rank; a full-design estimate is not a portable reference in
+this case.
+
 For fitted illustrations of marginal and joint terms, see the
 :ref:`formula visual reference <formula-visual-reference>`.
 
@@ -638,7 +645,7 @@ parametric-penalty target. Multi-formula ``para_pen`` is rejected.
 
 ``constraints={1: C}`` replaces the first smooth's default centering with
 ``C @ beta_raw = 0``. A unique smooth label may replace the one-based index.
-This surface supports ``cr``, ``cs``, ``cc``, ``ps`` and ``cp`` without ``by``,
+Fitting supports ``cr``, ``cc``, ``ps`` and ``cp`` without ``by``,
 point constraints, or linked IDs. ``C`` acts on the uncentered basis, must be
 finite with independent rows, and must leave at least one coefficient.
 A matrix with zero rows requests no local constraint; global model
@@ -646,6 +653,11 @@ identifiability conditions still apply. Columns with cancelling nonzero row
 sums are rejected because upstream's localized absorption cannot represent them.
 Other bases/compositions remain guarded rather than accepting a constraint in
 a different raw parameterization.
+Explicit ``cs`` constraints are guarded: mgcv assigns unequal shrinkage to
+numerically arbitrary null eigenvectors, which changes fitted predictions
+across LAPACK implementations. Use ``cr`` with ``select=True`` for a portable
+penalized null space. Raw ``smooth_con`` inspection of ``cs`` remains available
+with invariant penalty and constraint checks.
 
 Inspect the raw basis before specifying ``C``:
 
