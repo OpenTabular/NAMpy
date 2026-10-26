@@ -15,6 +15,8 @@ from tests.families.test_mgcv_cnorm_workflows import SCRIPT, _assert_fit, _case,
 from tests.mgcv_parity_utils import _build_r_command
 from tests.reference_fixtures import load_reference, reference_key, save_reference
 
+ROOT = Path(__file__).parents[1] / "reference_fixtures" / "mgcv_clog_workflows"
+
 SOURCE = SCRIPT.replace("cnorm", "clog").replace(
     "sp=p$sp,method='REML'", "sp=p$sp,method=p$method,scale=p$scale,control=if(is.null(p$control))gam.control() else do.call(gam.control,p$control)"
 ).replace("pr<-predict(b,nd", "if(!is.null(d$z)) nd$z<-seq(.9,-.9,length.out=19)\n pr<-predict(b,nd", 1)
@@ -74,10 +76,7 @@ def test_clog_fitting_matches_mgcv(response, theta, selected):
     np.testing.assert_allclose(model.family.getTheta(), ref["theta"], rtol=2e-7, atol=2e-7)
 
 
-@pytest.mark.parametrize("method", ["ML", "REML"])
-@pytest.mark.parametrize("theta", [1.0, None])
-@pytest.mark.parametrize("variant", ["precision", "log", "sqrt", "scale2", "two_smooths", "parametric"])
-def test_clog_selection_and_structure(method, theta, variant):
+def _selection_case(method, theta, variant):
     case = _case("mixed", offset=True)
     case.update(theta=theta, sp=None, method=method, scale=2 if variant == "scale2" else 1)
     case["data"]["bound"] = [str(v) for v in case["data"]["bound"]]
@@ -88,10 +87,32 @@ def test_clog_selection_and_structure(method, theta, variant):
     if variant in {"log", "sqrt"}:
         case["link"] = variant
     if variant == "two_smooths":
-        case["data"]["z"] = np.cos(np.arange(len(case["data"]["y"])) * 0.731).tolist()
+        # Preserve the exact doubles used by the existing R captures. Runtime
+        # cosine varies by a few last bits between platform implementations.
+        case["data"]["z"] = json.loads((ROOT / "two_smooths_inputs.json").read_text())["z"]
         case["formula"] += "+s(z,bs='cr',k=5)"
     if variant == "parametric":
         case["formula"] = "cbind(y,bound)~x+offset(off)"
+    return case
+
+
+def test_clog_two_smooths_case_uses_frozen_input(monkeypatch):
+    def reject_runtime_cosine(_):
+        raise AssertionError("The captured covariate must not depend on platform cosine.")
+
+    monkeypatch.setattr(np, "cos", reject_runtime_cosine)
+    case = _selection_case("REML", 1.0, "two_smooths")
+    frozen = json.loads((ROOT / "two_smooths_inputs.json").read_text())["z"]
+    assert case["data"]["z"] == frozen
+    assert len(frozen) == len(case["data"]["y"])
+    assert reference(case)["accepted"]
+
+
+@pytest.mark.parametrize("method", ["ML", "REML"])
+@pytest.mark.parametrize("theta", [1.0, None])
+@pytest.mark.parametrize("variant", ["precision", "log", "sqrt", "scale2", "two_smooths", "parametric"])
+def test_clog_selection_and_structure(method, theta, variant):
+    case = _selection_case(method, theta, variant)
     ref = reference(case)
     if theta is None and variant == "precision":
         assert ref["accepted"] and ref["converged"]

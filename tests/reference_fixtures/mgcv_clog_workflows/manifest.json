@@ -5,7 +5,11 @@
     "R": "4.6.1"
   },
   "generator": "tests/families/test_mgcv_clog_workflows.py",
-  "generator_sha256": "fa947b6b2bc85fb0108ba40c410dcc1d0ad840c95dbb65782b48292a4227103d",
+  "generator_sha256": "779bfdda6f2727390abe4f15d093f9396c99b8e4308d34e7e1e4d00eb316d541",
+  "inputs_sha256": {
+    "two_smooths_inputs.json": "bb8cb55beafcc0c8866e8826bf0444980dd7ba5667f0586c504f1a03045adfa6"
+  },
+  "input_provenance": "two_smooths_inputs.json freezes the exact historical Linux NumPy cos(arange(n)*0.731) doubles used in the existing four two-smooth R captures. Windows cosine last-bit differences must not alter capture identity. The historical input generator is freeze_two_smooths_inputs.py (sha256 03d49e346c5b840c8eee1657663c79eb41d7a6245236be466b26958eb9d1c8bb); normal tests load JSON and cannot recompute cosine. No captured R output or comparison tolerance changed.",
   "source_files_sha256": {
     "R/efam.r": "30d5858b3a9a3d7c0d0397d4967a81e58e5b09da9bb9b3b2fd4c8ac7a0f3f391"
   },
@@ -126,7 +130,7 @@
   "representation_boundary": "Fixed-scale nlm reaches the linear null space: strict fitted, covariance, criterion and EDF invariants replace equality of huge raw smoothing parameters; all other accepted smoothing parameters are compared directly.",
   "validation": "All pre-existing tolerances are retained. Failed Newton captures have explicit coefficient-owner audits; they no longer justify blanket family/weight restrictions. EFS uses the source scalar theta iteration and retains its accepted FitCoreSolution.",
   "generators": {
-    "tests/families/test_mgcv_clog_workflows.py": "fa947b6b2bc85fb0108ba40c410dcc1d0ad840c95dbb65782b48292a4227103d",
+    "tests/families/test_mgcv_clog_workflows.py": "779bfdda6f2727390abe4f15d093f9396c99b8e4308d34e7e1e4d00eb316d541",
     "tests/families/test_clog_acceptance.py": "6a19a400ace524f8c2a93ee56440f56192bdc877cbf97ae3e2f2f3792edd853e"
   }
 }
