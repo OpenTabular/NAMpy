@@ -348,7 +348,7 @@ individual smoothing parameters and coefficient covariance allocations need not
 be uniquely identified; compare estimable fitted functions and their covariance.
 
 Explicit homogeneous constraints and raw/absorbed ``smooth_con`` construction
-are available for ``cr/cs/cc/ps/cp`` without ``by``, ``pc`` or linked IDs.
+are available for ``cr/cs/cc/ps/cp/bs`` without ``by``, ``pc`` or linked IDs.
 Other bases/compositions and cancelling constraint-column sums are rejected.
 Absorption can be disabled for construction inspection, but never for fitted
 GAMs. See :doc:`user_guide/statistical_gams` for matrix coordinates and ordering.
