@@ -430,7 +430,8 @@ def _make_re_plus_nested_tp_data(seed=511, n_levels=7, n_rep=18):
 
 def _make_three_way_nested_data(seed=515, n=180):
     data = _make_gaussian_data(seed=seed, n=n)
-    rng = np.random.default_rng(seed)
+    # Use a separate stream: restarting the original seed makes x2 = .625*x0.
+    rng = np.random.default_rng(seed + 1)
     data["x2"] = rng.uniform(-1.25, 1.25, size=n)
     return data
 
@@ -877,6 +878,8 @@ def test_gam_side_matches_mgcv_nested_side_condition_cases(
 def test_three_way_nested_side_conditions_match_mgcv_behavior_invariantly():
     """Three-way nesting compares deletion rank and fitted behavior, not pivot columns."""
     data = _make_three_way_nested_data()
+    locations = data[["x0", "x1", "x2"]].to_numpy()
+    assert np.linalg.matrix_rank(locations - locations.mean(axis=0)) == 3
     formula = (
         'y ~ s(x0, bs="cr", k=7, sp=0.8)'
         ' + s(x0, x1, bs="tp", k=12, sp=1.1)'
@@ -895,8 +898,8 @@ def test_three_way_nested_side_conditions_match_mgcv_behavior_invariantly():
         _canonical_expected_side_smooth(item) for item in expected_side["smooth"]
     ]
 
-    assert [len(sm["del_index"]) for sm in actual_side["smooths"]] == [0, 1, 6]
-    assert [len(sm["del_index"]) for sm in expected_smooths] == [0, 1, 6]
+    assert [len(sm["del_index"]) for sm in actual_side["smooths"]] == [0, 1, 2]
+    assert [len(sm["del_index"]) for sm in expected_smooths] == [0, 1, 2]
     assert [sm["df"] for sm in actual_side["smooths"]] == [
         sm["df"] for sm in expected_smooths
     ]
@@ -929,16 +932,36 @@ def test_three_way_nested_side_conditions_match_mgcv_behavior_invariantly():
         type="response",
         return_se=True,
     )
-    # The final six-column deletion is selected inside a numerically repeated
-    # augmented QR space. Exact pivot columns and the augment.smX root are not
-    # identified across LAPACK implementations; keep the downstream difference
-    # below 0.3% of the response scale without selecting one platform's root.
     np.testing.assert_allclose(
-        actual_fit, np.asarray(expected["pred"]).ravel(), rtol=0.0, atol=3e-3
+        actual_fit, np.asarray(expected["pred"]).ravel(), rtol=0.0, atol=2e-8
     )
     np.testing.assert_allclose(
-        actual_se, np.asarray(expected["se"]).ravel(), rtol=0.0, atol=3e-3
+        actual_se, np.asarray(expected["se"]).ravel(), rtol=0.0, atol=2e-8
     )
+
+
+def test_degenerate_three_way_nesting_preserves_source_deletion_ranks():
+    """Deletion-rank coverage only; fitted parity is not established here."""
+    data = _make_three_way_nested_data()
+    data["x2"] = np.random.default_rng(515).uniform(-1.25, 1.25, size=len(data))
+    np.testing.assert_allclose(data.x2, 0.625 * data.x0, atol=3e-16, rtol=0)
+    locations = data[["x0", "x1", "x2"]].to_numpy()
+    assert np.linalg.matrix_rank(locations - locations.mean(axis=0)) == 2
+    formula = (
+        'y ~ s(x0, bs="cr", k=7, sp=0.8)'
+        ' + s(x0, x1, bs="tp", k=12, sp=1.1)'
+        ' + s(x0, x1, x2, bs="tp", k=20, sp=1.3)'
+    )
+    raw, adjusted, reports = _compile_side_state(data, formula, select=False)
+    actual = _build_actual_side_surface(raw, adjusted, reports)["smooths"]
+    expected = _run_mgcv_gam_setup_assembly(
+        data=data, formula=formula, family="gaussian", method="fixed", select=False
+    )
+    expected = [_canonical_expected_side_smooth(sm) for sm in expected["smooth"]]
+    assert [len(sm["del_index"]) for sm in actual] == [0, 1, 6]
+    assert [len(sm["del_index"]) for sm in expected] == [0, 1, 6]
+    for key in ("df", "rank"):
+        assert [sm[key] for sm in actual] == [sm[key] for sm in expected]
 
 
 @pytest.mark.parametrize(
