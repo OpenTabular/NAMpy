@@ -111,7 +111,17 @@ def residuals_gam(model, type: str = "deviance", *, setseed=None) -> np.ndarray:
         if z_work is not None:
             z_work = np.asarray(z_work, dtype=np.float64).ravel()
             offset = None if fit_state is None else getattr(fit_state, "offset", None)
-            if str(getattr(model.family, "name", "")) == "binomial" or getattr(model.family, "is_quasi", False):
+            if str(getattr(model.family, "name", "")) == "scat":
+                # gam.fit4: z is on the offset-free predictor scale.
+                # residuals <- z - (eta-offset); nonfinite entries become NA.
+                result = z_work - eta
+                if offset is not None:
+                    result += np.asarray(offset, dtype=np.float64).ravel()
+                result[~np.isfinite(result)] = np.nan
+                return result
+            if str(getattr(model.family, "name", "")) == "binomial" or getattr(
+                model.family, "is_quasi", False
+            ):
                 # gam.fit3: residuals[good] <- z - (eta - offset)[good].
                 result = z_work - eta
                 if offset is not None:

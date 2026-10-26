@@ -2,6 +2,7 @@ import json
 import shutil
 import subprocess
 import tempfile
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -12,6 +13,7 @@ from nampy.gam import GAM
 from nampy.gam.fit.selection.optimize.basics import (
     _initial_smoothing_params_from_design,
 )
+from nampy.gam.fit.selection.reparam import build_estimate_gam_setup_state
 from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
     build_general_family_setup_state,
 )
@@ -610,8 +612,8 @@ def test_nonreparameterized_general_family_sl_runs_full_fit(
     )
 
 
-def test_gammals_select_true_initial_spg_matches_mgcv():
-    """Keep the optimized select=True path on mgcv's overall start scale."""
+def test_gammals_select_true_initial_spg_matches_mgcv(monkeypatch):
+    """Compare initial.spg on the same source eigenvector orientation."""
     data = _gammals_data()
     formula = ['y ~ s(x, bs="cr", k=6)', "~ 1"]
     expected = _run_mgcv_initial_spg(
@@ -630,20 +632,65 @@ def test_gammals_select_true_initial_spg_matches_mgcv():
         smoothing_method="ML",
     )
     gam.fit(data=data)
-    actual = _initial_smoothing_params_from_design(gam, gam.y_)
-
-    actual = np.asarray(actual, dtype=np.float64)
-    expected_sp = np.asarray(expected["initial_sp"], dtype=np.float64)
-    assert actual.shape == expected_sp.shape == (2,)
-    assert np.all(np.isfinite(actual)) and np.all(actual > 0.0)
-
-    # `select=TRUE` splits this smooth into range- and null-space penalties.
-    # The pivoted-Cholesky basis used by initial.spg() can redistribute scale
-    # between those two blocks across LAPACK builds, while their common log
-    # scale is the stable quantity that seeds the outer optimization.
+    native = np.asarray(_initial_smoothing_params_from_design(gam, gam.y_))
+    assert native.shape == (2,)
+    assert np.all(np.isfinite(native)) and np.all(native > 0)
+    setup = build_general_family_setup_state(gam, np.ones(2), score_type="REML")
+    source_X = np.asarray(expected["X_initial"], dtype=np.float64)
     np.testing.assert_allclose(
-        np.mean(np.log(actual)),
-        np.mean(np.log(expected_sp)),
+        setup.X_initial @ setup.X_initial.T,
+        source_X @ source_X.T,
         rtol=0.0,
-        atol=5e-2,
+        atol=1e-10,
+    )
+    penalty_setup = build_estimate_gam_setup_state(gam)
+    for actual_S, source_S in zip(penalty_setup.S, expected["S"], strict=True):
+        np.testing.assert_allclose(actual_S, source_S, atol=1e-10, rtol=0.0)
+    _assert_root_gram_equal(penalty_setup.Eb, expected["Eb"], atol=1e-10)
+    # Sl.initial.repara eigenvectors can change sign across LAPACK builds.
+    # initial.spg nevertheless evaluates this X against the original Eb/S,
+    # so even mean(log(sp)) is not invariant. Pin the representation rather
+    # than relaxing the numerical comparison (fresh sign-flip proof below).
+    monkeypatch.setattr(
+        "nampy.gam.fit.solvers.general_family.fixed_smoothing.build_general_family_setup_state",
+        lambda *args, **kwargs: replace(setup, X_initial=source_X),
+    )
+    actual = _initial_smoothing_params_from_design(gam, gam.y_)
+    np.testing.assert_allclose(actual, expected["initial_sp"], rtol=0.0, atol=1e-10)
+
+
+@pytest.mark.parametrize("flip", [False, True])
+def test_gammals_initial_spg_source_basis_sign_contract(monkeypatch, flip):
+    """Actual R changes initial SP after an otherwise immaterial basis sign."""
+    root = Path(__file__).parents[1] / "reference_fixtures/mgcv_gammals_initialsp_basis"
+    inputs = json.loads((root / "inputs.json").read_text())
+    reference = json.loads((root / "reference.json").read_text())
+    data = _gammals_data()
+    data["y"] = inputs["y"]
+    gam = GAM(
+        formula=['y ~ s(x, bs="cr", k=6)', "~ 1"],
+        family="gammals",
+        select=True,
+        optimize_smoothing=False,
+        smoothing_method="ML",
+    ).fit(data=data)
+    setup = build_general_family_setup_state(gam, np.ones(2), score_type="REML")
+    source_X = np.asarray(inputs["X"], dtype=np.float64)
+    original_gram = source_X @ source_X.T
+    if flip:
+        source_X[:, 4] *= -1
+    np.testing.assert_array_equal(source_X @ source_X.T, original_gram)
+    monkeypatch.setattr(
+        "nampy.gam.fit.solvers.general_family.fixed_smoothing.build_general_family_setup_state",
+        lambda *args, **kwargs: replace(setup, X_initial=source_X),
+    )
+    actual = _initial_smoothing_params_from_design(gam, gam.y_)
+    expected = reference["flipped" if flip else "original"]
+    np.testing.assert_allclose(actual, expected, rtol=0.0, atol=1e-10)
+    assert (
+        abs(
+            np.mean(np.log(reference["original"]))
+            - np.mean(np.log(reference["flipped"]))
+        )
+        > 0.4
     )

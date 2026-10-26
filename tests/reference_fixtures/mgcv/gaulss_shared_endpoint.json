@@ -1,0 +1,16 @@
+{
+  "fixture": "e48b7b51f9e79259abde757fb9a8f78461d9634cc35ace3bc228d54e5d8e62f9.json.gz",
+  "test": "tests/parity/test_mgcv_snapshot_extended_matrix.py::test_gaulss_shared_formula_component_reml_matches_mgcv",
+  "upstream": {"mgcv": "1.9-4"},
+  "control": {"epsilon": 1e-10, "newton": {"conv.tol": 1e-10}},
+  "generation": "Fresh R mgcv_snapshot.R execution with NAMPY_REFRESH_REFERENCE_FIXTURES=1 and portable fixture identity. Original default-control fixture retained.",
+  "reason": "The default-control shared gaulss fit varies with the BLAS implementation. Matching tighter inner and outer stopping controls preserves all existing endpoint, prediction and inference thresholds.",
+  "validation": {
+    "Haswell_default_max_coefficient_error": 4.486158378114169e-8,
+    "Haswell_tight_max_coefficient_error": 9.402034706340601e-11,
+    "Haswell_default_edf_error": 2.7415615830861384e-6,
+    "Haswell_tight_edf_error": 8.877849566601981e-10,
+    "Haswell_tight_max_link_se_error": 1.7714371636223802e-11
+  },
+  "source_routines": ["mgcv/R/mgcv.r::initial.spg", "mgcv/R/gamlss.r::pen.reg", "mgcv/R/gamlss.r::gaulss"]
+}

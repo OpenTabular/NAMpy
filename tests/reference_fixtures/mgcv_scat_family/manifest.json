@@ -1,0 +1,22 @@
+{
+  "namespace": "mgcv_scat_family",
+  "upstream": {
+    "mgcv": "1.9-4",
+    "R": "4.6.1"
+  },
+  "sources": [
+    {
+      "path": "nampy_notes/upstreams/mgcv/R/efam.r",
+      "sha256": "30d5858b3a9a3d7c0d0397d4967a81e58e5b09da9bb9b3b2fd4c8ac7a0f3f391",
+      "routine": "scat, lines3552-3761"
+    }
+  ],
+  "fixture_files": 37,
+  "probe": "tests/families/test_scat_family_contracts.py::CODE",
+  "generation": "Fresh actual R outputs captured before accepting leaf implementation. Ordinary tests read static snapshots; NAMPY_REFRESH_REFERENCE_FIXTURES=1 enables regeneration.",
+  "coverage": "All Dd level0/1/2 fields and ls arrays; three links; default/fixed/negative/mixed-sign/zero theta; min.df reset; initialization; scalar and zero weights; tail and signed inverse-link means. NumPy random draws intentionally do not claim R RNG equality. Source valideta/validmu for finite, zero, NaN, and infinite inputs. External gam scale default/0/-1/1/2 inventory and fixed-theta stored working residual offsets/zero weights.",
+  "probes": [
+    "tests/families/test_scat_family_contracts.py",
+    "tests/diagnostics/test_scat_residuals.py"
+  ]
+}

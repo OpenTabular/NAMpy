@@ -114,6 +114,25 @@ To run or regenerate focused comparisons, follow :doc:`contributing`.
 Review fixture provenance and the
 per-case assertions before interpreting agreement.
 
+Basis-dependent intermediate values need a shared representation. For example,
+``gammals`` initialization with ``select=True`` can produce different starting
+smoothing parameters after a valid eigenvector sign change, including in R.
+Its initializer tests therefore compare exact values on a captured common
+basis and separately check the design invariant. End-to-end fit and inference
+tests remain separate checks of the native implementation.
+
+Numerical differences in identified quantities still require investigation.
+At a large smoothing parameter, the negative-binomial criterion evaluates its
+penalty through roots, matching ``gam.fit4`` and ``get_bSb``. A dedicated R
+fixture checks that penalty and criterion, alongside the complete optimizer
+trace; a different stopping iteration is not excused as basis ambiguity.
+
+Three-way nested smooth comparisons use independently sampled covariates and
+check fitted values and standard errors at absolute tolerance ``2e-8``.
+An older fixture accidentally made the third covariate proportional to the
+first. That rank-deficient case retains deletion-rank checks, but portable
+fitted-value parity for it has not been established.
+
 Intentional differences
 -----------------------
 

@@ -20,6 +20,7 @@ from .negbin import NegativeBinomialLogFamily
 from .ocat import OrderedCategoricalFamily
 from .poisson import PoissonIdentityFamily, PoissonLogFamily, PoissonSqrtFamily
 from .quasi import QuasiBinomialFamily, QuasiFamily, QuasiPoissonFamily
+from .scat import ScaledTFamily
 from .tweedie import TweedieTwFamily
 
 _BINOMIAL_LINK_MAP = {
@@ -98,6 +99,12 @@ def make_gam_family(family):
 
     if isinstance(family, dict):
         name = str(family.get("name", "")).lower()
+        if name == "scat":
+            options = {k: v for k, v in family.items() if k != "name"}
+            unknown = set(options) - {"theta", "link", "min_df"}
+            if unknown:
+                raise ValueError(f"Unsupported scat options: {', '.join(sorted(unknown))}.")
+            return ScaledTFamily(**options)
         if name in {"quasi", "quasipoisson", "quasibinomial"}:
             return _make_quasi_family(name, {k: v for k, v in family.items() if k != "name"})
         link = str(family.get("link", "")).lower() or None
@@ -193,6 +200,9 @@ def make_gam_family(family):
     if isinstance(family, tuple) and len(family) == 2:
         key = str(family[0]).lower()
         spec = family[1]
+        if key == "scat":
+            options = spec if isinstance(spec, dict) else {"theta": spec}
+            return make_gam_family({"name": "scat", **options})
         if key in {"quasi", "quasipoisson", "quasibinomial"}:
             return _make_quasi_family(key, spec if isinstance(spec, dict) else {"link": spec})
         if key in {"gaussian", "normal"}:
@@ -311,6 +321,8 @@ def make_gam_family(family):
         family = key
 
     key = str(family).lower()
+    if key == "scat":
+        return ScaledTFamily()
     if key in {"gaussian", "normal"}:
         return GaussianIdentityFamily()
     if key in {"binomial", "bernoulli", "logistic"}:

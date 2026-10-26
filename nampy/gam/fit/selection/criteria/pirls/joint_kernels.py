@@ -27,7 +27,7 @@ def gdi2_joint_kernel(model, y, sol, sp, *, method, need_hessian) -> _GDI2Kernel
         return gdi2_theta_joint_kernel(
             model, y, sol, sp, method=method, need_hessian=need_hessian
         )
-    if strategy is JointOuterStrategy.OCAT_THETA:
+    if strategy in {JointOuterStrategy.OCAT_THETA, JointOuterStrategy.SCAT_THETA}:
         return gdi2_theta_joint_kernel(
             model, y, sol, sp, method=method, need_hessian=need_hessian
         )

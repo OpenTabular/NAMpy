@@ -396,6 +396,63 @@
       "probe_files_sha256": {
         "tests/smooths/probes/mgcv_re_tensor_numeric_labels.R": "b97ef619a8addc1af45f70f8b76d6d2a8d724915ee0349ac910d20613f8ae3c0"
       }
+    },
+    "mgcv_scat_family": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_scat_family",
+      "generator": "tests/families/test_scat_family_contracts.py",
+      "manifest": "tests/reference_fixtures/mgcv_scat_family/manifest.json",
+      "fixture_files": 37,
+      "scope": "Family derivative/likelihood/link/constructor and residual contracts"
+    },
+    "mgcv_scat_workflows": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_scat_workflows",
+      "generator": "tests/families/test_mgcv_scat_workflows.py",
+      "manifest": "tests/reference_fixtures/mgcv_scat_workflows/manifest.json",
+      "fixture_files": 87,
+      "scope": "Fixed and selected workflows, explicit fixed-SP ML/REML/LAML ancillary estimation, derivatives, uncertainty and boundaries; 78 successful snapshots and nine upstream crashes. Rank-deficient outer uncertainty is guarded; fixed-parameter conditional rank fits remain supported. P-ML routing matches REML for fixed and estimated ancillary parameters."
+    },
+    "mgcv_scat_optimizers": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_scat_optimizers",
+      "generator": "tests/families/test_mgcv_scat_optimizers.py",
+      "manifest": "tests/reference_fixtures/mgcv_scat_optimizers/manifest.json",
+      "fixture_files": 9,
+      "scope": "REML bfgs/optim/nlm endpoints with fixed/estimated ancillary parameters; six default references plus two matching-control optim references; pinned upstream BFGS initialization"
+    },
+    "mgcv_scat_pipeline": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_scat_pipeline",
+      "generator": "tests/parity/test_gam_seven_stage_pipeline_contracts.py::_scat_pipeline_reference",
+      "manifest": "tests/reference_fixtures/mgcv_scat_pipeline/manifest.json",
+      "fixture_files": 1,
+      "scope": "Seven-stage fixed-parameter pipeline and prediction/SE"
+    },
+    "mgcv_scat_solver": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_scat_solver",
+      "generator": "tests/reference_fixtures/mgcv_scat_solver/generate.R",
+      "generator_sha256": "8542bb62dfdf033d8fdd61e60717a766d3b4e8d9c7721efc5b7c7245605046b0",
+      "fixture_files": 2,
+      "scope": "Positive-weight retry at a pinned difficult ancillary-parameter point; actual upstream conditional fits and scores for deriv=0 and deriv=2",
+      "test": "tests/families/test_scat_postfit_reference_state.py",
+      "rank_manifest": "tests/reference_fixtures/mgcv_scat_solver/rank_manifest.json"
+    },
+    "mgcv_negbin_boundary": {
+      "package_version": "1.9-4",
+      "manifest": "tests/reference_fixtures/mgcv_negbin_boundary/manifest.json",
+      "scope": "Fixed large-SP penalty-root criterion from gam.fit4; strict optimizer termination regression"
+    },
+    "mgcv_gammals_initialsp_basis": {
+      "package_version": "1.9-4",
+      "manifest": "tests/reference_fixtures/mgcv_gammals_initialsp_basis/manifest.json",
+      "scope": "Shared-basis initial.spg arithmetic and actual R eigenvector-sign dependence"
+    },
+    "mgcv_side_nesting": {
+      "package_version": "1.9-4",
+      "manifest": "tests/reference_fixtures/mgcv_side_nesting/manifest.json",
+      "scope": "Independent three-way nesting fit and SE; degenerate inputs retain rank-only coverage"
     }
   }
 }

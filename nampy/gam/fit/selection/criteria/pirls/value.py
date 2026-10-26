@@ -367,11 +367,20 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
         from .derivatives import _gdi1_kernel
 
         try:
-            det_term = float(_gdi1_kernel(model, y, sol, sp, method=method).K)
+            kernel = _gdi1_kernel(model, y, sol, sp, method=method)
+            det_term = float(kernel.K)
         except np.linalg.LinAlgError:
             return np.inf
         if not np.isfinite(det_term):
             return np.inf
+        if family_name == "negbin":
+            # gam.fit4 uses gdi2's oo$P (get_bSb), evaluated through penalty
+            # roots. The original-coordinate beta' S beta loses precision
+            # when a large smoothing parameter suppresses the penalized part.
+            # At flat boundaries this can change optim's stopping iteration.
+            base_objective = (float(sol["deviance"]) + float(kernel.bSb)) / (
+                2.0 * scale * gamma
+            ) - saturated_loglik / gamma
         objective = base_objective + det_term
         if method == "REML":
             objective -= 0.5 * mp * (np.log(2.0 * np.pi * scale) - np.log(gamma))

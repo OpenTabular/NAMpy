@@ -651,10 +651,10 @@ class _JointBetarPirlsRemlObjective:
         )
 
 
-class _JointOcatPirlsRemlObjective:
-    """Joint ``(log cutpoint gaps, log sp...)`` ocat objective."""
+class _JointVectorThetaPirlsObjective:
+    """Joint extended-family objective in ``(theta, log sp...)`` order."""
 
-    def __init__(self, model, y, branch_method: str):
+    def __init__(self, model, y, branch_method: str, *, criterion_functions=None):
         self.model = model
         self.y = y
         self.branch_method = str(branch_method).upper()
@@ -666,17 +666,24 @@ class _JointOcatPirlsRemlObjective:
         self.n_jac = 0
         self.n_hess = 0
         self.accepted_trace: list[dict[str, Any]] = []
+        self._criterion_functions = criterion_functions or (
+            criterion_ml_reml_pirls_ocat_joint,
+            criterion_gradient_ml_reml_pirls_ocat_joint,
+            criterion_hessian_ml_reml_pirls_ocat_joint,
+        )
 
     def _split_x(self, x):
         x = np.asarray(x, dtype=np.float64).ravel()
         if x.size < self.n_theta:
-            raise ValueError("Joint ocat objective requires log cutpoint gaps.")
+            raise ValueError(
+                "Joint vector-theta objective requires ancillary parameters."
+            )
         return x[: self.n_theta], x[self.n_theta :]
 
     def _raw_fun(self, x):
         log_theta, log_sp = self._split_x(x)
         return float(
-            criterion_ml_reml_pirls_ocat_joint(
+            self._criterion_functions[0](
                 self.model,
                 self.y,
                 log_sp,
@@ -689,7 +696,9 @@ class _JointOcatPirlsRemlObjective:
         x = np.asarray(x, dtype=np.float64).ravel()
         value = float(self._raw_fun(x))
         self.n_fun += 1
-        if not self.accepted_trace or not np.array_equal(self.accepted_trace[-1]["x"], x):
+        if not self.accepted_trace or not np.array_equal(
+            self.accepted_trace[-1]["x"], x
+        ):
             self.accepted_trace.append({"x": x.copy(), "fun": value})
         return value
 
@@ -697,7 +706,7 @@ class _JointOcatPirlsRemlObjective:
         log_theta, log_sp = self._split_x(x)
         self.n_jac += 1
         return np.asarray(
-            criterion_gradient_ml_reml_pirls_ocat_joint(
+            self._criterion_functions[1](
                 self.model,
                 self.y,
                 log_sp,
@@ -711,7 +720,7 @@ class _JointOcatPirlsRemlObjective:
         log_theta, log_sp = self._split_x(x)
         self.n_hess += 1
         return np.asarray(
-            criterion_hessian_ml_reml_pirls_ocat_joint(
+            self._criterion_functions[2](
                 self.model,
                 self.y,
                 log_sp,
@@ -729,6 +738,32 @@ class _JointOcatPirlsRemlObjective:
                 "fun": float(self._raw_fun(x)),
                 "accepted_step_norm": float(accepted_step_norm),
             }
+        )
+
+
+class _JointOcatPirlsRemlObjective(_JointVectorThetaPirlsObjective):
+    """Ordinal cutpoint-gap objective using the shared vector-theta contract."""
+
+
+class _JointScatPirlsRemlObjective(_JointVectorThetaPirlsObjective):
+    """Joint log(df-min.df), log(sigma), log-SP objective for scaled t."""
+
+    def __init__(self, model, y, branch_method):
+        from ..criteria.pirls.family_scat import (
+            criterion_gradient_ml_reml_pirls_scat_joint,
+            criterion_hessian_ml_reml_pirls_scat_joint,
+            criterion_ml_reml_pirls_scat_joint,
+        )
+
+        super().__init__(
+            model,
+            y,
+            branch_method,
+            criterion_functions=(
+                criterion_ml_reml_pirls_scat_joint,
+                criterion_gradient_ml_reml_pirls_scat_joint,
+                criterion_hessian_ml_reml_pirls_scat_joint,
+            ),
         )
 
 

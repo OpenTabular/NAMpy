@@ -66,7 +66,7 @@ from ...linalg.reindexing import (
 # Rank-detection threshold: condition number ratio above which a column is considered
 # linearly dependent. Match mgcv's stacked-QR tolerance at eps**0.66.
 STACKED_QR_RANK_TOLERANCE: float = float(
-    np.finfo(np.float64).eps**0.66 * QR_TOL_SCALE
+    np.finfo(np.float64).eps ** 0.66 * QR_TOL_SCALE
 )
 
 
@@ -150,6 +150,7 @@ def _stacked_penalized_ls_nonneg_solution(
     penalty_sqrt: np.ndarray,
     penalty_rank_rows: np.ndarray,
     rank_tol: float,
+    signed_pseudoinverse: bool = False,
 ) -> _StackedPlsNonnegOutcome:
     """
     Core non-negative-weight PLS solve mirroring ``mgcv/src/gdi.c::pls_fit1()``.
@@ -230,9 +231,7 @@ def _stacked_penalized_ls_nonneg_solution(
         np.asarray(r_augmented[:system_rank, :system_rank], dtype=np.float64)
     )
 
-    r_weighted_pivoted = permute_columns(
-        r_weighted_kept, pivot_aug, reverse=False
-    )
+    r_weighted_pivoted = permute_columns(r_weighted_kept, pivot_aug, reverse=False)
     # gdi.c::gdiPK() obtains this from the unpenalized weighted-design R
     # factor, after the final rank pivot. The matrix product is the behavioral
     # quantity; BLAS-specific lower-triangle accumulation order is not.
@@ -258,6 +257,7 @@ def _stacked_penalized_ls_nonneg_solution(
         ) = _signed_weight_rank_correction(
             q1_matrix[neg_weight_mask, :],
             rank_tol=rank_tol,
+            signed_pseudoinverse=signed_pseudoinverse,
         )
         hessian_correction_root = np.asarray(
             hessian_correction_basis @ upper_r_final,
@@ -414,6 +414,7 @@ def _signed_weight_rank_correction(
     q1_negative_rows: np.ndarray,
     *,
     rank_tol: float,
+    signed_pseudoinverse: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, float, np.ndarray]:
     """
     Mirror `mgcv/src/gdi.c::pls_fit1()` signed-weight SVD correction.
@@ -431,6 +432,8 @@ def _signed_weight_rank_correction(
         z = np.zeros((0, 0), dtype=np.float64)
         return z, z, z, 0.0, z
 
+    # gdiPK retains a pseudoinverse for indefinite final systems; pls_fit1
+    # instead rejects them so PIRLS can retry with nonnegative weights.
     n_neg = int(q1_negative_rows.shape[0])
     k = max(n_neg, rank + 1)
     iq = np.zeros((k, rank), dtype=np.float64)
@@ -439,7 +442,7 @@ def _signed_weight_rank_correction(
 
     _u, sing_vals, vt = np.linalg.svd(iq, full_matrices=False)
     delta = 1.0 - 2.0 * sing_vals * sing_vals
-    if np.any(delta < -rank_tol):
+    if not signed_pseudoinverse and np.any(delta < -rank_tol):
         raise np.linalg.LinAlgError(
             "signed-weight stacked QR system is not positive definite."
         )
@@ -602,6 +605,7 @@ def build_penalized_qr_state_nonnegative(
     rS: np.ndarray,
     rank_tol: float,
     reml: bool,
+    signed_pseudoinverse: bool = False,
 ) -> NonnegativePenalizedQRState:
     X, z, w, E, Es, rS = _validate_nonnegative_qr_inputs(
         X, z, w, penalty_sqrt_E, penalty_rank_Es, rS
@@ -615,6 +619,7 @@ def build_penalized_qr_state_nonnegative(
         penalty_sqrt=E,
         penalty_rank_rows=Es,
         rank_tol=rank_tol,
+        signed_pseudoinverse=signed_pseudoinverse,
     )
 
     rank = int(out.system_rank)
@@ -645,7 +650,9 @@ def build_penalized_qr_state_nonnegative(
             log_det_correction,
             _hessian_correction_basis,
         ) = _signed_weight_rank_correction(
-            q1_matrix[neg_weight_mask, :], rank_tol=rank_tol
+            q1_matrix[neg_weight_mask, :],
+            rank_tol=rank_tol,
+            signed_pseudoinverse=signed_pseudoinverse,
         )
         if rank == 0:
             P = np.empty((0, 0), dtype=np.float64)
@@ -833,9 +840,7 @@ def pls_fit1_nonneg_w(
     if z.shape[0] != n_obs or w.shape[0] != n_obs or wy.shape[0] != n_obs:
         raise ValueError("shape mismatch among X rows, z, w, and wy.")
     exp_wy = w * z
-    if not np.allclose(
-        wy, exp_wy, rtol=0.0, atol=float(np.finfo(np.float64).eps * 8)
-    ):
+    if not np.allclose(wy, exp_wy, rtol=0.0, atol=float(np.finfo(np.float64).eps * 8)):
         raise ValueError("wy must equal w * z elementwise (mgcv pls_fit1 contract).")
     out = _stacked_penalized_ls_nonneg_solution(
         X,

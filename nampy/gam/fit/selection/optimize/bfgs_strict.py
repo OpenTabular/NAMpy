@@ -340,13 +340,12 @@ def _optimize_outer_bfgs_strict(
             if uses_joint_log_scale and dvkk_arr.size >= n:
                 ind = np.arange(max(0, n - 1), dtype=np.int64)
                 vals = dvkk_arr[: ind.size]
-            elif (
-                uses_joint_log_theta
-                and joint_log_theta_first
-                and dvkk_arr.size >= n
-            ):
-                ind = np.arange(1, n, dtype=np.int64)
-                vals = dvkk_arr[1 : 1 + ind.size]
+            elif uses_joint_log_theta and joint_log_theta_first:
+                ntheta = int(getattr(objective, "n_theta", 1))
+                ind = np.arange(ntheta, n, dtype=np.int64)
+                vals = dvkk_arr[ntheta:] if dvkk_arr.size >= n else dvkk_arr
+                ind = ind[: vals.size]
+                vals = vals[: ind.size]
             else:
                 ind = np.arange(min(dvkk_arr.size, n), dtype=np.int64)
                 vals = dvkk_arr[: ind.size]
@@ -412,9 +411,6 @@ def _optimize_outer_bfgs_strict(
                     trial_local["grad"] = np.asarray(grad_trial, dtype=np.float64)
                     trial_local["dVkk"] = np.asarray(dvkk_trial, dtype=np.float64)
                     trial_local["dscore"] = float(step @ trial_local["grad"])
-                    trial_local["start"] = _copy_state_vector(coef_grad)
-                    trial_local["eta"] = _copy_state_vector(eta_grad)
-                    trial_local["mustart"] = _copy_state_vector(mu_grad)
                     trial_local["scale_est"] = scale_grad
                     if abs(float(trial_local["dscore"])) <= -c2 * float(
                         initial["dscore"]
@@ -523,9 +519,8 @@ def _optimize_outer_bfgs_strict(
                         trial["grad"] = np.asarray(grad_now, dtype=np.float64)
                         trial["dVkk"] = np.asarray(dvkk_now, dtype=np.float64)
                         trial["dscore"] = float(trial["grad"] @ step)
-                        trial["start"] = _copy_state_vector(coef_now)
-                        trial["eta"] = _copy_state_vector(eta_now)
-                        trial["mustart"] = _copy_state_vector(mu_now)
+                        # mgcv::bfgs retains the value-fit starts when this
+                        # separate evaluation only obtains the trial gradient.
                         trial["scale_est"] = scale_now
 
                     if abs(float(trial["dscore"])) <= -c2 * float(initial["dscore"]):
@@ -654,9 +649,6 @@ def _optimize_outer_bfgs_strict(
                         trial["grad"] = np.asarray(grad_rb, dtype=np.float64)
                         trial["dscore"] = float(trial["grad"] @ step)
                         trial["dVkk"] = np.asarray(dvkk_rb, dtype=np.float64)
-                        trial["start"] = _copy_state_vector(coef_rb)
-                        trial["eta"] = _copy_state_vector(eta_rb)
-                        trial["mustart"] = _copy_state_vector(mu_rb)
                         trial["scale_est"] = scale_rb
                         counter += 1
                         uconv0 = np.abs(np.asarray(trial["grad"], dtype=np.float64)) > (

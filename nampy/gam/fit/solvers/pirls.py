@@ -74,6 +74,13 @@ def _pirls_gdi_report_state(
         & (working_weights != 0.0)
         & np.isfinite(working_response)
     )
+    if getattr(model.family, "name", "") == "scat":
+        # gam.fit4's final good mask uses finite Wz rather than finite z.
+        # SCAT's EDmu2 is unweighted, so zero-prior rows still enter Fisher
+        # covariance exactly as they do in gdi2.
+        good = np.isfinite(working_weights)
+        working_response = working_response.copy()
+        working_response[~np.isfinite(working_response)] = 0.0
     if not np.any(good):
         raise RuntimeError(
             "PIRLS finalization has no informative observations in the "
@@ -94,9 +101,18 @@ def _pirls_gdi_report_state(
         rS=_canonical_penalty_root_stack(model, canonical, q_full),
         rank_tol=rank_tol,
         reml=True,
+        signed_pseudoinverse=True,
     )
 
-    coef_canonical = np.asarray(qr_state.beta_full, dtype=np.float64)
+    # gam.fit4 returns the converged IRLS coefficients, not oo$beta from
+    # the final gdi2 factorization (that refreshed value is used only by NCV).
+    # gam.fit3 instead reports gdi1's refreshed coefficient representative.
+    coef_canonical = np.asarray(
+        sol["coef_full"]
+        if str(getattr(model.family, "family_class", "")).lower() == "extended"
+        else qr_state.beta_full,
+        dtype=np.float64,
+    )
     coef_full = np.asarray(transform @ coef_canonical, dtype=np.float64)
 
     # mgcv/src/gdi.c::{gdi1,gdi2} first fixes the rank/drop/pivot gauge using

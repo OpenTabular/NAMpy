@@ -49,6 +49,7 @@ from .objectives import (
     _JointGammaPirlsRemlObjective,
     _JointNegbinPirlsRemlObjective,
     _JointOcatPirlsRemlObjective,
+    _JointScatPirlsRemlObjective,
     _JointTweediePirlsRemlObjective,
 )
 from .shape_bfgs import optimize_transformed_bfgs
@@ -1156,28 +1157,38 @@ def _run_joint_betar_outer(model, y, x0, free_mask, method, bounds, optimizer, n
     return model
 
 
-def _run_joint_ocat_outer(model, y, x0, free_mask, method, bounds, optimizer, n_free):
-    """Joint ``ocat`` outer optimization in mgcv's ``(theta, sp)`` order."""
+def _run_joint_vector_theta_outer(
+    model, y, x0, free_mask, method, bounds, optimizer, n_free
+):
+    """Joint fixed-scale extended-family optimization in ``(theta, sp)`` order."""
     if optimizer == "efs":
         raise NotImplementedError(
-            "Joint ocat cutpoint estimation is not supported by the EFS optimizer."
+            "Joint vector-theta estimation is not supported by the EFS optimizer."
         )
     ntheta = int(getattr(model.family, "n_theta", 0) or 0)
     if not bool(getattr(model.family, "_initialized_from_data", False)):
         model.family.initialize_mu(y)
     theta0 = np.asarray(model.family.getTheta(False), dtype=np.float64).ravel()
     if theta0.size != ntheta:
-        raise ValueError("ocat joint optimization requires all cutpoint gaps free.")
+        raise ValueError("Joint optimization requires all ancillary parameters free.")
     x_joint0 = np.concatenate((theta0, np.asarray(x0, dtype=np.float64).ravel()))
     joint_bounds = [(-np.inf, np.inf)] * ntheta + list(bounds)
     branch_m = "LAML" if str(method).lower() == "laml" else str(method).upper()
-    objective = _JointOcatPirlsRemlObjective(model, y, branch_m)
+    objective_class = (
+        _JointScatPirlsRemlObjective
+        if model.family.joint_outer_strategy is JointOuterStrategy.SCAT_THETA
+        else _JointOcatPirlsRemlObjective
+    )
+    objective = objective_class(model, y, branch_m)
     if optimizer == "outer_newton":
         result_joint = optimize_outer_newton_indefinite_hessian(
             objective=objective,
             x0=x_joint0,
             bounds=joint_bounds,
-            conv_tol=1e-6,
+            conv_tol=float(_control_for(model).newton.get("conv_tol", 1e-6)),
+            max_nstep=float(_control_for(model).newton.get("max_n_step", 5.0)),
+            max_sstep=float(_control_for(model).newton.get("max_s_step", 2.0)),
+            max_half=int(_control_for(model).newton.get("max_half", 30)),
         )
     elif optimizer == "bfgs":
         result_joint = _optimize_outer_bfgs_strict(
@@ -1185,6 +1196,9 @@ def _run_joint_ocat_outer(model, y, x0, free_mask, method, bounds, optimizer, n_
             x0=x_joint0,
             bounds=joint_bounds,
             score_type=str(method).lower(),
+            conv_tol=float(_control_for(model).newton.get("conv_tol", 1e-6)),
+            max_nstep=float(_control_for(model).newton.get("max_n_step", 5.0)),
+            max_sstep=float(_control_for(model).newton.get("max_s_step", 2.0)),
         )
     elif optimizer == "optim":
         result_joint = _optimize_outer_optim_strict(
@@ -1201,7 +1215,7 @@ def _run_joint_ocat_outer(model, y, x0, free_mask, method, bounds, optimizer, n_
         )
     else:
         raise NotImplementedError(
-            f"Strict ocat outer optimization does not support optimizer={optimizer!r}."
+            f"Strict vector-theta optimization does not support optimizer={optimizer!r}."
         )
 
     x_joint = np.asarray(result_joint.x, dtype=np.float64).ravel()
@@ -1221,7 +1235,7 @@ def _run_joint_ocat_outer(model, y, x0, free_mask, method, bounds, optimizer, n_
         njev=int(getattr(result_joint, "njev", objective.n_jac)),
         nhev=int(getattr(result_joint, "nhev", objective.n_hess)),
     )
-    result.joint_outer_strategy = JointOuterStrategy.OCAT_THETA
+    result.joint_outer_strategy = model.family.joint_outer_strategy
     result.joint_log_theta = log_theta.copy()
     result.selected_theta = model.family.getTheta(trans=True).copy()
     result.joint_x = x_joint.copy()
@@ -1599,10 +1613,10 @@ def optimize_smoothing_params(
         joint_pirls_strategy is JointOuterStrategy.BETAR_THETA
         and bool(getattr(model.family, "estimate_theta", False))
     )
-    use_joint_ocat_theta = (
-        joint_pirls_strategy is JointOuterStrategy.OCAT_THETA
-        and bool(getattr(model.family, "estimate_theta", False))
-    )
+    use_joint_vector_theta = joint_pirls_strategy in {
+        JointOuterStrategy.OCAT_THETA,
+        JointOuterStrategy.SCAT_THETA,
+    } and bool(getattr(model.family, "estimate_theta", False))
     _fit_workspace(model).pirls_disable_theta_efs = False
 
     has_joint_outer_params = (
@@ -1610,7 +1624,7 @@ def optimize_smoothing_params(
         or use_joint_gamma_reml_scale
         or use_joint_negbin_reml_theta
         or use_joint_betar_theta
-        or use_joint_ocat_theta
+        or use_joint_vector_theta
         or joint_pirls_strategy is JointOuterStrategy.TWEEDIE
     )
     if n_free == 0 and not has_joint_outer_params:
@@ -1751,8 +1765,8 @@ def optimize_smoothing_params(
             n_free,
         )
 
-    if use_joint_ocat_theta:
-        return _run_joint_ocat_outer(
+    if use_joint_vector_theta:
+        return _run_joint_vector_theta_outer(
             model,
             y,
             x0,

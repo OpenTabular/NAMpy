@@ -1,0 +1,29 @@
+{
+  "namespace": "mgcv_gammals_initialsp_basis",
+  "upstream": {
+    "R": "4.6.1",
+    "mgcv": "1.9-4"
+  },
+  "generator": "tests/optimization/probes/mgcv_gammals_initialsp_basis.R",
+  "input": "inputs.json",
+  "reference": "reference.json",
+  "source_functions": [
+    "mgcv/R/mgcv.r::initial.spg",
+    "mgcv/R/fast-REML.r::Sl.initial.repara",
+    "mgcv/R/gamlss.r::gammals initialize"
+  ],
+  "source_files_sha256": {
+    "R/mgcv.r": "f2c782d23d361c987836d936b3c01d14846829377fbb1768504298094a7b0120",
+    "R/gamlss.r": "d82fbc72b270dc1bd062c90d867c4f445043d79094a3cf0bae5c5479f12c8fa0",
+    "R/fast-REML.r": "6367012b40ce91ab9d2018e376bb954ae95a5ee8eee2f4d761ec5f8af582d988"
+  },
+  "probe_sha256": "6c451f02b0b1d6b5f8b9091200fdd4722bf7a7ca1c4e780209ba4a70ff18e882",
+  "execution": "Installed mgcv loaded with library(mgcv); no vendored functions sourced. Capture: NAMPY_REFRESH_REFERENCE_FIXTURES=1 Rscript tests/optimization/probes/mgcv_gammals_initialsp_basis.R tests/reference_fixtures/mgcv_gammals_initialsp_basis/inputs.json tests/reference_fixtures/mgcv_gammals_initialsp_basis/reference.json",
+  "evidence": "Negating only column 5 of the initial reparameterized design leaves X X transpose identical but changes initial SP from [3.623775805760383,4.486031600133094] to [1.9573834228351665,3.3202203834834956] in actual R. The routine combines this design with original penalties, so mean(log(SP)) is not invariant to eigenvector signs. Tests pin the source representation and compare actual initial parameters at atol=1e-10 instead of the previous invalid mean-log tolerance0.05. Native outputs retain finite-positive-shape checks; downstream native select fit/SE tests remain unchanged.",
+  "validation": "Three initialization tests pass under native and Haswell OpenBLAS; native Haswell downstream outer endpoint and prediction standard-error cases pass existing tolerances.",
+  "validation_layers": {
+    "common_basis": "Initializer compared on identical source X representation at atol1e-10; this establishes arithmetic parity, not identical raw starts for independently chosen eigenvector signs.",
+    "native_invariants": "Unpinned design X X transpose, original penalties, and Eb transpose Eb checked at atol1e-10; unpinned initializer retains shape/finite/positive checks.",
+    "native_end_to_end": "Unmodified selected gammals ML endpoint, training prediction/SE, newdata response prediction, and unconditional response SE tests pass on Haswell. Existing endpoint/prediction tolerances unchanged."
+  }
+}

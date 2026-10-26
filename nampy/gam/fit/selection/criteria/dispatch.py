@@ -51,6 +51,7 @@ from .pirls.family_ocat import (
     criterion_ml_reml_pirls_frozen_ocat,
     is_joint_ocat_theta_model,
 )
+from .pirls.family_scat import criterion_ml_reml_pirls_scat
 from .pirls.outer_strategies import get_joint_outer_handler
 from .shape import (
     criterion_gradient_transformed,
@@ -63,6 +64,13 @@ def _normalize_criterion_method(model, method):
     method = str(method).strip().lower().replace("_", "-")
     aliases = {"p.ml": "p-ml", "p.reml": "p-reml"}
     method = aliases.get(method, method)
+    if (
+        method in {"p-ml", "p-reml"}
+        and getattr(model.family, "family_class", "") == "extended"
+    ):
+        # estimate.gam resets extended-family criteria before the ordinary
+        # known-scale Pearson shortcut can turn P-ML into ML.
+        return "reml"
     if (
         method in {"p-ml", "p-reml"}
         and getattr(model.family, "known_scale", None) is not None
@@ -101,6 +109,8 @@ def criterion_value(model, y, log_sp, method="gcv"):
     if method in {"ubre", "aic", "ubreaic"}:
         return criterion_ubre_pirls(model, y, log_sp)
     if method == "ml":
+        if model.family.name == "scat":
+            return criterion_ml_reml_pirls_scat(model, y, log_sp, "ML")
         if is_joint_negbin_theta_model(model):
             return criterion_ml_reml_pirls_frozen_negbin(model, y, log_sp, "ML")
         if is_joint_betar_theta_model(model):
@@ -112,6 +122,8 @@ def criterion_value(model, y, log_sp, method="gcv"):
             return handler.value(model, y, log_sp, "ML")
         return criterion_ml_reml(model, y, log_sp, "ml")
     if method in {"reml", "laml"}:
+        if model.family.name == "scat":
+            return criterion_ml_reml_pirls_scat(model, y, log_sp, "REML")
         if is_joint_negbin_theta_model(model):
             return criterion_ml_reml_pirls_frozen_negbin(model, y, log_sp, "REML")
         if is_joint_betar_theta_model(model):

@@ -1,0 +1,21 @@
+{
+  "package": "mgcv",
+  "package_version": "1.9-4",
+  "generator": "tests/mgcv_parity_utils.py",
+  "test": "tests/optimization/test_mgcv_gam_side_parity.py",
+  "capture_command": "NAMPY_REFRESH_REFERENCE_FIXTURES=1 python -m pytest tests/optimization/test_mgcv_gam_side_parity.py::test_three_way_nested_side_conditions_match_mgcv_behavior_invariantly",
+  "independent_coordinates": {
+    "input": "_make_gaussian_data(seed=515,n=180), x2 drawn from default_rng(516).uniform(-1.25,1.25,180)",
+    "setup": "../mgcv/9e4dd0d1e01cb38cb50ce707aa89af086adff09b6dd10d2b1b1aef601bb9af2a.json.gz",
+    "prediction": "../mgcv/05138b2511b25058e07741e1b9a467542afee3383a565fbc1d4954024a211cc0.json.gz",
+    "deletion_counts": [0, 1, 2],
+    "validation": "Fit and prediction standard errors checked at absolute tolerance 2e-8, including Haswell BLAS."
+  },
+  "retained_degenerate_coordinates": {
+    "input": "Original stream restarted at seed515 for x2; hence x2 equals .625*x0 to floating-point roundoff.",
+    "setup": "../mgcv/d2c31941a6993c7fda0c4c427c9eb17e9f1679f5963b22baa4b6d14f2fef284f.json.gz",
+    "prediction_diagnostic_only": "../mgcv/0b2a5cdc058586bbef66e366a18719c45277fbd8451a855e7064419549af2d6b.json.gz",
+    "deletion_counts": [0, 1, 6],
+    "limitation": "The three-dimensional thin-plate polynomial locations are rank deficient. Exact fitted behavior was not established across BLAS implementations: Haswell differed by .00334326 on held-out fit values. This snapshot is retained as evidence, not a strict behavioral parity claim. Runtime tests compare source deletion counts, degrees of freedom and penalty ranks only."
+  }
+}

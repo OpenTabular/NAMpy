@@ -318,6 +318,7 @@ class GAM:
             "negbin",
             "betar",
             "ocat",
+            "scat",
         }
         if self.scale > 0.0:
             self.family.known_scale = float(self.scale)
@@ -1241,7 +1242,12 @@ class GAM:
 
     def bic(self) -> float:
         """BIC using mgcv-style effective df."""
-        n_obs = float(len(np.asarray(self.y_, dtype=np.float64)))
+        # BIC.default uses nobs.glm: zero-prior-weight rows do not count.
+        n_obs = float(
+            len(np.asarray(self.y_, dtype=np.float64))
+            if self.prior_weights_ is None
+            else np.count_nonzero(np.asarray(self.prior_weights_) != 0)
+        )
         return float(-2.0 * self.loglik() + np.log(n_obs) * self._loglik_effective_df())
 
     def edf1(self) -> np.ndarray:

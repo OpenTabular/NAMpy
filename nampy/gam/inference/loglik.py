@@ -195,6 +195,9 @@ def object_aic(model) -> float | None:
         raw_aic = -2.0 * float(
             np.sum(weights * (y * np.log(mu) - mu - gammaln(y + 1.0)))
         )
+    elif family_name == "scat":
+        # gam.fit4 uses the family aic hook, which ignores external scale.
+        raw_aic = float(model.family.aic(y, mu, weights=weights))
     elif family_name == "binomial":
         # stats::binomial()$aic owns the m <- wt reinterpretation of
         # non-unit prior weights as binomial denominators.
