@@ -40,6 +40,10 @@ Family classes
      - Censored normal location; identity, log, or square-root link.
    * - ``CensoredLogisticFamily``
      - Censored logistic location; see the acceptance boundaries below.
+   * - ``CensoredPoissonFamily``
+     - Censored Poisson mean; log, identity, or square-root link.
+   * - ``CensoredBoxCoxGaussianFamily``
+     - Censored Box-Cox Gaussian location with lambda and log-SD parameters.
    * - ``BetaRegressionFamily``
      - Beta regression for responses in the unit interval.
    * - ``OrderedCategoricalFamily``
@@ -50,6 +54,18 @@ Family classes
      - Gaussian location-scale family and constructor.
    * - ``GammalsFamily``, ``gammals``
      - Gamma location-scale family and constructor.
+   * - ``GumblsFamily``, ``gumbls``
+     - Gumbel location and log scale.
+   * - ``ZiplssFamily``, ``ziplss``
+     - Independent hurdle-Poisson intensity and presence predictors.
+   * - ``MultinomFamily``, ``multinom``
+     - ``K`` log-odds predictors for ``K+1`` categories.
+   * - ``GevlssFamily``, ``gevlss``
+     - Generalized extreme value location, log scale, and shape.
+   * - ``ShashFamily``, ``shash``
+     - Sinh-arcsinh location, scale, skewness, and tail shape.
+   * - ``TwlssFamily``, ``twlss``
+     - Tweedie mean, power, and dispersion; EFS smoothing selection.
 
 Base classes and constructors
 -----------------------------
@@ -372,3 +388,277 @@ likelihood. Simulation and quantile hooks are unavailable upstream.
 Source: mgcv 1.9-4 ``R/efam.r::clog, estimate.theta`` and
 ``R/gam.fit4.r::gam.fit4, efsudr``. These focused checks establish the
 listed scope; cross-platform CI and merge acceptance remain separate.
+
+
+Censored Poisson family
+-----------------------
+
+``CensoredPoissonFamily(link="log")`` implements ``family="cpois"``.
+The predictor models the latent Poisson mean, using a log, identity or
+square-root link. There are no ancillary distribution parameters to estimate.
+Use ``cbind(value, bound)`` for censoring: equal endpoints denote an exact
+count, ``-Inf`` denotes left censoring and ``+Inf`` right censoring. A finite
+unequal pair denotes the discrete event ``min(value,bound) < Y <= max(value,bound)``.
+For example, ``[2, 4]`` includes counts three and four. Predictions return the
+underlying mean, with standard errors for that mean.
+
+The source likelihood, deviance, saturated likelihood and derivative hooks
+ignore observation weights. They are not frequency-weighted Poisson hooks;
+nonunit-weight reference fits retain this source convention. Density and tail
+probabilities follow the scalar R Mathlib ``dpois``/``ppois`` branches, including
+extreme-tail and degenerate-mean cases. Location derivatives through fourth
+order, the discrete saturated-likelihood correction, residuals and null
+calculations use those source probabilities.
+
+Actual-mgcv fixtures cover exact/mixed responses, all three links, fixed
+smoothing, ML/REML selection, positive external dispersion and observation weights,
+coefficients, covariance, EDF, likelihood criteria, residuals and predictions/SE.
+The alternative ``bfgs``, ``optim``, ``nlm`` and ``efs`` routes have direct
+references. The nlm comparison uses matching tighter controls:
+``control={"epsilon": 1e-10, "nlm": {"gradtol": 1e-10, "steptol": 1e-10}}``.
+Source quantile and simulation hooks are unavailable. See
+``examples/example_cpois_gam.py``. Source: mgcv 1.9-4 ``R/efam.r::cpois``
+and the R Mathlib Poisson density/tail routines.
+
+
+Censored Box-Cox Gaussian family
+--------------------------------
+
+``CensoredBoxCoxGaussianFamily(theta=None, link="identity")`` implements
+``family="bcg"``. One predictor describes Gaussian location after a Box-Cox
+response transformation; links are identity, log and square root.
+``getTheta()`` returns lambda and log SD, and ``getTheta(trans=True)``
+transforms the second entry to SD. The default estimates both parameters,
+starting at working values ``[1, 0]``. Positive precision weights replace
+log SD by ``logSD - log(weight)/2``.
+
+Censoring uses explicit paired response data. Nonpositive second-column
+values denote left censoring, positive unequal finite endpoints denote an
+interval, and ``+Inf`` denotes right censoring. Source initialization uses the
+input response scale. Predictions describe the transformed Gaussian location;
+they do not apply an inverse Box-Cox mean correction.
+
+The source fixed constructor has a specific failure: positive
+``theta=[lambda, sd]`` stores three working entries,
+``[lambda, log(lambda), log(sd)]``. Its fitted source call fails with an
+``ls$lsth2`` indexing error. NAMpy rejects this malformed fitted state with
+``ValueError``. The source-owned setter provides an explicit supported
+working-state route:
+
+.. code-block:: python
+
+   import numpy as np
+   from nampy.gam.families import CensoredBoxCoxGaussianFamily
+
+   family = CensoredBoxCoxGaussianFamily(theta=[0.7, 0.8])
+   family.putTheta([0.7, np.log(0.8)])
+
+The family remains fixed, with a coherent two-entry working state; no automatic
+constructor repair is performed. A nonpositive second constructor entry starts
+estimation and retains that entry as the initial working log SD, following
+source initialization order.
+
+References cover the near-zero-lambda expansions, all censor blocks, fourth
+location and second ancillary derivatives, exact and mixed responses,
+precision weights, offsets, fixed/estimated ancillary parameters, and
+fixed/ML/REML smoothing. Estimated-parameter vector fits cover all three links.
+EFS uses the two-parameter source ``estimate.theta`` update inside PIRLS;
+fixed/estimated ancillary vector and mixed-response endpoints have direct
+references. Theta-update references also cover external dispersion one/two;
+the captured scale-two source updates warn about step failure and retain their
+returned state. Estimating ancillary parameters with EFS requires a free
+smoothing parameter: the all-fixed-SP source call errors. Positive ``min_sp``
+and rank-deficient outer-uncertainty combinations retain the extended-family
+guards described above.
+
+Source AIC omits scale/Box-Cox Jacobians and is not an independently normalized
+Box-Cox density. Source saturated-likelihood derivative arrays are zero despite
+the value's ancillary dependence. Exactly transformed censor endpoints can
+produce source NaNs in signed density differences; those NaNs remain visible.
+Quantile and simulation hooks are unavailable. See ``examples/example_bcg_gam.py``.
+Source: mgcv 1.9-4 ``R/efam.r::bcg, estimate.theta`` and ``R/gam.fit4.r``.
+
+
+Additional general families
+----------------------------
+
+The following constructors are exported from ``nampy.gam.families`` and
+``nampy.gam.families.gamlss``. ``GAM`` accepts their names, option dictionaries
+or instances; ``GAMLSS`` exposes natural distribution parameters through
+``predict`` and raw additive predictors through ``predict_link`` or
+``predict(raw=True)``. Source ``GAM.predict(type="response")`` parameterizations
+are described below. Natural-parameter standard errors from
+``GAMLSS.standard_errors(type="response")`` apply the analytic parameter
+Jacobian, including cross-predictor covariance for multinomial probabilities.
+The source GAM prediction hooks retain their own reported-SE conventions.
+For fixed smoothing parameters, general-family AIC uses the conditional
+effective degrees of freedom; smoothing-parameter uncertainty is included
+only when the fitted route supplies its required derivatives.
+
+All six source native likelihoods ignore prior observation weights. This does
+not imply that residuals, initialization or null-deviance calculations ignore
+weights. Each port has frozen actual-R likelihood/derivative and fitted-output
+references; the tested routes are listed separately below. Their seven-stage
+pipeline checks also cover public additive components and versioned save/load.
+These focused references do not establish every smooth/optimizer composition.
+
+``gumbls``
+~~~~~~~~~~
+
+``gumbls(link=("identity", "log"), b=-7)`` has identity-linked location and
+log scale. Its source second ``"log"`` link lower-bounds log scale at ``b``;
+an identity log-scale link is also accepted. ``GAMLSS.predict`` returns
+``(location, scale)`` and ``predict_point`` returns
+``location + EulerGamma * scale``. Source response prediction returns
+``(location, log_scale)``, while source postprocessed fitted values contain
+``(expectation, log_scale)``.
+
+Both scale links have fixed/selected REML references with two smooths, offsets,
+coefficient covariance, criterion/EDF, residuals and response predictions/SE.
+Analytic derivatives through fourth order, source initialization and sampling
+are implemented. Deviance, Pearson and response residuals follow source; null
+deviance is undefined. The source scale-prediction SE uses its scalar ``ve[2]``
+expression, which is preserved. Natural-parameter errors use each row's
+Jacobian. Example: ``examples/example_gumbls_gam.py``.
+
+``ziplss``
+~~~~~~~~~~
+
+``ziplss(link=("identity", "identity"))`` uses separate predictors for log
+Poisson intensity and complementary-log-log presence. It is a hurdle model:
+a positive response follows a zero-truncated Poisson distribution.
+``GAMLSS.predict`` returns ``(lambda, presence)`` and ``predict_point`` returns
+``presence * lambda / (1 - exp(-lambda))``. Source fitted values retain latent
+predictors; source response prediction returns expected counts. Responses must
+be nonnegative counts; the source rejects binary zero/one data.
+
+Fixed/selected REML references cover two smooths, offsets, covariance,
+criterion/EDF, initialization, residuals and predictions/SE. Analytic
+likelihood derivatives through fourth order and simulation are supplied.
+Source residuals support deviance and response types. Its expected-count SE
+uses the first predictor variance twice and clips cross covariance to
+nonnegative values. This source expression is preserved; GAMLSS natural
+parameter errors use the individual parameter Jacobians. Example:
+``examples/example_ziplss_gam.py``.
+
+``multinom``
+~~~~~~~~~~~~
+
+``multinom(K=1)`` uses ``K`` identity-linked log odds against reference class
+zero, for categories ``0,...,K``. ``GAM`` response prediction and
+``GAMLSS.predict`` return ``K+1`` probabilities, ordered ``p0,...,pK``.
+``predict_point`` selects the first most-probable category. Raw/link prediction
+has ``K`` columns, named ``eta1,...,etaK``. Additive components expand these
+logits to ``K+1`` columns with a zero baseline column, so their contributions
+and intercept reconstruct exactly. The probability Jacobian has shape
+``(n, K+1, K)``.
+
+Kernel references cover every packed derivative pattern through fourth order
+at ``K=1,2,3,4``. Fixed-SP fits at ``K=1,2,3`` and a selected REML fit at
+``K=2`` compare coefficients, covariance, EDF, score, predictions/SE and
+deviance residuals. The latter are positive for a correct classification and
+negative otherwise; other residual types are unavailable.
+
+The source baseline dummy is one, adding one per class-zero observation to
+its fitting log likelihood. At fourth derivative order its loop variable
+also overwrites the returned scalar likelihood with ``K``. Both source
+behaviors remain explicit in the likelihood contract. The public normalized
+categorical log density uses actual probabilities. Source GAM probability SEs
+clip cross-predictor covariance at zero; GAMLSS natural errors retain the full
+covariance in the delta method. Example: ``examples/example_multinom_gam.py``.
+
+``gevlss``
+~~~~~~~~~~
+
+``gevlss(link=("identity", "identity", "logit"))`` has three predictors.
+Location accepts identity/log, log scale accepts identity, and shape accepts
+identity or a shifted logit confining it to ``(-1, 0.5)``.
+Source response prediction returns ``(mu, log_sigma, xi)``;
+``GAMLSS.predict`` returns ``(mu, sigma, xi)``. The point prediction uses the
+same conditional-mean expression as source residuals.
+
+All four link combinations have analytic first-through-fourth derivative,
+initialization, density and residual references. Identity/log-location
+fixed/selected REML fits have coefficient, covariance, criterion/EDF and
+prediction/SE references. Source likelihood evaluation replaces tiny shapes
+by signed ``+/-1e-7``; it has no separate zero-shape derivative branch.
+Simulation uses the source inverse CDF and its ``1e-8`` shape cutoff.
+
+The source residual mean is computed before its shape cutoff, retaining an
+undefined ratio at exactly ``xi=0``. Its Pearson denominator retains the
+source ``exp(rho)/xi`` sign. Deviance residuals retain source scaling without
+an added factor two; null deviance is undefined. Public density is negative
+infinity outside support; invalid source likelihood trials remain nonfinite
+for the existing fit-step checks. Example: ``examples/example_gevlss_gam.py``.
+
+``shash``
+~~~~~~~~~
+
+``shash(link=("identity", "logeb", "identity", "identity"), b=0.01,
+phi_pen=0.001)`` models location, log scale, skewness and log tail shape.
+These are the only supported links. ``sigma=exp(eta2)+b`` is bounded below by
+positive ``b``. ``GAMLSS.predict`` returns ``(mu, sigma, epsilon, delta)``;
+``predict_point`` is the source conditional median ``qf(0.5)``. Source quantile,
+CDF/log-CDF and inverse-transform simulation hooks are present.
+Source GAM response prediction returns ``(mu, log_sigma, epsilon, log_delta)``.
+
+The fitting likelihood includes the source ridge
+``-phi_pen * log(delta)**2`` (``phiPen`` is an accepted alias). Public normalized
+density scoring omits that estimation ridge. All analytic derivatives through
+fourth order are supplied. Fixed SP, Newton-selected REML and EFS references
+cover initialization, covariance, criterion/EDF, AIC/logLik, predictions/SE,
+residuals and summary tables.
+
+The EFS parity captures provide the same explicit initial smoothing parameters
+to both implementations. Source ``initial.spg`` uses the initially
+reparameterized design with the original penalty coordinates: an arbitrary
+eigenvector sign can change its starting parameters and the finite EFS
+endpoint. Static source sign-transport checks record this dependence and
+verify common-start prediction, covariance, penalty and EDF invariants.
+
+Nonzero offsets are rejected. The source fitting likelihood's bin lookup
+excludes a lower ``-Inf`` endpoint: an exactly zero standardized residual
+therefore produces positive-infinite source likelihood. The normalized density
+and residual expression stay finite there. Residual centering retains the
+source epsilon-independent Bessel expression. Source residuals support
+deviance and response types; no source null-deviance hook exists.
+Example: ``examples/example_shash_gamlss.py``.
+
+``twlss``
+~~~~~~~~~
+
+``twlss(link=("log", "identity", "identity"), a=1.01, b=1.99)`` models
+Tweedie mean, transformed power and log dispersion, with ``1 < a < b < 2``.
+The mean link also accepts identity or square root; the remaining links are
+identity. Source response values are ``(mu, theta, rho)``;
+``GAMLSS.predict`` returns ``(mu, p, phi)``, where ``phi=exp(rho)`` and the
+source logistic power map confines ``p`` to the supplied bounds.
+``predict_point`` returns mean ``mu``.
+
+Source ``available.derivs=0`` supplies the analytic likelihood gradient and
+Hessian; third/fourth likelihood arrays and a numerical outer-derivative
+fallback are unavailable. Smoothing selection automatically uses EFS,
+including when another optimizer was requested. Fixed-SP and selected-EFS
+fits have direct references for covariance, criterion/EDF, AIC/logLik,
+predictions/SE, all three residual types and summary tables. The source null
+fit retains its independent bounds ``a=1.001, b=1.999``; null postprocessing
+uses each observation's fitted dispersion. Prior weights enter deviance
+residuals and null deviance, although the fitting likelihood ignores them.
+
+The source formula-list setup rejects an external fixed-SP vector when a
+parametric-only middle predictor precedes another smooth. Equivalent source
+captures fix the parameters inside their ``s(..., sp=...)`` terms. All three
+predictor offsets, zero/positive responses, custom power bounds and both source
+initialization branches have kernel references.
+Selected-EFS parity uses the same explicit initial smoothing parameters in
+both implementations. As for ``shash``, source ``initial.spg`` depends on
+arbitrary initial penalty eigenvector signs; its uncontrolled finite EFS
+endpoint need not agree across platforms. Common-start references compare
+predicted functions, full prediction covariance, transported penalties, EDF
+and criterion without fixing eigenvector orientation.
+Example: ``examples/example_twlss_gamlss.py``.
+
+Source for these six ports: mgcv 1.9-4 ``R/gamlss.r`` family constructors,
+``pen.reg``, ``gamlss.etamu``, ``gamlss.gH`` and ``gam.fit5``; Tweedie uses
+``R/gam.fit3.r::ldTweedie`` and ``R/gamlss.r::tw.null.fit``. Cross-platform CI
+and merge acceptance are tracked separately from these local reference scopes.

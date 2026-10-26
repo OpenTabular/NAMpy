@@ -3,6 +3,26 @@ License
 
 NAMpy is licensed under the MIT License.
 
+Upstream numerical routines
+---------------------------
+
+The censored-Poisson implementation includes Python translations of R's
+``dpois_raw``, ``ebd0``, integer ``stirlerr`` and log-space Poisson tail
+routines, with constants from R 4.6's ``src/nmath``. Their upstream authors
+include Catherine Loader, Morten Welinder, Ross Ihaka, the R Core Team and
+the R Foundation. These translations retain the upstream GPL-2.0-or-later
+license; the MIT statement does not replace that license. Copyright and
+license notices are included beside the translated modules. The upstream
+license text is available from
+`R's license collection <https://www.R-project.org/Licenses/GPL-2>`_.
+
+The generated analytic ``shash`` and ``gevlss`` derivative translations
+retain the ``mgcv`` ``R/gamlss.r`` notice: Copyright (c) Simon N. Wood
+(2013--2025), distributed under GPL version 2 or later. The upstream
+``shash`` family credits Matteo Fasiolo and Simon N. Wood. The packaged
+``nampy/gam/families/R_MATH_LICENSE.txt`` also supplies the GPL version 2 text
+for these translations.
+
 MIT License
 -----------
 

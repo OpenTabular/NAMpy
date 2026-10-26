@@ -690,7 +690,7 @@ def _optimize_outer_efs_strict(
             nhev=0,
         )
         result.strict_score_hist = list(score_hist)
-        if getattr(model.family, "name", "") == "clog":
+        if getattr(model.family, "name", "") in {"clog", "bcg"}:
             # efsudr returns its accepted fit; a fresh PIRLS solve would
             # estimate ancillary theta again and change the reported state.
             result.efs_solution = fit

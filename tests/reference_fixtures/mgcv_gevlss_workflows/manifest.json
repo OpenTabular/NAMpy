@@ -1,0 +1,7 @@
+{
+  "input_sha256": "58e0483688495c285dba3bc24625a8d64d6a716051a3be047220fec1eeef188a",
+  "input_generation": "nampy_notes/debug/generate_gevlss_inputs.py; frozen exact doubles, seed 261027",
+  "capture_namespace": "mgcv_gevlss_family",
+  "generator": "tests/families/test_mgcv_gevlss_workflows.py",
+  "generator_sha256": "7e3c364156fa5440773d22192224efdad8243b7b3dd05a925930cde128d7f7ef"
+}

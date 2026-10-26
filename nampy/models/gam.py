@@ -425,7 +425,8 @@ class GAMRegressor(_GAMAdapterBase):
     def _validate_family_role(self, family) -> None:
         name = str(getattr(family, "name", "")).lower()
         n_predictors = int(getattr(family, "n_linear_predictors", 1))
-        if n_predictors != 1 or name in {"binomial", "quasibinomial", "ocat"}:
+        if (n_predictors != 1 or name in {"binomial", "quasibinomial", "ocat"}
+                or getattr(family, "family_class", "") == "general"):
             raise ValueError(
                 "GAMRegressor requires a single-predictor regression family; "
                 f"got {name!r} with {n_predictors} linear predictor(s). Use "

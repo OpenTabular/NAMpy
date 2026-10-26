@@ -1262,7 +1262,8 @@ def solve_general_family_fit(model, y, smoothing_params, weights=None):
         # for those optimizers; the local inner fit still carries REML2 /
         # db_drho, so suppress explicitly instead of relying on absent state.
         suppress_smoothing_uncertainty=(
-            str(getattr(model, "smoothing_optimizer", "")).lower()
+            outer_hess is None
+            or str(getattr(model, "smoothing_optimizer", "")).lower()
             in {"efs", "optim"}
         ),
     )
@@ -1294,7 +1295,12 @@ def solve_general_family_fit(model, y, smoothing_params, weights=None):
         else np.empty((len(y), 0), dtype=np.float64)
     )
 
-    mu = np.asarray(model.family.predict(eta=eta), dtype=np.float64)
+    fitted_hook = getattr(model.family, "predict_fitted", None)
+    mu = np.asarray(
+        fitted_hook(setup.X_full, setup.jj, coef_full, offset=setup.offset_list)
+        if callable(fitted_hook) else model.family.predict(eta=eta),
+        dtype=np.float64,
+    )
 
     RTR = np.asarray(post["R"].T @ post["R"], dtype=np.float64)
     H_coef = np.asarray(post["Vp"] @ RTR, dtype=np.float64)

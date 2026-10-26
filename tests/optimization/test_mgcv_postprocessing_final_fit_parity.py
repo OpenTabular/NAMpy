@@ -10,7 +10,10 @@ import pytest
 from nampy.gam import GAM
 from nampy.gam.fit.selection.criteria import criterion_gradient, criterion_value
 from tests._mgcv_parity_requested_shared import CaseSpec
-from tests.families.test_general_family_mgcv_parity import GENERAL_SE_CASES
+from tests.families.test_general_family_mgcv_parity import (
+    GENERAL_SE_CASES,
+    _reconstruct_general_selected_endpoint_postfit,
+)
 from tests.mgcv_invariant_policy import final_fit_uses_exact_orientation_parity
 from tests.mgcv_parity_utils import _family_specs, _run_mgcv_snapshot
 from tests.parity.test_mgcv_parity_failing_and_warnings import (
@@ -882,6 +885,7 @@ def test_gam_fit5_select_true_postprocessing_at_mgcv_endpoint_matches_mgcv(
     )
     sp = np.asarray(expected_snapshot["fit"]["smoothing_params"], dtype=np.float64)
     _data, gam, fit_warnings = _fit_general_case(case, fixed_sp=sp)
+    _reconstruct_general_selected_endpoint_postfit(gam, expected_snapshot, method)
 
     actual = _serialize_actual_final_fit(
         gam,

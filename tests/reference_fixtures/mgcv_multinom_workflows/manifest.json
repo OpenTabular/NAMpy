@@ -1,0 +1,7 @@
+{
+  "input_sha256": "5d4f87d0b59624b85327d1cde15c082b07d0efdab54cdd67f0f14d73e88efe80",
+  "input_generation": "nampy_notes/debug/generate_multinom_inputs.py; frozen exact doubles, seed 261026",
+  "capture_namespace": "mgcv_multinom_family",
+  "generator": "tests/families/test_mgcv_multinom_workflows.py",
+  "generator_sha256": "f4cd8b200446ad14cfd6787e1b6526932ab0cf4ae8d3468710a299e9c21e509c"
+}

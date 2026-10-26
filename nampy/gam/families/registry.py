@@ -2,6 +2,7 @@ import copy
 
 import numpy as np
 
+from .bcg import CensoredBoxCoxGaussianFamily
 from .betar import BetaRegressionFamily
 from .binomial import (
     BinomialCauchitFamily,
@@ -12,9 +13,16 @@ from .binomial import (
 )
 from .clog import CensoredLogisticFamily
 from .cnorm import CensoredNormalFamily
+from .cpois import CensoredPoissonFamily
 from .family_base import BaseFamily
 from .gamlss.gammals import gammals
 from .gamlss.gaulss import gaulss
+from .gamlss.gevlss import GevlssFamily
+from .gamlss.gumbls import GumblsFamily
+from .gamlss.multinom import MultinomFamily
+from .gamlss.shash import ShashFamily
+from .gamlss.twlss import TwlssFamily
+from .gamlss.ziplss import ZiplssFamily
 from .gamma import GammaIdentityFamily, GammaInverseFamily, GammaLogFamily
 from .gaussian import GaussianIdentityFamily, GaussianInverseFamily, GaussianLogFamily
 from .inverse_gaussian import InverseGaussianFamily
@@ -51,6 +59,25 @@ _GAMMA_LINK_MAP = {
     "log": GammaLogFamily,
     "inverse": GammaInverseFamily,
 }
+
+_GENERAL_FAMILY_FACTORIES = {
+    "gaulss": (gaulss, {"link", "b"}),
+    "gammals": (gammals, {"link", "b"}),
+    "gumbls": (GumblsFamily, {"link", "b"}),
+    "ziplss": (ZiplssFamily, {"link"}),
+    "multinom": (MultinomFamily, {"K"}),
+    "gevlss": (GevlssFamily, {"link"}),
+    "shash": (ShashFamily, {"link", "b", "phi_pen", "phiPen"}),
+    "twlss": (TwlssFamily, {"link", "a", "b"}),
+}
+
+
+def _make_general_family(name, options):
+    factory, allowed = _GENERAL_FAMILY_FACTORIES[name]
+    unknown = set(options) - allowed
+    if unknown:
+        raise ValueError(f"Unsupported {name} options: {', '.join(sorted(unknown))}.")
+    return factory(**options)
 
 
 def clone_gam_family(family: BaseFamily) -> BaseFamily:
@@ -102,12 +129,21 @@ def make_gam_family(family):
 
     if isinstance(family, dict):
         name = str(family.get("name", "")).lower()
-        if name in {"cnorm", "clog"}:
+        if name in _GENERAL_FAMILY_FACTORIES:
+            return _make_general_family(name, {k: v for k, v in family.items() if k != "name"})
+        if name == "cpois":
+            options = {k: v for k, v in family.items() if k != "name"}
+            unknown = set(options) - {"link"}
+            if unknown:
+                raise ValueError(f"Unsupported cpois options: {', '.join(sorted(unknown))}.")
+            return CensoredPoissonFamily(**options)
+        if name in {"cnorm", "clog", "bcg"}:
             options = {k: v for k, v in family.items() if k != "name"}
             unknown = set(options) - {"theta", "link"}
             if unknown:
                 raise ValueError(f"Unsupported {name} options: {', '.join(sorted(unknown))}.")
-            return {"cnorm": CensoredNormalFamily, "clog": CensoredLogisticFamily}[name](**options)
+            return {"cnorm": CensoredNormalFamily, "clog": CensoredLogisticFamily,
+                    "bcg": CensoredBoxCoxGaussianFamily}[name](**options)
         if name == "zip":
             options = {k: v for k, v in family.items() if k != "name"}
             unknown = set(options) - {"theta", "link", "b"}
@@ -215,7 +251,16 @@ def make_gam_family(family):
     if isinstance(family, tuple) and len(family) == 2:
         key = str(family[0]).lower()
         spec = family[1]
-        if key in {"scat", "zip", "cnorm", "clog"}:
+        if key in _GENERAL_FAMILY_FACTORIES:
+            if not isinstance(spec, dict):
+                if key == "multinom":
+                    spec = {"K": spec}
+                else:
+                    raise ValueError(f"{key} tuple options must be a dictionary.")
+            return _make_general_family(key, spec)
+        if key == "cpois":
+            return make_gam_family({"name": key, **(spec if isinstance(spec, dict) else {"link": spec})})
+        if key in {"scat", "zip", "cnorm", "clog", "bcg"}:
             options = spec if isinstance(spec, dict) else {"theta": spec}
             return make_gam_family({"name": key, **options})
         if key in {"quasi", "quasipoisson", "quasibinomial"}:
@@ -336,6 +381,12 @@ def make_gam_family(family):
         family = key
 
     key = str(family).lower()
+    if key == "bcg":
+        return CensoredBoxCoxGaussianFamily()
+    if key in _GENERAL_FAMILY_FACTORIES:
+        return _make_general_family(key, {})
+    if key == "cpois":
+        return CensoredPoissonFamily()
     if key == "cnorm":
         return CensoredNormalFamily()
     if key == "clog":

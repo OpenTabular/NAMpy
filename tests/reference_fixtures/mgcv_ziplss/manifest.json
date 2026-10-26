@@ -1,0 +1,19 @@
+{
+  "namespace": "mgcv_ziplss",
+  "upstream": {
+    "mgcv": "1.9-4",
+    "R": "4.6.1"
+  },
+  "generator": "tests/families/test_mgcv_ziplss_workflows.py",
+  "generator_sha256": "166a0a6319189e4c220047de5f254f4ea987676514505838ad14c32c3f7e39f6",
+  "execution": "Actual installed CRAN mgcv capture; normal tests use static fixtures and require no R.",
+  "source": "R/gamlss.r::ziplss, gamlss.etamu, gamlss.gH,zipll",
+  "scope": "Analytic derivatives through fourth order, source initialization, two smooths and offsets with fixed and REML-selected smoothing, coefficients, covariance, score, fitted values, predictions/SE and residuals. Count validation and source null deviance.",
+  "inputs_sha256": "8f3897d058cf413bd3359c241038c731d7a685ce94b11fa0d489d41a0fb9215a",
+  "fixture_sha256": {
+    "0a8fb7ef0c6aaadf792139fc66f857f039bed5596fce96725085b1ef6a8d39e0.json.gz": "e777a123111705a866523e43c78e98fbd71f64e9aef05535ca8cbdae4d7d2edc",
+    "3620678b56f766764f9c2a1cfb8c4923f951ed76487d4fdd220fe0eb4dc91026.json.gz": "5e460146b907a0791ed39ec2abe8510d84d6c9cf413a4c5a5c3cccd1b1e405f7",
+    "8b3c3b62d28780b221e91204e1894b035df98abf4cf4232290eb1d1afd544fc4.json.gz": "d2717fb384233675409a547bf32f660b4bc621bc124bb394e62be827fb69fa0a",
+    "e2b1627a49197737770bf8498284e593afd5f361169cd2fd161582c6b5b69c80.json.gz": "6a555d6ffac0c46d50b889cb340e2e7cee2366cde96af66c10daab72e739cd89"
+  }
+}

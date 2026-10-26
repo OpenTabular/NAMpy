@@ -242,13 +242,13 @@ def sp_vcov(model, edge_correct: bool = True, reg: float = 1e-3):
     # gam.outer's nlm route returns optimizer metadata without outer.info$hess;
     # sp.vcov therefore has no covariance even if our solver kept a Hessian.
     if (
-        getattr(getattr(model, "family", None), "name", "") in {"scat", "zip", "cnorm", "clog"}
+        getattr(getattr(model, "family", None), "name", "") in {"scat", "zip", "cnorm", "clog", "cpois", "bcg"}
         and str(getattr(model, "smoothing_optimizer", "")).lower() == "nlm"
     ):
         return None
 
     if (
-        getattr(getattr(model, "family", None), "name", "") in {"cnorm", "clog"}
+        getattr(getattr(model, "family", None), "name", "") in {"cnorm", "clog", "cpois", "bcg"}
         and str(getattr(model, "smoothing_optimizer", "")).lower() == "efs"
     ):
         # EFS supplies no outer.info$hess to upstream sp.vcov.
@@ -314,7 +314,7 @@ def gam_vcomp(model, *, rescale: bool = True, conf_lev: float = 0.95):
     sd = np.sqrt(vc)
     names = _gam_vcomp_names(model)
     if (
-        getattr(getattr(model, "family", None), "name", "") in {"cnorm", "clog"}
+        getattr(getattr(model, "family", None), "name", "") in {"cnorm", "clog", "cpois", "bcg"}
         and str(getattr(model, "smoothing_optimizer", "")).lower() == "efs"
     ):
         # EFS supplies no outer.info$hess to upstream sp.vcov.

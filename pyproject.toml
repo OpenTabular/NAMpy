@@ -97,6 +97,9 @@ include-package-data = true
 [tool.setuptools.dynamic]
 version = {attr = "nampy.__version__.__version__"}
 
+[tool.setuptools.package-data]
+"nampy.gam.families" = ["R_MATH_LICENSE.txt"]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["nampy", "nampy.*"]

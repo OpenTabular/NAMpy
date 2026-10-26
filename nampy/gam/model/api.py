@@ -322,6 +322,8 @@ class GAM:
             "zip",
             "cnorm",
             "clog",
+            "cpois",
+            "bcg",
         }
         if self.scale > 0.0:
             self.family.known_scale = float(self.scale)
@@ -860,7 +862,10 @@ class GAM:
                 X, type="response", offset=offset, **prediction_args
             )
         groups = _prediction_term_groups(self)
-        is_multi_predictor = len(_predictor_full_indices(self)) > 1
+        is_multi_predictor = (
+            len(_predictor_full_indices(self)) > 1
+            or getattr(self.family, "family_class", "") == "general"
+        )
         for index, group in enumerate(groups):
             term = group["blocks"][0]
             term_key = str(getattr(term, "term_id", "") or group["label"])
