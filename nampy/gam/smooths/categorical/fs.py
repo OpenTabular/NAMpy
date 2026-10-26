@@ -107,6 +107,9 @@ def _build_base_smooth_term(
     select,
     constraint_mode,
     metadata,
+    factor_semantics=True,
+    sp=None,
+    smoothing_id=None,
 ):
     """
     Build the per-level base smooth used inside fs/sz.
@@ -117,11 +120,11 @@ def _build_base_smooth_term(
     base_bs = str(base_bs).lower()
     metric_features = list(metric_features)
     descriptor = get_basis_descriptor(base_bs)
-    if descriptor is None or not descriptor.supports_factor_smooth:
+    if descriptor is None or (factor_semantics and not descriptor.supports_factor_smooth):
         raise NotImplementedError(
             f"Current {mode} implementation does not support base bs={base_bs!r}."
         )
-    if mode == "fs" and not descriptor.supports_fs:
+    if factor_semantics and mode == "fs" and not descriptor.supports_fs:
         raise NotImplementedError(_fs_full_rank_base_error(base_bs))
     descriptor.validate_feature_count(
         len(metric_features), context=f"{mode} base smooth"
@@ -132,7 +135,7 @@ def _build_base_smooth_term(
             f"got xt={xt_rest!r}."
         )
 
-    base_m = outer_m if descriptor.factor_forwards_m else None
+    base_m = outer_m if not factor_semantics or descriptor.factor_forwards_m else None
     if base_m is None and xt_rest is not None and base_bs in {"bs", "cp", "ps"}:
         base_m = xt_rest.get("m", None)
     return make_basis_term(
@@ -142,9 +145,9 @@ def _build_base_smooth_term(
         m=base_m,
         xt=xt_rest,
         label=label,
-        smoothing_id=None,
+        smoothing_id=smoothing_id,
         by=by,
-        sp=None,
+        sp=sp,
         select=bool(select),
         fixed=bool(fixed),
         constraint_mode=str(constraint_mode),
@@ -155,6 +158,12 @@ def _build_base_smooth_term(
 
 
 def _fs_full_rank_base_error(base_bs: str) -> str:
+    if base_bs in {"so", "sf", "sw"}:
+        return (
+            f'`bs="fs"` with full-rank soap base bs={base_bs!r} is unsupported. '
+            "The mgcv 1.9-4 constructor has no null directions here but its "
+            "null-penalty loop indexes 1:0 and fails with subscript out of bounds."
+        )
     return (
         f'`bs="fs"` with base bs={base_bs!r} is unsupported. '
         "Upstream mgcv::smooth.construct.fs.smooth.spec also rejects this "
@@ -323,6 +332,15 @@ class _FactorSmoothBase(BaseSmoothTerm):
         self._require_fitted()
         raise NotImplementedError
 
+    def offset_new(self, X_new):
+        # No-factor fs/sz delegates to the original base constructor, retaining
+        # its offset. Actual factor interactions replace X and discard offsets
+        # upstream, so only the delegation path forwards this hook.
+        if self._delegate_term is None:
+            return None
+        hook = getattr(self._delegate_term, "offset_new", None)
+        return hook(X_new) if callable(hook) else None
+
     def get_penalty_definitions(self):
         if self._delegate_term is not None:
             return self._delegate_term.get_penalty_definitions()
@@ -411,9 +429,13 @@ class _FactorSmoothBase(BaseSmoothTerm):
                 select=self.select,
                 constraint_mode=("auto" if mode == "fs" else "never"),
                 metadata=dict(self.metadata),
+                factor_semantics=False,
+                sp=self.sp,
+                smoothing_id=self.smoothing_id,
             )
             base_term.fit(X, feature_names)
             self._delegate_term = base_term
+            self.prediction_offset = getattr(base_term, "prediction_offset", None)
             self.term_type = base_term.term_type
             self.basis_name = base_term.basis_name
             self._record_constraint_result(
@@ -592,9 +614,9 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             )
 
         base_spec = _parse_factor_smooth_xt(self.xt, default_bs="tp")
-        if locations.ndim == 3 and base_spec.bs not in {"cr", "ps", "tp"}:
+        if locations.ndim == 3 and base_spec.bs not in {"cr", "ps", "tp", "so", "sf", "sw"}:
             raise NotImplementedError(
-                "Matrix fs smooths currently support only validated cr, ps and tp bases."
+                "Matrix fs smooths currently support only validated cr, ps, tp and soap bases."
             )
         # mgcv::smooth.construct.fs.smooth.spec calls smooth.construct on the
         # marginal spec without extra side constraints before duplicating by
@@ -928,9 +950,9 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             )
 
         base_spec = _parse_factor_smooth_xt(self.xt, default_bs="tp")
-        if locations.ndim == 3 and base_spec.bs not in {"cr", "ps", "tp"}:
+        if locations.ndim == 3 and base_spec.bs not in {"cr", "ps", "tp", "so", "sf", "sw"}:
             raise NotImplementedError(
-                "Matrix sz smooths currently support only validated cr, ps and tp bases."
+                "Matrix sz smooths currently support only validated cr, ps, tp and soap bases."
             )
         base_term = _build_base_smooth_term(
             metric_features=self._metric_feature_names,

@@ -42,7 +42,9 @@ REGULAR_BASES = {
     "ts",
 }
 
-TENSOR_BASES = (REGULAR_BASES - {"ad", "sc", "scad", "so"}) | {"re"}
+# Soap eligibility is checked against the constructed penalty count: fully
+# prescribed so boundaries leave one penalty and are valid tensor margins.
+TENSOR_BASES = (REGULAR_BASES - {"ad", "sc", "scad"}) | {"re"}
 
 
 def test_regular_basis_descriptors_own_all_construction_capabilities():

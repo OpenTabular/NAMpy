@@ -82,7 +82,7 @@ def test_soap_factor_fitted_parity(references, mode, basis, method, by, domain):
 
 
 @pytest.mark.parametrize("mode,basis", [("fs", "sf"), ("sz", "sf"), ("sz", "sw")])
-def test_soap_factor_persistence_and_matrix_scope(references, mode, basis, tmp_path):
+def test_soap_factor_persistence(references, mode, basis, tmp_path):
     ref = references["cases"][f"{mode}/{basis}/fixed/FALSE/mixed"]
     xt = {"bs": basis, "bnd": ref["boundary"], "nmax": 30}
     formula = f"response~s(x,y,f,bs='{mode}',k=8,xt={xt!r})"
@@ -100,11 +100,6 @@ def test_soap_factor_persistence_and_matrix_scope(references, mode, basis, tmp_p
     np.testing.assert_allclose(
         restored.predict(new, return_se=True), model.predict(new, return_se=True)
     )
-    matrix = frame.copy()
-    for column in ["x", "y"]:
-        matrix[column] = [[v, v] for v in frame[column]]
-    with pytest.raises(NotImplementedError, match="Matrix"):
-        model.fit(data=matrix)
 
 
 @pytest.mark.parametrize(

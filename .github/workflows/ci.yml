@@ -188,10 +188,15 @@ jobs:
         tests/smooths/test_t2_bs_functional_invariants.py
         tests/optimization/test_mgcv_weighted_gaussian_criterion.py
         tests/smooths/test_mgcv_soap_tensor.py
+        tests/smooths/test_mgcv_soap_tensor_compositions.py
         tests/smooths/test_mgcv_re_tensor.py
         tests/smooths/test_mgcv_re_tensor_numeric_labels.py
         tests/smooths/test_mgcv_soap_factor.py
+        tests/smooths/test_mgcv_soap_factor_classification.py
+        tests/smooths/test_mgcv_soap_matrix_factor.py
         tests/docs/test_matrix_functional_example.py
+        tests/docs/test_soap_compositions_example.py
+        tests/parity/test_gam_seven_stage_pipeline_contracts.py::test_soap_compositions_cover_seven_stage_pipeline
         -q
 
     - name: Run portable spline-constructor slices

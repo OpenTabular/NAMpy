@@ -121,8 +121,17 @@ def test_public_family_specs_and_named_formula_order_match_instances(fitted_fami
     model, _ = _fit(name, _spec(name, kind), named=kind != "name")
     assert model.predictor_names_ == baseline.predictor_names_
     assert model.parameter_names_ == baseline.parameter_names_
-    np.testing.assert_array_equal(model.predict(frame), baseline.predict(frame))
-    np.testing.assert_array_equal(model.predict_link(frame), baseline.predict_link(frame))
+    # These are independently fitted models. Equivalent family specifications
+    # need numerical agreement; BLAS and nonlinear transforms can round their
+    # results differently by a few float64 ulps across allocations/platforms.
+    roundoff = 32 * np.finfo(np.float64).eps
+    np.testing.assert_allclose(
+        model.predict(frame), baseline.predict(frame), atol=roundoff, rtol=roundoff
+    )
+    np.testing.assert_allclose(
+        model.predict_link(frame), baseline.predict_link(frame),
+        atol=roundoff, rtol=roundoff,
+    )
 
 
 def _independent_distribution(name, eta, y, family):

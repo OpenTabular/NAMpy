@@ -168,10 +168,15 @@ The following combinations remain unsupported and fail explicitly:
 * shape inequalities requested through mgcv's newer ``sc``/``scad`` bases;
   these need its separate ``scasm`` fitter. Their unconstrained constructor
   branches are available. SCAM's existing constrained bases remain separate;
-* ``so`` and multi-penalty ``sf`` tensor/factor-smooth margins, full-rank ``sw``
-  inside ``fs``, and soap factor nesting with matrix coordinates. Single-penalty
-  ``sf``/``sw`` tensor margins, ordinary-input ``fs`` with ``sf``, and ``sz``
-  with ``sf``/``sw`` are supported; see :ref:`soap-film-smooths`;
+* soap tensor/factor margins with multiple penalties: ``so`` with any free
+  boundary and ``sf`` with multiple free loops. These are explicit upstream
+  rejections. Fully known-boundary ``so`` tensors and ``sz`` are supported;
+  single-penalty ``sf/sw`` tensor and accepted matrix-coordinate factor
+  compositions are also available. Full-rank ``sw`` inside a real ``fs``
+  interaction reaches an upstream zero-null indexing failure and remains
+  rejected. Explicit matrix-valued factors need additional factor-plus-dim
+  metadata support; scalar factors with paired matrix soap coordinates work.
+  See :ref:`soap-film-smooths` for the source boundary-offset convention;
 * known-boundary ``so``/``sf`` matrix fits, which fail during upstream offset
   aggregation, and weighted 2D adaptive matrix fits, whose upstream prediction
   drops the ``by`` variable. Free-boundary soap matrix fits, 1D adaptive matrix
