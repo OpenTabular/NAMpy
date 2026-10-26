@@ -153,7 +153,7 @@ def _fit(case, *, explicit=False):
     )
 
 
-def _assert_fit(case, reference, model):
+def _assert_fit(case, reference, model, *, aliased=False):
     from nampy.gam.inference.null_deviance import null_deviance
     from nampy.gam.model_state import _coef_full, _deviance, _edf_total, _fit_state
 
@@ -169,6 +169,25 @@ def _assert_fit(case, reference, model):
         "bic": model.bic(),
         "loglik": model.loglik(),
     }
+    if aliased:
+        # gam.fit4 explicitly allows different parameters to be dropped under
+        # structural collinearity. The rank case has identical x/z columns;
+        # their retained pivot (and raw coefficient covariance) is not unique.
+        X = model.predict(type="lpmatrix")
+        reference_X = np.asarray(reference["X"])
+        np.testing.assert_allclose(X, reference_X, atol=2e-7, rtol=2e-7)
+        assert np.linalg.matrix_rank(X) < X.shape[1]
+        np.testing.assert_allclose(
+            X @ checks.pop("coef"),
+            reference_X @ np.asarray(reference["coef"]),
+            atol=2e-7, rtol=2e-7, err_msg="identified coefficient effect",
+        )
+        for name in ("Vp", "Ve"):
+            np.testing.assert_allclose(
+                X @ checks.pop(name) @ X.T,
+                reference_X @ np.asarray(reference[name]) @ reference_X.T,
+                atol=2e-7, rtol=2e-7, err_msg=f"identified {name} kernel",
+            )
     for name, actual in checks.items():
         np.testing.assert_allclose(
             actual, reference[name], atol=2e-7, rtol=2e-7, err_msg=name
@@ -186,12 +205,33 @@ def _assert_fit(case, reference, model):
                 rtol=2e-7,
                 err_msg=name,
             )
+    newdata = _newdata()
+    reference_P = np.asarray(reference["P"])
+    if aliased:
+        # Prediction away from z=x is not estimable: its value and uncertainty
+        # depend on which identical training column the factorization drops.
+        # Compare newdata on the fitted model's identifiable covariate support.
+        assert case["link"] == "identity"
+        newdata["z"] = newdata["x"]
+        reference_P = reference_P.copy()
+        reference_P[:, 2] = reference_P[:, 1]
+        reference_prediction = reference_P @ np.asarray(reference["coef"])
+        if case["offset"]:
+            reference_prediction += newdata["off"].to_numpy()
+        reference_covariance = reference_P @ np.asarray(reference["Vp"]) @ reference_P.T
+        reference_se = np.sqrt(np.diag(reference_covariance))
+    else:
+        reference_covariance = reference["covariance_kernel"]
     for kind, key in (("response", "prediction"), ("link", "link_prediction")):
-        predicted, se = model.predict(_newdata(), type=kind, return_se=True)
-        np.testing.assert_allclose(predicted, reference[key], atol=2e-7, rtol=2e-7)
+        predicted, se = model.predict(newdata, type=kind, return_se=True)
+        expected = reference_prediction if aliased else reference[key]
+        expected_se = reference_se if aliased else reference[
+            "se" if kind == "response" else "link_se"
+        ]
+        np.testing.assert_allclose(predicted, expected, atol=2e-7, rtol=2e-7)
         np.testing.assert_allclose(
             se,
-            reference["se" if kind == "response" else "link_se"],
+            expected_se,
             atol=2e-7,
             rtol=2e-7,
         )
@@ -202,9 +242,9 @@ def _assert_fit(case, reference, model):
         np.testing.assert_allclose(
             model.residuals(type=kind), expected, atol=2e-7, rtol=2e-7, err_msg=kind
         )
-    P = model.predict(_newdata(), type="lpmatrix")
+    P = model.predict(newdata, type="lpmatrix")
     np.testing.assert_allclose(
-        P @ model.vcov() @ P.T, reference["covariance_kernel"], atol=2e-7, rtol=2e-7
+        P @ model.vcov() @ P.T, reference_covariance, atol=2e-7, rtol=2e-7
     )
 
 
@@ -573,7 +613,7 @@ def test_cnorm_structural_scale_matches_mgcv(options):
             _fit(case)
         return
     model = _fit(case)
-    _assert_fit(case, reference, model)
+    _assert_fit(case, reference, model, aliased=options["kind"] == "rank")
     np.testing.assert_allclose(
         model.family.getTheta(), np.atleast_1d(reference["theta"]), atol=2e-7, rtol=2e-7
     )
@@ -592,6 +632,22 @@ def test_cnorm_structural_scale_matches_mgcv(options):
         np.testing.assert_allclose(
             _edf2(model), reference["edf2"], atol=2e-7, rtol=2e-7
         )
+
+
+def test_cnorm_rank_deficiency_preserves_fit_under_alternate_alias_pivot():
+    case = _hard_case("rank")
+    reference = dict(_hard_reference(case))
+    X = np.asarray(reference["X"])
+    # x and z are exactly aliased. LAPACK may retain either parameter; swap
+    # the source's retained coordinate to exercise both covariance layouts.
+    np.testing.assert_array_equal(X[:, 1], X[:, 2])
+    permutation = np.r_[0, 2, 1, np.arange(3, X.shape[1])]
+    original_vp = np.asarray(reference["Vp"])
+    reference["coef"] = np.asarray(reference["coef"])[permutation]
+    for name in ("Vp", "Ve"):
+        reference[name] = np.asarray(reference[name])[np.ix_(permutation, permutation)]
+    assert np.max(np.abs(reference["Vp"] - original_vp)) > 1e-3
+    _assert_fit(case, reference, _fit(case), aliased=True)
 
 
 @pytest.mark.parametrize("method", ["GCV.Cp", "P-ML"])

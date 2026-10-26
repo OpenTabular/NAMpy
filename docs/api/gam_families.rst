@@ -233,6 +233,13 @@ no-intercept and parametric-only fits, conditional rank-deficient fits,
 BFGS/optim/nlm endpoints, and fixed-SD EFS. These targeted checks do not
 establish cross-platform CI acceptance.
 
+For conditional fits with exactly aliased columns, the retained coefficient
+can differ across numerical factorizations. Their parity checks compare
+estimable coefficient effects and covariance kernels, including predictions
+that preserve the training alias relation. Raw covariance coordinates and
+predictions outside that relation are not uniquely identified; no parity
+claim is made for such nonestimable newdata.
+
 A vector response represents exact observations. A two-column response,
 provided as ``cbind(value, bound)`` in a formula or an explicit ``(n, 2)``
 array, encodes each observation as follows:

@@ -18,6 +18,7 @@
   },
   "execution": "Actual installed CRAN /usr/lib/R/library/mgcv; no source files sourced. Named source hashes match vendored files. Normal tests load static captures and cannot invoke R.",
   "coverage": "FixedSD1/2, estimatedSD, fixedSP/REML/ML and source GCV.Cp/P-ML aliases; identity/log/sqrt links; vector and genuinely mixed censoring; offsets, two smooths, no intercept/no smooth, rank conditional and guarded outer uncertainty, positive precision weights, zero-weight source inventory, explicit scale2. Paired-row permutations/subsets/duplicates, pickle/refit atomicity and estimated endpoint persistence. Full coefficient/working-state/covariance/EDF/inference/prediction and off-optimum joint derivatives.",
+  "representation_policy": "The fixed-scale structurally rank-deficient x/z case has exactly identical parametric columns. gam.fit4 notes that rank deficiency need not drop the same coefficient on every iteration. Compare coefficient effects and Bayesian/frequentist covariance kernels at the original 2e-7 tolerances, retaining direct coefficient/covariance comparisons for identified cases. Newdata preserve z=x: predictions and uncertainty away from this training alias relation are not estimable. A deterministic alias-pivot permutation regression exercises both retained covariance coordinates. Fixture values are unchanged.",
   "source_anomalies": [
     "Mixed censoring initial Dd emits two local ld helper replacement warnings (efam.r825/826): dp[ii] <- p1 and dp[ii] <- p0 use unindexed RHS. Captures preserve exact warning strings/calls. All seven fits converge.",
     "Pearson residual requests warn and return deviance residuals; source has no GLM variance.",
@@ -187,7 +188,7 @@
   "source_input_audit": "Actual R jsonlite fromJSON -> as.data.frame -> as.numeric reproduced both frozen input files. All primary and finite bound doubles are bit-identical to Python;24exact/48interval/24left/24right rows retained in each. Uppercase Inf/-Inf recognized as numeric infinities. Snapshot input_roundtrip_audit.json pins primary values, finite bounds and exact row indices; regression protects sentinel spellings. No source capture needed regeneration.",
   "input_audit_R": "lapply(c(\"inputs.json\",\"extension_inputs.json\"),function(f){d<-as.data.frame(fromJSON(f));d$bound<-as.numeric(d$bound);list(y=d$y,finite_bound=d$bound[is.finite(d$bound)],exact=which(d$y==d$bound))})",
   "zero_weight_inventory": "Vector zero-precision fixedSP source converges. Mixed zero precision fails with inner loop1 cannot correct step size; runtime zero weights remain guarded until source-stable acceptance.",
-  "tests_collected": 106,
+  "tests_collected": 107,
   "summary_validation": "Four vector/mixed fixed/estimated summaries match source p-table/s-table/adjustedR2/deviance explained at2e-7.",
   "anova_validation": "Two actualR model captures with parametric z and cr smooth, fixed/estimatedSD; all4Bayes/frequentist ANOVA parametric/smooth tables passed2e-7."
 }
