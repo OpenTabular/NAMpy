@@ -1,0 +1,13 @@
+{
+  "namespace": "mgcv_negbin_boundary",
+  "upstream": "R 4.6.1 / mgcv 1.9-4",
+  "source": ["R/gam.fit4.r:609-639 C_gdi2 call", "R/gam.fit4.r:734 REML uses oo$P", "src/gdi.c:101-198 get_bSb penalty roots", "src/gdi.c:2238 gdi2 get_bSb call"],
+  "generator": "generate.R",
+  "inputs": "inputs.json freezes the negbin_est_reml_optim_joint_theta_cr lifecycle dataset",
+  "parameters": {"log_theta": -0.12400663050520905, "log_sp": 20.20394495173847},
+  "capture": "Instrumented actual gam.fit4 exit records C_gdi2 oo$P, source criterion, deviance, logdet, scale and coefficients at fixed theta/SP.",
+  "regression": "tests/optimization/test_mgcv_negbin_boundary_penalty.py uses absolute penalty tolerance1e-12 and criterion tolerance1e-10. No R required in normal runs.",
+  "reason": "Large smoothing suppresses penalized coefficients. Dense beta' S beta loses precision through cancellation in the original basis; source evaluates through penalty roots. This changed optim termination from35 to36 rows on Haswell despite matching earlier trace values.",
+  "audit": "haswell_regression_audit.json records the old dense criterion error -9.115035481954692e-8 and corrected error -2.2737367544323206e-13 at identical parameters. This is diagnostic evidence, not a platform-specific test condition.",
+  "stability_inventory": "Independent actual R original/reversed/permuted rows and ±1ULP x perturbations retained35 rows; no trace-count tolerance relaxation was warranted. Saved exploratory evidence is under debug/nb_r_trace_stability."
+}
