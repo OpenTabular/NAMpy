@@ -1088,9 +1088,20 @@ def test_gaulss_shared_formula_component_reml_matches_mgcv(tmp_path):
         '1 + 2 ~ s(z, bs="cr", k=5) - 1',
     ]
 
-    model = _fit_nampy_model(data, formula, "gaulss", "REML")
+    # Default stopping points vary with BLAS for the shared predictor block.
+    # Match tighter inner/outer controls in R and Python while retaining all
+    # endpoint and inference tolerances (debug/gaulss_shared_endpoint.py).
+    control = {"epsilon": 1e-10, "newton": {"conv.tol": 1e-10}}
+    model = _fit_nampy_model(data, formula, "gaulss", "REML", control=control)
     actual = model.parity_snapshot(X=data, include_covariances=True)
-    expected = _run_mgcv_snapshot(data, formula, "gaulss", "REML")
+    expected = _run_mgcv_snapshot(
+        data,
+        formula,
+        "gaulss",
+        "REML",
+        control=control,
+        portable_fixture_identity=True,
+    )
 
     for key in ("coef_full", "deviance", "edf_total"):
         np.testing.assert_allclose(

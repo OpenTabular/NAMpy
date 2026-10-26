@@ -242,7 +242,7 @@ def sp_vcov(model, edge_correct: bool = True, reg: float = 1e-3):
     # gam.outer's nlm route has no outer.info$hess for sp.vcov, even if the
     # internal optimizer computes a Hessian for its own diagnostics.
     if (
-        getattr(model.family, "name", "") == "scat"
+        getattr(getattr(model, "family", None), "name", "") == "scat"
         and str(getattr(model, "smoothing_optimizer", "")).lower() == "nlm"
     ):
         return None
