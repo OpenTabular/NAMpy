@@ -218,6 +218,14 @@ def solve_pirls_fit(
     *,
     scale_reference: float | None = None,
 ):
+    from ..penalty_coordinates import (
+        penalty_coordinate_model,
+        uses_penalty_coordinate_map,
+    )
+
+    if uses_penalty_coordinate_map(model):
+        with penalty_coordinate_model(model, smoothing_params) as (view, full_sp, _map):
+            return solve_pirls_fit(view, y, full_sp, weights=weights, scale_reference=scale_reference)
     coef_start = _fit_workspace(model).get("pirls_eval_start", None)
     if coef_start is None:
         coef_start = _fit_workspace(model).get("pirls_coef_start", None)

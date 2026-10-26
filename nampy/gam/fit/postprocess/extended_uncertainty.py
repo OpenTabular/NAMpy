@@ -24,7 +24,10 @@ def extended_unconditional_postfit(model, sol, fit_result, fit_state):
     This differs from the full observed-Hessian derivatives used for db.drho.
     """
     unavailable = (None, None, FIT_PARAMETER_SPACE)
-    if str(getattr(model.family, "name", "")).lower() not in {"scat", "zip", "cnorm", "clog", "cpois", "bcg"}:
+    from ..penalty_coordinates import uses_penalty_coordinate_map
+
+    mapped_nb = model.family.name == "negbin" and uses_penalty_coordinate_map(model)
+    if str(getattr(model.family, "name", "")).lower() not in {"scat", "zip", "cnorm", "clog", "cpois", "bcg"} and not mapped_nb:
         return unavailable
     method = str(getattr(model, "_optim_method", "")).upper()
     if method not in {"ML", "REML", "LAML"}:
@@ -68,7 +71,14 @@ def extended_unconditional_postfit(model, sol, fit_result, fit_state):
     )
     family_y = getattr(model, "response_", model.y_)
     if ntheta:
-        kernel = gdi2_theta_joint_kernel(
+        kernel_function = gdi2_theta_joint_kernel
+        if mapped_nb:
+            from ..selection.criteria.pirls.family_negbin import (
+                gdi2_negbin_joint_kernel,
+            )
+
+            kernel_function = gdi2_negbin_joint_kernel
+        kernel = kernel_function(
             model, family_y, sol, sp, method=method, need_hessian=False
         )
         current = kernel.gdi1.current
@@ -103,13 +113,27 @@ def extended_unconditional_postfit(model, sol, fit_result, fit_state):
     p = conditional.shape[0]
     offset = int(_coef_column_offset(model))
     penalty_derivatives = [np.zeros((p, p)) for _ in range(nsp)]
-    for block in _penalty_blocks_seq(model):
-        index = int(block.smoothing_index)
-        section = slice(block.coef_slice.start + offset, block.coef_slice.stop + offset)
-        penalty_derivatives[index][section, section] += sp[index] * np.asarray(
-            block.matrix
+    if uses_penalty_coordinate_map(model):
+        from ..selection.reparam import (
+            _penalty_log_smoothing_map,
+            build_estimate_gam_setup_state,
         )
-    penalty = sum(penalty_derivatives, start=np.zeros((p, p)))
+
+        setup = build_estimate_gam_setup_state(model)
+        _, full_log_sp, mapping = _penalty_log_smoothing_map(model, setup, sp)
+        penalty = np.zeros((p, p))
+        for i, block in enumerate(_penalty_blocks_seq(model)):
+            section = slice(block.coef_slice.start + offset, block.coef_slice.stop + offset)
+            Si = np.exp(full_log_sp[i]) * np.asarray(block.matrix)
+            penalty[section, section] += Si
+            for j in range(nsp):
+                penalty_derivatives[j][section, section] += mapping[i, j] * Si
+    else:
+        for block in _penalty_blocks_seq(model):
+            index = int(block.smoothing_index)
+            section = slice(block.coef_slice.start + offset, block.coef_slice.stop + offset)
+            penalty_derivatives[index][section, section] += sp[index] * np.asarray(block.matrix)
+        penalty = sum(penalty_derivatives, start=np.zeros((p, p)))
     dH = [np.zeros((p, p)) for _ in range(ntheta)]
     dH.extend(penalty_derivatives[index] for index in free)
     weights = np.asarray(fit_state.fisher_weights, dtype=float)

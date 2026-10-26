@@ -8,6 +8,7 @@ from scipy.stats import norm
 from ..._mgcv_constants import LOG_GUARD_MIN
 from ...linalg import symmetrize_matrix
 from ...model_state import (
+    _compiled_model,
     _fit_scale,
     _n_smoothing_params,
     _penalty_blocks_seq,
@@ -133,6 +134,13 @@ def _gam_vcomp_names(model) -> list[str]:
         return []
 
     names: list[str | None] = [None] * n_sp
+    # parametricPenalty names underlying coordinates independently of the
+    # number/order of full penalty rows (mgcv.r::parametricPenalty).
+    predictors = getattr(_compiled_model(model), "predictors", ())
+    parameter_map = predictors[0].smoothing_parameter_map if len(predictors) == 1 else {}
+    for sid, index in parameter_map.items():
+        if str(sid).startswith("para_pen:"):
+            names[int(index)] = str(sid).removeprefix("para_pen:")
     terms = list(_term_blocks_seq(model))
     for pb in _penalty_blocks_seq(model):
         idx = int(getattr(pb, "smoothing_index", -1))
@@ -156,6 +164,28 @@ def _gam_vcomp_names(model) -> list[str]:
         names[idx] = normalized
 
     return [name if name is not None else f"sp_{i}" for i, name in enumerate(names)]
+
+
+def _mapped_vcomp_full_payload(model, scale):
+    """gam.vcomp reports full.sp separately from underlying SP estimates."""
+    from ...penalty_maps import has_mapped_penalties
+    from .reparam import _penalty_log_smoothing_map, build_estimate_gam_setup_state
+
+    blocks = tuple(_penalty_blocks_seq(model))
+    if not has_mapped_penalties(blocks):
+        return None, None
+    setup = build_estimate_gam_setup_state(model)
+    _, rho, _ = _penalty_log_smoothing_map(model, setup, model.smoothing_params)
+    full_sd = np.sqrt(float(scale) / np.exp(rho))
+    groups = [(block.kind, block.term_index, block.label) for block in blocks]
+    counts = {group: groups.count(group) for group in groups}
+    seen = {}
+    names = []
+    for group, block in zip(groups, blocks, strict=True):
+        seen[group] = seen.get(group, 0) + 1
+        label = _normalize_vcomp_label(block.label)
+        names.append(f"{label}{seen[group]}" if counts[group] > 1 else label)
+    return full_sd, _vcomp_name_payload(names)
 
 
 def _stored_outer_hessian(
@@ -309,10 +339,15 @@ def gam_vcomp(model, *, rescale: bool = True, conf_lev: float = 0.95):
     if rescale:
         sp = sp / _penalty_rescale_factors(model)
 
-    scale = float(_fit_scale(model))
+    # gam.vcomp prioritizes x$reml.scale over the reporting dispersion x$sig2.
+    scale = getattr(model, "_gaussian_reml_sigma2_opt_", None)
+    if scale is None or not np.isfinite(scale):
+        scale = _fit_scale(model)
+    scale = float(scale)
     vc = scale / sp
     sd = np.sqrt(vc)
     names = _gam_vcomp_names(model)
+    mapped_all, mapped_all_names = _mapped_vcomp_full_payload(model, scale)
     if (
         getattr(getattr(model, "family", None), "name", "") in {"cnorm", "clog", "cpois", "bcg"}
         and str(getattr(model, "smoothing_optimizer", "")).lower() == "efs"
@@ -325,8 +360,8 @@ def gam_vcomp(model, *, rescale: bool = True, conf_lev: float = 0.95):
         return {
             "vc": sd,
             "names": _vcomp_name_payload(names),
-            "all": sd[0] if sd.size == 1 else sd.copy(),
-            "all_names": None,
+            "all": mapped_all if mapped_all is not None else sd[0] if sd.size == 1 else sd.copy(),
+            "all_names": mapped_all_names,
             "rank": None,
             "rank_hess": None,
             "conf_lev": None,
@@ -340,8 +375,8 @@ def gam_vcomp(model, *, rescale: bool = True, conf_lev: float = 0.95):
         return {
             "vc": sd,
             "names": _vcomp_name_payload(names),
-            "all": sd[0] if sd.size == 1 else sd.copy(),
-            "all_names": None,
+            "all": mapped_all if mapped_all is not None else sd[0] if sd.size == 1 else sd.copy(),
+            "all_names": mapped_all_names,
             "rank": None,
             "rank_hess": None,
             "conf_lev": None,
@@ -388,8 +423,8 @@ def gam_vcomp(model, *, rescale: bool = True, conf_lev: float = 0.95):
         "rank": rank,
         "rank_hess": int(H.shape[0]),
         "conf_lev": float(conf_lev),
-        "all": sd,
-        "all_names": None,
+        "all": mapped_all if mapped_all is not None else sd,
+        "all_names": mapped_all_names,
     }
 
 

@@ -1021,11 +1021,36 @@ Each entry accepts ``penalties``, optional ``rank`` (one integer per matrix),
 ``sp`` marks its parameters for estimation; smoothing optimization must be
 enabled to estimate them. Matrices are not rescaled. A factor term uses its
 expanded contrast columns; a matrix-valued term uses its expanded columns.
-Several penalties may act on the same term. Identity and shared one-hot ``L``
-maps are supported; arbitrary log-smoothing-parameter maps are rejected.
+Several penalties may act on the same term. ``L`` maps log underlying smoothing
+parameters onto log penalty multipliers. It may be rectangular and contain
+finite signed or fractional entries: with positive underlying parameters,
+the full multipliers are ``np.exp(L @ np.log(sp))``. Fixed parameters are
+removed from optimization and contribute through the fixed log-SP offset.
+Zero rows specify a constant multiplier of one. Fixed zeros use mgcv's
+effective-zero construction. See ``examples/example_parametric_penalty_map.py``
+for a fit with two underlying parameters and three penalties.
 Parametric smoothing parameters precede smooth parameters, in formula-term
 order. As in mgcv, unmatched labels are ignored and the intercept is not a
-parametric-penalty target. Multi-formula ``para_pen`` is rejected.
+parametric-penalty target. Multi-formula ``para_pen`` is rejected, including
+general-family formula lists with one predictor.
+
+When combining nonidentity parametric maps with smooth penalties, setup follows
+mgcv's combined ``L`` row/column ordering exactly. In mgcv 1.9-4 this ordering
+differs from simply prepending a parametric block to the smooth map; fixed and
+selected fits follow the captured upstream setup state. Automatic EFS selection
+with nonidentity maps is guarded: upstream's EFS branch omits ``L`` and its
+offset, causing rectangular-map failures or inconsistent square-map states.
+Newton and supported alternative outer optimizers use the mapped analytic
+derivatives. Unused free map columns are rejected rather than estimated.
+More generally, automatic initialization rejects rank-deficient free maps,
+matching source initialization; explicit initial smoothing parameters may
+bypass that initialization. Positive ``min_sp`` with nonidentity maps requires
+a separate full-penalty ``H`` implementation and remains guarded. Mapped
+penalties are unavailable for transformed-coefficient fits.
+``gam_vcomp(rescale=False)`` reports underlying parameter names separately
+from full-penalty standard deviations and uses the accepted REML variance for
+Gaussian fits. Rescaling parametric variance components remains guarded where
+the required scale metadata is unavailable.
 
 ``constraints={1: C}`` replaces the first smooth's default centering with
 ``C @ beta_raw = 0``. A unique smooth label may replace the one-based index.

@@ -674,12 +674,19 @@ def _pirls_exact_unconditional_postfit(
         method=("REML" if method in {"reml", "p-reml", "laml"} else "ML"),
     )
 
+    full_penalty_kernel = getattr(kernel, "full_penalty_kernel", None)
+    if full_penalty_kernel is not None:
+        kernel = full_penalty_kernel
+        derivative_indices = range(len(kernel.ift.dbeta))
+    else:
+        derivative_indices = free_idx.tolist()
+
     db_cols = [
         _restore_pirls_dbeta_to_original_parameterization(
             kernel.current,
             kernel.ift.dbeta[int(j)],
         )
-        for j in free_idx.tolist()
+        for j in derivative_indices
     ]
     if len(db_cols) == 0:
         return None, None, FIT_PARAMETER_SPACE
@@ -805,7 +812,11 @@ def apply_unconditional_postfit(model, sol, fit_result, fit_state):
     if edf2_pirls is not None:
         edf2_post = np.asarray(edf2_pirls, dtype=np.float64).copy()
 
-    if getattr(model.family, "name", "") in {"scat", "zip", "cnorm", "clog", "cpois", "bcg"}:
+    from ..penalty_coordinates import uses_penalty_coordinate_map
+
+    if getattr(model.family, "name", "") in {"scat", "zip", "cnorm", "clog", "cpois", "bcg"} or (
+        model.family.name == "negbin" and uses_penalty_coordinate_map(model)
+    ):
         from .extended_uncertainty import extended_unconditional_postfit
 
         Vc_ext, edf2_ext, space_ext = extended_unconditional_postfit(

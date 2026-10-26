@@ -1,0 +1,20 @@
+suppressPackageStartupMessages(library(mgcv));library(jsonlite)
+a<-commandArgs(TRUE);p<-fromJSON(a[1],simplifyVector=FALSE)
+d<-as.data.frame(lapply(p$data,unlist));d$y<-d[[paste0('y_',p$family)]];d$B<-I(as.matrix(d[,c('x','u','v')]))
+P<-lapply(p$penalties,function(S)do.call(rbind,lapply(S,unlist)))
+P$L<-do.call(rbind,lapply(p$L,unlist));P$sp<-unlist(p$sp)
+fam<-switch(p$family,nb=nb(),scat=scat())
+fam<-mgcv:::fix.family.link(fam)
+G<-gam(y~B,data=d,family=fam,paraPen=list(B=P),method='REML',fit=FALSE)
+space<-mgcv:::totalPenaltySpace(G$S,G$H,G$off,ncol(G$X))
+roots<-mgcv:::mini.roots(G$S,G$off,ncol(G$X),G$rank)
+UrS<-lapply(roots,function(root)t(space$Y)%*%root);U1<-cbind(space$Y,space$Z)
+fixed<-unlist(p$sp)>=0;ev<-unlist(p$eval_sp)[!fixed]
+L<-G$L;if(is.null(L))L<-diag(length(G$S))
+theta<-if(p$family=='nb')log(2) else log(c(3,.6))
+fit<-mgcv:::gam.fit3(x=G$X,y=G$y,sp=c(theta,drop(L%*%log(ev)+G$lsp0)),
+ Eb=space$E,UrS=UrS,weights=G$w,U1=U1,Mp=ncol(space$Z),family=fam,
+ control=gam.control(epsilon=1e-10),offset=rep(0,nrow(d)),null.coef=rep(0,ncol(G$X)),scale=1,deriv=2,scoreType='REML')
+map<-rbind(cbind(diag(length(theta)),matrix(0,length(theta),ncol(L))),cbind(matrix(0,nrow(L),length(theta)),L))
+write_json(list(score=unname(fit$REML),gradient=drop(t(map)%*%fit$REML1),
+ hessian=unname(t(map)%*%fit$REML2%*%map),evaluation_free=ev,theta=theta),a[2],digits=17,auto_unbox=TRUE)

@@ -215,6 +215,16 @@ def _gdi2_tweedie_joint_kernel(
     model, y, sol, sp, *, method, need_hessian, phi
 ):
     """Port the mgcv ``gdi2`` theta/sp block for ``tw``."""
+    from ....penalty_coordinates import (
+        map_gdi2,
+        penalty_coordinate_model,
+        uses_penalty_coordinate_map,
+    )
+
+    if uses_penalty_coordinate_map(model):
+        with penalty_coordinate_model(model, sp) as (view, full_sp, mapping):
+            kernel = _gdi2_tweedie_joint_kernel(view, y, sol, full_sp, method=method, need_hessian=need_hessian, phi=phi)
+            return map_gdi2(kernel, mapping)
     setup = _gdi_pk_setup(
         model,
         sol,

@@ -345,9 +345,9 @@ def _build_log_smoothing_parameter_map(
             np.empty((0,), dtype=np.float64),
         )
 
-    full_L = np.zeros((n_pen, n_sp), dtype=np.float64)
-    for i, pb in enumerate(penalty_blocks):
-        full_L[i, int(pb.smoothing_index)] = 1.0
+    from ...penalty_maps import penalty_log_sp_map
+
+    full_L = penalty_log_sp_map(penalty_blocks, n_sp)
 
     sp_raw = getattr(model, "smoothing_params", None)
     if sp_raw is None:
@@ -872,12 +872,9 @@ def _penalty_log_smoothing_map(
     if len(setup.UrS) < n_pen:
         raise RuntimeError("estimate.gam setup has fewer UrS roots than penalties.")
 
-    L_full = np.zeros((n_pen, n_sp), dtype=np.float64)
-    for i, pb in enumerate(penalty_blocks):
-        sp_idx = int(pb.smoothing_index)
-        if sp_idx < 0 or sp_idx >= n_sp:
-            raise ValueError(f"Invalid smoothing parameter index {sp_idx}.")
-        L_full[i, sp_idx] = 1.0
+    from ...penalty_maps import penalty_log_sp_map
+
+    L_full = penalty_log_sp_map(penalty_blocks, n_sp)
 
     fixed_mask = (
         np.zeros(n_sp, dtype=bool)

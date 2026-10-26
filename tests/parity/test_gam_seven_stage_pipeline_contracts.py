@@ -138,6 +138,42 @@ def test_explicit_matrix_factors_cover_seven_stage_pipeline():
     adapter.predict_components(frame).validate_additive_reconstruction()
 
 
+def test_parametric_log_sp_maps_cover_seven_stage_pipeline():
+    from examples.example_parametric_penalty_map import fit_example
+    from nampy.gam.fit.selection.reparam import build_estimate_gam_setup_state
+
+    adapter, frame, mapping, sp = fit_example()
+    gam = adapter.gam_
+    assert len(gam.predictor_specs) == 1
+    assert len(gam.predictor_specs[0].terms) == 3
+    compiled = gam.gam_result_.require_compiled_model()
+    terms = compiled.compiled_terms
+    assert all(term.term_type == "parametric" for term in terms)
+    np.testing.assert_allclose(
+        np.column_stack([term.basis_train for term in terms]), np.stack(frame.B),
+        atol=2e-12,
+    )
+    for term in terms:
+        np.testing.assert_allclose(term.predict_matrix(gam.X_), term.basis_train, atol=2e-12)
+    assert compiled.n_smoothing_params == 2
+    assert len(compiled.compiled_penalties) == 3
+    setup = build_estimate_gam_setup_state(gam)
+    np.testing.assert_allclose(setup.lsp0, mapping @ np.log(sp), atol=2e-12)
+    np.testing.assert_allclose(
+        compiled.predictors[0].build_new_matrix(gam.X_), compiled.design_matrix,
+        atol=2e-12,
+    )
+    solution = gam.gam_result_.fit_core_solution
+    assert isinstance(solution, FitCoreSolution)
+    P = gam.lpmatrix(frame)
+    np.testing.assert_allclose(P @ solution.fit_result.coef_full, adapter.predict(frame), atol=2e-12)
+    np.testing.assert_allclose(
+        np.einsum("ij,jk,ik->i", P, gam.vcov(), P),
+        adapter.standard_errors(frame)**2, atol=2e-12,
+    )
+    adapter.predict_components(frame).validate_additive_reconstruction()
+
+
 @pytest.mark.parametrize("name", ["known_boundary_tensor", "matrix_factor"])
 def test_soap_compositions_cover_seven_stage_pipeline(soap_pipeline_cases, name):
     """New soap routes retain the same compiler, fit and prediction owners."""

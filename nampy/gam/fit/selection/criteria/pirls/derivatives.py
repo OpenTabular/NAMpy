@@ -511,6 +511,7 @@ def _restore_pirls_dbeta_to_fit_space(current, dbeta_rank):
 
 
 def _serialize_pirls_postproc_derivatives(kernel: _GDI1Kernel) -> dict[str, object]:
+    kernel = getattr(kernel, "full_penalty_kernel", kernel)
     current = kernel.current
     dbeta = _column_stack_or_empty(
         [
@@ -1511,6 +1512,16 @@ def _gdi1_fisher_trace_terms(model, sol, current, ift):
 
 def _gdi1_kernel(model, y, sol, sp, *, method, rank_tol=None):
     """Structured Python analogue of `mgcv::gdi1()` on canonical current-sp state."""
+    from ....penalty_coordinates import (
+        map_gdi1,
+        penalty_coordinate_model,
+        uses_penalty_coordinate_map,
+    )
+
+    if uses_penalty_coordinate_map(model):
+        with penalty_coordinate_model(model, sp) as (view, full_sp, mapping):
+            kernel = _gdi1_kernel(view, y, sol, full_sp, method=method, rank_tol=rank_tol)
+            return map_gdi1(kernel, mapping)
     setup = _gdi_pk_setup(model, sol, sp, deriv=2, rank_tol=rank_tol)
     current = setup.current
     pk_state = setup.pk
@@ -1843,6 +1854,16 @@ def gdi2_theta_joint_kernel(model, y, sol, sp, *, method, need_hessian=True):
     supplied by ``family.Dd``; all coefficient, penalty, and determinant
     assembly remains shared here.
     """
+    from ....penalty_coordinates import (
+        map_gdi2,
+        penalty_coordinate_model,
+        uses_penalty_coordinate_map,
+    )
+
+    if uses_penalty_coordinate_map(model):
+        with penalty_coordinate_model(model, sp) as (view, full_sp, mapping):
+            kernel = gdi2_theta_joint_kernel(view, y, sol, full_sp, method=method, need_hessian=need_hessian)
+            return map_gdi2(kernel, mapping)
     setup = _gdi_pk_setup(
         model,
         sol,

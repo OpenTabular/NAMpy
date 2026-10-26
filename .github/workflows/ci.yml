@@ -203,6 +203,10 @@ jobs:
         tests/smooths/test_mgcv_explicit_matrix_factor.py
         tests/docs/test_matrix_factor_example.py
         tests/parity/test_gam_seven_stage_pipeline_contracts.py::test_explicit_matrix_factors_cover_seven_stage_pipeline
+        tests/parity/test_mgcv_parametric_penalty_maps.py
+        tests/parity/test_parametric_map_vcomp.py
+        tests/docs/test_parametric_penalty_map_example.py
+        tests/parity/test_gam_seven_stage_pipeline_contracts.py::test_parametric_log_sp_maps_cover_seven_stage_pipeline
         -q
 
     - name: Run portable spline-constructor slices
