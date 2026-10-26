@@ -10,6 +10,7 @@ import numpy as np
 from ._censored_location import CensoredLocationFamily
 from ._cnorm_helpers import ddnorm, dpnorm, log_dnorm, log_pnorm
 from ._function_maps import LINK_REGISTRY
+from ._scalar_math import exp, log
 from .family_base import JointOuterStrategy
 
 
@@ -44,7 +45,7 @@ class CensoredNormalFamily(CensoredLocationFamily):
             if value.size != 1 or not np.all(np.isfinite(value)):
                 raise ValueError("cnorm theta must contain one finite value.")
             # Source stores the negative input itself, not log(-theta).
-            self.ini_theta = np.log(value) if value[0] > 0 else value.copy()
+            self.ini_theta = log(value) if value[0] > 0 else value.copy()
             if value[0] > 0:
                 self.n_theta = 0
         self._theta_working = self.ini_theta.copy()
@@ -52,10 +53,10 @@ class CensoredNormalFamily(CensoredLocationFamily):
     def deviance_obs(self, y, mu, weights=None, theta=None):
         values, bounds, th = self._state(y, weights, theta)
         mu = np.broadcast_to(np.asarray(mu, float), values.shape)
-        eth = np.exp(-th)
+        eth = exp(-th)
         result = np.zeros_like(values)
         exact = bounds == values
-        result[exact] = (values[exact] - mu[exact]) ** 2 * np.exp(-2 * th[exact])
+        result[exact] = (values[exact] - mu[exact]) ** 2 * exp(-2 * th[exact])
         interval = np.isfinite(bounds) & ~exact
         lo, hi = (
             np.minimum(values[interval], bounds[interval]),
@@ -81,7 +82,7 @@ class CensoredNormalFamily(CensoredLocationFamily):
             raise TypeError("pass only one of wt or weights")
         values, bounds, th = self._state(y, wt if weights is None else weights, theta)
         mu = np.broadcast_to(np.asarray(mu, float), values.shape)
-        eth = np.exp(-th)
+        eth = exp(-th)
         result = np.zeros_like(values)
         exact = bounds == values
         # Source deliberately has no log SD Jacobian here.
@@ -110,13 +111,13 @@ class CensoredNormalFamily(CensoredLocationFamily):
         del scale
         values, bounds, th = self._state(y, w, theta)
         exact = bounds == values
-        value = np.sum(-th[exact] - np.log(2 * np.pi) / 2)
+        value = np.sum(-th[exact] - log(2 * np.pi) / 2)
         interval = np.isfinite(bounds) & ~exact
         lo, hi = (
             np.minimum(values[interval], bounds[interval]),
             np.maximum(values[interval], bounds[interval]),
         )
-        zz = (hi - lo) * np.exp(-th[interval]) / 2
+        zz = (hi - lo) * exp(-th[interval]) / 2
         value += np.sum(dpnorm(-zz, zz))
         return {
             "ls": float(value),
@@ -128,7 +129,7 @@ class CensoredNormalFamily(CensoredLocationFamily):
     def Dd(self, y, mu, theta, wt, level=0):
         values, bounds, th = self._state(y, wt, theta)
         mu = np.broadcast_to(np.asarray(mu, float), values.shape)
-        eth = np.exp(-th)
+        eth = exp(-th)
         e2th = eth * eth
         names = ["Dmu", "Dmu2"]
         if level > 0:
@@ -191,8 +192,8 @@ class CensoredNormalFamily(CensoredLocationFamily):
                             ld, sign = ddnorm(
                                 z0,
                                 z1,
-                                np.log(np.abs(a0)),
-                                np.log(np.abs(a1)),
+                                log(np.abs(a0)),
+                                log(np.abs(a1)),
                                 np.ones_like(a0) if power in {2, 4} else np.sign(a0),
                                 np.ones_like(a1) if power in {2, 4} else np.sign(a1),
                             )
@@ -201,11 +202,11 @@ class CensoredNormalFamily(CensoredLocationFamily):
                         ld = log_dnorm(z1)
                         sign = np.ones_like(ld)
                         if a is not None:
-                            ld = ld + np.log(np.abs(a))
+                            ld = ld + log(np.abs(a))
                             sign = np.sign(a)
                         if case == "right":
                             sign = -sign
-                    return sign * np.exp(
+                    return sign * exp(
                         -shift + ld - lp if shift_first else ld - lp - shift
                     )
 
