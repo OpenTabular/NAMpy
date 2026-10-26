@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import json
+import subprocess
+import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -12,6 +16,7 @@ from nampy.gam import GAM
 from nampy.gam.fit.state import FitCoreSolution
 from nampy.gam.smooths.univariate.cr import CubicSplineTerm
 from tests.mgcv_parity_utils import _run_mgcv_predict_on_newdata
+from tests.reference_fixtures import load_reference, reference_key, save_reference
 
 pytestmark = [pytest.mark.surface_regression]
 
@@ -25,7 +30,7 @@ class _PipelineCase:
     gam: GAM
 
 
-@pytest.fixture(scope="module", params=["gaussian", "quasi"])
+@pytest.fixture(scope="module", params=["gaussian", "quasi", "scat"])
 def pipeline_case(request) -> _PipelineCase:
     x = np.linspace(-1.25, 1.25, 96)
     z = 0.4 + np.cos(1.3 * x)
@@ -42,7 +47,7 @@ def pipeline_case(request) -> _PipelineCase:
         }
     )
     gam = GAM(
-        family=request.param,
+        family={"name": "scat", "theta": [5, .3]} if request.param == "scat" else request.param,
         formula=_FORMULA,
         optimize_smoothing=False,
         smoothing_method="fixed",
@@ -251,18 +256,47 @@ def test_stage_7_prediction_and_diagnostics_match_mgcv_and_fitted_state(
     # Constant-variance identity quasi has the same fixed-smoothing mean as
     # Gaussian. Reuse that reference while checking quasi likelihood semantics
     # independently in stage 6 (fresh quasi references live in tests/families).
-    expected = _run_mgcv_predict_on_newdata(
-        pipeline_case.data,
-        newdata,
-        _FORMULA,
-        family="gaussian",
-        method="fixed",
-        type="response",
-        return_se=False,
-    )
+    if gam.family.name == "scat":
+        expected = _scat_pipeline_reference(pipeline_case)
+        prediction, se = gam.predict(newdata, return_se=True)
+        np.testing.assert_allclose(se, expected["se"], atol=2e-7, rtol=2e-7)
+    else:
+        expected = _run_mgcv_predict_on_newdata(
+            pipeline_case.data,
+            newdata,
+            _FORMULA,
+            family="gaussian",
+            method="fixed",
+            type="response",
+            return_se=False,
+        )
     np.testing.assert_allclose(
         response,
         np.asarray(expected["pred"], dtype=np.float64).ravel(),
         rtol=2e-7,
         atol=2e-7,
     )
+
+
+_SCAT_PIPELINE_R = """
+library(mgcv);library(jsonlite)
+a<-commandArgs(TRUE);p<-fromJSON(a[1]);d<-as.data.frame(p$data);nd<-as.data.frame(p$newdata)
+b<-gam(as.formula(p$formula),data=d,family=scat(theta=c(5,.3)),method='REML')
+pr<-predict(b,nd,se.fit=TRUE,type='response')
+write_json(list(pred=pr$fit,se=pr$se.fit),a[2],digits=17,auto_unbox=TRUE)
+"""
+
+
+def _scat_pipeline_reference(case):
+    payload = {"data": case.data.to_dict("list"), "newdata": case.newdata.to_dict("list"), "formula": _FORMULA}
+    key = reference_key("scat-seven-stage", {"payload": payload, "script": _SCAT_PIPELINE_R}, normalize_floats=True)
+    result = load_reference("mgcv_scat_pipeline", key)
+    if result is None:
+        with tempfile.TemporaryDirectory() as directory:
+            source, inputs, output = [Path(directory)/name for name in ("reference.R", "inputs.json", "output.json")]
+            source.write_text(_SCAT_PIPELINE_R)
+            inputs.write_text(json.dumps(payload))
+            subprocess.run(["Rscript", str(source), str(inputs), str(output)], check=True, capture_output=True, text=True)
+            result = json.loads(output.read_text())
+        save_reference("mgcv_scat_pipeline", key, result)
+    return result

@@ -55,6 +55,7 @@ class JointOuterStrategy(str, Enum):
     NEGBIN_THETA = "negbin_theta"
     BETAR_THETA = "betar_theta"
     OCAT_THETA = "ocat_theta"
+    SCAT_THETA = "scat_theta"
     TWEEDIE = "tweedie"
 
 

@@ -1,0 +1,41 @@
+{
+  "namespace": "mgcv_scat_workflows",
+  "upstream": {
+    "mgcv": "1.9-4",
+    "R": "4.6.1"
+  },
+  "generator": "tests/families/test_mgcv_scat_workflows.py::_reference",
+  "R_script_sha256": "726c3e55dca3ffa9423fd5b817a285aee7856a392c2dadbc01fa1699cb816e9b",
+  "fixture_count": 75,
+  "successful_fit_snapshots": 66,
+  "upstream_crash_observations": 9,
+  "sources": {
+    "R/efam.r": "30d5858b3a9a3d7c0d0397d4967a81e58e5b09da9bb9b3b2fd4c8ac7a0f3f391",
+    "R/gam.fit4.r": "8fec39370c5f33a046bcc3d12ee1f0f11fb6543d7a646f8c59718fdcb0745236",
+    "R/mgcv.r": "f2c782d23d361c987836d936b3c01d14846829377fbb1768504298094a7b0120"
+  },
+  "scope": "Three links; fixed/estimated both ancillary parameters; fixed smoothing, REML, ML, actual GCV.Cp-to-REML coercion; offsets, nonunit/zero weights, multiple smooths and parametric rank deficiency; covariance, EDF, SP, prediction/SE, logLik/AIC/BIC, residuals and inference; three off-optimum joint score/gradient/Hessian captures. Constructor zero/mixed signs/min.df-reset semantics.",
+  "upstream_failures": "Actual mgcv1.9-4 gam.fit4 crashes with signal11 for ML and zero observation weights in all three links: estimated theta with one/two smooths and fixed theta with one smooth. These are subprocess failure evidence, not numerical parity references or a claim of general upstream rejection.",
+  "generation": "Only explicit NAMPY_REFRESH_REFERENCE_FIXTURES=1 permits R generation. Ordinary tests read static snapshots.",
+  "dedicated_uncertainty_snapshots": 8,
+  "corrected_joint_input_snapshots": 3,
+  "legacy_joint_snapshots": 3,
+  "joint_capture_note": "Three original joint snapshots retain gradients/Hessians but parameters captured the function-local reduced SP vector. Separate scat-joint-entry-v2 keys capture the full theta-first input at function entry and are used by derivative tests.",
+  "uncertainty_R_script_sha256": "12e4f43708e7fa9706bc8885d9f77a4bb2df7b1f02f0f92484d741a470ed520f",
+  "uncertainty_generator": "tests/families/test_mgcv_scat_workflows.py::_uncertainty_reference",
+  "uncertainty_availability_snapshots": 4,
+  "availability": "Vc/edf2/V.sp/sp.vcov absent for fixed theta with all SP fixed or no smooths; present for estimated theta in both cases.",
+  "explicit_scale_snapshots": 4,
+  "explicit_scale": "Four scale=2 fits cover fixed/estimated ancillary parameters and fixed/REML smoothing. Only fixedtheta+fixedSP leaves coefficients/theta/AIC unchanged and doubles Vp. Optimized smoothing or theta changes the fitted solution; estimated df approaches min_df in these cases.",
+  "input_file": "tests/reference_fixtures/mgcv_scat_workflows/inputs.json",
+  "input_sha256": "05e649615327c69b27c0722d8e75a4dfb9976305cb9f7b5de4a5e5f993bac478",
+  "input_generation": "Frozen original NumPy default_rng(260326) data:110linspace[-1,1] rows, uniform z, y=3+.6sin(3x)+.25z+.28t5 noise, off=.04cos(2x), cycling weights. Exact doubles loaded by runtime and fixture cases to avoid platform-libm perturbations.",
+  "working_residual_contract": "Fixed-theta workflows compare raw working residuals. Estimated-theta workflows compare source working-score invariant at5e-5; raw residuals are separately checked at pinned R theta/fitted means at2e-7. Observed curvature near zero amplifies small optimizer endpoint differences; identity REML raw residual differs by0.01931 near-102.3.",
+  "structural_joint_snapshots": 2,
+  "structural_joint_scope": "Additional first off-optimum joint objective/gradient/Hessian for zero-weight/two-smooth4x4 and theta-only no-smooth2x2 cases.",
+  "joint_entry_R_script_sha256": "9265e81d5cb9f2e1fe938b3590b864aa937947eeaa7287aa309aced30e06642c",
+  "linear_limit_contract": "Identity/two-smooth ML reaches second-smooth linear limit: R SP7.69518e7 vs Python1.30078e8; source EDF1.00013077 and final logSPgradient-1.4029e-5. Runtime compares all fit/covariance/EDF/criterion outputs strictly, with boundary logSPgradient and vanishing EDF/ref.df contribution checks. A separate pinned-Rtheta/SP summary comparison checks all inference entries at2e-6.",
+  "theta_boundary_contract": "Scale2 estimated-theta cases reach df=min.df, R df gaps8.45e-7/fixed and2.40e-6/REML. Tests compare identifiable natural df and sigma at unchanged5e-5 tolerance rather than an arbitrary finite log-gap representative; all interior cases retain working-theta checks.",
+  "tight_control_snapshots": 5,
+  "tight_control_scope": "Three dedicated fit and two uncertainty snapshots use matching epsilon=1e-10 and Newton conv_tol=1e-10 for identity/log zero-weight two-smooth REML and inverse two-smooth ML. Original default-control references are retained. Only the two zero-weight uncertainty runtime cases use tighter matching controls: default endpoint EDF2 differed by2.55e-4 (identity) and SPcov by6.92e-4(log); all uncertainty comparisons pass at unchanged5e-5. Full-fit tests retain default controls."
+}

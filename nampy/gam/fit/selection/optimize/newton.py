@@ -188,12 +188,12 @@ def optimize_outer_newton_indefinite_hessian(
             score_eval = float(objective.fun(x_eval))
             grad_eval = (
                 np.asarray(objective.jac(x_eval), dtype=np.float64)
-                if need_grad
+                if need_grad and np.isfinite(score_eval)
                 else None
             )
             hess_eval = None
             restore_general_fit5_hessian = None
-            if need_hess:
+            if need_hess and np.isfinite(score_eval):
                 if (
                     model is not None
                     and str(

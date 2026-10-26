@@ -91,7 +91,8 @@ def _strictly_additive_gaussian_identity(family: Any) -> bool:
 def _use_exact_extended_family_terms(family: Any) -> bool:
     return (
         str(getattr(family, "family_class", "")).lower() == "extended"
-        and str(getattr(family, "name", "")).lower() in {"negbin", "betar", "ocat"}
+        and str(getattr(family, "name", "")).lower()
+        in {"negbin", "betar", "ocat", "scat"}
         and callable(getattr(family, "Dd", None))
     )
 
@@ -219,7 +220,7 @@ def irls_core(
         nonlocal last_stacked_qr_state
         z_curr = np.asarray(rhs_curr, dtype=np.float64).ravel().copy()
         if rhs_is_weighted:
-            positive = w_curr > 0.0
+            positive = w_curr != 0.0
             z_weighted = z_curr.copy()
             z_curr.fill(0.0)
             z_curr[positive] = z_weighted[positive] / w_curr[positive]
@@ -232,7 +233,9 @@ def irls_core(
             rank_tol=rank_tol,
         )
         qr_state = None
-        if penalty_sqrt.shape[0] > 0 and penalty_rank_rows.shape[0] > 0:
+        if rhs_is_weighted or (
+            penalty_sqrt.shape[0] > 0 and penalty_rank_rows.shape[0] > 0
+        ):
             qr_state = build_penalized_qr_state_nonnegative(
                 X_curr,
                 z_curr,
@@ -251,6 +254,14 @@ def irls_core(
             ),
             "penalized_qr_state": qr_state,
         }
+        if rhs_is_weighted:
+            # pls_fit1(use.wy=TRUE): retain X'Wz even at zero or negative
+            # weights, and solve in the same identified, pivoted QR space.
+            ordered = np.asarray(qr_state.kept_original_indices)[qr_state.pivot1]
+            rhs = X_curr[:, ordered].T @ np.asarray(rhs_curr)
+            coef = np.zeros(X_curr.shape[1])
+            coef[ordered] = qr_state.P @ (qr_state.P.T @ rhs)
+            return coef
         return np.asarray(out.coef_full, dtype=np.float64)
 
     def _irls_state(eta_value):
@@ -289,6 +300,7 @@ def irls_core(
                 "w_full": np.asarray(w_curr, dtype=np.float64),
                 "wz_full": np.asarray(wz_curr, dtype=np.float64),
                 "z_full": np.asarray(z_curr, dtype=np.float64),
+                "Deta_full": np.asarray(Deta, dtype=np.float64),
                 "Deta2_full": np.asarray(Deta2, dtype=np.float64),
             }
 
@@ -462,6 +474,26 @@ def irls_core(
         _weighted_deviance(family.inverse_link(null_eta)) + null_beta @ (S @ null_beta)
     )
     coefold = null_beta.copy()
+    if _use_exact_extended_family_terms(family):
+        # gam.fit4 validates the supplied coefficient start against the null
+        # fit before restoring mustart. A rejected start invalidates all three
+        # starts; otherwise coefficients take precedence over mustart.
+        if coef_start is not None:
+            start_mu = family.inverse_link(offset + X @ beta)
+            start_pdev = _weighted_deviance(start_mu) + beta @ (S @ beta)
+            if start_pdev > old_pdev:
+                coef_start = etastart = mustart = None
+                beta = np.zeros(q, dtype=np.float64)
+        if etastart is not None:
+            eta = np.asarray(etastart, dtype=np.float64).ravel()
+        elif coef_start is not None:
+            eta = offset + X @ beta
+            coefold = beta.copy()
+        else:
+            if mustart is None:
+                mustart = family.initialize_mu(y, weights=weights)
+            eta = family.link(np.asarray(mustart, dtype=np.float64))
+        mu = family.inverse_link(eta)
 
     for _ in range(20):
         if (
@@ -512,6 +544,7 @@ def irls_core(
         XtWX = XtW @ X_g
         A = XtWX + S
 
+        step_positive_definite = True
         try:
             beta_prop = _stacked_qr_penalized_step(
                 X_g,
@@ -520,21 +553,36 @@ def irls_core(
                 rhs_is_weighted=rhs_is_weighted,
             )
         except (np.linalg.LinAlgError, ValueError):
+            step_positive_definite = False
             if _use_exact_extended_family_terms(family):
                 Deta2_full = np.asarray(work_terms["Deta2_full"], dtype=np.float64)
                 good_pos = np.isfinite(Deta2_full) & (Deta2_full > 0.0)
                 w_pos_full = np.zeros_like(Deta2_full, dtype=np.float64)
                 w_pos_full[good_pos] = 0.5 * Deta2_full[good_pos]
-                wz_pos_full = np.asarray(work_terms["wz_full"], dtype=np.float64)
-                good_rhs = np.isfinite(w_pos_full) & np.isfinite(wz_pos_full)
+                # gam.fit4 recomputes Wz after clipping indefinite weights.
+                wz_pos_full = w_pos_full * (eta - offset) - 0.5 * np.asarray(
+                    work_terms["Deta_full"], dtype=np.float64
+                )
+                z_full = np.asarray(work_terms["z_full"], dtype=np.float64)
+                good_rhs = np.isfinite(z_full) & np.isfinite(w_pos_full)
+                rhs_is_weighted = bool(np.any(~good_rhs))
+                if rhs_is_weighted:
+                    good_rhs = np.isfinite(w_pos_full) & np.isfinite(wz_pos_full)
                 X_pos = X[good_rhs, :]
                 W_pos = w_pos_full[good_rhs]
-                z_pos = np.asarray(wz_pos_full[good_rhs], dtype=np.float64)
-                # ``good_rhs`` is a full-observation mask, unlike the
-                # subset mask used by the ordinary noncanonical fallback.
-                # Keep the gradient arrays on that same full index space.
+                if not rhs_is_weighted:
+                    # pls_fit1 also receives the supplied wy when use.wy is
+                    # FALSE. Its RHS stability test detects the contribution
+                    # lost by clipping weights while retaining the original z.
+                    supplied_rhs = X_pos.T @ wz_pos_full[good_rhs]
+                    represented_rhs = X_pos.T @ (W_pos * z_full[good_rhs])
+                    difference = represented_rhs - supplied_rhs
+                    rhs_is_weighted = bool(
+                        difference @ difference
+                        > rank_tol * (supplied_rhs @ supplied_rhs)
+                    )
+                z_pos = (wz_pos_full if rhs_is_weighted else z_full)[good_rhs]
                 grad_good_full = np.asarray(good_rhs, dtype=bool)
-                rhs_is_weighted = True
             else:
                 use_fisher = bool(getattr(family, "canonical_link", False))
                 if use_fisher:
@@ -654,7 +702,11 @@ def irls_core(
         # Mirror mgcv::gam.fit3() divergence threshold exactly.
         div_thresh = 10.0 * (0.1 + abs(old_pdev)) * (np.finfo(np.float64).eps ** 0.5)
         if pdev_new - old_pdev > div_thresh:
-            coef_anchor = null_beta if n_iter == 1 else coefold
+            coef_anchor = (
+                coefold
+                if _use_exact_extended_family_terms(family)
+                else (null_beta if n_iter == 1 else coefold)
+            )
             ii_h = 1
             while pdev_new - old_pdev > div_thresh:
                 if ii_h > 100:
@@ -712,6 +764,16 @@ def irls_core(
         else:
             grad = 2.0 * (X_good.T @ (grad_w * (eta_grad - grad_z))) + 2.0 * (S @ beta)
 
+        if _use_exact_extended_family_terms(family):
+            # gam.fit4 checks fresh derivatives at the accepted coefficients,
+            # rather than the previous WLS quadratic minimized by this step.
+            new_terms = _working_response_terms(eta, mu)
+            fresh_good = np.isfinite(new_terms["z_full"]) & np.isfinite(
+                new_terms["w_full"]
+            )
+            grad = X[fresh_good, :].T @ new_terms["Deta_full"][fresh_good]
+            grad += 2.0 * (S @ beta)
+
         scale_ref = (
             float(scale_reference)
             if scale_reference is not None
@@ -727,6 +789,12 @@ def irls_core(
             abs(pdev_conv - old_pdev) < tol * (abs(scale_ref) + abs(pdev_conv))
             and grad_inf_norm <= tol * (abs(scale_ref) + abs(pdev_new))
         )
+        if _use_exact_extended_family_terms(family):
+            converged_here = bool(
+                step_positive_definite
+                and abs(pdev_conv - old_pdev) < tol * (0.1 + abs(pdev_conv))
+                and grad_inf_norm <= tol * (abs(scale_ref) + abs(pdev_new))
+            )
         inner_trace.append(
             {
                 "iter": int(n_iter),

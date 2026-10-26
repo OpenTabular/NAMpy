@@ -548,7 +548,7 @@ def _family_ddeta_logtheta(family, y, mu, weights, *, deriv):
     mu = np.asarray(mu, dtype=np.float64)
     wt = np.asarray(weights, dtype=np.float64)
     link_name = str(getattr(family, "link_name", getattr(family, "link", ""))).lower()
-    if link_name != "identity":
+    if link_name != "identity" and getattr(family, "name", "") != "scat":
         mu = np.clip(mu, 1e-14, None)
     dd = family.Dd(y, mu, family.getTheta(False), wt, level=int(deriv))
     if link_name == "identity":
@@ -584,8 +584,13 @@ def _family_ddeta_logtheta(family, y, mu, weights, *, deriv):
     if deriv <= 0:
         return out
 
+    # R recycles observation vectors down each theta-derivative column.
+    theta_matrix = np.asarray(dd["Dmuth"]).ndim == 2
+    ti1 = ig1[:, None] if theta_matrix else ig1
+    ti2 = ig12[:, None] if theta_matrix else ig12
+    tg2 = g2g[:, None] if theta_matrix else g2g
     out["Dth"] = np.asarray(dd["Dth"], dtype=np.float64)
-    out["Detath"] = np.asarray(dd["Dmuth"], dtype=np.float64) * ig1
+    out["Detath"] = np.asarray(dd["Dmuth"], dtype=np.float64) * ti1
     g3g = np.asarray(family.d3link(mu), dtype=np.float64) * (ig1**3)
     out["Deta3"] = (
         np.asarray(dd["Dmu3"], dtype=np.float64) * (ig1**3)
@@ -593,14 +598,14 @@ def _family_ddeta_logtheta(family, y, mu, weights, *, deriv):
         + np.asarray(dd["Dmu"], dtype=np.float64) * (3.0 * g2g**2 - g3g) * ig1
     )
     out["Deta2th"] = (
-        np.asarray(dd["Dmu2th"], dtype=np.float64) * ig12
-        - np.asarray(dd["Dmuth"], dtype=np.float64) * g2g * ig1
+        np.asarray(dd["Dmu2th"], dtype=np.float64) * ti2
+        - np.asarray(dd["Dmuth"], dtype=np.float64) * tg2 * ti1
     )
     if deriv <= 1:
         return out
 
     out["Dth2"] = np.asarray(dd["Dth2"], dtype=np.float64)
-    out["Detath2"] = np.asarray(dd["Dmuth2"], dtype=np.float64) * ig1
+    out["Detath2"] = np.asarray(dd["Dmuth2"], dtype=np.float64) * ti1
     g4g = np.asarray(family.d4link(mu), dtype=np.float64) * (ig1**4)
     out["Deta4"] = (
         np.asarray(dd["Dmu4"], dtype=np.float64) * (ig12**2)
@@ -611,13 +616,13 @@ def _family_ddeta_logtheta(family, y, mu, weights, *, deriv):
         * ig1
     )
     out["Deta3th"] = (
-        np.asarray(dd["Dmu3th"], dtype=np.float64) * (ig1**3)
-        - 3.0 * np.asarray(dd["Dmu2th"], dtype=np.float64) * g2g * ig12
-        + np.asarray(dd["Dmuth"], dtype=np.float64) * (3.0 * g2g**2 - g3g) * ig1
+        np.asarray(dd["Dmu3th"], dtype=np.float64) * (ti1**3)
+        - 3.0 * np.asarray(dd["Dmu2th"], dtype=np.float64) * tg2 * ti2
+        + np.asarray(dd["Dmuth"], dtype=np.float64) * (3.0 * tg2**2 - (g3g[:, None] if theta_matrix else g3g)) * ti1
     )
     out["Deta2th2"] = (
-        np.asarray(dd["Dmu2th2"], dtype=np.float64) * ig12
-        - np.asarray(dd["Dmuth2"], dtype=np.float64) * g2g * ig1
+        np.asarray(dd["Dmu2th2"], dtype=np.float64) * ti2
+        - np.asarray(dd["Dmuth2"], dtype=np.float64) * tg2 * ti1
     )
     return out
 
@@ -685,6 +690,11 @@ def _gdi_pk_setup(model, sol, sp, *, deriv, rank_tol=None):
         # a working response is unavailable, the fitted predictor is the only
         # mgcv-shaped state present in the supplied solution.
         working_response = sol["eta"]
+    if getattr(model.family, "name", "") == "scat":
+        # gam.fit4 replaces nonfinite z by zero before passing it to gdi2;
+        # residual reporting retains the original undefined zero-weight rows.
+        working_response = np.asarray(working_response, dtype=np.float64).copy()
+        working_response[~np.isfinite(working_response)] = 0.0
     qr_state = build_penalized_qr_state_nonnegative(
         np.asarray(X, dtype=np.float64),
         np.asarray(working_response, dtype=np.float64),
@@ -694,6 +704,7 @@ def _gdi_pk_setup(model, sol, sp, *, deriv, rank_tol=None):
         rS=np.asarray(rS, dtype=np.float64),
         rank_tol=float(rank_tol),
         reml=True,
+        signed_pseudoinverse=True,
     )
     rank = int(qr_state.rank)
     dropped_idx = np.asarray(qr_state.drop, dtype=np.int64)
@@ -870,7 +881,7 @@ def _gdi1_ift1_state(model, y, sol, sp, current, pk_state):
         P_derivs.append(np.asarray(Pj, dtype=np.float64))
 
     family_name = str(getattr(model.family, "name", "")).lower()
-    if family_name in {"negbin", "betar"}:
+    if family_name in {"negbin", "betar", "scat"}:
         dd = _family_ddeta_logtheta(
             model.family,
             y,
@@ -988,7 +999,7 @@ def _gdi1_ift1_state(model, y, sol, sp, current, pk_state):
 def _gdi1_deviance_terms(model, y, sol, current, ift):
     eta = np.asarray(sol.get("gdi1_eta", sol["eta"]), dtype=np.float64)
     mu = np.asarray(sol.get("gdi1_mu", sol["mu"]), dtype=np.float64)
-    if str(getattr(model.family, "name", "")).lower() in {"negbin", "betar"}:
+    if str(getattr(model.family, "name", "")).lower() in {"negbin", "betar", "scat"}:
         dd = _family_ddeta_logtheta(
             model.family,
             y,
@@ -1192,15 +1203,43 @@ def _schur_logdet_terms(A_rr, A_rf, A_ff, dArr, dArf, dAff, d2Arr, d2Arf, d2Aff)
     return 0.5 * logdet_C, 0.5 * d1, 0.5 * d2
 
 
+def _gdipk_reml_penalty_terms(model, sp, current, dA, d2A, pk_state, n_theta=0):
+    """gdi2 REML determinant uses the gdiPK root, including its pseudoinverse."""
+    logdet_s, penalty_first, penalty_second = _stable_penalty_logdet_derivatives(
+        model, sp, order=2
+    )
+    first, second = _logdet_penalized_system_derivatives(current.A_inv, dA, d2A)
+    first = np.asarray(first, dtype=np.float64).copy()
+    second = np.asarray(second, dtype=np.float64).copy()
+    first[n_theta:] -= penalty_first
+    second[n_theta:, n_theta:] -= penalty_second
+    return (
+        0.5 * (pk_state.ldet_XWX_plus_S - logdet_s),
+        0.5 * first,
+        0.5 * second,
+    )
+
+
 def _gdi1_reml_penalty_terms(model, sp, current, ift, pk_state, *, method):
     """
     Structured determinant penalty stage corresponding to `get_ddetXWXpS()`
     plus REML Schur-complement augmentation on current-sp canonical state.
     """
+    if model.family.name == "scat" and str(method).upper() == "REML":
+        return _gdipk_reml_penalty_terms(
+            model, sp, current, ift.dA, ift.d2A_mat, pk_state
+        )
     q_range = int(pk_state.q_range)
     q_total = int(pk_state.q_total)
     A = np.asarray(current.A, dtype=np.float64)
     if q_range == 0:
+        if str(method).upper() == "REML":
+            # With no penalties, REML still integrates the unpenalized
+            # coefficients (gdi2's full observed-Hessian determinant).
+            first, second = _logdet_penalized_system_derivatives(
+                current.A_inv, ift.dA, ift.d2A_mat
+            )
+            return 0.5 * pk_state.ldet_XWX_plus_S, 0.5 * first, 0.5 * second
         n_sp = len(ift.dA)
         zero = np.zeros(n_sp, dtype=np.float64)
         return 0.0, zero, np.zeros((n_sp, n_sp), dtype=np.float64)
@@ -1505,10 +1544,19 @@ def _gdi1_kernel(model, y, sol, sp, *, method, rank_tol=None):
 
 
 def _gdi2_penalty_terms(model, sp, current, dA, d2A_mat, pk_state, *, n_theta, method):
+    if model.family.name == "scat" and str(method).upper() == "REML":
+        return _gdipk_reml_penalty_terms(
+            model, sp, current, dA, d2A_mat, pk_state, n_theta
+        )
     ntot = len(dA)
     q_range = int(pk_state.q_range)
     q_total = int(pk_state.q_total)
     if q_range == 0:
+        if str(method).upper() == "REML":
+            first, second = _logdet_penalized_system_derivatives(
+                current.A_inv, dA, d2A_mat
+            )
+            return 0.5 * pk_state.ldet_XWX_plus_S, 0.5 * first, 0.5 * second
         zero = np.zeros(ntot, dtype=np.float64)
         return 0.0, zero, np.zeros((ntot, ntot), dtype=np.float64)
 

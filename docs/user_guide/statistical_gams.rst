@@ -290,6 +290,9 @@ Families and links
    * - ``nb`` / ``negbin``
      - Estimated or fixed negative-binomial shape.
      - ``GAM(family="nb")``
+   * - ``scat``
+     - Scaled Student t location; identity, log, or inverse link.
+     - ``GAM(family={"name": "scat", "theta": [5, 0.3]})``
    * - ``betar``
      - Beta regression.
      - ``GAM(family="betar")``
@@ -305,6 +308,67 @@ Families and links
    * - ``gammals`` / ``gamma``
      - Gamma mean and scale.
      - ``GAMLSS(family="gamma", formula=formulas)``
+
+Scaled Student t responses
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use ``scat`` for a continuous location model with Student t errors. Its
+single linear predictor models location; degrees of freedom and scale are
+constant distribution parameters that can be fixed or estimated.
+
+.. code-block:: python
+
+   fixed = GAM(
+       formula="y ~ s(x, bs='cr', k=7)",
+       family={"name": "scat", "theta": [5, 0.3]},
+       smoothing_params=[0.4],
+       optimize_smoothing=False,
+   ).fit(data=data)
+
+   estimated = GAM(
+       formula="y ~ s(x, bs='cr', k=7)",
+       family="scat",
+       smoothing_method="REML",
+       optimize_smoothing=True,
+   ).fit(data=data)
+
+``theta=[df, scale]`` fixes both parameters when both entries are positive.
+Omit ``theta`` to estimate both; signed constructor starts and ``min_df``
+follow the rules in :doc:`../api/gam_families`. A tuple such as
+``("scat", {"theta": [5, 0.3], "link": "identity"})`` or a
+``ScaledTFamily`` instance is also accepted. ``log`` and ``inverse`` links
+apply to location, not to the distribution scale.
+
+SCAT uses fixed smoothing or likelihood-based ``ML``/``REML`` selection;
+``LAML`` selects the REML route. As in mgcv, a ``GCV.Cp`` request uses the
+extended-family REML route. SCAT does not supply a separate GCV or UBRE
+criterion. ``predict(..., return_se=True)`` gives uncertainty for the fitted
+location, rather than a response prediction interval.
+
+The executable ``examples/example_scat_gam.py`` demonstrates fixed distribution
+parameters and fixed smoothing. Offsets, nonunit weights, multiple penalties,
+and fixed or estimated ancillary parameters are covered by static mgcv
+references. Fixed smoothing and REML also support zero observation weights.
+``ML`` with zero weights raises an explicit error because the corresponding
+mgcv 1.9-4 reference runs crash. Joint ancillary-parameter estimation with
+``smoothing_optimizer="efs"`` is unsupported.
+
+The external ``GAM(scale=...)`` dispersion is distinct from the Student t
+scale in ``theta``. Its default is one. A positive override affects the
+selection criterion and covariance; it can change estimated smoothing or
+ancillary parameters. Only when both are fixed does changing this dispersion
+leave the fitted location unchanged and multiply its coefficient covariance.
+
+For uncertainty comparisons near a flat smoothing optimum, use the same
+convergence controls in both implementations. The difficult zero-weight,
+two-smooth reference cases use ``control={"epsilon": 1e-10,
+"newton": {"conv_tol": 1e-10}}`` for unconditional covariance comparisons.
+The original default-control fits remain tested. At a boundary, validation
+compares physical degrees of freedom and scale, or the vanishing penalized
+contribution as a smooth becomes linear, rather than an arbitrary finite
+log-parameter representative. Working residuals can be sensitive near zero
+observed curvature and are undefined on zero-weight rows; see
+:doc:`../api/gam_families` for the residual comparison contract.
 
 Quasi families
 ~~~~~~~~~~~~~~

@@ -762,7 +762,9 @@ def _pirls_exact_unconditional_postfit(
 
 
 def apply_unconditional_postfit(model, sol, fit_result, fit_state):
-    if str(getattr(model, "smoothing_optimizer", "")).lower() in {"efs", "optim"}:
+    optimizer = str(getattr(model, "smoothing_optimizer", "")).lower()
+    scat_nlm = optimizer == "nlm" and getattr(model.family, "name", "") == "scat"
+    if optimizer in {"efs", "optim"} or scat_nlm:
         family_class = str(
             getattr(getattr(model, "family", None), "family_class", "")
         ).lower()
@@ -802,6 +804,18 @@ def apply_unconditional_postfit(model, sol, fit_result, fit_state):
         cov_unconditional_space = cov_space_pirls
     if edf2_pirls is not None:
         edf2_post = np.asarray(edf2_pirls, dtype=np.float64).copy()
+
+    if getattr(model.family, "name", "") == "scat":
+        from .extended_uncertainty import extended_unconditional_postfit
+
+        Vc_ext, edf2_ext, space_ext = extended_unconditional_postfit(
+            model, sol, fit_result, fit_state
+        )
+        if Vc_ext is not None:
+            cov_unconditional_post = Vc_ext
+            cov_unconditional_space = space_ext
+        if edf2_ext is not None:
+            edf2_post = edf2_ext
 
     Vc_gauss, edf2_gauss, cov_space_gauss = _gaussian_exact_unconditional_postfit(
         model, fit_result, fit_state

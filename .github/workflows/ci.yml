@@ -96,6 +96,20 @@ jobs:
         tests/docs/test_quasi_example.py
         -v
 
+    - name: Run portable SCAT-family slices
+      run: >-
+        pytest
+        tests/families/test_scat_family_contracts.py
+        tests/families/test_mgcv_scat_workflows.py
+        tests/families/test_mgcv_scat_optimizers.py
+        tests/families/test_scat_postfit_reference_state.py
+        tests/families/test_scat_outer_controls.py
+        tests/families/test_scat_public_guards.py
+        tests/diagnostics/test_scat_residuals.py
+        tests/parity/test_gam_seven_stage_pipeline_contracts.py
+        tests/docs/test_scat_example.py
+        -v
+
     - name: Run matrix-functional and soap tensor references
       run: >-
         pytest

@@ -486,11 +486,23 @@ def _initial_smoothing_params_from_design(model, y):
     except Exception:
         return None
 
-    # mgcv::initial.spg for ordinary families:
-    #   w <- sqrt(weights * mu.eta(eta)^2 / variance(mu))
-    w = np.sqrt(
-        np.clip(prior_w * mu_eta * mu_eta / np.maximum(var_mu, 1e-12), 1e-12, None)
-    )
+    if str(getattr(model.family, "name", "")).lower() == "scat":
+        # initial.spg uses observed mu curvature for extended families and
+        # switches the entire vector to expected curvature if any is negative.
+        # Dd already includes prior weights; EDmu2 has its own family semantics.
+        derivatives = model.family.Dd(
+            y, mu0, model.family.getTheta(False), prior_w, level=0
+        )
+        initial_weights = 0.5 * np.asarray(derivatives["Dmu2"]) * mu_eta**2
+        if np.any(initial_weights < 0):
+            initial_weights = 0.5 * np.asarray(derivatives["EDmu2"]) * mu_eta**2
+        w = np.sqrt(initial_weights)
+    else:
+        # mgcv::initial.spg for ordinary families:
+        #   w <- sqrt(weights * mu.eta(eta)^2 / variance(mu))
+        w = np.sqrt(
+            np.clip(prior_w * mu_eta * mu_eta / np.maximum(var_mu, 1e-12), 1e-12, None)
+        )
     return _initial_smoothing_params_from_packed_penalties(
         w[:, None] * X,
         [np.asarray(S_i, dtype=np.float64) for S_i in list(setup.S)],

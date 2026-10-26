@@ -1,0 +1,19 @@
+{
+  "namespace": "mgcv_scat_pipeline",
+  "upstream": {
+    "R": "4.6.1",
+    "mgcv": "1.9-4"
+  },
+  "fixture_files": 1,
+  "generator": "tests/parity/test_gam_seven_stage_pipeline_contracts.py::_scat_pipeline_reference",
+  "controls": {
+    "family": "scat",
+    "theta": [
+      5,
+      0.3
+    ],
+    "sp": 0.8
+  },
+  "coverage": "All seven pipeline stages with fixed SCAT parameters; actual-R newdata location predictions and standard errors in stage7, including parametric term and formula offset.",
+  "policy": "Fresh actual R capture; ordinary tests read static fixtures and never invoke R."
+}

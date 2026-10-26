@@ -396,6 +396,47 @@
       "probe_files_sha256": {
         "tests/smooths/probes/mgcv_re_tensor_numeric_labels.R": "b97ef619a8addc1af45f70f8b76d6d2a8d724915ee0349ac910d20613f8ae3c0"
       }
+    },
+    "mgcv_scat_family": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_scat_family",
+      "generator": "tests/families/test_scat_family_contracts.py",
+      "manifest": "tests/reference_fixtures/mgcv_scat_family/manifest.json",
+      "fixture_files": 37,
+      "scope": "Family derivative/likelihood/link/constructor and residual contracts"
+    },
+    "mgcv_scat_workflows": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_scat_workflows",
+      "generator": "tests/families/test_mgcv_scat_workflows.py",
+      "manifest": "tests/reference_fixtures/mgcv_scat_workflows/manifest.json",
+      "fixture_files": 75,
+      "scope": "Fixed and selected workflows, joint derivatives, uncertainty, boundaries;66 successful snapshots and9 captured upstream ML/zero-weight crashes"
+    },
+    "mgcv_scat_optimizers": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_scat_optimizers",
+      "generator": "tests/families/test_mgcv_scat_optimizers.py",
+      "manifest": "tests/reference_fixtures/mgcv_scat_optimizers/manifest.json",
+      "fixture_files": 8,
+      "scope": "REML bfgs/optim/nlm endpoints with fixed/estimated ancillary parameters; six default references plus two matching-control optim references"
+    },
+    "mgcv_scat_pipeline": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_scat_pipeline",
+      "generator": "tests/parity/test_gam_seven_stage_pipeline_contracts.py::_scat_pipeline_reference",
+      "manifest": "tests/reference_fixtures/mgcv_scat_pipeline/manifest.json",
+      "fixture_files": 1,
+      "scope": "Seven-stage fixed-parameter pipeline and prediction/SE"
+    },
+    "mgcv_scat_solver": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_scat_solver",
+      "generator": "tests/reference_fixtures/mgcv_scat_solver/generate.R",
+      "generator_sha256": "8542bb62dfdf033d8fdd61e60717a766d3b4e8d9c7721efc5b7c7245605046b0",
+      "fixture_files": 1,
+      "scope": "Positive-weight retry at a pinned difficult ancillary-parameter point; actual upstream conditional fits and scores for deriv=0 and deriv=2",
+      "test": "tests/families/test_scat_postfit_reference_state.py"
     }
   }
 }

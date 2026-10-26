@@ -77,6 +77,11 @@ def fit_model_core(
 
     y, sample_weight = initialize_binomial_response(model, y, sample_weight, len(X))
     y = model.family.validate_y(y)
+    if model.family.name == "scat":
+        # gam() calls the family's preinitialize once per fit, before outer
+        # candidate theta values are evaluated by gam.fit4.
+        model.family._initialized_from_data = False
+        model.family.preinitialize(y)
     fit_offset = coerce_offset_array(fit_offset, X.shape[0], name="fit_offset")
 
     model.X_ = X
@@ -125,6 +130,18 @@ def fit_model_core(
         optimizer=getattr(model, "smoothing_optimizer", None),
     )
 
+    if (
+        model.family.name == "scat"
+        and optimize_smoothing
+        and method == "ml"
+        and model.prior_weights_ is not None
+        and np.any(model.prior_weights_ == 0)
+    ):
+        raise NotImplementedError(
+            "scat ML with zero prior weights is unvalidated: the reference "
+            "mgcv 1.9-4 implementation crashes on these inputs. Use REML."
+        )
+
     fixed_mask_for_theta = (
         np.zeros(_n_smoothing_params(model), dtype=bool)
         if model.smoothing_fixed_mask_ is None
@@ -156,6 +173,17 @@ def fit_model_core(
                 model.smoothing_params if user_initial_sp is not None else None
             ),
             method=method,
+            optimizer=model.smoothing_optimizer,
+        )
+    elif model.family.name == "scat" and model.family.estimate_theta:
+        # Fixed smoothing does not freeze the distribution parameters. Run the
+        # same REML outer objective with only its two theta coordinates free.
+        model.smoothing_fixed_mask_ = np.ones(_n_smoothing_params(model), dtype=bool)
+        optimize_smoothing_params(
+            model,
+            y=y,
+            initial_smoothing_params=model.smoothing_params,
+            method="reml",
             optimizer=model.smoothing_optimizer,
         )
     elif theta_only_fixed_reml:
