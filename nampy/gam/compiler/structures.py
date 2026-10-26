@@ -62,6 +62,10 @@ class CompiledTerm:
     derivative_fn: Callable[..., np.ndarray] | None = field(
         default=None, repr=False, compare=False
     )
+    offset_train: np.ndarray | None = field(default=None, repr=False, compare=False)
+    offset_fn: Callable[..., np.ndarray | None] | None = field(
+        default=None, repr=False, compare=False
+    )
     predict_coefficient_map: np.ndarray | None = field(
         default=None, repr=False, compare=False
     )

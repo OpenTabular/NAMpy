@@ -185,16 +185,18 @@ def _term_X(model, tb, X_new) -> np.ndarray:
 
 
 def _prepare_smooth(model, tb, *, se, n, n2, n3, xlab, ylab, main, label,
-                    xlim, ylim, too_far, scheme):
+                    xlim, ylim, too_far, scheme, theta=30, phi=30, rug=True):
     """The ``P=NULL`` phase of the upstream plot methods."""
     basis_name = str(getattr(tb, "basis_name", "")).lower()
     X_train = np.asarray(model.X_)
 
     if basis_name == "sos":
-        raise NotImplementedError(
-            "plot() for bs='sos' requires mgcv's rotated hemisphere projection; "
-            "the generic rectangular 2D plot is not equivalent."
-        )
+        if scheme <= 1:
+            from .sos_plots import prepare_sos_plot
+
+            return prepare_sos_plot(model, tb, n2=n2, theta=theta, phi=phi, rug=rug)
+        # plot.sos.smooth delegates schemes >1 to the ordinary smooth plotter.
+        scheme -= 2
 
     if basis_name == "re":
         # plot.random.effect (plots.r:357-367): X is the identity; the plot
@@ -210,6 +212,24 @@ def _prepare_smooth(model, tb, *, se, n, n2, n3, xlab, ylab, main, label,
             "raw": raw,
             "xlab": xlab or "Gaussian quantiles",
             "ylab": ylab or "effects",
+            "main": main or label,
+        }
+
+    if basis_name == "mrf":
+        runtime = getattr(tb.predict_fn, "__self__", None)
+        polygons = getattr(runtime, "xt", {}).get("polys")
+        if polygons is None:
+            return None
+        names = list(polygons)
+        idx = int(tb.feature_info.feature_indices[0])
+        X_new = _new_feature_matrix(model, len(names))
+        X_new[:, idx] = names
+        _activate_by_column(model, tb, X_new)
+        return {
+            "kind": "mrf", "X": _term_X(model, tb, X_new),
+            "polygons": [np.asarray(polygons[name], dtype=float) for name in names],
+            "region_names": names, "scale": False, "se": False,
+            "raw": X_train[:, idx], "xlab": xlab or "", "ylab": ylab or "",
             "main": main or label,
         }
 
@@ -413,6 +433,9 @@ def prepare_plot_gam_data(
     n=100,
     n2=40,
     n3=3,
+    theta=30,
+    phi=30,
+    rug=None,
     jit=False,
     xlab=None,
     ylab=None,
@@ -485,6 +508,9 @@ def prepare_plot_gam_data(
             ylim=ylim,
             too_far=too_far,
             scheme=schemes[i],
+            theta=theta,
+            phi=phi,
+            rug=(np.asarray(model.X_).shape[0] <= 10000) if rug is None else bool(rug),
         )
         if P is None:
             pd_list.append({"plot_me": False, "label": str(tb.label)})
@@ -551,7 +577,11 @@ def prepare_plot_gam_data(
             if group_index is not None and fv_terms is not None:
                 P["p_resid"] = fv_terms[:, group_index] + w_resid
         P["plot_me"] = True
-        P["scheme"] = schemes[i]
+        P["scheme"] = (
+            schemes[i] - 2
+            if str(getattr(tb, "basis_name", "")).lower() == "sos" and schemes[i] > 1
+            else schemes[i]
+        )
         pd_list.append(P)
 
     # common y scale (plots.r:1481-1509)
@@ -588,7 +618,9 @@ def prepare_plot_gam_data(
         "jit": bool(jit),
         "select": select,
         "scale": scale,
-        "rug_default": bool(np.asarray(model.X_).shape[0] <= 10000),
+        "rug_default": (
+            bool(np.asarray(model.X_).shape[0] <= 10000) if rug is None else bool(rug)
+        ),
     }
 
 
@@ -649,7 +681,14 @@ def plot_gam(
     Returns the prepared plot-data list, mirroring upstream's invisible
     ``pd`` return; the matplotlib figures are attached under ``"figures"``.
     """
-    prepared = prepare_plot_gam_data(
+    from ..fit.capabilities import has_transformed_coefficients
+
+    prepare = prepare_plot_gam_data
+    if has_transformed_coefficients(model):
+        from .scam_plots import prepare_plot_scam_data
+
+        prepare = prepare_plot_scam_data
+    prepared = prepare(
         model,
         residuals=residuals,
         se=se,
@@ -658,6 +697,9 @@ def plot_gam(
         n=n,
         n2=n2,
         n3=n3,
+        theta=theta,
+        phi=phi,
+        rug=rug,
         jit=jit,
         xlab=xlab,
         ylab=ylab,

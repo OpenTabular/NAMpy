@@ -26,7 +26,12 @@ from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
     _resolve_feature,
+    by_values_from_new_data,
     columns_as_float_matrix,
+    linear_functional_basis,
+    linear_functional_by_state,
+    linear_functional_locations,
+    linear_functional_setup_points,
 )
 
 
@@ -103,6 +108,7 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
         self._penalties = None
 
         self._setup = None
+        self._linear_functional = False
 
     def fit(self, X, feature_names):
         feature_indices = []
@@ -113,9 +119,25 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
             feature_indices.append(idx)
             feature_names_resolved.append(fname)
 
-        Xf = columns_as_float_matrix(X, feature_indices)
+        locations = linear_functional_locations(X, feature_indices)
+        self._linear_functional = locations.ndim == 3
+        Xf = (
+            linear_functional_setup_points(locations)[0]
+            if self._linear_functional
+            else locations
+        )
 
         self._set_by_state(X, feature_names)
+        weights = None
+        if self._linear_functional:
+            weights = self._by_state.values
+            if weights is None:
+                weights = np.ones(locations.shape[:2])
+            if np.asarray(weights).shape != locations.shape[:2]:
+                raise ValueError(
+                    "Linear-functional feature locations and by weights must have equal shape."
+                )
+            self._by_state = linear_functional_by_state(self._by_state, weights=weights)
 
         self._feature_indices = feature_indices
         self._feature_names = feature_names_resolved
@@ -123,7 +145,12 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
 
         shared_X = self._linked_id_setup_matrix(feature_names)
         if shared_X is not None:
-            Xf_setup = columns_as_float_matrix(shared_X, feature_indices)
+            shared_locations = linear_functional_locations(shared_X, feature_indices)
+            Xf_setup = (
+                linear_functional_setup_points(shared_locations)[0]
+                if shared_locations.ndim == 3
+                else shared_locations
+            )
             self._setup = build_tprs_term_setup(
                 Xf_setup,
                 basis=self.basis_name,
@@ -161,6 +188,13 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
             ]
         )
 
+        if self._linear_functional:
+            base = linear_functional_basis(
+                locations,
+                weights,
+                lambda points: predict_tprs_term(points, self._setup),
+            )
+
         if self.pc is not None:
             Bc, Sc, C, _ = self._apply_point_constraint(
                 base,
@@ -176,11 +210,11 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
             return self
 
         auto_constrain = (
-            self.basis_name == "tp"
+            (self.basis_name == "tp" or self._linear_functional)
             and not self._setup.drop_null_effective
             and bool(self._by_state.is_constant)
         )
-        if shared_X is None:
+        if shared_X is None and not self._linear_functional:
             result = fit_single_penalty_with_constraint_policy(
                 base,
                 pen,
@@ -257,9 +291,17 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
     def transform_new(self, X_new):
         self._require_fitted()
 
-        Xf_new = columns_as_float_matrix(X_new, self._feature_indices)
-
-        B = predict_tprs_term(Xf_new, self._setup)
+        locations = linear_functional_locations(X_new, self._feature_indices)
+        if locations.ndim == 3:
+            B = linear_functional_basis(
+                locations,
+                by_values_from_new_data(X_new, self._by_state),
+                lambda points: predict_tprs_term(points, self._setup),
+            )
+            if self.constraint_transform is not None:
+                B = B @ self.constraint_transform
+            return np.asarray(B, dtype=float)
+        B = predict_tprs_term(locations, self._setup)
         return self._apply_constraint_transform_and_by(B, X_new)
 
     def tensor_marginal_fit_matrices(

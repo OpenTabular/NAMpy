@@ -16,7 +16,7 @@ Everything below this layer is stateless with respect to the model object.
 import numpy as np
 
 from .._mgcv_constants import LOG_GUARD_MIN
-from ..data import coerce_feature_matrix
+from ..data import coerce_feature_matrix, combine_offsets
 from ..model_state import _fit_workspace, _n_smoothing_params
 from ..specs.modeling import make_predictor_specs
 from .backends import solve_fit
@@ -25,7 +25,7 @@ from .capabilities import (
     raise_ml_reml_backend_error,
 )
 from .design_setup import compile_designs
-from .offsets import coerce_offset_array
+from .offsets import coerce_offset_array, smooth_offsets
 from .result_builders import build_gam_result
 from .selection.optimize.driver import (
     optimize_smoothing_params,
@@ -73,6 +73,9 @@ def fit_model_core(
         Optional per-observation prior weights, shape ``(n,)``.
     """
     X = coerce_feature_matrix(model, X)
+    from ..data_response import initialize_binomial_response
+
+    y, sample_weight = initialize_binomial_response(model, y, sample_weight, len(X))
     y = model.family.validate_y(y)
     fit_offset = coerce_offset_array(fit_offset, X.shape[0], name="fit_offset")
 
@@ -107,6 +110,9 @@ def fit_model_core(
         )
 
     compile_designs(model, X, model.feature_names)
+
+    # mgcv gam.setup includes fixed smooth boundary values in the fit offset.
+    model.offset_train_ = combine_offsets(fit_offset, smooth_offsets(model))
 
     if optimize_smoothing is None:
         optimize_smoothing = model.optimize_smoothing

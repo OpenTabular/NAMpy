@@ -377,7 +377,10 @@ def _fixed_sp_edf2_from_qr(
 ) -> np.ndarray | None:
     """Mirror fixed-sp ``mgcv::gam.fit3.post.proc()`` EDF2 assembly."""
     family_name = str(getattr(getattr(model, "family", None), "name", "")).lower()
-    if family_name not in {"gaussian", "binomial", "poisson", "gamma", "negbin"}:
+    if family_name not in {
+        "gaussian", "binomial", "poisson", "gamma", "inverse_gaussian", "negbin",
+        "quasi", "quasipoisson", "quasibinomial"
+    }:
         return None
 
     n_sp = int(_n_smoothing_params(model) or 0)
@@ -588,7 +591,10 @@ def _pirls_exact_unconditional_postfit(
 
     family = getattr(model, "family", None)
     family_name = str(getattr(family, "name", "")).lower()
-    if family_name not in {"gaussian", "binomial", "poisson", "gamma", "negbin"}:
+    if family_name not in {
+        "gaussian", "binomial", "poisson", "gamma", "inverse_gaussian", "negbin",
+        "quasi", "quasipoisson", "quasibinomial"
+    }:
         return None, None, FIT_PARAMETER_SPACE
 
     method = str(getattr(model, "_optim_method", "")).lower()

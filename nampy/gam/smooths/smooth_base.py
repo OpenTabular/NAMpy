@@ -114,35 +114,110 @@ def by_values_from_new_data(X_new, by_state: ByState):
     return column_as_numeric_array(X_new, by_state.feature_index)
 
 
-def linear_functional_basis(values, weights, basis_evaluator):
-    """Aggregate a pointwise basis into one linear-functional row per sample.
+def linear_functional_locations(X, indices):
+    """Return scalar locations (n,d) or matrix locations (n,q,d).
 
-    ``values`` and ``weights`` must be equal-width matrices.  The evaluator is
-    called once on the flattened locations and must return one basis row per
-    location.  This is the common ``rowSums(L * F(X))`` construction used by
-    mgcv and SCAM matrix-valued ``by`` terms.
+    Matrix features must have equal row widths in every coordinate; flattening
+    the leading two axes pools quadrature locations without mixing coordinates.
+    """
+    columns = [column_as_numeric_array(X, index) for index in indices]
+    shapes = {column.shape for column in columns}
+    if len(shapes) != 1:
+        raise ValueError("Linear-functional coordinate matrices must have equal shape.")
+    return np.stack(columns, axis=-1)
+
+
+def linear_functional_setup_points(locations):
+    """Port ExtractData's matrix-coordinate ordering and optional packing.
+
+    Input is (observations, quadrature points, coordinates). The returned
+    index expands the setup rows into C-order observation/quadrature rows.
+    R vectorizes each coordinate column-major and keeps first occurrences
+    only when fewer than 90 percent of its rows are unique.
+    """
+    locations = np.asarray(locations, dtype=np.float64)
+    if locations.ndim != 3:
+        raise ValueError("Matrix setup locations must have shape (n, q, d).")
+    n, q, d = locations.shape
+    points = locations.transpose(1, 0, 2).reshape(-1, d)
+    to_c_order = np.arange(n * q).reshape(n, q, order="F").reshape(-1)
+    first = []
+    inverse = np.empty(len(points), dtype=int)
+    seen = {}
+    for row_index, row in enumerate(points):
+        key = (
+            float(row[0])
+            if d == 1
+            else "*".join(
+                format(float(value) if value != 0 else 0.0, ".15g") for value in row
+            )
+        )
+        if key not in seen:
+            seen[key] = len(first)
+            first.append(row_index)
+        inverse[row_index] = seen[key]
+    if len(first) < len(points) * 0.9:
+        return points[first], inverse[to_c_order]
+    return points, to_c_order
+
+
+def linear_functional_basis(values, weights, basis_evaluator):
+    """Sum a pointwise basis over quadrature locations for each observation.
+
+    ``values`` is (n,q) for a scalar evaluator or (n,q,d) for a multivariate
+    evaluator. ``weights=None`` implements unweighted summation. Existing
+    scalar evaluators continue to receive a flat vector; multivariate ones
+    receive a matrix of pooled locations.
     """
     locations = np.asarray(values, dtype=np.float64)
-    quadrature = np.asarray(weights, dtype=np.float64)
-    if locations.ndim != 2 or quadrature.shape != locations.shape:
+    if locations.ndim not in {2, 3}:
         raise ValueError(
-            "Linear-functional terms require equal-shaped 2D feature and by matrices."
+            "Linear-functional locations must be two- or three-dimensional."
         )
-    point_basis = np.asarray(
-        basis_evaluator(locations.reshape(-1)), dtype=np.float64
+    quadrature = (
+        np.ones(locations.shape[:2])
+        if weights is None
+        else np.asarray(weights, dtype=np.float64)
     )
-    if point_basis.ndim != 2 or point_basis.shape[0] != locations.size:
+    if quadrature.shape != locations.shape[:2]:
+        raise ValueError(
+            "Linear-functional feature locations and by weights must have equal shape."
+        )
+    pooled = (
+        locations.reshape(-1)
+        if locations.ndim == 2
+        else locations.reshape(-1, locations.shape[-1])
+    )
+    point_basis = np.asarray(basis_evaluator(pooled), dtype=np.float64)
+    if point_basis.ndim != 2 or point_basis.shape[0] != np.prod(locations.shape[:2]):
         raise ValueError(
             "Linear-functional basis evaluator returned an incompatible row layout."
         )
-    reshaped = point_basis.reshape(
-        locations.shape[0], locations.shape[1], point_basis.shape[1]
-    )
+    reshaped = point_basis.reshape(*locations.shape[:2], point_basis.shape[1])
     return np.einsum("nm,nmk->nk", quadrature, reshaped)
 
 
-def linear_functional_by_state(by_state: ByState) -> ByState:
-    """Mark matrix-valued by weights as consumed by basis aggregation."""
+def linear_functional_by_state(by_state: ByState, *, weights=None) -> ByState:
+    """Mark quadrature weights as consumed by basis aggregation.
+
+    Explicit ``weights`` also derives centering eligibility from their row
+    sums, including unit weights for a term without ``by``. Omitting this
+    keyword preserves the existing uncentered matrix-by contract for callers
+    that supply their own constraint policy.
+    """
+    if weights is not None:
+        row_sums = np.asarray(weights, dtype=float).sum(axis=1)
+        sd = 0.0 if row_sums.size < 2 else float(np.std(row_sums, ddof=1))
+        constant = not (sd > float(np.mean(row_sums)) * np.finfo(float).eps * 1000)
+        return ByState(
+            by_state.feature_index,
+            by_state.feature_name,
+            None,
+            by_state.is_present,
+            constant,
+            handling="linear_functional",
+            consumed_by_term=True,
+        )
     if by_state is None or not by_state.is_present:
         raise ValueError("Linear-functional terms require a matrix-valued by variable.")
     if np.asarray(by_state.values).ndim != 2:
@@ -354,9 +429,7 @@ def _normalize_point_constraint_vector(pc, feature_names):
     if isinstance(pc, dict):
         missing = [name for name in names if name not in pc]
         if missing:
-            raise ValueError(
-                "supply a value for each variable for a point constraint"
-            )
+            raise ValueError("supply a value for each variable for a point constraint")
         return np.asarray([float(pc[name]) for name in names], dtype=np.float64)
     vals = np.asarray(pc, dtype=np.float64).ravel()
     if vals.size < n:
@@ -515,7 +588,9 @@ class BaseSmoothTerm(abc.ABC):
 
     def _penalty_metadata_with_scale(self, metadata, *, penalty_index: int):
         meta = dict(metadata or {})
-        meta.setdefault("penalty_rescale_factor", self._penalty_rescale_factor(penalty_index))
+        meta.setdefault(
+            "penalty_rescale_factor", self._penalty_rescale_factor(penalty_index)
+        )
         return meta
 
     def _apply_constraint_transform_and_by(self, B, X_new):
@@ -722,16 +797,14 @@ class BaseSmoothTerm(abc.ABC):
 
     def factor_smooth_penalty_rank(self) -> int:
         """Return the constructor penalty rank used by ``fs``/``sz``."""
-        _basis, penalty, _transform = self.tensor_marginal_fit_matrices(
-            centered=False
-        )
+        _basis, penalty, _transform = self.tensor_marginal_fit_matrices(centered=False)
         symmetric = 0.5 * (
             np.asarray(penalty, dtype=np.float64)
             + np.asarray(penalty, dtype=np.float64).T
         )
         eigenvalues = np.linalg.eigvalsh(symmetric)
         largest = float(np.max(np.abs(eigenvalues))) if eigenvalues.size else 0.0
-        tolerance = largest * (np.finfo(np.float64).eps**EIG_TOL_POWER)
+        tolerance = largest * (np.finfo(np.float64).eps ** EIG_TOL_POWER)
         return int(np.sum(eigenvalues > tolerance))
 
     def validate_factor_smooth_base(self, mode: str) -> None:

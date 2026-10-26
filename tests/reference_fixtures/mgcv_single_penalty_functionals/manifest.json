@@ -1,0 +1,28 @@
+{
+  "namespace": "mgcv_single_penalty_functionals",
+  "upstream": {
+    "R": "4.6.1",
+    "mgcv": "1.9-4"
+  },
+  "sources": [
+    {
+      "path": "nampy_notes/upstreams/mgcv/R/smooth.r",
+      "sha256": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d"
+    },
+    {
+      "path": "tests/smooths/probes/mgcv_single_penalty_functionals.R",
+      "sha256": "c8e87271a53604d7e25e4c73e6280f7400a9e3c1c5c8758d954ba3650bf91687"
+    }
+  ],
+  "functions": [
+    "smoothCon",
+    "PredictMat",
+    "smooth.construct.ds.smooth.spec",
+    "smooth.construct.gp.smooth.spec",
+    "smooth.construct.sos.smooth.spec"
+  ],
+  "fixture_count": 1,
+  "cases": 30,
+  "generation": "NAMPY_REFRESH_REFERENCE_FIXTURES=1 pytest tests/smooths/test_mgcv_single_penalty_functionals.py -k upstream",
+  "comparison": "Fitted values, EDF, smoothing parameters, prediction covariance kernels and penalties aligned by observed basis; no eigenvector sign assumptions."
+}

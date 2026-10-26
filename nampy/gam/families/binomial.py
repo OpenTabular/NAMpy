@@ -34,9 +34,7 @@ class BinomialLogitFamily(_BinomialBase):
         return y
 
     def initialize_mu(self, y, weights=None):
-        y = np.asarray(y, dtype=np.float64)
-        w = self._check_weights(y, weights)
-        return np.clip((w * y + 0.5) / (w + 1.0), self.eps, 1.0 - self.eps)
+        return self._initialize_binomial_mu(y, weights)
 
     def working_weight_derivative_eta(self, eta, y=None):
         mu = self.inverse_link(eta)
@@ -81,9 +79,7 @@ class BinomialProbitFamily(_BinomialBase):
         return y
 
     def initialize_mu(self, y, weights=None):
-        y = np.asarray(y, dtype=np.float64)
-        w = self._check_weights(y, weights)
-        return np.clip((w * y + 0.5) / (w + 1.0), self.eps, 1.0 - self.eps)
+        return self._initialize_binomial_mu(y, weights)
 
     def working_weight_derivative_eta(self, eta, y=None):
         eta = np.asarray(eta, dtype=np.float64)
@@ -125,9 +121,7 @@ class BinomialCloglogFamily(_BinomialBase):
         return y
 
     def initialize_mu(self, y, weights=None):
-        y = np.asarray(y, dtype=np.float64)
-        w = self._check_weights(y, weights)
-        return np.clip((w * y + 0.5) / (w + 1.0), self.eps, 1.0 - self.eps)
+        return self._initialize_binomial_mu(y, weights)
 
     def working_weight_derivative_eta(self, eta, y=None):
         eta = np.asarray(eta, dtype=np.float64)
@@ -170,9 +164,7 @@ class BinomialCauchitFamily(_BinomialBase):
         return y
 
     def initialize_mu(self, y, weights=None):
-        y = np.asarray(y, dtype=np.float64)
-        w = self._check_weights(y, weights)
-        return np.clip((w * y + 0.5) / (w + 1.0), self.eps, 1.0 - self.eps)
+        return self._initialize_binomial_mu(y, weights)
 
 
 class BinomialLogFamily(_BinomialBase):
@@ -205,6 +197,4 @@ class BinomialLogFamily(_BinomialBase):
         return y
 
     def initialize_mu(self, y, weights=None):
-        y = np.asarray(y, dtype=np.float64)
-        w = self._check_weights(y, weights)
-        return np.clip((w * y + 0.5) / (w + 1.0), self.eps, 1.0 - self.eps)
+        return self._initialize_binomial_mu(y, weights)

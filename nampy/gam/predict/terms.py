@@ -165,12 +165,18 @@ def _term_contribution(model, design_matrix: np.ndarray, term):
     return design_matrix[:, term.coef_slice] @ beta[term.coef_slice]
 
 
-def _group_term_contribution(model, design_matrix: np.ndarray, group):
+def _group_term_contribution(model, design_matrix: np.ndarray, group, *, X=None):
     contribution = np.zeros(design_matrix.shape[0], dtype=np.float64)
     for term in group["blocks"]:
         contribution += np.asarray(
             _term_contribution(model, design_matrix, term), dtype=np.float64
         )
+        # mgcv::predict.gam includes Xfrag's fixed offset in terms/iterms.
+        offset = term.offset_train if X is None else (
+            None if term.offset_fn is None else term.offset_fn(X)
+        )
+        if offset is not None:
+            contribution += np.asarray(offset, dtype=np.float64)
     return np.asarray(contribution, dtype=np.float64)
 
 

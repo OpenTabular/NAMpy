@@ -1,0 +1,38 @@
+{
+  "namespace": "mgcv_functional_packing",
+  "upstream": {
+    "R": "4.6.1",
+    "mgcv": "1.9-4"
+  },
+  "sources": [
+    {
+      "path": "nampy_notes/upstreams/mgcv/R/smooth.r",
+      "sha256": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d"
+    },
+    {
+      "path": "tests/smooths/probes/mgcv_functional_packing.R",
+      "sha256": "79c9dbbc20688e856c85cc828b5946115453ab98692d829c8b19b960d4f9c271"
+    }
+  ],
+  "functions": [
+    "ExtractData",
+    "uniquecombs",
+    "smoothCon",
+    "PredictMat"
+  ],
+  "fixture_count": 1,
+  "fit_cases": 50,
+  "generation": "NAMPY_REFRESH_REFERENCE_FIXTURES=1 pytest tests/smooths/test_mgcv_functional_packing.py -k upstream",
+  "coverage": "Skew-frequency repeated locations with36unique independentpairs; packed setup centering/penalty scaling;13basis variants fixed+selectedREML; weighted/unit/constant row sums; directR ordering/index reference.",
+  "guard": "All matrix cs terms, including distinct locations, are rejected by NAMpy because unequal null-space shrinkage eigenvalues make the penalty depend on platform-dependent numerical null eigenvectors. Scalar cs is unchanged. Actual mgcv references are retained; this is not an upstream input restriction.",
+  "supported_fit_cases": 46,
+  "guarded_fit_cases": 4,
+  "portability_evidence": {
+    "platform": "macOS GitHub Actions Python 3.11",
+    "failed_distinct_grid_cases": 5,
+    "max_prediction_difference_fixed": 8.97638416e-05,
+    "max_prediction_difference_REML": 0.00977856,
+    "source": "mgcv/R/smooth.r::smooth.construct.cr.smooth.spec unequal trailing eigenvalues (shrink=.1, then .01)",
+    "reference_policy": "Retain original R fits; six distinct-grid CS cases and four packed-grid CS cases test explicit NAMpy rejection; no tolerance changes."
+  }
+}

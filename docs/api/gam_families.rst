@@ -26,6 +26,10 @@ Family classes
    * - ``GammaInverseFamily``, ``GammaLogFamily``,
        ``GammaIdentityFamily``
      - Gamma responses with inverse, log, or identity links.
+   * - ``InverseGaussianFamily``
+     - Positive inverse-Gaussian responses; ``1/mu^2``, inverse, log or identity.
+   * - ``QuasiPoissonFamily``, ``QuasiBinomialFamily``, ``QuasiFamily``
+     - Unknown-dispersion quasi families; named links and general variance/power options.
    * - ``NegativeBinomialLogFamily``
      - Negative-binomial response with fixed or estimated shape.
    * - ``BetaRegressionFamily``
@@ -51,7 +55,7 @@ Base classes and constructors
    * - ``BaseFamily``
      - Shared family contract.
    * - ``GLMFamily``
-     - Single-predictor exponential-family contract.
+     - Single-predictor GLM and quasi-family contract.
    * - ``ExtendedFamily``
      - Single-predictor family with additional fitted parameters.
    * - ``GeneralFamily``

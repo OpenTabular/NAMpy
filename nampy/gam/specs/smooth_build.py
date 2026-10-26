@@ -16,6 +16,7 @@ from ..basis_registry import (
 from .smooth import (
     AdaptiveSmoothSpec,
     AlternativeTensorProductSmoothSpec,
+    ConstrainedBSplineSmoothSpec,
     CubicRegressionSmoothSpec,
     CubicShrinkageSmoothSpec,
     CyclicCubicRegressionSmoothSpec,
@@ -28,6 +29,7 @@ from .smooth import (
     RandomEffectSmoothSpec,
     ShapeConstrainedSmoothSpec,
     SmoothSpec,
+    SoapFilmSmoothSpec,
     SphericalSplineSmoothSpec,
     SumToZeroFactorSmoothSpec,
     TensorInteractionSmoothSpec,
@@ -56,10 +58,30 @@ _SMOOTH_SPEC_DEFAULTS: dict[str, object] = {
 }
 
 
-@basis_spec_builder("ad")
+@basis_spec_builder("so", "sf", "sw")
+def _build_s_soap(opts) -> SoapFilmSmoothSpec:
+    return SoapFilmSmoothSpec(
+        special="s", bs=opts["bs"], k=opts["k"], fx=opts["fx"],
+        select=opts["select"], sp=opts["sp"], knots=opts["knots"],
+        xt=opts["xt"], constraint_mode=opts["constraint_mode"], pc=opts["pc"],
+    )
+
+
+@basis_spec_builder("sc")
+def _build_s_sc(opts) -> ConstrainedBSplineSmoothSpec:
+    return ConstrainedBSplineSmoothSpec(
+        special="s", bs="sc", k=opts["k"], fx=opts["fx"],
+        select=opts["select"], sp=opts["sp"], knots=opts["knots"],
+        m=opts["m"], xt=opts["xt"], constraint_mode=opts["constraint_mode"],
+        pc=opts["pc"],
+    )
+
+
+@basis_spec_builder("ad", "scad")
 def _build_s_ad(opts) -> AdaptiveSmoothSpec:
     return AdaptiveSmoothSpec(
         special="s",
+        bs=opts["bs"],
         k=opts["k"],
         fx=opts["fx"],
         select=opts["select"],

@@ -15,6 +15,36 @@ import numpy as np
 from scipy.stats import norm as _norm
 
 
+def _polygon_path(vertices):
+    """Compound polygon path with alternating winding for nested holes.
+
+    Mirrors mgcv poly2's odd/even fill for disjoint or nested closed loops.
+    NaN rows separate loops; input winding does not determine hole status.
+    """
+    from matplotlib.path import Path
+
+    vertices = np.asarray(vertices, dtype=float)
+    splits = np.flatnonzero(~np.isfinite(vertices).all(axis=1))
+    rings = [part[np.isfinite(part).all(axis=1)]
+             for part in np.split(vertices, splits)]
+    rings = [ring for ring in rings if len(ring) >= 3]
+    paths = [Path(np.vstack([ring, ring[0]])) for ring in rings]
+    result = []
+    for i, ring in enumerate(rings):
+        depth = sum(path.contains_point(ring[0]) for j, path in enumerate(paths) if i != j)
+        area = np.sum(ring[:, 0] * np.roll(ring[:, 1], -1)
+                      - ring[:, 1] * np.roll(ring[:, 0], -1))
+        if (area > 0) != (depth % 2 == 0):
+            ring = ring[::-1]
+        closed = np.vstack([ring, ring[0]])
+        codes = np.full(len(closed), Path.LINETO, dtype=np.uint8)
+        codes[0], codes[-1] = Path.MOVETO, Path.CLOSEPOLY
+        result.append(Path(closed, codes))
+    if not result:
+        raise ValueError("A polygon must contain at least three finite vertices.")
+    return Path.make_compound_path(*result)
+
+
 def _page_layout(n_plots: int, pages: int):
     """Port of the pages/rows/cols logic (plots.r:1457-1474)."""
     if pages > n_plots:
@@ -100,7 +130,51 @@ def render_term_plots(
         ax = axes_flat[slot]
         kind = P.get("kind")
         scheme = int(P.get("scheme", 0))
-        if kind == "re":
+        if kind == "sos":
+            xx, yy = np.asarray(P["xm"]), np.asarray(P["ym"])
+            inside = np.asarray(P["ind"], dtype=bool)
+
+            def disk(values, inside=inside, shape=(len(yy), len(xx))):
+                grid = np.full(inside.size, np.nan)
+                grid[inside] = values
+                return grid.reshape(shape)
+
+            fit = np.asarray(P["fit"], dtype=float)
+            shown = disk(trans(fit + shift))
+            if scheme == 0:
+                ax.pcolormesh(xx, yy, shown, cmap="hot", shading="nearest")
+                ax.contour(xx, yy, disk(fit), colors="tab:blue", linewidths=0.7)
+            else:
+                ax.contour(xx, yy, shown, colors="black", linewidths=0.7)
+                from matplotlib.patches import Circle
+
+                ax.add_patch(Circle((0, 0), 1, fill=False, color="black", lw=0.8))
+            for key, levels in (("la", np.arange(-80, 81, 10)),
+                                ("lo", np.arange(-160, 181, 20))):
+                ax.contour(xx, yy, disk(P[key]), levels=levels, colors="black",
+                           linewidths=0.5, linestyles="solid" if scheme == 0 else "dashed")
+            if rug:
+                ax.plot(P["raw"]["x"], P["raw"]["y"], ".", color="black", ms=2)
+            ax.set(xlim=(-1, 1), ylim=(-1, 1), aspect="equal")
+            ax.set_axis_off()
+        elif kind == "mrf":
+            from matplotlib.collections import PatchCollection
+            from matplotlib.patches import PathPatch
+
+            patches = [PathPatch(_polygon_path(p)) for p in P["polygons"]]
+            collection = PatchCollection(
+                patches, cmap="hot" if scheme == 0 else "gray",
+                edgecolor="black", linewidth=0.6,
+            )
+            collection.set_array(np.asarray(trans(P["fit"] + shift), dtype=float))
+            ax.add_collection(collection)
+            ax.autoscale_view()
+            ax.set_aspect("equal")
+            ax.set_xlabel(P["xlab"])
+            ax.set_ylabel(P["ylab"])
+            ax.set_title(P["main"])
+            ax.figure.colorbar(collection, ax=ax)
+        elif kind == "re":
             b = np.sort(trans(np.asarray(P["fit"], dtype=np.float64) + shift))
             nq = b.size
             q = _norm.ppf((np.arange(1, nq + 1) - 0.375) / (nq + 0.25))
@@ -127,6 +201,8 @@ def render_term_plots(
             ax.set_ylabel(P["ylab"])
         elif kind == "1d":
             xx = P["x"]
+            if P.get("zero_line"):
+                ax.axhline(0, color="0.5", linewidth=0.8, linestyle=":")
             fit = trans(np.asarray(P["fit"], dtype=np.float64) + shift)
             ylimit = common_ylim
             if density:

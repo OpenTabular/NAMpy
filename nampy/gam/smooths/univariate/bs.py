@@ -28,6 +28,7 @@ from ..smooth_base import (
     column_as_numeric_array,
     linear_functional_basis,
     linear_functional_by_state,
+    linear_functional_setup_points,
 )
 
 
@@ -146,17 +147,21 @@ class DerivativeBSplineTerm1D(BaseSmoothTerm):
 
         self._linear_functional = np.asarray(x_values).ndim == 2
         if self._linear_functional:
-            if self._by_state is None or np.asarray(self._by_state.values).ndim != 2:
-                raise ValueError(
-                    "B-spline linear-functional terms require matrix-valued by weights."
-                )
-            by_weights = np.asarray(self._by_state.values, dtype=np.float64)
+            by_weights = (
+                np.ones_like(x_values, dtype=np.float64)
+                if self._by_state.values is None
+                else np.asarray(self._by_state.values, dtype=np.float64)
+            )
             if by_weights.shape != np.asarray(x_values).shape:
                 raise ValueError(
                     "Linear-functional feature locations and by weights must have equal shape."
                 )
-            setup_values = np.asarray(x_values, dtype=np.float64).reshape(-1)
-            self._by_state = linear_functional_by_state(self._by_state)
+            setup_values = linear_functional_setup_points(
+                np.asarray(x_values)[:, :, None]
+            )[0][:, 0]
+            self._by_state = linear_functional_by_state(
+                self._by_state, weights=by_weights
+            )
         else:
             setup_values = np.asarray(x_values, dtype=np.float64).reshape(-1)
 
@@ -188,7 +193,7 @@ class DerivativeBSplineTerm1D(BaseSmoothTerm):
                 by_weights,
                 lambda values: predict_derivative_bspline(values, self._setup),
             )
-            setup_base = np.asarray(base, dtype=np.float64)
+            setup_base = np.asarray(self._setup.basis_train, dtype=np.float64)
         else:
             base = point_base
             setup_base = np.asarray(self._setup.basis_train, dtype=np.float64)
@@ -294,7 +299,7 @@ class DerivativeBSplineTerm1D(BaseSmoothTerm):
     def transform_new(self, X_new):
         self._require_fitted()
         x_values = column_as_numeric_array(X_new, self._feature_index)
-        if self._linear_functional:
+        if self._linear_functional and np.asarray(x_values).ndim == 2:
             basis = linear_functional_basis(
                 x_values,
                 by_values_from_new_data(X_new, self._by_state),

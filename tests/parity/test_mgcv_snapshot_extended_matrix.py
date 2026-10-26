@@ -813,8 +813,20 @@ def test_general_family_multismooth_fit_inference_and_diagnostics_match_mgcv():
     """Close the wrapped-block surface across both gaulss predictors."""
     data = _gaulss_multismooth_data()
     formula = GENERAL_MULTISMOOTH_FORMULA
-    expected = _run_mgcv_snapshot(data, formula, "gaulss", "ML")
-    model = _fit_nampy_model(data, formula, "gaulss", "ML")
+    # initial.spg regularizes in an eigenvector-dependent coordinate system.
+    # Different valid eigenvector signs change the default optimizer path and
+    # stopping point. Tighten both fits to compare the converged endpoint;
+    # retain the strict inference/prediction acceptance thresholds below.
+    control = {"epsilon": 1e-10, "newton": {"conv.tol": 1e-10}}
+    expected = _run_mgcv_snapshot(
+        data,
+        formula,
+        "gaulss",
+        "ML",
+        control=control,
+        portable_fixture_identity=True,
+    )
+    model = _fit_nampy_model(data, formula, "gaulss", "ML", control=control)
     core = model.gam_result_.fit_summary.core
     expected_fit = expected["fit"]
     diagnostics = expected["parity"]["diagnostics"]
@@ -893,12 +905,22 @@ def test_general_family_multismooth_fit_inference_and_diagnostics_match_mgcv():
 
     full = model.concurvity(full=True)
     assert list(full["labels"]) == list(diagnostics["concurvity_labels"])
-    # Two predictors contain smooths of the same covariates, making the
-    # function-space estimate nearly singular; the observed/worst rows remain
-    # tight while the estimate row is stable to about 0.7% across QR stacks.
+    # Duplicated predictor columns make the full design rank deficient. mgcv
+    # retains all columns in qr(tol=0), so its estimate includes arbitrary QR
+    # completion directions (see test_concurvity_rank_deficient_completion).
+    # The worst/observed rows remain stable for this particular fitted model;
+    # pairwise comparisons below remain identifiable and strictly referenced.
+    design = np.asarray(model.predict(type="lpmatrix"), dtype=np.float64)
+    assert np.linalg.matrix_rank(design) < design.shape[1]
     np.testing.assert_allclose(
-        full["values"], diagnostics["concurvity_full"], atol=7e-3, rtol=0.0
+        full["values"][:2],
+        np.asarray(diagnostics["concurvity_full"])[:2],
+        atol=1e-4,
+        rtol=0.0,
     )
+    estimate = np.asarray(full["values"])[2]
+    assert np.all(np.isfinite(estimate))
+    assert np.all((estimate >= 0.0) & (estimate <= 1.0 + 1e-14))
     pairwise = model.concurvity(full=False)
     expected_pairwise = diagnostics["concurvity_pairwise"]
     assert list(pairwise["labels"]) == list(expected_pairwise["labels"])

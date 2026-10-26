@@ -335,8 +335,11 @@ def compile_model(
     fit_intercept: bool,
     apply_side_conditions: bool = True,
     side_condition_tol: float = 1e-10,
+    para_pen=None,
 ):
     predictor_specs = list(predictor_specs)
+    if para_pen is not None and len(predictor_specs) != 1:
+        raise ValueError("para_pen not supported for multi-formula models")
     has_explicit_component_lpi = any(
         "lpi" in (getattr(spec, "metadata", {}) or {}) for spec in predictor_specs
     )
@@ -384,6 +387,11 @@ def compile_model(
             n_linear_predictors=n_linear_predictors,
             tol=side_condition_tol,
         )
+
+    if para_pen is not None:
+        from .parametric_penalties import add_parametric_penalties
+
+        compiled_predictors = [add_parametric_penalties(compiled_predictors[0], para_pen)]
 
     pred_param_map = _model_parameterization_map(compiled_predictors, X)
     predictor_prediction_widths = [

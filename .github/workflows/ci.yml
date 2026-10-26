@@ -7,6 +7,13 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+env:
+  # These small numerical problems run concurrently across CI jobs; avoid
+  # oversubscribing each runner with BLAS/OpenMP worker pools.
+  OPENBLAS_NUM_THREADS: "1"
+  OMP_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+
 jobs:
   test:
     name: Test Python ${{ matrix.python-version }}
@@ -80,6 +87,35 @@ jobs:
         tests/smooths/test_mgcv_nat_param_parity.py
         tests/regressions/test_chi_square_mixtures_mgcv_parity.py
         -v
+
+    - name: Run portable quasi-family slices
+      run: >-
+        pytest
+        tests/families/test_quasi_family_contracts.py
+        tests/families/test_mgcv_quasi_workflows.py
+        tests/docs/test_quasi_example.py
+        -v
+
+    - name: Run matrix-functional and soap tensor references
+      run: >-
+        pytest
+        tests/smooths/test_mgcv_tp_linear_functionals.py
+        tests/smooths/test_mgcv_single_penalty_functionals.py
+        tests/smooths/test_mgcv_spline_linear_functionals.py
+        tests/smooths/test_mgcv_ad_functionals.py
+        tests/smooths/test_mgcv_categorical_functionals.py
+        tests/smooths/test_mgcv_functional_packing.py
+        tests/smooths/test_mgcv_fs_functional.py
+        tests/smooths/test_mgcv_sz_functional.py
+        tests/smooths/test_mgcv_soap_functional.py
+        tests/smooths/test_mgcv_soap_repeated_functional.py
+        tests/smooths/test_mgcv_tensor_linear_functionals.py
+        tests/smooths/test_mgcv_soap_tensor.py
+        tests/smooths/test_mgcv_re_tensor.py
+        tests/smooths/test_mgcv_re_tensor_numeric_labels.py
+        tests/smooths/test_mgcv_soap_factor.py
+        tests/docs/test_matrix_functional_example.py
+        -q
 
     - name: Run portable spline-constructor slices
       run: >-

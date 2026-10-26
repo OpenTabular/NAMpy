@@ -24,6 +24,13 @@ from ..smooth_base import (
     _normalize_knots,
     build_penalty_definition,
 )
+from .functional import (
+    finish_tensor_functional_fit,
+    finish_tensor_functional_prediction,
+    prepare_tensor_functional_fit,
+    prepare_tensor_functional_prediction,
+    set_tensor_functional_by_state,
+)
 from .marginals import (
     build_tensor_marginal_terms,
     build_tensor_product_components,
@@ -123,6 +130,7 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         return int(np.sum(~np.asarray(self.fixed_flags, dtype=bool)))
 
     def fit(self, X, feature_names):
+        X = prepare_tensor_functional_fit(self, X, feature_names)
         marginal_shared_setups = self._linked_id_marginal_setups(self.feature)
         marginals, _, _ = build_tensor_marginal_terms(
             feature=self.feature,
@@ -144,6 +152,7 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         )
 
         self._set_by_state(X, feature_names)
+        set_tensor_functional_by_state(self)
 
         # Build marginal bases and penalties matching mgcv's te construction:
         # 1. Use unscaled raw penalty (no scale_penalty yet).
@@ -197,7 +206,10 @@ class TensorProductSplineTerm(BaseSmoothTerm):
                 fixed=False,
             )
             constraint_kind = "pc"
-        elif self._by_state.is_constant or factor_by_meta:
+        elif (self._by_state.is_constant or factor_by_meta) and all(
+            getattr(marginal, "tensor_requires_centering", True)
+            for marginal in marginals
+        ):
             if self._linked_id_setup() is None:
                 B_te, S_te, C_te = full_term_sum_to_zero_constraint(B_raw, S_raw)
             else:
@@ -235,10 +247,19 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         self._record_constraint_result(
             constraint_kind,
             C_te,
-            absorbed_by=("runtime" if C_te is not None else None),
+            absorbed_by=(
+                "runtime"
+                if C_te is not None
+                or any(
+                    not getattr(marginal, "tensor_requires_centering", True)
+                    for marginal in marginals
+                )
+                else None
+            ),
         )
 
         self.basis_name = "te(" + ",".join(self.basis) + ")"
+        finish_tensor_functional_fit(self)
         return self
 
     def get_penalty_definitions(self):
@@ -281,6 +302,7 @@ class TensorProductSplineTerm(BaseSmoothTerm):
 
     def transform_new(self, X_new):
         self._require_fitted()
+        X_new, functional_shape = prepare_tensor_functional_prediction(self, X_new)
 
         B_new_raw = tensor_predict_matrix(
             self._marginals,
@@ -288,4 +310,6 @@ class TensorProductSplineTerm(BaseSmoothTerm):
             centered=False,
             np_transforms=self._marginal_np_transforms,
         )
-        return self._apply_constraint_transform_and_by(B_new_raw, X_new)
+        return finish_tensor_functional_prediction(
+            self._apply_constraint_transform_and_by(B_new_raw, X_new), functional_shape
+        )

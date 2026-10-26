@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.linalg import cho_factor, cho_solve, solve_triangular
+from scipy.linalg import cho_factor, cho_solve, qr, solve_triangular
 
 from .....linalg.reindexing import (
     drop_columns_dense,
@@ -178,6 +178,19 @@ def criterion_hessian_gcv_ubre_pirls_exact(model, y, log_sp, method):
     return np.asarray(hess[np.ix_(free_idx, free_idx)], dtype=np.float64)
 
 
+def _fit3_pearson_scale_factor(model, y, sol, mp):
+    """Undo gdi1's good-row normalization exactly as gam.fit3 does."""
+    nobs = float(len(y))
+    ntrue = float(getattr(model, "n_true_", nobs) or nobs)
+    weights = _prior_weights(model, np.asarray(y, dtype=np.float64))
+    eta = np.asarray(sol.get("gdi1_eta", sol["eta"]), dtype=np.float64)
+    good = (weights > 0.0) & (np.asarray(model.family.mu_eta(eta)) != 0.0)
+    # gdi.c divides P/P1/P2 by n_good-Mp; gam.fit3 subsequently
+    # multiplies by (nobs-Mp)/(n.true-Mp), including zero prior weights.
+    denom = (float(np.count_nonzero(good)) - mp) * (ntrue - mp)
+    return (nobs - mp) / denom if denom > 0.0 else np.nan
+
+
 def _fit3_p_ml_reml_full_derivatives(model, y, log_sp, method):
     """Exact Pearson-Laplace derivatives from ``gam.fit3``."""
     method = str(method).lower()
@@ -189,11 +202,11 @@ def _fit3_p_ml_reml_full_derivatives(model, y, log_sp, method):
     mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     nobs = float(len(np.asarray(y)))
     ntrue = float(getattr(model, "n_true_", nobs) or nobs)
-    denom = ntrue - mp
-    phi = float(kernel.P / denom)
+    factor = _fit3_pearson_scale_factor(model, y, sol, mp)
+    phi = float(kernel.P * factor)
     _fit_workspace(model).pirls_outer_scale_est = phi
-    phi1 = np.asarray(kernel.P1, dtype=np.float64) / denom
-    phi2 = np.asarray(kernel.P2, dtype=np.float64) / denom
+    phi1 = np.asarray(kernel.P1, dtype=np.float64) * factor
+    phi2 = np.asarray(kernel.P2, dtype=np.float64) * factor
     weights = _prior_weights(model, np.asarray(y, dtype=np.float64))
     ls = np.asarray(model.family.ls(y, weights, len(y), phi), dtype=np.float64)
     if nobs > 0.0 and ntrue != nobs:
@@ -302,7 +315,8 @@ def _gdi1_pearson_terms(model, y, sol, current, ift):
     v2 = np.asarray(model.family.d2var(mu), dtype=np.float64) / variance
     eta = np.asarray(sol["eta"], dtype=np.float64)
     g1 = 1.0 / np.asarray(model.family.mu_eta(eta), dtype=np.float64)
-    g2 = np.asarray(model.family.d2link(mu), dtype=np.float64)
+    # gam.fit3 supplies g2/g1 to pearson2, as for the other gdi1 kernels.
+    g2 = np.asarray(model.family.d2link(mu), dtype=np.float64) / g1
     residual = y - mu
     xx = residual * weights / variance
     P = float(np.sum(xx * residual))
@@ -1397,6 +1411,57 @@ def _gdi1_det_terms(model, sp, current, ift, pk_state, *, method):
     return det1, det2, trA, trA1, trA2, K, K1, K2, dVkk
 
 
+def _gdi1_fisher_trace_terms(model, sol, current, ift):
+    """gdi.c::gdi1 af1/af2 and Fisher QR branch before get_trA2.
+
+    Coefficient sensitivities still use observed Newton weights. EDF and its
+    derivatives use the second, expected-information factorization upstream.
+    """
+    family = model.family
+    eta = np.asarray(sol.get("gdi1_eta", sol["eta"]), dtype=np.float64)
+    mu = np.asarray(sol.get("gdi1_mu", sol["mu"]), dtype=np.float64)
+    wf = np.asarray(sol["fisher_weights"], dtype=np.float64)
+    g1 = 1.0 / np.asarray(family.mu_eta(eta), dtype=np.float64)
+    g2 = np.asarray(family.d2link(mu), dtype=np.float64) / g1
+    g3 = np.asarray(family.d3link(mu), dtype=np.float64) / g1
+    variance = np.asarray(family.variance(mu), dtype=np.float64)
+    v1 = np.asarray(family.dvar(mu), dtype=np.float64) / variance
+    v2 = np.asarray(family.d2var(mu), dtype=np.float64) / variance
+    af1 = -wf * (v1 + 2 * g2) / g1
+    with np.errstate(divide="ignore", invalid="ignore"):
+        af2 = af1 * (af1 / wf - g2 / g1) - wf * (
+            v2 - v1 * v1 + 2 * g3 - 2 * g2 * g2
+        ) / (g1 * g1)
+    af1[wf == 0] = 0
+    af2[wf == 0] = 0
+    X = np.asarray(current.X, dtype=np.float64)
+    root = _drop_permute_columns(
+        np.asarray(current.canonical.Sr), current.dropped_column_indices, current.pivot1
+    )
+    augmented = np.vstack([np.sqrt(wf)[:, None] * X, root])
+    _, R, pivot = qr(augmented, mode="economic", pivoting=True, check_finite=False)
+    Rinv = solve_triangular(R, np.eye(R.shape[0]), check_finite=False)
+    inverse = np.empty((R.shape[0], R.shape[0]))
+    inverse[np.ix_(pivot, pivot)] = Rinv @ Rinv.T
+    F = X.T @ (wf[:, None] * X)
+    nsp = len(ift.deta)
+    F1, A1 = [], []
+    F2 = [[None] * nsp for _ in range(nsp)]
+    A2 = [[None] * nsp for _ in range(nsp)]
+    for j in range(nsp):
+        derivative = X.T @ ((af1 * ift.deta[j])[:, None] * X)
+        F1.append(derivative)
+        A1.append(derivative + ift.P_derivs[j])
+        for k in range(j, nsp):
+            eta2 = X @ ift.d2beta_mat[j][k]
+            derivative2 = X.T @ (
+                (af2 * ift.deta[j] * ift.deta[k] + af1 * eta2)[:, None] * X
+            )
+            F2[j][k] = F2[k][j] = derivative2
+            A2[j][k] = A2[k][j] = derivative2 + (ift.P_derivs[j] if j == k else 0.0)
+    return _hat_matrix_trace_and_sp_derivatives(inverse, F, A1, A2, F1, F2)
+
+
 def _gdi1_kernel(model, y, sol, sp, *, method, rank_tol=None):
     """Structured Python analogue of `mgcv::gdi1()` on canonical current-sp state."""
     setup = _gdi_pk_setup(model, sol, sp, deriv=2, rank_tol=rank_tol)
@@ -1409,6 +1474,12 @@ def _gdi1_kernel(model, y, sol, sp, *, method, rank_tol=None):
     det1, det2, trA, trA1, trA2, K, K1, K2, dVkk = _gdi1_det_terms(
         model, sp, current, ift, pk_state, method=method
     )
+    if (
+        str(method).upper() == "GCV"
+        and str(getattr(model.family, "family_class", "")).lower() == "glm"
+        and not bool(getattr(model.family, "canonical_link", False))
+    ):
+        trA, trA1, trA2 = _gdi1_fisher_trace_terms(model, sol, current, ift)
     return _GDI1Kernel(
         current=current,
         ift=ift,
@@ -1803,6 +1874,10 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
     if getattr(model.family, "known_scale", None) is None and family_name not in {
         "gamma",
         "gaussian",
+        "inverse_gaussian",
+        "quasi",
+        "quasipoisson",
+        "quasibinomial",
     }:
         raise NotImplementedError(
             "Exact PIRLS ML/REML gradients are currently implemented only for "
@@ -1826,6 +1901,10 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
     if getattr(model.family, "known_scale", None) is None and family_name in {
         "gamma",
         "gaussian",
+        "inverse_gaussian",
+        "quasi",
+        "quasipoisson",
+        "quasibinomial",
     }:
         from .joint_kernels import gdi2_joint_kernel
 
@@ -1869,6 +1948,10 @@ def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
     if getattr(model.family, "known_scale", None) is None and family_name not in {
         "gamma",
         "gaussian",
+        "inverse_gaussian",
+        "quasi",
+        "quasipoisson",
+        "quasibinomial",
     }:
         raise NotImplementedError(
             "Exact PIRLS ML/REML Hessians are currently implemented only for "

@@ -1,0 +1,2 @@
+# Fixture identities hash these source probes, including on Windows checkouts.
+tests/smooths/probes/*.R text eol=lf

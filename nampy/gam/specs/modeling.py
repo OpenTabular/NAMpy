@@ -154,6 +154,12 @@ def prepare_formula_inputs(
     model, data, formula, y=None, knots=None, drop_intercept=None
 ):
     parsed = parse_gam_formula(formula)
+    if y is None and parsed.response_name is not None:
+        from ..formula.parse import grouped_binomial_response_expressions
+
+        grouped = grouped_binomial_response_expressions(parsed.response_name)
+        if grouped is not None and str(getattr(model.family, "name", "")) not in {"binomial", "quasibinomial"}:
+            raise ValueError("cbind(successes, failures) requires family='binomial' or 'quasibinomial'.")
     extracted = extract_formula_terms(parsed, drop_intercept=drop_intercept)
     build_result: FormulaBuildResult = build_formula_model(
         extracted,

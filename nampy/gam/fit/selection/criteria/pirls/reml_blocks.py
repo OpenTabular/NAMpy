@@ -28,6 +28,11 @@ def _working_weight_derivatives_wrt_linpred(model, y, eta, mu, w):
             a2 = a1 * (a1 / w - g2 / g1) - w * (
                 V2 - V1 * V1 + 2.0 * g3 - 2.0 * g2 * g2
             ) / (g1 * g1)
+        # gam.fit3 evaluates these derivatives only on `good` rows. A
+        # zero prior weight contributes neither derivative; retain our full
+        # observation layout without letting its 0/0 contaminate the Hessian.
+        a1[w == 0.0] = 0.0
+        a2[w == 0.0] = 0.0
         return a1, a2
 
     g1 = 1.0 / np.asarray(family.mu_eta(eta), dtype=np.float64)
@@ -65,6 +70,8 @@ def _working_weight_derivatives_wrt_linpred(model, y, eta, mu, w):
         a2 = a1 * (a1 / w - g2 / g1) - w * (
             alpha1 * alpha1 - alpha2 + V2 - V1 * V1 + 2.0 * g3 - 2.0 * g2 * g2
         ) / (g1 * g1)
+    a1[w == 0.0] = 0.0
+    a2[w == 0.0] = 0.0
     return a1, a2
 
 

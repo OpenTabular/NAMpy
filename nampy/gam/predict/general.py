@@ -7,7 +7,6 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from ..data import coerce_optional_offset
 from ..fit.offsets import resolve_prediction_offset
 from ..fit.parameterization import prediction_parameterization_map
 from ..linalg import symmetrize_matrix
@@ -38,23 +37,24 @@ def _prediction_parameterization_wider(tb) -> bool:
     return expose_raw or bool(wider)
 
 
-def general_family_prediction_offset(model, X_np, offset):
-    n_rows = model.n_samples_ if X_np is None else int(X_np.shape[0])
+def general_family_prediction_offset(model, X_np, offset, *, skip_term_ids=()):
     n_pred = len(_predictor_full_indices(model))
-    offset_value = resolve_prediction_offset(model, X_np, offset)
+    offset_value = resolve_prediction_offset(model, X_np, offset, skip_term_ids=skip_term_ids)
     if offset_value is None:
         return None
+    # Explicit offsets were validated by resolve_prediction_offset. Smooth-owned
+    # offsets may legitimately contain NA outside a soap domain (predict.gam).
     if isinstance(offset_value, (list, tuple)):
         out = [
             (
                 None
                 if off_i is None
-                else coerce_optional_offset(off_i, n_rows, name=f"offset[{i}]")
+                else np.asarray(off_i, dtype=np.float64)
             )
             for i, off_i in enumerate(offset_value)
         ]
     else:
-        out = [coerce_optional_offset(offset_value, n_rows)]
+        out = [np.asarray(offset_value, dtype=np.float64)]
     if len(out) < n_pred:
         out.extend([None] * (n_pred - len(out)))
     return out
@@ -240,7 +240,6 @@ def predict_general_values(
             "prediction parameterization is wider than the fitted coefficient space."
         )
 
-    offset_list = general_family_prediction_offset(model, X, offset)
     layout = general_family_prediction_layout(
         model, X, skip_term_ids=skip_term_ids
     )
@@ -249,6 +248,13 @@ def predict_general_values(
         groups,
         terms=terms,
         exclude=exclude,
+    )
+    excluded_offset_terms = set(skip_term_ids) | {
+        term.term_id for group, keep in zip(groups, selected, strict=True)
+        if not keep for term in group["blocks"]
+    }
+    offset_list = general_family_prediction_offset(
+        model, X, offset, skip_term_ids=excluded_offset_terms
     )
     layout = _filtered_general_prediction_layout(
         model,
@@ -269,7 +275,7 @@ def predict_general_values(
             np.column_stack(
                 [
                     (
-                        _group_term_contribution(model, Z_new, group)
+                        _group_term_contribution(model, Z_new, group, X=X)
                         if keep
                         else np.zeros(Z_new.shape[0], dtype=np.float64)
                     )

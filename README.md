@@ -145,8 +145,10 @@ result, and prediction interfaces.
 | ------------------ | ----------------------------------------------------------------------------------------------------- |
 | Metric smooths     | `s(..., bs='bs')`, `cr`, `cs`, `cc`, `cp`, `ds`, `gp`, `ps`, `sos`, `tp`, `ts`                        |
 | Structured smooths | Markov random fields `mrf`, random effects `re`, factor smooths `fs`, sum-to-zero factor smooths `sz` |
+| Bounded spatial surfaces | Soap films `so`, boundary films `sf`, and zero-boundary interior components `sw`, with supplied boundary loops and interior knots |
 | Tensor products    | `te(...)`, `ti(...)`, and `t2(...)` with constructor-specific supported marginals (see the [smooth-basis reference](https://nampy.readthedocs.io/en/latest/api/gam_smooths.html))                                        |
-| Parametric terms   | numeric and factor terms, supported interactions, intercept policies, and formula offsets             |
+| Linear functionals | Matrix-valued locations with weighted or unit-weight summation across supported numeric, categorical, adaptive and soap bases; see the smooth-basis reference for composition limits |
+| Parametric terms   | numeric and factor terms, fitted `factor`/`ordered`/`interaction`/`cut`/`poly` transformations, supported interactions, intercept policies, and formula offsets             |
 | Shared smoothing   | supported `id=` groups, fixed/free smoothing parameters, `select=True`, and `pc=` on supported bases  |
 
 
@@ -155,6 +157,14 @@ For spherical splines, write
 longitude-second order. A spherical marginal inside `te()` or `ti()` needs
 `d=2`. Because the array API creates one smooth per input column, joint SOS
 terms use the formula interface.
+
+The [matrix-functional example](examples/example_matrix_functionals.py) fits
+weighted surfaces and tensors with prediction uncertainty. Matrix cells can
+also hold categorical labels for random effects and MRFs; supported `fs`
+compositions use a scalar group factor. See the
+[smooth-basis reference](docs/api/gam_smooths.rst) for accepted combinations
+and the explicit matrix `cs` and matrix `t2`-with-`bs` restrictions. Scalar
+`cs`, scalar-input `t2`, and `te`/`ti` with `bs` remain supported.
 
 ### Shape-constrained functionality
 
@@ -182,13 +192,20 @@ Shape-constrained functionality includes fixed smoothing, the supported automati
 
 | Surface                   | Supported behavior                                                                                                                                 |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ordinary families         | Gaussian, binomial, Poisson, and Gamma with the implemented canonical and noncanonical links                                                       |
+| Ordinary families         | Gaussian, binomial (including grouped counts), Poisson, Gamma, and inverse Gaussian with the implemented canonical and noncanonical links                                                       |
+| Quasi families            | `quasipoisson`, `quasibinomial`, and `quasi` with named links, five general variance functions, and power links |
 | Extended families         | negative binomial (`nb` and fixed-theta `negbin`), beta regression (`betar`), Tweedie (`tw`), and ordered categorical (`ocat`)                     |
 | Multi-predictor families  | `GAMLSS` with `normal`/`gaulss` and `gamma`/`gammals`; raw `GAM` also accepts the mgcv family names                                                |
 | Smoothness criteria       | fixed smoothing, GCV/Cp, UBRE, ML, REML, and general-family LAML where the selected family and model combination supports them                     |
 | Smoothness optimizers     | outer Newton, BFGS, EFS, and guarded `optim`/L-BFGS-B routes                                                                                       |
 | Prediction                | link, response, terms, interaction terms, linear-predictor matrices, and pointwise standard errors                                                 |
-| Inference and diagnostics | covariance choices, derivatives, residuals, summaries, ANOVA, log likelihood, AIC/BIC, concurvity, `k_check`, `gam_check`, and plot data/rendering |
+| Inference and diagnostics | covariance choices, derivatives, residuals, summaries, ANOVA, log likelihood, AIC/BIC, concurvity, `k_check`, `gam_check`, and plot data/rendering, derivative curves, polygon-backed MRF maps, SOS hemispheres, conditional prediction surfaces |
+
+Quasi models support dispersion estimation and extended quasi-likelihood
+selection, predictions and uncertainty. Their log likelihood, AIC and BIC are
+`NaN` because they do not specify a response distribution. For complete fits,
+see [the quasi example](examples/example_quasi_gam.py) and
+[family options](docs/user_guide/statistical_gams.rst).
 
 #### Neural Additive Model (NAM)
 
@@ -435,3 +452,11 @@ These artifacts use Python pickle. Load them only from trusted sources.
 ## License
 
 NAMpy is distributed under the [MIT License](LICENSE).
+
+Statistical GAMs also expose `model.qq()` simulation envelopes and
+`model.plot_check()` diagnostic panels, with automatic SCAM display semantics
+for shape-constrained fits. `para_pen` supports penalties on parametric formula
+terms; `constraints` and `smooth_con` expose homogeneous constraints and
+raw/absorbed construction for `cr/cs/cc/ps/cp`. See the
+[statistical GAM guide](docs/user_guide/statistical_gams.rst) for matrix ordering,
+supported compositions, and upstream validation limits.

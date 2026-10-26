@@ -101,3 +101,35 @@ def factor_indicator_matrix(x, levels):
         if j is not None:
             B[i, j] = 1.0
     return B
+
+
+def functional_object_columns(X, indices):
+    """Extract equally shaped scalar or matrix-valued categorical coordinates."""
+    from ..smooth_base import column_as_object
+
+    columns = []
+    for index in indices:
+        raw = column_as_object(X, index)
+        nested = [np.asarray(value).ndim > 0 for value in raw]
+        if any(nested):
+            if not all(nested):
+                raise ValueError("Matrix-valued coordinate rows must have equal shape.")
+            rows = [np.asarray(value, dtype=object).reshape(-1) for value in raw]
+            if len({row.size for row in rows}) != 1:
+                raise ValueError("Matrix-valued coordinate rows must have equal shape.")
+            raw = np.stack(rows)
+        columns.append(raw)
+    if len({column.shape for column in columns}) != 1:
+        raise ValueError("Linear-functional coordinates must all have equal shape.")
+    return columns
+
+
+def aggregate_functional_basis(basis, shape, weights):
+    """Apply mgcv's summation convention to an already evaluated point basis."""
+    weights = np.ones(shape) if weights is None else np.asarray(weights, dtype=float)
+    if weights.shape != tuple(shape):
+        raise ValueError(
+            "Linear-functional coordinates and by weights must have equal shape."
+        )
+    basis = np.asarray(basis, dtype=float).reshape(*shape, -1)
+    return np.einsum("nq,nqk->nk", weights, basis)

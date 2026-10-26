@@ -106,9 +106,9 @@ def _gamma_joint_kernel_state(model, y, log_sp, method, *, phi):
 
 def criterion_gradient_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, method):
     family_name = str(getattr(model.family, "name", "")).lower()
-    if family_name != "gamma":
+    if family_name not in {"gamma", "inverse_gaussian"} and not getattr(model.family, "is_quasi", False):
         raise NotImplementedError(
-            "Joint PIRLS Gamma derivatives are implemented only for family='gamma'."
+            "Joint PIRLS scale derivatives require Gamma, inverse Gaussian or quasi."
         )
 
     phi = float(np.exp(float(log_phi)))
@@ -144,9 +144,9 @@ def criterion_gradient_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, meth
 
 def criterion_hessian_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, method):
     family_name = str(getattr(model.family, "name", "")).lower()
-    if family_name != "gamma":
+    if family_name not in {"gamma", "inverse_gaussian"} and not getattr(model.family, "is_quasi", False):
         raise NotImplementedError(
-            "Joint PIRLS Gamma derivatives are implemented only for family='gamma'."
+            "Joint PIRLS scale derivatives require Gamma, inverse Gaussian or quasi."
         )
 
     phi = float(np.exp(float(log_phi)))
@@ -250,9 +250,9 @@ def criterion_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, method):
     )
 
     method = str(method).upper()
-    if str(getattr(model.family, "name", "")).lower() != "gamma":
+    if str(getattr(model.family, "name", "")).lower() not in {"gamma", "inverse_gaussian"} and not getattr(model.family, "is_quasi", False):
         raise NotImplementedError(
-            "Joint PIRLS Gamma outer objective is implemented only for family='gamma'."
+            "Joint PIRLS scale objective requires Gamma, inverse Gaussian or quasi."
         )
     phi = float(np.exp(float(log_phi)))
     if not np.isfinite(phi) or phi <= 0.0:

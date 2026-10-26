@@ -9,7 +9,16 @@ from ...constraints.absorption import (
     fit_single_penalty_with_setup_basis,
 )
 from ...penalties.algebra import penalty_rescale_factor, scale_penalty
-from ..smooth_base import BaseSmoothTerm, _resolve_feature, columns_as_float_matrix
+from ..smooth_base import (
+    BaseSmoothTerm,
+    _resolve_feature,
+    by_values_from_new_data,
+    columns_as_float_matrix,
+    linear_functional_basis,
+    linear_functional_by_state,
+    linear_functional_locations,
+    linear_functional_setup_points,
+)
 
 
 class SinglePenaltyLowRankSmoothTerm(BaseSmoothTerm):
@@ -93,21 +102,41 @@ class SinglePenaltyLowRankSmoothTerm(BaseSmoothTerm):
             feature_indices.append(index)
             resolved_names.append(name)
 
-        values = columns_as_float_matrix(X, feature_indices)
+        values = linear_functional_locations(X, feature_indices)
+        self._linear_functional = values.ndim == 3
         self._set_by_state(X, feature_names)
+        weights = None
+        if self._linear_functional:
+            weights = self._by_state.values
+            if weights is None:
+                weights = np.ones(values.shape[:2])
+            if np.shape(weights) != values.shape[:2]:
+                raise ValueError(
+                    "Linear-functional locations and by weights must have equal shape."
+                )
+            self._by_state = linear_functional_by_state(self._by_state, weights=weights)
         self._feature_indices = feature_indices
         self._feature_names = resolved_names
         self._set_resolved_features(resolved_names)
 
         shared_X = self._linked_id_setup_matrix(feature_names)
         setup_values = (
-            columns_as_float_matrix(shared_X, feature_indices)
+            linear_functional_locations(shared_X, feature_indices)
             if shared_X is not None
             else values
         )
+        # smoothCon constructs and scales the pointwise basis before summation.
+        if setup_values.ndim == 3:
+            setup_values = linear_functional_setup_points(setup_values)[0]
         self._setup = self._build_setup(setup_values)
         setup_base = np.asarray(self._setup.basis_train, dtype=np.float64)
-        base = setup_base if shared_X is None else self._predict_raw(values)
+        base = (
+            linear_functional_basis(values, weights, self._predict_raw)
+            if self._linear_functional
+            else setup_base
+            if shared_X is None
+            else self._predict_raw(values)
+        )
         raw_penalty = np.asarray(self._setup.penalty, dtype=np.float64)
         penalty = scale_penalty(setup_base, raw_penalty)
         self._set_penalty_rescale_factors(
@@ -131,12 +160,17 @@ class SinglePenaltyLowRankSmoothTerm(BaseSmoothTerm):
             return self
 
         auto_constrain = bool(self._by_state.is_constant)
+        # Its centering row also precedes by weighting and summation.
         fit_constraint = (
             fit_single_penalty_with_constraint_policy
-            if shared_X is None
+            if shared_X is None and not self._linear_functional
             else fit_single_penalty_with_setup_basis
         )
-        args = (base, penalty) if shared_X is None else (base, setup_base, penalty)
+        args = (
+            (base, penalty)
+            if shared_X is None and not self._linear_functional
+            else (base, setup_base, penalty)
+        )
         result = fit_constraint(
             *args,
             self._by_state,
@@ -188,7 +222,22 @@ class SinglePenaltyLowRankSmoothTerm(BaseSmoothTerm):
 
     def transform_new(self, X_new):
         self._require_fitted()
-        values = columns_as_float_matrix(X_new, self._feature_indices)
+        values = linear_functional_locations(X_new, self._feature_indices)
+        if self._linear_functional:
+            weights = by_values_from_new_data(X_new, self._by_state)
+            if values.ndim == 3:
+                basis = linear_functional_basis(values, weights, self._predict_raw)
+            else:
+                basis = self._predict_raw(values)
+                if weights is not None:
+                    if np.asarray(weights).ndim != 1:
+                        raise ValueError(
+                            "Pointwise by weights must have equal shape to locations."
+                        )
+                    basis = basis * np.asarray(weights)[:, None]
+            if self.constraint_transform is not None:
+                basis = basis @ self.constraint_transform
+            return np.asarray(basis, dtype=np.float64)
         basis = self._predict_raw(values)
         return self._apply_constraint_transform_and_by(basis, X_new)
 

@@ -1,0 +1,53 @@
+{
+  "namespace": "mgcv_quasi_family",
+  "upstream": {
+    "R": "4.6.1",
+    "stats": "4.6.1",
+    "mgcv": "1.9-4"
+  },
+  "sources": [
+    {
+      "path": "debug/stats_family.R",
+      "sha256": "0f105bf4aa21b21ca943c0b98109e1bca63e94b80df72a27e0e3bdafa9e64062",
+      "functions": [
+        "quasipoisson",
+        "quasibinomial",
+        "quasi",
+        "power",
+        "make.link",
+        "binomInitialize"
+      ],
+      "upstream_url": "https://svn.r-project.org/R/trunk/src/library/stats/R/family.R"
+    },
+    {
+      "path": "debug/stats_family.c",
+      "sha256": "20f8530b9bc5144955cc4689d9ffde0789e2129399069ee861b165db056bed7c",
+      "functions": [
+        "logit_linkinv",
+        "logit_mu_eta",
+        "binomial_dev_resids"
+      ],
+      "upstream_url": "https://svn.r-project.org/R/trunk/src/library/stats/src/family.c"
+    },
+    {
+      "path": "debug/stats_pcauchy.c",
+      "sha256": "bf1bda4274176daf98db13173312e995d71ed1a98917936b85ff6e52c3135713",
+      "functions": [
+        "pcauchy"
+      ],
+      "upstream_url": "https://svn.r-project.org/R/trunk/src/nmath/pcauchy.c"
+    },
+    {
+      "path": "nampy_notes/upstreams/mgcv/R/gam.fit3.r",
+      "sha256": "c7b31bdd3073e785d5bb322e8c474c3d2e154565e713b5d5d0e192b1cc08202d",
+      "functions": [
+        "fix.family.link.family",
+        "fix.family.var",
+        "fix.family.ls"
+      ]
+    }
+  ],
+  "fixture_count": 97,
+  "generation": "NAMPY_REFRESH_REFERENCE_FIXTURES=1; ordinary tests use static fixtures only",
+  "coverage": "All nine named links, all five quasi variances, power links, higher derivatives, extended quasi-likelihood scale normalization, extreme eta and response boundaries, grouped initialization."
+}

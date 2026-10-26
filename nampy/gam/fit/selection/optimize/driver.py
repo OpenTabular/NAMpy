@@ -833,7 +833,10 @@ def _run_joint_gamma_outer(
         float(np.mean(np.asarray(y, dtype=np.float64).ravel())), model.n_samples_
     )
     null_scale = float(
-        model.family.deviance(np.asarray(y, dtype=np.float64).ravel(), mu_null)
+        model.family.deviance(
+            np.asarray(y, dtype=np.float64).ravel(), mu_null,
+            weights=getattr(model, "prior_weights_", None),
+        )
     ) / float(model.n_samples_)
     phi0 = max(null_scale / 10.0, 1e-12)
     if phi0 is not None and np.isfinite(float(phi0)) and float(phi0) > 0.0:
@@ -1574,6 +1577,12 @@ def optimize_smoothing_params(
     if optimizer == "efs" and joint_pirls_strategy is JointOuterStrategy.TWEEDIE:
         # efsudr updates the extended-family state inside each fixed-SP fit;
         # it does not append theta/scale to the outer coordinate vector.
+        joint_pirls_strategy = JointOuterStrategy.NONE
+    if (
+        joint_pirls_strategy is JointOuterStrategy.GAMMA_SCALE
+        and getattr(model.family, "known_scale", None) is not None
+    ):
+        # gam.outer only appends log(scale) when scale must be estimated.
         joint_pirls_strategy = JointOuterStrategy.NONE
     use_joint_gamma_reml_scale = joint_pirls_strategy is JointOuterStrategy.GAMMA_SCALE
     family_class = str(

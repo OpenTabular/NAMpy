@@ -176,6 +176,8 @@ _GAM_HPARAM_KEYS = frozenset(
         "knots",
         "xt",
         "min_sp",
+        "para_pen",
+        "constraints",
         "drop_intercept",
         "formula",
         # Read from hparams outside the constructor:
@@ -217,7 +219,7 @@ class GAM:
         unknown = sorted(set(self.hparams) - _GAM_HPARAM_KEYS)
         if unknown:
             # Unknown arguments must fail loudly: silently swallowing them
-            # previously made unported mgcv arguments (paraPen=, absorb.cons=,
+            # previously made unsupported R spellings (paraPen=, absorb.cons=,
             # H=, gamma=, ...) no-ops instead of errors.
             raise TypeError(f"Unknown GAM argument(s): {unknown}")
 
@@ -289,6 +291,7 @@ class GAM:
         self.formula_mode_ = False
         self.formula_response_name_ = None
         self.formula_preprocess_state_ = None
+        self.vis_training_data_ = None
 
         # mirrored fitted attributes
         self.feature_names = None
@@ -514,6 +517,13 @@ class GAM:
             self.formula_mode_ = True
             self.formula_response_name_ = parsed.response_name
             self.formula_preprocess_state_ = preprocess_state
+            raw_columns = preprocess_state.get("used_columns", used_cols)
+            raw_columns = [name for name in raw_columns if name in data.columns]
+            for expression in preprocess_state.get("formula_expression_columns", []):
+                for name in expression["source_variables"]:
+                    if name in data.columns and name not in raw_columns:
+                        raw_columns.append(name)
+            self.vis_training_data_ = data.loc[:, raw_columns].copy(deep=True)
 
             # `drop_intercept` is applied during formula intent extraction, so
             # the resolved predictor spec -- not the raw parsed formula -- is
@@ -540,6 +550,10 @@ class GAM:
             self.formula_mode_ = False
             self.formula_response_name_ = None
             self.formula_preprocess_state_ = None
+            self.vis_training_data_ = (
+                X.copy(deep=True) if isinstance(X, pd.DataFrame)
+                else pd.DataFrame(X_np, columns=feature_names).copy(deep=True)
+            )
 
             # Separate fit-time offset is used in fitting, but not remembered by default
             # for prediction, matching mgcv's documented behaviour.
@@ -590,6 +604,11 @@ class GAM:
                     f"({len(y_use)}), got {sw_use.shape[0]}."
                 )
 
+        from ..compiler.constraint_controls import with_smooth_constraints
+
+        predictor_specs = with_smooth_constraints(
+            predictor_specs, self.hparams.get("constraints")
+        )
         self.predictor_specs = predictor_specs
         self.fit_intercept = fit_intercept
         self.min_sp = min_sp
@@ -886,7 +905,10 @@ class GAM:
         has_formula_offset = any(
             name is not None for name in (self.formula_offset_names_ or ())
         )
-        if offset is not None or has_formula_offset:
+        has_smooth_offset = any(
+            term.offset_train is not None for term in _term_blocks_seq(self)
+        )
+        if offset is not None or has_formula_offset or has_smooth_offset:
             eta_array = np.asarray(eta, dtype=np.float64)
             reconstruction = np.zeros_like(eta_array, dtype=np.float64)
             if is_multi_predictor:
@@ -949,6 +971,64 @@ class GAM:
             raise RuntimeError("Model is not fitted.")
         return plot_gam(self, **kwargs)
 
+    def qq(self, *, rep=0, level=0.9, s_rep=10, type="deviance", seed=None,
+           quantile_permutations=None, response_draws=None, figsize=None):
+        """Plot upstream-style residual QQ data with optional simulated envelopes.
+
+        Shape-constrained fits use qq.scam semantics. Returns numerical data and
+        a ``figures`` list. A NumPy seed is reproducible but does not reproduce R's RNG.
+        """
+        from ...plotting import render_qq
+        from ..diagnostics.qq import prepare_qq_gam_data
+        from ..diagnostics.scam_plots import prepare_qq_scam_data
+        from ..fit.capabilities import has_transformed_coefficients
+
+        prepare = prepare_qq_scam_data if has_transformed_coefficients(self) else prepare_qq_gam_data
+        data = prepare(self, rep=rep, level=level, s_rep=s_rep, type=type, seed=seed,
+                       quantile_permutations=quantile_permutations, response_draws=response_draws)
+        data["figures"] = render_qq(data, figsize=figsize)
+        return data
+
+    def plot_check(self, *, rep=0, level=0.9, s_rep=10, type="deviance", seed=None,
+                   old_style=False, quantile_permutations=None, response_draws=None,
+                   figsize=None):
+        """Draw four gam.check/scam.check panels; use gam_check for the numeric report."""
+        from ...plotting import render_model_check
+        from ..diagnostics.check_plots import prepare_gam_check_data
+        from ..diagnostics.scam_plots import prepare_scam_check_data
+        from ..fit.capabilities import has_transformed_coefficients
+
+        prepare = prepare_scam_check_data if has_transformed_coefficients(self) else prepare_gam_check_data
+        data = prepare(self, rep=rep, level=level, s_rep=s_rep, type=type, seed=seed,
+                       old_style=old_style, quantile_permutations=quantile_permutations,
+                       response_draws=response_draws)
+        data["figures"] = render_model_check(data, figsize=figsize)
+        return data
+
+    def vis(self, *, view=None, cond=None, n_grid=30, too_far=0, type="link",
+            se=-1, lp=1, zlim=None, plot_type="persp", color="heat", col=None,
+            contour_col=None, n_col=50, theta=30, phi=30, figsize=None,
+            xlab=None, ylab=None, zlab=None, main=None):
+        """Plot a conditional prediction surface, following ``mgcv::vis.gam``.
+
+        ``view`` selects two raw predictors; ``cond`` fixes other predictors.
+        Positive ``se`` adds plus/minus that many standard errors. Returns
+        prepared prediction data with matplotlib figures under ``figures``.
+        """
+        from ...plotting import render_prediction_surface
+        from ..diagnostics.vis import prepare_vis_gam_data
+
+        prepared = prepare_vis_gam_data(
+            self, view=view, cond=cond, n_grid=n_grid, too_far=too_far,
+            type=type, se=se, lp=lp, zlim=zlim,
+        )
+        prepared["figures"] = render_prediction_surface(
+            prepared, plot_type=plot_type, color=color, col=col,
+            contour_col=contour_col, n_col=n_col, theta=theta, phi=phi,
+            figsize=figsize, xlab=xlab, ylab=ylab, zlab=zlab, main=main,
+        )
+        return prepared
+
     def summary(self, *, dispersion=None, freq=False, re_test=True):
         """
         mgcv ``summary.gam``-shaped summary.
@@ -993,6 +1073,27 @@ class GAM:
         return smooth_derivative(
             self, X=X_use, smooth_number=smooth_number, deriv=deriv
         )
+
+    def plot_derivative(self, X=None, *, smooth_number=1, deriv=1, level=0.95,
+                        figsize=None, shade_col="0.8"):
+        """Plot a slope or curvature with a pointwise Bayesian band.
+
+        Returns matplotlib figures. Derivatives are on the additive-predictor
+        scale; supported bases/new-data restrictions match :meth:`derivative`.
+        """
+        from ...plotting import render_term_plots
+        from ..diagnostics.derivatives import prepare_derivative_plot
+
+        X_use = None
+        if X is not None:
+            if self.formula_mode_:
+                X_use, _, _ = coerce_formula_predict_inputs(self, X)
+            else:
+                X_use, _ = coerce_X(self, X)
+        prepared = prepare_derivative_plot(
+            self, X=X_use, smooth_number=smooth_number, deriv=deriv, level=level
+        )
+        return render_term_plots(prepared, figsize=figsize, shade_col=shade_col)
 
     def concurvity(self, full=True):
 

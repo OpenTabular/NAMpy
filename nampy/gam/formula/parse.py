@@ -1068,7 +1068,7 @@ def parse_gam_formula(formula) -> ParsedGAMFormula:
 
         for i, component_formula in enumerate(formula, start=1):
             lhs, rhs = _split_formula_text(str(component_formula))
-            textra = None if i == 1 else f".{i-1}"
+            textra = None if i == 1 else f".{i - 1}"
             explicit_lpi = get_numeric_response_labels(str(component_formula))
             if len(explicit_lpi) == 1:
                 warnings.warn(
@@ -1133,3 +1133,19 @@ __all__ = [
     "parse_gam_formula",
     "strip_offset_wrapper",
 ]
+
+
+def grouped_binomial_response_expressions(expression: str) -> tuple[str, str] | None:
+    """Return the two cbind response expressions without evaluating any code."""
+    node = _parse_formula_expr(str(expression)).body
+    if not (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "cbind"
+    ):
+        return None
+    if len(node.args) != 2 or node.keywords:
+        raise ValueError(
+            "cbind response requires exactly two arguments: successes, failures."
+        )
+    return ast.unparse(node.args[0]), ast.unparse(node.args[1])

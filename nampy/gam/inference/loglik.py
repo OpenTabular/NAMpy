@@ -79,6 +79,60 @@ def loglik_value_and_effective_df(model) -> tuple[float, float]:
     return p_val, p_df
 
 
+def _ordinary_aic_dispersion_scale(model, y, fit_result):
+    """gam.fit3 dev1 uses optimized REML scale, otherwise reported scale."""
+    dispersion_scale: float | None = None
+    optim_result = getattr(model, "_optim_result", None)
+    joint_log_phi = (
+        None
+        if optim_result is None
+        else getattr(optim_result, "joint_log_phi", None)
+    )
+    if (
+        joint_log_phi is not None
+        and np.isfinite(float(joint_log_phi))
+        and str(getattr(model, "_optim_method", "")).lower() in {"reml", "ml"}
+    ):
+        dispersion_scale = float(np.exp(float(joint_log_phi)))
+    if dispersion_scale is None:
+        fit_method = str(getattr(model, "smoothing_method", "")).lower()
+        if (
+            fit_method == "fixed"
+            and getattr(model.family, "known_scale", None) is None
+        ):
+            penalty = float(getattr(fit_result, "penalty_quadratic", 0.0) or 0.0)
+            mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
+            init_scale = _fit_scale(model)
+            if init_scale is None or not np.isfinite(float(init_scale)):
+                init_scale = 1.0
+            # mgcv/R/gam.fit3.r::gam.fit3 uses `reml.scale`
+            # rather than the reported Pearson `sig2` in
+            # stats::Gamma()$aic when fixed sp are fitted through
+            # the REML path.
+            dispersion_scale = float(
+                _solve_gamma_profile_scale(
+                    model,
+                    y,
+                    float(getattr(fit_result, "deviance", np.nan)) + penalty,
+                    mp=mp,
+                    method="REML",
+                    init_scale=float(init_scale),
+                )
+            )
+        if dispersion_scale is None:
+            fit_scale_value = _fit_scale(model)
+            dispersion_scale = (
+                None if fit_scale_value is None else float(fit_scale_value)
+            )
+    if (
+        dispersion_scale is None
+        or not np.isfinite(dispersion_scale)
+        or dispersion_scale <= 0.0
+    ):
+        return None
+    return dispersion_scale
+
+
 def object_aic(model) -> float | None:
     """
     Final ``object$aic`` before ``logLik.gam`` post-processing.
@@ -90,6 +144,8 @@ def object_aic(model) -> float | None:
     if fit_result is None:
         return None
 
+    if getattr(model.family, "is_quasi", False):
+        return float("nan")
     family_name = str(getattr(model.family, "name", "")).lower()
     weights = (
         np.ones_like(np.asarray(model.y_, dtype=np.float64), dtype=np.float64)
@@ -143,55 +199,15 @@ def object_aic(model) -> float | None:
         # stats::binomial()$aic owns the m <- wt reinterpretation of
         # non-unit prior weights as binomial denominators.
         raw_aic = float(model.family.aic(y, mu, edf=0.0, weights=weights))
-    elif family_name == "gamma":
-        dispersion_scale: float | None = None
-        optim_result = getattr(model, "_optim_result", None)
-        joint_log_phi = (
-            None
-            if optim_result is None
-            else getattr(optim_result, "joint_log_phi", None)
-        )
-        if (
-            joint_log_phi is not None
-            and np.isfinite(float(joint_log_phi))
-            and str(getattr(model, "_optim_method", "")).lower() in {"reml", "ml"}
-        ):
-            dispersion_scale = float(np.exp(float(joint_log_phi)))
+    elif family_name == "inverse_gaussian":
+        dispersion_scale = _ordinary_aic_dispersion_scale(model, y, fit_result)
         if dispersion_scale is None:
-            fit_method = str(getattr(model, "smoothing_method", "")).lower()
-            if (
-                fit_method == "fixed"
-                and getattr(model.family, "known_scale", None) is None
-            ):
-                penalty = float(getattr(fit_result, "penalty_quadratic", 0.0) or 0.0)
-                mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
-                init_scale = _fit_scale(model)
-                if init_scale is None or not np.isfinite(float(init_scale)):
-                    init_scale = 1.0
-                # mgcv/R/gam.fit3.r::gam.fit3 uses `reml.scale`
-                # rather than the reported Pearson `sig2` in
-                # stats::Gamma()$aic when fixed sp are fitted through
-                # the REML path.
-                dispersion_scale = float(
-                    _solve_gamma_profile_scale(
-                        model,
-                        y,
-                        float(getattr(fit_result, "deviance", np.nan)) + penalty,
-                        mp=mp,
-                        method="REML",
-                        init_scale=float(init_scale),
-                    )
-                )
-            if dispersion_scale is None:
-                fit_scale_value = _fit_scale(model)
-                dispersion_scale = (
-                    None if fit_scale_value is None else float(fit_scale_value)
-                )
-        if (
-            dispersion_scale is None
-            or not np.isfinite(dispersion_scale)
-            or dispersion_scale <= 0.0
-        ):
+            return None
+        raw_aic = float(model.family.aic(y, mu, edf=0.0, weights=weights,
+                                       dev=dispersion_scale * np.sum(weights)))
+    elif family_name == "gamma":
+        dispersion_scale = _ordinary_aic_dispersion_scale(model, y, fit_result)
+        if dispersion_scale is None:
             return None
         disp = dispersion_scale
         shape = 1.0 / disp

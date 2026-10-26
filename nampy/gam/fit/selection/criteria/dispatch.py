@@ -249,7 +249,8 @@ def criterion_gradient(
             and (
                 getattr(model.family, "known_scale", None) is not None
                 or str(getattr(model.family, "name", "")).lower()
-                in {"gamma", "gaussian"}
+                in {"gamma", "gaussian", "inverse_gaussian"}
+                or getattr(model.family, "is_quasi", False)
             )
             and bool(
                 getattr(model.family, "supports_exact_pirls_first_derivatives", False)
@@ -376,7 +377,8 @@ def criterion_hessian(
             and (
                 getattr(model.family, "known_scale", None) is not None
                 or str(getattr(model.family, "name", "")).lower()
-                in {"gamma", "gaussian"}
+                in {"gamma", "gaussian", "inverse_gaussian"}
+                or getattr(model.family, "is_quasi", False)
             )
             and bool(
                 getattr(model.family, "supports_exact_pirls_second_derivatives", False)

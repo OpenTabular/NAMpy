@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 import numpy as np
-from scipy.special import expit
 from scipy.stats import norm as _norm
 
 
@@ -59,6 +58,42 @@ class IdentityLink(LinkFunction):
 
 
 @dataclass(frozen=True)
+class PowerLink(LinkFunction):
+    """Positive nonunit stats::power link; <=0 and 1 are dispatched by family."""
+
+    eps: float
+    power: float
+
+    def __call__(self, mu):
+        return np.asarray(mu, dtype=float) ** self.power
+
+    def inverse(self, eta):
+        return np.maximum(
+            np.asarray(eta, dtype=float) ** (1 / self.power), np.finfo(float).eps
+        )
+
+    def mu_eta(self, eta):
+        return np.maximum(
+            (1 / self.power) * np.asarray(eta, dtype=float) ** (1 / self.power - 1),
+            np.finfo(float).eps,
+        )
+
+    def d2(self, mu):
+        p = self.power
+        return (p * (p - 1)) * np.asarray(mu, dtype=float) ** (p - 2)
+
+    def d3(self, mu):
+        p = self.power
+        return (p * (p - 1) * (p - 2)) * np.asarray(mu, dtype=float) ** (p - 3)
+
+    def d4(self, mu):
+        p = self.power
+        return (p * (p - 1) * (p - 2) * (p - 3)) * np.asarray(mu, dtype=float) ** (
+            p - 4
+        )
+
+
+@dataclass(frozen=True)
 class LogLink(LinkFunction):
     eps: float
 
@@ -68,7 +103,7 @@ class LogLink(LinkFunction):
 
     def inverse(self, eta):
         eta = np.asarray(eta, dtype=np.float64)
-        return np.exp(eta)
+        return np.maximum(np.exp(eta), np.finfo(np.float64).eps)
 
     def mu_eta(self, eta):
         mu = self.inverse(eta)
@@ -119,6 +154,33 @@ class InverseLink(LinkFunction):
 
 
 @dataclass(frozen=True)
+class InverseSquaredLink(LinkFunction):
+    """stats::make.link('1/mu^2') with mgcv::fix.family.link derivatives."""
+
+    eps: float
+
+    def __call__(self, mu):
+        return 1.0 / np.asarray(mu, dtype=float) ** 2
+
+    def inverse(self, eta):
+        with np.errstate(invalid="ignore", divide="ignore"):
+            return 1.0 / np.sqrt(np.asarray(eta, dtype=float))
+
+    def mu_eta(self, eta):
+        with np.errstate(invalid="ignore", divide="ignore"):
+            return -1.0 / (2 * np.asarray(eta, dtype=float) ** 1.5)
+
+    def d2(self, mu):
+        return 6 * np.asarray(mu, dtype=float) ** -4
+
+    def d3(self, mu):
+        return -24 * np.asarray(mu, dtype=float) ** -5
+
+    def d4(self, mu):
+        return 120 * np.asarray(mu, dtype=float) ** -6
+
+
+@dataclass(frozen=True)
 class SqrtLink(LinkFunction):
     eps: float
 
@@ -158,14 +220,19 @@ class LogitLink(LinkFunction):
     def inverse(self, eta):
         eta = np.asarray(eta, dtype=np.float64)
         eps = np.finfo(np.float64).eps
-        # stats::binomial(link="logit") uses C_logit_linkinv, which floors the
-        # inverse link away from exact 0/1 at machine epsilon.
-        return np.clip(expit(eta), eps, 1.0 - eps)
+        # stats/src/family.c::logit_linkinv uses strict +/-30 thresholds.
+        tmp = np.exp(np.clip(eta, -30.0, 30.0))
+        tmp = np.where(eta < -30.0, eps, np.where(eta > 30.0, 1 / eps, tmp))
+        return tmp / (1.0 + tmp)
 
     def mu_eta(self, eta):
-        mu = self.inverse(eta)
-        eps = np.finfo(np.float64).eps
-        return np.clip(mu * (1.0 - mu), eps, None)
+        eta = np.asarray(eta, dtype=np.float64)
+        exp_eta = np.exp(np.clip(eta, -30.0, 30.0))
+        return np.where(
+            (eta > 30.0) | (eta < -30.0),
+            np.finfo(np.float64).eps,
+            exp_eta / ((1.0 + exp_eta) * (1.0 + exp_eta)),
+        )
 
     def d2(self, mu):
         mu = np.asarray(mu, dtype=np.float64)
@@ -228,10 +295,10 @@ class CloglogLink(LinkFunction):
         eta = np.asarray(eta, dtype=np.float64)
         lam = np.exp(eta)
         eps = np.finfo(np.float64).eps
-        return np.clip(1.0 - np.exp(-lam), eps, 1.0 - eps)
+        return np.clip(-np.expm1(-lam), eps, 1.0 - eps)
 
     def mu_eta(self, eta):
-        eta = np.asarray(eta, dtype=np.float64)
+        eta = np.minimum(np.asarray(eta, dtype=np.float64), 700.0)
         lam = np.exp(eta)
         eps = np.finfo(np.float64).eps
         return np.clip(lam * np.exp(-lam), eps, None)
@@ -271,12 +338,23 @@ class CauchitLink(LinkFunction):
         return out
 
     def inverse(self, eta):
-        eta = np.asarray(eta, dtype=np.float64)
-        return 0.5 + np.arctan(eta) / np.pi
+        eps = np.finfo(np.float64).eps
+        thresh = -float(self(eps))
+        eta = np.clip(np.asarray(eta, dtype=np.float64), -thresh, thresh)
+        # stats::make.link clamps eta; nmath/pcauchy.c avoids cancellation
+        # in either tail by evaluating atan(1/x) when abs(x)>1.
+        out = np.empty_like(eta)
+        tail = np.abs(eta) > 1
+        tail_value = np.arctan(1 / eta[tail]) / np.pi
+        out[tail] = np.where(eta[tail] > 0, 1 - tail_value, -tail_value)
+        out[~tail] = 0.5 + np.arctan(eta[~tail]) / np.pi
+        return out
 
     def mu_eta(self, eta):
         eta = np.asarray(eta, dtype=np.float64)
-        return 1.0 / (np.pi * (1.0 + eta**2))
+        with np.errstate(over="ignore"):
+            density = 1.0 / (np.pi * (1.0 + eta**2))
+        return np.maximum(density, np.finfo(np.float64).eps)
 
     def d2(self, mu):
         eta = self(mu)
@@ -387,6 +465,21 @@ class GammaVariance(VarianceFunction):
 
 
 @dataclass(frozen=True)
+class InverseGaussianVariance(VarianceFunction):
+    def __call__(self, mu):
+        return np.asarray(mu, dtype=float) ** 3
+
+    def d1(self, mu):
+        return 3 * np.asarray(mu, dtype=float) ** 2
+
+    def d2(self, mu):
+        return 6 * np.asarray(mu, dtype=float)
+
+    def d3(self, mu):
+        return np.full_like(np.asarray(mu, dtype=float), 6)
+
+
+@dataclass(frozen=True)
 class NegativeBinomialVariance(VarianceFunction):
     family: Any
 
@@ -468,6 +561,7 @@ LINK_REGISTRY: dict[str, Callable[..., LinkFunction]] = {
     "log": LogLink,
     "inverse": InverseLink,
     "sqrt": SqrtLink,
+    "1/mu^2": InverseSquaredLink,
     "logit": LogitLink,
     "probit": ProbitLink,
     "cloglog": CloglogLink,
@@ -479,4 +573,5 @@ VARIANCE_REGISTRY: dict[str, type[VarianceFunction]] = {
     "binomial": BinomialVariance,
     "poisson": PoissonVariance,
     "gamma": GammaVariance,
+    "inverse_gaussian": InverseGaussianVariance,
 }

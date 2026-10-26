@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "package_version": "1.9-4",
+  "stats_version": "4.6.1",
+  "fixture_namespace": "mgcv_inverse_gaussian",
+  "generator": "tests/families/test_inverse_gaussian_parity.py::_reference",
+  "source_functions": [
+    "stats::inverse.gaussian",
+    "stats::make.link",
+    "mgcv::fix.family.link",
+    "mgcv::fix.family.var",
+    "mgcv::fix.family.ls",
+    "mgcv::gam.fit3",
+    "mgcv::logLik.gam",
+    "mgcv C gdi1 Fisher trace derivatives"
+  ],
+  "source_files_sha256": {
+    "R/gam.fit3.r": "c7b31bdd3073e785d5bb322e8c474c3d2e154565e713b5d5d0e192b1cc08202d",
+    "R/mgcv.r": "f2c782d23d361c987836d936b3c01d14846829377fbb1768504298094a7b0120",
+    "src/gdi.c": "c458d6521282a241f2b226c88316e31826d2b46705aa42acd843039fb9cd4fd1"
+  },
+  "policy": "Normal tests consume committed fixtures only; generation requires NAMPY_REFRESH_REFERENCE_FIXTURES=1.",
+  "portable_inputs": {
+    "file": "input_data.json",
+    "origin": "Exact existing R input doubles frozen from test data generation on the reference host; no reference outputs changed.",
+    "base_recipe": "x=linspace(-1,1,100); mu=exp(.25+.35*sin(3*x)); y=default_rng(931).wald(mu,7); weights unit or repeating .5,1,1.5,2.",
+    "two_smooth_recipe": "z=default_rng(53).permutation(x); y=default_rng(17).wald(exp(.25+.35*sin(3*x)+.3*z**2),7).",
+    "reason": "libm/SIMD differences in exp/sin and dependent Wald samples change raw input hashes across runners."
+  }
+}

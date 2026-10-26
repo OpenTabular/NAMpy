@@ -205,16 +205,32 @@ def _materialize_formula_expression_column(
             list(cached["source_variables"]),
         )
 
-    values, src_vars = _evaluate_formula_numeric_expression(expr_key, data_work)
+    from ..formula.parse import all_vars1
+    from ..formula.transforms import evaluate_transform, is_fitted_transform
+
+    transform_state = None
+    if is_fitted_transform(expr_key):
+        values, transform_state = evaluate_transform(expr_key, data_work)
+        # mgcv::gam model.frame defaults to drop.unused.levels=TRUE.
+        if isinstance(values, pd.Categorical):
+            values = values.remove_unused_categories()
+        src_vars = list(all_vars1(expr_key))
+    else:
+        values, src_vars = _evaluate_formula_numeric_expression(expr_key, data_work)
     hidden_col = f"__gam_formula__{pred_name}__{hidden_counter}"
     hidden_counter += 1
-    data_work[hidden_col] = values
+    if isinstance(values, np.ndarray) and values.ndim == 2:
+        data_work[hidden_col] = list(values)
+    else:
+        data_work[hidden_col] = values
 
     record = {
         "hidden_name": hidden_col,
         "expr": expr_key,
         "source_variables": list(src_vars),
     }
+    if transform_state is not None:
+        record["transform_state"] = transform_state
     cache[expr_key] = dict(record)
     state["formula_expression_columns"].append(dict(record))
     return hidden_col, hidden_counter, list(src_vars)
@@ -371,8 +387,16 @@ def is_numeric_array_valued_series(s: pd.Series) -> bool:
         return False
     widths = set()
     for value in s:
+        if isinstance(value, pd.Categorical):
+            return False
         array = np.asarray(value)
         if array.ndim == 0:
+            return False
+        # Character matrix coordinates remain categorical even when their
+        # labels are parseable numbers ("01" and "1" are distinct levels).
+        if any(
+            isinstance(item, (str, bytes, bool, np.bool_)) for item in array.reshape(-1)
+        ):
             return False
         try:
             numeric = np.asarray(value, dtype=np.float64).reshape(-1)
@@ -404,6 +428,8 @@ def factor_info(s: pd.Series):
 
 
 def _factor_levels_metadata_for_features(data_work, features):
+    from ..data import feature_values_for_levels
+
     out = {}
     for feature in features:
         name = str(feature)
@@ -412,7 +438,10 @@ def _factor_levels_metadata_for_features(data_work, features):
         s = data_work[name]
         if not is_factor_like_series(s):
             continue
-        _cat, levels, ordered = factor_info(s)
+        if any(np.asarray(value).ndim > 0 for value in s):
+            _cat, levels, ordered = factor_info(pd.Series(feature_values_for_levels(s)))
+        else:
+            _cat, levels, ordered = factor_info(s)
         out[name] = {"levels": list(levels), "ordered": bool(ordered)}
     return out
 
@@ -533,38 +562,57 @@ def _expand_parametric_term(
                     state=state,
                 )
             )
-            vals = numeric_1d_values(data_work[hidden_expr_name], name=hidden_expr_name)
+            source_label = hidden_expr_name
+        else:
+            source_label = label
+        if source_label not in data_work.columns:
+            raise KeyError(f"Formula references missing parametric variable {label!r}.")
+        s = data_work[source_label]
+        if is_numeric_array_valued_series(s):
+            matrix = np.asarray(list(s), dtype=np.float64)
             comp_lists.append(
                 [
                     {
-                        "label": str(label),
-                        "values": vals,
+                        "label": f"{label}{column + 1}",
+                        "values": matrix[:, column],
                         "recipe": {
-                            "var": hidden_expr_name,
-                            "type": "numeric",
-                            "expr": str(label),
-                            "source_variables": list(expr_src_vars),
+                            "var": source_label,
+                            "type": "matrix",
+                            "column": column,
                         },
                     }
+                    for column in range(matrix.shape[1])
                 ]
             )
+            needs_expansion = True
             continue
-
-        if label not in data_work.columns:
-            raise KeyError(
-                f"Formula references parametric variable {label!r}, but it is not in `data`."
-            )
-
-        s = data_work[label]
 
         if is_factor_like_series(s):
             needs_expansion = True
             cat, levels, ordered = factor_info(s)
-            if ordered:
-                raise NotImplementedError(
-                    "Ordered parametric factors require mgcv/R ordered contrasts "
-                    "and are not yet supported by the Python spec builder."
+            if len(levels) < 2:
+                raise ValueError("contrasts require a factor with at least two levels")
+            if ordered and include_intercept:
+                from ..formula.transforms import ordered_contrasts
+
+                contrasts = ordered_contrasts(len(levels))
+                names = [".L", ".Q", ".C"] + [f"^{i}" for i in range(4, len(levels))]
+                comp_lists.append(
+                    [
+                        {
+                            "label": f"{label}{names[column]}",
+                            "values": contrasts[cat.codes, column],
+                            "recipe": {
+                                "var": source_label,
+                                "type": "contrast",
+                                "levels": list(levels),
+                                "scores": contrasts[:, column].tolist(),
+                            },
+                        }
+                        for column in range(contrasts.shape[1])
+                    ]
                 )
+                continue
             active_levels = levels if not include_intercept else levels[1:]
 
             comps = []
@@ -576,7 +624,7 @@ def _expand_parametric_term(
                             (cat == lev).astype(float), dtype=np.float64
                         ),
                         "recipe": {
-                            "var": label,
+                            "var": source_label,
                             "type": "factor",
                             "level": lev,
                             "levels": list(levels),
@@ -594,7 +642,7 @@ def _expand_parametric_term(
                         "label": label,
                         "values": vals,
                         "recipe": {
-                            "var": label,
+                            "var": source_label,
                             "type": "numeric",
                         },
                     }
@@ -608,7 +656,9 @@ def _expand_parametric_term(
         return [], hidden_counter
 
     out_terms = []
-    for combo in itertools.product(*comp_lists):
+    # stats::model.matrix varies the first factor fastest within interactions.
+    for reversed_combo in itertools.product(*comp_lists[::-1]):
+        combo = reversed_combo[::-1]
         values = np.ones(n, dtype=np.float64)
         labels = []
         recipe = []
@@ -1121,9 +1171,7 @@ def _preprocess_predictor_specs(extracted_predictors, predictor_specs, data):
     out_specs = []
     hidden_counter = 0
 
-    for extracted_pred, pred in zip(
-        extracted_predictors, predictor_specs, strict=True
-    ):
+    for extracted_pred, pred in zip(extracted_predictors, predictor_specs, strict=True):
         out_terms = []
         include_intercept = bool(extracted_pred.intercept)
 
@@ -1152,14 +1200,12 @@ def _preprocess_predictor_specs(extracted_predictors, predictor_specs, data):
                 state=state,
             )
             for transformed_term in transformed_terms:
-                transformed_term, hidden_counter = (
-                    _expand_transformed_smooth_by_term(
-                        transformed_term,
-                        data_work,
-                        pred_name=pred.name,
-                        hidden_counter=hidden_counter,
-                        state=state,
-                    )
+                transformed_term, hidden_counter = _expand_transformed_smooth_by_term(
+                    transformed_term,
+                    data_work,
+                    pred_name=pred.name,
+                    hidden_counter=hidden_counter,
+                    state=state,
                 )
                 transformed_term = _annotate_factor_levels(transformed_term, data_work)
                 expanded, hidden_counter = _expand_factor_by_term(
@@ -1261,11 +1307,22 @@ def build_formula_model(
                 )
             y_out = np.asarray(data_work[response_name]).ravel()
         else:
-            y_out, _src_vars = _evaluate_formula_numeric_expression(
-                response_name, data_work
-            )
+            from ..formula.parse import grouped_binomial_response_expressions
+
+            grouped = grouped_binomial_response_expressions(response_name)
+            if grouped is not None:
+                y_out = np.column_stack(
+                    [
+                        _evaluate_formula_numeric_expression(expr, data_work)[0]
+                        for expr in grouped
+                    ]
+                )
+            else:
+                y_out, _src_vars = _evaluate_formula_numeric_expression(
+                    response_name, data_work
+                )
     else:
-        y_out = np.asarray(y).ravel()
+        y_out = np.asarray(y)
 
     component_lpi = tuple(
         tuple(int(v) for v in (getattr(pred, "metadata", {}) or {}).get("lpi", (1,)))

@@ -319,11 +319,8 @@ def test_formula_tensor_k_too_small_resets_to_mgcv_default():
     assert term.smooth_spec.k == [5, 5]
 
 
-def test_build_formula_model_rejects_ordered_parametric_factor_without_r_contrasts():
-    """
-    Owner-contract coverage verifying that ordered parametric factors stay unsupported
-    until mgcv/R ordered contrasts are mirrored.
-    """
+def test_build_formula_model_uses_r_polynomial_ordered_contrasts():
+    """Ordered factors use the R contr.poly linear and quadratic columns."""
     data = pd.DataFrame(
         {
             "y": [1.0, 2.0, 3.0, 4.0],
@@ -335,11 +332,17 @@ def test_build_formula_model_rejects_ordered_parametric_factor_without_r_contras
         }
     )
 
-    with pytest.raises(
-        NotImplementedError,
-        match="Ordered parametric factors require mgcv/R ordered contrasts",
-    ):
-        _build_from_formula("y ~ f", data)
+    built = _build_from_formula("y ~ f", data)
+    columns = [term.features[0] for term in built.predictor_specs[0].terms]
+    expected = np.array(
+        [
+            [-1 / np.sqrt(2), 1 / np.sqrt(6)],
+            [0, -2 / np.sqrt(6)],
+            [1 / np.sqrt(2), 1 / np.sqrt(6)],
+            [0, -2 / np.sqrt(6)],
+        ]
+    )
+    np.testing.assert_allclose(built.working_data[columns], expected, atol=1e-14)
 
 
 @pytest.mark.parametrize(
@@ -501,22 +504,22 @@ def test_formula_predict_inputs_reject_non_numeric_formula_offset_columns():
             r"matrix\(\.\.\.\) nrow must divide",
         ),
         (
-            'y ~ s(x, k=matrix(c(1,2,3,4), ncol=3))',
+            "y ~ s(x, k=matrix(c(1,2,3,4), ncol=3))",
             ValueError,
             r"matrix\(\.\.\.\) ncol must divide",
         ),
         (
-            'y ~ te(x, z, k=matrix(c(1,2,3,4), foo=2))',
+            "y ~ te(x, z, k=matrix(c(1,2,3,4), foo=2))",
             NotImplementedError,
             r"Unsupported matrix\(\.\.\.\) argument",
         ),
         (
-            'y ~ s(x, xt=diag(2, 3))',
+            "y ~ s(x, xt=diag(2, 3))",
             NotImplementedError,
             r"Only diag\(x\) formula values are supported",
         ),
         (
-            'y ~ s(x, k=c(a=5))',
+            "y ~ s(x, k=c(a=5))",
             NotImplementedError,
             r"keyword arguments to c\(\.\.\.\) are not supported",
         ),
@@ -585,9 +588,7 @@ def test_formula_warning_branches_recover_like_mgcv():
 
     # mgcv warns "bs wrong length and ignored." and falls back to defaults.
     with pytest.warns(UserWarning, match="bs wrong length and ignored"):
-        built = _build_from_formula(
-            'y ~ te(x, z, bs=["cr","cr","cr"], k=[5,5])', data
-        )
+        built = _build_from_formula('y ~ te(x, z, bs=["cr","cr","cr"], k=[5,5])', data)
     spec = built.predictor_specs[0].terms[0].smooth_spec
     assert spec is not None
 

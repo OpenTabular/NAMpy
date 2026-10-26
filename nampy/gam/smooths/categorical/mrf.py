@@ -15,8 +15,18 @@ from ...constraints.absorption import (
 from ...penalties.algebra import penalty_rescale_factor, scale_penalty
 from ...splines.basis.natparam import nat_param_type0
 from ..registry import register_smooth
-from ..smooth_base import BaseSmoothTerm, _resolve_feature, column_as_object
-from .categorical_utils import factor_levels_from_metadata
+from ..smooth_base import (
+    BaseSmoothTerm,
+    _resolve_feature,
+    by_values_from_new_data,
+    column_as_object,
+    linear_functional_by_state,
+)
+from .categorical_utils import (
+    aggregate_functional_basis,
+    factor_levels_from_metadata,
+    functional_object_columns,
+)
 
 
 def _canonical_label(value) -> str | None:
@@ -382,7 +392,9 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
                     "incorrect number of smoothing parameters supplied for a smooth term"
                 )
         index, name = _resolve_feature(self.feature[0], feature_names)
-        values = column_as_object(X, index)
+        locations = functional_object_columns(X, [index])[0]
+        self._linear_functional = locations.ndim == 2
+        values = locations.reshape(-1)
         declared_levels = factor_levels_from_metadata(self.metadata, name)
         if declared_levels is None:
             try:
@@ -395,6 +407,16 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
                 )
 
         self._set_by_state(X, feature_names)
+        weights = None
+        if self._linear_functional:
+            weights = self._by_state.values
+            if weights is None:
+                weights = np.ones(locations.shape)
+            if np.shape(weights) != locations.shape:
+                raise ValueError(
+                    "Linear-functional locations and by weights must have equal shape."
+                )
+            self._by_state = linear_functional_by_state(self._by_state, weights=weights)
         self._feature_index = index
         self._feature_name = name
         self._factor_feature_indices = [index]
@@ -402,7 +424,18 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
         self._set_resolved_features([name])
 
         shared_X = self._linked_id_setup_matrix(feature_names)
-        setup_values = values if shared_X is None else column_as_object(shared_X, index)
+        setup_values = (
+            values
+            if shared_X is None
+            else functional_object_columns(shared_X, [index])[0].reshape(-1)
+        )
+        packed = False
+        if self._linear_functional:
+            # ExtractData packs matrix coordinates only when at least 10% repeat.
+            unique_values = np.unique(setup_values)
+            if len(unique_values) < len(setup_values) * 0.9:
+                setup_values = unique_values
+                packed = True
         self._setup = build_markov_random_field_setup(
             setup_values,
             k=self.k,
@@ -426,9 +459,11 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
         setup_base = np.asarray(self._setup.basis_train, dtype=np.float64)
         base = (
             setup_base
-            if shared_X is None
+            if shared_X is None and not packed
             else predict_markov_random_field(values, self._setup)
         )
+        if self._linear_functional:
+            base = aggregate_functional_basis(base, locations.shape, weights)
         raw_penalty = np.asarray(self._setup.penalty, dtype=np.float64)
         penalty = scale_penalty(setup_base, raw_penalty)
         self._set_penalty_rescale_factors(
@@ -436,7 +471,7 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
         )
 
         auto_constrain = bool(self._by_state.is_constant)
-        if shared_X is None:
+        if shared_X is None and not self._linear_functional:
             result = fit_single_penalty_with_constraint_policy(
                 base,
                 penalty,
@@ -494,9 +529,14 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
 
     def transform_new(self, X_new):
         self._require_fitted()
-        basis = predict_markov_random_field(
-            column_as_object(X_new, self._feature_index), self._setup
-        )
+        locations = functional_object_columns(X_new, [self._feature_index])[0]
+        basis = predict_markov_random_field(locations.reshape(-1), self._setup)
+        if locations.ndim == 2:
+            weights = by_values_from_new_data(X_new, self._by_state)
+            basis = aggregate_functional_basis(basis, locations.shape, weights)
+            if self.constraint_transform is not None:
+                basis = basis @ self.constraint_transform
+            return np.asarray(basis, dtype=np.float64)
         return self._apply_constraint_transform_and_by(basis, X_new)
 
     def tensor_marginal_fit_matrices(

@@ -11,7 +11,32 @@ Offsets are additive constants on the link scale included in the linear predicto
 
 import numpy as np
 
-from ..data import coerce_optional_offset, copy_offset
+from ..data import coerce_optional_offset, combine_offsets, copy_offset
+from ..model_state import _predictor_designs, _term_blocks_seq
+
+
+def smooth_offsets(model, X=None, *, skip_term_ids=()):
+    """Sum smooth-owned offsets, as gam.setup and predict.gam do in mgcv.
+
+    Known soap boundary values are part of the smooth's predictor even when
+    the caller supplies another offset. They are not estimated coefficients.
+    """
+    n_predictors = len(_predictor_designs(model))
+    offsets = [None] * max(1, n_predictors)
+    for term in _term_blocks_seq(model):
+        if term.term_id in skip_term_ids:
+            continue
+        if X is None:
+            value = term.offset_train
+        else:
+            value = None if term.offset_fn is None else term.offset_fn(X)
+        if value is None:
+            continue
+        for index in term.predictor_indices:
+            offsets[index] = combine_offsets(offsets[index], value)
+    if all(value is None for value in offsets):
+        return None
+    return offsets if n_predictors > 1 else offsets[0]
 
 
 def coerce_offset_array(offset, n_rows, *, name="offset"):
@@ -34,7 +59,7 @@ def coerce_offset_array(offset, n_rows, *, name="offset"):
     return out
 
 
-def resolve_prediction_offset(model, X, offset):
+def resolve_prediction_offset(model, X, offset, *, skip_term_ids=()):
     """
     Offset semantics: additive on the linear predictor scale
     --------------------------
@@ -47,7 +72,16 @@ def resolve_prediction_offset(model, X, offset):
     if X is None:
         if offset is None:
             default_offset = getattr(model, "offset_predict_default_", None)
-            return copy_offset(default_offset)
-        return coerce_offset_array(offset, model.n_samples_)
+            return combine_offsets(
+                copy_offset(default_offset),
+                smooth_offsets(model, skip_term_ids=skip_term_ids),
+            )
+        return combine_offsets(
+            coerce_offset_array(offset, model.n_samples_),
+            smooth_offsets(model, skip_term_ids=skip_term_ids),
+        )
 
-    return coerce_offset_array(offset, len(X)) if offset is not None else None
+    return combine_offsets(
+        coerce_offset_array(offset, len(X)) if offset is not None else None,
+        smooth_offsets(model, X, skip_term_ids=skip_term_ids),
+    )

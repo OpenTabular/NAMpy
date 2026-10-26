@@ -22,6 +22,7 @@ import numpy as np
 from scipy.linalg import qr as scipy_qr
 from scipy.linalg import solve_triangular
 
+from ...data import copy_offset
 from ...linalg import (
     matrix_sqrt_psd,
     mgcv_mroot_chol,
@@ -98,7 +99,7 @@ class PreOptimizationSetupState:
     """
 
     X: np.ndarray
-    offset: np.ndarray | None
+    offset: np.ndarray | list[np.ndarray | None] | None
     S: list[np.ndarray]
     off: np.ndarray
     rank: np.ndarray
@@ -502,7 +503,7 @@ def build_estimate_gam_setup_state(
         offset=(
             np.zeros(X_full.shape[0], dtype=np.float64)
             if getattr(model, "offset_train_", None) is None
-            else np.asarray(model.offset_train_, dtype=np.float64).copy()
+            else copy_offset(model.offset_train_)
         ),
         S=penalties,
         off=offsets,
@@ -887,8 +888,9 @@ def _penalty_log_smoothing_map(
         raise ValueError(f"Expected smoothing_fixed_mask_ with shape ({n_sp},).")
 
     with np.errstate(divide="raise", invalid="raise"):
-        log_sp = np.log(sp)
-    free_log_sp = np.asarray(log_sp[~fixed_mask], dtype=np.float64)
+        # Fixed zero penalties have already received mgcv's effective-zero
+        # value in lsp0; only free smoothing parameters enter this logarithm.
+        free_log_sp = np.log(sp[~fixed_mask])
     lsp0 = np.asarray(setup.lsp0, dtype=np.float64).ravel()
     if lsp0.shape != (n_pen,):
         raise RuntimeError("estimate.gam lsp0 length does not match penalty count.")
@@ -1089,6 +1091,7 @@ def can_use_simple_ml_reml_structure(model):
             "smooth",
             "random_effect",
             "null_space",
+            "parametric",
         }:
             return False
 

@@ -21,6 +21,13 @@ from ..smooth_base import (
     _normalize_mc,
     build_penalty_definition,
 )
+from .functional import (
+    finish_tensor_functional_fit,
+    finish_tensor_functional_prediction,
+    prepare_tensor_functional_fit,
+    prepare_tensor_functional_prediction,
+    set_tensor_functional_by_state,
+)
 from .marginals import (
     build_tensor_marginal_terms,
     build_tensor_product_components,
@@ -126,7 +133,9 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
         return int(np.sum(~np.asarray(self.fixed_flags, dtype=bool)))
 
     def fit(self, X, feature_names):
+        X = prepare_tensor_functional_fit(self, X, feature_names)
         self._set_by_state(X, feature_names)
+        set_tensor_functional_by_state(self)
 
         self._mc = _normalize_mc(self.mc, len(self.feature))
         marginal_shared_setups = self._linked_id_marginal_setups(self.feature)
@@ -225,6 +234,7 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
         )
 
         self.basis_name = "ti(" + ",".join(self.basis) + ")"
+        finish_tensor_functional_fit(self)
         return self
 
     def get_penalty_definitions(self):
@@ -285,10 +295,13 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
 
     def transform_new(self, X_new):
         self._require_fitted()
+        X_new, functional_shape = prepare_tensor_functional_prediction(self, X_new)
         B = tensor_predict_matrix(
             self._marginals,
             X_new,
             centered=self._marginal_is_centered,
             np_transforms=self._marginal_np_transforms,
         )
-        return self._apply_constraint_transform_and_by(B, X_new)
+        return finish_tensor_functional_prediction(
+            self._apply_constraint_transform_and_by(B, X_new), functional_shape
+        )

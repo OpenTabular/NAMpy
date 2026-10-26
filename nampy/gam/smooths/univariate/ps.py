@@ -23,6 +23,7 @@ from ..smooth_base import (
     column_as_numeric_array,
     linear_functional_basis,
     linear_functional_by_state,
+    linear_functional_setup_points,
 )
 
 
@@ -99,8 +100,7 @@ class PSplineTerm1D(BaseSmoothTerm):
 
         if self.basis_name not in {"ps", "cp"}:
             raise NotImplementedError(
-                "PSplineTerm1D supports only basis in {'ps', 'cp'}, "
-                f"got {basis!r}."
+                f"PSplineTerm1D supports only basis in {{'ps', 'cp'}}, got {basis!r}."
             )
         if self.select and self.fixed:
             raise ValueError("select=True and fixed=True are incompatible.")
@@ -131,25 +131,27 @@ class PSplineTerm1D(BaseSmoothTerm):
         self._set_by_state(X, feature_names)
         self._linear_functional = np.asarray(xj).ndim == 2
         if self._linear_functional:
-            if self._by_state is None or np.asarray(self._by_state.values).ndim != 2:
-                raise ValueError(
-                    "P-spline linear-functional terms require matrix-valued by weights."
-                )
-            by_weights = np.asarray(self._by_state.values, dtype=np.float64)
+            by_weights = (
+                np.ones_like(xj, dtype=np.float64)
+                if self._by_state.values is None
+                else np.asarray(self._by_state.values, dtype=np.float64)
+            )
             if by_weights.shape != np.asarray(xj).shape:
                 raise ValueError(
                     "Linear-functional feature locations and by weights must have equal shape."
                 )
-            x_setup_values = np.asarray(xj, dtype=np.float64).reshape(-1)
-            self._by_state = linear_functional_by_state(self._by_state)
+            x_setup_values = linear_functional_setup_points(np.asarray(xj)[:, :, None])[
+                0
+            ][:, 0]
+            self._by_state = linear_functional_by_state(
+                self._by_state, weights=by_weights
+            )
         else:
             x_setup_values = np.asarray(xj, dtype=np.float64).reshape(-1)
 
         basis_order, penalty_order = self.m[:2]
         if basis_order < 0 or penalty_order < 0:
-            raise ValueError(
-                f"For bs={self.basis_name!r}, m entries must be >= 0."
-            )
+            raise ValueError(f"For bs={self.basis_name!r}, m entries must be >= 0.")
 
         shared_X = self._linked_id_setup_matrix(feature_names)
         if shared_X is not None:
@@ -189,12 +191,12 @@ class PSplineTerm1D(BaseSmoothTerm):
                     by_weights,
                     lambda values: predict_pspline_term(values, self._setup),
                 )
-                setup_base = np.asarray(base, dtype=np.float64)
+                setup_base = point_base
             else:
                 setup_base = point_base
                 base = setup_base
             main_penalty = scale_penalty(
-                base, np.asarray(self._setup.penalty, dtype=np.float64)
+                setup_base, np.asarray(self._setup.penalty, dtype=np.float64)
             )
         self._set_penalty_rescale_factors(
             [
@@ -301,7 +303,7 @@ class PSplineTerm1D(BaseSmoothTerm):
         self._require_fitted()
 
         xj = column_as_numeric_array(X_new, self._feature_index)
-        if self._linear_functional:
+        if self._linear_functional and np.asarray(xj).ndim == 2:
             B = linear_functional_basis(
                 xj,
                 by_values_from_new_data(X_new, self._by_state),

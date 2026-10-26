@@ -60,6 +60,34 @@ def _descriptor(
 # bases. Formula-only special bases (shape constraints, re/fs/sz) are attached
 # lazily with ``register_basis_spec_builder`` below.
 _BASIS_REGISTRY: dict[str, SmoothBasisDescriptor] = {
+    "re": _descriptor(
+        "re", direct_runtime=False, max_features=None, supports_tensor=True,
+        accepts_xt=True, runtime_options=("xt",),
+    ),
+    "sc": _descriptor(
+        "sc", supports_pc=True, accepts_xt=True, dynamic_default_k=True,
+        runtime_options=("m", "xt", "pc"),
+    ),
+    "scad": _descriptor(
+        "scad", max_features=2, supports_pc=True, accepts_xt=True,
+        dynamic_default_k=True, runtime_options=("m", "xt", "pc"),
+    ),
+    **{
+        name: _descriptor(
+            name,
+            min_features=2,
+            max_features=2,
+            supports_tensor=name in {"sf", "sw"},
+            supports_factor_smooth=name in {"sf", "sw"},
+            supports_fs=name == "sf",
+            factor_accepts_xt=True,
+            supports_pc=True,
+            accepts_xt=True,
+            dynamic_default_k=True,
+            runtime_options=("basis", "xt", "pc"),
+        )
+        for name in ("so", "sf", "sw")
+    },
     "ad": _descriptor(
         "ad",
         min_features=1,

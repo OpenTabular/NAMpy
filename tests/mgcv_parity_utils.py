@@ -172,6 +172,7 @@ def _run_mgcv_snapshot_single(
     select: bool = False,
     weights_column: str | None = None,
     optimizer: str | None = None,
+    control: dict | None = None,
 ):
     """Run a single snapshot via subprocess call (legacy behavior)."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -191,10 +192,15 @@ def _run_mgcv_snapshot_single(
         )
         if weights_column is not None:
             cmd.append(str(weights_column))
-        elif optimizer is not None:
+        elif optimizer is not None or control is not None:
             cmd.append("-")
         if optimizer is not None:
             cmd.append(str(optimizer))
+
+        elif control is not None:
+            cmd.append("-")
+        if control is not None:
+            cmd.append(json.dumps(control))
 
         subprocess.run(
             cmd,
@@ -874,6 +880,7 @@ def _run_mgcv_snapshot(
     allow_live_run: bool = False,
     optimizer: str | None = None,
     portable_fixture_identity: bool = False,
+    control: dict | None = None,
 ):
     def _normalize_snapshot_payload(payload):
         if not isinstance(payload, dict):
@@ -928,6 +935,9 @@ def _run_mgcv_snapshot(
     if optimizer is not None:
         cache_parts["optimizer"] = optimizer
 
+    if control is not None:
+        cache_parts["control"] = control
+
     _cache_key = _mgcv_fixture_key(
         "snapshot",
         cache_parts,
@@ -942,7 +952,7 @@ def _run_mgcv_snapshot(
         return _normalize_snapshot_payload(cached)
 
     formula_for_r = _normalize_python_formula_text(formula)
-    if optimizer is not None:
+    if optimizer is not None or control is not None:
         result = _run_mgcv_snapshot_single(
             data,
             formula_for_r,
@@ -951,6 +961,7 @@ def _run_mgcv_snapshot(
             select=select,
             weights_column=weights_column,
             optimizer=optimizer,
+            control=control,
         )
     else:
         try:
@@ -1234,6 +1245,7 @@ def _fit_nampy_model(
     *,
     select: bool = False,
     sample_weight=None,
+    control=None,
 ):
     family_nampy, _family_token = _family_specs(family)
     method_key = str(method).lower()
@@ -1243,6 +1255,7 @@ def _fit_nampy_model(
         select=select,
         optimize_smoothing=(method_key != "fixed"),
         smoothing_method=method,
+        control=control,
     )
     gam.fit(data=data, sample_weight=sample_weight)
     return gam

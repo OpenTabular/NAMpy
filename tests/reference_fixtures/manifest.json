@@ -33,6 +33,369 @@
       "source_commit": "fc304e1a0dd5fd5fd33a78300183a973f15f9b95",
       "fixture_namespace": "sian",
       "generator": "tests/neural/test_sian_reference.py"
+    },
+    "mgcv_sc": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_sc",
+      "generator": "tests/smooths/test_mgcv_sc_bases.py::upstream_constraints",
+      "scope": "sc/scad inequality constructor matrices from local R/scasm.r; unconstrained basis behavior uses mgcv bs/ad constructors. Does not validate a scasm fit.",
+      "source_tree_sha256": "efce00a32a79ef5aedb81047520ff85a4ca3b3447bff6c868f9616dcecf401a5"
+    },
+    "mgcv_soap": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_soap",
+      "generator": "tests/smooths/test_mgcv_soap_parity.py::_reference",
+      "scope": "Soap constructors, smoothCon, fixed/REML Gaussian/Poisson/binomial fits, predict.gam, covariance and EDF; detailed namespace manifest records outputs.",
+      "source_files": [
+        "R/soap.r",
+        "src/soap.c",
+        "R/smooth.r",
+        "R/mgcv.r"
+      ]
+    },
+    "mgcv_soap_numerics": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_soap_numerics",
+      "generator": "tests/smooths/test_soap_numerics.py::_reference",
+      "scope": "Raw so/sf/sw design, penalty, rank, null-space, signed PDE grid, boundary distances, offsets, and prediction matrices",
+      "source_files_sha256": {
+        "R/soap.r": "5e9651df5ae13bf998cdcf49921e687a3bec6c5c03810f4a49f0a2e2c944ef59",
+        "R/smooth.r": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d",
+        "src/soap.c": "02d419857eecdef45c2c615f55ecab683cc2a6d138769b8660cf3bc9c1296ed6",
+        "src/misc.c": "026cdef700dd358429e1cdb42231d88690089ba13781d0082194ad021c7ca4e2"
+      }
+    },
+    "mgcv_plot_extensions": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_plot_extensions",
+      "generator": "tests/diagnostics/test_plot_extensions.py",
+      "source": "Installed R mgcv; R stats/base functions for family and formula semantics"
+    },
+    "mgcv_formula_transforms": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_formula_transforms",
+      "generator": "tests/parity/test_mgcv_formula_transforms.py",
+      "source": "Installed R mgcv; R stats/base functions for family and formula semantics"
+    },
+    "mgcv_grouped_binomial": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_grouped_binomial",
+      "generator": "tests/parity/test_mgcv_grouped_binomial.py",
+      "source": "Installed R mgcv; R stats/base functions for family and formula semantics"
+    },
+    "mgcv_inverse_gaussian": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_inverse_gaussian",
+      "generator": "tests/families/test_inverse_gaussian_parity.py",
+      "source": "Installed R mgcv; R stats/base functions for family and formula semantics"
+    },
+    "mgcv_sos_plots": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_sos_plots",
+      "generator": "tests/diagnostics/test_mgcv_sos_plots.py",
+      "source": "mgcv/R/plots.r::repole, lolaxy, plot.sos.smooth",
+      "source_file_sha256": "7a110981654838016b9460e7f630631ea9f82d08e925ca10e861e4cccc82cd9f",
+      "fixture_count": 16
+    },
+    "mgcv_vis_gam": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_vis_gam",
+      "generator": "tests/diagnostics/test_mgcv_vis_gam.py",
+      "source": "mgcv/R/plots.r::vis.gam",
+      "source_file_sha256": "7a110981654838016b9460e7f630631ea9f82d08e925ca10e861e4cccc82cd9f",
+      "fixture_count": 21
+    },
+    "mgcv_formula_conveniences": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_formula_conveniences",
+      "generator": "tests/parity/test_mgcv_formula_conveniences.py",
+      "source": "R base factor/cut.default and stats poly/polym/predict.poly",
+      "fixture_count": 35
+    },
+    "mgcv_qq_check": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_qq_check",
+      "generator": "tests/diagnostics/test_mgcv_qq_check.py",
+      "scope": "QQ quantiles, simulations/envelopes, weighted residuals, family samplers, four-panel check data and R histogram breaks/counts",
+      "fixture_count": 53,
+      "source_files_sha256": {
+        "R/plots.r": "7a110981654838016b9460e7f630631ea9f82d08e925ca10e861e4cccc82cd9f"
+      }
+    },
+    "scam_displays": {
+      "package_version": "1.2-22",
+      "fixture_namespace": "scam_displays",
+      "generator": "tests/diagnostics/test_scam_displays.py",
+      "scope": "plot.scam fit/uncertainty/IRLS partial residuals, all 17 bivariate bases, vis.scam, qq.scam and scam.check numerical panels",
+      "fixture_count": 42,
+      "source_files_sha256": {
+        "R/plot.r": "85ec0ac0fb8972d0fea64e7e82efa122e24b9c91585b3115b34e640e662c862c",
+        "R/vis.scam.r": "537d7502fe605785c7038268dd05d6c51fbee032bcf0394b1d217a6019791fb1",
+        "R/scam.check.R": "4d5f012d09bdda2a5ef311a850814983965c303400ced589b74a790396870b47",
+        "R/residuals.scam.R": "768e54537f88d02b9db1d284673f58ac2c403f30233fa527e2bcc6e17504797c"
+      }
+    },
+    "mgcv_parametric_penalties": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_parametric_penalties",
+      "generator": "tests/parity/test_mgcv_parametric_penalties.py",
+      "scope": "parametricPenalty and gam.setup: numeric/factor/matrix terms, multiple matrices, ranks, fixed/estimated/shared smoothing, fitting and inference",
+      "fixture_count": 28,
+      "source_files_sha256": {
+        "R/mgcv.r": "f2c782d23d361c987836d936b3c01d14846829377fbb1768504298094a7b0120"
+      }
+    },
+    "mgcv_public_constraints": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_public_constraints",
+      "generator": "tests/parity/test_mgcv_public_constraints.py",
+      "scope": "Raw/absorbed smoothCon, homogeneous C, penalty/rank/null-space and prediction mapping; fixed/REML fits, covariance, post-absorption selection",
+      "fixture_count": 23,
+      "source_files_sha256": {
+        "R/smooth.r": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d",
+        "R/mgcv.r": "f2c782d23d361c987836d936b3c01d14846829377fbb1768504298094a7b0120"
+      }
+    },
+    "mgcv_quasi_family": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_quasi_family",
+      "generator": "tests/families/test_quasi_family_contracts.py",
+      "scope": "stats quasi families, named and power links, boundary derivatives, variance/deviance and mgcv extended quasi-likelihood scale terms; namespace manifest records exact source hashes"
+    },
+    "mgcv_quasi_workflows": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_quasi_workflows",
+      "generator": "tests/families/test_mgcv_quasi_workflows.py",
+      "scope": "Actual mgcv quasi fixed/automatic fits, joint smoothing/scale derivatives, predictions, covariance, inference and response encodings"
+    },
+    "mgcv_composition_support": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_composition_support",
+      "generator": "tests/smooths/probes/mgcv_wider_composition_support.R",
+      "scope": "Upstream-only support inventory of 100 constructors; does not establish Python implementation parity"
+    },
+    "mgcv_tp_linear_functionals": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_tp_linear_functionals",
+      "generator": "tests/smooths/probes/mgcv_tp_linear_functionals.R",
+      "scope": "Weighted/unweighted tp/ts matrix functional fits, prediction matrices and covariance kernels",
+      "fixture_count": 1,
+      "source_files_sha256": {
+        "R/smooth.r": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d"
+      },
+      "probe_files_sha256": {
+        "tests/smooths/probes/mgcv_tp_linear_functionals.R": "7540137a95be21a5534103b9f153588668f3f0087f3e5db6e1635197f831b250"
+      }
+    },
+    "mgcv_spline_linear_functionals": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_spline_linear_functionals",
+      "generator": "tests/smooths/probes/mgcv_spline_linear_functionals.R",
+      "scope": "36 retained R matrix spline fits:30 accepted fits and6 explicit NAMpy matrix-CS portability guards",
+      "fixture_count": 1,
+      "source_files_sha256": {
+        "R/smooth.r": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d"
+      },
+      "probe_files_sha256": {
+        "tests/smooths/probes/mgcv_spline_linear_functionals.R": "18ce9c9b27beb543737f5c14440f12727830161d6603d8c0b01102151cd1cbe1"
+      },
+      "guard": "All matrix cs terms, including distinct locations, are rejected by NAMpy because unequal null-space shrinkage eigenvalues make the penalty depend on platform-dependent numerical null eigenvectors. Scalar cs is unchanged. Actual mgcv references are retained; this is not an upstream input restriction.",
+      "portability_evidence": {
+        "platform": "macOS GitHub Actions Python 3.11",
+        "failed_distinct_grid_cases": 5,
+        "max_prediction_difference_fixed": 8.97638416e-05,
+        "max_prediction_difference_REML": 0.00977856,
+        "source": "mgcv/R/smooth.r::smooth.construct.cr.smooth.spec unequal trailing eigenvalues (shrink=.1, then .01)",
+        "reference_policy": "Retain original R fits; six distinct-grid CS cases and four packed-grid CS cases test explicit NAMpy rejection; no tolerance changes."
+      }
+    },
+    "mgcv_single_penalty_functionals": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_single_penalty_functionals",
+      "generator": "tests/smooths/probes/mgcv_single_penalty_functionals.R",
+      "scope": "Weighted/unit/constant-row-sum matrix functionals; actual fixed/REML fit, prediction and covariance references",
+      "fixture_count": 1,
+      "source_files_sha256": {
+        "R/smooth.r": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d"
+      },
+      "probe_files_sha256": {
+        "tests/smooths/probes/mgcv_single_penalty_functionals.R": "c8e87271a53604d7e25e4c73e6280f7400a9e3c1c5c8758d954ba3650bf91687"
+      }
+    },
+    "mgcv_soap_tensor": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_soap_tensor",
+      "generator": "tests/smooths/probes/mgcv_soap_tensor.R",
+      "scope": "12 sf/sw ordinary-input te/ti/t2 fixed/REML fits; fitting versus prediction constraints, penalties, uncertainty and offsets",
+      "fixture_count": 1,
+      "source_files_sha256": {
+        "R/smooth.r": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d",
+        "R/soap.r": "5e9651df5ae13bf998cdcf49921e687a3bec6c5c03810f4a49f0a2e2c944ef59"
+      },
+      "probe_files_sha256": {
+        "tests/smooths/probes/mgcv_soap_tensor.R": "3f71c23775b72270cdcf65aaf6233aaf735031448f3e78bafcb472819569affc"
+      }
+    },
+    "mgcv_ad_functionals": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_ad_functionals",
+      "generator": "tests/smooths/probes/mgcv_ad_functionals.R",
+      "scope": "Matrix functional fits and explicit upstream unsupported-construction evidence; namespace cases retain acceptance boundaries",
+      "fixture_count": 1,
+      "source_files_sha256": {
+        "R/smooth.r": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d"
+      },
+      "probe_files_sha256": {
+        "tests/smooths/probes/mgcv_ad_functionals.R": "2a61a2e5b41846942313af3d2050348a2dab813b7cc42944fbd48e164845815c"
+      }
+    },
+    "mgcv_soap_functional": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_soap_functional",
+      "generator": "tests/smooths/probes/mgcv_soap_functional.R",
+      "scope": "Matrix functional fits and explicit upstream unsupported-construction evidence; namespace cases retain acceptance boundaries",
+      "fixture_count": 1,
+      "source_files_sha256": {
+        "R/smooth.r": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d",
+        "R/soap.r": "5e9651df5ae13bf998cdcf49921e687a3bec6c5c03810f4a49f0a2e2c944ef59"
+      },
+      "probe_files_sha256": {
+        "tests/smooths/probes/mgcv_soap_functional.R": "f7bde4fccda1101e250bb6086541b99827fac75debe84c0da5295bc2abfecb49"
+      }
+    },
+    "mgcv_categorical_functionals": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_categorical_functionals",
+      "generator": "tests/smooths/probes/mgcv_categorical_functionals.R",
+      "scope": "42 numeric/factor RE, interaction RE and full/reduced-rank MRF matrix fits; fixed/REML, weighting, covariance, packing and penalty references",
+      "fixture_count": 1,
+      "source_files_sha256": {
+        "R/smooth.r": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d"
+      },
+      "probe_files_sha256": {
+        "tests/smooths/probes/mgcv_categorical_functionals.R": "7c3aa7c6eae4800f876c31fb5918e50ea33bc37ad48990b8c15f775548445df8"
+      }
+    },
+    "mgcv_functional_packing": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_functional_packing",
+      "generator": "tests/smooths/probes/mgcv_functional_packing.R",
+      "scope": "50 repeated-grid numeric fit references:46 accepted cases and4 explicit NAMpy matrix-CS portability guards; column-major ordering and first-occurrence threshold evidence",
+      "fixture_count": 1,
+      "source_files_sha256": {
+        "R/smooth.r": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d"
+      },
+      "probe_files_sha256": {
+        "tests/smooths/probes/mgcv_functional_packing.R": "79c9dbbc20688e856c85cc828b5946115453ab98692d829c8b19b960d4f9c271"
+      },
+      "guard": "All matrix cs terms, including distinct locations, are rejected by NAMpy because unequal null-space shrinkage eigenvalues make the penalty depend on platform-dependent numerical null eigenvectors. Scalar cs is unchanged. Actual mgcv references are retained; this is not an upstream input restriction."
+    },
+    "mgcv_fs_functional": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_fs_functional",
+      "generator": "tests/smooths/probes/mgcv_fs_functional.R",
+      "scope": "FS matrix functionals with scalar group factor: cr/ps accepted; tp natural-nullspace orientation explicitly guarded; repeated paired metric/factor setup; additional inline-R ExtractData signed-zero packing snapshot",
+      "fixture_count": 2,
+      "source_files_sha256": {
+        "R/smooth.r": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d"
+      },
+      "probe_files_sha256": {
+        "tests/smooths/probes/mgcv_fs_functional.R": "2aca67e347b322bb5631c9ea267b9d42385ee5c96fbfd5076e28d898f59689b4",
+        "tests/smooths/test_mgcv_fs_functional.py": "3fc04bc0029c48846b730670b5245d6570fc57ea04b98990602aeb66ed8430de"
+      },
+      "additional_generators": [
+        "tests/smooths/test_mgcv_fs_functional.py"
+      ]
+    },
+    "mgcv_soap_repeated_functional": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_soap_repeated_functional",
+      "generator": "tests/smooths/probes/mgcv_soap_repeated_functional.R",
+      "scope": "9 nonuniform repeated paired-location soap functionals; packed constraints, penalties and predictions",
+      "fixture_count": 1,
+      "source_files_sha256": {
+        "R/smooth.r": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d",
+        "R/soap.r": "5e9651df5ae13bf998cdcf49921e687a3bec6c5c03810f4a49f0a2e2c944ef59"
+      },
+      "probe_files_sha256": {
+        "tests/smooths/probes/mgcv_soap_repeated_functional.R": "fa50b43ab4937c547e39c0ab77b5d76800c60716c9556e2a84587b6e1940d89a"
+      }
+    },
+    "mgcv_tensor_linear_functionals": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_tensor_linear_functionals",
+      "generator": "tests/smooths/probes/mgcv_tensor_linear_functionals.R",
+      "scope": "138 retained R numeric/soap tensor matrix cases in2snapshots; six t2-bs cases now explicit NAMpy portability guards; remaining accepted compositions retain strict fit/uncertainty/penalty checks",
+      "fixture_count": 2,
+      "source_files_sha256": {
+        "R/smooth.r": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d",
+        "R/soap.r": "5e9651df5ae13bf998cdcf49921e687a3bec6c5c03810f4a49f0a2e2c944ef59"
+      },
+      "probe_files_sha256": {
+        "tests/smooths/probes/mgcv_tensor_linear_functionals.R": "ed4cf223dcd1e22d2f15a235d1483b3a6d473767649da59ce65410007409f25b",
+        "tests/smooths/probes/mgcv_tensor_soap_functional.R": "ea76aad5dc95bb61319b53da3a300c795eb9b856260f271c3b06f9c70008918b"
+      },
+      "guard": "Matrix t2 with any bs margin is explicitly unsupported in NAMpy because type-3 natural parameterization normalizes null columns separately and numerical null rotations change the fitted metric. te/ti with bs, scalar-input t2, and tested matrix t2 cr/ds/gp/tp/ps remain supported.",
+      "portability_evidence": {
+        "failed_macos_fit_cases": 6,
+        "retained_R_fit_cases_now_guarded": 6,
+        "probe": "tests/smooths/test_mgcv_tensor_linear_functionals.py::test_type3_null_normalization_depends_on_valid_eigenvector_orientation",
+        "mechanism": "A valid rotation of the two-dimensional null space reconstructs the marginal penalty within 3e-15 but changes predictions after upstream nat.param type-3 per-column normalization.",
+        "policy": "Retain the original six R fits as explicit NAMpy rejection evidence; no tolerances weakened and no platform-specific branch."
+      }
+    },
+    "mgcv_re_tensor": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_re_tensor",
+      "generator": "tests/smooths/probes/mgcv_re_tensor.R",
+      "scope": "51 numeric/factor/mixed RE tensor cases: ordinary/matrix inputs, fixed/REML, single custom precision, repeated coordinates, unknown levels and multi-precision guards",
+      "fixture_count": 1,
+      "source_files_sha256": {
+        "R/smooth.r": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d"
+      },
+      "probe_files_sha256": {
+        "tests/smooths/probes/mgcv_re_tensor.R": "c42bdab4d49ea1852dc1d58b07014fc28f5b3307d1165c8da809fad420b1184c"
+      }
+    },
+    "mgcv_soap_factor": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_soap_factor",
+      "generator": "tests/smooths/probes/mgcv_soap_factor.R",
+      "scope": "24 ordinary-input fs-sf,sz-sf,sz-sw actual fits: fixed/REML,numeric-by,free/mixed-known boundaries, inherited offset-discard semantics and guarded compositions",
+      "fixture_count": 1,
+      "source_files_sha256": {
+        "R/smooth.r": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d",
+        "R/soap.r": "5e9651df5ae13bf998cdcf49921e687a3bec6c5c03810f4a49f0a2e2c944ef59"
+      },
+      "probe_files_sha256": {
+        "tests/smooths/probes/mgcv_soap_factor.R": "4478fe37f273aef29d64efd6f4f2b54e7dc13efd8feeacd5a209a52380e9aad1"
+      }
+    },
+    "mgcv_sz_functional": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_sz_functional",
+      "generator": "tests/smooths/probes/mgcv_sz_functional.R",
+      "scope": "40 actual SZ matrix fits: tp1D/2D,cr/ps,one or multiple scalar factor columns, weights, repeated locations, predictions, covariance and constraints",
+      "fixture_count": 1,
+      "source_files_sha256": {
+        "R/smooth.r": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d"
+      },
+      "probe_files_sha256": {
+        "tests/smooths/probes/mgcv_sz_functional.R": "a05a79aa89085401d4f2866b5e3033d16f5d0973c59be409ca95c303c64f5fb4"
+      }
+    },
+    "mgcv_re_tensor_numeric_labels": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_re_tensor_numeric_labels",
+      "generator": "tests/smooths/probes/mgcv_re_tensor_numeric_labels.R",
+      "scope": "18 RE+cr te/ti/t2 matrix fits with distinct numeric-looking factor labels, mixed metric/factor coordinates, repeats,fixed/REML and unseen levels",
+      "fixture_count": 1,
+      "source_files_sha256": {
+        "R/smooth.r": "d035ade8caf483d737c3c3f7222b9c6d33d9b6119261d79822ed7d34ba4e5d4d"
+      },
+      "probe_files_sha256": {
+        "tests/smooths/probes/mgcv_re_tensor_numeric_labels.R": "b97ef619a8addc1af45f70f8b76d6d2a8d724915ee0349ac910d20613f8ae3c0"
+      }
     }
   }
 }

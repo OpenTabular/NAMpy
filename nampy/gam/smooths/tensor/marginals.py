@@ -278,6 +278,7 @@ def build_tensor_product_components(
         x_train = (
             column_as_float(X, marginal_indices[0])
             if len(marginal_indices) == 1
+            and not getattr(m, "tensor_no_reparameterization", False)
             and str(getattr(m, "basis_name", "")).lower() != "mrf"
             else None
         )
@@ -290,6 +291,7 @@ def build_tensor_product_components(
         if (
             use_linked_id_predict_path
             and len(marginal_indices) == 1
+            and not getattr(m, "tensor_no_reparameterization", False)
             and str(getattr(m, "basis_name", "")).lower() != "mrf"
         ):
             x_train = np.asarray(
@@ -389,6 +391,8 @@ def _tensor_marginal_eval_from_x(term, x, *, centered=False):
 
 
 def _tensor_np_reparameterization(term, x_train, basis_dim, *, centered=False):
+    if getattr(term, "tensor_no_reparameterization", False):
+        return None
     if str(getattr(term, "basis_name", "")).lower() in {"cr", "cs", "cc", "mrf"}:
         return None
     if x_train is None:

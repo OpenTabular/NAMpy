@@ -347,6 +347,12 @@ class GLMFamily(BaseFamily):
 class _BinomialBase(GLMFamily):
     _variance_key = "binomial"
 
+    def _initialize_binomial_mu(self, y, weights=None):
+        y = np.asarray(y, dtype=np.float64)
+        trials = getattr(self, "_trial_counts", None)
+        w = self._check_weights(y, weights) if trials is None else trials
+        return np.clip((w * y + 0.5) / (w + 1.0), self.eps, 1.0 - self.eps)
+
     def _mgcv_probability_clip(self, mu):
         eps = np.finfo(np.float64).eps
         return np.clip(np.asarray(mu, dtype=np.float64), eps, 1.0 - eps)
@@ -418,6 +424,8 @@ class _BinomialBase(GLMFamily):
         del scale
         y = np.asarray(y, dtype=np.float64)
         mu = self._mgcv_probability_clip(mu)
+        if n is None:
+            n = getattr(self, "_trial_counts", None)
         n_arr = (
             np.ones_like(y, dtype=np.float64)
             if n is None
@@ -442,6 +450,11 @@ class _BinomialBase(GLMFamily):
         return float(-2.0 * np.sum(coeff * log_density) + 2.0 * float(edf))
 
     def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
+        trials = getattr(self, "_trial_counts", None)
+        if trials is not None:
+            # fix.family.ls: -binomial()$aic(y,n,y,w,0)/2, with n from
+            # binomInitialize rather than the number of observations.
+            return -0.5 * self.aic(y, y, weights=weights, n=trials)
         del scale
         y = np.asarray(y, dtype=np.float64)
         weights = self._check_weights(y, weights)

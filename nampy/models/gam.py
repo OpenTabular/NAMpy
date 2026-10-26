@@ -36,6 +36,8 @@ _GAM_CONSTRUCTOR_PARAMS = (
     "select",
     "knots",
     "min_sp",
+    "para_pen",
+    "constraints",
     "drop_intercept",
     "covariance",
     "score_gamma",
@@ -67,6 +69,8 @@ class _GAMAdapterBase(BaseEstimator):
         select=False,
         knots=None,
         min_sp=None,
+        para_pen=None,
+        constraints=None,
         drop_intercept=None,
         covariance="bayes",
         score_gamma=1.0,
@@ -91,6 +95,8 @@ class _GAMAdapterBase(BaseEstimator):
         self.select = select
         self.knots = knots
         self.min_sp = min_sp
+        self.para_pen = para_pen
+        self.constraints = constraints
         self.drop_intercept = drop_intercept
         self.covariance = covariance
         self.score_gamma = score_gamma
@@ -333,6 +339,31 @@ class _GAMAdapterBase(BaseEstimator):
         self._check_fitted()
         return self.gam_.plot(**kwargs)
 
+    def qq(self, **kwargs):
+        """Plot residual quantiles; delegates to ``GAM.qq``."""
+        self._check_fitted()
+        return self.gam_.qq(**kwargs)
+
+    def plot_check(self, **kwargs):
+        """Draw model-check panels; delegates to ``GAM.plot_check``."""
+        self._check_fitted()
+        return self.gam_.plot_check(**kwargs)
+
+    def vis(self, **kwargs):
+        """Plot a conditional prediction surface; delegates to ``GAM.vis``."""
+        self._check_fitted()
+        return self.gam_.vis(**kwargs)
+
+    def derivative(self, X=None, **kwargs):
+        """Return a smooth derivative and its Bayesian standard error."""
+        self._check_fitted()
+        return self.gam_.derivative(X, **kwargs)
+
+    def plot_derivative(self, X=None, **kwargs):
+        """Plot a smooth derivative with a pointwise Bayesian band."""
+        self._check_fitted()
+        return self.gam_.plot_derivative(X, **kwargs)
+
     # ------------------------------------------------------------------
     # Persistence
     # ------------------------------------------------------------------
@@ -394,7 +425,7 @@ class GAMRegressor(_GAMAdapterBase):
     def _validate_family_role(self, family) -> None:
         name = str(getattr(family, "name", "")).lower()
         n_predictors = int(getattr(family, "n_linear_predictors", 1))
-        if n_predictors != 1 or name in {"binomial", "ocat"}:
+        if n_predictors != 1 or name in {"binomial", "quasibinomial", "ocat"}:
             raise ValueError(
                 "GAMRegressor requires a single-predictor regression family; "
                 f"got {name!r} with {n_predictors} linear predictor(s). Use "
@@ -469,6 +500,8 @@ class GAMClassifier(_GAMAdapterBase):
         select=False,
         knots=None,
         min_sp=None,
+        para_pen=None,
+        constraints=None,
         drop_intercept=None,
         covariance="bayes",
         score_gamma=1.0,
@@ -494,6 +527,8 @@ class GAMClassifier(_GAMAdapterBase):
             select=select,
             knots=knots,
             min_sp=min_sp,
+            para_pen=para_pen,
+            constraints=constraints,
             drop_intercept=drop_intercept,
             covariance=covariance,
             score_gamma=score_gamma,
@@ -517,13 +552,19 @@ class GAMClassifier(_GAMAdapterBase):
     def _validate_family_role(self, family) -> None:
         name = str(getattr(family, "name", "")).lower()
         n_predictors = int(getattr(family, "n_linear_predictors", 1))
-        if name != "binomial" or n_predictors != 1:
+        if name not in {"binomial", "quasibinomial"} or n_predictors != 1:
             raise ValueError(
-                "GAMClassifier supports binary binomial families only; "
+                "GAMClassifier supports binary binomial and quasibinomial families only; "
                 f"got {name!r} with {n_predictors} linear predictor(s)."
             )
 
     def fit(self, X, y, *, sample_weight=None, offset=None):
+        target = np.asarray(y)
+        if target.ndim > 1 and not (target.ndim == 2 and target.shape[1] == 1):
+            raise ValueError(
+                "GAMClassifier requires one binary class label per observation. "
+                "For grouped success/failure counts use nampy.gam.GAM(family='binomial')."
+            )
         y = np.asarray(y).ravel()
         self._label_encoder = LabelEncoder().fit(y)
         self.classes_ = self._label_encoder.classes_
