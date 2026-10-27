@@ -189,6 +189,7 @@ def reference(data, family, nei, gamma, geometry, offset):
             "payload": payload,
             "source_sha256": hashlib.sha256(SCRIPT.encode()).hexdigest(),
         },
+        normalize_floats=True,
     )
     result = load_reference("mgcv_ncv_edges", key)
     if result is None:
@@ -337,6 +338,7 @@ def test_ncv_selection_uses_model_gamma_not_jackknife_gamma(family, method, gamm
             "payload": payload,
             "source_sha256": hashlib.sha256(SELECT_SCRIPT.encode()).hexdigest(),
         },
+        normalize_floats=True,
     )
     expected = load_reference("mgcv_ncv_edges", key)
     if expected is None:

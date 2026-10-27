@@ -883,8 +883,18 @@
       "fixture_namespace": "mgcv_ncv_edges",
       "fixture_files": 74,
       "generator": "tests/optimization/test_mgcv_ncv_edges.py",
-      "generator_sha256": "4c48255f01dc219d1afde04f3f210d85bf59d20e46bdd60edf16027b2f7358a4",
-      "scope": "Seventy fixed-evaluation references containing NCV/QNCV values, held-out predictors and finite-difference gradients, plus four direct BFGS selection references. Gaussian, Poisson, Gamma, probit binomial and inverse-Gaussian; model gamma versus nei gamma, positive/zero weights, complete/default/partial/subset/trailing neighbourhoods, known offsets, fixed/absent/mixed/free penalties. Direct upstream selection scores are checked where Rncv has neither the offset omission nor absolute-negative-weight downdate discrepancy. Other cases use independent signed one-step equations on actual mgcv fitted designs, penalties and family derivatives; raw upstream values are retained. No installed source is changed."
+      "generator_sha256": "a0f52f92b0bf7fd0c2e7d4571737bf0192018b59bb34ee6987bf07050cc7937a",
+      "scope": "Seventy fixed-evaluation references containing NCV/QNCV values, held-out predictors and finite-difference gradients, plus four direct BFGS selection references. Gaussian, Poisson, Gamma, probit binomial and inverse-Gaussian; model gamma versus nei gamma, positive/zero weights, complete/default/partial/subset/trailing neighbourhoods, known offsets, fixed/absent/mixed/free penalties. Direct upstream selection scores are checked where Rncv has neither the offset omission nor absolute-negative-weight downdate discrepancy. Other cases use independent signed one-step equations on actual mgcv fitted designs, penalties and family derivatives; raw upstream values are retained. No installed source is changed.",
+      "capture_generator_sha256": "4c48255f01dc219d1afde04f3f210d85bf59d20e46bdd60edf16027b2f7358a4",
+      "fixture_identity": {
+        "float_significant_digits": 12,
+        "aliases": "tests/reference_fixtures/mgcv_ncv_edges/aliases.json",
+        "alias_count": 74,
+        "aliases_sha256": "beaa8117fe6bf26977102f2cdab9a654f7ee51661a2f2b8c37dcdf5d21c8fdf4",
+        "scope": "Portable key aliases to unchanged captured R outputs. Exact CI missing-key variants are replayed with reference execution forbidden; numeric comparison inputs and tolerances are unchanged. No R outputs were regenerated.",
+        "regression": "tests/parity/test_mgcv_edge_fixture_portability.py",
+        "regression_sha256": "6218af4a168e596f2643500a1c00c7d721cf3087c3d4c3f200c2791e8504bc55"
+      }
     },
     "mgcv_fitted_likelihood": {
       "package_version": "1.9-4",
@@ -954,8 +964,18 @@
       "fixture_namespace": "mgcv_working_information_hooks",
       "fixture_files": 48,
       "generator": "tests/families/test_mgcv_working_information_hooks.py",
-      "generator_sha256": "6efc350ceeb376135810de0b142d2854a7e887dc9d77eedbda9be0c8ad1b74b9",
-      "scope": "Thirty-four family/link/scale cases compare Fisher and observed working-information derivatives to mgcv analytic link/variance hooks or nb Dd derivatives, with independent five-point differences at smooth interior points. Controls cover canonical links, Gamma, inverse Gaussian and quasi families; edge cases include tiny means, signed inverse predictors, clipped probit/Gaussian-log tails and three NB shape parameters. Gamma log preserves its target-required contract. Fourteen dnorm/fix.family.ls Gaussian captures span negative/zero variance, 1e-15 through 1e300, huge residuals and varying/zero weights. New references are generated explicitly once; normal tests only replay saved outputs. Existing references are unchanged."
+      "generator_sha256": "f419c5e16375b9e91380219900861714fb73919d9e36f11eff0ea44852183490",
+      "scope": "Thirty-four family/link/scale cases compare Fisher and observed working-information derivatives to mgcv analytic link/variance hooks or nb Dd derivatives, with independent five-point differences at smooth interior points. Controls cover canonical links, Gamma, inverse Gaussian and quasi families; edge cases include tiny means, signed inverse predictors, clipped probit/Gaussian-log tails and three NB shape parameters. Gamma log preserves its target-required contract. Fourteen dnorm/fix.family.ls Gaussian captures span negative/zero variance, 1e-15 through 1e300, huge residuals and varying/zero weights. New references are generated explicitly once; normal tests only replay saved outputs. Existing references are unchanged.",
+      "capture_generator_sha256": "6efc350ceeb376135810de0b142d2854a7e887dc9d77eedbda9be0c8ad1b74b9",
+      "fixture_identity": {
+        "float_significant_digits": 12,
+        "aliases": "tests/reference_fixtures/mgcv_working_information_hooks/aliases.json",
+        "alias_count": 17,
+        "aliases_sha256": "8ae97a9c9128eded8a35535d6c338d4136a81638b9a05300320650d3b9d0cd8b",
+        "scope": "Portable key aliases to unchanged captured R outputs. Exact CI missing-key variants are replayed with reference execution forbidden; numeric comparison inputs and tolerances are unchanged. No R outputs were regenerated.",
+        "regression": "tests/parity/test_mgcv_edge_fixture_portability.py",
+        "regression_sha256": "6218af4a168e596f2643500a1c00c7d721cf3087c3d4c3f200c2791e8504bc55"
+      }
     },
     "mgcv_negbin_fractional_response": {
       "package_version": "1.9-4",

@@ -66,6 +66,12 @@ coefficients, smoothing parameters, fitted link and response values,
 deviance, effective degrees of freedom, covariance matrices, standard errors,
 residuals, derivatives, diagnostics, and predictions.
 
+Working-information and NCV edge-case fixture identities normalize floating
+inputs to twelve significant digits. Committed aliases map these portable keys
+to the original saved R outputs, avoiding missing fixtures when math libraries
+produce last-bit differences in ``exp`` or ``log``. Test inputs, R results and
+comparison tolerances retain their original precision; normal tests do not run R.
+
 Representative end-to-end cases include Gaussian, binomial, Poisson, and
 Gamma responses; univariate and tensor smooths; factor-by and factor-smooth
 terms; random effects; offsets; observation weights; and term selection.

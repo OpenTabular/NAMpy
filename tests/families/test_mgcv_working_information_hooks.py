@@ -104,6 +104,7 @@ def reference(payload):
             "payload": payload,
             "source_sha256": hashlib.sha256(SCRIPT.encode()).hexdigest(),
         },
+        normalize_floats=True,
     )
     result = load_reference("mgcv_working_information_hooks", key)
     if result is None:
