@@ -1,0 +1,463 @@
+"""Standalone, executable examples for each public reference feature.
+
+The example runner executes the exact files embedded in the documentation and
+records output schemas. No examples import this generator at runtime.
+"""
+
+from __future__ import annotations
+
+import json
+import textwrap
+from pathlib import Path
+
+BASE = """import numpy as np
+import pandas as pd
+from nampy.gam import GAM
+
+rng = np.random.default_rng(7)
+n = 96
+data = pd.DataFrame({'x': rng.uniform(0, 1, n), 'z': rng.uniform(0, 1, n)})
+data['y'] = 0.4 + np.sin(3 * data.x) + 0.3 * data.z + rng.normal(0, 0.12, n)
+"""
+MODEL = """model = GAM(formula="y ~ s(x, bs='ps', k=7) + s(z, bs='cr', k=6)",
+            optimize_smoothing=True, smoothing_method='reml').fit(data=data)
+"""
+
+
+def smooth_example(name, cls):
+    code = BASE
+    extra = ""
+    if cls.__name__ == "BivariateShapePSplineTerm":
+        return (
+            code
+            + f"""from nampy.gam.smooths import make_smooth_term
+
+# Build the term's identified basis before choosing a coefficient optimizer.
+term = make_smooth_term({name!r}, feature=['x', 'z'], k=[5, 6], m=[2, 1])
+term.fit(data[['x', 'z']].to_numpy(), ['x', 'z'])
+basis = term.basis_train
+penalties = term.penalties
+coefficients = np.linspace(0.05, 0.2, basis.shape[1])
+surface = basis @ coefficients
+assert surface.shape == (n,)
+assert all(matrix.shape == (basis.shape[1], basis.shape[1]) for matrix in penalties)
+result = {{'basis': basis, 'penalties': penalties, 'surface': surface}}
+print(basis.shape, [matrix.shape for matrix in penalties])
+"""
+        )
+    if name in {"mdcv", "mdcvby"}:
+        code += "data['y'] = 2 - data.x - data.x**2 + rng.normal(0, 0.01, n)\n"
+    args = f"x, bs='{name}', k=10"
+    if name in {"te", "ti", "t2"}:
+        args = "x, z, k=c(6, 5), bs=c('cr', 'cr')"
+        formula = f"y ~ {name}({args})"
+    else:
+        if cls.__name__ == "BivariateShapePSplineTerm":
+            args = f"x, z, bs='{name}', k=c(6, 5)"
+        if name in {"ds", "ad"}:
+            args = f"x, bs='{name}', k=12"
+        if name in {"lmpi", "lipl"}:
+            args += ", xt={'xc': 0.5}"
+        if name.endswith("by"):
+            code += "data['weight'] = rng.uniform(0.5, 1.5, n)\n"
+            args += ", by=weight"
+        if name in {"fs", "sz", "re"}:
+            code += "data['group'] = pd.Categorical(np.resize(['a', 'b', 'c'], n))\n"
+            args = "group, bs='re'" if name == "re" else f"x, group, bs='{name}', k=6"
+        if name == "mrf":
+            code += "data['region'] = pd.Categorical(np.resize(['a', 'b', 'c'], n))\n"
+            args = "region, bs='mrf', k=3, xt={'nb': {'a': ['b'], 'b': ['a', 'c'], 'c': ['b']}}"
+        if name == "sos":
+            code += "data['latitude'] = rng.uniform(-50, 50, n)\ndata['longitude'] = rng.uniform(-100, 100, n)\n"
+            args = "latitude, longitude, bs='sos', k=12"
+        if name in {"so", "sf", "sw"}:
+            code += (
+                "boundary = [{'x': [0., 1., 1., 0., 0.], 'z': [0., 0., 1., 1., 0.]}]\n"
+            )
+            args = f"x, z, bs='{name}', k=8, xt={{'bnd': {{boundary}}, 'nmax': 25}}"
+            extra = ", knots={'x': [0.3, 0.7, 0.3, 0.7], 'z': [0.3, 0.3, 0.7, 0.7]}"
+        formula = f"y ~ s({args})"
+    if name in {"so", "sf", "sw"}:
+        code += f"formula = \"y ~ s(x, z, bs='{name}', k=8, xt={{'bnd': \" + repr(boundary) + \", 'nmax': 25}})\"\n"
+        formula_expr = "formula"
+    else:
+        formula_expr = repr(formula)
+    code += f"model = GAM(formula={formula_expr}, optimize_smoothing=False{extra}).fit(data=data)\n"
+    code += """prediction = model.predict(data)
+design = model.lpmatrix(data)
+covariance = model.vcov()
+assert prediction.shape == (n,)
+assert design.shape[0] == n
+assert covariance.shape == (design.shape[1], design.shape[1])
+assert np.isfinite(prediction).all()
+result = {'prediction': prediction, 'full_model_design': design,
+          'coefficient_covariance': covariance}
+print({key: value.shape for key, value in result.items()})
+"""
+    return code
+
+
+def statistical_family_example(name):
+    code = BASE
+    family = repr(name)
+    formula = "y ~ s(x, bs='cr', k=6)"
+    setup = {
+        "gaussian": "data['y'] = 1 + data.x + rng.normal(0, 0.3, n)",
+        "binomial": "data['y'] = rng.binomial(1, 1 / (1 + np.exp(-2 * (data.x - 0.5))))",
+        "poisson": "data['y'] = rng.poisson(np.exp(0.5 + data.x))",
+        "gamma": "data['y'] = rng.gamma(3, np.exp(0.3 * data.x) / 3)",
+        "inverse_gaussian": "data['y'] = rng.wald(np.exp(0.3 * data.x), 2)",
+        "nb": "data['y'] = rng.negative_binomial(2, 2 / (2 + np.exp(data.x)))",
+        "negbin": "data['y'] = rng.negative_binomial(2, 2 / (2 + np.exp(data.x)))",
+        "tw": "data['y'] = rng.gamma(2, 0.5, n) * (rng.random(n) > 0.2)",
+        "betar": "data['y'] = rng.beta(2 + data.x, 3)",
+        "ocat": "data['y'] = np.resize([1, 2, 3], n)",
+        "scat": "data['y'] = data.x + 0.3 * rng.standard_t(5, n)",
+        "zip": "data['y'] = rng.poisson(3, n) * (rng.random(n) > 0.3)",
+        "cnorm": "data['y'] = 2 + data.x + rng.normal(0, 0.3, n)\ndata['bound'] = data.y.astype(float)\ndata.loc[:5, 'bound'] = np.inf",
+        "clog": "data['y'] = 2 + data.x + rng.logistic(0, 0.3, n)\ndata['bound'] = data.y.astype(float)\ndata.loc[:5, 'bound'] = np.inf",
+        "bcg": "data['y'] = np.exp(0.3 + 0.2 * data.x + rng.normal(0, 0.15, n))",
+        "cpois": "data['y'] = 1 + rng.poisson(np.exp(0.5 + data.x))\ndata['bound'] = data.y.astype(float)\ndata.loc[:5, 'bound'] = np.inf",
+        "quasi": "data['y'] = data.x + rng.normal(0, 0.3, n)",
+        "quasipoisson": "data['y'] = rng.poisson(np.exp(0.5 + data.x))",
+        "quasibinomial": "data['y'] = rng.binomial(1, 0.2 + 0.5 * data.x)",
+        "gaulss": "data['y'] = data.x + rng.normal(0, 0.2 + 0.3 * data.x, n)",
+        "gammals": "data['y'] = rng.gamma(3, np.exp(0.3 * data.x) / 3)",
+        "gumbls": "data['y'] = rng.gumbel(data.x, 0.3, n)",
+        "ziplss": "data['y'] = rng.poisson(3, n) * (rng.random(n) > 0.3)",
+        "multinom": "data['y'] = np.resize([0, 1, 2], n)",
+        "gevlss": "data['y'] = rng.gumbel(data.x, 0.3, n)",
+        "shash": "data['y'] = data.x + rng.normal(0, 0.3, n)",
+        "twlss": "data['y'] = rng.gamma(2, 0.5, n) * (rng.random(n) > 0.2)",
+    }
+    code += setup[name] + "\n"
+    if name == "negbin":
+        family = "{'name': 'negbin', 'theta': 2.0}"
+    if name == "nb":
+        family = "{'name': 'nb', 'theta': 2.0, 'estimate_theta': False}"
+    if name == "ocat":
+        family = "{'name': 'ocat', 'R': 3}"
+    if name in {"cnorm", "clog"}:
+        family = f"{{'name': '{name}', 'theta': 0.3}}"
+        formula = "cbind(y, bound) ~ s(x, bs='cr', k=6)"
+    if name == "cpois":
+        formula = "cbind(y, bound) ~ s(x, bs='cr', k=6)"
+    if name == "bcg":
+        code += "from nampy.gam.families.registry import make_gam_family\nfamily = make_gam_family({'name': 'bcg'})\nfamily.putTheta([0.0, np.log(0.3)])\nfamily.n_theta = 0\n"
+        family = "family"
+    from nampy.gam.families.registry import _GENERAL_FAMILY_FACTORIES, make_gam_family
+
+    if name in _GENERAL_FAMILY_FACTORIES:
+        if name == "multinom":
+            family = "{'name': 'multinom', 'K': 2}"
+        f = make_gam_family({"name": name, "K": 2} if name == "multinom" else name)
+        count = f.n_linear_predictors
+        formulas = [formula] + ["~ 1"] * (count - 1)
+        code += f"model = GAM(formula={formulas!r}, family={family}, optimize_smoothing=False).fit(data=data)\n"
+        code += """raw = model.predict(data, type='link')
+parameters = model.family.distribution_parameters_from_eta(np.asarray(raw))
+source_response = np.asarray(model.predict(data, type='response'))
+result = {'link_predictors': np.asarray(raw), 'natural_parameters': parameters, 'source_response': source_response}
+assert np.isfinite(source_response).all()
+assert parameters.shape[0] == n
+assert np.isfinite(parameters).all()
+print({key: value.shape for key, value in result.items()})
+"""
+    else:
+        code += f"model = GAM(formula={formula!r}, family={family}, optimize_smoothing=False).fit(data=data)\n"
+        code += """prediction = model.predict(data, type='response')
+raw = model.predict(data, type='link')
+assert np.asarray(prediction).shape[0] == n
+assert np.isfinite(prediction).all()
+result = {'response_prediction': np.asarray(prediction), 'link_prediction': np.asarray(raw)}
+print({key: value.shape for key, value in result.items()})
+"""
+    return code
+
+
+def method_example(name):
+    code = BASE
+    if name == "ar1_standardized_residuals":
+        code += MODEL.replace(
+            "optimize_smoothing=True", "ar1_rho=0.3, optimize_smoothing=False"
+        )
+    else:
+        code += MODEL
+    calls = {
+        "fit": "model",
+        "predict": "model.predict(data, return_se=True)",
+        "predict_terms": "model.predict_terms(data)",
+        "lpmatrix": "model.lpmatrix(data)",
+        "summary": "model.summary()",
+        "residuals": "model.residuals(type='deviance')",
+        "ar1_standardized_residuals": "model.ar1_standardized_residuals()",
+        "concurvity": "model.concurvity(full=False)",
+        "k_check": "model.k_check(n_rep=10, seed=7)",
+        "gam_check": "model.gam_check(k_rep=10, seed=7)",
+        "derivative": "model.derivative(smooth_number=1, deriv=1)",
+        "vcov": "model.vcov(unconditional=True)",
+        "sp_vcov": "model.sp_vcov()",
+        "gam_vcomp": "model.gam_vcomp()",
+        "one_se_rule": "model.one_se_rule()",
+        "anova": "model.anova()",
+        "aic": "model.aic()",
+        "bic": "model.bic()",
+        "loglik": "model.loglik()",
+        "edf1": "model.edf1()",
+        "fit_result": "model.fit_result(include_covariances=True)",
+        "parity_snapshot": "model.parity_snapshot(data)",
+        "get_device": "model.get_device()",
+        "plot": "model.plot(n=30, pages=1)",
+        "qq": "{'analytic': model.qq(rep=0, s_rep=3, seed=7, quantile_permutations=permutations), 'simulated': model.qq(rep=3, seed=7, response_draws=draws)}",
+        "plot_check": "{'analytic': model.plot_check(rep=0, s_rep=3, seed=7, quantile_permutations=permutations), 'simulated': model.plot_check(rep=3, seed=7, response_draws=draws)}",
+        "vis": "model.vis(view=['x', 'z'], n_grid=8, plot_type='contour')",
+        "plot_derivative": "model.plot_derivative(smooth_number=1, deriv=1)",
+    }
+    if name in {"qq", "plot_check"}:
+        code += "permutations = np.vstack([rng.permutation(n) for _ in range(3)])\ndraws = model.predict(data)[None, :] + rng.normal(0, np.sqrt(model.fit_result().scale), size=(3, n))\nassert permutations.shape == draws.shape == (3, n)\n"
+    if name in {"save_model", "load_model"}:
+        code += """from pathlib import Path
+from tempfile import TemporaryDirectory
+
+with TemporaryDirectory() as directory:
+    path = Path(directory) / 'fitted.nampy'
+    saved = model.save_model(path)
+    restored = GAM.load_model(path)
+    assert path.is_file()
+    np.testing.assert_allclose(restored.predict(data), model.predict(data))
+"""
+        code += f"    result = {'saved' if name == 'save_model' else 'restored'}\n"
+    else:
+        code += f"result = {calls[name]}\n"
+    code += "print(type(result).__name__)\n"
+    return code
+
+
+def selection_example(name):
+    from feature_reference import OPTIMIZER_MEANINGS
+
+    option = "smoothing_optimizer" if name in OPTIMIZER_MEANINGS else "smoothing_method"
+    kwargs = f"{option}={name!r}, optimize_smoothing={name != 'fixed'}"
+    if option == "smoothing_optimizer":
+        kwargs += ", smoothing_method='reml'"
+    if name == "ubre":
+        kwargs += ", scale=1.0"
+    return (
+        BASE
+        + f"model = GAM(formula=\"y ~ s(x, bs='cr', k=6)\", {kwargs}).fit(data=data)\nresult = np.asarray(model.smoothing_params)\nassert result.ndim == 1\nassert np.isfinite(model.predict(data)).all()\nprint(result.shape)\n"
+    )
+
+
+def neural_family_example(name):
+    from nampy.neural.distributions.registry import FAMILY_REGISTRY
+
+    spec = FAMILY_REGISTRY[name]
+    cls = spec.distribution
+    kwargs = {}
+    if name in {"categorical", "ordinal"}:
+        kwargs["num_classes"] = 3
+    if name in {"dirichlet", "mvnormdiag"}:
+        kwargs["n_dim"] = 3
+    kwargs_text = ", ".join(f"{key}={value!r}" for key, value in kwargs.items())
+    code = f"import numpy as np\nimport torch\nfrom {cls.__module__} import {cls.__name__}\n\nfamily = {cls.__name__}({kwargs_text})\nn = 8\nraw = torch.zeros((n, family.param_count), dtype=torch.float32)\n"
+    if name in {"categorical", "ordinal"}:
+        target = "torch.arange(n) % 3"
+    elif name == "dirichlet":
+        target = "torch.full((n, 3), 1 / 3)"
+    elif name == "mvnormdiag":
+        target = "torch.ones((n, 3))"
+    elif name == "beta":
+        target = "torch.full((n,), 0.4)"
+    else:
+        target = "torch.ones(n)"
+    code += f"target = {target}\n"
+    code += """parameters = family(raw)
+loss = family.compute_loss(raw, target)
+point = family.predict_point(raw)
+assert parameters.shape[0] == n
+assert loss.ndim == 0 and torch.isfinite(loss)
+result = {'raw': raw, 'parameters': parameters, 'loss': loss, 'point': point}
+print({key: tuple(value.shape) for key, value in result.items()})
+"""
+    return code
+
+
+def neural_estimator_example(name, spec=None, task=None):
+    from nampy import models
+
+    cls = getattr(models, name)
+    defaults = cls().get_params(deep=False)
+    options = {}
+    for key, value in {
+        "layer_sizes": [12, 8],
+        "reference_epochs": 1,
+        "reference_layer_sizes": [12, 8],
+        "n_estimators": 2,
+        "num_estimators": 2,
+        "num_trees": 3,
+        "tree_depth": 2,
+        "depth": 2,
+        "num_bases": 8,
+        "rff_num_feat": 16,
+        "n_knots": 6,
+    }.items():
+        if key in defaults:
+            options[key] = value
+    if "interactions" in defaults:
+        options["interactions"] = []
+    if name.startswith("NodeGAM"):
+        options.update(
+            num_layers=1, anneal_steps=1, last_dropout=0.0, interaction_degree=1
+        )
+    if name.endswith("LSS"):
+        task = "distributional"
+    elif name.endswith("Classifier"):
+        task = "classification"
+    else:
+        task = "regression"
+    code = (
+        """import numpy as np
+import pandas as pd
+from tempfile import TemporaryDirectory
+import torch
+"""
+        + f"from nampy.models import {name}\n\n"
+        + """torch.set_num_threads(1)
+rng = np.random.default_rng(7)
+n = 64
+X = pd.DataFrame({'x': np.linspace(-1, 1, n), 'z': rng.uniform(-1, 1, n)})
+"""
+    )
+    code += (
+        "y = (np.arange(n) % 2).astype(int)\n"
+        if task == "classification"
+        else "y = np.sin(3 * X.x.to_numpy()) + rng.normal(0, 0.1, n)\n"
+    )
+    arguments = ", ".join(f"{key}={value!r}" for key, value in options.items())
+    code += f"model = {name}({arguments})\n"
+    code += """with TemporaryDirectory() as directory:
+    model.fit(X, y, max_epochs=2, batch_size=32, random_state=7,
+              checkpoint_path=directory, logger=False, enable_progress_bar=False,
+              enable_model_summary=False)
+prediction = model.predict(X)
+assert np.asarray(prediction).shape[0] == n
+assert np.isfinite(prediction).all()
+result = {'prediction': prediction}
+"""
+    if task == "classification":
+        code += """probability = model.predict_proba(X)
+assert probability.shape == (n, 2)
+np.testing.assert_allclose(probability.sum(axis=1), 1, atol=1e-5)
+result['probabilities'] = probability
+"""
+    elif task == "distributional":
+        code += "result['raw'] = model.predict(X, raw=True)\nresult['point'] = model.predict_point(X)\n"
+    if spec is None or spec.supports("additive_components"):
+        code += "components = model.predict_components(X)\ncomponents.validate_additive_reconstruction(rtol=1e-4, atol=1e-5)\nresult['components'] = components\n"
+    code += "print({key: type(value).__name__ for key, value in result.items()})\n"
+    return code
+
+
+def statistical_estimator_example(name):
+    code = BASE + "from nampy.models import " + name + "\n"
+    if name == "GAMLSS":
+        code += "model = GAMLSS(family='gaulss', optimize_smoothing=False, k=6).fit(data[['x', 'z']], data.y)\nresult = {'natural_parameters': model.predict(data[['x', 'z']]), 'raw': model.predict(data[['x', 'z']], raw=True), 'point': model.predict_point(data[['x', 'z']])}\n"
+    else:
+        if name == "GAMClassifier":
+            code += "data['y'] = (np.arange(n) % 2).astype(int)\n"
+        code += f"model = {name}(optimize_smoothing=False, k=6).fit(data[['x', 'z']], data.y)\nresult = {{'prediction': model.predict(data[['x', 'z']]), 'components': model.predict_components(data[['x', 'z']])}}\n"
+        if name == "GAMClassifier":
+            code += "result['probabilities'] = model.predict_proba(data[['x', 'z']])\n"
+    code += "print({key: type(value).__name__ for key, value in result.items()})\n"
+    return code
+
+
+def control_example(name):
+    from public_reference import literal
+
+    from nampy.gam import gam_control
+
+    value = getattr(gam_control(), name)
+    return f"from nampy.gam import gam_control\n\ncontrol = gam_control({name}={literal(value)})\nresult = control\nassert hasattr(control, {name!r})\nprint(control.{name})\n"
+
+
+def extension_example(name):
+    if name == "NeuralEnsemble":
+        code = neural_estimator_example("NAMRegressor")
+        code = code.replace(
+            "from nampy.models import NAMRegressor",
+            "from nampy.models import NAMRegressor, NeuralEnsemble",
+        )
+        code = code.replace("model = NAMRegressor(", "base = NAMRegressor(")
+        code = code.replace(
+            "with TemporaryDirectory() as directory:",
+            "model = NeuralEnsemble(base, n_estimators=2, random_state=7)\nwith TemporaryDirectory() as directory:",
+        )
+        code += (
+            "result['component_uncertainty'] = model.predict_component_uncertainty(X)\n"
+        )
+        return code
+    if name in {"estimator_family", "NeuralEstimatorFamily"}:
+        return """from nampy.models import estimator_family, NeuralEstimatorFamily
+
+registered = estimator_family('nam', module_name=__name__)
+result = NeuralEstimatorFamily(regressor=registered.regressor,
+                              classifier=registered.classifier, lss=registered.lss)
+assert result.regressor is not None
+print(result)
+"""
+    task = {
+        "NeuralRegressor": "NAMRegressor",
+        "NeuralClassifier": "NAMClassifier",
+        "NeuralLSS": "NAMLSS",
+    }[name]
+    code = neural_estimator_example(task)
+    code = code.replace(
+        f"from nampy.models import {task}",
+        f"from nampy.models import {name}\nfrom nampy.neural.architectures import NAM\nfrom nampy.neural.configs import DefaultNAMConfig",
+    )
+    start = code.index("model = " + task + "(")
+    end = code.index("\nwith TemporaryDirectory()", start)
+    code = (
+        code[:start]
+        + f"model = {name}(model=NAM, config=DefaultNAMConfig, layer_sizes=[12, 8])"
+        + code[end:]
+    )
+    return code
+
+
+def example_rst(root, page, code):
+    """Write exact downloadable source and embed it on the feature page."""
+    path = Path(root) / "_examples/reference" / f"{page}.py"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    text = (
+        '"""Runnable reference example: '
+        + page
+        + '."""\n\n'
+        + textwrap.dedent(code).strip()
+        + "\n"
+    )
+    if not path.exists() or path.read_text() != text:
+        path.write_text(text)
+    relative = "/_examples/reference/" + page + ".py"
+    result = "Runnable example\n----------------\n\n"
+    result += (
+        "This example includes its data and imports. Run it after installing NAMpy. Small neural training budgets demonstrate the API; they do not establish predictive quality.\n\n"
+        if page.startswith("neural_reference/estimators")
+        else "This example includes all imports and input data; no variables from another page are required.\n\n"
+    )
+    result += f":download:`Download the complete example <{relative}>`\n\n.. literalinclude:: {relative}\n   :language: python\n\n"
+    output_path = Path(root) / "_examples/reference/output_schemas.json"
+    if output_path.exists():
+        schemas = json.loads(output_path.read_text())
+        if page in schemas:
+            from public_reference import table
+
+            result += (
+                "Example output types and shapes\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n"
+            )
+            result += "These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.\n\n"
+            result += table(
+                ["Output field", "Python type / dtype", "Example shape"], schemas[page]
+            )
+    return result

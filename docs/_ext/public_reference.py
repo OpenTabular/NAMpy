@@ -8,6 +8,12 @@ from dataclasses import fields, is_dataclass
 from pathlib import Path
 
 import numpy as np
+from reference_schema import (
+    estimator_returns,
+    method_parameter_rows,
+    numpy_types,
+    parameter_type,
+)
 
 
 def literal(value):
@@ -175,16 +181,33 @@ def estimator_text(cls, spec, objective):
             3, f"This architecture requires ``family={spec.fixed_family!r}``.\n"
         )
     rows = []
+    declared = {
+        **numpy_types(DefaultNAMConfig),
+        **numpy_types(DefaultNBMConfig),
+        **numpy_types(Preprocessor),
+        **numpy_types(spec.config),
+    }
     for name, default in sorted(params.items()):
         description = docs.get(name, docs.get(name.split("__", 1)[-1], ""))
         if name == "family":
             description = "Neural response family alias; see /api/utils for support and parameter domains."
+        elif spec.name == "spline_nam" and name == "n_knots":
+            description = "Number of knots in the learnable spline feature layer. Use preprocessor__n_knots to configure the separate preprocessing knot count."
         elif name == "distributional_kwargs":
             description = "Family constructor options, configured here rather than in fit(); quantile models use quantiles=[...]."
         if not description:
             description = f"Configuration option of type {type(default).__name__}; see the architecture reference for its role and restrictions."
-        rows.append((f"``{name}``", f"``{literal(default)}``", description))
-    lines.append(table(["Parameter", "Effective default", "Meaning"], rows))
+        rows.append(
+            (
+                f"``{name}``",
+                f"``{literal(default)}``",
+                description,
+                f"``{parameter_type(name, default, obj=spec.config, declared=declared)}``",
+            )
+        )
+    lines.append(
+        table(["Parameter", "Effective default", "Meaning", "Type / input shape"], rows)
+    )
     if spec.name == "igann":
         lines.append(
             "This LSS task uses gradient training with solver='auto'; the native solver supports squared-error regression and binary classification only.\n"
@@ -201,7 +224,7 @@ def estimator_text(cls, spec, objective):
         "Training controls\n~~~~~~~~~~~~~~~~~\n",
         "The common training controls below apply to gradient-trained estimators. Native solvers such as IGANN use their architecture-specific stage controls.\n",
         table(
-            ["Fit parameter", "Default", "Meaning"],
+            ["Fit parameter", "Default", "Meaning", "Type / input shape"],
             [
                 (
                     f"``{name}``",
@@ -214,6 +237,7 @@ def estimator_text(cls, spec, objective):
                         name,
                         "See the shared training contract for this fit control.",
                     ),
+                    f"``{parameter_type(name, parameter.default, obj=NeuralEstimatorBase.fit, annotation=parameter.annotation)}``",
                 )
                 for name, parameter in inspect.signature(
                     NeuralEstimatorBase.fit
@@ -230,10 +254,18 @@ def estimator_text(cls, spec, objective):
         shape = "``predict`` returns class labels; ``predict_proba`` returns ``(n_samples, n_classes)`` probabilities in ``classes_`` order. Component extraction is binary-only and describes logits, not additive probabilities."
     else:
         shape = "``predict`` returns natural distribution parameters; ``predict(raw=True)`` returns additive predictors. For fixed scalar families, natural columns follow ``family_.param_names``. Categorical and ordinal outputs instead have one probability per class; multivariate families depend on configured dimension, and quantiles have one column per requested level. Raw width follows ``family_.param_count``. ``predict_point`` returns the family-defined point prediction."
+    if spec.name == "nodegam":
+        lines.append(
+            "NODE-GAM contributions require an interpretable selector state. The short runnable example explicitly completes annealing (anneal_steps=1) in a single-layer unary model. Validate additive reconstruction before interpreting contributions from partially trained or more complex selector configurations.\n"
+        )
     if spec.fixed_family == "quantile":
         shape = "``predict`` returns one conditional quantile per configured level. Training minimizes pinball loss; ``evaluate`` labels it ``pinball_loss`` (summed over levels, averaged over rows). These quantiles do not specify a complete probability density. ``predict_components`` retains the quantile dimension, which the single-column ``plot_terms`` renderer skips."
     lines += [
         shape + "\n",
+        table(
+            ["Method/output", "Python type", "Shape", "Meaning"],
+            estimator_returns(objective),
+        ),
         "``predict_components`` returns :class:`nampy.contracts.AdditivePrediction`; named contributions plus intercept and offset reconstruct its **link**. Metadata records known source dependence. Reconstruction does not establish identifiability or stability. Centering preserves predictions.\n",
         "Fitted attributes\n~~~~~~~~~~~~~~~~~\n",
         "``feature_names_in_`` and ``n_features_in_`` record the input schema. ``model`` contains the fitted objective/module; ``data_module`` owns preprocessing. Classifiers expose ``classes_``; LSS estimators expose ``family_`` and ``distributional_kwargs_``. ``model_complexity()`` returns fitted parameter counts.\n",
@@ -258,6 +290,12 @@ def estimator_text(cls, spec, objective):
         methods += ["group_norms"]
     for method in methods:
         if hasattr(cls, method):
+            rows = method_parameter_rows(getattr(cls, method), GAM_PARAMETERS)
+            if rows:
+                lines.append(
+                    f".. rubric:: {method} parameters\n\n"
+                    + table(["Parameter", "Type / shape", "Default", "Meaning"], rows)
+                )
             lines.append(
                 f".. automethod:: nampy.models.{cls.__name__}.{method}\n   :no-index:\n\n"
             )
@@ -321,20 +359,35 @@ GAM_PARAMETERS = {
 def statistical_text(cls):
     name = cls.__name__
     rows = [
-        (f"``{parameter}``", f"``{literal(value)}``", GAM_PARAMETERS[parameter])
+        (
+            f"``{parameter}``",
+            f"``{literal(value)}``",
+            GAM_PARAMETERS[parameter],
+            f"``{parameter_type(parameter, value)}``",
+        )
         for parameter, value in cls().get_params(deep=False).items()
     ]
     text = ":doc:`Statistical GAM workflow </tutorials/first_gam>` and :doc:`Compatibility </compatibility>`.\n\n"
     text += "Constructor parameters\n~~~~~~~~~~~~~~~~~~~~~~\n\n" + table(
-        ["Parameter", "Default", "Meaning"], rows
+        ["Parameter", "Default", "Meaning", "Type / input shape"], rows
     )
     text += "Predictions and explanations\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n"
     if name == "GAMLSS":
-        text += "``predict`` returns natural parameters in ``parameter_names_`` order; ``predict(raw=True)`` returns the raw parameter predictors. ``predict_point`` returns the family-defined mean. Component arrays have shape ``(n_samples, n_parameters)`` and identify their parameter in structured metadata.\n\n"
+        text += "``predict`` returns natural parameters in ``parameter_names_`` order; ``predict(raw=True)`` returns the raw parameter predictors. ``predict_point`` returns the family-defined point prediction (mean, median or most probable class). Component arrays have shape ``(n_samples, n_parameters)`` and identify their parameter in structured metadata.\n\n"
     elif name == "GAMClassifier":
         text += "Binary classification: ``predict`` returns labels and ``predict_proba`` returns ``(n_samples, 2)`` probabilities in ``classes_`` order. Components are contributions to the link predictor rather than additive probability changes.\n\n"
     else:
         text += "``predict`` returns one response-scale mean per row. ``standard_errors`` returns pointwise prediction uncertainty in the requested scale; it is not future-outcome spread or a simultaneous confidence band.\n\n"
+    text += table(
+        ["Method/output", "Python type", "Shape", "Meaning"],
+        estimator_returns(
+            "distributional"
+            if name == "GAMLSS"
+            else "classification"
+            if name == "GAMClassifier"
+            else "regression"
+        ),
+    )
     text += "``gam_`` is the fitted statistical model. ``schema_`` records the validated input structure when the adapter can record a schema. Call explanation methods on the wrapper and use ``gam_`` for the complete statistical inference and diagnostic surface.\n\nMethods\n~~~~~~~\n\n"
     for method in [
         "fit",
@@ -358,6 +411,20 @@ def statistical_text(cls):
         "load_model",
     ]:
         if hasattr(cls, method):
+            rows = method_parameter_rows(getattr(cls, method), GAM_PARAMETERS)
+            if rows:
+                text += f".. rubric:: {method} parameters\n\n" + table(
+                    ["Parameter", "Type / shape", "Default", "Meaning"], rows
+                )
+            if method == "plot":
+                from reference_schema import plot_parameter_rows
+
+                text += (
+                    ".. rubric:: Expanded statistical plotting keywords\n\n"
+                    + table(
+                        ["Keyword", "Type", "Default", "Meaning"], plot_parameter_rows()
+                    )
+                )
             text += f".. automethod:: nampy.models.{name}.{method}\n   :no-index:\n\n"
     text += "Complete examples\n~~~~~~~~~~~~~~~~~\n\nSee the :doc:`homepage fitting examples </index>` for executable data setup, fitted predictions, component tables, and plots.\n"
     return text
@@ -468,7 +535,7 @@ FAMILY_MEANINGS = {
         "Real scalar",
         "mean",
         "No scalar predict_spread hook",
-        "Normal negative log likelihood",
+        "Robustly transformed Normal training loss when rob is not None; ordinary Normal NLL when rob=None",
     ),
     "studentt": (
         "Real scalar",
@@ -581,7 +648,7 @@ FAMILY_MEANINGS = {
     "quantile": (
         "Real scalar",
         "Median when requested, otherwise average requested quantiles",
-        "Use gaps between requested quantiles",
+        "No predict_spread hook; use quantile gaps as interval summaries",
         "Pinball loss; no probability density",
     ),
 }

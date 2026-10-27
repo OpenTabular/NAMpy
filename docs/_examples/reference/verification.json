@@ -1,0 +1,1242 @@
+{
+  "api/generated/nampy.contracts.AdditivePrediction": {
+    "sha256": "05ce602ee3c0cd103b0c5df7df322c12eebe18a1d3cd37915c958d420482156f",
+    "status": "passed"
+  },
+  "api/generated/nampy.contracts.AdditiveTermMetadata": {
+    "sha256": "edea91712acc961b935579e0468262e5b2a35d8190e39287b9b45f510625a644",
+    "status": "passed"
+  },
+  "api/generated/nampy.contracts.EnsembleAdditivePrediction": {
+    "sha256": "2d4038586e6c389d173ed8da55bdec6ed78f865e3a4ceba252c26a250d51834f",
+    "status": "passed"
+  },
+  "api/generated/nampy.contracts.FeatureSchema": {
+    "sha256": "a006e5cb26fc31741823efefdff6ab442f5c0ad7c3397e78d625cdf4ad17a78c",
+    "status": "passed"
+  },
+  "api/generated/nampy.explanations.center_additive_prediction": {
+    "sha256": "b10ba5f541112d5e99c25f2a22d39d65cb26f865639353527a9ce846d6a02f95",
+    "status": "passed"
+  },
+  "api/generated/nampy.explanations.explain_additive_prediction": {
+    "sha256": "847497bfc513e7454c691775c604b36ddfb135a01bd72ea5e76226f33782822a",
+    "status": "passed"
+  },
+  "api/generated/nampy.explanations.term_importance_table": {
+    "sha256": "fa9fa28ee568ae1e4695c0150c3f80faddd9c9fc52ba259b72976aff4d299bb3",
+    "status": "passed"
+  },
+  "api/generated/nampy.gam.formula.ExtractedParametricTerm": {
+    "sha256": "4b7630467d8364dbe1c3ee5b240f14b34112d57f108bc787b90d1425300077ec",
+    "status": "passed"
+  },
+  "api/generated/nampy.gam.formula.ExtractedPredictor": {
+    "sha256": "e5a7644c03950ee6f8d49d7c5eddf94764a9d217362bc76dda692b30d431314f",
+    "status": "passed"
+  },
+  "api/generated/nampy.gam.formula.ExtractedSmoothTerm": {
+    "sha256": "a8dcc70c897a5bb9e906c78eb2736043d6eb061191308bca365b771a965efc2a",
+    "status": "passed"
+  },
+  "api/generated/nampy.gam.formula.ParsedFormulaComponent": {
+    "sha256": "359537d15aadc0bd1589af89e908f310689517d74ef33586c4c8c09d024f5437",
+    "status": "passed"
+  },
+  "api/generated/nampy.gam.formula.ParsedGAMFormula": {
+    "sha256": "4a72627a4b901bbb9ef638e03d9da14c9aea06082d0d5347795285453d7cae90",
+    "status": "passed"
+  },
+  "api/generated/nampy.gam.formula.ParsedParametricTerm": {
+    "sha256": "9b2768bd52c85b28889437e839dd2b9cc85003309f54894f1718c570df4e4215",
+    "status": "passed"
+  },
+  "api/generated/nampy.gam.formula.ParsedPredictorFormula": {
+    "sha256": "a9f912779cbaa9bc276448a895d9f79ce2ede3617971b878ea824251d739d311",
+    "status": "passed"
+  },
+  "api/generated/nampy.gam.formula.ParsedSmoothTerm": {
+    "sha256": "cf3299bafdb0d78b148651574ab4ace9640f27887f01b88c108c0ca03b43927c",
+    "status": "passed"
+  },
+  "api/generated/nampy.gam.formula.all_vars1": {
+    "sha256": "de19aebaae5ed3a6849d1617912edd904ab19c63b222e5bda729ba84b895af8c",
+    "status": "passed"
+  },
+  "api/generated/nampy.gam.formula.extract_formula_terms": {
+    "sha256": "7cce8de9358e7ab0a8daa4c039b234a4c79e92535c7018d99274a37f18efb35d",
+    "status": "passed"
+  },
+  "api/generated/nampy.gam.formula.get_numeric_response_labels": {
+    "sha256": "6b25d4da9518c5897e4dd271e53ee37da08153ef6e131704009b11724127ee12",
+    "status": "passed"
+  },
+  "api/generated/nampy.gam.formula.parse_gam_formula": {
+    "sha256": "0af78cc6bfe13be760a346491f2cbc3cf7b075b34ef777667c22c01693794b74",
+    "status": "passed"
+  },
+  "api/generated/nampy.gam.formula.strip_offset_wrapper": {
+    "sha256": "521ec832d8ab9fb6911ce34a0c0a6231b6a85cb88479e31063d2d73c58d9a7a0",
+    "status": "passed"
+  },
+  "api/generated/nampy.gam.results.FitResult": {
+    "sha256": "e750ad9b9f35ae14063032ce28291214b9887877bbd725e75df7c41e8e19230b",
+    "status": "passed"
+  },
+  "api/generated/nampy.gam.results.GAMFitResult": {
+    "sha256": "e590ae3932666b99b7efc8c163d7067cefb5f2b76bd3c4eb61825dd0c35db654",
+    "status": "passed"
+  },
+  "api/generated/nampy.gam.results.GAMResult": {
+    "sha256": "0c0b68d6508e403802a125135fd3c606467d24170693d0950b926d851bcef6ba",
+    "status": "passed"
+  },
+  "api/generated/nampy.gam.results.TermFitResult": {
+    "sha256": "64b74692412d09e3ee7c1b69d9e217e1c4332bffe1ee2113f940679a2c95ab91",
+    "status": "passed"
+  },
+  "api/generated/nampy.plotting.DistributionalEffects": {
+    "sha256": "7047da1fd7afbc1e46bf20f9cdaa1a3e82a857388d63fe56642e89c6433cb2e5",
+    "status": "passed"
+  },
+  "api/generated/nampy.plotting.add_density_shading": {
+    "sha256": "85a20e3a039c4f613e1bb4886dc26c03909af6c7f126ea22ef9f83b16c8382c7",
+    "status": "passed"
+  },
+  "api/generated/nampy.plotting.combine_distributional_effects": {
+    "sha256": "10b961d0bb0bc3563a909331dbdedd1482bcb9889e1adc7e8386c1ecf27763bc",
+    "status": "passed"
+  },
+  "api/generated/nampy.plotting.plot_distributional_effects": {
+    "sha256": "0d30aa3464b95dc1cd0c8c8e8de738d1f5cb5fa780f7b847abb9dde8aaa67fea",
+    "status": "passed"
+  },
+  "api/generated/nampy.plotting.prepare_distributional_effects": {
+    "sha256": "e43baf59f3eb0e462ac840929af60db32539577aef6031770938443f53c40a28",
+    "status": "passed"
+  },
+  "api/generated/nampy.plotting.prepared_from_contributions": {
+    "sha256": "5dd44e0dbdc5219da368de6f19e1e3f13e380b7b9b085f57fa812fc5c0e9e200",
+    "status": "passed"
+  },
+  "api/generated/nampy.plotting.render_distributional_effects": {
+    "sha256": "4495d9ebbb76a64bf02dc107590e10eec602757eaf342c9f2bd1570ab014623e",
+    "status": "passed"
+  },
+  "api/generated/nampy.plotting.render_model_check": {
+    "sha256": "187465d1da90c0339fdf38b20094472de604e735fe01aec7e9825e99c4bafc5d",
+    "status": "passed"
+  },
+  "api/generated/nampy.plotting.render_prediction_surface": {
+    "sha256": "7addc74e01e5e0c216887bf34119a5482cc4a71775e0fe86b3a9930366952818",
+    "status": "passed"
+  },
+  "api/generated/nampy.plotting.render_qq": {
+    "sha256": "f8952d5a56cd6b5335c9d5449700a5e4dace16ce95b910ce9b3bc89e8c2d95e1",
+    "status": "passed"
+  },
+  "api/generated/nampy.plotting.render_term_plots": {
+    "sha256": "0bfa1c4775e77f2e9fc9b036e429a62cf57580862859e0f3130dfa7678f527d3",
+    "status": "passed"
+  },
+  "api/neural_training": {
+    "sha256": "496c8a7e86c5ff7e26e4a5819eca634b522ee51a5b9c5235bba6d625e0d88eb5",
+    "status": "passed"
+  },
+  "neural_reference/ensemble_treenam": {
+    "sha256": "2f9a6fd8a623b1a2b08c5997518ea4ba7ad875a601586bd60fc8e894c748871f",
+    "status": "passed"
+  },
+  "neural_reference/estimators/EnsembleTreeNAMClassifier": {
+    "sha256": "3daa8bca8a918aafceffd256990a784d85e74cbe610c2a37301aaab19dd4b597",
+    "status": "passed"
+  },
+  "neural_reference/estimators/EnsembleTreeNAMLSS": {
+    "sha256": "1db2907098ccc7fd5e437655d48eaf62ddbe6f42e03f5923a69823fe8b3d63ed",
+    "status": "passed"
+  },
+  "neural_reference/estimators/EnsembleTreeNAMRegressor": {
+    "sha256": "03ece8f49e17c0ba9682b8c93e494eff7079360bf95417345ca9fe465c7324a0",
+    "status": "passed"
+  },
+  "neural_reference/estimators/GPNAMClassifier": {
+    "sha256": "2429c7c71760adde3074ea63cadff0b6069c1439473b1eec8d6a53641a19235e",
+    "status": "passed"
+  },
+  "neural_reference/estimators/GPNAMLSS": {
+    "sha256": "d2f2ea23bf6cf21a41bcec1c9205199688def8e9159ce8f380890554b2732ad7",
+    "status": "passed"
+  },
+  "neural_reference/estimators/GPNAMRegressor": {
+    "sha256": "b74a6d80f65d20890772452647b6c7260a3b8c464b657fde70618333f147aa29",
+    "status": "passed"
+  },
+  "neural_reference/estimators/IGANNClassifier": {
+    "sha256": "09af4e817ec79a43825ad62906d286aadd217884fe139350bea712d46d1c5dd8",
+    "status": "passed"
+  },
+  "neural_reference/estimators/IGANNLSS": {
+    "sha256": "d21a0e12c3a0c59ef984bbd6b7dd8ace794247a975a237cd2461116f72fa8af0",
+    "status": "passed"
+  },
+  "neural_reference/estimators/IGANNRegressor": {
+    "sha256": "24d86c1a3e7574666969d1293b334476d96e955e7cbabe2c74edd6c88daed309",
+    "status": "passed"
+  },
+  "neural_reference/estimators/LinRegClassifier": {
+    "sha256": "0435dd2a00c0bf3f5bb75ec3a23f4a73c5b17b1e1937bd55e5a005e405112b9a",
+    "status": "passed"
+  },
+  "neural_reference/estimators/LinRegLSS": {
+    "sha256": "fb8c1031301097a941f0c951436b0a99fae717114a0347d05b40b093b4bda9fe",
+    "status": "passed"
+  },
+  "neural_reference/estimators/LinRegRegressor": {
+    "sha256": "e7cfda9d8bfa831835e17293f62aa3f7ceed10aff0ffe034a59078ef97341a1a",
+    "status": "passed"
+  },
+  "neural_reference/estimators/NAMClassifier": {
+    "sha256": "864a98f5d0e9f9b5f4b23fbfb0a6416a43127e809828cc977e5a9c9370e3fae1",
+    "status": "passed"
+  },
+  "neural_reference/estimators/NAMLSS": {
+    "sha256": "d59e0e123d7291d69fa8a8543de6b85b6cabdcc48a4398272c380f6cb43d2c47",
+    "status": "passed"
+  },
+  "neural_reference/estimators/NAMRegressor": {
+    "sha256": "89b00fcd1c87d6b69ef3245344a3b5a90d15da256cb7edba26f6fa59fc507774",
+    "status": "passed"
+  },
+  "neural_reference/estimators/NAMformerClassifier": {
+    "sha256": "e020d81fb7a85b850e51b330884cc579f5cf7d07e2a1c9cc169cbab33cf877f9",
+    "status": "passed"
+  },
+  "neural_reference/estimators/NAMformerLSS": {
+    "sha256": "19be2ff69bd662b47f431fd8f6cac37aa97e3e30a059eb4f7d14695ed7b87a81",
+    "status": "passed"
+  },
+  "neural_reference/estimators/NAMformerRegressor": {
+    "sha256": "7b6e0650aed32fac693106c366277552a72cdd40b7e5618d1a3938a554436c0e",
+    "status": "passed"
+  },
+  "neural_reference/estimators/NATTClassifier": {
+    "sha256": "58a47f52606f5b1fe0aefdc965360acde346e132f4aab42f6398852b14efc5a6",
+    "status": "passed"
+  },
+  "neural_reference/estimators/NATTLSS": {
+    "sha256": "656ce0f4d1d3c3f7f3d7b08bf6d1f343f4bed80b10474bacc63543d507e3c53a",
+    "status": "passed"
+  },
+  "neural_reference/estimators/NATTRegressor": {
+    "sha256": "412ee8216091cd5707864ecbcd5509c2f5a21899a213744f2f4f70be2d9260aa",
+    "status": "passed"
+  },
+  "neural_reference/estimators/NBMClassifier": {
+    "sha256": "4bff8b0522462d064fa8bfeaea3543e85e43fa264da08473ea48461797585d0a",
+    "status": "passed"
+  },
+  "neural_reference/estimators/NBMLSS": {
+    "sha256": "fea0d01d8a3cda35489cb25452d7d42fead7ebda1bb1f9e787ba766ef58e282d",
+    "status": "passed"
+  },
+  "neural_reference/estimators/NBMRegressor": {
+    "sha256": "bc2d030b6878272a5421222053ffab787e4b161c70ef473b765ce58ea9b0b5e2",
+    "status": "passed"
+  },
+  "neural_reference/estimators/NBMSPAMClassifier": {
+    "sha256": "99912cadb7bf2c195d9bc068218802f843933dd001c739498f7f9b7847e58608",
+    "status": "passed"
+  },
+  "neural_reference/estimators/NBMSPAMLSS": {
+    "sha256": "b715100bcbce851975fc5351d289e324e5a7f85e44c3169d4b8150f267db72ca",
+    "status": "passed"
+  },
+  "neural_reference/estimators/NBMSPAMRegressor": {
+    "sha256": "216269c301c93c8d24c72c998a438ece904bbb1d1ca99ae4900049d5cad9fe91",
+    "status": "passed"
+  },
+  "neural_reference/estimators/NodeGAMClassifier": {
+    "sha256": "14fd26b30a12d6eec37e27b792187bcaa7431ec29c8a42f198a1d26436a6c3b6",
+    "status": "passed"
+  },
+  "neural_reference/estimators/NodeGAMLSS": {
+    "sha256": "ba535cd2197caa183bd5c1806ef67f311a0d035a5170840845023b1e7e6415d7",
+    "status": "passed"
+  },
+  "neural_reference/estimators/NodeGAMRegressor": {
+    "sha256": "62780bb74ab84abd2a4ef13edcedaf31b7253ada05b5b48e23443a8dd0ebcda4",
+    "status": "passed"
+  },
+  "neural_reference/estimators/QNAMLSS": {
+    "sha256": "807b977b0c15f2442a42c8c7534b8ec49a5d8aa38320ee08c90be9fe0d00a780",
+    "status": "passed"
+  },
+  "neural_reference/estimators/SIANClassifier": {
+    "sha256": "999f2b2a7f89a3fae74ae8561e51b07ddcdc50cdd0e926ffa1615acba1e2f650",
+    "status": "passed"
+  },
+  "neural_reference/estimators/SIANLSS": {
+    "sha256": "0c0c5045ececf16048b5adddae7e1b9b5eb49eda8ee3aafa6c61dbb530e76054",
+    "status": "passed"
+  },
+  "neural_reference/estimators/SIANRegressor": {
+    "sha256": "23d569c870edfda1d502acb28f4fb6a74bf8cd49360811697ccb6d9000abe2e2",
+    "status": "passed"
+  },
+  "neural_reference/estimators/SNAMClassifier": {
+    "sha256": "19f5e4e884178327753fbde825155eda751c976a7808b7cace1761914f07d26f",
+    "status": "passed"
+  },
+  "neural_reference/estimators/SNAMLSS": {
+    "sha256": "79afd463075a15bcfbeec97494dbce9c38248a01ea3eaa188656612013ebb4d2",
+    "status": "passed"
+  },
+  "neural_reference/estimators/SNAMRegressor": {
+    "sha256": "9cb5d5c0f58bb7829a193ca77df586fd8fedffe5c855ef81c1020d99530a3801",
+    "status": "passed"
+  },
+  "neural_reference/estimators/SPAMClassifier": {
+    "sha256": "8296213ea73eac1f6cde19735a8cce8d9811da402dacc05a7d2933a34410af83",
+    "status": "passed"
+  },
+  "neural_reference/estimators/SPAMLSS": {
+    "sha256": "e2b3a35db432985abea4ed2194ddce68dd1481d368c40ea8eda655047fcf5acb",
+    "status": "passed"
+  },
+  "neural_reference/estimators/SPAMRegressor": {
+    "sha256": "c16b7f5fecd7822224928bd13995993636c7ba027c6f42940a4f95fe053b2934",
+    "status": "passed"
+  },
+  "neural_reference/estimators/SplineNAMRegressor": {
+    "sha256": "c28443af178dfcdf5dee6fb6739d475a21f7c5e12cdd2ce5bdab7f88fce0f2bc",
+    "status": "passed"
+  },
+  "neural_reference/estimators/TreeNAMClassifier": {
+    "sha256": "224eb91578fb7abda64c1f785b844311e6fb27421b3e7f13683d381f363c2909",
+    "status": "passed"
+  },
+  "neural_reference/estimators/TreeNAMLSS": {
+    "sha256": "f181bbfe8062f6a6c602c7ffd1f6c0d6e0a08d77e0cc85df5c0c68254db773b5",
+    "status": "passed"
+  },
+  "neural_reference/estimators/TreeNAMRegressor": {
+    "sha256": "20672c2d8be715b04c39ff4266125ee10d05449c6812ee6e6d2a9dca64ce564f",
+    "status": "passed"
+  },
+  "neural_reference/extensions/NeuralClassifier": {
+    "sha256": "48c58553b65fa6f84a2ed95cbb4eddf3e707bb54dbd5bac12808bed4dd8b74e2",
+    "status": "passed"
+  },
+  "neural_reference/extensions/NeuralEnsemble": {
+    "sha256": "83849b794463d90f083cfd374c0ce75a86f5e4a580be0621c027e03bf9059542",
+    "status": "passed"
+  },
+  "neural_reference/extensions/NeuralEstimatorFamily": {
+    "sha256": "eb1967bd29cf6b04ac34ad9d5848974ff184708d71f022ab04580d712ff9e553",
+    "status": "passed"
+  },
+  "neural_reference/extensions/NeuralLSS": {
+    "sha256": "e7a1d0b1915aefd12a3088578d9a51f595911d2fc591b64f3b17bc2e91a5fbff",
+    "status": "passed"
+  },
+  "neural_reference/extensions/NeuralRegressor": {
+    "sha256": "72707c6cea2d6d5318c8b0368ccc5f432100631bff3f74901ccfebf32a4da982",
+    "status": "passed"
+  },
+  "neural_reference/extensions/estimator_family": {
+    "sha256": "0add69451af97371aee2cf336348b03a3a09bae3ff30b44b21c3b90e7134282c",
+    "status": "passed"
+  },
+  "neural_reference/families/beta": {
+    "sha256": "1f84d42ef822bae3e4cc1422b661723790ce7b8240a2fe08623cfe980e95e64f",
+    "status": "passed"
+  },
+  "neural_reference/families/categorical": {
+    "sha256": "82b6aab1977a92c52fdc19ba495de553b4141d51975cd060986cc4c427ec6e48",
+    "status": "passed"
+  },
+  "neural_reference/families/dirichlet": {
+    "sha256": "d393e350ce92d91b069069cdc35c1fe3f4c85c25387bb1f94a6b2580a16f94f5",
+    "status": "passed"
+  },
+  "neural_reference/families/gamma": {
+    "sha256": "125cf77ce226d47d043191e68c77ba64aee3766979ae86fd128d2f9e83342191",
+    "status": "passed"
+  },
+  "neural_reference/families/hurdlenegativebinom": {
+    "sha256": "4fbdd7afbe5c3d09718c47cd41e9c52a46ce0641e489a76c05f1299ebf63dd05",
+    "status": "passed"
+  },
+  "neural_reference/families/hurdlepoisson": {
+    "sha256": "68218bb1f93f016d23cd98a4411281e91a9a302f755cfc46b17b8ff46f10efd5",
+    "status": "passed"
+  },
+  "neural_reference/families/inversegamma": {
+    "sha256": "ae96b66d8371d57de4770558f7188d82718e536e6cfa45f4bd40193e59e0241a",
+    "status": "passed"
+  },
+  "neural_reference/families/loglogistic": {
+    "sha256": "3a365ccb2ccc52836c8f10cb35a8276b1bb4fd3daf449d20f467ebf7be73e270",
+    "status": "passed"
+  },
+  "neural_reference/families/lognormal": {
+    "sha256": "c26c7912d804859a8a0389b5851eec2c72fcce66d4e8d526b3759b3598eacfbe",
+    "status": "passed"
+  },
+  "neural_reference/families/mvnormdiag": {
+    "sha256": "2b32ac92b4aae628f3b0a344135c2bbb83c6d34379d6dfa87b494a267718e2ba",
+    "status": "passed"
+  },
+  "neural_reference/families/negativebinom": {
+    "sha256": "6fbe1bc9d8ee8a181d07a797d23a1a9a478fb3a63ce0d212bb7512b55039559e",
+    "status": "passed"
+  },
+  "neural_reference/families/normal": {
+    "sha256": "821db10833e1e1d358a92e12aaf8ed629dfc742e03aecd450d09df1116f6163f",
+    "status": "passed"
+  },
+  "neural_reference/families/ordinal": {
+    "sha256": "b506dfd58c87368c41e0d7469e1484cb74c4bebe889ae1f152248f40a0803175",
+    "status": "passed"
+  },
+  "neural_reference/families/poisson": {
+    "sha256": "0378c73d2200974072d5eea0366ef6b18b77fe6fee5a02605de52d68ef675191",
+    "status": "passed"
+  },
+  "neural_reference/families/quantile": {
+    "sha256": "8377edca6efe5db41412cb991d829fbe6ca6bfb5d23fedb7395326987acf9b36",
+    "status": "passed"
+  },
+  "neural_reference/families/robustnormal": {
+    "sha256": "115f53634b22d0a971c2446039c6e58d6ad9b1fdc00c0b6bcfee5fc97c15c584",
+    "status": "passed"
+  },
+  "neural_reference/families/studentt": {
+    "sha256": "de91da56ee12ff8f79a9a9909ae459104dbb94f451086464c331ef21cc77e352",
+    "status": "passed"
+  },
+  "neural_reference/families/tweedie": {
+    "sha256": "eca57121695cfcf6dc55ea9d7dbeebc04d52a861693f8ba47fc143d21b2797b3",
+    "status": "passed"
+  },
+  "neural_reference/families/weibull": {
+    "sha256": "a62dee4387c64933c4dff478987faf8ba92277771793a3fd64f1bc8f51722e83",
+    "status": "passed"
+  },
+  "neural_reference/families/zinb": {
+    "sha256": "40c7af3136247db66d67fb17673604bca8f1be763c8345416c6ceb3c451344a5",
+    "status": "passed"
+  },
+  "neural_reference/families/zip": {
+    "sha256": "9ea176426b1989acdb71b0da05420cd289469b40b28db71ede6e24d8183a55b2",
+    "status": "passed"
+  },
+  "neural_reference/gpnam": {
+    "sha256": "8337afb7fdd684abcc206268879728f5de2d64d58ef4504125ad3e5f2d0e0340",
+    "status": "passed"
+  },
+  "neural_reference/igann": {
+    "sha256": "c0a1ad9608b62ab81b3c3809411a6a076c1cb7a964dd881071d462c5f6022572",
+    "status": "passed"
+  },
+  "neural_reference/linreg": {
+    "sha256": "8459fba8558444ad782a478f24ce7ba2ec803475f72e306fa0ac5ac25b601990",
+    "status": "passed"
+  },
+  "neural_reference/methods/basis_metadata": {
+    "sha256": "874a4cfdcaaaf9f6c7d4c4953f23e3c79f79980d685cae02f50174c1315124b4",
+    "status": "passed"
+  },
+  "neural_reference/methods/basis_transform": {
+    "sha256": "72f444d71ff8c8c639557ff8a1e2b2c5402536792c58df3483e4013c4faeb3f5",
+    "status": "passed"
+  },
+  "neural_reference/methods/center_components": {
+    "sha256": "4934296e98743680a5f3a7046f4cefc563160c09de3a379372e54e08ab7239c0",
+    "status": "passed"
+  },
+  "neural_reference/methods/explain_terms": {
+    "sha256": "a27995fcf66eba7cef7a3b26473d231d89f2218fffd503fb551209e048f9d253",
+    "status": "passed"
+  },
+  "neural_reference/methods/get_params": {
+    "sha256": "ad07f421d0af4f6193f4840b10ac0971f240ec0905ffee574f7034d267aa2ee2",
+    "status": "passed"
+  },
+  "neural_reference/methods/group_norms": {
+    "sha256": "93471abe7d225a44db4c31d3fb1639c854872d07ded4f2215833328a7989e213",
+    "status": "passed"
+  },
+  "neural_reference/methods/interaction_importance": {
+    "sha256": "024e7162d1c9a781d06bb18a80c640d8d73983703c3df48dd699824036f2eeac",
+    "status": "passed"
+  },
+  "neural_reference/methods/load_model": {
+    "sha256": "a1190d21c07616f1938c6296d2e403ab0055c366b529ffaade6b2a3e51349c1c",
+    "status": "passed"
+  },
+  "neural_reference/methods/local_term_importance": {
+    "sha256": "bba9952d6941db12ff271a8d75744017ec7ee63a22f2515b8f97f789c6850d0f",
+    "status": "passed"
+  },
+  "neural_reference/methods/model_complexity": {
+    "sha256": "462cdb324d3d359d528f708a16b51efa6f89beadd7a48989eadc352ad840cf58",
+    "status": "passed"
+  },
+  "neural_reference/methods/plot": {
+    "sha256": "e4e942b8b6708fbc0f7befe8ce2f4753c37c3e4e415d386c7ad20e7468403331",
+    "status": "passed"
+  },
+  "neural_reference/methods/plot_interactions": {
+    "sha256": "9c892ad3f911b98b88a233596e75df7f0e099d3c1e23d3eb92f6889d1fac37d7",
+    "status": "passed"
+  },
+  "neural_reference/methods/plot_terms": {
+    "sha256": "32e3fa17c037616e4f017720383400f53cf94c16430fb953f3f90980cc4b8ec6",
+    "status": "passed"
+  },
+  "neural_reference/methods/save_model": {
+    "sha256": "107b4d5236ca376720caf26f12f8998f206fa08b6a1152530ac67a83626aa101",
+    "status": "passed"
+  },
+  "neural_reference/methods/set_params": {
+    "sha256": "3855541bf08a53f698fc588392298bf9cb857ef997cd461261e6cf51928ad1d9",
+    "status": "passed"
+  },
+  "neural_reference/methods/term_importance": {
+    "sha256": "294d63ee50dc0a9a6322c016554938ba2049bc79631c4e2ac96845f8ca914445",
+    "status": "passed"
+  },
+  "neural_reference/methods/training_history": {
+    "sha256": "80621ac2a43721a1ca5372666986525314565a96f8615f917f9bb4afd5f65851",
+    "status": "passed"
+  },
+  "neural_reference/nam": {
+    "sha256": "385d0fdd435e69ec9e8283de061a970d7fd295b74f787e6e61e5f24e4aeea2c5",
+    "status": "passed"
+  },
+  "neural_reference/namformer": {
+    "sha256": "ebc58ea73248f90770da3003b72c052dbd69f94ebb3bbecc94ed177f656d3a1e",
+    "status": "passed"
+  },
+  "neural_reference/natt": {
+    "sha256": "fe460cda118989f0c16065f5f76edab9fdfcdac1c331462ef64783b63d9aecf6",
+    "status": "passed"
+  },
+  "neural_reference/nbm": {
+    "sha256": "da675abc79f16feb7031c346155dacfa75fec7ae6d1b6b1ce6ea7b98197677c5",
+    "status": "passed"
+  },
+  "neural_reference/nbm_spam": {
+    "sha256": "abc416c1bda51f6b0cfb533efa4365b0fee73346ca7bb03e9ac30a1bb595bf25",
+    "status": "passed"
+  },
+  "neural_reference/nodegam": {
+    "sha256": "53c1317795a71a474e1867ffc58424b39a3cda2c3c9fd61d9433835c1b91647f",
+    "status": "passed"
+  },
+  "neural_reference/qnam": {
+    "sha256": "3e7f0df35239d0cf12b68d08787501c25954f7aa1ef850398f0a10d9435083e0",
+    "status": "passed"
+  },
+  "neural_reference/sian": {
+    "sha256": "abda37b673e1c2195670c5b9381d400f96318620867120bf58905879f1b16c7f",
+    "status": "passed"
+  },
+  "neural_reference/snam": {
+    "sha256": "f7250539180cdda576e8ccdeaa623f8a58a122018873a2028445babbecf9c725",
+    "status": "passed"
+  },
+  "neural_reference/spam": {
+    "sha256": "c52655cb663a50bc3e234f6fed26b6c94e58027be76285d7b0f9ee82e04965f1",
+    "status": "passed"
+  },
+  "neural_reference/spline_nam": {
+    "sha256": "1839b39073c9c82c66ac74df27d898868245c4104ec76bd85613c016a6413369",
+    "status": "passed"
+  },
+  "neural_reference/treenam": {
+    "sha256": "8c9570885b72f3c6b0c18bc6740ad723c95f896a17fbfccc422e818dc3856820",
+    "status": "passed"
+  },
+  "statistical_reference/GAM": {
+    "sha256": "7f672faf587274e31bef61c934f8d963543123fe17acd884943b4f5bb03e5502",
+    "status": "passed"
+  },
+  "statistical_reference/controls/edge_correct": {
+    "sha256": "5be19d0b852d51b7328825169624d47a3cbe8aa970d2319d17fcbe63f2e52e74",
+    "status": "passed"
+  },
+  "statistical_reference/controls/efs_lspmax": {
+    "sha256": "e086a69ce9b8816bf548a6819a27f9d8db77e03713aa6e240ec1cfc4b30af1e8",
+    "status": "passed"
+  },
+  "statistical_reference/controls/efs_tol": {
+    "sha256": "278706fa644f6bf18c80119324ca47c3bf44cc6704b4e0f712d1bc049ff67289",
+    "status": "passed"
+  },
+  "statistical_reference/controls/epsilon": {
+    "sha256": "a7525b315fa359441cf0421b79e5e2fc0915c86982de91195343b19c2bca0839",
+    "status": "passed"
+  },
+  "statistical_reference/controls/id_links_bases": {
+    "sha256": "5eaf9cf2263932670c359c451d439dbe9d81fc158c41dfed12fe63da6fcdd9c3",
+    "status": "passed"
+  },
+  "statistical_reference/controls/irls_reg": {
+    "sha256": "cbea7b4597ca26f88bced2f2692ff515479f6e106a6a838d90cdf26db5e3bbc1",
+    "status": "passed"
+  },
+  "statistical_reference/controls/keep_data": {
+    "sha256": "616b40c22e03a46b807988245c0470fa0a8136a7e5265a03b5422c6f5c5256dd",
+    "status": "passed"
+  },
+  "statistical_reference/controls/maxit": {
+    "sha256": "ac0b2a267e3ca92d8f264323d42c8d35c54afb39eb8b052451ee80697bc67ed3",
+    "status": "passed"
+  },
+  "statistical_reference/controls/mgcv_half": {
+    "sha256": "00888639ebcd89caa4012b448861a2e086c6c723d7e19eec70c38be0c7691ea3",
+    "status": "passed"
+  },
+  "statistical_reference/controls/mgcv_tol": {
+    "sha256": "3e3bc65d6b3873723196beac2c3c8e7f0f1cfca9627926f7972d08fda75d0afe",
+    "status": "passed"
+  },
+  "statistical_reference/controls/ncv_threads": {
+    "sha256": "9623a8247517673b608012c152c7d415096b58f3896cd85fe590c00fd4614f2f",
+    "status": "passed"
+  },
+  "statistical_reference/controls/newton": {
+    "sha256": "8c3fb658be4a6a1f80bedb25513f3630365db5e2e4c3e414a0bc372aedd0c42a",
+    "status": "passed"
+  },
+  "statistical_reference/controls/nlm": {
+    "sha256": "f9731a3e0cdc2a9a21dc2b156621cb5e3223bbd0ea69e1db7a821d4aad76cbfb",
+    "status": "passed"
+  },
+  "statistical_reference/controls/nthreads": {
+    "sha256": "46aa55bdaad911c71f2b933622bb790d0e0e65fbd1cfc080ddae99f4f2836f0d",
+    "status": "passed"
+  },
+  "statistical_reference/controls/optim": {
+    "sha256": "6a7491a5aebec695e062d9543afb456a77a489cd52dfdee9e40418d3fab2b7f4",
+    "status": "passed"
+  },
+  "statistical_reference/controls/rank_tol": {
+    "sha256": "38f382468fb684dde84e3021366f5e393568fd3116060c93e14cb6a722e7794a",
+    "status": "passed"
+  },
+  "statistical_reference/controls/scale_est": {
+    "sha256": "b7fd314ff90157d65889fb07edf5190220f90813ca05ad64b6b2701282501c40",
+    "status": "passed"
+  },
+  "statistical_reference/controls/scale_penalty": {
+    "sha256": "6d2d3da45eed44f3e6897152991642187b5c17b6824a7f60d6fe0d526555ebfd",
+    "status": "passed"
+  },
+  "statistical_reference/controls/scam_b_notexp": {
+    "sha256": "c55b6eef0fdf331be9e180c3a9ae89f910d86fb38a31b2ce35b98e760ee06b7f",
+    "status": "passed"
+  },
+  "statistical_reference/controls/scam_bfgs": {
+    "sha256": "d7bbacdec26c5f3f86f7474de10964a7dbeb183cadd552944f6e4ba623adc174",
+    "status": "passed"
+  },
+  "statistical_reference/controls/scam_devtol_fit": {
+    "sha256": "5c499113b24c9888769545d1a14ebf78f6298b5749e736f09f44f13b3b85510c",
+    "status": "passed"
+  },
+  "statistical_reference/controls/scam_max_half": {
+    "sha256": "4923e06ed35977099c3c5c50e5e35a884e4e6c2fee107087c0d4b90b8d574e71",
+    "status": "passed"
+  },
+  "statistical_reference/controls/scam_print_warn": {
+    "sha256": "56a91e917f9f21378d955cddf73b7e774428a23070be72a1393348c24cf6f1c4",
+    "status": "passed"
+  },
+  "statistical_reference/controls/scam_steptol_fit": {
+    "sha256": "23e695124b6d35bd52881eacd11ea1c58823bc675ad8d9d6460888930f59b12b",
+    "status": "passed"
+  },
+  "statistical_reference/controls/scam_threshold_notexp": {
+    "sha256": "4a69b4f5e9e5a0a9c145914794211d20638354902b9493891902b5fa5f8a2dc4",
+    "status": "passed"
+  },
+  "statistical_reference/controls/trace": {
+    "sha256": "dc541b73d05402a9fe92bc6951a6e5402bdd2351a4c57cbf2d9dbd1e5b705e43",
+    "status": "passed"
+  },
+  "statistical_reference/estimators/GAMClassifier": {
+    "sha256": "bf6f30334f62a020943d079c405c705161688b5430f002f7e44921781924b7a5",
+    "status": "passed"
+  },
+  "statistical_reference/estimators/GAMLSS": {
+    "sha256": "9ca63c716a23b5924ed5bae3d36e11ebffc36c76606d3070c6dec141cca667ca",
+    "status": "passed"
+  },
+  "statistical_reference/estimators/GAMRegressor": {
+    "sha256": "a9cc3bc03ac79bf8a5af577a8ca830ef7a3aefa09d2a4ca192d3becbf47da50a",
+    "status": "passed"
+  },
+  "statistical_reference/families/bcg": {
+    "sha256": "f1e322c085e6ddd11e53ab2f1b0a82684edb6113788069181885b6f952ce680f",
+    "status": "passed"
+  },
+  "statistical_reference/families/betar": {
+    "sha256": "049b18ecdfaf174cbe3a8edab3c50baebe12831d9607dadbba9688048bf1deb8",
+    "status": "passed"
+  },
+  "statistical_reference/families/binomial": {
+    "sha256": "4a96f7a5b2450182219a86e206b385098077ba9a313dcaf956a71c416d98cfd8",
+    "status": "passed"
+  },
+  "statistical_reference/families/clog": {
+    "sha256": "9b51aa3461de8c03dc7a3e0f757a9d2f2caec29ce9b638c8999a5789b15e1bba",
+    "status": "passed"
+  },
+  "statistical_reference/families/cnorm": {
+    "sha256": "3a5034536cec90009345c70f4ed6c52c2f8d1fa83ad5284be95d033a96464c59",
+    "status": "passed"
+  },
+  "statistical_reference/families/cpois": {
+    "sha256": "f12bcda4c1cac29e09ca9aa682b511d564966e79bc112398e23298d18a6b02e2",
+    "status": "passed"
+  },
+  "statistical_reference/families/gamma": {
+    "sha256": "512c03f9ebf5a838952dbfa810a088007271054f197a7d3370dd08721bf3e7a4",
+    "status": "passed"
+  },
+  "statistical_reference/families/gammals": {
+    "sha256": "0c14b81db765ea1fba50551fa82564c134b62f96e175bfbf6ad48756686683ef",
+    "status": "passed"
+  },
+  "statistical_reference/families/gaulss": {
+    "sha256": "395c2cdee8f18a20632f62508d3ab81debdd1a88a276d8819d768c2e85ace791",
+    "status": "passed"
+  },
+  "statistical_reference/families/gaussian": {
+    "sha256": "3ae8cfbcd5f32bdc613896b32bd265d6f52615409de334a056085df2f73b1bf5",
+    "status": "passed"
+  },
+  "statistical_reference/families/gevlss": {
+    "sha256": "6f66f2caf8ec8d26fb7d0df67da78234dd97e313bcda188bc43e531170df32f4",
+    "status": "passed"
+  },
+  "statistical_reference/families/gumbls": {
+    "sha256": "456e1670f5c09c30deb6f810b9d6e0c4afbb6551f7f71147bc422a643b23ee6f",
+    "status": "passed"
+  },
+  "statistical_reference/families/inverse_gaussian": {
+    "sha256": "6e3c63d34884c02b33fbb3b00cb847d838db35c276e6059a78f7ae2c2d78f54f",
+    "status": "passed"
+  },
+  "statistical_reference/families/multinom": {
+    "sha256": "b24e2ad03596946549497358c29142764437a989b99ea658884367a8a1745184",
+    "status": "passed"
+  },
+  "statistical_reference/families/nb": {
+    "sha256": "bbf36b22887cd3fbe1e374ef17f3a5f2c576e2c7b05610b3d12354b9fe0f5007",
+    "status": "passed"
+  },
+  "statistical_reference/families/negbin": {
+    "sha256": "3e68a015e6eb2d62552b98d6762be2fb5bfea724e8f2ea204938dc6fe69030cf",
+    "status": "passed"
+  },
+  "statistical_reference/families/ocat": {
+    "sha256": "c4d54145b7bd15fbf76db002f49c5657822c759a0f3741e798f7152144a3762c",
+    "status": "passed"
+  },
+  "statistical_reference/families/poisson": {
+    "sha256": "3f76aea23ef01db9feecee566c0e122b5a61a70a24fb84f813e5dde514ae0d0b",
+    "status": "passed"
+  },
+  "statistical_reference/families/quasi": {
+    "sha256": "7a924d5007d9e1e0293319e681e9f4f2096fb258fe9c3eecda8010f088ac11e8",
+    "status": "passed"
+  },
+  "statistical_reference/families/quasibinomial": {
+    "sha256": "dfb33b9d46f7eea685c9fcc61a1d6b6fc4b6c14a8528337035f7e4e1f8959081",
+    "status": "passed"
+  },
+  "statistical_reference/families/quasipoisson": {
+    "sha256": "435cf39dde3a49875604ea6e1a175c7b7ff9b4a6894d8403a624aec0b6255ee8",
+    "status": "passed"
+  },
+  "statistical_reference/families/scat": {
+    "sha256": "82136e465075ac023eb72f16b56c0343b67442ae97b46710c4acdf370d49dd0e",
+    "status": "passed"
+  },
+  "statistical_reference/families/shash": {
+    "sha256": "d7fc37badb38955e17779f651ccce0a26d9ee1a9122aa1b0b1a495730c6b5202",
+    "status": "passed"
+  },
+  "statistical_reference/families/tw": {
+    "sha256": "631a395a16ed4026fa18456b4c9f584170a72d64f735de91d23bbb740ad147cd",
+    "status": "passed"
+  },
+  "statistical_reference/families/twlss": {
+    "sha256": "777aa43ad58e3b52f945d5103f76824efc8ea38d158f85c011747386318c7eca",
+    "status": "passed"
+  },
+  "statistical_reference/families/zip": {
+    "sha256": "6523acd712264d2ed10e3dd7767bf92329c0768d46a8b00123e6566b063cedca",
+    "status": "passed"
+  },
+  "statistical_reference/families/ziplss": {
+    "sha256": "a87d7dae83ea333bea4136b6b3b5cbd8171e151fee257b89f17190217f343439",
+    "status": "passed"
+  },
+  "statistical_reference/internals/covariance_correction": {
+    "sha256": "e59c1f87c64e469101669b4e85ec1ca95a0b77ca2d6b3f30a520169af742df1d",
+    "status": "passed"
+  },
+  "statistical_reference/methods/aic": {
+    "sha256": "aa1c7426fa13bbbe222f913bef56219729707ca4088bd94b2c6af3cc85b61131",
+    "status": "passed"
+  },
+  "statistical_reference/methods/anova": {
+    "sha256": "74e68e5976d5b6c63132380a7778c6e9057cc82aaf12d95ee884b4254cc98053",
+    "status": "passed"
+  },
+  "statistical_reference/methods/ar1_standardized_residuals": {
+    "sha256": "7d31ebaeed6e1b4656503c9b22d3105ce66f75a37f66dbab8712034b2dd1e89b",
+    "status": "passed"
+  },
+  "statistical_reference/methods/bic": {
+    "sha256": "9cefca6d57aaf4eec4e6222a36847eda39b5a323a68a1b0dc71e18245253ee1d",
+    "status": "passed"
+  },
+  "statistical_reference/methods/concurvity": {
+    "sha256": "7b9ef2451f48beda2cf3a6d44669bee1595f4f5b0245a26ad100869abef856a8",
+    "status": "passed"
+  },
+  "statistical_reference/methods/derivative": {
+    "sha256": "13d84c83d57dc4e2f4baab0ab736ec9122e17ef0ea6fd0a7ca43ce90d8d4877d",
+    "status": "passed"
+  },
+  "statistical_reference/methods/edf1": {
+    "sha256": "1a4707abb7354c94d575b721bad6ac2c3e221ec6dd83621da62e159748f2a4bb",
+    "status": "passed"
+  },
+  "statistical_reference/methods/fit": {
+    "sha256": "2589b7e66a171da7566d61d3840975c2336c1f488b796910cdd5f78b91c5b71b",
+    "status": "passed"
+  },
+  "statistical_reference/methods/fit_result": {
+    "sha256": "15a57de0c665b3f1cd7f72843d593b1cca9fb471780b17e47f569f75c824f019",
+    "status": "passed"
+  },
+  "statistical_reference/methods/gam_check": {
+    "sha256": "f39aa6724916ebcacede55b04bc4a665647e81f68b51d6e13eef12fdd344e237",
+    "status": "passed"
+  },
+  "statistical_reference/methods/gam_vcomp": {
+    "sha256": "dba10eb20f89375acadbd54b58c4e70f2f7b880716906ebaef2f3cd3f8a6085b",
+    "status": "passed"
+  },
+  "statistical_reference/methods/get_device": {
+    "sha256": "edfd23690d6b10e46224dfdc652fd56b849aa6662bb2c28a7dfa0b89e0fe13e5",
+    "status": "passed"
+  },
+  "statistical_reference/methods/k_check": {
+    "sha256": "9dbf870ff21de4f83fdd3e58c5011ea02129f5b3ed5da3c9b0fdd9ec79e6ea87",
+    "status": "passed"
+  },
+  "statistical_reference/methods/load_model": {
+    "sha256": "5792191548d96fd5966a9d6909621ea8b6322f987786dd0ded6d79eb6ab1f4f1",
+    "status": "passed"
+  },
+  "statistical_reference/methods/loglik": {
+    "sha256": "f93c6b351ca2c2f902bcf9e5b1c540aa1c76c80efd107a9cc54bb171198b8023",
+    "status": "passed"
+  },
+  "statistical_reference/methods/lpmatrix": {
+    "sha256": "e0b3315d6affabf51ee742c80c9938072da13cdf274c01b3d726e28fb12ec8a1",
+    "status": "passed"
+  },
+  "statistical_reference/methods/one_se_rule": {
+    "sha256": "89ff136eda8f15945bdeedf73ad2d9d799c89c0b256a63d7b4d217a0a6534d91",
+    "status": "passed"
+  },
+  "statistical_reference/methods/parity_snapshot": {
+    "sha256": "928effab6a681d847f7fc2a36f3d07019a95182922b9fd09dd505aa9fda3fbc5",
+    "status": "passed"
+  },
+  "statistical_reference/methods/plot": {
+    "sha256": "565ce7ad831707c68d3ad2d9e3c8a3e2fcba3247030e5ef549afd24ba61251d0",
+    "status": "passed"
+  },
+  "statistical_reference/methods/plot_check": {
+    "sha256": "ee0c314c3b8109d1da96bb42fbb5ec778ea8f4c763e25468e1d7cb41469bfdb3",
+    "status": "passed"
+  },
+  "statistical_reference/methods/plot_derivative": {
+    "sha256": "d63f0aab2d61c06d147a34be22409abdb52c148251d509baf36f40c3719f74d6",
+    "status": "passed"
+  },
+  "statistical_reference/methods/predict": {
+    "sha256": "b9c53b4bad9ead2d80ab8908ca1ae010aede38737ed5e8ba496ca975afccc353",
+    "status": "passed"
+  },
+  "statistical_reference/methods/predict_terms": {
+    "sha256": "106cda28e51d99a7c60422ee7fba69e434ad6a26e034729de217c0971d9e9c41",
+    "status": "passed"
+  },
+  "statistical_reference/methods/qq": {
+    "sha256": "7459dbadea6e871e401d645ac2e30c0a42fb9fa9977a4c77927375dc8dfd4ff4",
+    "status": "passed"
+  },
+  "statistical_reference/methods/residuals": {
+    "sha256": "0f8f8d14cf6f2c99042f12305314ded03c7537c98853dc72bd9fc82613cfa5b0",
+    "status": "passed"
+  },
+  "statistical_reference/methods/save_model": {
+    "sha256": "cc1ddbc8501f64c171fb121dfe1ab13a66c0b292e1a926810c62d7d7349bb219",
+    "status": "passed"
+  },
+  "statistical_reference/methods/sp_vcov": {
+    "sha256": "87a4ac88d4a9281548f4e4a2525fed5d384802b1ed5b4c65cde572f5147972db",
+    "status": "passed"
+  },
+  "statistical_reference/methods/summary": {
+    "sha256": "28d82e2d2f826a9d290e33e072916f6d083c0b12cd907d77c2777077840114f0",
+    "status": "passed"
+  },
+  "statistical_reference/methods/vcov": {
+    "sha256": "9ce36d96df28b6d000d00b3ecb8576a374044fef45607723af5107c7c2338607",
+    "status": "passed"
+  },
+  "statistical_reference/methods/vis": {
+    "sha256": "8d17a39fd215385734e91664a72e4bfc89ff70a5b9c043d96de8615d2439f38f",
+    "status": "passed"
+  },
+  "statistical_reference/selection/bfgs": {
+    "sha256": "a75164ebf9be9ad4f5bc5a7a1b111419381a28a01ad17bb36d057e8a6a832958",
+    "status": "passed"
+  },
+  "statistical_reference/selection/efs": {
+    "sha256": "e15e6b59e82e53bdc180dd96d3cdf998220d925f57d523417a82ec4e33f7b2b6",
+    "status": "passed"
+  },
+  "statistical_reference/selection/fixed": {
+    "sha256": "d7b2a61f91d6de84c648878b8a208b14c2300d4084753a01a0c6129e76cd06a9",
+    "status": "passed"
+  },
+  "statistical_reference/selection/gacv": {
+    "sha256": "837999677c001b58bfab72ff91f60a5685b1a4cc5f22651312995b20afb55dbd",
+    "status": "passed"
+  },
+  "statistical_reference/selection/gcv": {
+    "sha256": "393ed48468b7762c4b41385a1d640eb926d275c06a36444db9fd38309c5214ed",
+    "status": "passed"
+  },
+  "statistical_reference/selection/laml": {
+    "sha256": "8fd29d1ca8c8be28f801ad1c4886a5f1b679886ba5648a19333cd2effff90766",
+    "status": "passed"
+  },
+  "statistical_reference/selection/ml": {
+    "sha256": "ce07334965d3e83e967078709925964eb92be9833ec51e2f20b3ba7a4954b0f0",
+    "status": "passed"
+  },
+  "statistical_reference/selection/ncv": {
+    "sha256": "ed586e6e6d5f7f40e4e47820b47076c1535e2c326127e53bc8edb7c295b04cb7",
+    "status": "passed"
+  },
+  "statistical_reference/selection/nlm": {
+    "sha256": "fa98cec2b2829b599e216e8f71cb76a9c53eaeb74a3b0930c9d464ea5e32deb0",
+    "status": "passed"
+  },
+  "statistical_reference/selection/optim": {
+    "sha256": "873b17be690c6d8ecd5d1d2d10a75dcd70609a75b8650446bf8faf6e71a0c5dd",
+    "status": "passed"
+  },
+  "statistical_reference/selection/outer_newton": {
+    "sha256": "cf6012ee04e89a421ab5cbaea24ea8f6eaff974b05361ab488a573707af025a1",
+    "status": "passed"
+  },
+  "statistical_reference/selection/p-ml": {
+    "sha256": "e1422742e0e2164ca9c3daa7fddd507c623e342befaa4ce6647c0567841fd63d",
+    "status": "passed"
+  },
+  "statistical_reference/selection/p-reml": {
+    "sha256": "6d498b656c2edb3ec3583927b4128d0273ffbadb1ccd9eefb76a2dda302f4063",
+    "status": "passed"
+  },
+  "statistical_reference/selection/qncv": {
+    "sha256": "c8f00bb225d36fe12138a15a894d51e8a7579a50f0bc2c24e4210ef208028543",
+    "status": "passed"
+  },
+  "statistical_reference/selection/reml": {
+    "sha256": "e004565c47cdb376ff4523f3e8462d7a813d0bed49a45ba42d79caa1064e5520",
+    "status": "passed"
+  },
+  "statistical_reference/selection/ubre": {
+    "sha256": "d54b82637682155f18996cf8605a56fd6231903d287b6591853c6e7369514991",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/ad": {
+    "sha256": "f3a52eaa6f007936a55ea4e6c96a5cc3b8b3bfc65c9464d6028389d8c1d91fed",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/bs": {
+    "sha256": "0fdd2f9a604bc4aa86808cbc47a0f1f5deaed470da46892e251bfe7ea1f178b6",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/cc": {
+    "sha256": "375773a1b5ef231e14e40d56edfa3c8b33dc0ed9eb063ce859e709506ebac5e5",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/cp": {
+    "sha256": "21bc3f5d6bf74c3272a49a76e702c0a8abcc76e24657bc9ff630ab857775b222",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/cpop": {
+    "sha256": "4ce051da57067097c3b518f26df1c85f09644f73b010c878c4d30a66db2fa9cc",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/cr": {
+    "sha256": "f1749d428d2c6f190037dc735a4bed8ce8662ab4a76d32702576276bad04b88e",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/cs": {
+    "sha256": "b4309a5d3b4d5b423c03e41c02125787352762b7a48c39e8e5d4183beb665299",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/cv": {
+    "sha256": "2f6e75b7e006723cfbedda24bdced4a291a024f8abddc5b58ccb9d1b0bf953ff",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/cvby": {
+    "sha256": "56283575b1bfc1d428f26da4715709c5535237f5f1327c445d21c1214062ce07",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/cx": {
+    "sha256": "dcc6b6cb7d44b9ed1a1fe7b97333d3a9e7b5ec924ec5e7ec22fd196b9b02ca80",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/cxby": {
+    "sha256": "3737cf5739715418f8a96b84d3d16a2c9959c1a00443a67c8131e025aa1178cf",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/dpo": {
+    "sha256": "79048707b97d6b1d347eedd3b742b5f9b4f21dda16ebb54aa91320f3c8d6a8ec",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/ds": {
+    "sha256": "05195fef34999b97c951ccffbec712e5f28763353cc72c68dc24eb1a20610d3b",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/fs": {
+    "sha256": "05db3398d0588b31c2317f07a2946155011ea5e0f22b0c9540601e721b6f87e4",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/gp": {
+    "sha256": "bda270b93c0bac61fd75b6b9ddd445dcc5d77b5d1e08eb3301a194905af68cd1",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/ipo": {
+    "sha256": "8f34774a386300b6a9f0201ee3ae08ff85ac057a3490c898bf2277bcb5311f72",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/lipl": {
+    "sha256": "7d0b5e87641045636544607c487f4c2860b57011895f5a25222fd4e9bddc6252",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/lmpi": {
+    "sha256": "98f8dc684b0e75310d6525dc4e09b4dc07b79dc96ddd6e74c90f13155d8a7f12",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/mdcv": {
+    "sha256": "c5d6a9852e1a7f2035d2a18d574d32c2e765455b5226c8dc795d59a21c480f53",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/mdcvby": {
+    "sha256": "6eb12941e908c7414b1fe227d24683e6f168f16e091764d7da645dc4fc918206",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/mdcx": {
+    "sha256": "8bb75cdd016350b8f103de22d30300fd5e1363376f6fd97a8e4e70b89179fab0",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/mdcxby": {
+    "sha256": "601afdc0daaaf1daa4e2b10f85837a2856f4c3cdd7236e4a1081d30de5839704",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/micv": {
+    "sha256": "6e747abd1c07af5c7220b8c433b7f2ec9d8bc36e530bddd8af570d11ba251172",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/micvby": {
+    "sha256": "c42b4912effa224afc98ebda13f28a028384b3c9094281159dd98a12ee8dfa31",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/micx": {
+    "sha256": "5e6130693aa2121ef157c76bc497cb81f92713df56acec294706d31ad73b8f5d",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/micxby": {
+    "sha256": "8aae84f9177c02afa5036e9509430e73d1e84cfa97e5d1c593bbbca45b2fd656",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/mifo": {
+    "sha256": "3b02ac9bf3a519c779faa39aca3ca7dda208d4bafe9f1035f64b84bb3b19634d",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/miso": {
+    "sha256": "b013e0dc113e68573e2b14a8503aa97c6221a01774e4434bb984303db31cf4e1",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/mpd": {
+    "sha256": "bc1112c1e924d0bc7d874ed2f3d119ab3b615a5e107c71be7d5cb8afaf3f8441",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/mpdby": {
+    "sha256": "bda6cc8fabf40acb2f428f003d332199708a3358f1a855f59a5b1df0ad363dd6",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/mpi": {
+    "sha256": "4c3f0475f3ab7551d5defb50fbae3ff179db598f1676a72b8212e9f51f8e5b23",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/mpiby": {
+    "sha256": "33816939202329cfe3905cae146726a13d46ccc3eb87437c59b6573afb298d6c",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/mrf": {
+    "sha256": "0897db3f4a509b4fc7718578b13364e581204041ffe0a34c23ee150c5e823116",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/po": {
+    "sha256": "6a44f6b576843bfce9f9f60da261c791b8343a0bec38b3ea79a4a4f7478ccc93",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/ps": {
+    "sha256": "3d442ccf155e9705f05a050490538485ba4ceffab17549cfd56047f2812fa223",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/re": {
+    "sha256": "bb690ed75ab4e499ce87a6663882a607b7b050d1c6c071449afaab2bfcc2f5e5",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/sc": {
+    "sha256": "9a296924a70fb3bd68af83ea7ef636810a647168f43f2d892997bf5512a00ae6",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/scad": {
+    "sha256": "8f45c23917bc8e0fe337205944ca6bd3bf9e043bd989f040b237f6ff7371a3f8",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/sf": {
+    "sha256": "e0c7cc519ee5d7e764c1a336ea487c521e46376b40cb01eeca2835648425c5aa",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/so": {
+    "sha256": "763b39204148d238e6cf609ee75cf66a5e06b87ed928b3379073eaf62c683804",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/sos": {
+    "sha256": "0d339be8fe26e50adf5001ce865bef5511b32be38ffb04c06f4f5aeb2fc84e04",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/sw": {
+    "sha256": "54a5bd0e562147b3dbdac101d8a81adf6cc08e3c9b954cbd4f84ab3b850ece33",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/sz": {
+    "sha256": "a932937a40976bc56fbd59b9c6067a2ebf7bed1b4c70ca6b0741bd42066f1058",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/t2": {
+    "sha256": "d3cfd690bc3f03f9a445f3b7afc5de3b840b1bf7e961cf44ee7b100353c08229",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/te": {
+    "sha256": "e97acd467758852b86a27980afe7f69e9f94be40c0b5f880963b6884af79a17f",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/tecvcv": {
+    "sha256": "d65cce61ffc42d745a381b5a80081e748ca8e5a71b4c68c7496d51bd21eaf3d3",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/tecxcv": {
+    "sha256": "4da9ee3bbb1aef40fc65135d31bdd2763b5e811551e04ac4af4a8423d55a0fc9",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/tecxcx": {
+    "sha256": "0a7af718f6534cb132c46f149c37f6943a33a56cd81626a06b0d54e484e65963",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/tedecv": {
+    "sha256": "f773f608ce5024827255fd268ad595d07d99dd0283ef0f236aac48f63953c08d",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/tedecx": {
+    "sha256": "1007ef93363ecbca318f3d1e17949e6c05a0bf57702db8dde273caee72b2a370",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/tedmd": {
+    "sha256": "e42fa34d9f28913b1a6e7c993d54f86fd66b908e3eeae74bf898932dd8600fda",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/tedmi": {
+    "sha256": "e279394087d5679b5bfc41c4d670453456af57e767a5c3e47f554296f4f327a6",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/temicv": {
+    "sha256": "7df46802483e4d37f8b05ed6aa464d24699f7c75271b9fa22e7f954b00ccea05",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/temicx": {
+    "sha256": "e357597eb36282dc1b98567c4eb169e5dfaeff2610d8fcc7e0c27dd80c30ad52",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/tescv": {
+    "sha256": "03e10e6611ee1c9da13578af3b4cecb0af234b438be49e8eddd8361ac4aa7e9e",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/tescx": {
+    "sha256": "5e62e574c27c7718ca870673298a987e097d17fd3fb4539abdda9477ccc1c908",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/tesmd1": {
+    "sha256": "169bd271ced052df5e06298bed7e1aacdb2f2b01c52af6ea0324290dfb225fa6",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/tesmd2": {
+    "sha256": "8ace07fdc709d8cd30401eadef92bb9871c784085c18485b70e87c45727698a8",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/tesmi1": {
+    "sha256": "a40818d70f1ae8861729499d951494ee49ce28dec4bb5dc89461ff9772826adb",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/tesmi2": {
+    "sha256": "04a24bd2cd531caf0ddecf49edf740db625d71c4463a04230ac72827cc73f7e2",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/ti": {
+    "sha256": "325f77dc5e265c2c664761ff1a0537f01a4d7aed132e68a9cb01ad691129fc9f",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/tismd": {
+    "sha256": "7c23daafd8b6687cbb67773d8cafaed3692ea7ad6f67ae109f8b95b70af2e873",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/tismi": {
+    "sha256": "08507806200ad4ca0cfdb5c118b474a03bf995f367e96b5d997748fe8e9a37bd",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/tp": {
+    "sha256": "b748876a8db6f23c9c64b9531f2cd37ee67979e85f636dd727c017ea905568f9",
+    "status": "passed"
+  },
+  "statistical_reference/smooths/ts": {
+    "sha256": "4e6b2279c6ee33f36e672f792bf755e5a95a04d3b26b946d9f5efe09dcbe9321",
+    "status": "passed"
+  },
+  "statistical_reference/uncertainty": {
+    "sha256": "bd174dfbe565d6ed27565aa01dd3f9ef3eefb751cbd7fc143b5d686ad478b82a",
+    "status": "passed"
+  }
+}

@@ -211,3 +211,11 @@ Fitting compatibility
 ---------------------
 
 .. include:: ../_includes/optimizer_support.inc
+
+Numerical internals
+-------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   Coefficient covariance correction <../statistical_reference/internals/covariance_correction>

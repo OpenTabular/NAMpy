@@ -102,7 +102,4 @@ Fixed-design solver
    solve_fixed_linear_regression
 
 
-.. toctree::
-   :maxdepth: 1
-
-   neural_training
+See :doc:`neural_training` for the shared training signature and controls.

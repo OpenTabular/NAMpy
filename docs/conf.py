@@ -36,6 +36,7 @@ sys.path.insert(0, str(Path(__file__).parent / "_ext"))
 
 extensions = [
     "public_reference",
+    "feature_reference",
     "site_integrity",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",

@@ -30,3 +30,14 @@ Distributional effects
    render_distributional_effects
    DistributionalEffects
 
+
+Diagnostic and surface renderers
+--------------------------------
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   render_qq
+   render_model_check
+   render_prediction_surface

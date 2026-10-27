@@ -1,3 +1,5 @@
+:orphan:
+
 GAM Diagnostics and Plots
 =========================
 

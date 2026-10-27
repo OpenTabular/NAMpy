@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 REDIRECTS = {
+    "statistical_reference/vb_corr": "statistical_reference/internals/covariance_correction",
     "development/mgcv_optimizer_boundaries": "compatibility#guarded-boundaries",
     "development/validation_reports": "architecture#detailed-evidence",
     "development/documentation_validation": "contributing#improve-documentation",
@@ -190,6 +191,7 @@ def local_documentation_links(app, doctree, docname):
     another site's navigation. Other hosts and explicit versions stay intact.
     """
     from urllib.parse import unquote, urlsplit
+
     from docutils import nodes
 
     prefix = "/en/latest/"

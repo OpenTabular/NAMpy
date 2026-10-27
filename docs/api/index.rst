@@ -1,39 +1,19 @@
 :orphan:
 
-API Reference
-=============
+Reference
+=========
 
-The API reference follows NAMpy's public namespaces. Estimator classes are
-listed first; the remaining pages cover the statistical GAM, neural,
-inspection, plotting, and extension APIs.
+Follow the reference from choosing a model to configuring it, inspecting its
+outputs, and extending its implementation. Each detailed feature has one
+navigation location; API names in guides and examples link to that feature.
 
-Estimators
-----------
-
-* :doc:`models`
-
-Statistical GAM API
--------------------
-
-* :doc:`gam`
-* :doc:`gam_formula`
-* :doc:`gam_smooths`
-* :doc:`gam_families`
-* :doc:`gam_diagnostics`
-* :doc:`gam_inference`
-* :doc:`gam_results`
-* :doc:`gam_advanced`
-
-Neural API
-----------
-
-* :doc:`basemodels`
-* :doc:`configs`
-* :doc:`utils`
-* :doc:`neural`
-
-Shared analysis API
--------------------
-
-* :doc:`contracts`
-* :doc:`plotting`
+* :doc:`Model guide </models/index>`: compare supported architectures and tasks.
+* :doc:`Statistical models </statistical_reference/index>`: estimators, formulas,
+  smooths, families, fitting, prediction, inference and extension APIs.
+* :doc:`Neural models </neural_reference/index>`: architectures, response
+  distributions, training, custom estimators and implementation APIs.
+* :doc:`Shared predictions and explanations <contracts>`: returned objects and
+  interpretation contracts used by both model types.
+* :doc:`Plotting <plotting>`: render effects, distributions and diagnostic results.
+* :doc:`Compatibility </compatibility>`: supported interfaces and boundaries.
+* :doc:`License </license>`.

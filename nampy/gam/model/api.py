@@ -365,6 +365,7 @@ class GAM:
         restore_gam_pickle_state(self, state)
 
     def save_model(self, path):
+        """Serialize the fitted model and return its destination ``Path``."""
         destination = Path(path)
         with destination.open("wb") as handle:
             pickle.dump(self, handle)
@@ -997,8 +998,8 @@ class GAM:
         ``phi``, ``jit``, ``xlab``, ``ylab``, ``main``, ``ylim``, ``xlim``,
         ``too_far``, ``shade_col``, ``shift``, ``trans``, ``se_with_mean``,
         ``unconditional``, ``by_resids``, ``scheme``, ``figsize``) and returns
-        the prepared plot-data list with the matplotlib figures attached,
-        mirroring upstream's invisible ``pd`` return.
+        a mapping containing numerical term payloads under ``pd`` and the
+        Matplotlib figure list under ``figures``.
         """
 
         if not self._fitted:

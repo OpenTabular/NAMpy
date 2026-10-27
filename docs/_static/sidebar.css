@@ -220,3 +220,14 @@ html.writer-html5 .rst-content dl.field-list {
 readthedocs-flyout {
   display: none !important;
 }
+
+/* API names are clickable in inline text and runnable examples. */
+.api-name-link code,
+.highlight .api-code-link {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 0.18em;
+}
+.highlight .api-code-link:hover {
+  text-decoration-style: solid;
+}

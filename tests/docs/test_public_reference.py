@@ -1,7 +1,11 @@
 """Reference generation must work before autosummary creates its output folder."""
 
 import runpy
+import sys
 from pathlib import Path
+
+# Match the Sphinx extension import environment for standalone run_path calls.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "docs/_ext"))
 
 
 def test_reference_generation_from_clean_checkout(tmp_path):

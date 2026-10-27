@@ -174,6 +174,7 @@ look up a specific method.
 
    Prepare feature data <user_guide/preprocessing>
    Train and tune neural models <user_guide/training>
+   Build a GAM formula <user_guide/formula_visual_reference>
    Specify and diagnose a statistical GAM <user_guide/statistical_gams>
    Model location and spread <user_guide/gamlss>
    Add an interaction <howto/interactions>
@@ -187,18 +188,14 @@ look up a specific method.
 
 .. toctree::
    :caption: Reference
-   :maxdepth: 2
+   :maxdepth: 3
    :hidden:
 
-   models/index
-   api/models
-   api/gam
-   api/basemodels
-   api/configs
-   api/utils
-   api/neural
-   api/contracts
-   api/plotting
+   Model guide <models/index>
+   statistical_reference/index
+   neural_reference/index
+   Shared predictions and explanations <api/contracts>
+   Plotting <api/plotting>
    compatibility
    license
 

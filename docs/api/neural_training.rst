@@ -7,6 +7,8 @@ Architecture-specific native solvers use their documented stage/linear controls.
 The distributional objective follows the NAMLSS framework of Thielmann et al.
 (2024), with registered families defining parameter transforms and loss.
 
+.. include:: /_generated/reference/neural_fit_contract.inc
+
 .. automethod:: nampy.models._base.NeuralEstimatorBase.fit
 
 References
