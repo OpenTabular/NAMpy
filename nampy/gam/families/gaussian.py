@@ -60,36 +60,38 @@ class GaussianIdentityFamily(GLMFamily):
     def loglik_obs(self, y, mu, scale=1.0):
         y = np.asarray(y, dtype=np.float64)
         mu = np.asarray(mu, dtype=np.float64)
-        scale = float(max(scale, self.eps))
-        return -0.5 * np.log(2.0 * np.pi * scale) - 0.5 * ((y - mu) ** 2) / scale
+        scale = float(scale)
+        if scale == 0.0:
+            return np.where(
+                np.isnan(y) | np.isnan(mu) | ((y == mu) & ~np.isfinite(y)),
+                np.nan,
+                np.where(y == mu, np.inf, -np.inf),
+            )
+        with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+            sd = np.sqrt(scale)
+            z = (y - mu) / sd
+            return -0.5 * np.log(2.0 * np.pi) - np.log(sd) - 0.5 * z * z
 
     def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
-        y = np.asarray(y, dtype=np.float64)
-        weights = self._check_weights(y, weights)
-        scale = float(max(scale, self.eps))
-        mask = weights > 0
-        nobs = int(np.sum(mask))
-        return float(
-            -0.5 * nobs * np.log(2.0 * np.pi * scale)
-            + 0.5 * np.sum(np.log(weights[mask]))
-        )
+        return float(self.ls(y, weights, n=n, scale=scale)[0])
 
     def ls(self, y, weights, n=None, scale=1.0):
         """Port of ``mgcv/R/gam.fit3.r::fix.family.ls`` for Gaussian data."""
         y = np.asarray(y, dtype=np.float64)
         weights = self._check_weights(y, weights)
-        scale = float(scale)
+        scale = np.float64(scale)
         mask = weights > 0.0
         nobs = float(np.sum(mask))
-        return np.array(
-            [
-                -0.5 * nobs * np.log(2.0 * np.pi * scale)
-                + 0.5 * np.sum(np.log(weights[mask])),
-                -nobs / (2.0 * scale),
-                nobs / (2.0 * scale * scale),
-            ],
-            dtype=np.float64,
-        )
+        with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+            return np.array(
+                [
+                    -0.5 * nobs * np.log(2.0 * np.pi * scale)
+                    + 0.5 * np.sum(np.log(weights[mask])),
+                    -nobs / (2.0 * scale),
+                    nobs / (2.0 * scale * scale),
+                ],
+                dtype=np.float64,
+            )
 
     def working_weight_derivative_eta(self, eta, y=None):
         eta = np.asarray(eta, dtype=np.float64)
@@ -133,11 +135,17 @@ class GaussianLogFamily(GaussianIdentityFamily):
 
     def working_weight_derivative_eta(self, eta, y=None):
         eta = np.asarray(eta, dtype=np.float64)
-        return 2.0 * np.exp(2.0 * eta)
+        if y is not None:
+            mu = self.inverse_link(eta)
+            return 4.0 * mu**2 - np.asarray(y, dtype=float) * mu
+        return 2.0 * self.inverse_link(eta) ** 2
 
     def working_weight_second_derivative_eta(self, eta, y=None):
         eta = np.asarray(eta, dtype=np.float64)
-        return 4.0 * np.exp(2.0 * eta)
+        if y is not None:
+            mu = self.inverse_link(eta)
+            return 8.0 * mu**2 - np.asarray(y, dtype=float) * mu
+        return 4.0 * self.inverse_link(eta) ** 2
 
 
 class GaussianInverseFamily(GaussianIdentityFamily):
@@ -165,8 +173,12 @@ class GaussianInverseFamily(GaussianIdentityFamily):
 
     def working_weight_derivative_eta(self, eta, y=None):
         eta = np.asarray(eta, dtype=np.float64)
+        if y is not None:
+            return -12.0 / eta**5 + 6.0 * np.asarray(y, dtype=float) / eta**4
         return -4.0 / eta**5
 
     def working_weight_second_derivative_eta(self, eta, y=None):
         eta = np.asarray(eta, dtype=np.float64)
+        if y is not None:
+            return 60.0 / eta**6 - 24.0 * np.asarray(y, dtype=float) / eta**5
         return 20.0 / eta**6

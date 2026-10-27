@@ -128,8 +128,12 @@ def compute_null_deviance(model) -> float:
     # one — even for no-intercept models (the offset refit below is mgcv's
     # only correction, see the "Why not correct calc in gam.fit/3???" comment
     # at mgcv.r:2072).
-    wtdmu = float(np.sum(w * y) / np.sum(w))
-    mu0 = np.full_like(y, wtdmu, dtype=np.float64)
+    if getattr(model, "_magic_nobs", None) is not None and not model.fit_intercept:
+        # Unlike gam.fit3, am.fit honors the no-intercept null model.
+        mu0 = np.asarray(family.inverse_link(offset), dtype=np.float64)
+    else:
+        wtdmu = float(np.sum(w * y) / np.sum(w))
+        mu0 = np.full_like(y, wtdmu, dtype=np.float64)
     nulldev = float(family.deviance(y, mu0, weights=w))
 
     # mgcv/R/mgcv.r:2072-2075: with an intercept and a nonzero offset the

@@ -53,6 +53,10 @@ The public statistical engine covers:
 The :ref:`statistical-gam-tools` guide maps these capabilities to public
 symbols and runnable calls.
 
+NCV/QNCV selection inflation uses ``score_gamma`` (mgcv's model ``gamma``).
+The ``gamma`` entry in ``nei`` belongs to the upstream post-fit neighbourhood
+or jackknife calculation and does not control smoothing selection.
+
 What is compared against upstream
 ---------------------------------
 
@@ -114,6 +118,69 @@ To run or regenerate focused comparisons, follow :doc:`contributing`.
 Review fixture provenance and the
 per-case assertions before interpreting agreement.
 
+Fitted log likelihood, AIC and BIC use the stored training means, including
+formula and API offsets. Ordered-categorical likelihood uses the latent
+predictor; beta regression uses its family density hook. Focused comparisons
+cover fourteen family/link combinations, beta response boundaries, positive
+and zero prior weights where supported, mixed offsets and model persistence.
+Gaussian zero-weight
+likelihoods follow the finite convention described below; weighted ``ziP``
+fitting retains its explicit unsupported guard. Ordinary-family source
+dispersion profiling uses tight outer convergence to isolate reporting errors.
+
+Poisson and grouped-binomial densities use the R count-density construction
+instead of subtracting large log-gamma terms. Source comparisons cover counts
+and trial sizes through ``1e15``, tail probabilities, exact binomial probability
+boundaries, noninteger Poisson support and zero weights. Actual large-count
+``gam`` fits also check likelihood, AIC and BIC. The shared Poisson density
+uses R 4.6's relative integer tolerance of ``1e-9``; this applies to censored
+Poisson calculations as well.
+
+Binomial initialization retains the raw ``stats::binomInitialize`` formula
+at large denominators instead of clipping starting probabilities at ``1e-9``.
+Saved references cover all five links, ordinary and grouped responses, zero
+and nonunit weights, and trial counts through ``1e15``, with quasibinomial
+controls. Binomial deviance and Bernoulli likelihood helpers preserve supplied
+probabilities, including exact zero/one and tiny positive probabilities; inverse
+links retain their own source-defined clipping. Four rare-event grouped fits
+compare predictions, EDF, likelihood criteria and persistence with actual mgcv
+fits at trial counts of ``1e9`` and ``1e12``.
+
+Gaussian AIC with supplied dispersion follows ``gam.fit3`` and ``am.fit``:
+the family hook receives ``scale * sum(prior.weights)`` in place of residual
+deviance. Gamma log densities use the stable R ``dgamma`` construction.
+Fixed-dispersion comparisons span parametric and cubic-spline models, Gaussian
+identity and Gamma log/inverse links, offsets, weights and dispersions down
+to ``1e-15``. Density-only checks additionally cover extreme scales and support
+boundaries.
+
+Gamma initialization, deviance and Pearson scale retain valid positive responses
+below ``1e-9``. Their working-weight derivatives also avoid absolute denominator
+floors that change the result when response units change. Comparisons across
+log, identity and inverse links span response multipliers from ``1e-12`` to
+``1e12``, with formula/API/mixed offsets, zero weights, residuals, prediction
+standard errors, likelihood criteria and finite-difference GCV derivatives.
+Automatic GCV comparisons use explicit log-SP bounds wide enough to contain
+the rescaled identity/inverse-link optima; configured search bounds remain
+absolute. The reference fits transport smoothing parameters with the response
+units so each comparison represents the same penalized function.
+
+Family working-information derivative hooks distinguish Fisher information
+when no response is supplied from observed information when targets are supplied.
+Saved mgcv analytic derivatives and independent source finite differences cover
+noncanonical binomial, Gaussian, Poisson and negative-binomial links, small means,
+signed inverse-link predictors and several negative-binomial shape parameters.
+Gamma log retains its explicit requirement for targets. At machine-clipped link
+tails, comparisons use mgcv's analytic derivative conventions. These hooks are
+separate from the fitting core's working-information calculations. Negative-
+binomial initialization also preserves tiny positive responses, with saved
+references for all three links; fractional-response deviance follows the source
+family's convention.
+Gaussian family density helpers preserve supplied variance down to ``1e-15``
+and scale residuals before squaring to avoid unnecessary overflow. Additional
+saved R references check huge residuals/variances, zero/negative variance and
+saturated likelihoods with varying and zero weights.
+
 Basis-dependent intermediate values need a shared representation. For example,
 ``gammals`` initialization with ``select=True`` can produce different starting
 smoothing parameters after a valid eigenvector sign change, including in R.
@@ -137,6 +204,12 @@ change the model itself. Such a discrepancy must be demonstrated through
 fitted functions or covariance, rather than inferred from differing columns.
 
 Numerical differences in identified quantities still require investigation.
+The higher-order smoothness-uncertainty correction ``Vb.corr`` differentiates
+a Cholesky root and depends on coefficient coordinates. AR(1) comparisons
+evaluate this upstream correction in common coordinates, checking the design
+and penalty transport first. Conditional predictions, covariance, and selected
+smoothing parameters retain direct fitted-model comparisons.
+
 At a large smoothing parameter, the negative-binomial criterion evaluates its
 penalty through roots, matching ``gam.fit4`` and ``get_bSb``. A dedicated R
 fixture checks that penalty and criterion, alongside the complete optimizer
@@ -151,6 +224,35 @@ fitted-value parity for it has not been established.
 Intentional differences
 -----------------------
 
+* Gamma saturated likelihood and scale derivatives retain the requested
+  dispersion below ``1e-9`` and evaluate the small-dispersion terms through
+  the Stirling expansion. The recorded upstream digamma/trigamma subtraction
+  loses precision and can reverse the second derivative at ``1e-15``.
+  These cases use independent 100-digit differentiation of the Gamma density;
+  direct upstream captures are retained, and ordinary dispersions also compare
+  directly with ``fix.family.ls``. The profile-scale solver also retains valid
+  initial scales below ``1e-12`` rather than moving them away from the solution
+  and triggering a Newton-step underflow.
+* NCV keeps known offsets in held-out predictors and retains the signs of
+  Newton weights when deleting neighbourhoods. The recorded mgcv ``Rncv``
+  path omits these offsets and uses absolute weights for negative-weight
+  downdates. Affected cases are checked with independent signed one-step
+  equations using actual mgcv fits, designs, penalties and family derivatives;
+  the ordinary cases also retain direct upstream score comparisons.
+* Gaussian log likelihood, AIC and BIC omit zero-prior-weight observations
+  from the log-precision term and remain finite for otherwise well-defined
+  fits. The recorded mgcv 1.9-4 library can return ``NaN`` for these criteria
+  because it includes zero weights inside a logarithm. Gaussian GCV/UBRE
+  retains upstream positive-weight-row scoring and scale estimation.
+* A Gaussian AR(1) fit without ``ar_start`` represents one series and uses
+  ``n - 1`` transitions in likelihood normalization. The recorded ``bam``
+  final AIC path counts a missing ``AR.start`` as zero starts; reference calls
+  explicitly mark the first observation to represent the same one-series model.
+* Beta-regression mixed mean/log-precision derivatives use polygamma
+  recurrences to cancel boundary poles analytically. Near mean zero or one,
+  this avoids severe cancellation also present in mgcv 1.9-4. These boundary
+  derivatives are checked against independent 100-digit differentiation;
+  ordinary-range derivatives retain direct mgcv parity checks.
 * SciPy supplies the numerical machinery for R-style ``optim`` and ``nlm``
   routes. Objectives, analytic derivatives, bounds, and mapped tolerances are
   retained, but stopping codes and iteration-by-iteration traces are not
@@ -162,6 +264,11 @@ Intentional differences
 
 Guarded boundaries
 ------------------
+
+Tweedie inner-fit dispersion retains a Pearson fallback. Scale-dependent
+diagnostics can differ from mgcv's separately profiled outer dispersion,
+especially when smoothing optimization is disabled. The fixed-inner residual
+comparisons cover working, response, deviance and unscaled Pearson residuals.
 
 The following combinations remain unsupported and fail explicitly:
 

@@ -12,14 +12,8 @@ import numpy as np
 from scipy.special import gammainc, gammaincc
 
 from ._cnorm_helpers import logexm1
-from ._r_poisson_math import log_dpois_scalar
+from ._r_poisson_math import log_dpois
 from ._scalar_math import exp, log
-
-
-def log_dpois(y, mu):
-    y, mu = np.broadcast_arrays(np.asarray(y, float), np.asarray(mu, float))
-    return np.fromiter((log_dpois_scalar(float(q), float(m)) for q, m in
-                        zip(y.flat, mu.flat, strict=True)), float, count=y.size).reshape(y.shape)
 
 
 def log_ppois(y, mu, lower=True):

@@ -9,7 +9,7 @@ then evaluates the appropriate criterion value.
 import numpy as np
 
 from ...backends import GENERAL_FAMILY_BACKEND
-from ...capabilities import raise_ml_reml_backend_error
+from ...capabilities import has_transformed_observations, raise_ml_reml_backend_error
 from ...solvers.general_family.fixed_smoothing import (
     criterion_ml_reml_general_family,
 )
@@ -28,7 +28,7 @@ def resolve_ml_reml_scoring_backend(model, method="reml"):
 
     if bool(
         getattr(model.family, "supports_closed_form_solve", False)
-    ) and can_use_exact_gaussian_ml_reml(model):
+    ) and can_use_exact_gaussian_ml_reml(model) and not has_transformed_observations(model):
         return "gaussian_exact"
 
     if bool(getattr(model.family, "supports_closed_form_solve", False)):

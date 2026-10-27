@@ -360,6 +360,19 @@ class BetaRegressionFamily(ExtendedFamily):
             "EDmu2": 2.0 * wt * theta_value**2 * (psi1_muth + psi1_onemuth),
         }
         if level > 0:
+            # In mixed mu/log(theta) derivatives the poles cancel exactly.
+            # Evaluate the surviving combinations at z+1 using the polygamma
+            # recurrence, instead of subtracting enormous terms at z near 0.
+            # f(z) = psi(z) + z psi1(z)
+            # g(z) = 2 psi1(z) + z psi2(z)
+            psi1_a1 = polygamma(1, muth + 1.0)
+            psi1_b1 = polygamma(1, onemuth + 1.0)
+            psi2_a1 = polygamma(2, muth + 1.0)
+            psi2_b1 = polygamma(2, onemuth + 1.0)
+            f_a = digamma(muth + 1.0) + muth * psi1_a1
+            f_b = digamma(onemuth + 1.0) + onemuth * psi1_b1
+            g_a = 2.0 * psi1_a1 + muth * psi2_a1
+            g_b = 2.0 * psi1_b1 + onemuth * psi2_b1
             out["Dth"] = (
                 2.0
                 * wt
@@ -372,32 +385,23 @@ class BetaRegressionFamily(ExtendedFamily):
                     - psi0_th
                 )
             )
-            out["Dmuth"] = out["Dmu"] + 2.0 * wt * theta_value**2 * (
-                mu * psi1_muth - onemu * psi1_onemuth
-            )
+            out["Dmuth"] = 2.0 * wt * theta_value * (f_a - f_b - log_yoney)
             out["Dmu3"] = 2.0 * wt * theta_value**3 * (psi2_muth - psi2_onemuth)
-            out["Dmu2th"] = 2.0 * out["Dmu2"] + 2.0 * wt * theta_value**3 * (
-                mu * psi2_muth + onemu * psi2_onemuth
-            )
+            out["Dmu2th"] = 2.0 * wt * theta_value**2 * (g_a + g_b)
             out["EDmu2th"] = out["Dmu2th"]
         if level > 1:
+            # h(z) = 3 psi2(z) + z psi3(z), with its pole removed likewise.
+            h_a = 3.0 * psi2_a1 + muth * polygamma(3, muth + 1.0)
+            h_b = 3.0 * psi2_b1 + onemuth * polygamma(3, onemuth + 1.0)
             out["Dmu4"] = 2.0 * wt * theta_value**4 * (psi3_muth + psi3_onemuth)
             out["Dth2"] = out["Dth"] + 2.0 * wt * theta_value**2 * (
                 mu**2 * psi1_muth + onemu**2 * psi1_onemuth - psi1_th
             )
-            out["Dmuth2"] = out["Dmuth"] + 2.0 * wt * theta_value**2 * (
-                mu**2 * theta_value * psi2_muth
-                + 2.0 * mu * psi1_muth
-                - theta_value * onemu**2 * psi2_onemuth
-                - 2.0 * onemu * psi1_onemuth
+            out["Dmuth2"] = 2.0 * wt * theta_value * (
+                f_a - f_b - log_yoney + muth * g_a - onemuth * g_b
             )
-            out["Dmu2th2"] = 2.0 * out["Dmu2th"] + 2.0 * wt * theta_value**3 * (
-                mu**2 * theta_value * psi3_muth
-                + 3.0 * mu * psi2_muth
-                + onemu**2 * theta_value * psi3_onemuth
-                + 3.0 * onemu * psi2_onemuth
+            out["Dmu2th2"] = 2.0 * wt * theta_value**2 * (
+                2.0 * g_a + muth * h_a + 2.0 * g_b + onemuth * h_b
             )
-            out["Dmu3th"] = 3.0 * out["Dmu3"] + 2.0 * wt * theta_value**4 * (
-                mu * psi3_muth - onemu * psi3_onemuth
-            )
+            out["Dmu3th"] = 2.0 * wt * theta_value**3 * (h_a - h_b)
         return out

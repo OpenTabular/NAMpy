@@ -1,4 +1,8 @@
-"""Neighbourhood cross-validation from ``gam.fit3``/``src/ncv.c`` algebra."""
+"""Neighbourhood cross-validation from ``gam.fit3``/``src/ncv.c`` algebra.
+
+Known offsets remain in held-out predictors and deleted Hessians retain signed
+Newton weights, including the cases where upstream RNcv downdates differ.
+"""
 
 from __future__ import annotations
 
@@ -39,7 +43,14 @@ def normalize_nei(nei, n: int, *, index_base=None) -> dict:
         raise ValueError("nei index_base must be 0 or 1.")
     base = int(base)
     if source.get("a") is None or source.get("ma") is None:
-        return normalize_nei(None, n)
+        # estimate.gam resets the neighbourhood indices without discarding
+        # other options, including the separate post-fit jackknife gamma.
+        source.update(
+            a=np.arange(base, n + base),
+            ma=np.arange(1, n + 1),
+            d=np.arange(base, n + base),
+            md=np.arange(1, n + 1),
+        )
     if source.get("d") is None:
         if len(np.asarray(source["ma"]).ravel()) != n:
             raise ValueError("unclear which points NCV neighbourhoods belong to")
@@ -67,8 +78,8 @@ def normalize_nei(nei, n: int, *, index_base=None) -> dict:
         "ma": ma,
         "d": d,
         "md": md,
-        "jackknife": source.get("jackknife", -1),
-        "gamma": float(source.get("gamma", 1.0)),
+        "jackknife": -1 if source.get("jackknife") is None else source["jackknife"],
+        "gamma": 1.0 if source.get("gamma") is None else float(source["gamma"]),
         "index_base": 0,
     }
 
@@ -86,9 +97,11 @@ def _deviance_contributions(family, y, mu, weights):
 
 
 def _ncv_state(model, y, log_sp, *, qapprox=False):
-    sol, kernel, free_mask = _fit3_gcv_ubre_kernel(model, y, log_sp)
-    if kernel is None:
-        return 0.0, np.empty(0), free_mask, np.empty(0), np.empty((0, 0))
+    # The criterion remains defined with fixed penalties or no penalties.
+    # Only its smoothing-parameter gradient is empty in those cases.
+    sol, kernel, free_mask = _fit3_gcv_ubre_kernel(
+        model, y, log_sp, require_free=False
+    )
     nei = normalize_nei(getattr(model, "nei", None), int(model.n_samples_))
     X = np.asarray(kernel.current.X, dtype=np.float64)
     A = np.asarray(kernel.current.A, dtype=np.float64)
@@ -112,8 +125,10 @@ def _ncv_state(model, y, log_sp, *, qapprox=False):
         / (variance * variance)
     )
     nsp = int(_n_smoothing_params(model) or 0)
-    eta_cv = np.empty(nei["d"].size, dtype=np.float64)
-    deta_cv = np.empty((nei["d"].size, nsp), dtype=np.float64)
+    # gam.fit3 initializes the whole output, including trailing prediction
+    # indices beyond the final md endpoint accepted by estimate.gam.
+    eta_cv = np.zeros(nei["d"].size, dtype=np.float64)
+    deta_cv = np.zeros((nei["d"].size, nsp), dtype=np.float64)
     a0 = d0 = 0
     for a1, d1 in zip(nei["ma"], nei["md"], strict=True):
         ai = nei["a"][a0:a1]
@@ -141,7 +156,9 @@ def _ncv_state(model, y, log_sp, *, qapprox=False):
             deta_cv[d0:d1, j] = deta[di] + X[di] @ ddelta
         a0, d0 = int(a1), int(d1)
     predicted = nei["d"]
-    gamma = float(nei["gamma"])
+    # gam.fit3 uses the model's gamma for selection. nei$gamma belongs to
+    # gam.outer's separate post-fit neighbourhood/jackknife evaluation.
+    gamma = float(getattr(model, "score_gamma", 1.0))
     if qapprox:
         diff = eta_cv - eta[predicted]
         dev_obs = _deviance_contributions(model.family, yv, mu, prior)

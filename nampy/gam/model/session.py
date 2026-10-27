@@ -23,6 +23,7 @@ _FIT_STATE_DEFAULTS = {
     "offset_train_": None,
     "offset_predict_default_": None,
     "n_samples_": None,
+    "_magic_nobs": None,
     "smoothing_fixed_mask_": None,
     "smoothing_override_values_": None,
     "smoothing_override_modes_": None,

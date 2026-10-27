@@ -36,12 +36,17 @@ def _gaussian_dynamic_deviance(
     reported coefficients / fitted values while the outer REML score continues to
     use the PIRLS-step deviance stored on the fit object. That state is required
     for a supported Gaussian dynamic objective.
+
+    Observation-transformed fits store their criterion deviance separately
+    from the original-row deviance used in public diagnostics.
     """
     dev = None
     if isinstance(sol, dict):
-        dev = sol.get("deviance", None)
+        dev = sol.get("criterion_deviance", sol.get("deviance", None))
     else:
-        dev = getattr(sol, "deviance", None)
+        dev = getattr(sol, "criterion_deviance", None)
+        if dev is None:
+            dev = getattr(sol, "deviance", None)
     if dev is None or not np.isfinite(float(dev)):
         raise RuntimeError(
             "Gaussian dynamic ML/REML requires the gam.fit3 deviance state."
@@ -81,7 +86,8 @@ def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
     n_s = int(model.n_samples_)
     w1 = prior_weights_diagonal_from_fit(sol, n_s)
     dev = _gaussian_dynamic_deviance(sol, y, w1)
-    kernel = _gdi1_kernel(model, y, sol, sp, method=method_u)
+    criterion_y = np.asarray(sol.get("criterion_response", y), dtype=np.float64)
+    kernel = _gdi1_kernel(model, criterion_y, sol, sp, method=method_u)
     Pq = float(kernel.bSb)
     F = float(dev) + float(Pq)
     nobs = float(model.n_samples_)
@@ -185,7 +191,8 @@ def criterion_ml_reml_gaussian_dynamic_joint(
     if not np.isfinite(gamma) or gamma <= 0.0:
         return np.inf
     dev = _gaussian_dynamic_deviance(sol, y, w1)
-    kernel = _gdi1_kernel(model, y, sol, sp, method=method_u)
+    criterion_y = np.asarray(sol.get("criterion_response", y), dtype=np.float64)
+    kernel = _gdi1_kernel(model, criterion_y, sol, sp, method=method_u)
     Pq = float(kernel.bSb)
     rss_bSb = float(dev) + float(Pq)
     if not np.isfinite(rss_bSb) or rss_bSb <= 0.0:
@@ -255,7 +262,8 @@ def criterion_ml_reml_gaussian_dynamic_profiled(model, y, log_sp_free, method="R
         return np.inf
 
     dev = _gaussian_dynamic_deviance(sol, y, w1)
-    kernel = _gdi1_kernel(model, y, sol, sp, method=method_u)
+    criterion_y = np.asarray(sol.get("criterion_response", y), dtype=np.float64)
+    kernel = _gdi1_kernel(model, criterion_y, sol, sp, method=method_u)
     Pq = float(kernel.bSb)
     F = float(dev) + float(Pq)
     if not np.isfinite(F) or F <= 0.0:
@@ -287,7 +295,8 @@ def criterion_gradient_ml_reml_gaussian_dynamic_joint(
     )
     sol = solve_gaussian_given_smoothing(model, y, sp)
     _cache_gaussian_reml_scale_est(model, sol)
-    kernel = _gdi1_kernel(model, y, sol, sp, method=method_u)
+    criterion_y = np.asarray(sol.get("criterion_response", y), dtype=np.float64)
+    kernel = _gdi1_kernel(model, criterion_y, sol, sp, method=method_u)
     nobs = float(model.n_samples_)
     w1 = prior_weights_diagonal_from_fit(sol, int(nobs))
     dev = _gaussian_dynamic_deviance(sol, y, w1)
@@ -341,7 +350,8 @@ def criterion_hessian_ml_reml_gaussian_dynamic_joint(
     )
     sol = solve_gaussian_given_smoothing(model, y, sp)
     _cache_gaussian_reml_scale_est(model, sol)
-    kernel = _gdi1_kernel(model, y, sol, sp, method=method_u)
+    criterion_y = np.asarray(sol.get("criterion_response", y), dtype=np.float64)
+    kernel = _gdi1_kernel(model, criterion_y, sol, sp, method=method_u)
     gamma = float(model.score_gamma)
     if not np.isfinite(gamma) or gamma <= 0.0:
         return None

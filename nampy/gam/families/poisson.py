@@ -1,7 +1,7 @@
 import numpy as np
-from scipy.special import gammaln
 from scipy.stats import poisson as poisson_distribution
 
+from ._r_poisson_math import log_dpois
 from .family_base import GLMFamily
 
 
@@ -69,15 +69,13 @@ class PoissonLogFamily(GLMFamily):
         del scale
         y = np.asarray(y, dtype=np.float64)
         mu = np.asarray(mu, dtype=np.float64)
-        return y * np.log(mu) - mu - gammaln(y + 1.0)
+        return log_dpois(y, mu)
 
     def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
         del scale, n
         y = np.asarray(y, dtype=np.float64)
         weights = self._check_weights(y, weights)
-        y_safe = np.clip(y, self.eps, None)
-        sat = np.where(y > 0.0, y * np.log(y_safe) - y, -y) - gammaln(y + 1.0)
-        return float(np.sum(weights * sat))
+        return float(np.sum(weights * log_dpois(y, y)))
 
     def working_weight_derivative_eta(self, eta, y=None):
         return self.inverse_link(eta)
@@ -113,10 +111,14 @@ class PoissonIdentityFamily(PoissonLogFamily):
 
     def working_weight_derivative_eta(self, eta, y=None):
         eta = np.asarray(eta, dtype=np.float64)
+        if y is not None:
+            return -2.0 * np.asarray(y, dtype=float) / eta**3
         return -1.0 / eta**2
 
     def working_weight_second_derivative_eta(self, eta, y=None):
         eta = np.asarray(eta, dtype=np.float64)
+        if y is not None:
+            return 6.0 * np.asarray(y, dtype=float) / eta**4
         return 2.0 / eta**3
 
 
@@ -139,8 +141,12 @@ class PoissonSqrtFamily(PoissonLogFamily):
 
     def working_weight_derivative_eta(self, eta, y=None):
         eta = np.asarray(eta, dtype=np.float64)
+        if y is not None:
+            return -4.0 * np.asarray(y, dtype=float) / eta**3
         return np.zeros_like(eta)
 
     def working_weight_second_derivative_eta(self, eta, y=None):
         eta = np.asarray(eta, dtype=np.float64)
+        if y is not None:
+            return 12.0 * np.asarray(y, dtype=float) / eta**4
         return np.zeros_like(eta)

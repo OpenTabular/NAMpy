@@ -8,7 +8,13 @@
       "base_mirror_commit": "1b6a4c8374612da27e36420b4459e93acb183f2d",
       "known_local_difference": "R/gam.fit3.r uses Sstep <- grad/max(abs(grad)); the CRAN 1.9-4 mirror uses the negative sign",
       "fixture_namespace": "mgcv",
-      "generator": "tests/mgcv_parity_utils.py"
+      "generator": "tests/mgcv_parity_utils.py",
+      "additional_fixtures": {
+        "eab9504ecc90c255686ab64ecf2013361dd908c91bd12e02bcf9bc8139bd6235": {
+          "test": "tests/regressions/test_gam_mgcv_patch_regressions.py::test_rank_deficient_pirls_fit_matches_mgcv_drop_gauge[direct_solver-gamma-45]",
+          "scope": "Rank-deficient Gamma inverse-link fixed-SP fit at the shared reference endpoint; generated with the recorded mgcv 1.9-4 library, without replacing existing fixtures."
+        }
+      }
     },
     "gamlss": {
       "package_version": "5.5-0",
@@ -830,6 +836,167 @@
         "General-family formula lists reject paraPen upstream, including multinom K=1; the flat source variant also fails. Mapped transformed-coefficient compositions remain explicitly unimplemented.",
         "Default rescaled gam.vcomp retains the existing paraPen metadata guard; gam.vcomp(rescale=False) is covered separately in mgcv_parametric_map_vcomp."
       ]
+    },
+    "mgcv_gaussian_gcv_zero_weights": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_gaussian_gcv_zero_weights",
+      "fixture_files": 16,
+      "generator": "tests/optimization/test_mgcv_gaussian_gcv_zero_weights.py",
+      "generator_sha256": "4c31cf8a742d7c8ff3e62cda998c21145db4c51fe73a5b55d7d25157c0037cde",
+      "scope": "Gaussian magic GCV/UBRE: positive and zero prior weights crossed with independent, linked, tensor, and no-intercept smooths; fitted values, standard errors, score, Pearson scale, EDF, null deviance, working residuals. Separate derivative-consistency, persistence and REML-refit checks."
+    },
+    "mgcv_constant_numeric_by": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_constant_numeric_by",
+      "fixture_files": 30,
+      "generator": "tests/regressions/test_mgcv_constant_numeric_by.py",
+      "generator_sha256": "4a7d80a1155c20fe87d54ec1c4795fe5eaab7c2d03a65a39eaeeb41076f25efb",
+      "scope": "Fixed-SP Gaussian cr/cs/ps/tp/ts/gp with zero, positive constant, and negative constant numeric by variables; retained coefficient dimension, fitted values, standard errors, full prediction covariance, EDF, scale and persistence. Negative constant models with an intercept compare estimable prediction rows; no-intercept cases also change by at prediction."
+    },
+    "betar_high_precision": {
+      "package_version": "1.3.0",
+      "fixture_namespace": "betar_high_precision",
+      "fixture_files": 4,
+      "generator": "tests/families/test_betar_boundary_derivatives.py",
+      "generator_sha256": "40eb8b4c351ec161ba22e3e50d27e930d05290831bbdd019036d1996735ed7ea",
+      "scope": "Independent mpmath differentiation of the beta log density at 100 decimal digits: five mixed mean/log-precision derivatives, four precisions from .001 to 1e5, nine means including both clipping boundaries, response boundaries and zero weights. This oracle intentionally resolves cancellation also present in mgcv.",
+      "package": "mpmath"
+    },
+    "mgcv_working_residual_offsets": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_working_residual_offsets",
+      "fixture_files": 22,
+      "generator": "tests/diagnostics/test_mgcv_working_residual_offsets.py",
+      "generator_sha256": "8554f88d4622c3d370163ac3e3e09baa72b8ce0f0e78f2b2c7795773352876e7",
+      "scope": "Eleven ordinary/extended/quasi family-link cases crossed with positive/zero prior weights: working, response, deviance and Pearson residuals against actual mgcv fits; scaled-Pearson residuals for ten cases whose dispersion route is matched. Tweedie fixed-inner fits retain the existing Pearson fallback, distinct from the upstream outer dispersion. Formula, API and mixed offsets share the same twenty-two oracles; tight IRLS convergence isolates reporting semantics; persistence is checked."
+    },
+    "mgcv_ar1_weighted": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_ar1_weighted",
+      "fixture_files": 27,
+      "generator": "tests/optimization/test_mgcv_ar1_weighted.py",
+      "generator_sha256": "bbffa28e9844192d932f80513bc89931dc27a4f27cd5864eedfab58b5664e318",
+      "scope": "Actual bam Gaussian AR(1) fixed-SP and selected-REML comparisons: positive/negative rho, unit/varying/zero prior weights, offsets and independent series. New-data fitted values/SE, scale, EDF, deviance, all standard residuals and AR-standardized residuals. Profiled GCV/ML/REML and joint scale/SP derivative consistency checks. Temporary R process restores the documented local Newton-sign mutation to CRAN 1.9-4 for selected fits; existing captures are untouched. Gaussian likelihood/AIC/BIC are checked as well. The coefficient-dependent Cholesky correction Vb.corr is evaluated upstream after checked design/penalty transport into native coordinates; implicit single-series source references mark the first row explicitly to avoid the source final-AIC NULL-start counting discrepancy."
+    },
+    "mgcv_ncv_edges": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_ncv_edges",
+      "fixture_files": 74,
+      "generator": "tests/optimization/test_mgcv_ncv_edges.py",
+      "generator_sha256": "4c48255f01dc219d1afde04f3f210d85bf59d20e46bdd60edf16027b2f7358a4",
+      "scope": "Seventy fixed-evaluation references containing NCV/QNCV values, held-out predictors and finite-difference gradients, plus four direct BFGS selection references. Gaussian, Poisson, Gamma, probit binomial and inverse-Gaussian; model gamma versus nei gamma, positive/zero weights, complete/default/partial/subset/trailing neighbourhoods, known offsets, fixed/absent/mixed/free penalties. Direct upstream selection scores are checked where Rncv has neither the offset omission nor absolute-negative-weight downdate discrepancy. Other cases use independent signed one-step equations on actual mgcv fitted designs, penalties and family derivatives; raw upstream values are retained. No installed source is changed."
+    },
+    "mgcv_fitted_likelihood": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_fitted_likelihood",
+      "fixture_files": 27,
+      "generator": "tests/parity/test_mgcv_fitted_likelihood.py",
+      "generator_sha256": "47a234693e41450a8cea13a103646d0ea012f93515ad721409e5db96c863d0e9",
+      "scope": "Fourteen family/link combinations: fitted link predictions, log likelihood, AIC and BIC with formula, API and mixed offsets; beta response boundaries, positive/zero prior weights where supported, effective degrees of freedom and pickle persistence. Beta and ordered-categorical families use their density hooks; ocat wt/weights aliases are checked against raw upstream AIC. Gaussian zero-weight and weighted ziP cases retain their documented boundaries. Temporary R process restores the recorded local Newton-sign mutation to CRAN behavior; tight outer dispersion convergence isolates likelihood reporting. Existing references are untouched."
+    },
+    "mgcv_count_likelihood_edges": {
+      "package_version": "1.9-4",
+      "r_version": "4.6.1",
+      "fixture_namespace": "mgcv_count_likelihood_edges",
+      "fixture_files": 40,
+      "generator": "tests/families/test_mgcv_count_likelihood_edges.py",
+      "generator_sha256": "d8cbd862802a8c93b491e423475895b8299a18d725c4cf680b6b8bae1c04087f",
+      "nmath_sources": [
+        "https://github.com/wch/r-source/blob/trunk/src/nmath/dbinom.c",
+        "https://github.com/wch/r-source/blob/trunk/src/nmath/dpois.c",
+        "https://github.com/wch/r-source/blob/trunk/src/nmath/nmath.h"
+      ],
+      "scope": "Twenty-two direct stats/mgcv density, raw-AIC and saturated-likelihood captures, including zero/tiny Poisson rates, integer tolerance, noninteger support and zero weights, binomial counts/trials through 1e15, tail probabilities and exact zero/one probabilities. Twelve actual gam fits compare fitted means, likelihood, effective df, AIC, BIC and pickle persistence at counts/trials through 1e10. Binomial normalization retains the upstream log1p(-x/n) rounding convention. Existing fixtures are not rebaselined. Additional extreme-count oracle at 1e308 checks finite central log density and -Inf tails without Python overflow exceptions."
+    },
+    "mgcv_dispersion_likelihood_edges": {
+      "fixture_namespace": "mgcv_dispersion_likelihood_edges",
+      "fixture_files": 78,
+      "generator": "tests/families/test_mgcv_dispersion_likelihood_edges.py",
+      "generator_sha256": "8ad32d40d2482ed89be8ba8a072b11671d62cdd1d1158140c6598520dfcafb61",
+      "scope": "Sixty-four actual fixed-dispersion gam model references crossed with formula, API and mixed offsets; parametric and cr-smooth Gaussian identity and Gamma log/inverse models, unit/varying and supported zero weights, phi from 1e-4 to 1e-15, fitted means, likelihood, AIC, BIC, effective df and persistence. Eleven direct dgamma grids additionally cover fractional/large shapes, means from 1e-30 to 1e30, response boundaries and phi up to/down to 1e300/1e-300. Three Gaussian fixed-dispersion GCV/ML/REML reference models check both fit-driver routes. Existing reference results are unchanged.",
+      "package_version": "1.9-4",
+      "r_version": "4.6.1",
+      "nmath_sources": [
+        "https://github.com/wch/r-source/blob/trunk/src/nmath/dgamma.c",
+        "https://github.com/wch/r-source/blob/trunk/src/nmath/stirlerr.c"
+      ]
+    },
+    "gamma_dispersion_high_precision": {
+      "fixture_namespace": "gamma_dispersion_high_precision",
+      "fixture_files": 16,
+      "generator": "tests/families/test_gamma_dispersion_derivatives.py",
+      "generator_sha256": "233275a7f8ef64783c2adf1afcbc155c92a524b96d8981a9eacc949bdcb0c31b",
+      "scope": "Independent 100-digit mpmath differentiation of the saturated Gamma density: value and first two scale derivatives, eight dispersions from 1e-15 to 10, response scales from 1e-30 to 1e30, varying/zero precision weights. Explicitly resolves the small-phi floor and cancellation in the previous native implementation and cancellation also present upstream. The same independent density derivatives set stationary scale-profile targets for ML/REML, gamma inflation and positive/zero weights; the actual profile solver must recover targets down to 1e-15 without an artificial initialization floor.",
+      "package": "mpmath",
+      "package_version": "1.3.0"
+    },
+    "mgcv_gamma_scale_ls": {
+      "fixture_namespace": "mgcv_gamma_scale_ls",
+      "fixture_files": 14,
+      "generator": "tests/families/test_gamma_dispersion_derivatives.py",
+      "generator_sha256": "233275a7f8ef64783c2adf1afcbc155c92a524b96d8981a9eacc949bdcb0c31b",
+      "scope": "Fourteen direct fix.family.ls Gamma observations, paired with independent high-precision targets. Ordinary dispersions compare directly; at phi <=1e-9 the stable implementation is checked against high-precision truth and improves on the retained upstream observations, whose curvature can reverse at phi=1e-15.",
+      "package_version": "1.9-4",
+      "r_version": "4.6.1"
+    },
+    "mgcv_gamma_response_units": {
+      "package_version": "1.9-4",
+      "r_version": "4.6.1",
+      "fixture_namespace": "mgcv_gamma_response_units",
+      "fixture_files": 52,
+      "generator": "tests/families/test_mgcv_gamma_response_units.py",
+      "generator_sha256": "ae1827c3f21cfe4d9ec758f2cd293b39b40f28854b168f9575bd852a7027b84c",
+      "scope": "Fifteen Gamma kernel captures across log/identity/inverse links and response multipliers 1e-12, 1e-6, 1, 1e6 and 1e12, plus a zero-response kernel/validation boundary. Initialization, deviance, Pearson dispersion and five-point derivatives of observed/Fisher working information from actual mgcv family/link/variance hooks. Thirty actual fixed-SP fits crossed with formula/API/mixed offsets check normalized response predictions/SE, EDF, dispersion, null deviance, residuals, log likelihood, AIC, BIC, persistence and GCV value/gradient/Hessian against independent upstream score differences. Six automatic GCV endpoints check predictions/SE, SP, EDF, dispersion, score and likelihood metrics at extreme response units. Penalties and offsets transport with link/response units; automatic comparisons use explicit wide log-SP bounds to contain rescaled optima. Temporary R process restores the recorded local Newton-sign mutation and uses tight dispersion convergence; installed sources and existing references remain untouched."
+    },
+    "mgcv_working_information_hooks": {
+      "package_version": "1.9-4",
+      "r_version": "4.6.1",
+      "fixture_namespace": "mgcv_working_information_hooks",
+      "fixture_files": 48,
+      "generator": "tests/families/test_mgcv_working_information_hooks.py",
+      "generator_sha256": "6efc350ceeb376135810de0b142d2854a7e887dc9d77eedbda9be0c8ad1b74b9",
+      "scope": "Thirty-four family/link/scale cases compare Fisher and observed working-information derivatives to mgcv analytic link/variance hooks or nb Dd derivatives, with independent five-point differences at smooth interior points. Controls cover canonical links, Gamma, inverse Gaussian and quasi families; edge cases include tiny means, signed inverse predictors, clipped probit/Gaussian-log tails and three NB shape parameters. Gamma log preserves its target-required contract. Fourteen dnorm/fix.family.ls Gaussian captures span negative/zero variance, 1e-15 through 1e300, huge residuals and varying/zero weights. New references are generated explicitly once; normal tests only replay saved outputs. Existing references are unchanged."
+    },
+    "mgcv_negbin_fractional_response": {
+      "package_version": "1.9-4",
+      "r_version": "4.6.1",
+      "fixture_namespace": "mgcv",
+      "fixture_files": 6,
+      "fixture_keys": [
+        "d5763f931b754aa191492e62d60047af53e4f46d4ac797e80604523456d2e59f",
+        "0eb05d35458f0ed2ea697d09e682531ff554f71c762f32e7781ed38691a2fcc0",
+        "512c6f31e51b0ad68cfbd5234c2db271a1b8181cfeb7973caada21931a50026f",
+        "411ebfeed0c4596d74cf0f74c3914759a2b10ea799595257a1e7da47fc947af7",
+        "9758557a59901d409a1ffb5e2781ed82dcaf597ad3c4ba15cdcd1c513d07d862",
+        "552a433799191bc2f13f93f3ca74e3ec3466c18be6325ce5f04b038dac2f48cf"
+      ],
+      "generator": "tests/families/test_mgcv_family_kernel_parity.py::_run_mgcv_family_kernels",
+      "test": "tests/families/test_mgcv_negbin_fractional_response.py",
+      "test_sha256": "e8bf66ffa29c09ad02d4f2f26dc1c12bbdefdf1cf18210244c9124d52507f40d",
+      "scope": "Six fixed-theta nb family captures across log, identity and sqrt links and theta 0.4/3.2. Accepted fractional and tiny positive responses, zero/positive weights, source dev.resids and initialize/mustart. Preserve upstream fractional deviance convention; remove native 1e-9 initialization floor. Existing references unchanged."
+    },
+    "mgcv_binomial_initialization_edges": {
+      "package_version": "1.9-4",
+      "r_version": "4.6.1",
+      "fixture_namespace": "mgcv_binomial_initialization_edges",
+      "fixture_files": 100,
+      "generator": "tests/families/test_mgcv_binomial_initialization_edges.py",
+      "generator_sha256": "561fb73d4429fbb8841a3646b9e8a4550565e1ee32fb1830b2c2cf9134827d56",
+      "scope": "Eighty stats binomial/quasibinomial initialization captures across logit, probit, cloglog, cauchit and log links, vector/grouped responses, zero/nonunit weights and denominators 10, 1e9, 1e12 and 1e15. Twenty raw source dev.resids captures cover exact zero/one and tiny positive mean probabilities with weighted/unweighted observations, including source Inf/NaN conventions. Additional saved count-density and fitted-model outputs are identified below; normal tests replay fixtures only, with R blocked in verification. Existing reference results are unchanged.",
+      "additional_references": {
+        "fixture_namespace": "mgcv_count_likelihood_edges",
+        "fixture_files": 5,
+        "fixture_keys": [
+          "3f30bcc482bbe0db8906ead9ace0670f9f00c36e06dc0a39e15703d25c32c5b2",
+          "6790061b0e0fa82d5c3cb158c0d5d0615f2608e4541b3bdab771ad69da7008fd",
+          "69ce2cff9500fc7ad66c5ca7e1ca8c3daf8c54f3171a4607ad03df1d8ba7bcca",
+          "aa7638e421bf49f3578d09125e3197d9f5588ff60e13abf4dd64d967b3923891",
+          "e28d6bd6f01bd4e9630223096d54b28a383f6e2b475947801b44f6dfdac54812"
+        ],
+        "generator": "tests/families/test_mgcv_count_likelihood_edges.py",
+        "generator_sha256": "d8cbd862802a8c93b491e423475895b8299a18d725c4cf680b6b8bae1c04087f",
+        "scope": "One dbinom Bernoulli density capture at exact/tiny probabilities and four actual fixed-SP gam fits with rare success/failure counts, weighted grouped responses and 1e9/1e12 trials. Compare response probabilities, effective degrees of freedom, likelihood, AIC, BIC and pickle persistence. Source fit endpoints have rare success probabilities near 1e-12 or rare failure probabilities near 1e-10; no parity assertion for unobserved extreme endpoints."
+      }
     }
   }
 }

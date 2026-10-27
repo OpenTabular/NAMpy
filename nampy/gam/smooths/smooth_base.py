@@ -379,11 +379,15 @@ def _normalize_knots(knots, features):
     raise TypeError("knots must be None, dict, or list/tuple aligned with features.")
 
 
-def _is_effectively_constant(z, tol=1e-12):
+def _is_effectively_constant(z):
+    """Use smoothCon's signed relative threshold for by centering eligibility."""
     z = np.asarray(z, dtype=np.float64).ravel()
     if z.size == 0:
         return True
-    return bool(np.max(np.abs(z - z[0])) <= tol)
+    sd = 0.0 if z.size < 2 else float(np.std(z, ddof=1))
+    threshold = float(np.mean(z)) * np.finfo(np.float64).eps * 1000.0
+    # The signed mean is intentional: mgcv leaves negative constants uncentered.
+    return not bool(sd > threshold)
 
 
 def _normalize_mc(mc, n_marginals):

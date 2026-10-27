@@ -58,6 +58,7 @@ from ..predict import (
     predict_values,
     prediction_guaranteed_skip_contract,
 )
+from ..predict.predictions import _coerce_prediction_term_filter
 from ..predict.terms import _prediction_term_groups
 from ..results.snapshots import build_snapshot
 from ..specs.modeling import make_predictor_specs, prepare_formula_inputs
@@ -106,11 +107,25 @@ def _prediction_complete_rows(model, X):
             columns = list(X.columns)
         if not columns:
             return np.ones(len(X), dtype=bool)
-        return ~X[columns].isna().any(axis=1).to_numpy(dtype=bool)
-    array = np.asarray(X)
-    if array.ndim == 1:
-        array = array.reshape(-1, 1)
-    return ~pd.isna(array).any(axis=1)
+        complete = ~X[columns].isna().any(axis=1).to_numpy(dtype=bool)
+        object_columns = (
+            X[name].to_numpy()
+            for name in columns
+            if pd.api.types.is_object_dtype(X[name].dtype)
+        )
+    else:
+        array = np.asarray(X)
+        if array.ndim == 1:
+            array = array.reshape(-1, 1)
+        complete = ~pd.isna(array).any(axis=1)
+        object_columns = array.T if array.dtype == object else ()
+    # Matrix-functional locations, quadrature weights and matrix factors are
+    # stored in array-valued cells. pandas' outer isna() does not inspect them.
+    for column in object_columns:
+        for index, value in enumerate(column):
+            if not pd.api.types.is_scalar(value) and np.any(pd.isna(value)):
+                complete[index] = False
+    return complete
 
 
 def _prediction_offset_complete_rows(offset, n_rows):
@@ -699,6 +714,10 @@ class GAM:
             raise ValueError("cov and unconditional=True cannot be used together.")
         if bool(newdata_guaranteed) and X is None:
             raise ValueError("newdata_guaranteed=True requires explicit newdata.")
+        # Filters can be one-shot iterables. Reuse the same selection for the
+        # guaranteed-data contract and every prediction block.
+        terms = _coerce_prediction_term_filter(terms, name="terms")
+        exclude = _coerce_prediction_term_filter(exclude, name="exclude")
         cov_use = cov
         unconditional_core = bool(unconditional)
         if unconditional_core:
@@ -729,6 +748,12 @@ class GAM:
                 skip_term_ids=skip_term_ids,
             )
 
+        # Only general families accept a list of per-predictor offsets. For
+        # ordinary/extended families a Python sequence is one row-wise vector,
+        # just as it is at fit time and for in-sample prediction. Keep NaNs
+        # until na_action has selected/restored the corresponding rows.
+        if offset is not None and self.family.family_class != "general":
+            offset = np.asarray(offset, dtype=np.float64).ravel()
         n_original = len(X)
         action = (
             None

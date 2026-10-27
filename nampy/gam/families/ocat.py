@@ -264,8 +264,11 @@ class OrderedCategoricalFamily(ExtendedFamily):
     def loglik(self, y, mu, scale=1.0):
         return float(np.sum(self.loglik_obs(y, mu, scale=scale)))
 
-    def aic(self, y, mu, theta=None, wt=None, dev=None, **kwargs):
+    def aic(self, y, mu, theta=None, wt=None, dev=None, *, weights=None, **kwargs):
         del dev, kwargs
+        if wt is not None and weights is not None:
+            raise TypeError("pass only one of wt or weights")
+        wt = weights if weights is not None else wt
         wt = np.ones_like(np.asarray(y, dtype=np.float64)) if wt is None else wt
         probability = np.maximum(self._probability(y, mu, theta), np.finfo(float).tiny)
         return float(-2.0 * np.sum(np.log(probability) * wt))

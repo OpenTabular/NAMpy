@@ -209,9 +209,10 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
             self._record_constraint_result("pc", C, absorbed_by="runtime")
             return self
 
+        # Shrinkage removes penalty nullity, not smoothCon's centering rule.
+        # Absorb before by scaling so an all-zero by cannot erase the row.
         auto_constrain = (
-            (self.basis_name == "tp" or self._linear_functional)
-            and not self._setup.drop_null_effective
+            not self._setup.drop_null_effective
             and bool(self._by_state.is_constant)
         )
         if shared_X is None and not self._linear_functional:
@@ -280,7 +281,11 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
         }
         selection_meta = {**smooth_meta, "is_selection_penalty": True}
         smooth_meta = self._penalty_metadata_with_scale(smooth_meta, penalty_index=0)
-        rank = int(self._setup.rank) if self._setup is not None else None
+        rank = (
+            min(int(self._setup.rank), int(self.penalties[0].shape[0]))
+            if self._setup is not None
+            else None
+        )
         return self._build_penalty_block(
             self.penalties[0],
             rank=rank,

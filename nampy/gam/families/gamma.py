@@ -36,7 +36,7 @@ class GammaLogFamily(_GammaBase):
 
     def initialize_mu(self, y):
         y = np.asarray(y, dtype=np.float64)
-        return np.clip(y, self.eps, None)
+        return y.copy()
 
     def valid_mu(self, mu):
         mu = np.asarray(mu, dtype=np.float64)
@@ -51,8 +51,8 @@ class GammaLogFamily(_GammaBase):
             raise ValueError(
                 "GammaLogFamily requires targets to evaluate working-weight derivatives."
             )
-        mu = np.clip(self.inverse_link(eta), self.eps, None)
-        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        mu = np.asarray(self.inverse_link(eta), dtype=np.float64)
+        y = np.asarray(y, dtype=np.float64)
         return -np.asarray(y / mu, dtype=np.float64)
 
     def working_weight_second_derivative_eta(self, eta, y=None):
@@ -60,8 +60,8 @@ class GammaLogFamily(_GammaBase):
             raise ValueError(
                 "GammaLogFamily requires targets to evaluate working-weight derivatives."
             )
-        mu = np.clip(self.inverse_link(eta), self.eps, None)
-        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        mu = np.asarray(self.inverse_link(eta), dtype=np.float64)
+        y = np.asarray(y, dtype=np.float64)
         return np.asarray(y / mu, dtype=np.float64)
 
 
@@ -96,7 +96,7 @@ class GammaIdentityFamily(_GammaBase):
 
     def initialize_mu(self, y):
         y = np.asarray(y, dtype=np.float64)
-        return np.clip(y, self.eps, None)
+        return y.copy()
 
     def valid_mu(self, mu):
         mu = np.asarray(mu, dtype=np.float64)
@@ -107,22 +107,18 @@ class GammaIdentityFamily(_GammaBase):
         return bool(np.all(np.isfinite(eta)) and np.all(eta > 0.0))
 
     def working_weight_derivative_eta(self, eta, y=None):
-        mu = np.clip(self.inverse_link(eta), self.eps, None)
+        mu = np.asarray(self.inverse_link(eta), dtype=np.float64)
         if y is None:
-            return -2.0 / np.clip(mu**3, self.eps, None)
+            return -2.0 / mu**3
         y = np.asarray(y, dtype=np.float64)
-        return 2.0 / np.clip(mu**3, self.eps, None) - 6.0 * y / np.clip(
-            mu**4, self.eps, None
-        )
+        return 2.0 / mu**3 - 6.0 * y / mu**4
 
     def working_weight_second_derivative_eta(self, eta, y=None):
-        mu = np.clip(self.inverse_link(eta), self.eps, None)
+        mu = np.asarray(self.inverse_link(eta), dtype=np.float64)
         if y is None:
-            return 6.0 / np.clip(mu**4, self.eps, None)
+            return 6.0 / mu**4
         y = np.asarray(y, dtype=np.float64)
-        return 24.0 * y / np.clip(mu**5, self.eps, None) - 6.0 / np.clip(
-            mu**4, self.eps, None
-        )
+        return 24.0 * y / mu**5 - 6.0 / mu**4
 
 
 class GammaInverseFamily(_GammaBase):
@@ -156,7 +152,7 @@ class GammaInverseFamily(_GammaBase):
 
     def initialize_mu(self, y):
         y = np.asarray(y, dtype=np.float64)
-        return np.clip(y, self.eps, None)
+        return y.copy()
 
     def valid_mu(self, mu):
         mu = np.asarray(mu, dtype=np.float64)
@@ -169,9 +165,9 @@ class GammaInverseFamily(_GammaBase):
     def working_weight_derivative_eta(self, eta, y=None):
         # W = mu^2 (canonical link, W_exact = W_Fisher = mu^2).
         # dW/deta = 2*mu * dmu/deta = 2/eta * (-1/eta^2) = -2/eta^3
-        mu = np.clip(self.inverse_link(eta), self.eps, None)
+        mu = np.asarray(self.inverse_link(eta), dtype=np.float64)
         return -2.0 * mu**3
 
     def working_weight_second_derivative_eta(self, eta, y=None):
-        mu = np.clip(self.inverse_link(eta), self.eps, None)
+        mu = np.asarray(self.inverse_link(eta), dtype=np.float64)
         return 6.0 * mu**4

@@ -1523,6 +1523,14 @@ def optimize_smoothing_params(
         raise NotImplementedError(
             "magic/performance iteration is an upstream Gaussian GCV/UBRE route."
         )
+    # am.fit passes only positive-weight rows to magic. Keep prediction and
+    # summary row counts intact; only score/scale estimation use this count.
+    model._magic_nobs = None
+    if optimizer == "magic":
+        weights = getattr(model, "prior_weights_", None)
+        model._magic_nobs = (
+            int(model.n_samples_) if weights is None else int(np.count_nonzero(weights))
+        )
     if (
         optimizer == "lbfgsb"
         and method in {"ml", "reml", "p-ml", "p-reml", "laml"}

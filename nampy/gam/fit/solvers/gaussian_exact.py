@@ -171,6 +171,7 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
     y_original = np.asarray(y, dtype=np.float64).copy()
     n = int(y.shape[0])
     w = _prior_weights_vector(weights, n)
+    prior_weights = w.copy()
     fi = _fit_intercept(model)
     Z = np.asarray(_design_matrix(model), dtype=np.float64)
     penalty_blocks = tuple(_penalty_blocks_seq(model))
@@ -190,9 +191,15 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
                 "Observation transforms in the exact Gaussian backend require "
                 "the identity link."
             )
+        # bam applies observation precision before the AR inverse root.
+        # These operators do not commute when prior weights vary by row.
+        sqrt_w = np.sqrt(prior_weights)
         X, y, fit_offset = obs_transform.transform_system(
-            X_original, y_original, offset_original
+            sqrt_w[:, None] * X_original,
+            sqrt_w * y_original,
+            sqrt_w * offset_original,
         )
+        w = np.ones(n, dtype=np.float64)
     else:
         fit_offset = model.offset_train_
     S = build_full_penalty_from_blocks(
@@ -245,6 +252,10 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         model.family.inverse_link(criterion_eta), dtype=np.float64
     )
     criterion_residual = criterion_response - criterion_mu
+    if not transformed_observations and fit_offset is not None:
+        # eta_fit is still offset-free here. GCV must score the same residuals
+        # as its derivatives, which use the complete fitted predictor below.
+        criterion_residual -= np.asarray(fit_offset, dtype=np.float64)
     criterion_rss = float(np.sum(w * criterion_residual**2))
     criterion_deviance = float(
         model.family.deviance(criterion_response, criterion_mu, weights=w)
@@ -260,7 +271,7 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         eta_fit = eta_fit + train_offset
     mu_dev = np.asarray(model.family.inverse_link(eta_dev), dtype=np.float64)
     reported_deviance = float(
-        model.family.deviance(y_original, mu_dev, weights=w)
+        model.family.deviance(y_original, mu_dev, weights=prior_weights)
     )
     if not transformed_observations:
         # Preserve the identity-path gam.fit3 distinction between the
@@ -270,8 +281,13 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
     mu = np.asarray(model.family.inverse_link(eta), dtype=np.float64)
     H_coef = np.asarray(H_coef, dtype=np.float64)
     trace_H = float(np.trace(H_coef))
-    scale = model.family.estimate_dispersion(
-        y_original, eta, edf=trace_H, weights=w
+    scale_rows = w > 0 if getattr(model, "_magic_nobs", None) is not None else slice(None)
+    scale = (
+        criterion_rss / (n - trace_H)
+        if transformed_observations
+        else model.family.estimate_dispersion(
+            y_original[scale_rows], eta[scale_rows], edf=trace_H, weights=w[scale_rows]
+        )
     )
     # mgcv/R/gam.fit3.r::gam.fit3.post.proc forms Vb from the `rV` returned by
     # this same gdi1 factorization, retaining its dropped-coordinate zero fill.
@@ -296,7 +312,7 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         sol["intercept"] = 0.0
         sol["beta"] = coef_full.copy()
     resid = y_original - eta
-    wrss = float(np.sum(w * resid * resid))
+    wrss = float(np.sum(prior_weights * resid * resid))
     sol["rss"] = wrss
     sol["deviance"] = reported_deviance
     sol["scale"] = float(scale)
@@ -323,7 +339,7 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
     sol["cov_freq_space"] = "fit"
     sol["loglik"] = float(
         np.sum(
-            w
+            prior_weights
             * np.asarray(
                 model.family.loglik_obs(y_original, eta, scale=scale),
                 dtype=np.float64,
@@ -332,7 +348,9 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
     )
 
     model.ar1_standardized_residuals_ = (
-        obs_transform.apply(resid) if transformed_observations else None
+        obs_transform.apply(np.sqrt(prior_weights) * resid)
+        if transformed_observations
+        else None
     )
 
     return FitCoreSolution.from_dict(sol)

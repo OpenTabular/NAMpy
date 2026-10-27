@@ -16,6 +16,7 @@ from ...linalg.reindexing import (
 )
 from ...model_state import _n_smoothing_params
 from ...results import FitResult
+from ..capabilities import has_transformed_observations
 from ..parameterization import (
     FIT_PARAMETER_SPACE,
     PREDICTION_PARAMETER_SPACE,
@@ -212,10 +213,14 @@ def _gaussian_exact_unconditional_postfit(
     if not (np.isfinite(scale) and scale > 0.0):
         return None, None, FIT_PARAMETER_SPACE
 
+    solution = solve_gaussian_given_smoothing(model, model.y_, sp)
+    criterion_y = getattr(solution, "criterion_response", None)
+    if criterion_y is None:
+        criterion_y = model.y_
     kernel = _gdi1_kernel(
         model,
-        model.y_,
-        solve_gaussian_given_smoothing(model, model.y_, sp),
+        np.asarray(criterion_y, dtype=np.float64),
+        solution,
         sp,
         method=method.upper(),
     )
@@ -329,7 +334,9 @@ def _gaussian_exact_unconditional_postfit(
     # matrix here.
     setup_X = getattr(setup, "X", None)
     X_full = (
-        np.asarray(setup_X, dtype=np.float64)
+        np.asarray(fit_state.X, dtype=np.float64)
+        if has_transformed_observations(model)
+        else np.asarray(setup_X, dtype=np.float64)
         if setup_X is not None
         else np.asarray(fit_state.X, dtype=np.float64)
     )

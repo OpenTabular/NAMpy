@@ -39,7 +39,9 @@ def _gamma_profile_objective_curvature(model, y, Dp, phi, mp, *, method):
 
 
 def _solve_gamma_profile_scale(model, y, Dp, mp, *, method, init_scale):
-    phi = float(max(init_scale, 1e-12))
+    # A valid small initial scale must not be moved orders of magnitude away
+    # from its solution: the resulting log-scale Newton step can underflow.
+    phi = float(init_scale)
     if not np.isfinite(phi) or phi <= 0.0:
         phi = max(float(Dp) / max(float(len(y)), 1.0), 1e-6)
 

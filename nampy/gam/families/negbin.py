@@ -118,7 +118,7 @@ class NegativeBinomialLogFamily(ExtendedFamily):
         del weights
         y = np.asarray(y, dtype=np.float64)
         # Match mgcv/R/gam.fit3.r::negbin initialize.
-        return np.clip(y + (y == 0.0).astype(np.float64) / 6.0, self.eps, None)
+        return y + (y == 0.0).astype(np.float64) / 6.0
 
     def valid_mu(self, mu):
         mu = np.asarray(mu, dtype=np.float64)
@@ -302,70 +302,47 @@ class NegativeBinomialLogFamily(ExtendedFamily):
         return {"ls": ls, "lsth1": lsth1, "LSTH1": LSTH1, "lsth2": lsth2}
 
     def working_weight_derivative_eta(self, eta, y=None):
-        mu = np.clip(self.inverse_link(eta), self.eps, None)
-        mu_eta = np.asarray(
-            self.inverse_link_derivatives(eta, order=1), dtype=np.float64
-        )
-        mu_eta2 = np.asarray(
-            self.inverse_link_derivatives(eta, order=2), dtype=np.float64
-        )
-        var = np.clip(np.asarray(self.variance(mu), dtype=np.float64), self.eps, None)
-        dvar = np.asarray(self.dvar(mu), dtype=np.float64)
-        if y is None:
-            return 2.0 * mu_eta * mu_eta2 / var - (mu_eta**3) * dvar / np.clip(
-                var**2, self.eps, None
-            )
-
-        y = np.asarray(y, dtype=np.float64)
+        eta = np.asarray(eta, dtype=np.float64)
+        mu = np.asarray(self.inverse_link(eta), dtype=np.float64)
         th = float(self.theta)
-        alpha = 1.0 + (y - mu) / np.clip(th + mu, self.eps, None)
-        fisher_deriv = 2.0 * mu_eta * mu_eta2 / var - (mu_eta**3) * dvar / np.clip(
-            var**2, self.eps, None
-        )
-        alpha_deriv = -mu_eta * (th + y) / np.clip((th + mu) ** 2, self.eps, None)
-        fisher_weight = (mu_eta**2) / var
-        return fisher_deriv * alpha + fisher_weight * alpha_deriv
+        if y is None:
+            if self.link_name == "log":
+                return th**2 * mu / (mu + th)**2
+            if self.link_name == "sqrt":
+                return -8.0 * th * eta / (mu + th)**2
+            return -th * (2.0 * mu + th) / (mu**2 * (mu + th)**2)
+        y = np.asarray(y, dtype=np.float64)
+        if self.link_name == "log":
+            return th * (th + y) * mu * (th - mu) / (mu + th)**3
+        if self.link_name == "sqrt":
+            return (
+                -4.0 * y / eta**3
+                + 4.0 * eta * (y + th) * (mu - 3.0 * th) / (mu + th)**3
+            )
+        return -2.0 * y / mu**3 + 2.0 * (y + th) / (mu + th)**3
 
     def working_weight_second_derivative_eta(self, eta, y=None):
-        mu = np.clip(self.inverse_link(eta), self.eps, None)
-        mu_eta = np.asarray(
-            self.inverse_link_derivatives(eta, order=1), dtype=np.float64
-        )
-        mu_eta2 = np.asarray(
-            self.inverse_link_derivatives(eta, order=2), dtype=np.float64
-        )
-        mu_eta3 = np.asarray(
-            self.inverse_link_derivatives(eta, order=3), dtype=np.float64
-        )
-        var = np.clip(np.asarray(self.variance(mu), dtype=np.float64), self.eps, None)
-        dvar = np.asarray(self.dvar(mu), dtype=np.float64)
-        d2var = np.asarray(self.d2var(mu), dtype=np.float64)
-        fisher_second = (
-            2.0 * (mu_eta2**2 + mu_eta * mu_eta3) / var
-            - (5.0 * (mu_eta**2) * mu_eta2 * dvar + (mu_eta**4) * d2var)
-            / np.clip(var**2, self.eps, None)
-            + 2.0 * (mu_eta**4) * (dvar**2) / np.clip(var**3, self.eps, None)
-        )
-        if y is None:
-            return fisher_second
-
-        y = np.asarray(y, dtype=np.float64)
+        eta = np.asarray(eta, dtype=np.float64)
+        mu = np.asarray(self.inverse_link(eta), dtype=np.float64)
         th = float(self.theta)
-        denom = np.clip(th + mu, self.eps, None)
-        alpha = 1.0 + (y - mu) / denom
-        alpha_deriv = -mu_eta * (th + y) / np.clip(denom**2, self.eps, None)
-        alpha_second = -(th + y) * mu_eta2 / np.clip(denom**2, self.eps, None) + 2.0 * (
-            th + y
-        ) * (mu_eta**2) / np.clip(denom**3, self.eps, None)
-        fisher_weight = (mu_eta**2) / var
-        fisher_deriv = 2.0 * mu_eta * mu_eta2 / var - (mu_eta**3) * dvar / np.clip(
-            var**2, self.eps, None
-        )
-        return (
-            fisher_second * alpha
-            + 2.0 * fisher_deriv * alpha_deriv
-            + fisher_weight * alpha_second
-        )
+        if y is None:
+            if self.link_name == "log":
+                return th**2 * mu * (th - mu) / (mu + th)**3
+            if self.link_name == "sqrt":
+                return 8.0 * th * (3.0 * mu - th) / (mu + th)**3
+            return (
+                2.0 * th * (3.0 * mu**2 + 3.0 * th * mu + th**2)
+                / (mu**3 * (mu + th)**3)
+            )
+        y = np.asarray(y, dtype=np.float64)
+        if self.link_name == "log":
+            return th * (th + y) * mu * (th**2 - 4.0 * th * mu + mu**2) / (mu + th)**4
+        if self.link_name == "sqrt":
+            return (
+                12.0 * y / eta**4
+                - 12.0 * (y + th) * (mu**2 - 6.0 * th * mu + th**2) / (mu + th)**4
+            )
+        return 6.0 * y / mu**4 - 6.0 * (y + th) / (mu + th)**4
 
     def estimate_theta_mle(self, y, mu, weights=None, max_iter=50, tol=1e-7):
         y = np.asarray(y, dtype=np.float64)

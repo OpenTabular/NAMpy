@@ -153,6 +153,12 @@ def _n_smoothing_params(obj: Any) -> int:
     return int(getattr(compiled_model, "n_smoothing_params", 0))
 
 
+def _smoothing_nobs(obj: Any) -> float:
+    """Rows entering the smoothing score (magic excludes zero prior weights)."""
+    magic_nobs = getattr(obj, "_magic_nobs", None)
+    return float(obj.n_samples_ if magic_nobs is None else magic_nobs)
+
+
 def _compiled_metadata(obj: Any) -> dict[str, Any]:
     compiled_model = _compiled_model(obj)
     if compiled_model is None:

@@ -17,6 +17,7 @@ from .....model_state import (
     _fit_workspace,
     _n_smoothing_params,
     _penalty_blocks_seq,
+    _smoothing_nobs,
 )
 from .....response import CensoredResponse
 from ....backends import (
@@ -58,7 +59,7 @@ def _free_smoothing_mask(model) -> np.ndarray:
     return ~fixed_mask
 
 
-def _fit3_gcv_ubre_kernel(model, y, log_sp):
+def _fit3_gcv_ubre_kernel(model, y, log_sp, *, require_free=True):
     """
     Build the `gam.fit3` derivative state used by GCV/UBRE/AIC.
 
@@ -66,7 +67,7 @@ def _fit3_gcv_ubre_kernel(model, y, log_sp):
     `oo$D1`, `oo$D2`, `oo$trA1`, and `oo$trA2`.
     """
     free_mask = _free_smoothing_mask(model)
-    if int(np.sum(free_mask)) == 0:
+    if require_free and int(np.sum(free_mask)) == 0:
         return None, None, free_mask
 
     sp = expand_smoothing_params_from_log(model, log_sp)
@@ -108,7 +109,7 @@ def _fit3_gcv_ubre_full_derivatives(model, y, log_sp, method):
     if not np.isfinite(gamma) or gamma <= 0.0:
         raise ValueError("score_gamma must be finite and positive.")
 
-    nobs = float(model.n_samples_)
+    nobs = _smoothing_nobs(model)
     if not np.isfinite(nobs) or nobs <= 0.0:
         raise ValueError("model.n_samples_ must be finite and positive.")
 
@@ -309,12 +310,21 @@ class _GDI1Kernel:
 def _gdi1_pearson_terms(model, y, sol, current, ift):
     """Port ``mgcv/src/gdi.c::pearson2`` to smoothing coordinates."""
     y = np.asarray(y, dtype=np.float64)
-    mu = np.asarray(sol["mu"], dtype=np.float64)
-    weights = _prior_weights(model, y)
+    transformed = has_transformed_observations(model)
+    mu = np.asarray(
+        sol.get("gdi1_mu", sol["mu"]) if transformed else sol["mu"], dtype=np.float64
+    )
+    weights = (
+        np.asarray(sol["working_weights"], dtype=np.float64)
+        if transformed
+        else _prior_weights(model, y)
+    )
     variance = np.asarray(model.family.variance(mu), dtype=np.float64)
     v1 = np.asarray(model.family.dvar(mu), dtype=np.float64) / variance
     v2 = np.asarray(model.family.d2var(mu), dtype=np.float64) / variance
-    eta = np.asarray(sol["eta"], dtype=np.float64)
+    eta = np.asarray(
+        sol.get("gdi1_eta", sol["eta"]) if transformed else sol["eta"], dtype=np.float64
+    )
     g1 = 1.0 / np.asarray(model.family.mu_eta(eta), dtype=np.float64)
     # gam.fit3 supplies g2/g1 to pearson2, as for the other gdi1 kernels.
     g2 = np.asarray(model.family.d2link(mu), dtype=np.float64) / g1
@@ -1040,7 +1050,11 @@ def _gdi1_deviance_terms(model, y, sol, current, ift):
     family = model.family
     mu1 = np.asarray(family.mu_eta(eta), dtype=np.float64)
     variance = np.asarray(family.variance(mu), dtype=np.float64)
-    prior_weights = _prior_weights(model, y)
+    prior_weights = (
+        np.asarray(sol["working_weights"], dtype=np.float64)
+        if has_transformed_observations(model)
+        else _prior_weights(model, y)
+    )
     residual = np.asarray(y, dtype=np.float64) - mu
     v1 = np.empty_like(residual, dtype=np.float64)
     for row in range(residual.size):

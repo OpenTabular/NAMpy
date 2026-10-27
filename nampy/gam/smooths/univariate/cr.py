@@ -410,7 +410,15 @@ class CubicSplineTerm(BaseSmoothTerm):
 
             self._basis_train = np.asarray(base, dtype=np.float64)
             self._penalties = [] if self.fixed else [np.asarray(pen, dtype=np.float64)]
-            self._record_constraint_result(None, None, absorbed_by=None)
+            # CubicSplines already centers its native basis and new-data map.
+            # Advertise that absorption without applying its transform twice.
+            # Otherwise an all-zero by variable invites redundant side pruning
+            # and changes prediction uncertainty when by is nonzero later.
+            self._record_constraint_result(
+                "sum_to_zero" if self._use_centered_basis else None,
+                None,
+                absorbed_by="runtime" if self._use_centered_basis else None,
+            )
             return self
 
         pooled_setup = False

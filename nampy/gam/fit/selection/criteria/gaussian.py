@@ -17,8 +17,9 @@ Provides two code paths:
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
-from ....model_state import _design_matrix, _term_blocks_seq
+from ....model_state import _design_matrix, _smoothing_nobs, _term_blocks_seq
 from ...backends import solve_gaussian_given_smoothing
+from ...capabilities import has_transformed_observations
 from ...penalized_system import build_full_design
 from ...smoothing_params import expand_smoothing_params_from_log
 from ..reparam import (
@@ -33,7 +34,7 @@ from .gaussian_reml_algebra import gaussian_reml_saturation_terms_wrt_variance
 def gcv_score_gaussian(model, y, log_smoothing_params):
     sp = expand_smoothing_params_from_log(model, log_smoothing_params)
     sol = solve_gaussian_given_smoothing(model, y, sp)
-    n = model.n_samples_
+    n = _smoothing_nobs(model)
     den = 1.0 - model.score_gamma * sol["trace_H"] / n
     if not np.isfinite(den) or den == 0.0:
         return np.inf
@@ -55,6 +56,8 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
     ``criterion_ml_reml_exact_dynamic`` (Wood ``X'WX+S`` / ``\\log|A|-\\log|S|``)
     instead; see ``nampy.gam.fit.selection.criteria.ml_reml``.
     """
+    if has_transformed_observations(model):
+        return criterion_ml_reml_exact_dynamic(model, y, log_sp, method)
     if not can_use_exact_gaussian_ml_reml(model):
         raise NotImplementedError(
             "Exact Gaussian ML/REML/LAML is currently available only for "

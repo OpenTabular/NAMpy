@@ -18,7 +18,7 @@ def coefficient_transform(model):
 
 def observation_transform(model):
     compiled = getattr(getattr(model, "gam_result_", None), "compiled_model", None)
-    transform = None if compiled is None else compiled.observation_transform
+    transform = None if compiled is None else getattr(compiled, "observation_transform", None)
     if transform is not None:
         return transform
     size = int(getattr(model, "n_samples_", 0) or 0)

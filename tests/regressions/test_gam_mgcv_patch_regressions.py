@@ -1674,6 +1674,7 @@ def test_disjoint_multi_penalty_term_is_accepted_and_reparameterized():
             self.smoothing_index = smoothing_index
             self.kind = "smooth"
             self.is_null_space_penalty = False
+            self.metadata = {}
 
     rng = np.random.default_rng(99)
     n = 80
@@ -1752,6 +1753,7 @@ def test_overlapping_null_space_penalties_on_one_term_are_accepted():
             self.smoothing_index = smoothing_index
             self.kind = "smooth"
             self.is_null_space_penalty = is_null
+            self.metadata = {}
 
     rng = np.random.default_rng(199)
     n = 80
@@ -1814,6 +1816,7 @@ def test_dynamic_reparam_design_depends_on_current_sp():
             self.smoothing_index = smoothing_index
             self.kind = "smooth"
             self.is_null_space_penalty = False
+            self.metadata = {}
 
     rng = np.random.default_rng(101)
     n = 60
@@ -1873,6 +1876,7 @@ def test_canonical_gam_reparam_state_matches_dynamic_design():
             self.smoothing_index = smoothing_index
             self.kind = "smooth"
             self.is_null_space_penalty = False
+            self.metadata = {}
 
     term_slice = slice(0, 4)
     model = _Dummy()

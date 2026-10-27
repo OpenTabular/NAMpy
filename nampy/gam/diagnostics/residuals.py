@@ -5,7 +5,10 @@ import warnings
 import numpy as np
 from scipy.stats import norm
 
-from ..fit.capabilities import has_transformed_coefficients
+from ..fit.capabilities import (
+    has_transformed_coefficients,
+    has_transformed_observations,
+)
 from ..model_state import (
     _fit_scale,
     _fit_state,
@@ -106,8 +109,17 @@ def residuals_gam(model, type: str = "deviance", *, setseed=None) -> np.ndarray:
             return y - fitted
         return np.asarray(y.reshape(-1, 1) - fitted, dtype=np.float64).ravel()
     if type == "working":
+        if getattr(model, "_magic_nobs", None) is not None:
+            # am.fit stores NA working residuals for rows excluded from magic.
+            result = y - mu
+            result[w == 0] = np.nan
+            return result
         if has_transformed_coefficients(model):
             return np.asarray((y - mu) / model.family.mu_eta(eta), dtype=np.float64)
+        if has_transformed_observations(model):
+            # bam's Gaussian AR path reports precision-weighted original-row
+            # working residuals; std.rsd additionally applies the AR root.
+            return np.sqrt(w) * (y - mu)
         fit_state = _fit_state(model)
         z_work = (
             None if fit_state is None else getattr(fit_state, "working_response", None)
@@ -115,39 +127,22 @@ def residuals_gam(model, type: str = "deviance", *, setseed=None) -> np.ndarray:
         if z_work is not None:
             z_work = np.asarray(z_work, dtype=np.float64).ravel()
             offset = None if fit_state is None else getattr(fit_state, "offset", None)
-            if str(getattr(model.family, "name", "")) in {"scat", "cnorm", "clog", "cpois", "bcg"}:
-                # gam.fit4: z is on the offset-free predictor scale.
-                # residuals <- z - (eta-offset); nonfinite entries become NA.
-                result = z_work - eta
-                if offset is not None:
-                    result += np.asarray(offset, dtype=np.float64).ravel()
-                result[~np.isfinite(result)] = np.nan
-                return result
-            if str(getattr(model.family, "name", "")) == "binomial" or getattr(
-                model.family, "is_quasi", False
-            ):
-                # gam.fit3: residuals[good] <- z - (eta - offset)[good].
-                result = z_work - eta
-                if offset is not None:
-                    result += np.asarray(offset, dtype=np.float64).ravel()
-                result[w == 0] = np.nan
-                return result
-            if (
-                str(getattr(getattr(model, "family", None), "name", "")).lower()
-                == "gaussian"
-                and offset is not None
-            ):
-                # mgcv::residuals.gam() returns the fitted object's stored working
-                # residual series. Our Gaussian exact-fit state keeps
-                # `working_response = y - offset` for inner-state parity, so restore
-                # the fit-time offset before forming the user-facing residuals.
-                offset_result: np.ndarray = (
-                    z_work + np.asarray(offset, dtype=np.float64).ravel() - eta
-                )
-                return offset_result
-            # mgcv::residuals.gam() returns the stored working residual series,
-            # equivalent to z - eta in the fitted parameterization.
-            return z_work - eta
+            # Both gam.fit3 and gam.fit4 store z on the offset-free scale:
+            # residuals[good] <- z - (eta - offset)[good]. Ordinary PIRLS and
+            # the exact Gaussian solver fill excluded working-response rows
+            # with finite values internally; the public residual is still NA.
+            result = z_work - eta
+            if offset is not None:
+                result += np.asarray(offset, dtype=np.float64).ravel()
+            invalid = ~np.isfinite(result)
+            working_weights = getattr(fit_state, "working_weights", None)
+            invalid |= (
+                w == 0
+                if working_weights is None
+                else np.asarray(working_weights, dtype=np.float64).ravel() == 0
+            )
+            result[invalid] = np.nan
+            return result
         mu_eta = getattr(model.family, "mu_eta", None)
         if callable(mu_eta):
             mu_eta_val = np.asarray(mu_eta(eta), dtype=np.float64)

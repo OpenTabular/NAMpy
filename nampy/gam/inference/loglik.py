@@ -8,8 +8,11 @@ mgcv/R/gam.fit3.r. The :class:`~nampy.gam.model.api.GAM` facade delegates
 from __future__ import annotations
 
 import numpy as np
-from scipy.special import gammaln
 
+from ..fit.capabilities import (
+    has_transformed_coefficients,
+    has_transformed_observations,
+)
 from ..fit.selection.criteria.gaussian_reml_algebra import (
     gaussian_reml_weighted_degrees_and_log_weight_term,
 )
@@ -160,6 +163,15 @@ def object_aic(model) -> float | None:
 
     if family_name == "gaussian":
         dev = float(getattr(fit_result, "deviance", np.nan))
+        if model.family.known_scale is not None and not has_transformed_coefficients(model):
+            # gam.fit3 and am.fit pass dev1 = scale * sum(weights) to the
+            # Gaussian family AIC hook when dispersion was supplied explicitly.
+            dev = float(_fit_scale(model)) * float(np.sum(weights))
+        elif has_transformed_observations(model) and not has_transformed_coefficients(model):
+            # bam keeps raw weighted deviance for reporting but evaluates its
+            # Gaussian AIC using the squared AR-standardized residuals.
+            fit_state = _fit_state(model)
+            dev = float(fit_state.criterion_rss)
         if not np.isfinite(dev) or dev <= 0.0:
             return None
         n_row = float(len(weights))
@@ -188,21 +200,20 @@ def object_aic(model) -> float | None:
         return float(raw_aic + 2.0 * float(_edf_total(model)))
 
     y = np.asarray(model.y_, dtype=np.float64)
-    mu = np.asarray(model.predict(X=None, type="response"), dtype=np.float64)
+    # Fitted values include every training offset. Fresh response predictions
+    # deliberately omit API-only offsets and may change parameter scale (ocat).
+    mu = np.asarray(_fitted_mu(model), dtype=np.float64)
     raw_aic = None
 
     if family_name == "poisson":
-        mu = np.clip(mu, np.finfo(np.float64).tiny, None)
-        raw_aic = -2.0 * float(
-            np.sum(weights * (y * np.log(mu) - mu - gammaln(y + 1.0)))
-        )
-    elif family_name in {"scat", "zip", "cnorm", "clog", "cpois", "bcg"}:
+        raw_aic = float(model.family.aic(y, mu, edf=0.0, weights=weights))
+    elif family_name in {"betar", "ocat", "scat", "zip", "cnorm", "clog", "cpois", "bcg"}:
         # gam.fit4 uses the family aic hook, which ignores external scale.
         # ziP's fitted mu is log(lambda), distinct from response predictions.
         family_y = getattr(model, "response_", None)
         if family_y is None:
             family_y = y
-        raw_aic = float(model.family.aic(family_y, _fitted_mu(model), weights=weights))
+        raw_aic = float(model.family.aic(family_y, mu, weights=weights))
     elif family_name == "binomial":
         # stats::binomial()$aic owns the m <- wt reinterpretation of
         # non-unit prior weights as binomial denominators.
@@ -217,25 +228,9 @@ def object_aic(model) -> float | None:
         dispersion_scale = _ordinary_aic_dispersion_scale(model, y, fit_result)
         if dispersion_scale is None:
             return None
-        disp = dispersion_scale
-        shape = 1.0 / disp
-        mu = np.clip(mu, np.finfo(np.float64).tiny, None)
-        y = np.clip(y, np.finfo(np.float64).tiny, None)
-        raw_aic = (
-            -2.0
-            * float(
-                np.sum(
-                    weights
-                    * (
-                        (shape - 1.0) * np.log(y)
-                        - y / (mu * disp)
-                        - gammaln(shape)
-                        - shape * np.log(mu * disp)
-                    )
-                )
-            )
-            + 2.0
-        )
+        raw_aic = -2.0 * float(
+            np.sum(weights * model.family.loglik_obs(y, mu, scale=dispersion_scale))
+        ) + 2.0
 
     if raw_aic is not None:
         return float(raw_aic + 2.0 * float(_edf_total(model)))
@@ -286,7 +281,7 @@ def loglik_gam(model) -> float:
         return float(ll["l"])
 
     y = np.asarray(model.y_, dtype=np.float64)
-    mu = np.asarray(model.predict(X=None, type="response"), dtype=np.float64)
+    mu = np.asarray(_fitted_mu(model), dtype=np.float64)
     glm_weights = (
         None
         if model.prior_weights_ is None

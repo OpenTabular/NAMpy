@@ -8,7 +8,7 @@ and compute the corresponding smoothing-selection score.
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
-from .....model_state import _coef_column_offset
+from .....model_state import _coef_column_offset, _smoothing_nobs
 from .....response import response_values
 from ....backends import solve_pirls_given_smoothing
 from ....smoothing_params import expand_smoothing_params_from_log
@@ -58,7 +58,7 @@ def _saturated_loglik(model, y, *, scale):
 def criterion_gcv_pirls(model, y, log_sp):
     sp = expand_smoothing_params_from_log(model, log_sp)
     sol = solve_pirls_given_smoothing(model, y, sp)
-    n = model.n_samples_
+    n = _smoothing_nobs(model)
     den = 1.0 - model.score_gamma * sol["trace_H"] / n
     if not np.isfinite(den) or den == 0.0:
         return np.inf
@@ -93,7 +93,7 @@ def criterion_ubre_pirls(model, y, log_sp):
             f"UBRE/AIC requested for family={model.family.name!r}, "
             "but the family does not have known scale."
         )
-    n = model.n_samples_
+    n = _smoothing_nobs(model)
     edf = sol["trace_H"]
     return (sol["deviance"] / n) - scale + (2.0 * model.score_gamma * scale * edf / n)
 

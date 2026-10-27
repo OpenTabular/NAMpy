@@ -612,7 +612,7 @@ class GAMClassifier(_GAMAdapterBase):
         newdata_guaranteed=False,
         na_action="pass",
     ):
-        """Predicted class labels (original label dtype)."""
+        """Predicted class labels; missing rows under na_action='pass' carry NaN."""
         p1 = self.predict_proba(
             X,
             offset=offset,
@@ -620,7 +620,14 @@ class GAMClassifier(_GAMAdapterBase):
             newdata_guaranteed=newdata_guaranteed,
             na_action=na_action,
         )[:, 1]
-        return self.classes_[(p1 >= 0.5).astype(int)]
+        labels = self.classes_[(p1 >= 0.5).astype(int)]
+        missing = np.isnan(p1)
+        if np.any(missing):
+            # Object dtype preserves string, integer and boolean class labels
+            # while representing an unavailable prediction as a real NaN.
+            labels = labels.astype(object)
+            labels[missing] = np.nan
+        return labels
 
     def decision_function(
         self,

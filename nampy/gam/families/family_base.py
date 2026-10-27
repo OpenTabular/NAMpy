@@ -26,11 +26,14 @@ import abc
 from enum import Enum
 
 import numpy as np
-from scipy.special import digamma, gammaln, polygamma
+from scipy.special import digamma, gammaln, polygamma, xlog1py, xlogy
 from scipy.stats import binom as binomial_distribution
 from scipy.stats import gamma as gamma_distribution
 
 from .._mgcv_constants import FAMILY_EPS
+from ._r_gamma_math import log_dgamma
+from ._r_poisson_math import _stirlerr_real, log_dbinom
+from ._working_information import observed_weight_derivative
 
 _CAPABILITY_FLAGS = (
     "supports_closed_form_solve",
@@ -356,7 +359,9 @@ class _BinomialBase(GLMFamily):
         y = np.asarray(y, dtype=np.float64)
         trials = getattr(self, "_trial_counts", None)
         w = self._check_weights(y, weights) if trials is None else trials
-        return np.clip((w * y + 0.5) / (w + 1.0), self.eps, 1.0 - self.eps)
+        # stats::binomInitialize preserves starts below FAMILY_EPS when
+        # weights or grouped trial counts are large.
+        return (w * y + 0.5) / (w + 1.0)
 
     def _mgcv_probability_clip(self, mu):
         eps = np.finfo(np.float64).eps
@@ -372,7 +377,7 @@ class _BinomialBase(GLMFamily):
 
     def deviance(self, y, mu, weights=None):
         y = np.asarray(y, dtype=np.float64)
-        mu = self._mgcv_probability_clip(mu)
+        mu = np.asarray(mu, dtype=np.float64)
         weights = self._check_weights(y, weights)
         term1 = np.zeros_like(y, dtype=np.float64)
         mask1 = y > 0
@@ -384,7 +389,7 @@ class _BinomialBase(GLMFamily):
 
     def deviance_obs(self, y, mu, weights=None):
         y = np.asarray(y, dtype=np.float64)
-        mu = self._mgcv_probability_clip(mu)
+        mu = np.asarray(mu, dtype=np.float64)
         weights = self._check_weights(y, weights)
         term1 = np.zeros_like(y, dtype=np.float64)
         mask1 = y > 0
@@ -397,19 +402,12 @@ class _BinomialBase(GLMFamily):
     def loglik_obs(self, y, mu, scale=1.0, n=None):
         del scale
         y = np.asarray(y, dtype=np.float64)
-        mu = self._mgcv_probability_clip(mu)
+        mu = np.asarray(mu, dtype=np.float64)
         if n is not None:
             n_arr = np.asarray(n, dtype=np.float64)
             successes = np.rint(n_arr * y)
-            failures = np.rint(n_arr) - successes
-            return (
-                gammaln(np.rint(n_arr) + 1.0)
-                - gammaln(successes + 1.0)
-                - gammaln(failures + 1.0)
-                + successes * np.log(mu)
-                + failures * np.log1p(-mu)
-            )
-        return y * np.log(mu) + (1.0 - y) * np.log(1.0 - mu)
+            return log_dbinom(successes, np.rint(n_arr), mu)
+        return xlogy(y, mu) + xlog1py(1.0 - y, -mu)
 
     def loglik(self, y, mu, scale=1.0, n=None):
         return float(np.sum(self.loglik_obs(y, mu, scale=scale, n=n)))
@@ -428,7 +426,7 @@ class _BinomialBase(GLMFamily):
         """
         del scale
         y = np.asarray(y, dtype=np.float64)
-        mu = self._mgcv_probability_clip(mu)
+        mu = np.asarray(mu, dtype=np.float64)
         if n is None:
             n = getattr(self, "_trial_counts", None)
         n_arr = (
@@ -444,13 +442,7 @@ class _BinomialBase(GLMFamily):
         m = n_arr if grouped else wt
         trials = np.rint(m)
         successes = np.rint(m * y)
-        log_density = (
-            gammaln(trials + 1.0)
-            - gammaln(successes + 1.0)
-            - gammaln(trials - successes + 1.0)
-            + successes * np.log(mu)
-            + (trials - successes) * np.log1p(-mu)
-        )
+        log_density = log_dbinom(successes, trials, mu)
         coeff = np.where(m > 0.0, wt / np.where(m > 0.0, m, 1.0), 0.0)
         return float(-2.0 * np.sum(coeff * log_density) + 2.0 * float(edf))
 
@@ -485,7 +477,8 @@ class _BinomialBase(GLMFamily):
         return float(np.sum(weights * term))
 
     def working_weight_derivative_eta(self, eta, y=None):
-        del y
+        if y is not None:
+            return observed_weight_derivative(self, eta, y, order=1)
         eta = np.asarray(eta, dtype=np.float64)
         mu = np.asarray(self.inverse_link(eta), dtype=np.float64)
         a = np.asarray(self.mu_eta(eta), dtype=np.float64)
@@ -495,7 +488,8 @@ class _BinomialBase(GLMFamily):
         return (2.0 * a * b * v - a**2 * v1) / (v**2)
 
     def working_weight_second_derivative_eta(self, eta, y=None):
-        del y
+        if y is not None:
+            return observed_weight_derivative(self, eta, y, order=2)
         eta = np.asarray(eta, dtype=np.float64)
         mu = np.asarray(self.inverse_link(eta), dtype=np.float64)
         a = np.asarray(self.mu_eta(eta), dtype=np.float64)
@@ -525,25 +519,29 @@ class _GammaBase(GLMFamily):
     joint_outer_strategy = JointOuterStrategy.GAMMA_SCALE
 
     def deviance(self, y, mu, weights=None):
-        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        # Initialization owns the positive-response check. Absolute response
+        # floors here would change valid Gamma models when units change.
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.asarray(mu, dtype=np.float64)
         weights = self._check_weights(y, weights)
         with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
-            dev = 2.0 * np.sum(weights * ((y - mu) / mu - np.log(y / mu)))
+            ratio = np.where(y == 0.0, 1.0, y / mu)
+            dev = 2.0 * np.sum(weights * ((y - mu) / mu - np.log(ratio)))
         return float(dev)
 
     def deviance_obs(self, y, mu, weights=None):
-        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.asarray(mu, dtype=np.float64)
         weights = self._check_weights(y, weights)
         with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
-            return 2.0 * weights * ((y - mu) / mu - np.log(y / mu))
+            ratio = np.where(y == 0.0, 1.0, y / mu)
+            return 2.0 * weights * ((y - mu) / mu - np.log(ratio))
 
     def estimate_dispersion(self, y, mu, edf=None, weights=None):
         if self.known_scale is not None:
             return float(self.known_scale)
         y = np.asarray(y, dtype=np.float64)
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        mu = np.asarray(mu, dtype=np.float64)
         w = self._check_weights(y, weights)
         pearson = float(np.sum(w * (y - mu) ** 2 / self.variance(mu)))
         n = float(y.shape[0])
@@ -552,16 +550,10 @@ class _GammaBase(GLMFamily):
         return pearson / (n - float(edf))
 
     def loglik_obs(self, y, mu, scale=1.0):
-        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        scale = float(max(scale, self.eps))
-        shape = 1.0 / scale
-        return (
-            (shape - 1.0) * np.log(y)
-            - y * shape / mu
-            - gammaln(shape)
-            - shape * np.log(mu / shape)
-        )
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.asarray(mu, dtype=np.float64)
+        scale = float(scale)
+        return log_dgamma(y, 1.0 / scale, mu * scale)
 
     def ls(self, y, w, n=None, scale=1.0):
         """
@@ -571,9 +563,9 @@ class _GammaBase(GLMFamily):
         respect to the scale parameter.
         """
         del n
-        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        y = np.asarray(y, dtype=np.float64)
         w = self._check_weights(y, w)
-        scale = float(max(scale, self.eps))
+        scale = float(scale)
 
         mask = w > 0.0
         if not np.any(mask):
@@ -583,12 +575,26 @@ class _GammaBase(GLMFamily):
         w = w[mask]
         scale_w = scale / w
 
-        k0 = -gammaln(1.0 / scale_w) - np.log(scale_w) / scale_w - 1.0 / scale_w
-        k1 = (digamma(1.0 / scale_w) + np.log(scale_w)) / (scale_w**2)
-        k2 = (
-            -polygamma(1, 1.0 / scale_w) / scale_w
-            + (1.0 - 2.0 * np.log(scale_w) - 2.0 * digamma(1.0 / scale_w))
-        ) / (scale_w**3)
+        small = scale_w < 1e-3
+        k0, k1, k2 = (np.empty_like(scale_w) for _ in range(3))
+        d = scale_w[~small]
+        k0[~small] = -gammaln(1.0 / d) - np.log(d) / d - 1.0 / d
+        k1[~small] = (digamma(1.0 / d) + np.log(d)) / d**2
+        k2[~small] = (
+            -polygamma(1, 1.0 / d) / d
+            + (1.0 - 2.0 * np.log(d) - 2.0 * digamma(1.0 / d))
+        ) / d**3
+        # Differentiate the Stirling expansion analytically: subtracting
+        # digamma/log and trigamma terms destroys these derivatives near zero.
+        d = scale_w[small]
+        correction = np.fromiter((_stirlerr_real(1.0 / value) for value in d), float)
+        k0[small] = -0.5 * (np.log(2 * np.pi) + np.log(d)) - correction
+        d2 = d**2
+        k1[small] = (
+            -0.5 / d - 1.0 / 12
+            + d2 * (1.0 / 120 + d2 * (-1.0 / 252 + d2 / 240))
+        )
+        k2[small] = 0.5 / d2 + d * (1.0 / 60 + d2 * (-1.0 / 63 + d2 / 40))
         return np.asarray(
             [np.sum(k0 - np.log(y)), np.sum(k1 / w), np.sum(k2 / (w**2))],
             dtype=np.float64,

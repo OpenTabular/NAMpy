@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.stats import norm as _norm
 
 from .family_base import _BinomialBase
 
@@ -81,14 +80,6 @@ class BinomialProbitFamily(_BinomialBase):
     def initialize_mu(self, y, weights=None):
         return self._initialize_binomial_mu(y, weights)
 
-    def working_weight_derivative_eta(self, eta, y=None):
-        eta = np.asarray(eta, dtype=np.float64)
-        phi = _norm.pdf(eta)
-        mu = _norm.cdf(eta)
-        V = mu * (1.0 - mu)
-        # d/deta [phi^2/V] = phi^2 * [-2*eta*V - phi*(1-2*mu)] / V^2
-        return phi**2 * (-2.0 * eta * V - phi * (1.0 - 2.0 * mu)) / (V**2)
-
 
 class BinomialCloglogFamily(_BinomialBase):
     """Binomial family with cloglog link. Matches mgcv::binomial(link="cloglog")."""
@@ -122,15 +113,6 @@ class BinomialCloglogFamily(_BinomialBase):
 
     def initialize_mu(self, y, weights=None):
         return self._initialize_binomial_mu(y, weights)
-
-    def working_weight_derivative_eta(self, eta, y=None):
-        eta = np.asarray(eta, dtype=np.float64)
-        lam = np.exp(eta)
-        mu = 1.0 - np.exp(-lam)
-        M = lam * np.exp(-lam)
-        V = mu * (1.0 - mu)
-        # d/deta [M^2/V] = M^2 * [2*(1-lam)*V - (1-2*mu)*M] / V^2
-        return M**2 * (2.0 * (1.0 - lam) * V - (1.0 - 2.0 * mu) * M) / (V**2)
 
 
 class BinomialCauchitFamily(_BinomialBase):
