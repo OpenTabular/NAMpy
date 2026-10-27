@@ -9,6 +9,8 @@ NodeGAMRegressor
    :no-inherited-members:
 
 .. include:: /_generated/reference/NodeGAMRegressor.inc
+
+
 Runnable example
 ----------------
 
@@ -19,10 +21,64 @@ This example includes its data and imports. Run it after installing NAMpy. Small
 .. literalinclude:: /_examples/reference/neural_reference/estimators/NodeGAMRegressor.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "components": {
+       "link": [
+         -0.14022000133991241,
+         -0.14022000133991241,
+         -0.14022000133991241,
+         -0.1396699994802475,
+         -0.1396699994802475,
+         -0.14022000133991241
+       ],
+       "response": [
+         -0.14022000133991241,
+         -0.14022000133991241,
+         -0.14022000133991241,
+         -0.1396699994802475,
+         -0.1396699994802475,
+         -0.14022000133991241
+       ],
+       "terms": {
+         "x": [
+           -0.12148000299930573,
+           -0.12148000299930573,
+           -0.12148000299930573,
+           -0.12148000299930573,
+           -0.12148000299930573,
+           -0.12148000299930573
+         ],
+         "z": [
+           -0.018559999763965607,
+           -0.018559999763965607,
+           -0.018559999763965607,
+           -0.01800999976694584,
+           -0.01800999976694584,
+           -0.018559999763965607
+         ]
+       }
+     },
+     "prediction": [
+       -0.14022000133991241,
+       -0.14022000133991241,
+       -0.14022000133991241,
+       -0.1396699994802475,
+       -0.1396699994802475,
+       -0.14022000133991241
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -39,37 +95,4 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
      - (64,)
    * - result['components']
      - nampy.contracts.AdditivePrediction
-     - scalar record
-   * - result['components'].response
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].link
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].terms
-     - dict
-     - 2 named fields
-   * - result['components'].terms['z']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].terms['x']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].intercept
-     - builtins.float
-     - ()
-   * - result['components'].backend
-     - builtins.str
-     - ()
-   * - result['components'].offset
-     - builtins.NoneType
-     - not applicable
-   * - result['components'].term_metadata
-     - dict
-     - 2 named fields
-   * - result['components'].term_metadata['z']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
-   * - result['components'].term_metadata['x']
-     - nampy.contracts.AdditiveTermMetadata
      - scalar record

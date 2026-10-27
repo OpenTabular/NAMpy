@@ -68,6 +68,8 @@ SmoothDerivativeResult with evaluation points, predictor-scale derivative, Bayes
      - scalar
      - Identity of the differentiated term and derivative order in SmoothDerivativeResult.
 
+
+
 Runnable example
 ----------------
 
@@ -78,10 +80,44 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/derivative.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "derivative": [
+       -0.6181,
+       -2.76039,
+       -1.96837,
+       2.3564,
+       1.72704,
+       -2.64866
+     ],
+     "derivative_matrix": [
+       0.07757,
+       -0.33853,
+       -2.3585,
+       2.65296,
+       0.59285,
+       0.00678
+     ],
+     "se": [
+       0.21645,
+       0.32752,
+       0.18589,
+       0.19561,
+       0.16011,
+       0.29128
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

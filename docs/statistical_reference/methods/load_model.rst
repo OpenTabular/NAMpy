@@ -52,6 +52,8 @@ The deserialized GAM instance. Artifacts use pickle and must come from a trusted
      - scalar object
      - Restored fitted model; input/output schemas are retained.
 
+
+
 Runnable example
 ----------------
 
@@ -62,10 +64,19 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/load_model.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   "GAM"
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

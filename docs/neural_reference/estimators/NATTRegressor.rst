@@ -9,6 +9,8 @@ NATTRegressor
    :no-inherited-members:
 
 .. include:: /_generated/reference/NATTRegressor.inc
+
+
 Runnable example
 ----------------
 
@@ -19,10 +21,64 @@ This example includes its data and imports. Run it after installing NAMpy. Small
 .. literalinclude:: /_examples/reference/neural_reference/estimators/NATTRegressor.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "components": {
+       "link": [
+         0.5080900192260742,
+         0.38677000999450684,
+         0.49608999490737915,
+         0.23430000245571136,
+         0.16541999578475952,
+         0.268310010433197
+       ],
+       "response": [
+         0.5080900192260742,
+         0.38677000999450684,
+         0.49608999490737915,
+         0.23430000245571136,
+         0.16541999578475952,
+         0.268310010433197
+       ],
+       "terms": {
+         "x": [
+           0.33017998933792114,
+           0.33013999462127686,
+           0.33184999227523804,
+           0.3335700035095215,
+           0.219310000538826,
+           0.2173900008201599
+         ],
+         "z": [
+           0.17829999327659607,
+           0.057009998708963394,
+           0.16461999714374542,
+           -0.09888000041246414,
+           -0.05350999906659126,
+           0.05130000039935112
+         ]
+       }
+     },
+     "prediction": [
+       0.5080900192260742,
+       0.38677000999450684,
+       0.49608999490737915,
+       0.23430000245571136,
+       0.16541999578475952,
+       0.268310010433197
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -39,37 +95,4 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
      - (64,)
    * - result['components']
      - nampy.contracts.AdditivePrediction
-     - scalar record
-   * - result['components'].response
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].link
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].terms
-     - dict
-     - 2 named fields
-   * - result['components'].terms['x']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].terms['z']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].intercept
-     - builtins.float
-     - ()
-   * - result['components'].backend
-     - builtins.str
-     - ()
-   * - result['components'].offset
-     - builtins.NoneType
-     - not applicable
-   * - result['components'].term_metadata
-     - dict
-     - 2 named fields
-   * - result['components'].term_metadata['x']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
-   * - result['components'].term_metadata['z']
-     - nampy.contracts.AdditiveTermMetadata
      - scalar record

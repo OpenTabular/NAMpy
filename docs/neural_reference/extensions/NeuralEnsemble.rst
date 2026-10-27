@@ -52,6 +52,8 @@ Returns and fitted outputs
 Construction returns an unfitted ensemble; ``fit(X, y, **fit_params)`` returns self and exposes ``estimators_``. Regression predict returns the mean member response, shaped like a member's predictions. Classification predict_proba averages probabilities in ``classes_`` order, and predict returns the most probable class. score returns R² or accuracy, respectively. ``predict_components`` returns ``AdditivePrediction`` containing the mean link-scale contributions. ``predict_component_uncertainty`` returns ``EnsembleAdditivePrediction`` containing mean components and between-member variation; missing selected terms contribute zero for that member. Variation across members measures training/selection variability and is not automatically a calibrated confidence interval.
 
 :doc:`Custom architecture contract </user_guide/custom_models>` · :doc:`All training arguments </api/neural_training>` · :doc:`Neural distributions <../families/index>`
+
+
 Runnable example
 ----------------
 
@@ -62,10 +64,83 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/extensions/NeuralEnsemble.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "component_uncertainty": {
+       "link_std": [
+         0.10313999652862549,
+         0.11458999663591385,
+         0.10728999972343445,
+         0.11486999690532684,
+         0.10909999907016754,
+         0.11248999834060669
+       ],
+       "mean": "AdditivePrediction",
+       "response_std": [
+         0.10313999652862549,
+         0.11458999663591385,
+         0.10728999972343445,
+         0.11486999690532684,
+         0.10909999907016754,
+         0.11248999834060669
+       ]
+     },
+     "components": {
+       "link": [
+         -0.018689999356865883,
+         -0.02150999940931797,
+         -0.018640000373125076,
+         -0.02831999957561493,
+         -0.019370000809431076,
+         -0.019099999219179153
+       ],
+       "response": [
+         -0.018689999356865883,
+         -0.02150999940931797,
+         -0.018640000373125076,
+         -0.02831999957561493,
+         -0.019370000809431076,
+         -0.019099999219179153
+       ],
+       "terms": {
+         "x": [
+           -0.14247000217437744,
+           -0.14270000159740448,
+           -0.1422100067138672,
+           -0.14172999560832977,
+           -0.14124999940395355,
+           -0.14076000452041626
+         ],
+         "z": [
+           0.1238899976015091,
+           0.12128999829292297,
+           0.12369000166654587,
+           0.11351999640464783,
+           0.12197999656200409,
+           0.12177000194787979
+         ]
+       }
+     },
+     "prediction": [
+       -0.018689999356865883,
+       -0.02150999940931797,
+       -0.018640000373125076,
+       -0.02831999957561493,
+       -0.019370000809431076,
+       -0.019099999219179153
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -83,84 +158,6 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
    * - result['components']
      - nampy.contracts.AdditivePrediction
      - scalar record
-   * - result['components'].response
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].link
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].terms
-     - dict
-     - 2 named fields
-   * - result['components'].terms['x']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].terms['z']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].intercept
-     - numpy.float64
-     - ()
-   * - result['components'].backend
-     - builtins.str
-     - ()
-   * - result['components'].offset
-     - builtins.NoneType
-     - not applicable
-   * - result['components'].term_metadata
-     - dict
-     - 2 named fields
-   * - result['components'].term_metadata['x']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
-   * - result['components'].term_metadata['z']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
    * - result['component_uncertainty']
      - nampy.contracts.EnsembleAdditivePrediction
      - scalar record
-   * - result['component_uncertainty'].mean
-     - nampy.contracts.AdditivePrediction
-     - scalar record
-   * - result['component_uncertainty'].mean.response
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['component_uncertainty'].mean.link
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['component_uncertainty'].mean.terms
-     - dict
-     - 2 named fields
-   * - result['component_uncertainty'].mean.intercept
-     - numpy.float64
-     - ()
-   * - result['component_uncertainty'].mean.backend
-     - builtins.str
-     - ()
-   * - result['component_uncertainty'].mean.offset
-     - builtins.NoneType
-     - not applicable
-   * - result['component_uncertainty'].mean.term_metadata
-     - dict
-     - 2 named fields
-   * - result['component_uncertainty'].response_std
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['component_uncertainty'].link_std
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['component_uncertainty'].term_std
-     - dict
-     - 2 named fields
-   * - result['component_uncertainty'].term_std['x']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['component_uncertainty'].term_std['z']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['component_uncertainty'].intercept_std
-     - builtins.float
-     - ()
-   * - result['component_uncertainty'].n_estimators
-     - builtins.int
-     - ()

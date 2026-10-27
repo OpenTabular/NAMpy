@@ -12,6 +12,8 @@ Signature
 
    estimator.basis_transform(self, X, *, batch_size: 'int | None' = None)
 
+Available architecture hooks: :doc:`gpnam <../gpnam>`. Unsupported architectures raise ``NotImplementedError``; call after fitting. Native history and metadata retain their native-solver meaning.
+
 Parameters
 ----------
 
@@ -46,6 +48,8 @@ Returns
      - (n, p_basis)
      - Architecture fixed-design feature matrix. Supported only when the fitted architecture exposes linear_design; other architectures raise NotImplementedError.
 
+
+
 Runnable example
 ----------------
 
@@ -56,10 +60,26 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/methods/basis_transform.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   [
+     0.3367899954319,
+     0.17102999985218048,
+     0.35350000858306885,
+     0.28578999638557434,
+     0.1380700021982193,
+     -0.3255099952220917
+   ]
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

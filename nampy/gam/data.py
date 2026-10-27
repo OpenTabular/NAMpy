@@ -11,7 +11,9 @@ def feature_values_for_levels(values):
     cells = np.asarray(values, dtype=object).reshape(-1)
     if not any(np.asarray(value).ndim > 0 for value in cells):
         return cells
-    return np.concatenate([np.asarray(value, dtype=object).reshape(-1) for value in cells])
+    return np.concatenate(
+        [np.asarray(value, dtype=object).reshape(-1) for value in cells]
+    )
 
 
 def categorical_matrix_metadata(values):
@@ -29,11 +31,12 @@ def categorical_matrix_metadata(values):
     if len(first) < 2 or any(len(row) != len(first) for row in rows):
         raise ValueError("Matrix factor rows must have equal width of at least two.")
     if any(
-        not row.categories.equals(first.categories)
-        or row.ordered != first.ordered
+        not row.categories.equals(first.categories) or row.ordered != first.ordered
         for row in rows
     ):
-        raise ValueError("Matrix factor rows must have identical levels and ordered metadata.")
+        raise ValueError(
+            "Matrix factor rows must have identical levels and ordered metadata."
+        )
     return {
         "levels": list(first.categories),
         "ordered": bool(first.ordered),
@@ -189,29 +192,50 @@ def coerce_formula_predict_inputs(
     allow_missing_numeric=False,
     validate_structured_factor_levels=False,
 ):
-    from .specs.preprocess import apply_formula_preprocess_to_new_data
-
     if not model.formula_mode_:
         X_np, feature_names = coerce_X(model, X)
         return X_np, feature_names, None
+
+    result = getattr(model, "gam_result_", None)
+    compiled = None if result is None else getattr(result, "compiled_model", None)
+    return coerce_formula_design_inputs(
+        X,
+        model.formula_preprocess_state_,
+        compiled,
+        allowed_missing_features=allowed_missing_features,
+        allow_missing_numeric=allow_missing_numeric,
+        validate_structured_factor_levels=validate_structured_factor_levels,
+    )
+
+
+def coerce_formula_design_inputs(
+    X,
+    preprocess_state,
+    compiled,
+    *,
+    allowed_missing_features=(),
+    allow_missing_numeric=False,
+    validate_structured_factor_levels=False,
+):
+    """Evaluate a fitted formula schema without a fitted model or likelihood."""
+    from .specs.preprocess import apply_formula_preprocess_to_new_data
 
     if not isinstance(X, pd.DataFrame):
         raise TypeError(
             "Prediction for formula-based GAMs currently requires a pandas DataFrame."
         )
 
-    result = getattr(model, "gam_result_", None)
-    compiled = None if result is None else getattr(result, "compiled_model", None)
     for term in tuple(getattr(compiled, "compiled_terms", ()) or ()):
         # The upstream structured constructors own their new-level semantics:
         # re maps an unseen level to a zero design row, while fs/sz map it to
         # an NA row.  Their transform_new implementations reproduce this and
         # must see the original value rather than being stopped by the generic
         # formula-factor guard.
-        if (
-            str(getattr(term, "basis_name", "")).lower() in {"re", "fs", "sz"}
-            and not bool(validate_structured_factor_levels)
-        ):
+        if str(getattr(term, "basis_name", "")).lower() in {
+            "re",
+            "fs",
+            "sz",
+        } and not bool(validate_structured_factor_levels):
             continue
         factor_info = (getattr(term, "metadata", {}) or {}).get(
             "factor_levels_by_feature", {}
@@ -219,16 +243,14 @@ def coerce_formula_predict_inputs(
         for feature, info in factor_info.items():
             if feature not in X.columns:
                 continue
-            if (
-                not validate_structured_factor_levels
-                and feature in (getattr(term, "metadata", {}) or {}).get(
-                    "zero_unseen_factor_features", ()
-                )
-            ):
+            if not validate_structured_factor_levels and feature in (
+                getattr(term, "metadata", {}) or {}
+            ).get("zero_unseen_factor_features", ()):
                 continue
             allowed = list(info.get("levels", ()))
             observed = [
-                value for value in pd.unique(feature_values_for_levels(X[feature]))
+                value
+                for value in pd.unique(feature_values_for_levels(X[feature]))
                 if not pd.isna(value)
             ]
             unseen = [value for value in observed if value not in allowed]
@@ -241,12 +263,12 @@ def coerce_formula_predict_inputs(
     allowed_missing = {str(value) for value in allowed_missing_features}
     X_work = apply_formula_preprocess_to_new_data(
         X,
-        model.formula_preprocess_state_,
+        preprocess_state,
         skip_output_columns=allowed_missing,
     )
-    feature_columns = getattr(model, "formula_feature_columns_", None)
+    feature_columns = preprocess_state.get("feature_columns")
     if feature_columns is None:
-        feature_columns = model.formula_used_columns_
+        feature_columns = preprocess_state["used_columns"]
     missing = [c for c in feature_columns if c not in X_work.columns]
     for name in [value for value in missing if value in allowed_missing]:
         X_work[name] = np.zeros(len(X_work), dtype=np.float64)
@@ -256,13 +278,15 @@ def coerce_formula_predict_inputs(
 
     X_df = X_work[feature_columns]
     X_np, _ = coerce_X(
-        model,
+        None,
         X_df,
         allow_missing_non_numeric=True,
         allow_missing_numeric=allow_missing_numeric,
     )
 
-    offset_names = getattr(model, "formula_offset_names_", None)
+    offset_names = preprocess_state.get("offset_names")
+    if offset_names is None and preprocess_state.get("offset_name") is not None:
+        offset_names = (preprocess_state["offset_name"],)
     offset = None
     if offset_names is not None:
         if len(offset_names) == 1:

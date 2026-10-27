@@ -21,6 +21,15 @@ neural distribution supplies target support, output transforms, and loss.
 Grouping them by a common response name does not make their internal
 parameterizations interchangeable.
 
+Loss-based statistical estimators use :func:`nampy.gam.compile_design` to
+obtain an identified basis, fixed penalty, term ownership, response and known
+offsets without fitting a likelihood. ``CompiledDesign.evaluate`` evaluates
+new rows and their offsets together. The GAM facade and this interface share
+formula preprocessing, the compiler, smoothing-override resolution, prediction
+matrix construction and smooth-owned offset evaluation. Expectile and quantile
+estimators share a neutral loss-estimator base; neither fits a Gaussian model
+as a preparation step.
+
 Extension points
 ----------------
 
@@ -37,6 +46,14 @@ Extension points
   the relevant basis, penalty, coefficient solver, or smoothing-selection
   layer. Preserve explicit compatibility checks and the upstream statistical
   objective.
+* **New statistical loss:** reuse ``compile_design`` and the shared estimator
+  lifecycle, supplying the coefficient solver and per-row scoring loss.
+  Target shape validation, term contributions, prediction offsets and plotting
+  stay in the shared layer. Statistical exports are declared in
+  ``nampy/models/_statistical_registry.py``; general-family constructors and
+  supported options are declared in ``nampy/gam/families/registry.py``.
+  Documentation discovers membership from these inventories and requires an
+  authored example for every exposed extension.
 * **Execution contract:** the facade owns splitting, train-only preprocessing,
   seeded construction, offsets, persistence, and inference batching. Fixed
   linear designs and native-training providers expose specialized solves

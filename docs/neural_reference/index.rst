@@ -12,5 +12,3 @@ Start with an architecture and response distribution, configure training, then e
    families/index
    Training parameters </api/neural_training>
    methods/index
-   extensions/index
-   internals

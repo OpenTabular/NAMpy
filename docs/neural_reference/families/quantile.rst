@@ -5,6 +5,35 @@ quantile
 
 Neural distribution family for ``family='quantile'``. Configure its constructor through ``distributional_kwargs`` on an LSS estimator.
 
+Distribution definition and moments
+-----------------------------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Quantity
+     - Definition
+   * - Distribution / loss
+     - For each level q, minimize rho_q(y-v)=(y-v)(q-I[y<v]); sum over levels and average over rows. This is a loss, not a normalized density.
+   * - Natural domains
+     - Requested quantiles in configured level order; levels in (0,1)
+   * - Conditional mean
+     - Not determined by a finite quantile vector; point output uses the 0.5 quantile when present, otherwise the arithmetic average of the predicted quantiles
+   * - Conditional variance
+     - Not determined; predict_spread is unavailable
+
+References: `PyTorch probability distributions <https://docs.pytorch.org/docs/stable/distributions.html>`_. NAMpy defines its family transforms and point outputs below.
+
+Targets, transforms and scoring
+-------------------------------
+
+Target shape/encoding: ``(n,) floating scalar response; support follows the distribution definition above``. Network rows must align with target rows. Parameter column order is given in the output contract below. Positive default transforms use ``softplus(raw)+eps``; identity leaves unrestricted locations unchanged. Constructor transform options accept registered transform names or callables and must preserve the stated parameter domains.
+
+``compute_loss`` and ``compute_loss_per_sample`` consume raw network outputs, not already transformed parameters. The scalar loss is averaged over observations. Lower loss is better. LSS scoring follows the shared estimator contract; response SD summarizes conditional variability, not estimation uncertainty. Distribution-specific moments that do not exist cannot be interpreted as finite uncertainty estimates.
+
+Implementation definitions: :mod:`nampy.neural.distributions.distributions`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Signature
 ---------
 
@@ -28,19 +57,19 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
    * - ``name``
      - ``str``
      - ``'Quantile'``
-     - Display name of the distribution instance; does not select a different family or change the parameterization.
+     - Display label for this distribution; does not change its mathematical family.
    * - ``quantiles``
      - ``Sequence[float] | None``
      - ``None``
-     - Strictly increasing probability levels in (0, 1). None uses [0.25, 0.5, 0.75]. Output columns follow this order.
+     - Strictly increasing probability levels in (0,1); None selects 0.25, 0.5, 0.75.
    * - ``enforce_monotonic``
      - ``bool``
      - ``True``
-     - Whether later predicted quantiles are cumulative positive increments from the first, enforcing noncrossing output. QNAM supplies its own ordered outputs and disables this second transformation.
+     - If True, uses the first raw column as the initial quantile and cumulative softplus increments for later levels. This preserves nondecreasing quantiles without sorting raw columns.
    * - ``eps``
      - ``float``
      - ``1e-08``
-     - Positive numerical floor used in parameter-domain safeguards and stable likelihood evaluation.
+     - Positive numerical floor used by positivity transforms and stable logarithms; it is not response noise.
 
 Outputs
 -------
@@ -60,33 +89,6 @@ Outputs
    * - Objective
      - Pinball loss; no probability density
 
-Quantile (quantile)
-~~~~~~~~~~~~~~~~~~~
-
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Property
-     - Meaning
-   * - Alias
-     - ``quantile``
-   * - Target support
-     - Real scalar
-   * - Parameter order
-     - q_0.25, q_0.5, q_0.75
-   * - Default transforms
-     - First raw value is free; later quantiles add cumulative softplus increments when enforce_monotonic=True. QNAM uses ordered term outputs and disables this second transform.
-   * - Point prediction
-     - Median when requested, otherwise average requested quantiles
-   * - Spread
-     - No predict_spread hook; use quantile gaps as interval summaries
-   * - Loss
-     - Pinball loss; no probability density
-
-
-
 .. list-table::
    :header-rows: 1
    :class: api-reference-table
@@ -98,11 +100,11 @@ Quantile (quantile)
    * - raw input
      - torch.Tensor[floating]
      - (n, Q)
-     - Untransformed network predictors. C = classes, D = response dimensions, Q = requested quantile levels.
+     - Untransformed network predictors for quantile; columns follow param_names: ['q_0.25', 'q_0.5', 'q_0.75'].
    * - forward(raw)
      - torch.Tensor[floating]
      - (n, Q)
-     - Transformed natural parameters or class probabilities; parameter order follows the contract table. dtype/device follow the supplied tensor.
+     - Transformed parameters in param_names order. dtype/device follow the supplied tensor.
    * - compute_loss(raw, y)
      - torch.Tensor[floating]
      - ()
@@ -114,7 +116,7 @@ Quantile (quantile)
    * - predict_point(raw)
      - torch.Tensor
      - (n,)
-     - Family-defined point functional; class families return integer class indices, continuous families floating predictions.
+     - Family-defined floating point prediction; see the conditional mean/point contract above.
    * - predict_spread
      - not a scalar spread API
      - not applicable
@@ -122,9 +124,11 @@ Quantile (quantile)
 
 ``forward(raw)`` transforms a tensor of network outputs into natural parameters. ``compute_loss(raw, y)`` returns the scalar training objective; ``compute_loss_per_sample(raw, y)`` retains the observation dimension. ``predict_point(raw, transformed=False)`` returns point predictions; set transformed=True only when passing already transformed values.
 
-``predict`` returns family-transformed values; ``predict(raw=True)`` returns network predictors. Shapes follow the parameter ordering above, including class, vector and quantile exceptions. ``predict_point`` reduces to the family-defined point functional. Conditional spread is distributional spread, not parameter-estimation uncertainty.
+``predict`` returns family-transformed values; ``predict(raw=True)`` returns network predictors. Shapes and column meanings follow this family’s contract above. ``predict_point`` reduces to the family-defined point functional. Conditional spread is distributional spread, not parameter-estimation uncertainty.
 
 :doc:`Shared training parameters </api/neural_training>` · :doc:`All neural family contracts </api/utils>`
+
+
 Runnable example
 ----------------
 
@@ -135,10 +139,47 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/families/quantile.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "loss": [
+       0.5
+     ],
+     "parameters": [
+       0.0,
+       0.693149983882904,
+       1.3862899541854858,
+       0.0,
+       0.693149983882904,
+       1.3862899541854858
+     ],
+     "point": [
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904
+     ],
+     "raw": [
+       0.0,
+       0.0,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

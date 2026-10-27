@@ -9,6 +9,8 @@ EnsembleTreeNAMRegressor
    :no-inherited-members:
 
 .. include:: /_generated/reference/EnsembleTreeNAMRegressor.inc
+
+
 Runnable example
 ----------------
 
@@ -19,10 +21,64 @@ This example includes its data and imports. Run it after installing NAMpy. Small
 .. literalinclude:: /_examples/reference/neural_reference/estimators/EnsembleTreeNAMRegressor.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "components": {
+       "link": [
+         -0.4336499869823456,
+         -0.34237000346183777,
+         -0.40658000111579895,
+         -0.46386000514030457,
+         -0.4408000111579895,
+         -0.31106001138687134
+       ],
+       "response": [
+         -0.4336499869823456,
+         -0.34237000346183777,
+         -0.40658000111579895,
+         -0.46386000514030457,
+         -0.4408000111579895,
+         -0.31106001138687134
+       ],
+       "terms": {
+         "x": [
+           -0.2891499996185303,
+           -0.28863999247550964,
+           -0.288129985332489,
+           -0.28762000799179077,
+           -0.26034000515937805,
+           -0.25606998801231384
+         ],
+         "z": [
+           -0.14846999943256378,
+           -0.05770000070333481,
+           -0.12241999804973602,
+           -0.18020999431610107,
+           -0.18442000448703766,
+           -0.058970000594854355
+         ]
+       }
+     },
+     "prediction": [
+       -0.4336499869823456,
+       -0.34237000346183777,
+       -0.40658000111579895,
+       -0.46386000514030457,
+       -0.4408000111579895,
+       -0.31106001138687134
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -39,37 +95,4 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
      - (64,)
    * - result['components']
      - nampy.contracts.AdditivePrediction
-     - scalar record
-   * - result['components'].response
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].link
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].terms
-     - dict
-     - 2 named fields
-   * - result['components'].terms['x']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].terms['z']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].intercept
-     - builtins.float
-     - ()
-   * - result['components'].backend
-     - builtins.str
-     - ()
-   * - result['components'].offset
-     - builtins.NoneType
-     - not applicable
-   * - result['components'].term_metadata
-     - dict
-     - 2 named fields
-   * - result['components'].term_metadata['x']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
-   * - result['components'].term_metadata['z']
-     - nampy.contracts.AdditiveTermMetadata
      - scalar record

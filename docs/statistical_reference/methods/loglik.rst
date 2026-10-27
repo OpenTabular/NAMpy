@@ -35,6 +35,8 @@ Python float. This omits the smoothness penalty and is not the smoothing-selecti
      - scalar
      - Unpenalized fitted log likelihood.
 
+
+
 Runnable example
 ----------------
 
@@ -45,10 +47,19 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/loglik.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   67.13606062617978
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

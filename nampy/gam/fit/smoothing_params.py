@@ -7,7 +7,6 @@ from collections.abc import Mapping
 import numpy as np
 
 from ..model_state import (
-    _compiled_metadata,
     _compiled_model,
     _n_smoothing_params,
     _penalty_blocks_seq,
@@ -31,9 +30,13 @@ def resolve_min_sp(model, min_sp):
     from ..penalty_maps import penalty_log_sp_map
 
     mapping = penalty_log_sp_map(penalty_blocks, n_smoothing_params)
-    if np.any(arr > 0) and any(block.metadata.get("para_pen") for block in penalty_blocks) and not (
-        mapping.shape == (n_smoothing_params, n_smoothing_params)
-        and np.array_equal(mapping, np.eye(n_smoothing_params))
+    if (
+        np.any(arr > 0)
+        and any(block.metadata.get("para_pen") for block in penalty_blocks)
+        and not (
+            mapping.shape == (n_smoothing_params, n_smoothing_params)
+            and np.array_equal(mapping, np.eye(n_smoothing_params))
+        )
     ):
         raise NotImplementedError(
             "Positive min_sp with a para_pen log-SP map is not implemented: "
@@ -55,12 +58,30 @@ def resolve_min_sp(model, min_sp):
 
 
 def resolve_smoothing_params(model, n_smoothing_params):
-    sp = model.smoothing_params
+    compiled = _compiled_model(model)
+    if compiled is None:
+        raise RuntimeError("Design has not been compiled yet.")
+    if n_smoothing_params != compiled.n_smoothing_params:
+        raise ValueError("Smoothing parameter count differs from compiled design.")
+    sp, mask, modes = resolve_compiled_smoothing_params(
+        compiled, model.smoothing_params, minimum=model.min_sp_
+    )
+    model.smoothing_fixed_mask_ = mask
+    model.smoothing_override_modes_ = modes
+    return sp
+
+
+def resolve_compiled_smoothing_params(
+    compiled_model, values, *, minimum=None, allow_zero=False
+):
+    """Resolve penalty strengths/overrides without a fitted model or solver."""
+    n_smoothing_params = compiled_model.n_smoothing_params
+    sp = values
     if sp is None:
         sp = np.ones(n_smoothing_params, dtype=np.float64)
     elif isinstance(sp, Mapping):
         out = np.ones(n_smoothing_params, dtype=np.float64)
-        group_map = dict(_compiled_metadata(model).get("s_id_to_sp_indices", {}) or {})
+        group_map = dict(compiled_model.metadata.get("s_id_to_sp_indices", {}) or {})
         unknown = sorted(str(key) for key in sp.keys() if str(key) not in group_map)
         if unknown:
             raise ValueError(f"Unknown smoothing id(s) in smoothing_params: {unknown}.")
@@ -93,7 +114,6 @@ def resolve_smoothing_params(model, n_smoothing_params):
         sp = sp.copy()
 
     fixed_mask = np.zeros(n_smoothing_params, dtype=bool)
-    compiled_model = _compiled_model(model)
     override_modes = (
         None
         if compiled_model is None
@@ -137,10 +157,13 @@ def resolve_smoothing_params(model, n_smoothing_params):
                     f"Unknown smoothing override mode {mode!r} at index {i}."
                 )
 
+    if allow_zero and (np.any(~np.isfinite(sp)) or np.any(sp < 0)):
+        raise ValueError("Fixed smoothing parameters must be finite and nonnegative.")
+
     min_sp = (
         np.zeros(n_smoothing_params, dtype=np.float64)
-        if model.min_sp_ is None
-        else np.asarray(model.min_sp_, dtype=np.float64)
+        if minimum is None
+        else np.asarray(minimum, dtype=np.float64)
     )
     if min_sp.shape != (n_smoothing_params,):
         raise ValueError(
@@ -153,16 +176,14 @@ def resolve_smoothing_params(model, n_smoothing_params):
 
     sp = np.maximum(sp, min_sp)
     free_mask = ~fixed_mask
-    if np.any(~np.isfinite(sp[free_mask])) or np.any(sp[free_mask] <= 0):
+    if np.any(~np.isfinite(sp[free_mask])) or np.any(
+        sp[free_mask] < 0 if allow_zero else sp[free_mask] <= 0
+    ):
         raise ValueError("All free smoothing parameters must be finite and > 0.")
     if np.any(~np.isfinite(sp[fixed_mask])) or np.any(sp[fixed_mask] < 0):
         raise ValueError("All fixed smoothing parameters must be finite and >= 0.")
 
-    model.smoothing_fixed_mask_ = fixed_mask
-    model.smoothing_override_modes_ = (
-        None if override_modes is None else list(override_modes)
-    )
-    return sp
+    return sp, fixed_mask, None if override_modes is None else list(override_modes)
 
 
 def expand_smoothing_params_from_log(model, log_free_sp):

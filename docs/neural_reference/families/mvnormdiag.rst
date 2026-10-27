@@ -5,6 +5,35 @@ mvnormdiag
 
 Neural distribution family for ``family='mvnormdiag'``. Configure its constructor through ``distributional_kwargs`` on an LSS estimator.
 
+Distribution definition and moments
+-----------------------------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Quantity
+     - Definition
+   * - Distribution / loss
+     - Y_i independently Normal(loc_i,scale_i^2) conditional on inputs; joint density is the product over dimensions.
+   * - Natural domains
+     - loc_1,...,loc_D in R, then scale_1,...,scale_D>0
+   * - Conditional mean
+     - loc vector
+   * - Conditional variance
+     - Diagonal covariance diag(scale_i^2)
+
+References: `PyTorch probability distributions <https://docs.pytorch.org/docs/stable/distributions.html>`_. NAMpy defines its family transforms and point outputs below.
+
+Targets, transforms and scoring
+-------------------------------
+
+Target shape/encoding: ``(n,D) floating response matrix``. Network rows must align with target rows. Parameter column order is given in the output contract below. Positive default transforms use ``softplus(raw)+eps``; identity leaves unrestricted locations unchanged. Constructor transform options accept registered transform names or callables and must preserve the stated parameter domains.
+
+``compute_loss`` and ``compute_loss_per_sample`` consume raw network outputs, not already transformed parameters. The scalar loss is averaged over observations. Lower loss is better. LSS scoring follows the shared estimator contract; response SD summarizes conditional variability, not estimation uncertainty. Distribution-specific moments that do not exist cannot be interpreted as finite uncertainty estimates.
+
+Implementation definitions: :mod:`nampy.neural.distributions.distributions`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Signature
 ---------
 
@@ -28,27 +57,27 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
    * - ``n_dim``
      - ``int | None``
      - ``None``
-     - Number of response dimensions for Dirichlet or diagonal multivariate normal. The estimator registry infers it from a two-dimensional target when omitted.
+     - Response dimension D, positive integer; None is inferred from the two-dimensional training target.
    * - ``dim``
      - ``int | None``
      - ``None``
-     - Alternative dimension argument for the diagonal multivariate normal constructor; use a dimension consistent with the target width.
+     - Alias for the positive response dimension D; must agree with n_dim if both are supplied.
    * - ``name``
      - ``str``
      - ``'MultivariateNormalDiag'``
-     - Display name of the distribution instance; does not select a different family or change the parameterization.
+     - Display label for this distribution; does not change its mathematical family.
    * - ``loc_transform``
      - ``str | callable(torch.Tensor) -> torch.Tensor``
      - ``'none'``
-     - Transform of the location predictor, default 'none' for an unconstrained real location. Lognormal location is on the logarithmic response scale.
+     - Transform of the location column. For LogNormal this is the mean of log(Y), not the response mean.
    * - ``scale_transform``
      - ``str | callable(torch.Tensor) -> torch.Tensor``
      - ``'positive'``
-     - Transform of the scale-related network predictor; normally 'positive' for positive scale. For Beta this controls its second positive shape parameter.
+     - Transform of the positive scale column; default positive means softplus(raw)+eps.
    * - ``eps``
      - ``float``
      - ``1e-08``
-     - Positive numerical floor used in parameter-domain safeguards and stable likelihood evaluation.
+     - Positive numerical floor used by positivity transforms and stable logarithms; it is not response noise.
 
 Outputs
 -------
@@ -68,31 +97,6 @@ Outputs
    * - Objective
      - Independent multivariate normal negative log likelihood
 
-MultivariateNormalDiagDistribution (mvnormdiag)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Property
-     - Meaning
-   * - Alias
-     - ``mvnormdiag``
-   * - Target support
-     - Real vector with configured n_dim
-   * - Parameter order
-     - loc_0, loc_1, loc_2, scale_0, scale_1, scale_2 (illustrated with three dimensions/classes)
-   * - Default transforms
-     - loc_transform: 'none', scale_transform: 'positive'
-   * - Point prediction
-     - Location vector
-   * - Spread
-     - Not implemented by the family
-   * - Loss
-     - Independent multivariate normal negative log likelihood
-
 .. list-table::
    :header-rows: 1
    :class: api-reference-table
@@ -104,11 +108,11 @@ MultivariateNormalDiagDistribution (mvnormdiag)
    * - raw input
      - torch.Tensor[floating]
      - (n, 2*D)
-     - Untransformed network predictors. C = classes, D = response dimensions, Q = requested quantile levels.
+     - Untransformed network predictors for mvnormdiag; columns follow param_names: ['loc_0', 'loc_1', 'loc_2', 'scale_0', 'scale_1', 'scale_2'].
    * - forward(raw)
      - torch.Tensor[floating]
      - (n, 2*D)
-     - Transformed natural parameters or class probabilities; parameter order follows the contract table. dtype/device follow the supplied tensor.
+     - Transformed parameters in param_names order. dtype/device follow the supplied tensor.
    * - compute_loss(raw, y)
      - torch.Tensor[floating]
      - ()
@@ -120,7 +124,7 @@ MultivariateNormalDiagDistribution (mvnormdiag)
    * - predict_point(raw)
      - torch.Tensor
      - (n, D)
-     - Family-defined point functional; class families return integer class indices, continuous families floating predictions.
+     - Family-defined floating point prediction; see the conditional mean/point contract above.
    * - predict_spread
      - not a scalar spread API
      - not applicable
@@ -128,9 +132,11 @@ MultivariateNormalDiagDistribution (mvnormdiag)
 
 ``forward(raw)`` transforms a tensor of network outputs into natural parameters. ``compute_loss(raw, y)`` returns the scalar training objective; ``compute_loss_per_sample(raw, y)`` retains the observation dimension. ``predict_point(raw, transformed=False)`` returns point predictions; set transformed=True only when passing already transformed values.
 
-``predict`` returns family-transformed values; ``predict(raw=True)`` returns network predictors. Shapes follow the parameter ordering above, including class, vector and quantile exceptions. ``predict_point`` reduces to the family-defined point functional. Conditional spread is distributional spread, not parameter-estimation uncertainty.
+``predict`` returns family-transformed values; ``predict(raw=True)`` returns network predictors. Shapes and column meanings follow this family’s contract above. ``predict_point`` reduces to the family-defined point functional. Conditional spread is distributional spread, not parameter-estimation uncertainty.
 
 :doc:`Shared training parameters </api/neural_training>` · :doc:`All neural family contracts </api/utils>`
+
+
 Runnable example
 ----------------
 
@@ -141,10 +147,47 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/families/mvnormdiag.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "loss": [
+       4.779329776763916
+     ],
+     "parameters": [
+       0.0,
+       0.0,
+       0.0,
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904
+     ],
+     "point": [
+       0.0,
+       0.0,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+     ],
+     "raw": [
+       0.0,
+       0.0,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

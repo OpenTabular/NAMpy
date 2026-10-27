@@ -3,331 +3,37 @@
 Smooth Terms
 ============
 
-Smooth terms construct the basis and penalty matrices used by the statistical
-GAM backend. Users normally select them by code inside a formula instead of
-instantiating the runtime classes directly:
-
-.. code-block:: python
-
-   formula = (
-       'y ~ s(x, bs="tp", k=12) '
-       '+ s(day, bs="cc", k=10) '
-       '+ ti(latitude, longitude, bs=c("cr", "cr"))'
-   )
-
-The inventory below lists every public basis code. For guidance based on the
-modeling question and fitted plots, start with :ref:`formula-visual-reference`.
-The classes at the end of this page form the extension API for custom smooths.
-
-Formula constructors
---------------------
-
-.. list-table::
-   :header-rows: 1
-   :widths: 16 46 38
-
-   * - Constructor
-     - Representation
-     - Minimal formula
-   * - ``s(...)``
-     - One smooth term using the selected ``bs=`` code; some bases accept
-       multiple variables.
-     - ``y ~ s(x, bs="tp", k=12)``
-   * - ``te(...)``
-     - Full tensor product, including marginal directions.
-     - ``y ~ te(x, z, bs=c("cr", "cr"))``
-   * - ``ti(...)``
-     - Tensor interaction with marginal main-effect spaces removed.
-     - ``y ~ s(x) + s(z) + ti(x, z)``
-   * - ``t2(...)``
-     - Full tensor product with SS-ANOVA-style range/null-space penalty blocks.
-     - ``y ~ t2(x, z, bs=c("cr", "cr"))``
-
-See the :ref:`fitted tensor comparison <tensor-constructor-comparison>` before
-choosing among ``te()``, ``ti()``, and ``t2()``.
+The :doc:`grouped smooth reference </statistical_reference/smooths/index>`
+contains formula arguments, basis distinctions and runnable examples.
+For constructors and basis internals, use :doc:`/extension_reference/smooths/index`.
 
 .. _gam-smooth-bases:
 
-Metric, cyclic, and spatial basis codes
----------------------------------------
+Basis lookup
+------------
 
-Supply these codes through ``bs=`` inside ``s()``. Codes marked as tensor
-marginals can also appear in the ``bs=c(...)`` argument of ``te()``, ``ti()``,
-or ``t2()``.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 14 48 38
-
-   * - Code
-     - Basis
-     - Minimal formula
-   * - ``tp``
-     - Thin-plate regression spline; accepts one or more covariates and can be
-       a tensor marginal.
-     - ``s(x, bs="tp")``
-   * - ``ts``
-     - Thin-plate spline with null-space shrinkage; accepts one or more
-       covariates and can be a tensor marginal.
-     - ``s(x, bs="ts")``
-   * - ``cr``
-     - Cubic regression spline; can be a tensor marginal.
-     - ``s(x, bs="cr")``
-   * - ``cs``
-     - Cubic regression spline with shrinkage; can be a tensor marginal.
-     - ``s(x, bs="cs")``
-   * - ``cc``
-     - Cyclic cubic regression spline; can be a tensor marginal.
-     - ``s(hour, bs="cc")``
-   * - ``ps``
-     - P-spline; can be a tensor marginal.
-     - ``s(x, bs="ps", m=c(2, 2))``
-   * - ``cp``
-     - Cyclic P-spline; can be a tensor marginal.
-     - ``s(hour, bs="cp")``
-   * - ``bs``
-     - B-spline with derivative-based penalties; can be a tensor marginal.
-     - ``s(x, bs="bs", m=c(3, 2))``
-   * - ``ds``
-     - Duchon spline for one or more covariates; can be a tensor marginal.
-     - ``s(x, z, bs="ds")``
-   * - ``gp``
-     - Gaussian-process smooth for one or more covariates; can be a tensor
-       marginal.
-     - ``s(x, z, bs="gp")``
-   * - ``ad``
-     - Adaptive smooth for one or two covariates, with locally varying
-       smoothness.
-     - ``s(x, bs="ad")``
-   * - ``sos``
-     - Spline on a sphere from latitude and longitude; can be a tensor
-       marginal.
-     - ``s(lat, lon, bs="sos")``
-   * - ``so`` / ``sf`` / ``sw``
-     - Soap film on a bounded planar domain: full surface, boundary film,
-       or zero-boundary interior component. Requires boundary loops and knots.
-     - ``s(x, z, bs="so", xt={...})``
-   * - ``sc`` / ``scad``
-     - mgcv's B-spline/adaptive constructor branches without inequalities.
-       Shape inequalities require the separate, unsupported ``scasm`` fitter.
-     - ``s(x, bs="sc")``
+See :doc:`/statistical_reference/smooths/index`.
 
 .. _soap-film-smooths:
 
-Soap films on bounded domains
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Bounded spatial domains
+-----------------------
 
-Soap films respect irregular boundaries and holes. The ``so`` basis combines
-a smooth boundary interpolant (``sf``) with an interior component (``sw``)
-that is zero on the boundary. Each free boundary loop has its own penalty;
-the interior has another penalty. ``k`` controls the boundary basis dimension,
-while the number of paired interior knots controls the interior dimension.
-
-Pass boundary loops through ``xt['bnd']``, with coordinate names matching the
-formula. Each loop must describe a closed polygon; an omitted closing point is
-added automatically. Supply interior knot coordinates through the model's
-``knots`` argument. For example:
-
-.. code-block:: python
-
-   import numpy as np
-   import pandas as pd
-   from nampy.gam import GAM
-
-   rng = np.random.default_rng(42)
-   data = pd.DataFrame(rng.uniform(0.05, 0.95, (150, 2)), columns=['x', 'z'])
-   data['y'] = np.sin(4 * data.x) * np.cos(3 * data.z)
-   boundary = [{'x': [0., 1., 1., 0., 0.],
-                'z': [0., 0., 1., 1., 0.]}]
-   gx, gz = np.meshgrid([0.2, 0.5, 0.8], [0.2, 0.5, 0.8])
-   knots = {'x': gx.ravel(), 'z': gz.ravel()}
-   xt = {'bnd': boundary, 'nmax': 40}
-   model = GAM(
-       formula=f"y ~ s(x, z, bs='so', k=8, xt={xt!r})",
-       knots=knots, smoothing_method='reml', optimize_smoothing=True,
-   ).fit(data=data)
-   prediction, standard_error = model.predict(data, return_se=True)
-
-Use additional loops to describe holes, and a list of ``k`` values to give
-each loop a different boundary dimension. ``xt['nmax']`` controls the
-finite-difference grid resolution (default 200); changing it changes the
-numerical basis. ``xt['bndSpec']`` selects the cyclic boundary spline, using
-``{'bs': 'cc'}`` by default or ``{'bs': 'cp', 'm': [2, 2]}``.
-
-An optional ``f`` array on a boundary loop supplies known boundary values.
-These become a fixed smooth-owned offset for ``so``/``sf``, including during
-new-data prediction and component decomposition. They are added to any formula
-or caller-supplied offset. ``sw`` has a zero boundary and does not use this
-offset. A boundary-only ``sf`` term needs at least one free boundary loop.
-
-Training observations outside the domain are rejected; prediction rows outside
-the domain return NaNs. ``so`` drops outside knots with a warning, following
-mgcv; ``sf`` and ``sw`` retain upstream knot validation. Soap compositions
-depend on the constructed penalty count:
-
-* ``te``, ``ti`` and ``t2`` accept ``sw``, ``sf`` with exactly one free boundary
-  loop, and ``so`` when every boundary loop has prescribed values. Fully known
-  ``so`` has only the full-rank interior penalty; holes are supported.
-* ``fs`` accepts single-penalty ``sf``. ``sz`` accepts single-penalty ``sf``,
-  ``sw`` and fully known-boundary ``so``.
-* ``so`` with any free boundary and ``sf`` with multiple free loops have
-  multiple penalties. Upstream tensor and factor constructors reject these
-  combinations. ``sf`` with no free loops has no free coefficients.
-* Full-rank ``sw`` or fully known ``so`` inside a real ``fs`` interaction
-  reaches an upstream zero-null-space indexing failure; NAMpy rejects it
-  explicitly. This restriction does not apply to ``sz``.
-
-For example, ``te(x,z,t,bs=['so','cr'],d=[2,1],k=[8,5],
-xt=[{'bnd': known_boundary},None])`` uses a fully prescribed soap boundary;
-supply the soap knots as for a direct term. A factor example is
-``s(x,z,group,bs='fs',xt={'bs':'sf','bnd':boundary})``.
-
-The upstream tensor and factor constructors discard the soap-owned boundary
-offset. Nested terms follow that behavior even when the standalone soap term
-would have a nonzero fixed boundary contribution. In contrast, ``fs`` or
-``sz`` with no factor delegates to the ordinary soap constructor and retains
-its offsets and explicit term smoothing parameters.
-
-Matrix-valued paired coordinates and summation weights are supported for
-``fs(sf)``, ``sz(sf)``, ``sz(sw)`` and fully known ``sz(so)`` with scalar
-categorical factors. For example, use ``s(X,Y,group,bs='fs',by=L,
-xt={'bs':'sf','bnd':boundary})`` with array-valued ``X``, ``Y`` and ``L``
-cells and a categorical ``group`` column. Boundary and knot names must match
-the coordinate names. A group that varies across quadrature columns can instead
-use explicit categorical rows, as described below. Classless character arrays
-are not silently converted to factors. Analytic soap derivatives remain unavailable.
-See ``examples/example_soap_compositions.py`` for runnable recipes.
-The static reference tests cover basis and penalty matrices, domains with
-holes, known boundaries, fitting, prediction uncertainty, and persistence.
-
-The newer ``sc``/``scad`` codes are distinct from SCAM's ``mpi`` and related
-bases below. Their default, unconstrained branches reproduce ``bs`` and
-adaptive P-splines respectively. Requests such as ``xt=['m+']`` raise
-``NotImplementedError``: NAMpy does not run mgcv's separate inequality-based
-``scasm`` fitter. Use the documented SCAM bases for supported constrained fits.
+See :doc:`/statistical_reference/smooths/so`.
 
 .. _structured-smooth-bases:
 
-Structured basis codes
-----------------------
+Group effects
+-------------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 14 48 38
-
-   * - Code
-     - Structure
-     - Minimal formula
-   * - ``re``
-     - Random effects or random coefficients; a single-penalty term can be a tensor marginal.
-     - ``s(group, bs="re")``
-   * - ``mrf``
-     - Markov random field over a supplied neighborhood graph; can be a tensor
-       marginal.
-     - ``s(region, bs="mrf", xt=graph)``
-   * - ``fs``
-     - Factor-specific smooth curves with factor-smooth penalties.
-     - ``s(x, group, bs="fs")``
-   * - ``sz``
-     - Sum-to-zero factor-smooth deviations around lower-order effects.
-     - ``s(x, group, bs="sz")``
-
-``by=`` modulates an ordinary smooth by a numeric or factor variable, while
-``id=`` links smoothing parameters across compatible terms. They are smooth
-options rather than basis codes.
+See :doc:`/statistical_reference/smooths/index`.
 
 .. _shape-constrained-basis-codes:
 
-Shape-constrained basis codes
------------------------------
+Shape constraints
+-----------------
 
-These codes use the same ``s(..., bs=...)`` syntax. Their constraints,
-coefficient transforms, and supported fitting routes are documented in
-:doc:`../user_guide/shape_constrained_gams`.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 24 48 28
-
-   * - Constraint
-     - Codes
-     - Minimal formula
-   * - Monotone
-     - ``mpi``, ``mpd``
-     - ``s(x, bs="mpi")``
-   * - Convex or concave
-     - ``cx``, ``cv``
-     - ``s(x, bs="cx")``
-   * - Monotone with curvature
-     - ``micx``, ``micv``, ``mdcx``, ``mdcv``
-     - ``s(x, bs="micx")``
-   * - Positive
-     - ``po``, ``ipo``, ``dpo``, ``cpop``
-     - ``s(x, bs="po")``
-   * - Anchored monotone
-     - ``miso``, ``mifo``
-     - ``s(x, bs="miso")``
-   * - Numeric-by shape constrained
-     - ``mpiby``, ``mpdby``, ``micxby``, ``micvby``, ``mdcxby``,
-       ``mdcvby``, ``cxby``, ``cvby``
-     - ``s(x, by=z, bs="mpiby")``
-   * - Local
-     - ``lmpi``, ``lipl``
-     - ``s(x, bs="lmpi", xt=list(xc=0.4))``
-   * - Bivariate derivative constraints
-     - ``tedmi``, ``tedmd``, ``temicx``, ``temicv``, ``tedecx``,
-       ``tedecv``, ``tecxcx``, ``tecvcv``, ``tecxcv``
-     - ``s(x, z, bs="tedmi")``
-   * - Bivariate sum/axis constraints
-     - ``tescx``, ``tescv``, ``tesmi1``, ``tesmd1``, ``tesmi2``,
-       ``tesmd2``, ``tismi``, ``tismd``
-     - ``s(x, z, bs="tesmi1")``
-
-Base contract and registry
---------------------------
-
-.. currentmodule:: nampy.gam.smooths
-
-.. autosummary::
-   :toctree: generated/
-   :nosignatures:
-
-   BaseSmoothTerm
-   ByState
-   make_smooth_term
-   register_smooth
-
-One-dimensional and metric smooths
-----------------------------------
-
-.. autosummary::
-   :toctree: generated/
-   :nosignatures:
-
-   ThinPlateSplineTerm
-   CubicSplineTerm
-   PSplineTerm1D
-   DerivativeBSplineTerm1D
-   DuchonSplineTerm
-   GaussianProcessTerm
-   AdaptiveSmoothTerm
-   SphericalSplineTerm
-
-Tensor and structured smooths
------------------------------
-
-.. autosummary::
-   :toctree: generated/
-   :nosignatures:
-
-   TensorProductSplineTerm
-   InteractionTensorProductSplineTerm
-   AlternativeTensorProductSplineTerm
-   RandomEffectTerm
-   MarkovRandomFieldTerm
-   FSmoothInteractionTerm
-   SZSmoothInteractionTerm
-   ShapeConstrainedPSplineTerm
+See :doc:`/user_guide/shape_constrained_gams`.
 
 .. _matrix-functional-smooths:
 
@@ -471,6 +177,8 @@ See :doc:`../notebooks/functional_inputs` for a functional-regression example.
 
 Construction helpers
 --------------------
+
+.. currentmodule:: nampy.gam.smooths
 
 .. autosummary::
    :toctree: generated/

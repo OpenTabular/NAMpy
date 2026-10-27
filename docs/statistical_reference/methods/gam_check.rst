@@ -28,7 +28,7 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
    * - ``type``
      - ``str``
      - ``'deviance'``
-     - Output scale or diagnostic residual type. Prediction accepts response, link, terms, iterms and lpmatrix; residual choices depend on the response family.
+     - Prediction mode: response, link, terms, iterms or lpmatrix. Response applies the family transformation; link retains additive predictors; term modes return contributions; lpmatrix returns the coefficient design.
    * - ``k_sample``
      - ``int``
      - ``5000``
@@ -60,6 +60,8 @@ Structured diagnostic report including supported residual and k-check results. U
      - named diagnostic fields
      - Numerical convergence/residual report plus basis-dimension checks. The example below lists the actual returned fields.
 
+
+
 Runnable example
 ----------------
 
@@ -70,10 +72,41 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/gam_check.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "mgcv_comparable": {
+       "k_check": "       k_prime       edf   k_index  p_value\nlabel                                      \ns(x)         6  4.020580  1.123501      1.0\ns(z)         5  1.000049  0.821828      0.1",
+       "residual_type": "deviance",
+       "residuals": [
+         -0.054,
+         -0.18547,
+         0.09305,
+         0.12949,
+         0.00411,
+         0.0449
+       ]
+     },
+     "nampy_specific": {
+       "convergence": {
+         "message": "full convergence",
+         "method": "reml",
+         "nit": 10,
+         "success": true
+       },
+       "model_rank": 12
+     }
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -88,54 +121,9 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
    * - result['mgcv_comparable']
      - dict
      - 3 named fields
-   * - result['mgcv_comparable']['residual_type']
-     - builtins.str
-     - ()
-   * - result['mgcv_comparable']['residuals']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['mgcv_comparable']['k_check']
-     - pandas.DataFrame
-     - (2, 4)
-   * - result['mgcv_comparable']['k_check']['k_prime']
-     - int64
-     - (2,)
-   * - result['mgcv_comparable']['k_check']['edf']
-     - float64
-     - (2,)
-   * - result['mgcv_comparable']['k_check']['k_index']
-     - float64
-     - (2,)
-   * - result['mgcv_comparable']['k_check']['p_value']
-     - float64
-     - (2,)
    * - result['nampy_specific']
      - dict
      - 2 named fields
-   * - result['nampy_specific']['convergence']
-     - dict
-     - 6 named fields
-   * - result['nampy_specific']['convergence']['method']
-     - builtins.str
-     - ()
-   * - result['nampy_specific']['convergence']['success']
-     - builtins.bool
-     - ()
-   * - result['nampy_specific']['convergence']['message']
-     - builtins.str
-     - ()
-   * - result['nampy_specific']['convergence']['nit']
-     - builtins.int
-     - ()
-   * - result['nampy_specific']['convergence']['used_gradient']
-     - builtins.bool
-     - ()
-   * - result['nampy_specific']['convergence']['used_hessian']
-     - builtins.bool
-     - ()
-   * - result['nampy_specific']['model_rank']
-     - builtins.int
-     - ()
 
 .. automethod:: nampy.gam.GAM.gam_check
    :no-index:

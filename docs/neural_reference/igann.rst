@@ -5,6 +5,8 @@ IGANN API
 
 :doc:`Model structure, interpretation and restrictions </models/igann>`.
 
+
+
 Constructor defaults and parameter descriptions below are resolved from the installed estimator and its architecture configuration. Each supported task has its own reference page.
 
 .. toctree::
@@ -17,75 +19,7 @@ Constructor defaults and parameter descriptions below are resolved from the inst
 Architecture configuration
 --------------------------
 
-.. autoclass:: nampy.neural.configs.igann_config.DefaultIGANNConfig
-   :no-index:
-   :no-members:
-   :no-inherited-members:
-
-Runnable example
-----------------
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/neural_reference/igann.py>`
-
-.. literalinclude:: /_examples/reference/neural_reference/igann.py
-   :language: python
-
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['prediction']
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components']
-     - nampy.contracts.AdditivePrediction
-     - scalar record
-   * - result['components'].response
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].link
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].terms
-     - dict
-     - 2 named fields
-   * - result['components'].terms['x']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].terms['z']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].intercept
-     - builtins.float
-     - ()
-   * - result['components'].backend
-     - builtins.str
-     - ()
-   * - result['components'].offset
-     - builtins.NoneType
-     - not applicable
-   * - result['components'].term_metadata
-     - dict
-     - 2 named fields
-   * - result['components'].term_metadata['x']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
-   * - result['components'].term_metadata['z']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
+Configuration class: ``DefaultIGANNConfig``. Defaults below are resolved from its factory.
 
 Configuration parameters
 ------------------------
@@ -172,3 +106,91 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``float``
      - ``100.0``
      - Positive numerical limit used by native IGANN classification updates.
+
+
+
+Runnable example
+----------------
+
+This example includes all imports and input data; no variables from another page are required.
+
+:download:`Download the complete example </_examples/reference/neural_reference/igann.py>`
+
+.. literalinclude:: /_examples/reference/neural_reference/igann.py
+   :language: python
+
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "components": {
+       "link": [
+         -0.8872699737548828,
+         -0.8634700179100037,
+         -0.8340499997138977,
+         -0.7932900190353394,
+         -0.7674599885940552,
+         -0.7514899969100952
+       ],
+       "response": [
+         -0.8872699737548828,
+         -0.8634700179100037,
+         -0.8340499997138977,
+         -0.7932900190353394,
+         -0.7674599885940552,
+         -0.7514899969100952
+       ],
+       "terms": {
+         "x": [
+           -0.8977199792861938,
+           -0.8698800206184387,
+           -0.8420000076293945,
+           -0.8141000270843506,
+           -0.7861499786376953,
+           -0.7581700086593628
+         ],
+         "z": [
+           -0.0027799999807029963,
+           -0.006819999776780605,
+           -0.005280000157654285,
+           0.007569999899715185,
+           0.005450000055134296,
+           -0.006550000049173832
+         ]
+       }
+     },
+     "prediction": [
+       -0.8872699737548828,
+       -0.8634700179100037,
+       -0.8340499997138977,
+       -0.7932900190353394,
+       -0.7674599885940552,
+       -0.7514899969100952
+     ]
+   }
+
+Example output types and shapes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Output field
+     - Python type / dtype
+     - Example shape
+   * - result
+     - dict
+     - 2 named fields
+   * - result['prediction']
+     - numpy.ndarray[float32]
+     - (64,)
+   * - result['components']
+     - nampy.contracts.AdditivePrediction
+     - scalar record

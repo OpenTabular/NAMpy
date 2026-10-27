@@ -40,7 +40,7 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
    * - ``type``
      - ``str``
      - ``'response'``
-     - Output scale or diagnostic residual type. Prediction accepts response, link, terms, iterms and lpmatrix; residual choices depend on the response family.
+     - Prediction mode: response, link, terms, iterms or lpmatrix. Response applies the family transformation; link retains additive predictors; term modes return contributions; lpmatrix returns the coefficient design.
    * - ``offset``
      - ``float | array-like, shape (n,) or (n, q) | None``
      - ``None``
@@ -96,6 +96,8 @@ A NumPy array. Scalar response/link predictions have n_samples rows; term predic
      - same shape as prediction
      - Returned only as (prediction, standard_error) when return_se=True and the requested prediction route supports standard errors.
 
+
+
 Runnable example
 ----------------
 
@@ -106,10 +108,30 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/predict.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "prediction": [
+       1.34793,
+       0.96621,
+       1.1574
+     ],
+     "standard_error": [
+       0.03306,
+       0.02881,
+       0.03828
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -119,14 +141,14 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
      - Python type / dtype
      - Example shape
    * - result
-     - tuple
-     - length 2
-   * - result[0]
+     - dict
+     - 2 named fields
+   * - result['prediction']
      - numpy.ndarray[float64]
-     - (96,)
-   * - result[1]
+     - (3,)
+   * - result['standard_error']
      - numpy.ndarray[float64]
-     - (96,)
+     - (3,)
 
 .. automethod:: nampy.gam.GAM.predict
    :no-index:

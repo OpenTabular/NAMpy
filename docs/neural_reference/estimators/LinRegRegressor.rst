@@ -9,6 +9,8 @@ LinRegRegressor
    :no-inherited-members:
 
 .. include:: /_generated/reference/LinRegRegressor.inc
+
+
 Runnable example
 ----------------
 
@@ -19,10 +21,64 @@ This example includes its data and imports. Run it after installing NAMpy. Small
 .. literalinclude:: /_examples/reference/neural_reference/estimators/LinRegRegressor.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "components": {
+       "link": [
+         0.7005500197410583,
+         0.8710399866104126,
+         0.8058199882507324,
+         0.2219499945640564,
+         0.21433000266551971,
+         0.79544997215271
+       ],
+       "response": [
+         0.7005500197410583,
+         0.8710399866104126,
+         0.8058199882507324,
+         0.2219499945640564,
+         0.21433000266551971,
+         0.79544997215271
+       ],
+       "terms": {
+         "x": [
+           0.15560999512672424,
+           0.15609000623226166,
+           0.15657000243663788,
+           0.15705999732017517,
+           0.11851999908685684,
+           0.06277000159025192
+         ],
+         "z": [
+           0.5453400015830994,
+           0.7153499722480774,
+           0.6496400237083435,
+           0.0652799978852272,
+           0.09619999676942825,
+           0.7330700159072876
+         ]
+       }
+     },
+     "prediction": [
+       0.7005500197410583,
+       0.8710399866104126,
+       0.8058199882507324,
+       0.2219499945640564,
+       0.21433000266551971,
+       0.79544997215271
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -39,37 +95,4 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
      - (64,)
    * - result['components']
      - nampy.contracts.AdditivePrediction
-     - scalar record
-   * - result['components'].response
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].link
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].terms
-     - dict
-     - 2 named fields
-   * - result['components'].terms['x']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].terms['z']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].intercept
-     - builtins.float
-     - ()
-   * - result['components'].backend
-     - builtins.str
-     - ()
-   * - result['components'].offset
-     - builtins.NoneType
-     - not applicable
-   * - result['components'].term_metadata
-     - dict
-     - 2 named fields
-   * - result['components'].term_metadata['x']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
-   * - result['components'].term_metadata['z']
-     - nampy.contracts.AdditiveTermMetadata
      - scalar record

@@ -48,6 +48,8 @@ NumPy smoothing-parameter vector suggested by the one-standard-error rule. Inspe
      - (n_penalties,)
      - Candidate smoothing strengths; the model is not automatically refitted.
 
+
+
 Runnable example
 ----------------
 
@@ -58,10 +60,29 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/one_se_rule.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "original_smoothing": [
+       0.91012,
+       12416993.79903
+     ],
+     "proposed_smoothing": [
+       1.85987,
+       1.4253072605375285e+19,
+       1.03864
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -71,6 +92,12 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
      - Python type / dtype
      - Example shape
    * - result
+     - dict
+     - 2 named fields
+   * - result['original_smoothing']
+     - numpy.ndarray[float64]
+     - (2,)
+   * - result['proposed_smoothing']
      - numpy.ndarray[float64]
      - (3,)
 

@@ -12,6 +12,8 @@ Signature
 
    estimator.training_history(self) -> 'dict'
 
+Available architecture hooks: :doc:`igann <../igann>`. Unsupported architectures raise ``NotImplementedError``; call after fitting. Native history and metadata retain their native-solver meaning.
+
 Parameters
 ----------
 
@@ -31,6 +33,8 @@ Returns
      - one value/series per recorded native metric
      - Native solver training history, not a universal Lightning log API. Unsupported architectures raise NotImplementedError.
 
+
+
 Runnable example
 ----------------
 
@@ -41,10 +45,28 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/methods/training_history.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "train_loss": [
+       0.21494713425636292,
+       0.16607101261615753
+     ],
+     "val_loss": [
+       0.3584846258163452,
+       0.2794914245605469
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -59,21 +81,9 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
    * - result['train_loss']
      - tuple
      - length 2
-   * - result['train_loss'][0]
-     - builtins.float
-     - ()
-   * - result['train_loss'][1]
-     - builtins.float
-     - ()
    * - result['val_loss']
      - tuple
      - length 2
-   * - result['val_loss'][0]
-     - builtins.float
-     - ()
-   * - result['val_loss'][1]
-     - builtins.float
-     - ()
 
 .. automethod:: nampy.models._base.NeuralEstimatorBase.training_history
    :no-index:

@@ -26,7 +26,12 @@ def test_reference_generation_from_clean_checkout(tmp_path):
     for generated_page in pages:
         name = generated_page.stem.removeprefix("nampy.models.")
         text = (tmp_path / f"docs/_generated/reference/{name}.inc").read_text()
-        assert "``trainer_kwargs``\n     - Optional keyword arguments" in text
+        if name.endswith(("Regressor", "Classifier", "LSS")) and name not in {
+            "GAMRegressor",
+            "GAMClassifier",
+            "GAMLSS",
+        }:
+            assert "Full shared fit contract" in text
         assert "See the shared training contract for this fit control." not in text
     from nampy import models
 
@@ -49,11 +54,14 @@ def test_reference_generation_from_clean_checkout(tmp_path):
     lss = (tmp_path / "docs/_generated/reference/NAMLSS.inc").read_text()
     assert "family_.param_names" in lss
     native = (tmp_path / "docs/_generated/reference/IGANNRegressor.inc").read_text()
-    assert "native boosting for binary targets" in native and "boosting" in native
+    assert (
+        "native boosting for squared-error regression and binary classification"
+        in native
+    )
     assert "model.fit(X, y, max_epochs=" not in native
     native_lss = (tmp_path / "docs/_generated/reference/IGANNLSS.inc").read_text()
     assert "This LSS task uses gradient training" in native_lss
-    assert "model.fit(X, y, max_epochs=" in native_lss
+    assert "Full shared fit contract" in native_lss
     gpnam = (tmp_path / "docs/_generated/reference/GPNAMRegressor.inc").read_text()
     assert "fixed-design conjugate-gradient solver" in gpnam
     quantiles = (tmp_path / "docs/_generated/reference/QNAMLSS.inc").read_text()
@@ -203,3 +211,14 @@ def test_training_contract_keeps_both_viewcode_anchor_spellings():
     module["training_anchor_alias"](None, tree, "api/neural_training")
     module["training_anchor_alias"](None, tree, "api/neural_training")
     assert signature["ids"] == [canonical, alias]
+
+
+def test_constructor_parameter_groups_follow_the_consuming_interface():
+    from public_reference import constructor_parameter_group
+
+    assert constructor_parameter_group("knots_strategy", "nam") == "Preprocessing"
+    assert constructor_parameter_group("n_knots", "nam") == "Preprocessing"
+    assert constructor_parameter_group("n_knots", "spline_nam") == "Architecture"
+    assert constructor_parameter_group("lr_warmup_steps", "nam") == "Training defaults"
+    assert constructor_parameter_group("weight_decay", "nam") == "Regularization"
+    assert constructor_parameter_group("interactions", "nam") == "Interactions"

@@ -40,6 +40,8 @@ Returns and fitted outputs
 Returns a NeuralEstimatorFamily record containing task-specific estimator classes or None for unavailable tasks. This record contains no fitted predictions. Instantiate one of its available classes and call fit to obtain a model.
 
 :doc:`Custom architecture contract </user_guide/custom_models>` · :doc:`All training arguments </api/neural_training>` · :doc:`Neural distributions <../families/index>`
+
+
 Runnable example
 ----------------
 
@@ -50,10 +52,23 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/extensions/estimator_family.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "classifier": "type",
+     "lss": "type",
+     "regressor": "type"
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

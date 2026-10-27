@@ -5,6 +5,8 @@ SplineNAM API
 
 :doc:`Model structure, interpretation and restrictions </models/spline_nam>`.
 
+
+
 Constructor defaults and parameter descriptions below are resolved from the installed estimator and its architecture configuration. Each supported task has its own reference page.
 
 .. toctree::
@@ -15,75 +17,7 @@ Constructor defaults and parameter descriptions below are resolved from the inst
 Architecture configuration
 --------------------------
 
-.. autoclass:: nampy.neural.configs.spline_nam_config.DefaultSplineNAMConfig
-   :no-index:
-   :no-members:
-   :no-inherited-members:
-
-Runnable example
-----------------
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/neural_reference/spline_nam.py>`
-
-.. literalinclude:: /_examples/reference/neural_reference/spline_nam.py
-   :language: python
-
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['prediction']
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components']
-     - nampy.contracts.AdditivePrediction
-     - scalar record
-   * - result['components'].response
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].link
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].terms
-     - dict
-     - 2 named fields
-   * - result['components'].terms['x']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].terms['z']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].intercept
-     - builtins.float
-     - ()
-   * - result['components'].backend
-     - builtins.str
-     - ()
-   * - result['components'].offset
-     - builtins.NoneType
-     - not applicable
-   * - result['components'].term_metadata
-     - dict
-     - 2 named fields
-   * - result['components'].term_metadata['x']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
-   * - result['components'].term_metadata['z']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
+Configuration class: ``DefaultSplineNAMConfig``. Defaults below are resolved from its factory.
 
 Configuration parameters
 ------------------------
@@ -150,3 +84,91 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``int``
      - ``12``
      - Number of knots in each learnable spline feature layer; basis width follows the spline construction, not a hidden MLP width.
+
+
+
+Runnable example
+----------------
+
+This example includes all imports and input data; no variables from another page are required.
+
+:download:`Download the complete example </_examples/reference/neural_reference/spline_nam.py>`
+
+.. literalinclude:: /_examples/reference/neural_reference/spline_nam.py
+   :language: python
+
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "components": {
+       "link": [
+         -0.23316000401973724,
+         -0.6046900153160095,
+         -0.49869000911712646,
+         -0.6870999932289124,
+         -0.5695800185203552,
+         -0.7152799963951111
+       ],
+       "response": [
+         -0.23316000401973724,
+         -0.6046900153160095,
+         -0.49869000911712646,
+         -0.6870999932289124,
+         -0.5695800185203552,
+         -0.7152799963951111
+       ],
+       "terms": {
+         "x": [
+           -0.14312000572681427,
+           -0.18006999790668488,
+           -0.21644000709056854,
+           -0.25165998935699463,
+           -0.2851400077342987,
+           -0.31632000207901
+         ],
+         "z": [
+           -0.09043999761343002,
+           -0.4250200092792511,
+           -0.2826499938964844,
+           -0.43584999442100525,
+           -0.2848399877548218,
+           -0.3993600010871887
+         ]
+       }
+     },
+     "prediction": [
+       -0.23316000401973724,
+       -0.6046900153160095,
+       -0.49869000911712646,
+       -0.6870999932289124,
+       -0.5695800185203552,
+       -0.7152799963951111
+     ]
+   }
+
+Example output types and shapes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Output field
+     - Python type / dtype
+     - Example shape
+   * - result
+     - dict
+     - 2 named fields
+   * - result['prediction']
+     - numpy.ndarray[float32]
+     - (64,)
+   * - result['components']
+     - nampy.contracts.AdditivePrediction
+     - scalar record

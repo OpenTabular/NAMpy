@@ -53,10 +53,10 @@ def main():
             assert "Tutorials" not in [section["title"] for section in sections]
             development = next(section for section in sections if section["title"] == "Development")
             assert development["items"] == [
-                "Contributing to NAMpy", "Architecture and validation"
+                "Contributing to NAMpy", "Architecture and validation", "License"
             ], development
             reference = next(section for section in sections if section["title"] == "Reference")
-            assert "Compatibility" in reference["items"], reference
+            assert "Compatibility and limitations" in reference["items"], reference
             # Links in shared Markdown must not leave a local/versioned build.
             linked_page = browser.new_page()
             linked_page.route("https://**/*", lambda route: route.abort())
@@ -86,6 +86,7 @@ def main():
             assert getting_started["items"] == [
                 "Home",
                 "Tutorials",
+                "Model guide",
                 "Frequently Asked Questions",
             ], getting_started
             assert "Concepts" not in [section["title"] for section in sections]
@@ -95,8 +96,8 @@ def main():
                 assert len(section["items"]) >= minimum, section
             reference = next(item for item in sections if item["title"] == "Reference")
             assert reference["items"] == [
-                "Model guide", "Statistical models", "Neural models",
-                "Shared predictions and explanations", "Plotting", "Compatibility", "License",
+                "Statistical models", "Neural models", "Predictions and explanations",
+                "Plotting", "Extension APIs", "Compatibility and limitations",
             ], reference
             assert "Statistical Reference" not in [section["title"] for section in sections]
             assert "Neural Reference" not in [section["title"] for section in sections]

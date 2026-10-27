@@ -564,107 +564,111 @@
     "status": "passed"
   },
   "statistical_reference/controls/edge_correct": {
-    "sha256": "5be19d0b852d51b7328825169624d47a3cbe8aa970d2319d17fcbe63f2e52e74",
+    "sha256": "9d7cba740bd653ef7bcb0c9f8c9660ef7c6cb1113295ba167aefddfe66a4a9d3",
     "status": "passed"
   },
   "statistical_reference/controls/efs_lspmax": {
-    "sha256": "e086a69ce9b8816bf548a6819a27f9d8db77e03713aa6e240ec1cfc4b30af1e8",
+    "sha256": "d5d1d35f405541f49eb3fcc2da9edd55723f92341937ced3dcf14036d94921d4",
     "status": "passed"
   },
   "statistical_reference/controls/efs_tol": {
-    "sha256": "278706fa644f6bf18c80119324ca47c3bf44cc6704b4e0f712d1bc049ff67289",
+    "sha256": "c2a3e97b1985b655bbc2926d836c9a3c00699957711c828b40fc2d1e9ca28196",
     "status": "passed"
   },
   "statistical_reference/controls/epsilon": {
-    "sha256": "a7525b315fa359441cf0421b79e5e2fc0915c86982de91195343b19c2bca0839",
+    "sha256": "542e547fef5cd9e99c79df4e6f7a156a96da11509a909e7e9364182139635d88",
     "status": "passed"
   },
   "statistical_reference/controls/id_links_bases": {
-    "sha256": "5eaf9cf2263932670c359c451d439dbe9d81fc158c41dfed12fe63da6fcdd9c3",
+    "sha256": "a29138636252610f94fa4ef73f740249bab7426a5627c137f9bdd9955869459e",
     "status": "passed"
   },
   "statistical_reference/controls/irls_reg": {
-    "sha256": "cbea7b4597ca26f88bced2f2692ff515479f6e106a6a838d90cdf26db5e3bbc1",
+    "sha256": "f5a166b348572eb8a8de2bf412a385a82612fb7fcd157b9641459ef82cbeafb9",
     "status": "passed"
   },
   "statistical_reference/controls/keep_data": {
-    "sha256": "616b40c22e03a46b807988245c0470fa0a8136a7e5265a03b5422c6f5c5256dd",
+    "sha256": "8daa239249ab80da2e54b51d4185d97e1b171604b321e4d6d13651c608b2a380",
     "status": "passed"
   },
   "statistical_reference/controls/maxit": {
-    "sha256": "ac0b2a267e3ca92d8f264323d42c8d35c54afb39eb8b052451ee80697bc67ed3",
+    "sha256": "65d5574b397471d2a6ad2a090f17f42f543ee327a2d3de2b3adba5dd0070001e",
     "status": "passed"
   },
   "statistical_reference/controls/mgcv_half": {
-    "sha256": "00888639ebcd89caa4012b448861a2e086c6c723d7e19eec70c38be0c7691ea3",
+    "sha256": "06b445b5a765332b9ff30605c1987663f9b8eae8d98d0941a265aba20ca636db",
     "status": "passed"
   },
   "statistical_reference/controls/mgcv_tol": {
-    "sha256": "3e3bc65d6b3873723196beac2c3c8e7f0f1cfca9627926f7972d08fda75d0afe",
+    "sha256": "c835eb7461d6133a730ee1933c5bea8225f41f769db0816d7dd1060619dd5b5c",
     "status": "passed"
   },
   "statistical_reference/controls/ncv_threads": {
-    "sha256": "9623a8247517673b608012c152c7d415096b58f3896cd85fe590c00fd4614f2f",
+    "sha256": "037fa006152495058e5d0f73926cf65b9390bcd30710b5f006454c98660750ae",
     "status": "passed"
   },
   "statistical_reference/controls/newton": {
-    "sha256": "8c3fb658be4a6a1f80bedb25513f3630365db5e2e4c3e414a0bc372aedd0c42a",
+    "sha256": "b6632cd589bf631c5967ef0740d32aa8a6623238fb04f642c6c43bdb1c090f2c",
     "status": "passed"
   },
   "statistical_reference/controls/nlm": {
-    "sha256": "f9731a3e0cdc2a9a21dc2b156621cb5e3223bbd0ea69e1db7a821d4aad76cbfb",
+    "sha256": "9e08ee0be7bbbb3cce3f68a032015e7b611be1cc0efb3c3afb42cf6d2b870257",
     "status": "passed"
   },
   "statistical_reference/controls/nthreads": {
-    "sha256": "46aa55bdaad911c71f2b933622bb790d0e0e65fbd1cfc080ddae99f4f2836f0d",
+    "sha256": "ad7bc26326a5a3f2cde190134948044b42a4515dce336d5ccdf89252f3eff3a2",
     "status": "passed"
   },
   "statistical_reference/controls/optim": {
-    "sha256": "6a7491a5aebec695e062d9543afb456a77a489cd52dfdee9e40418d3fab2b7f4",
+    "sha256": "a3823aa6dc24d738dc12038b80ed21a3b429b2c7d0c4c5e76eae4ccf43b9c7cd",
     "status": "passed"
   },
   "statistical_reference/controls/rank_tol": {
-    "sha256": "38f382468fb684dde84e3021366f5e393568fd3116060c93e14cb6a722e7794a",
+    "sha256": "648d7c789f0c0ecaa22fa205aa6b6558d58f1012c255083fcfa4044d827170bc",
     "status": "passed"
   },
   "statistical_reference/controls/scale_est": {
-    "sha256": "b7fd314ff90157d65889fb07edf5190220f90813ca05ad64b6b2701282501c40",
+    "sha256": "da75a24cde74c99ee7d7776f99a9f889c38336918382773694dde451298c2d62",
     "status": "passed"
   },
   "statistical_reference/controls/scale_penalty": {
-    "sha256": "6d2d3da45eed44f3e6897152991642187b5c17b6824a7f60d6fe0d526555ebfd",
+    "sha256": "a6c4c962552f75cbfda740501dd9c27a0e9154528d4626175cc401533e1ebd83",
     "status": "passed"
   },
   "statistical_reference/controls/scam_b_notexp": {
-    "sha256": "c55b6eef0fdf331be9e180c3a9ae89f910d86fb38a31b2ce35b98e760ee06b7f",
+    "sha256": "7df3574d938754203f9e8a654c057e79e188b2f2f384d882a17e8f40b0fdee54",
     "status": "passed"
   },
   "statistical_reference/controls/scam_bfgs": {
-    "sha256": "d7bbacdec26c5f3f86f7474de10964a7dbeb183cadd552944f6e4ba623adc174",
+    "sha256": "fd681837474607e982359b1818cd0bc5abbf069dd730d42417e715de56dfb26a",
     "status": "passed"
   },
   "statistical_reference/controls/scam_devtol_fit": {
-    "sha256": "5c499113b24c9888769545d1a14ebf78f6298b5749e736f09f44f13b3b85510c",
+    "sha256": "b24a0bbbe4b4c9324f085823522131a5e238f0cbb5f856c6836d30eb4cfbaa5d",
     "status": "passed"
   },
   "statistical_reference/controls/scam_max_half": {
-    "sha256": "4923e06ed35977099c3c5c50e5e35a884e4e6c2fee107087c0d4b90b8d574e71",
+    "sha256": "cc1a973e407f5739a8f01b9c66db464685993af566bb8cad89f07ff053d0addc",
     "status": "passed"
   },
   "statistical_reference/controls/scam_print_warn": {
-    "sha256": "56a91e917f9f21378d955cddf73b7e774428a23070be72a1393348c24cf6f1c4",
+    "sha256": "795d43bd498aab2ca7ad668816a61cb0e338fd8d2a612821fa3075bd64a92bcd",
     "status": "passed"
   },
   "statistical_reference/controls/scam_steptol_fit": {
-    "sha256": "23e695124b6d35bd52881eacd11ea1c58823bc675ad8d9d6460888930f59b12b",
+    "sha256": "510b54c13038943704e55173c34ed3b6590dd550129b66fb4524343c1f99664a",
     "status": "passed"
   },
   "statistical_reference/controls/scam_threshold_notexp": {
-    "sha256": "4a69b4f5e9e5a0a9c145914794211d20638354902b9493891902b5fa5f8a2dc4",
+    "sha256": "ff09d7ab14960ed06ab1a51d91482baf0198caa93f2aeb254c12af7d0b65220a",
     "status": "passed"
   },
   "statistical_reference/controls/trace": {
-    "sha256": "dc541b73d05402a9fe92bc6951a6e5402bdd2351a4c57cbf2d9dbd1e5b705e43",
+    "sha256": "5d6ed050d4c1cbc66c3478bb5679ff528d2ca257c056fe6939671f11b0314902",
+    "status": "passed"
+  },
+  "statistical_reference/estimators/ExpectileGAM": {
+    "sha256": "4166c46bde25a210b040a04bc108d2173e691c42aa709cf9685a1eadedfcd7fc",
     "status": "passed"
   },
   "statistical_reference/estimators/GAMClassifier": {
@@ -679,112 +683,200 @@
     "sha256": "a9cc3bc03ac79bf8a5af577a8ca830ef7a3aefa09d2a4ca192d3becbf47da50a",
     "status": "passed"
   },
+  "statistical_reference/estimators/QuantileGAM": {
+    "sha256": "e07eb7b3cb980bea0625f7c7163ebd2c579f9fe5712a5161d8fbc53f4261ac24",
+    "status": "passed"
+  },
+  "statistical_reference/extensions/CompiledDesign": {
+    "sha256": "153bcaef2292a1f65225db711ffedcf1b635aa116ab7863f8745a849ad84308e",
+    "status": "passed"
+  },
+  "statistical_reference/extensions/DesignEvaluation": {
+    "sha256": "895be23def86aecbd0cf601bb18dea62868fcb61795086fc26089a4591ae5bcd",
+    "status": "passed"
+  },
+  "statistical_reference/extensions/DesignTerm": {
+    "sha256": "17354d36b00b5ca3cc1804b196e69b9e881f4038dcb376b5dcaed7ba12bd1c07",
+    "status": "passed"
+  },
+  "statistical_reference/extensions/FunctionalInterval": {
+    "sha256": "af8610e80f887515b2595725691d69f24d705a514f7fb9d9e6ba4a037d496061",
+    "status": "passed"
+  },
+  "statistical_reference/extensions/LossFit": {
+    "sha256": "5746666e10de91df57fcf06cbf5192f3b40a6d190e7f05b93ae1b504e3e1032e",
+    "status": "passed"
+  },
+  "statistical_reference/extensions/coefficient_draws": {
+    "sha256": "3e2633202e5ef5679931ce60b7c4904ee50db256cad838e596ac425a3ab38d2f",
+    "status": "passed"
+  },
+  "statistical_reference/extensions/compile_design": {
+    "sha256": "1a4f0e4d4a5d19c403603d49159aa6907f228ba3c60f105573b615518da841f5",
+    "status": "passed"
+  },
+  "statistical_reference/extensions/cross_basis": {
+    "sha256": "dee5e3d31254cb0119f5f3c6c3f7855df7f81157ec0ed7e1a4a5c0a738e91866",
+    "status": "passed"
+  },
+  "statistical_reference/extensions/cross_basis_penalty": {
+    "sha256": "107b1dae685af654ba0fe3c0b1c0285e0253ddc4385c149fe04b316f05427149",
+    "status": "passed"
+  },
+  "statistical_reference/extensions/cumulative_lag_matrix": {
+    "sha256": "a32e5bf6cc19b0ca281d31696e9aa54e42a7e146e6c0b530d50f9fcd66e90579",
+    "status": "passed"
+  },
+  "statistical_reference/extensions/derivative_interval": {
+    "sha256": "34c424db51993edef6ffb9032c22fa2c44ce5496245d60c23dbc9bac5e639b80",
+    "status": "passed"
+  },
+  "statistical_reference/extensions/exposure_history": {
+    "sha256": "468ddcc3af950224ded73ac4801c3ac269f6e6f882af82ad6800aa34695266c4",
+    "status": "passed"
+  },
+  "statistical_reference/extensions/fit_expectile": {
+    "sha256": "a18e284168967c332dd3c62b61f35c54257170ecf12459eafcfeca037273d183",
+    "status": "passed"
+  },
+  "statistical_reference/extensions/fit_quantile": {
+    "sha256": "ee32876283d96e25a45dda83721ccb5fb5fa1c233ec2d63dd46ee7d98ae67899",
+    "status": "passed"
+  },
+  "statistical_reference/extensions/joint_edf": {
+    "sha256": "0c95ca87407dd24e98a7f99fc05f379aeee0643f198953da2e24e452d093123b",
+    "status": "passed"
+  },
+  "statistical_reference/extensions/linear_functional_interval": {
+    "sha256": "be52ff22c0e937e5bbcfe0029adaa423522e640f0d079869c867c6f5da7c16b5",
+    "status": "passed"
+  },
+  "statistical_reference/extensions/piecewise_exponential_data": {
+    "sha256": "81d93fbccd0e8ceffb9517a7a5d48736ae6368a16d4b1f9e4955fe00c460b0dc",
+    "status": "passed"
+  },
+  "statistical_reference/extensions/survival_from_hazard": {
+    "sha256": "ec24a3d599861d0af912e465830171798b55f2e9e020a7ec69779c8ec0caea63",
+    "status": "passed"
+  },
   "statistical_reference/families/bcg": {
-    "sha256": "f1e322c085e6ddd11e53ab2f1b0a82684edb6113788069181885b6f952ce680f",
+    "sha256": "ff782110c3c561546a1187fac9e4d25a56cecee4b8ccd1c9fa5ac02fea85a8b5",
+    "status": "passed"
+  },
+  "statistical_reference/families/beta_lss": {
+    "sha256": "63f0691be61ee4aac02d876f59b2994e61e05c2f69b5b30d662ae16f3e98da1d",
     "status": "passed"
   },
   "statistical_reference/families/betar": {
-    "sha256": "049b18ecdfaf174cbe3a8edab3c50baebe12831d9607dadbba9688048bf1deb8",
+    "sha256": "86a629140e1466a1218d3623b308a5efd4ae5e8b36a19be9dd67a620959be39f",
     "status": "passed"
   },
   "statistical_reference/families/binomial": {
-    "sha256": "4a96f7a5b2450182219a86e206b385098077ba9a313dcaf956a71c416d98cfd8",
+    "sha256": "3188224d1462eed4b2d492acd514b9c23134e160ac69e0f0005fe7c0c4785300",
     "status": "passed"
   },
   "statistical_reference/families/clog": {
-    "sha256": "9b51aa3461de8c03dc7a3e0f757a9d2f2caec29ce9b638c8999a5789b15e1bba",
+    "sha256": "e2b3b7bd81493a04ff12cf08f426cf74d56f715e13e06051cc346a6e2bd61861",
     "status": "passed"
   },
   "statistical_reference/families/cnorm": {
-    "sha256": "3a5034536cec90009345c70f4ed6c52c2f8d1fa83ad5284be95d033a96464c59",
+    "sha256": "7fd50e0309478c39507eb0a3404ce58e4da89e6c1c515ec1c4867900d8c79f5c",
     "status": "passed"
   },
   "statistical_reference/families/cpois": {
-    "sha256": "f12bcda4c1cac29e09ca9aa682b511d564966e79bc112398e23298d18a6b02e2",
+    "sha256": "c06ad31c2e110290838fe1548f377f8d5166da5bb481da071a84bc6523c60d6c",
     "status": "passed"
   },
   "statistical_reference/families/gamma": {
-    "sha256": "512c03f9ebf5a838952dbfa810a088007271054f197a7d3370dd08721bf3e7a4",
+    "sha256": "13a0f6d7b7fe8178480fe3bfd474cca38493ef4bc1ae865e75a989b54b199044",
     "status": "passed"
   },
   "statistical_reference/families/gammals": {
-    "sha256": "0c14b81db765ea1fba50551fa82564c134b62f96e175bfbf6ad48756686683ef",
+    "sha256": "e84a6d6fa67518be8aabaf857a835f683a4eab499891409a5f8aa914a21faa05",
     "status": "passed"
   },
   "statistical_reference/families/gaulss": {
-    "sha256": "395c2cdee8f18a20632f62508d3ab81debdd1a88a276d8819d768c2e85ace791",
+    "sha256": "657980e653c50d2ea652bfad1e402c04382e19b80e2efea5ee847b955fc6220b",
     "status": "passed"
   },
   "statistical_reference/families/gaussian": {
-    "sha256": "3ae8cfbcd5f32bdc613896b32bd265d6f52615409de334a056085df2f73b1bf5",
+    "sha256": "f838569234be9e1d2c777d2a7b428428472e991f8303b951d9ba552b9db55b89",
     "status": "passed"
   },
   "statistical_reference/families/gevlss": {
-    "sha256": "6f66f2caf8ec8d26fb7d0df67da78234dd97e313bcda188bc43e531170df32f4",
+    "sha256": "b02f89a367f7fe05920abab0eb47adc9791d0545adcf3d9912545b68b705ee7a",
     "status": "passed"
   },
   "statistical_reference/families/gumbls": {
-    "sha256": "456e1670f5c09c30deb6f810b9d6e0c4afbb6551f7f71147bc422a643b23ee6f",
+    "sha256": "17b7cbe24638351039b9f5b1ae837a9064aa50cb96088ced3b0811948d7d50ac",
     "status": "passed"
   },
   "statistical_reference/families/inverse_gaussian": {
-    "sha256": "6e3c63d34884c02b33fbb3b00cb847d838db35c276e6059a78f7ae2c2d78f54f",
+    "sha256": "11bcb76eb595103a69701c091758eacb6e488ec7658fa897304ddd6a8cb997a3",
     "status": "passed"
   },
   "statistical_reference/families/multinom": {
-    "sha256": "b24e2ad03596946549497358c29142764437a989b99ea658884367a8a1745184",
+    "sha256": "59bb98bc98d5878e971e4f8645643983b2c745369c0c02c99bd3ba56ecb61b91",
     "status": "passed"
   },
   "statistical_reference/families/nb": {
-    "sha256": "bbf36b22887cd3fbe1e374ef17f3a5f2c576e2c7b05610b3d12354b9fe0f5007",
+    "sha256": "0dcb98926aec287d155386c6ff96bc912768b0d5c4934d15414c98be582d94ef",
+    "status": "passed"
+  },
+  "statistical_reference/families/nb_lss": {
+    "sha256": "4fd8ecdf78a761634a5acea477404395f2a8634b3fca26ce7e962af970e44dfe",
     "status": "passed"
   },
   "statistical_reference/families/negbin": {
-    "sha256": "3e68a015e6eb2d62552b98d6762be2fb5bfea724e8f2ea204938dc6fe69030cf",
+    "sha256": "e56e4a01f2daa55541fb9f33f589cf97926020f8951727550f63ae522a621d30",
     "status": "passed"
   },
   "statistical_reference/families/ocat": {
-    "sha256": "c4d54145b7bd15fbf76db002f49c5657822c759a0f3741e798f7152144a3762c",
+    "sha256": "d30aa308b4341deb03ae9a3f807b03dc2e4eafe992a6795e6d2def3344c25fa3",
     "status": "passed"
   },
   "statistical_reference/families/poisson": {
-    "sha256": "3f76aea23ef01db9feecee566c0e122b5a61a70a24fb84f813e5dde514ae0d0b",
+    "sha256": "baaeef9e80b8a1dab5f8341e795432157740ae3847137051cf4a55a7487b3e04",
     "status": "passed"
   },
   "statistical_reference/families/quasi": {
-    "sha256": "7a924d5007d9e1e0293319e681e9f4f2096fb258fe9c3eecda8010f088ac11e8",
+    "sha256": "95344fe8d7c5972e19abf0caba5e28550302d2fc5a219628022fc08fb632e6ff",
     "status": "passed"
   },
   "statistical_reference/families/quasibinomial": {
-    "sha256": "dfb33b9d46f7eea685c9fcc61a1d6b6fc4b6c14a8528337035f7e4e1f8959081",
+    "sha256": "4916cebdee203349bff28b140d364086de01b6d75e06f4a02f69e2a570281f9e",
     "status": "passed"
   },
   "statistical_reference/families/quasipoisson": {
-    "sha256": "435cf39dde3a49875604ea6e1a175c7b7ff9b4a6894d8403a624aec0b6255ee8",
+    "sha256": "e6cbb2e86e04481b20602e6771d4728c7413aff6926548c37d667f6fc66139ef",
     "status": "passed"
   },
   "statistical_reference/families/scat": {
-    "sha256": "82136e465075ac023eb72f16b56c0343b67442ae97b46710c4acdf370d49dd0e",
+    "sha256": "bee66791b0eaf1f3007cbf3004f94e2ba5e21984298bb21a92c1adc6a30f017b",
     "status": "passed"
   },
   "statistical_reference/families/shash": {
-    "sha256": "d7fc37badb38955e17779f651ccce0a26d9ee1a9122aa1b0b1a495730c6b5202",
+    "sha256": "8dacec69a1bbb4be03374cad572b27ece2de062b7c5f3776e315c3949791830e",
+    "status": "passed"
+  },
+  "statistical_reference/families/student_lss": {
+    "sha256": "e6380253e0220dba6d37320b438384c013f09c87fec3414c6fa254ca4c385cec",
     "status": "passed"
   },
   "statistical_reference/families/tw": {
-    "sha256": "631a395a16ed4026fa18456b4c9f584170a72d64f735de91d23bbb740ad147cd",
+    "sha256": "5cc70ee358be65a7ef9325583e1b0450be206ddd0bcb64dc4229b137c3f73e52",
     "status": "passed"
   },
   "statistical_reference/families/twlss": {
-    "sha256": "777aa43ad58e3b52f945d5103f76824efc8ea38d158f85c011747386318c7eca",
+    "sha256": "7ca2876623a2cfa7bd427f948f499f933dac09095cc7b823374ca1de06bff4cd",
     "status": "passed"
   },
   "statistical_reference/families/zip": {
-    "sha256": "6523acd712264d2ed10e3dd7767bf92329c0768d46a8b00123e6566b063cedca",
+    "sha256": "a2a19466768baa7d9310866ec1244e85b8f56064bafd786d2d1beb73a6969e41",
     "status": "passed"
   },
   "statistical_reference/families/ziplss": {
-    "sha256": "a87d7dae83ea333bea4136b6b3b5cbd8171e151fee257b89f17190217f343439",
+    "sha256": "5e1b14c44086f6608a5ebbda775210589f3c23d418b2c7bb5d2fd78cf5c4311f",
     "status": "passed"
   },
   "statistical_reference/internals/covariance_correction": {
@@ -856,7 +948,7 @@
     "status": "passed"
   },
   "statistical_reference/methods/one_se_rule": {
-    "sha256": "89ff136eda8f15945bdeedf73ad2d9d799c89c0b256a63d7b4d217a0a6534d91",
+    "sha256": "37fde2acc76e29746c795305e49163d62c6be6d4b03bf7b2703a928af0a10e4c",
     "status": "passed"
   },
   "statistical_reference/methods/parity_snapshot": {
@@ -876,7 +968,7 @@
     "status": "passed"
   },
   "statistical_reference/methods/predict": {
-    "sha256": "b9c53b4bad9ead2d80ab8908ca1ae010aede38737ed5e8ba496ca975afccc353",
+    "sha256": "368357c40811e2b208bc78bc214338003ac892a114f5af3d4d638f234f117922",
     "status": "passed"
   },
   "statistical_reference/methods/predict_terms": {

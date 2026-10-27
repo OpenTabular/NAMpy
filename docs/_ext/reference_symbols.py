@@ -269,6 +269,16 @@ def generate(root):
         package = importlib.import_module(module)
         for name in names:
             obj = getattr(package, name)
+            # Source audits run before autosummary in clean CI checkouts.
+            page = f"api/generated/{module}.{name}.rst"
+            if not (root / page).exists():
+                directive = "autoclass" if inspect.isclass(obj) else "autofunction"
+                write(
+                    root,
+                    page,
+                    heading(f"{module}.{name}")
+                    + f".. currentmodule:: {module}\n\n.. {directive}:: {name}\n\n.. include:: /_generated/reference/symbols/{module}.{name}.inc\n",
+                )
             rows = []
             docs = {
                 **(MEANINGS if module.startswith("nampy.gam.") else SHARED_MEANINGS),

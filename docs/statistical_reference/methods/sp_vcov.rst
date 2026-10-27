@@ -52,6 +52,8 @@ A square covariance array, or None when the required fitted curvature is unavail
      - (r, r), possibly including scale
      - Covariance in free log-smoothing coordinates. None if required curvature is unavailable.
 
+
+
 Runnable example
 ----------------
 
@@ -62,10 +64,26 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/sp_vcov.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   [
+     0.64963,
+     -0.65724,
+     0.0211,
+     -0.65724,
+     980.73325,
+     -0.04234
+   ]
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

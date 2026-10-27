@@ -9,6 +9,8 @@ GAMRegressor
    :no-inherited-members:
 
 .. include:: /_generated/reference/GAMRegressor.inc
+
+
 Runnable example
 ----------------
 
@@ -19,10 +21,64 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/estimators/GAMRegressor.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "components": {
+       "link": [
+         1.26762,
+         1.02469,
+         1.11373,
+         1.0196,
+         1.42888,
+         1.16796
+       ],
+       "response": [
+         1.26762,
+         1.02469,
+         1.11373,
+         1.0196,
+         1.42888,
+         1.16796
+       ],
+       "terms": {
+         "x": [
+           0.21224,
+           -0.13101,
+           0.05688,
+           -0.0635,
+           0.0599,
+           -0.09204
+         ],
+         "z": [
+           -0.15633,
+           -0.056,
+           -0.15486,
+           -0.12861,
+           0.15729,
+           0.0483
+         ]
+       }
+     },
+     "prediction": [
+       1.26762,
+       1.02469,
+       1.11373,
+       1.0196,
+       1.42888,
+       1.16796
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -40,30 +96,3 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
    * - result['components']
      - nampy.contracts.AdditivePrediction
      - scalar record
-   * - result['components'].response
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['components'].link
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['components'].terms
-     - dict
-     - 2 named fields
-   * - result['components'].terms['x']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['components'].terms['z']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['components'].intercept
-     - builtins.float
-     - ()
-   * - result['components'].backend
-     - builtins.str
-     - ()
-   * - result['components'].offset
-     - builtins.NoneType
-     - not applicable
-   * - result['components'].term_metadata
-     - dict
-     - 0 named fields

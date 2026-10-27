@@ -12,6 +12,8 @@ Signature
 
    estimator.basis_metadata(self) -> 'dict'
 
+Available architecture hooks: :doc:`gpnam <../gpnam>`, :doc:`igann <../igann>`. Unsupported architectures raise ``NotImplementedError``; call after fitting. Native history and metadata retain their native-solver meaning.
+
 Parameters
 ----------
 
@@ -31,6 +33,8 @@ Returns
      - named design-block metadata
      - Describes the fixed-basis blocks and their fitted dimensions. Unsupported architectures raise NotImplementedError.
 
+
+
 Runnable example
 ----------------
 
@@ -41,10 +45,37 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/methods/basis_metadata.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "feature_names": [
+       "x",
+       "z"
+     ],
+     "frequencies": [
+       -1.5647300481796265,
+       -1.1868300437927246,
+       -0.9289000034332275,
+       -0.7215200066566467,
+       -0.5414000153541565,
+       -0.3773899972438812
+     ],
+     "interaction_names": [],
+     "kernel_widths": [
+       0.024630000814795494,
+       0.023809999227523804
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -59,12 +90,6 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
    * - result['feature_names']
      - tuple
      - length 2
-   * - result['feature_names'][0]
-     - builtins.str
-     - ()
-   * - result['feature_names'][1]
-     - builtins.str
-     - ()
    * - result['interaction_names']
      - tuple
      - length 0
@@ -77,12 +102,6 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
    * - result['phases']
      - numpy.ndarray[float32]
      - (2, 16)
-   * - result['interaction_frequencies']
-     - numpy.ndarray[float32]
-     - (0, 16, 2)
-   * - result['interaction_phases']
-     - numpy.ndarray[float32]
-     - (0, 16)
 
 .. automethod:: nampy.models._base.NeuralEstimatorBase.basis_metadata
    :no-index:

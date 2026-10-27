@@ -53,6 +53,30 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``1e-09``
      - Positive numerical safeguard used in probability/domain clipping; this is not an additional distribution parameter.
 
+Distribution definition and moments
+-----------------------------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Quantity
+     - Definition
+   * - Distribution / loss
+     - P(Y<=j)=sigmoid(c_j-eta), with ordered cutpoints c_j; class probabilities are successive cumulative differences.
+   * - Natural domains
+     - eta in R; ordered fitted thresholds, C classes
+   * - Conditional mean
+     - Class probabilities determine moments of encoded labels; predict_point chooses a class
+   * - Conditional variance
+     - For integer labels: sum(j^2 p_j)-(sum(j p_j))^2
+
+References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
+
+Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
+
+Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Outputs and fitting support
 ---------------------------
 
@@ -100,6 +124,8 @@ Outputs and fitting support
 
 The constructor returns a family object, not predictions. ``GAM.fit`` returns the fitted model. For a single-predictor family, ``GAM.predict(type='response')`` normally returns a response-scale array, while ``type='link'`` returns the additive predictor. Multi-predictor families have family-specific response transformations. ``GAMLSS.predict`` exposes natural distribution parameters; ``predict(raw=True)`` exposes link predictors. These interfaces can have different column meanings.
 
+
+
 Runnable example
 ----------------
 
@@ -110,10 +136,36 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/ocat.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "link_prediction": [
+       -0.39645,
+       0.03923,
+       0.21566,
+       -0.19358,
+       -0.29333,
+       0.1378
+     ],
+     "response_prediction": [
+       0.35353,
+       0.33274,
+       0.31373,
+       0.2613,
+       0.32461,
+       0.41409
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

@@ -44,6 +44,8 @@ Returns and fitted outputs
 Construction returns an unfitted estimator and fit returns self. NeuralRegressor.predict returns response predictions; NeuralClassifier.predict returns labels and predict_proba returns class probabilities. NeuralLSS.predict returns transformed distribution parameters and predict(raw=True) returns the network predictors. Additive components describe the link scale under the architecture's declared dependence contract.
 
 :doc:`Custom architecture contract </user_guide/custom_models>` · :doc:`All training arguments </api/neural_training>` · :doc:`Neural distributions <../families/index>`
+
+
 Runnable example
 ----------------
 
@@ -54,10 +56,72 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/extensions/NeuralClassifier.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "components": {
+       "link": [
+         0.20184999704360962,
+         0.21424999833106995,
+         0.19205999374389648,
+         0.12762999534606934,
+         0.15373000502586365,
+         0.18267999589443207
+       ],
+       "response": [
+         0.5502899885177612,
+         0.5533599853515625,
+         0.5478699803352356,
+         0.5318700075149536,
+         0.5383599996566772,
+         0.5455399751663208
+       ],
+       "terms": {
+         "x": [
+           0.21786999702453613,
+           0.2177799940109253,
+           0.21768000721931458,
+           0.19483999907970428,
+           0.19519999623298645,
+           0.19418999552726746
+         ],
+         "z": [
+           -0.015869999304413795,
+           -0.003379999892786145,
+           -0.025469999760389328,
+           -0.06706000119447708,
+           -0.04131999984383583,
+           -0.011359999887645245
+         ]
+       }
+     },
+     "prediction": [
+       1,
+       1,
+       1,
+       1,
+       1,
+       1
+     ],
+     "probabilities": [
+       0.44971001148223877,
+       0.5502899885177612,
+       0.4466400146484375,
+       0.5533599853515625,
+       0.452129989862442,
+       0.5478699803352356
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -77,37 +141,4 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
      - (64, 2)
    * - result['components']
      - nampy.contracts.AdditivePrediction
-     - scalar record
-   * - result['components'].response
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].link
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].terms
-     - dict
-     - 2 named fields
-   * - result['components'].terms['x']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].terms['z']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].intercept
-     - builtins.float
-     - ()
-   * - result['components'].backend
-     - builtins.str
-     - ()
-   * - result['components'].offset
-     - builtins.NoneType
-     - not applicable
-   * - result['components'].term_metadata
-     - dict
-     - 2 named fields
-   * - result['components'].term_metadata['x']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
-   * - result['components'].term_metadata['z']
-     - nampy.contracts.AdditiveTermMetadata
      - scalar record

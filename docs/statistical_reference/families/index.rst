@@ -3,10 +3,214 @@
 Response families
 =================
 
-Statistical families use the GAM/GAMLSS parameterizations. Neural distribution families have a separate reference.
+Choose by response support, then compare parameterization and fitting interface. Column meanings on the individual page take precedence over a similarly named family in another backend.
+
+Continuous responses
+--------------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Family
+     - Response support / interpretation
+     - Parameters in order
+     - Interface
+   * - :doc:`gaulss <gaulss>`
+     - Gaussian location-scale regression with two additive predictors. The first models mean; the second models inverse standard deviation through the logb link.
+     - ``mu``, ``sigma``
+     - GAMLSS / core GAM
+   * - :doc:`gaussian <gaussian>`
+     - Real-valued response. Identity, log and inverse mean links are available; the default is identity.
+     - ``mu``
+     - GAMRegressor / core GAM
+   * - :doc:`gevlss <gevlss>`
+     - Generalized extreme-value location, scale and shape regression with three predictors and parameter-dependent response support.
+     - ``mu``, ``sigma``, ``xi``
+     - GAMLSS / core GAM
+   * - :doc:`gumbls <gumbls>`
+     - Gumbel location-scale regression with two predictors.
+     - ``location``, ``scale``
+     - GAMLSS / core GAM
+   * - :doc:`quasi <quasi>`
+     - Quasi-likelihood mean/variance model. Choose link, variance function and optional power. It does not define a normalized probability distribution.
+     - ``mu``
+     - GAMRegressor / core GAM
+   * - :doc:`scat <scat>`
+     - Scaled Student-t regression for heavy-tailed real responses. Nuisance parameters control degrees of freedom and scale; min_df bounds the former.
+     - ``mu``
+     - GAMRegressor / core GAM
+   * - :doc:`shash <shash>`
+     - Sinh-arcsinh distributional regression for location, scale, skewness and tail shape, using four predictors.
+     - ``mu``, ``sigma``, ``epsilon``, ``delta``
+     - GAMLSS / core GAM
+   * - :doc:`student_lss <student_lss>`
+     - Real scalar, Student-t location/scale with fixed degrees of freedom.
+     - ``mu``, ``sigma``
+     - GAMLSS / core GAM
+
+Positive responses
+------------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Family
+     - Response support / interpretation
+     - Parameters in order
+     - Interface
+   * - :doc:`gamma <gamma>`
+     - Strictly positive continuous response. Links: inverse (default), identity and log. Dispersion is a scale parameter, not a second additive predictor.
+     - ``mu``
+     - GAMRegressor / core GAM
+   * - :doc:`gammals <gammals>`
+     - Gamma location-scale regression with two additive predictors for log mean and log dispersion under the source family parameterization.
+     - ``mu``, ``sigma``
+     - GAMLSS / core GAM
+   * - :doc:`inverse_gaussian <inverse_gaussian>`
+     - Strictly positive continuous response. Default inverse-squared mean link; variance is proportional to the cube of the mean.
+     - ``mu``
+     - GAMRegressor / core GAM
+
+Nonnegative semicontinuous responses
+------------------------------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Family
+     - Response support / interpretation
+     - Parameters in order
+     - Interface
+   * - :doc:`tw <tw>`
+     - Tweedie response with mass at zero and positive continuous values. Power is constrained between a and b, with 1 < a < b < 2. theta controls the power parameterization/estimation.
+     - ``mu``
+     - GAMRegressor / core GAM
+   * - :doc:`twlss <twlss>`
+     - Tweedie mean, power and dispersion regression with three predictors. Smoothing selection uses EFS because higher analytic likelihood derivatives are unavailable.
+     - ``mu``, ``p``, ``phi``
+     - GAMLSS / core GAM
+
+Proportions
+-----------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Family
+     - Response support / interpretation
+     - Parameters in order
+     - Interface
+   * - :doc:`beta_lss <beta_lss>`
+     - Proportion strictly between zero and one, mean/precision predictors.
+     - ``mu``, ``phi``
+     - GAMLSS / core GAM
+   * - :doc:`betar <betar>`
+     - Beta regression for responses in the unit interval, with numerical endpoint clipping controlled by eps. theta represents precision; None requests its estimation.
+     - ``mu``
+     - GAMRegressor / core GAM
+
+Counts
+------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Family
+     - Response support / interpretation
+     - Parameters in order
+     - Interface
+   * - :doc:`nb <nb>`
+     - Nonnegative counts with variance mu + mu**2/theta. The nb registry alias estimates theta by default; the class constructor alone defaults to fixed theta. A nonpositive registry theta requests estimation.
+     - ``mu``
+     - GAMRegressor / core GAM
+   * - :doc:`nb_lss <nb_lss>`
+     - Nonnegative integer counts, mean/inverse-shape dispersion predictors.
+     - ``mu``, ``alpha``
+     - GAMLSS / core GAM
+   * - :doc:`negbin <negbin>`
+     - Negative-binomial counts with explicit fixed theta by default. Unlike nb, this alias requires theta. Use family={'name': 'negbin', 'theta': 2.0}.
+     - ``mu``
+     - GAMRegressor / core GAM
+   * - :doc:`poisson <poisson>`
+     - Nonnegative integer counts. Links: log (default), identity and sqrt. Response prediction is the count mean.
+     - ``mu``
+     - GAMRegressor / core GAM
+   * - :doc:`quasipoisson <quasipoisson>`
+     - Quasi-likelihood Poisson mean/variance relationship with estimated dispersion and default log link.
+     - ``mu``
+     - GAMRegressor / core GAM
+   * - :doc:`zip <zip>`
+     - Single-predictor hurdle Poisson family (ziP). Presence is tied to the Poisson predictor through nuisance parameters; this differs from two-predictor ziplss.
+     - ``mu``
+     - GAMRegressor / core GAM
+   * - :doc:`ziplss <ziplss>`
+     - Two-predictor hurdle Poisson regression: positive counts follow a zero-truncated Poisson process and a separate predictor controls presence.
+     - ``lambda``, ``presence``
+     - GAMLSS / core GAM
+
+Categorical and ordered responses
+---------------------------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Family
+     - Response support / interpretation
+     - Parameters in order
+     - Interface
+   * - :doc:`binomial <binomial>`
+     - Binary/proportion or supported grouped-binomial responses; prior weights encode trial counts for proportions. Links: logit, probit, cloglog, cauchit and log.
+     - ``mu``
+     - GAMClassifier / core GAM
+   * - :doc:`multinom <multinom>`
+     - Multinomial logit regression against reference category zero, with K predictors and K+1 response probabilities.
+     - ``p0``, ``p1``
+     - GAMRegressor / core GAM
+   * - :doc:`ocat <ocat>`
+     - Ordered categorical responses. Supply R (number of categories) or compatible theta cut-point information; identity is the latent-predictor link.
+     - ``mu``
+     - GAMRegressor / core GAM
+   * - :doc:`quasibinomial <quasibinomial>`
+     - Quasi-likelihood binomial mean/variance relationship with estimated dispersion and default logit link.
+     - ``mu``
+     - GAMRegressor / core GAM
+
+Censored responses
+------------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Family
+     - Response support / interpretation
+     - Parameters in order
+     - Interface
+   * - :doc:`bcg <bcg>`
+     - Censored Box-Cox Gaussian response, with transformation and scale nuisance parameters.
+     - ``mu``
+     - GAMRegressor / core GAM
+   * - :doc:`clog <clog>`
+     - Censored logistic response with a scale nuisance parameter; response bounds encode censoring.
+     - ``mu``
+     - GAMRegressor / core GAM
+   * - :doc:`cnorm <cnorm>`
+     - Censored normal response. The response encoding carries censoring information; theta controls the scale nuisance parameter.
+     - ``mu``
+     - GAMRegressor / core GAM
+   * - :doc:`cpois <cpois>`
+     - Censored Poisson counts with censoring bounds in the response encoding; default log link.
+     - ``mu``
+     - GAMRegressor / core GAM
 
 .. toctree::
-   :maxdepth: 1
+   :hidden:
 
    gaussian
    binomial
@@ -35,3 +239,6 @@ Statistical families use the GAM/GAMLSS parameterizations. Neural distribution f
    gevlss
    shash
    twlss
+   student_lss
+   beta_lss
+   nb_lss

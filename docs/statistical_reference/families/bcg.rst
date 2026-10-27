@@ -45,6 +45,36 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``'identity'``
      - Link name or ordered sequence of links. Supported choices and interpretation are specific to this family; sequence order follows its linear predictors.
 
+Distribution definition and moments
+-----------------------------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Quantity
+     - Definition
+   * - Distribution / loss
+     - Z=h_lambda(Y) is Gaussian: h_lambda(y)=(y^lambda-1)/lambda for lambda!=0, and log(y) at lambda=0. The uncensored response density kernel is NormalPDF((h_lambda(y)-mu)/sigma)*y^(lambda-1)/sigma; censoring uses the transformed bounds in Gaussian CDF differences.
+   * - Natural domains
+     - Y>0; transformed location mu in R; sigma>0; Box-Cox lambda in R. Inverse h_lambda requires 1+lambda Z>0.
+   * - Conditional mean
+     - E[Z]=mu at unit prior weight. Response E[Y]=E[h_lambda^(-1)(Z)]; for lambda=0 this is exp(mu+sigma^2/2).
+   * - Conditional variance
+     - Var(Z)=sigma^2 at unit prior weight. Response Var(Y)=E[h_lambda^(-1)(Z)^2]-E[h_lambda^(-1)(Z)]^2; for lambda=0 this is (exp(sigma^2)-1)exp(2mu+sigma^2).
+
+Targets include censoring bounds rather than treating bounds as ordinary observations. The worked example and parameterization notes below define the exact two-column encoding and one-sided sentinel convention.
+
+Box-Cox response moments require an inverse-transform calculation on its valid domain and need not exist for all negative-lambda tails. NAMpy preserves the upstream transformed-response likelihood and returns the transformed Gaussian location; it does not return an inverse-transform response mean. Prior weight w rescales transformed variance to sigma^2/w.
+
+References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
+
+`Upstream bcg parameterization <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/bcg.html>`_.
+
+Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
+
+Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Outputs and fitting support
 ---------------------------
 
@@ -92,6 +122,8 @@ Outputs and fitting support
 
 The constructor returns a family object, not predictions. ``GAM.fit`` returns the fitted model. For a single-predictor family, ``GAM.predict(type='response')`` normally returns a response-scale array, while ``type='link'`` returns the additive predictor. Multi-predictor families have family-specific response transformations. ``GAMLSS.predict`` exposes natural distribution parameters; ``predict(raw=True)`` exposes link predictors. These interfaces can have different column meanings.
 
+
+
 Runnable example
 ----------------
 
@@ -102,10 +134,36 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/bcg.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "link_prediction": [
+       0.40306,
+       0.50681,
+       0.49,
+       0.33433,
+       0.33903,
+       0.50853
+     ],
+     "response_prediction": [
+       0.40306,
+       0.50681,
+       0.49,
+       0.33433,
+       0.33903,
+       0.50853
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

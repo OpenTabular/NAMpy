@@ -7,7 +7,6 @@ import re
 from dataclasses import fields, is_dataclass
 from pathlib import Path
 
-import numpy as np
 from reference_schema import (
     estimator_returns,
     method_parameter_rows,
@@ -139,10 +138,37 @@ PARAMETER_MEANINGS = {
 }
 
 
-def estimator_text(cls, spec, objective):
+def constructor_parameter_group(name, architecture):
     from pretab.preprocessor import Preprocessor
 
     from nampy.models._base import NeuralEstimatorBase
+
+    if architecture == "spline_nam" and name == "n_knots":
+        return "Architecture"
+    if (
+        name.startswith("preprocessor__")
+        or name in inspect.signature(Preprocessor).parameters
+    ):
+        return "Preprocessing"
+    if "interaction" in name or name.startswith(("selection_", "reference_")):
+        return "Interactions"
+    if (
+        any(
+            part in name
+            for part in ("dropout", "penalty", "regularization", "weight_decay")
+        )
+        or name.startswith("reg_")
+        or name in {"ridge", "proximal", "smoothing"}
+    ):
+        return "Regularization"
+    if name in inspect.signature(NeuralEstimatorBase.fit).parameters:
+        return "Training defaults"
+    return "Architecture"
+
+
+def estimator_text(cls, spec, objective):
+    from pretab.preprocessor import Preprocessor
+
     from nampy.neural.configs.nam_config import DefaultNAMConfig
     from nampy.neural.configs.nbm_config import DefaultNBMConfig
 
@@ -180,6 +206,16 @@ def estimator_text(cls, spec, objective):
         lines.insert(
             3, f"This architecture requires ``family={spec.fixed_family!r}``.\n"
         )
+    groups = {
+        key: []
+        for key in (
+            "Architecture",
+            "Interactions",
+            "Regularization",
+            "Preprocessing",
+            "Training defaults",
+        )
+    }
     rows = []
     declared = {
         **numpy_types(DefaultNAMConfig),
@@ -197,7 +233,14 @@ def estimator_text(cls, spec, objective):
             description = "Family constructor options, configured here rather than in fit(); quantile models use quantiles=[...]."
         if not description:
             description = f"Configuration option of type {type(default).__name__}; see the architecture reference for its role and restrictions."
-        rows.append(
+        group = constructor_parameter_group(name, spec.name)
+        if (
+            group == "Architecture"
+            and name in inspect.signature(spec.config).parameters
+            and name not in {"family", "distributional_kwargs"}
+        ):
+            description = f":doc:`Architecture parameter definition </neural_reference/{spec.name}>`."
+        groups[group].append(
             (
                 f"``{name}``",
                 f"``{literal(default)}``",
@@ -205,9 +248,15 @@ def estimator_text(cls, spec, objective):
                 f"``{parameter_type(name, default, obj=spec.config, declared=declared)}``",
             )
         )
-    lines.append(
-        table(["Parameter", "Effective default", "Meaning", "Type / input shape"], rows)
-    )
+    for group, rows in groups.items():
+        if rows:
+            lines.append(
+                f".. rubric:: {group}\n\n"
+                + table(
+                    ["Parameter", "Effective default", "Meaning", "Type / input shape"],
+                    rows,
+                )
+            )
     if spec.name == "igann":
         lines.append(
             "This LSS task uses gradient training with solver='auto'; the native solver supports squared-error regression and binary classification only.\n"
@@ -222,38 +271,15 @@ def estimator_text(cls, spec, objective):
         )
     lines += [
         "Training controls\n~~~~~~~~~~~~~~~~~\n",
-        "The common training controls below apply to gradient-trained estimators. Native solvers such as IGANN use their architecture-specific stage controls.\n",
-        table(
-            ["Fit parameter", "Default", "Meaning", "Type / input shape"],
-            [
-                (
-                    f"``{name}``",
-                    "Optional keyword arguments"
-                    if parameter.kind is inspect.Parameter.VAR_KEYWORD
-                    else "Required"
-                    if parameter.default is inspect.Parameter.empty
-                    else f"``{literal(parameter.default)}``",
-                    descriptions(NeuralEstimatorBase.fit).get(
-                        name,
-                        "See the shared training contract for this fit control.",
-                    ),
-                    f"``{parameter_type(name, parameter.default, obj=NeuralEstimatorBase.fit, annotation=parameter.annotation)}``",
-                )
-                for name, parameter in inspect.signature(
-                    NeuralEstimatorBase.fit
-                ).parameters.items()
-                if name != "self"
-            ],
-        ),
-        ":doc:`Full training contract </api/neural_training>`.\n",
+        ":doc:`Full shared fit contract </api/neural_training>`: input and validation data, batching, device, optimizer, scheduler, callbacks and stopping. Native solvers such as IGANN use their architecture-specific stage controls described above. Fit-time keyword values override constructor training defaults.\n",
         "Predictions and explanations\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n",
     ]
     if objective == "regression":
         shape = "``(n_samples,)`` for a scalar target; ``(n_samples, n_outputs)`` for multi-output regression. Identity response scale; score is R²."
     elif objective == "classification":
-        shape = "``predict`` returns class labels; ``predict_proba`` returns ``(n_samples, n_classes)`` probabilities in ``classes_`` order. Component extraction is binary-only and describes logits, not additive probabilities."
+        shape = "``predict`` returns class labels; ``predict_proba`` returns ``(n_samples, n_classes)`` probabilities in ``classes_`` order. Component extraction is binary-only and describes logits, not additive probabilities. ``score`` returns mean classification accuracy (higher is better), with optional sample weights."
     else:
-        shape = "``predict`` returns natural distribution parameters; ``predict(raw=True)`` returns additive predictors. For fixed scalar families, natural columns follow ``family_.param_names``. Categorical and ordinal outputs instead have one probability per class; multivariate families depend on configured dimension, and quantiles have one column per requested level. Raw width follows ``family_.param_count``. ``predict_point`` returns the family-defined point prediction."
+        shape = "``predict`` returns natural distribution parameters; ``predict(raw=True)`` returns additive predictors. For fixed scalar families, natural columns follow ``family_.param_names``. Categorical and ordinal outputs instead have one probability per class; multivariate families depend on configured dimension, and quantiles have one column per requested level. Raw width follows ``family_.param_count``. ``predict_point`` returns the family-defined point prediction. ``score`` returns negative mean family loss (higher is better); evaluation loss is lower-is-better."
     if spec.name == "nodegam":
         lines.append(
             "NODE-GAM contributions require an interpretable selector state. The short runnable example explicitly completes annealing (anneal_steps=1) in a single-layer unary model. Validate additive reconstruction before interpreting contributions from partially trained or more complex selector configurations.\n"
@@ -288,42 +314,21 @@ def estimator_text(cls, spec, objective):
         methods += ["predict_point", "plot_distributional_effects"]
     if spec.name == "snam":
         methods += ["group_norms"]
+    shared = {
+        "predict": "/api/contracts",
+        "predict_proba": "/api/contracts",
+        "predict_point": "/api/contracts",
+        "score": "/api/neural_training",
+        "evaluate": "/api/neural_training",
+        "predict_components": "/api/contracts",
+        "plot_distributional_effects": "/api/plotting",
+    }
+    rows = []
     for method in methods:
         if hasattr(cls, method):
-            rows = method_parameter_rows(getattr(cls, method), GAM_PARAMETERS)
-            if rows:
-                lines.append(
-                    f".. rubric:: {method} parameters\n\n"
-                    + table(["Parameter", "Type / shape", "Default", "Meaning"], rows)
-                )
-            lines.append(
-                f".. automethod:: nampy.models.{cls.__name__}.{method}\n   :no-index:\n\n"
-            )
-    lines += [
-        "Complete example\n~~~~~~~~~~~~~~~~\n",
-        ".. code-block:: python\n\n",
-        "   import numpy as np\n   import pandas as pd\n",
-        f"   from nampy.models import {cls.__name__}\n\n",
-        '   rng = np.random.default_rng(7)\n   X = pd.DataFrame({"x": np.linspace(-1, 1, 240)})\n',
-    ]
-    if objective == "classification":
-        lines.append('   y = rng.binomial(1, 1 / (1 + np.exp(-3 * X["x"])))\n')
-    else:
-        lines.append('   y = np.sin(3 * X["x"]) + rng.normal(0, 0.15, len(X))\n')
-    lines += [
-        f"   model = {cls.__name__}(n_estimators=50)\n"
-        if spec.name == "igann" and objective != "distributional"
-        else f"   model = {cls.__name__}()\n",
-        "   model.fit(X, y, random_state=7)\n"
-        if (spec.name == "igann" and objective != "distributional")
-        or (spec.name == "gpnam" and objective == "regression")
-        else "   model.fit(X, y, max_epochs=50, random_state=7)\n",
-        "   prediction = model.predict(X)\n",
-        "   components = model.predict_components(X)\n",
-        '   model.save_model("fitted.nampy")\n',
-        f'   restored = {cls.__name__}.load_model("fitted.nampy")\n\n',
-        "These rows illustrate the interface; use held-out data to evaluate predictive quality. Persistence files use pickle and must come from a trusted source.\n",
-    ]
+            destination = shared.get(method, "/neural_reference/methods/" + method)
+            rows.append((f"``{method}``", f":doc:`Contract <{destination}>`"))
+    lines.append(table(["Method", "Canonical description"], rows))
     return "\n".join(lines)
 
 
@@ -430,6 +435,12 @@ def statistical_text(cls):
     return text
 
 
+def write_if_changed(path, content):
+    """Preserve include mtimes so an unchanged registry does not rebuild every page."""
+    if not path.exists() or path.read_text() != content:
+        path.write_text(content)
+
+
 def generate(root):
     from nampy import models
     from nampy.neural.registry import architectures
@@ -439,7 +450,9 @@ def generate(root):
     generated = root / "docs/api/generated"
     generated.mkdir(parents=True, exist_ok=True)
     for name in ["GAMRegressor", "GAMClassifier", "GAMLSS"]:
-        (output / f"{name}.inc").write_text(statistical_text(getattr(models, name)))
+        write_if_changed(
+            output / f"{name}.inc", statistical_text(getattr(models, name))
+        )
     matrix = []
     for name, spec in architectures().items():
         matrix.append(
@@ -488,8 +501,9 @@ def generate(root):
             if not spec.supports(task):
                 continue
             cls = getattr(models, spec.estimator_prefix + suffix)
-            (output / f"{cls.__name__}.inc").write_text(
-                estimator_text(cls, spec, task).rstrip() + "\n"
+            write_if_changed(
+                output / f"{cls.__name__}.inc",
+                estimator_text(cls, spec, task).rstrip() + "\n",
             )
             filename = generated / f"nampy.models.{cls.__name__}.rst"
             title = f"nampy.models.{cls.__name__}"
@@ -506,7 +520,8 @@ def generate(root):
             ):
                 filename.write_text(text)
     generate_families(root)
-    (output / "model_capabilities.inc").write_text(
+    write_if_changed(
+        output / "model_capabilities.inc",
         table(
             [
                 "Model",
@@ -518,7 +533,7 @@ def generate(root):
             ],
             matrix,
         ).rstrip()
-        + "\n"
+        + "\n",
     )
 
 
@@ -655,60 +670,20 @@ FAMILY_MEANINGS = {
 
 
 def generate_families(root):
+    """Legacy include is an index; family pages own the full contract."""
+    path = root / "docs/_generated/reference/neural_families.inc"
+    path.parent.mkdir(parents=True, exist_ok=True)
     from nampy.neural.distributions.registry import FAMILY_REGISTRY
 
-    lines = [
-        "Neural family contracts\n-----------------------\n\n",
-        "Aliases, parameter order, and default transforms below are read from the installed registry and family instances.\n",
-        "Estimator-specific overrides are shown on estimator pages. The positive transform is softplus plus epsilon; probabilities use the family-specific simplex or unit-interval transform. These are neural parameters, distinct from statistical GAM/GAMLSS parameterizations.\n",
-        "Quantile, categorical, and ordinal outputs have special widths; inspect the fitted family rather than assuming a common location-scale layout.\n\n",
-    ]
-    for name, spec in FAMILY_REGISTRY.items():
-        y = (
-            np.ones((6, 3)) / 3
-            if name in {"dirichlet", "mvnormdiag"}
-            else np.array([0, 1, 2, 0, 1, 2])
-        )
-        instance, _ = spec.instantiate(y)
-        support, point, spread, loss = FAMILY_MEANINGS[name]
-        transforms = {
-            key: literal(value)
-            for key, value in vars(instance).items()
-            if key.endswith("_transform")
-        }
-        parameters = ", ".join(instance.param_names)
-        if name in {"dirichlet", "mvnormdiag", "categorical"}:
-            parameters += " (illustrated with three dimensions/classes)"
-        if name == "ordinal":
-            parameters += (
-                " (raw predictor); transformed prediction has one probability per class"
-            )
-        rows = [
-            ("Alias", f"``{name}``"),
-            ("Target support", support),
-            ("Parameter order", parameters),
-            (
-                "Default transforms",
-                ", ".join(f"{key}: {value}" for key, value in transforms.items())
-                or (
-                    "First raw value is free; later quantiles add cumulative softplus increments when enforce_monotonic=True. QNAM uses ordered term outputs and disables this second transform."
-                    if name == "quantile"
-                    else "Family-specific probability transformation; inspect the family contract."
-                ),
-            ),
-            ("Point prediction", point),
-            ("Spread", spread),
-            ("Loss", loss),
-        ]
-        title = f"{spec.distribution.__name__} ({name})"
-        lines.extend(
+    write_if_changed(
+        path,
+        table(
+            ["Family", "Canonical contract"],
             [
-                title + "\n" + "~" * len(title) + "\n\n",
-                table(["Property", "Meaning"], rows),
-            ]
-        )
-    (root / "docs/_generated/reference/neural_families.inc").write_text(
-        "\n".join(lines).rstrip() + "\n"
+                (name, f":doc:`{name} </neural_reference/families/{name}>`")
+                for name in FAMILY_REGISTRY
+            ],
+        ),
     )
 
 

@@ -9,6 +9,8 @@ NAMLSS
    :no-inherited-members:
 
 .. include:: /_generated/reference/NAMLSS.inc
+
+
 Runnable example
 ----------------
 
@@ -19,10 +21,80 @@ This example includes its data and imports. Run it after installing NAMpy. Small
 .. literalinclude:: /_examples/reference/neural_reference/estimators/NAMLSS.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "components": {
+       "link": [
+         -0.5577499866485596,
+         -0.5795599818229675,
+         -0.6039699912071228,
+         -0.6002100110054016,
+         -0.5872600078582764,
+         -0.5914599895477295
+       ],
+       "response": [
+         -0.5577499866485596,
+         0.44477999210357666,
+         -0.6039699912071228,
+         0.43740999698638916,
+         -0.5872600078582764,
+         0.4405199885368347
+       ],
+       "terms": {
+         "x": [
+           -0.3914400041103363,
+           -0.4112499952316284,
+           -0.3926500082015991,
+           -0.4079599976539612,
+           -0.39236998558044434,
+           -0.4063900113105774
+         ],
+         "z": [
+           -0.1667100042104721,
+           -0.16869999468326569,
+           -0.21172000467777252,
+           -0.19265000522136688,
+           -0.19528000056743622,
+           -0.18546000123023987
+         ]
+       }
+     },
+     "point": [
+       -0.5577499866485596,
+       -0.6039699912071228,
+       -0.5872600078582764,
+       -0.6056200265884399,
+       -0.5911999940872192,
+       -0.6004999876022339
+     ],
+     "prediction": [
+       -0.5577499866485596,
+       0.44477999210357666,
+       -0.6039699912071228,
+       0.43740999698638916,
+       -0.5872600078582764,
+       0.4405199885368347
+     ],
+     "raw": [
+       -0.5577499866485596,
+       -0.5795599818229675,
+       -0.6039699912071228,
+       -0.6002100110054016,
+       -0.5872600078582764,
+       -0.5914599895477295
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -45,37 +117,4 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
      - (64,)
    * - result['components']
      - nampy.contracts.AdditivePrediction
-     - scalar record
-   * - result['components'].response
-     - numpy.ndarray[float32]
-     - (64, 2)
-   * - result['components'].link
-     - numpy.ndarray[float32]
-     - (64, 2)
-   * - result['components'].terms
-     - dict
-     - 2 named fields
-   * - result['components'].terms['x']
-     - numpy.ndarray[float32]
-     - (64, 2)
-   * - result['components'].terms['z']
-     - numpy.ndarray[float32]
-     - (64, 2)
-   * - result['components'].intercept
-     - numpy.ndarray[float32]
-     - (2,)
-   * - result['components'].backend
-     - builtins.str
-     - ()
-   * - result['components'].offset
-     - builtins.NoneType
-     - not applicable
-   * - result['components'].term_metadata
-     - dict
-     - 2 named fields
-   * - result['components'].term_metadata['x']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
-   * - result['components'].term_metadata['z']
-     - nampy.contracts.AdditiveTermMetadata
      - scalar record

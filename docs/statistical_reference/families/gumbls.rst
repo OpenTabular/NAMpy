@@ -45,6 +45,30 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``-7.0``
      - Lower bound for log scale under the source second log link; default -7. Identity log-scale linking follows its separate branch.
 
+Distribution definition and moments
+-----------------------------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Quantity
+     - Definition
+   * - Distribution / loss
+     - F(y)=exp(-exp(-(y-mu)/beta)), y in R.
+   * - Natural domains
+     - location mu in R; scale beta>0
+   * - Conditional mean
+     - mu+EulerGamma beta
+   * - Conditional variance
+     - pi^2 beta^2/6
+
+References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
+
+Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
+
+Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Outputs and fitting support
 ---------------------------
 
@@ -96,6 +120,8 @@ Outputs and fitting support
 
 The constructor returns a family object, not predictions. ``GAM.fit`` returns the fitted model. For a single-predictor family, ``GAM.predict(type='response')`` normally returns a response-scale array, while ``type='link'`` returns the additive predictor. Multi-predictor families have family-specific response transformations. ``GAMLSS.predict`` exposes natural distribution parameters; ``predict(raw=True)`` exposes link predictors. These interfaces can have different column meanings.
 
+
+
 Runnable example
 ----------------
 
@@ -106,10 +132,44 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/gumbls.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "link_predictors": [
+       0.63714,
+       -1.32225,
+       0.9611,
+       -1.32225,
+       0.88716,
+       -1.32225
+     ],
+     "natural_parameters": [
+       0.63714,
+       0.26745,
+       0.9611,
+       0.26745,
+       0.88716,
+       0.26745
+     ],
+     "source_response": [
+       0.63714,
+       -1.31883,
+       0.9611,
+       -1.31883,
+       0.88716,
+       -1.31883
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

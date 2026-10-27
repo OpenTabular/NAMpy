@@ -23,6 +23,22 @@ ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES = ROOT / "docs/_examples/reference"
 
 
+def write_json_atomic(path, value):
+    """Keep an existing manifest readable until its complete replacement exists."""
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w", dir=path.parent, delete=False, encoding="utf-8"
+        ) as handle:
+            temporary = Path(handle.name)
+            json.dump(value, handle, indent=2, sort_keys=True)
+            handle.write("\n")
+        temporary.replace(path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
 def output_schema(value, path="result", depth=0):
     import numpy as np
     import pandas as pd
@@ -74,6 +90,46 @@ def output_schema(value, path="result", depth=0):
     return [(path, name, "scalar object")]
 
 
+def result_preview(value, depth=0):
+    """Small numerical results for readers; detailed schemas stay in the audit."""
+    import numpy as np
+    import pandas as pd
+    import torch
+
+    if isinstance(value, torch.Tensor):
+        value = value.detach().cpu().numpy()
+    if isinstance(value, np.ndarray):
+        return np.round(value.reshape(-1)[:6], 5).tolist()
+    if isinstance(value, (pd.DataFrame, pd.Series)):
+        return value.head(2).to_string()
+    if isinstance(value, dict):
+        return (
+            {str(k): result_preview(v, depth + 1) for k, v in list(value.items())[:4]}
+            if depth < 3
+            else f"{len(value)} fields"
+        )
+    if isinstance(value, (list, tuple)):
+        return (
+            [result_preview(v, depth + 1) for v in value[:2]]
+            if depth < 4
+            else f"{len(value)} entries"
+        )
+    if dataclasses.is_dataclass(value):
+        return (
+            {
+                f.name: result_preview(getattr(value, f.name), depth + 1)
+                for f in dataclasses.fields(value)[:3]
+            }
+            if depth < 2
+            else type(value).__name__
+        )
+    if isinstance(value, np.generic):
+        return value.item()
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    return type(value).__name__
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--match", default="")
@@ -88,6 +144,8 @@ def main():
     schemas_path = EXAMPLES / "output_schemas.json"
     records = json.loads(record_path.read_text()) if record_path.exists() else {}
     schemas = json.loads(schemas_path.read_text()) if schemas_path.exists() else {}
+    preview_path = EXAMPLES / "output_previews.json"
+    previews = json.loads(preview_path.read_text()) if preview_path.exists() else {}
     failures = []
     passed = 0
     files = [
@@ -104,6 +162,7 @@ def main():
             args.resume
             and records.get(key, {}).get("sha256") == digest
             and records[key].get("status") == "passed"
+            and key in previews
         ):
             passed += 1
             continue
@@ -113,7 +172,7 @@ def main():
         code = source.split("\n\n", 1)[1]
         try:
             if code in cache:
-                schemas[key] = cache[code]
+                schemas[key], previews[key] = cache[code]
             else:
                 with tempfile.TemporaryDirectory(
                     prefix="nampy-reference-"
@@ -131,7 +190,8 @@ def main():
                                 "Example must expose result for output verification"
                             )
                         schemas[key] = output_schema(namespace["result"])
-                        cache[code] = schemas[key]
+                        previews[key] = result_preview(namespace["result"])
+                        cache[code] = (schemas[key], previews[key])
                     finally:
                         os.chdir(previous)
             records[key] = {"sha256": digest, "status": "passed"}
@@ -149,10 +209,9 @@ def main():
         finally:
             plt.close("all")
             namespace.clear()
-            schemas_path.write_text(
-                json.dumps(schemas, indent=2, sort_keys=True) + "\n"
-            )
-            record_path.write_text(json.dumps(records, indent=2, sort_keys=True) + "\n")
+            write_json_atomic(preview_path, previews)
+            write_json_atomic(schemas_path, schemas)
+            write_json_atomic(record_path, records)
     print(f"{passed}/{len(files)} passed; {len(failures)} failed", flush=True)
     if failures:
         raise SystemExit(1)

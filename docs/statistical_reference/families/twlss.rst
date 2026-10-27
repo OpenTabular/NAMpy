@@ -49,6 +49,30 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``1.99``
      - Upper bound on natural Tweedie power, default 1.99; require 1<a<b<2.
 
+Distribution definition and moments
+-----------------------------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Quantity
+     - Definition
+   * - Distribution / loss
+     - Compound Poisson-gamma law for 1<p<2: N~Poisson(mu^(2-p)/(phi(2-p))); Y is a sum of N Gamma((2-p)/(p-1), scale=phi(p-1)mu^(p-1)) jumps.
+   * - Natural domains
+     - mu>0; phi>0; fixed power 1<p<2
+   * - Conditional mean
+     - mu
+   * - Conditional variance
+     - phi mu^p
+
+References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
+
+Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
+
+Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Outputs and fitting support
 ---------------------------
 
@@ -100,6 +124,8 @@ Outputs and fitting support
 
 The constructor returns a family object, not predictions. ``GAM.fit`` returns the fitted model. For a single-predictor family, ``GAM.predict(type='response')`` normally returns a response-scale array, while ``type='link'`` returns the additive predictor. Multi-predictor families have family-specific response transformations. ``GAMLSS.predict`` exposes natural distribution parameters; ``predict(raw=True)`` exposes link predictors. These interfaces can have different column meanings.
 
+
+
 Runnable example
 ----------------
 
@@ -110,10 +136,44 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/twlss.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "link_predictors": [
+       -0.01662,
+       -1.11199,
+       -0.55684,
+       -0.16255,
+       -1.11199,
+       -0.55684
+     ],
+     "natural_parameters": [
+       0.98352,
+       1.25255,
+       0.57301,
+       0.84997,
+       1.25255,
+       0.57301
+     ],
+     "source_response": [
+       0.98352,
+       -1.11199,
+       -0.55684,
+       0.84997,
+       -1.11199,
+       -0.55684
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

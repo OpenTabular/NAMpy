@@ -45,6 +45,32 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - Variable arguments
      - Additional options documented by the linked implementation; unknown options may be rejected.
 
+Distribution definition and moments
+-----------------------------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Quantity
+     - Definition
+   * - Distribution / loss
+     - Quasi-likelihood specifies a mean-variance relation rather than a normalized probability density.
+   * - Natural domains
+     - mu in the domain of the configured link; dispersion phi>0
+   * - Conditional mean
+     - mu
+   * - Conditional variance
+     - phi mu(1-mu)
+
+A likelihood-based AIC is unavailable for a quasi-likelihood family. Deviance and Pearson residuals retain their estimating-equation meanings.
+
+References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
+
+Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
+
+Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Outputs and fitting support
 ---------------------------
 
@@ -92,6 +118,8 @@ Outputs and fitting support
 
 The constructor returns a family object, not predictions. ``GAM.fit`` returns the fitted model. For a single-predictor family, ``GAM.predict(type='response')`` normally returns a response-scale array, while ``type='link'`` returns the additive predictor. Multi-predictor families have family-specific response transformations. ``GAMLSS.predict`` exposes natural distribution parameters; ``predict(raw=True)`` exposes link predictors. These interfaces can have different column meanings.
 
+
+
 Runnable example
 ----------------
 
@@ -102,10 +130,36 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/quasibinomial.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "link_prediction": [
+       0.74874,
+       0.84218,
+       1.04268,
+       -1.41357,
+       -1.22235,
+       0.90711
+     ],
+     "response_prediction": [
+       0.6789,
+       0.69892,
+       0.73937,
+       0.19567,
+       0.22752,
+       0.71241
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

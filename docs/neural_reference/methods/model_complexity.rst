@@ -31,6 +31,8 @@ Returns
      - named scalar counts
      - At least total_parameters and trainable_parameters; architectures can add their own complexity counts.
 
+
+
 Runnable example
 ----------------
 
@@ -41,10 +43,22 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/methods/model_complexity.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "total_parameters": 275,
+     "trainable_parameters": 275
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

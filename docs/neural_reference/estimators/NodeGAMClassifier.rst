@@ -9,6 +9,8 @@ NodeGAMClassifier
    :no-inherited-members:
 
 .. include:: /_generated/reference/NodeGAMClassifier.inc
+
+
 Runnable example
 ----------------
 
@@ -19,10 +21,72 @@ This example includes its data and imports. Run it after installing NAMpy. Small
 .. literalinclude:: /_examples/reference/neural_reference/estimators/NodeGAMClassifier.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "components": {
+       "link": [
+         0.2623699903488159,
+         0.2623699903488159,
+         0.2623699903488159,
+         0.22112999856472015,
+         0.2623699903488159,
+         0.2623699903488159
+       ],
+       "response": [
+         0.5652199983596802,
+         0.5652199983596802,
+         0.5652199983596802,
+         0.5550600290298462,
+         0.5652199983596802,
+         0.5652199983596802
+       ],
+       "terms": {
+         "x": [
+           0.17586000263690948,
+           0.17586000263690948,
+           0.17586000263690948,
+           0.17586000263690948,
+           0.17586000263690948,
+           0.17586000263690948
+         ],
+         "z": [
+           0.08664999902248383,
+           0.08664999902248383,
+           0.08664999902248383,
+           0.045409999787807465,
+           0.08664999902248383,
+           0.08664999902248383
+         ]
+       }
+     },
+     "prediction": [
+       1,
+       1,
+       1,
+       1,
+       1,
+       1
+     ],
+     "probabilities": [
+       0.4347800016403198,
+       0.5652199983596802,
+       0.4347800016403198,
+       0.5652199983596802,
+       0.4347800016403198,
+       0.5652199983596802
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -42,37 +106,4 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
      - (64, 2)
    * - result['components']
      - nampy.contracts.AdditivePrediction
-     - scalar record
-   * - result['components'].response
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].link
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].terms
-     - dict
-     - 2 named fields
-   * - result['components'].terms['z']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].terms['x']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].intercept
-     - builtins.float
-     - ()
-   * - result['components'].backend
-     - builtins.str
-     - ()
-   * - result['components'].offset
-     - builtins.NoneType
-     - not applicable
-   * - result['components'].term_metadata
-     - dict
-     - 2 named fields
-   * - result['components'].term_metadata['z']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
-   * - result['components'].term_metadata['x']
-     - nampy.contracts.AdditiveTermMetadata
      - scalar record

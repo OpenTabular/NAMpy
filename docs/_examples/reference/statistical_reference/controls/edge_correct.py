@@ -3,6 +3,6 @@
 from nampy.gam import gam_control
 
 control = gam_control(edge_correct=False)
-result = control
+result = {'edge_correct': control.edge_correct}
 assert hasattr(control, 'edge_correct')
 print(control.edge_correct)

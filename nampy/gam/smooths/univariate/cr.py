@@ -8,9 +8,9 @@ user-supplied or chosen automatically using quantiles of the training data.
 An optional null-space selection penalty is added when ``select=True``,
 allowing the term to be shrunk to zero.
 
-A point constraint ``coef[i] = 0`` may be specified via the ``pc`` argument
-to pin a basis function to a fixed value (used for derivative computation and
-identifiability in some settings).
+A point constraint ``f(x0) = 0`` may be specified via ``pc=x0``. The basis
+is reparameterized so its evaluated row at that location is zero. This is a
+constraint on the fitted function, not generally on one arbitrary coefficient.
 """
 
 import numpy as np

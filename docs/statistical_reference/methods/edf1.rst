@@ -35,6 +35,8 @@ NumPy vector of length n_coefficients, computed as 2*diag(F) - rowSums(F*F').
      - (p,)
      - Per-coefficient upper-bound EDF, in coefficient order.
 
+
+
 Runnable example
 ----------------
 
@@ -45,10 +47,26 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/edf1.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   [
+     1.0,
+     0.46945,
+     1.19296,
+     0.67738,
+     0.84991,
+     0.76802
+   ]
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

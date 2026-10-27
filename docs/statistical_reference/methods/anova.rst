@@ -60,6 +60,8 @@ AnovaGAMSingle for a single model or AnovaGAMComparison for multiple models. Com
      - scalar record
      - Within-model term tests or between-model comparison rows, depending on additional models.
 
+
+
 Runnable example
 ----------------
 
@@ -70,10 +72,23 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/anova.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "covariance": "bayes",
+     "family_name": "gaussian",
+     "link_name": "identity"
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -100,63 +115,6 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
    * - result.residual_df
      - builtins.float
      - ()
-   * - result.parametric_table
-     - pandas.DataFrame
-     - (0, 7)
-   * - result.parametric_table['label']
-     - object
-     - (0,)
-   * - result.parametric_table['df']
-     - object
-     - (0,)
-   * - result.parametric_table['wald_stat']
-     - object
-     - (0,)
-   * - result.parametric_table['p_value']
-     - object
-     - (0,)
-   * - result.parametric_table['test']
-     - object
-     - (0,)
-   * - result.parametric_table['covariance']
-     - object
-     - (0,)
-   * - result.parametric_table['dispersion']
-     - object
-     - (0,)
-   * - result.smooth_table
-     - pandas.DataFrame
-     - (2, 10)
-   * - result.smooth_table['label']
-     - str
-     - (2,)
-   * - result.smooth_table['edf']
-     - float64
-     - (2,)
-   * - result.smooth_table['ref_df']
-     - float64
-     - (2,)
-   * - result.smooth_table['wald_stat']
-     - float64
-     - (2,)
-   * - result.smooth_table['p_value']
-     - float64
-     - (2,)
-   * - result.smooth_table['test']
-     - str
-     - (2,)
-   * - result.smooth_table['term_type']
-     - str
-     - (2,)
-   * - result.smooth_table['basis_name']
-     - str
-     - (2,)
-   * - result.smooth_table['covariance']
-     - str
-     - (2,)
-   * - result.smooth_table['dispersion']
-     - float64
-     - (2,)
 
 .. automethod:: nampy.gam.GAM.anova
    :no-index:

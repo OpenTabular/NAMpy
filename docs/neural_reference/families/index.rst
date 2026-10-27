@@ -3,10 +3,190 @@
 Neural response distributions
 =============================
 
+Choose by response support, then compare parameterization and fitting interface. Column meanings on the individual page take precedence over a similarly named family in another backend.
 
+Continuous responses
+--------------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Family
+     - Response support / interpretation
+     - Parameters in order
+     - Interface
+   * - :doc:`normal <normal>`
+     - Real scalar
+     - ``mean``, ``scale``
+     - LSS estimators supporting this response family
+   * - :doc:`robustnormal <robustnormal>`
+     - Real scalar
+     - ``mean``, ``scale``
+     - LSS estimators supporting this response family
+   * - :doc:`studentt <studentt>`
+     - Real scalar
+     - ``df``, ``loc``, ``scale``
+     - LSS estimators supporting this response family
+
+Positive responses
+------------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Family
+     - Response support / interpretation
+     - Parameters in order
+     - Interface
+   * - :doc:`gamma <gamma>`
+     - Positive scalar
+     - ``shape``, ``rate``
+     - LSS estimators supporting this response family
+   * - :doc:`inversegamma <inversegamma>`
+     - Positive scalar
+     - ``shape``, ``rate``
+     - LSS estimators supporting this response family
+   * - :doc:`loglogistic <loglogistic>`
+     - Positive scalar
+     - ``scale``, ``shape``
+     - LSS estimators supporting this response family
+   * - :doc:`lognormal <lognormal>`
+     - Positive scalar
+     - ``loc``, ``scale``
+     - LSS estimators supporting this response family
+   * - :doc:`weibull <weibull>`
+     - Positive scalar
+     - ``scale``, ``shape``
+     - LSS estimators supporting this response family
+
+Nonnegative semicontinuous responses
+------------------------------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Family
+     - Response support / interpretation
+     - Parameters in order
+     - Interface
+   * - :doc:`tweedie <tweedie>`
+     - Nonnegative scalar
+     - ``mean``, ``dispersion``
+     - LSS estimators supporting this response family
+
+Proportions
+-----------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Family
+     - Response support / interpretation
+     - Parameters in order
+     - Interface
+   * - :doc:`beta <beta>`
+     - Unit interval; numerical target clipping applies
+     - ``alpha``, ``beta``
+     - LSS estimators supporting this response family
+
+Counts
+------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Family
+     - Response support / interpretation
+     - Parameters in order
+     - Interface
+   * - :doc:`hurdlenegativebinom <hurdlenegativebinom>`
+     - Nonnegative integer
+     - ``zero_prob``, ``mean``, ``dispersion``
+     - LSS estimators supporting this response family
+   * - :doc:`hurdlepoisson <hurdlepoisson>`
+     - Nonnegative integer
+     - ``zero_prob``, ``rate``
+     - LSS estimators supporting this response family
+   * - :doc:`negativebinom <negativebinom>`
+     - Nonnegative integer
+     - ``mean``, ``dispersion``
+     - LSS estimators supporting this response family
+   * - :doc:`poisson <poisson>`
+     - Nonnegative integer
+     - ``rate``
+     - LSS estimators supporting this response family
+   * - :doc:`zinb <zinb>`
+     - Nonnegative integer
+     - ``zero_prob``, ``mean``, ``dispersion``
+     - LSS estimators supporting this response family
+   * - :doc:`zip <zip>`
+     - Nonnegative integer
+     - ``zero_prob``, ``rate``
+     - LSS estimators supporting this response family
+
+Categorical and ordered responses
+---------------------------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Family
+     - Response support / interpretation
+     - Parameters in order
+     - Interface
+   * - :doc:`categorical <categorical>`
+     - Integer class index or one-hot target
+     - ``class_0``, ``class_1``, ``class_2``
+     - LSS estimators supporting this response family
+   * - :doc:`ordinal <ordinal>`
+     - Ordered integer class index
+     - ``eta``
+     - LSS estimators supporting this response family
+
+Multivariate responses
+----------------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Family
+     - Response support / interpretation
+     - Parameters in order
+     - Interface
+   * - :doc:`dirichlet <dirichlet>`
+     - Positive composition summing to one
+     - ``alpha_0``, ``alpha_1``, ``alpha_2``
+     - LSS estimators supporting this response family
+   * - :doc:`mvnormdiag <mvnormdiag>`
+     - Real vector with configured n_dim
+     - ``loc_0``, ``loc_1``, ``loc_2``, ``scale_0``, ``scale_1``, ``scale_2``
+     - LSS estimators supporting this response family
+
+Quantiles
+---------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Family
+     - Response support / interpretation
+     - Parameters in order
+     - Interface
+   * - :doc:`quantile <quantile>`
+     - Real scalar
+     - ``q_0.25``, ``q_0.5``, ``q_0.75``
+     - LSS estimators supporting this response family
 
 .. toctree::
-   :maxdepth: 1
+   :hidden:
 
    normal
    poisson

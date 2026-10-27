@@ -11,4 +11,6 @@ Statistical estimators
    GAMRegressor
    GAMClassifier
    GAMLSS
+   ExpectileGAM
+   QuantileGAM
    GAM (statistical engine) <../GAM>

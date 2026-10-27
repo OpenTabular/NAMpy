@@ -12,6 +12,8 @@ Signature
 
    estimator.local_term_importance(self, X, *, target: 'int' = 0, top_k: 'int' = 10, batch_size: 'int | None' = None)
 
+Available architecture hooks: :doc:`spam <../spam>`. Unsupported architectures raise ``NotImplementedError``; call after fitting. Native history and metadata retain their native-solver meaning.
+
 Parameters
 ----------
 
@@ -50,9 +52,13 @@ Returns
    * - Type
      - Shape
      - Meaning
-   * - list[dict]
-     - one entry per observation
+   * - list[list[dict[str, object]]]
+     - outer length n; up to top_k dictionaries per observation
      - Architecture-specific polynomial term expansions for the requested output and top-k budget. Implemented by SPAM; unsupported architectures raise NotImplementedError.
+
+Each inner dictionary contains ``term`` (source-feature tuple), ``order`` (integer interaction degree), and ``contribution`` (float for the selected output). Terms are ranked by absolute contribution within each observation; these are local polynomial terms, not global feature-importance scores.
+
+
 
 Runnable example
 ----------------
@@ -64,10 +70,52 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/methods/local_term_importance.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   [
+     [
+       {
+         "contribution": -0.07125948742032051,
+         "order": 1,
+         "term": [
+           "x"
+         ]
+       },
+       {
+         "contribution": 0.015347519889473915,
+         "order": 1,
+         "term": [
+           "z"
+         ]
+       }
+     ],
+     [
+       {
+         "contribution": -0.06899730488657951,
+         "order": 1,
+         "term": [
+           "x"
+         ]
+       },
+       {
+         "contribution": 0.04863093048334122,
+         "order": 1,
+         "term": [
+           "z"
+         ]
+       }
+     ]
+   ]
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -82,120 +130,12 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
    * - result[0]
      - list
      - length 3
-   * - result[0][0]
-     - dict
-     - 3 named fields
-   * - result[0][0]['term']
-     - tuple
-     - length 1
-   * - result[0][0]['order']
-     - builtins.int
-     - ()
-   * - result[0][0]['contribution']
-     - builtins.float
-     - ()
-   * - result[0][1]
-     - dict
-     - 3 named fields
-   * - result[0][1]['term']
-     - tuple
-     - length 1
-   * - result[0][1]['order']
-     - builtins.int
-     - ()
-   * - result[0][1]['contribution']
-     - builtins.float
-     - ()
-   * - result[0][2]
-     - dict
-     - 3 named fields
-   * - result[0][2]['term']
-     - tuple
-     - length 2
-   * - result[0][2]['order']
-     - builtins.int
-     - ()
-   * - result[0][2]['contribution']
-     - builtins.float
-     - ()
    * - result[1]
      - list
      - length 3
-   * - result[1][0]
-     - dict
-     - 3 named fields
-   * - result[1][0]['term']
-     - tuple
-     - length 1
-   * - result[1][0]['order']
-     - builtins.int
-     - ()
-   * - result[1][0]['contribution']
-     - builtins.float
-     - ()
-   * - result[1][1]
-     - dict
-     - 3 named fields
-   * - result[1][1]['term']
-     - tuple
-     - length 1
-   * - result[1][1]['order']
-     - builtins.int
-     - ()
-   * - result[1][1]['contribution']
-     - builtins.float
-     - ()
-   * - result[1][2]
-     - dict
-     - 3 named fields
-   * - result[1][2]['term']
-     - tuple
-     - length 2
-   * - result[1][2]['order']
-     - builtins.int
-     - ()
-   * - result[1][2]['contribution']
-     - builtins.float
-     - ()
    * - result[2]
      - list
      - length 3
-   * - result[2][0]
-     - dict
-     - 3 named fields
-   * - result[2][0]['term']
-     - tuple
-     - length 1
-   * - result[2][0]['order']
-     - builtins.int
-     - ()
-   * - result[2][0]['contribution']
-     - builtins.float
-     - ()
-   * - result[2][1]
-     - dict
-     - 3 named fields
-   * - result[2][1]['term']
-     - tuple
-     - length 1
-   * - result[2][1]['order']
-     - builtins.int
-     - ()
-   * - result[2][1]['contribution']
-     - builtins.float
-     - ()
-   * - result[2][2]
-     - dict
-     - 3 named fields
-   * - result[2][2]['term']
-     - tuple
-     - length 2
-   * - result[2][2]['order']
-     - builtins.int
-     - ()
-   * - result[2][2]['contribution']
-     - builtins.float
-     - ()
 
 .. automethod:: nampy.models._base.NeuralEstimatorBase.local_term_importance
    :no-index:

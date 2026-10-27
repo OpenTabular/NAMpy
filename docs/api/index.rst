@@ -3,17 +3,12 @@
 Reference
 =========
 
-Follow the reference from choosing a model to configuring it, inspecting its
-outputs, and extending its implementation. Each detailed feature has one
-navigation location; API names in guides and examples link to that feature.
+Each feature has one canonical description. Start with a model interface, then
+look up its predictions or use the extension interfaces to implement a feature.
 
-* :doc:`Model guide </models/index>`: compare supported architectures and tasks.
-* :doc:`Statistical models </statistical_reference/index>`: estimators, formulas,
-  smooths, families, fitting, prediction, inference and extension APIs.
-* :doc:`Neural models </neural_reference/index>`: architectures, response
-  distributions, training, custom estimators and implementation APIs.
-* :doc:`Shared predictions and explanations <contracts>`: returned objects and
-  interpretation contracts used by both model types.
-* :doc:`Plotting <plotting>`: render effects, distributions and diagnostic results.
-* :doc:`Compatibility </compatibility>`: supported interfaces and boundaries.
-* :doc:`License </license>`.
+* :doc:`Statistical models </statistical_reference/index>`: estimators, formulas, smooths, families, fitting and inference.
+* :doc:`Neural models </neural_reference/index>`: architectures, estimators, response distributions and training.
+* :doc:`Predictions and explanations <contracts>`: shared result objects and interpretation contracts.
+* :doc:`Plotting <plotting>`: plotting inputs, outputs and rendering options.
+* :doc:`Extension APIs </extension_reference/index>`: runtime terms, registries and custom implementations.
+* :doc:`Compatibility and limitations </compatibility>`: supported combinations and differences.

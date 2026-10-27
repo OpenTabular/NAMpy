@@ -9,6 +9,8 @@ NBMClassifier
    :no-inherited-members:
 
 .. include:: /_generated/reference/NBMClassifier.inc
+
+
 Runnable example
 ----------------
 
@@ -19,10 +21,72 @@ This example includes its data and imports. Run it after installing NAMpy. Small
 .. literalinclude:: /_examples/reference/neural_reference/estimators/NBMClassifier.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "components": {
+       "link": [
+         0.07960999757051468,
+         0.08113999664783478,
+         0.08180999755859375,
+         0.07605999708175659,
+         0.07673999667167664,
+         0.08156000077724457
+       ],
+       "response": [
+         0.5198900103569031,
+         0.5202699899673462,
+         0.5204399824142456,
+         0.5190100073814392,
+         0.5191799998283386,
+         0.5203800201416016
+       ],
+       "terms": {
+         "x": [
+           0.022019999101758003,
+           0.02199999988079071,
+           0.02198999933898449,
+           0.021980000659823418,
+           0.021959999576210976,
+           0.021950000897049904
+         ],
+         "z": [
+           -0.031220000237226486,
+           -0.029680000618100166,
+           -0.028999999165534973,
+           -0.03474000096321106,
+           -0.034040000289678574,
+           -0.029200000688433647
+         ]
+       }
+     },
+     "prediction": [
+       1,
+       1,
+       1,
+       1,
+       1,
+       1
+     ],
+     "probabilities": [
+       0.4801099896430969,
+       0.5198900103569031,
+       0.4797300100326538,
+       0.5202699899673462,
+       0.479559987783432,
+       0.5204399824142456
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -42,37 +106,4 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
      - (64, 2)
    * - result['components']
      - nampy.contracts.AdditivePrediction
-     - scalar record
-   * - result['components'].response
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].link
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].terms
-     - dict
-     - 2 named fields
-   * - result['components'].terms['x']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].terms['z']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].intercept
-     - builtins.float
-     - ()
-   * - result['components'].backend
-     - builtins.str
-     - ()
-   * - result['components'].offset
-     - builtins.NoneType
-     - not applicable
-   * - result['components'].term_metadata
-     - dict
-     - 2 named fields
-   * - result['components'].term_metadata['x']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
-   * - result['components'].term_metadata['z']
-     - nampy.contracts.AdditiveTermMetadata
      - scalar record

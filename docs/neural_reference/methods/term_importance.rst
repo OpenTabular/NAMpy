@@ -54,6 +54,8 @@ Returns
      - (n_term_outputs, 4)
      - Columns term, term_type, output, importance, sorted by decreasing mean absolute link contribution.
 
+
+
 Runnable example
 ----------------
 
@@ -64,10 +66,19 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/methods/term_importance.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   "  term term_type  output  importance\n0    z      main       0    0.372995\n1    x      main       0    0.253862"
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

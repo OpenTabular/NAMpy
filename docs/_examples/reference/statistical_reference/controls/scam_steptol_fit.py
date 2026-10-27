@@ -3,6 +3,6 @@
 from nampy.gam import gam_control
 
 control = gam_control(scam_steptol_fit=1e-07)
-result = control
+result = {'scam_steptol_fit': control.scam_steptol_fit}
 assert hasattr(control, 'scam_steptol_fit')
 print(control.scam_steptol_fit)

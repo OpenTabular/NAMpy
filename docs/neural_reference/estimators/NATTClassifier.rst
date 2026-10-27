@@ -9,6 +9,8 @@ NATTClassifier
    :no-inherited-members:
 
 .. include:: /_generated/reference/NATTClassifier.inc
+
+
 Runnable example
 ----------------
 
@@ -19,10 +21,72 @@ This example includes its data and imports. Run it after installing NAMpy. Small
 .. literalinclude:: /_examples/reference/neural_reference/estimators/NATTClassifier.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "components": {
+       "link": [
+         0.47979000210762024,
+         0.4534499943256378,
+         0.3958599865436554,
+         0.12154000252485275,
+         0.2546499967575073,
+         0.31380000710487366
+       ],
+       "response": [
+         0.6176999807357788,
+         0.6114599704742432,
+         0.5976899862289429,
+         0.5303500294685364,
+         0.563319981098175,
+         0.5778099894523621
+       ],
+       "terms": {
+         "x": [
+           0.3312700092792511,
+           0.33149999380111694,
+           0.33322998881340027,
+           0.22035999596118927,
+           0.21748000383377075,
+           0.2082899957895279
+         ],
+         "z": [
+           0.14869000017642975,
+           0.12212000042200089,
+           0.06279999762773514,
+           -0.09864000231027603,
+           0.03734999895095825,
+           0.10567999631166458
+         ]
+       }
+     },
+     "prediction": [
+       1,
+       1,
+       1,
+       1,
+       1,
+       1
+     ],
+     "probabilities": [
+       0.3822999894618988,
+       0.6176999807357788,
+       0.38853999972343445,
+       0.6114599704742432,
+       0.40231001377105713,
+       0.5976899862289429
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -42,37 +106,4 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
      - (64, 2)
    * - result['components']
      - nampy.contracts.AdditivePrediction
-     - scalar record
-   * - result['components'].response
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].link
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].terms
-     - dict
-     - 2 named fields
-   * - result['components'].terms['x']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].terms['z']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].intercept
-     - builtins.float
-     - ()
-   * - result['components'].backend
-     - builtins.str
-     - ()
-   * - result['components'].offset
-     - builtins.NoneType
-     - not applicable
-   * - result['components'].term_metadata
-     - dict
-     - 2 named fields
-   * - result['components'].term_metadata['x']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
-   * - result['components'].term_metadata['z']
-     - nampy.contracts.AdditiveTermMetadata
      - scalar record

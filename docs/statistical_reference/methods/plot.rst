@@ -164,6 +164,8 @@ Expanded plotting keyword arguments
      - ``None``
      - Optional Matplotlib figure size in inches, as (width, height).
 
+
+
 Runnable example
 ----------------
 
@@ -174,10 +176,68 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/plot.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "by_resids": false,
+     "partial_resids": false,
+     "pd": [
+       {
+         "kind": "1d",
+         "scale": true,
+         "se": [
+           0.10094,
+           0.07465,
+           0.05973,
+           0.05086,
+           0.04519,
+           0.04239
+         ],
+         "x": [
+           0.00373,
+           0.03793,
+           0.07213,
+           0.10633,
+           0.14053,
+           0.17473
+         ]
+       },
+       {
+         "kind": "1d",
+         "scale": true,
+         "se": [
+           0.0446,
+           0.04166,
+           0.03872,
+           0.03578,
+           0.03284,
+           0.0299
+         ],
+         "x": [
+           0.00518,
+           0.03881,
+           0.07244,
+           0.10606,
+           0.13969,
+           0.17332
+         ]
+       }
+     ],
+     "ylim": [
+       -0.8174257720786204,
+       0.34582408483846444
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -192,135 +252,9 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
    * - result['pd']
      - list
      - length 2
-   * - result['pd'][0]
-     - dict
-     - 19 named fields
-   * - result['pd'][0]['kind']
-     - builtins.str
-     - ()
-   * - result['pd'][0]['x']
-     - numpy.ndarray[float64]
-     - (30,)
-   * - result['pd'][0]['scale']
-     - builtins.bool
-     - ()
-   * - result['pd'][0]['se']
-     - numpy.ndarray[float64]
-     - (30,)
-   * - result['pd'][0]['clev']
-     - list
-     - length 1
-   * - result['pd'][0]['raw']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['pd'][0]['xlab']
-     - builtins.str
-     - ()
-   * - result['pd'][0]['ylab']
-     - builtins.str
-     - ()
-   * - result['pd'][0]['main']
-     - builtins.NoneType
-     - not applicable
-   * - result['pd'][0]['xlim']
-     - tuple
-     - length 2
-   * - result['pd'][0]['fit']
-     - numpy.ndarray[float64]
-     - (30,)
-   * - result['pd'][0]['label']
-     - builtins.str
-     - ()
-   * - result['pd'][0]['ll']
-     - numpy.ndarray[float64]
-     - (30, 1)
-   * - result['pd'][0]['ul']
-     - numpy.ndarray[float64]
-     - (30, 1)
-   * - result['pd'][0]['se_mult']
-     - numpy.ndarray[float64]
-     - (1,)
-   * - result['pd'][0]['se_fit']
-     - numpy.ndarray[float64]
-     - (30,)
-   * - result['pd'][0]['plot_ci']
-     - builtins.bool
-     - ()
-   * - result['pd'][0]['plot_me']
-     - builtins.bool
-     - ()
-   * - result['pd'][0]['scheme']
-     - builtins.int
-     - ()
-   * - result['pd'][1]
-     - dict
-     - 19 named fields
-   * - result['pd'][1]['kind']
-     - builtins.str
-     - ()
-   * - result['pd'][1]['x']
-     - numpy.ndarray[float64]
-     - (30,)
-   * - result['pd'][1]['scale']
-     - builtins.bool
-     - ()
-   * - result['pd'][1]['se']
-     - numpy.ndarray[float64]
-     - (30,)
-   * - result['pd'][1]['clev']
-     - list
-     - length 1
-   * - result['pd'][1]['raw']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['pd'][1]['xlab']
-     - builtins.str
-     - ()
-   * - result['pd'][1]['ylab']
-     - builtins.str
-     - ()
-   * - result['pd'][1]['main']
-     - builtins.NoneType
-     - not applicable
-   * - result['pd'][1]['xlim']
-     - tuple
-     - length 2
-   * - result['pd'][1]['fit']
-     - numpy.ndarray[float64]
-     - (30,)
-   * - result['pd'][1]['label']
-     - builtins.str
-     - ()
-   * - result['pd'][1]['ll']
-     - numpy.ndarray[float64]
-     - (30, 1)
-   * - result['pd'][1]['ul']
-     - numpy.ndarray[float64]
-     - (30, 1)
-   * - result['pd'][1]['se_mult']
-     - numpy.ndarray[float64]
-     - (1,)
-   * - result['pd'][1]['se_fit']
-     - numpy.ndarray[float64]
-     - (30,)
-   * - result['pd'][1]['plot_ci']
-     - builtins.bool
-     - ()
-   * - result['pd'][1]['plot_me']
-     - builtins.bool
-     - ()
-   * - result['pd'][1]['scheme']
-     - builtins.int
-     - ()
    * - result['ylim']
      - tuple
      - length 2
-   * - result['ylim'][0]
-     - builtins.float
-     - ()
-   * - result['ylim'][1]
-     - builtins.float
-     - ()
    * - result['partial_resids']
      - builtins.bool
      - ()
@@ -330,27 +264,6 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
    * - result['shift']
      - builtins.float
      - ()
-   * - result['trans']
-     - builtins.function
-     - scalar object
-   * - result['jit']
-     - builtins.bool
-     - ()
-   * - result['select']
-     - builtins.NoneType
-     - not applicable
-   * - result['scale']
-     - builtins.int
-     - ()
-   * - result['rug_default']
-     - builtins.bool
-     - ()
-   * - result['figures']
-     - list
-     - length 1
-   * - result['figures'][0]
-     - matplotlib.figure.Figure
-     - scalar object
 
 .. automethod:: nampy.gam.GAM.plot
    :no-index:

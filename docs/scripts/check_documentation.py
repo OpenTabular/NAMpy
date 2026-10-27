@@ -108,6 +108,11 @@ def main():
     pages = {p.resolve(): Page(p.read_text()) for p in build.rglob("*.html")}
     errors = []
     for path, page in pages.items():
+        if any(folder in path.parts for folder in ("statistical_reference", "neural_reference", "extension_reference")):
+            html = path.read_text()
+            if re.search(r"<p>Runnable example\s*[-~]{3,}", html):
+                errors.append(f"{path}: example heading rendered as literal underline")
+
         if any(re.match(r"^\d+\.\s", label) for label in page.nav_labels):
             errors.append(f"{path}: numbered tutorial navigation")
         for href in page.links + ([page.redirect] if page.redirect else []):

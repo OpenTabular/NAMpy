@@ -28,7 +28,7 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
    * - ``type``
      - ``str``
      - ``'deviance'``
-     - Output scale or diagnostic residual type. Prediction accepts response, link, terms, iterms and lpmatrix; residual choices depend on the response family.
+     - Residual definition: deviance, pearson, response, working or scaled. Availability and encoding depend on the fitted family; these are residuals, not prediction modes.
    * - ``setseed``
      - ``int | None``
      - ``None``
@@ -52,6 +52,8 @@ NumPy residual array aligned with training rows. Supported types and response en
      - (n_train,)
      - Residual type selects the scale; supported kinds depend on the family.
 
+
+
 Runnable example
 ----------------
 
@@ -62,10 +64,26 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/residuals.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   [
+     -0.054,
+     -0.18547,
+     0.09305,
+     0.12949,
+     0.00411,
+     0.0449
+   ]
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

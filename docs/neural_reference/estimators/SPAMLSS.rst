@@ -9,6 +9,8 @@ SPAMLSS
    :no-inherited-members:
 
 .. include:: /_generated/reference/SPAMLSS.inc
+
+
 Runnable example
 ----------------
 
@@ -19,10 +21,88 @@ This example includes its data and imports. Run it after installing NAMpy. Small
 .. literalinclude:: /_examples/reference/neural_reference/estimators/SPAMLSS.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "components": {
+       "link": [
+         -0.05341999977827072,
+         0.1293099969625473,
+         -0.035659998655319214,
+         0.1325799971818924,
+         -0.03971000015735626,
+         0.1285800039768219
+       ],
+       "response": [
+         -0.05341999977827072,
+         0.7598900198936462,
+         -0.035659998655319214,
+         0.7616400122642517,
+         -0.03971000015735626,
+         0.7595000267028809
+       ],
+       "terms": {
+         "degree_2": [
+           -0.06633999943733215,
+           -0.017799999564886093,
+           -0.1014299988746643,
+           -0.052650000900030136,
+           -0.0840499997138977,
+           -0.03815999999642372
+         ],
+         "x": [
+           -0.04726000130176544,
+           0.032019998878240585,
+           -0.04575999826192856,
+           0.03099999949336052,
+           -0.04425999894738197,
+           0.029980000108480453
+         ],
+         "z": [
+           0.023679999634623528,
+           0.018050000071525574,
+           0.07502000033855438,
+           0.057190001010894775,
+           0.05209000036120415,
+           0.03971000015735626
+         ]
+       }
+     },
+     "point": [
+       -0.05341999977827072,
+       -0.035659998655319214,
+       -0.03971000015735626,
+       -0.10796000063419342,
+       -0.08595000207424164,
+       -0.02443999983370304
+     ],
+     "prediction": [
+       -0.05341999977827072,
+       0.7598900198936462,
+       -0.035659998655319214,
+       0.7616400122642517,
+       -0.03971000015735626,
+       0.7595000267028809
+     ],
+     "raw": [
+       -0.05341999977827072,
+       0.1293099969625473,
+       -0.035659998655319214,
+       0.1325799971818924,
+       -0.03971000015735626,
+       0.1285800039768219
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -45,43 +125,4 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
      - (64,)
    * - result['components']
      - nampy.contracts.AdditivePrediction
-     - scalar record
-   * - result['components'].response
-     - numpy.ndarray[float32]
-     - (64, 2)
-   * - result['components'].link
-     - numpy.ndarray[float32]
-     - (64, 2)
-   * - result['components'].terms
-     - dict
-     - 3 named fields
-   * - result['components'].terms['x']
-     - numpy.ndarray[float32]
-     - (64, 2)
-   * - result['components'].terms['z']
-     - numpy.ndarray[float32]
-     - (64, 2)
-   * - result['components'].terms['degree_2']
-     - numpy.ndarray[float32]
-     - (64, 2)
-   * - result['components'].intercept
-     - numpy.ndarray[float32]
-     - (2,)
-   * - result['components'].backend
-     - builtins.str
-     - ()
-   * - result['components'].offset
-     - builtins.NoneType
-     - not applicable
-   * - result['components'].term_metadata
-     - dict
-     - 3 named fields
-   * - result['components'].term_metadata['x']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
-   * - result['components'].term_metadata['z']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
-   * - result['components'].term_metadata['degree_2']
-     - nampy.contracts.AdditiveTermMetadata
      - scalar record

@@ -9,6 +9,8 @@ SNAMRegressor
    :no-inherited-members:
 
 .. include:: /_generated/reference/SNAMRegressor.inc
+
+
 Runnable example
 ----------------
 
@@ -19,10 +21,64 @@ This example includes its data and imports. Run it after installing NAMpy. Small
 .. literalinclude:: /_examples/reference/neural_reference/estimators/SNAMRegressor.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "components": {
+       "link": [
+         0.23161999881267548,
+         0.18920999765396118,
+         0.19828000664710999,
+         0.14824000000953674,
+         0.13827000558376312,
+         0.16714000701904297
+       ],
+       "response": [
+         0.23161999881267548,
+         0.18920999765396118,
+         0.19828000664710999,
+         0.14824000000953674,
+         0.13827000558376312,
+         0.16714000701904297
+       ],
+       "terms": {
+         "x": [
+           0.21748000383377075,
+           0.2173900008201599,
+           0.217289999127388,
+           0.2171899974346161,
+           0.19439999759197235,
+           0.19474999606609344
+         ],
+         "z": [
+           0.014510000124573708,
+           -0.027799999341368675,
+           -0.018629999831318855,
+           -0.06858000159263611,
+           -0.05575000122189522,
+           -0.027230000123381615
+         ]
+       }
+     },
+     "prediction": [
+       0.23161999881267548,
+       0.18920999765396118,
+       0.19828000664710999,
+       0.14824000000953674,
+       0.13827000558376312,
+       0.16714000701904297
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -39,37 +95,4 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
      - (64,)
    * - result['components']
      - nampy.contracts.AdditivePrediction
-     - scalar record
-   * - result['components'].response
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].link
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].terms
-     - dict
-     - 2 named fields
-   * - result['components'].terms['x']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].terms['z']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].intercept
-     - builtins.float
-     - ()
-   * - result['components'].backend
-     - builtins.str
-     - ()
-   * - result['components'].offset
-     - builtins.NoneType
-     - not applicable
-   * - result['components'].term_metadata
-     - dict
-     - 2 named fields
-   * - result['components'].term_metadata['x']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
-   * - result['components'].term_metadata['z']
-     - nampy.contracts.AdditiveTermMetadata
      - scalar record

@@ -60,6 +60,8 @@ Full or pairwise concurvity arrays/dictionaries as defined by the diagnostics ba
      - 3 arrays, each (t, t)
      - Pairwise matrices indexed by measure name.
 
+
+
 Runnable example
 ----------------
 
@@ -70,10 +72,54 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/concurvity.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "labels": [
+       "para",
+       "s(x, bs='ps', k=7)"
+     ],
+     "measure_names": [
+       "worst",
+       "observed"
+     ],
+     "values": {
+       "estimate": [
+         1.0,
+         0.0,
+         0.0,
+         0.0,
+         1.0,
+         0.06019
+       ],
+       "observed": [
+         1.0,
+         0.0,
+         0.0,
+         0.0,
+         1.0,
+         0.08538
+       ],
+       "worst": [
+         1.0,
+         0.0,
+         0.0,
+         0.0,
+         1.0,
+         0.17468
+       ]
+     }
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -88,39 +134,12 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
    * - result['measure_names']
      - tuple
      - length 3
-   * - result['measure_names'][0]
-     - builtins.str
-     - ()
-   * - result['measure_names'][1]
-     - builtins.str
-     - ()
-   * - result['measure_names'][2]
-     - builtins.str
-     - ()
    * - result['labels']
      - list
      - length 3
-   * - result['labels'][0]
-     - builtins.str
-     - ()
-   * - result['labels'][1]
-     - builtins.str
-     - ()
-   * - result['labels'][2]
-     - builtins.str
-     - ()
    * - result['values']
      - dict
      - 3 named fields
-   * - result['values']['worst']
-     - numpy.ndarray[float64]
-     - (3, 3)
-   * - result['values']['observed']
-     - numpy.ndarray[float64]
-     - (3, 3)
-   * - result['values']['estimate']
-     - numpy.ndarray[float64]
-     - (3, 3)
 
 .. automethod:: nampy.gam.GAM.concurvity
    :no-index:

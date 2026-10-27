@@ -56,6 +56,8 @@ Diagnostic table containing basis dimension, EDF, k-index and permutation p-valu
      - (n_smooths, 4)
      - Columns k_prime, edf, k_index, p_value. None when there are no smooth terms; unsupported diagnostics may be NaN.
 
+
+
 Runnable example
 ----------------
 
@@ -66,10 +68,19 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/k_check.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   "       k_prime       edf   k_index  p_value\nlabel                                      \ns(x)         6  4.020580  1.123501      1.0\ns(z)         5  1.000049  0.821828      0.1"
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

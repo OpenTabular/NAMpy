@@ -5,6 +5,8 @@ GPNAM API
 
 :doc:`Model structure, interpretation and restrictions </models/gpnam>`.
 
+
+
 Constructor defaults and parameter descriptions below are resolved from the installed estimator and its architecture configuration. Each supported task has its own reference page.
 
 .. toctree::
@@ -17,75 +19,7 @@ Constructor defaults and parameter descriptions below are resolved from the inst
 Architecture configuration
 --------------------------
 
-.. autoclass:: nampy.neural.configs.gpnam_config.DefaultGPNAMConfig
-   :no-index:
-   :no-members:
-   :no-inherited-members:
-
-Runnable example
-----------------
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/neural_reference/gpnam.py>`
-
-.. literalinclude:: /_examples/reference/neural_reference/gpnam.py
-   :language: python
-
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['prediction']
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components']
-     - nampy.contracts.AdditivePrediction
-     - scalar record
-   * - result['components'].response
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].link
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].terms
-     - dict
-     - 2 named fields
-   * - result['components'].terms['x']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].terms['z']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].intercept
-     - builtins.float
-     - ()
-   * - result['components'].backend
-     - builtins.str
-     - ()
-   * - result['components'].offset
-     - builtins.NoneType
-     - not applicable
-   * - result['components'].term_metadata
-     - dict
-     - 2 named fields
-   * - result['components'].term_metadata['x']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
-   * - result['components'].term_metadata['z']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
+Configuration class: ``DefaultGPNAMConfig``. Defaults below are resolved from its factory.
 
 Configuration parameters
 ------------------------
@@ -168,3 +102,91 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``Sequence[tuple[str, ...]] | None``
      - ``None``
      - Explicit tuples of source-feature names; each term receives those inputs jointly.
+
+
+
+Runnable example
+----------------
+
+This example includes all imports and input data; no variables from another page are required.
+
+:download:`Download the complete example </_examples/reference/neural_reference/gpnam.py>`
+
+.. literalinclude:: /_examples/reference/neural_reference/gpnam.py
+   :language: python
+
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "components": {
+       "link": [
+         -0.20162999629974365,
+         -0.26151999831199646,
+         -0.3134399950504303,
+         -0.34428998827934265,
+         -0.3903999924659729,
+         -0.6612399816513062
+       ],
+       "response": [
+         -0.20162999629974365,
+         -0.26151999831199646,
+         -0.3134399950504303,
+         -0.34428998827934265,
+         -0.3903999924659729,
+         -0.6612399816513062
+       ],
+       "terms": {
+         "x": [
+           -0.1009100005030632,
+           -0.25165000557899475,
+           -0.2569800019264221,
+           -0.24236999452114105,
+           -0.4141699969768524,
+           -0.5810099840164185
+         ],
+         "z": [
+           -0.09114000201225281,
+           -0.0003000000142492354,
+           -0.046890001744031906,
+           -0.09233999997377396,
+           0.03334999829530716,
+           -0.07066000252962112
+         ]
+       }
+     },
+     "prediction": [
+       -0.20162999629974365,
+       -0.26151999831199646,
+       -0.3134399950504303,
+       -0.34428998827934265,
+       -0.3903999924659729,
+       -0.6612399816513062
+     ]
+   }
+
+Example output types and shapes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Output field
+     - Python type / dtype
+     - Example shape
+   * - result
+     - dict
+     - 2 named fields
+   * - result['prediction']
+     - numpy.ndarray[float32]
+     - (64,)
+   * - result['components']
+     - nampy.contracts.AdditivePrediction
+     - scalar record

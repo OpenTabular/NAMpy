@@ -3,34 +3,13 @@
 Fitting controls
 ================
 
-One page per validated GAMControl setting; defaults are resolved through gam_control, including nested optimizer defaults.
+Settings are grouped by the algorithm that consumes them. Defaults are resolved by gam_control(), including nested optimizer mappings.
 
 .. toctree::
    :maxdepth: 1
 
-   nthreads
-   ncv_threads
-   irls_reg
-   epsilon
-   maxit
-   mgcv_tol
-   mgcv_half
-   trace
-   rank_tol
-   nlm
-   optim
-   newton
-   id_links_bases
-   scale_penalty
-   efs_lspmax
-   efs_tol
-   keep_data
-   scale_est
-   edge_correct
-   scam_max_half
-   scam_devtol_fit
-   scam_steptol_fit
-   scam_print_warn
-   scam_b_notexp
-   scam_threshold_notexp
-   scam_bfgs
+   Coefficient fitting <coefficient_fitting>
+   Smoothing optimization <smoothing_optimization>
+   Shape-constrained fitting <shape_fitting>
+   Output and execution <execution>
+   Basis and penalty construction <basis_penalty>

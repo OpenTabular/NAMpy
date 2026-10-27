@@ -37,6 +37,7 @@ restructuring anything inside them.
 """
 
 from .control import GAMControl, gam_control
+from .design import CompiledDesign, DesignEvaluation, DesignTerm, compile_design
 from .fit import (
     FitCoreSolution,
     fit_model_core,
@@ -47,6 +48,10 @@ from .model import GAM
 
 __all__ = [
     "GAM",
+    "CompiledDesign",
+    "DesignEvaluation",
+    "DesignTerm",
+    "compile_design",
     "fit_model_core",
     "solve_fit",
     "FitCoreSolution",

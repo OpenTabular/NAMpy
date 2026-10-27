@@ -90,7 +90,15 @@ def navigation_context(app, pagename, templatename, context, doctree):
             return ""
         for reference in list(tree.findall(nodes.reference)):
             uri = reference.get("refuri", "")
-            if "generated/" not in uri and not reference.astext().startswith("nampy."):
+            target = uri.split("#", 1)[0]
+            path = (
+                posixpath.normpath(posixpath.join(posixpath.dirname(pagename), target))
+                if target
+                else pagename
+            ).lstrip("/")
+            if not path.startswith(
+                "api/generated/"
+            ) and not reference.astext().startswith("nampy."):
                 continue
             parent = reference.parent
             while parent is not None and not isinstance(parent, nodes.list_item):
@@ -199,7 +207,7 @@ def local_documentation_links(app, doctree, docname):
         parts = urlsplit(reference.get("refuri", ""))
         if parts.netloc != "nampy.readthedocs.io" or not parts.path.startswith(prefix):
             continue
-        path = unquote(parts.path[len(prefix):])
+        path = unquote(parts.path[len(prefix) :])
         target = path[:-5] if path.endswith(".html") else path.rstrip("/") + "/index"
         if target == "/index":
             target = "index"

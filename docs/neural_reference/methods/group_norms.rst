@@ -12,6 +12,8 @@ Signature
 
    estimator.group_norms(self) -> 'dict[str, float]'
 
+Available architecture hooks: :doc:`snam <../snam>`. Unsupported architectures raise ``NotImplementedError``; call after fitting. Native history and metadata retain their native-solver meaning.
+
 Parameters
 ----------
 
@@ -31,6 +33,8 @@ Returns
      - one scalar per reported group
      - Fitted sparse-term parameter-group norms; supported only by architectures exposing a group-norm hook.
 
+
+
 Runnable example
 ----------------
 
@@ -41,10 +45,22 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/methods/group_norms.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "x": 2.6964309215545654,
+     "z": 2.8024351596832275
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

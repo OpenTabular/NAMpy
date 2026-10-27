@@ -5,6 +5,8 @@ EnsembleTreeNAM API
 
 :doc:`Model structure, interpretation and restrictions </models/ensemble_treenam>`.
 
+
+
 Constructor defaults and parameter descriptions below are resolved from the installed estimator and its architecture configuration. Each supported task has its own reference page.
 
 .. toctree::
@@ -17,75 +19,7 @@ Constructor defaults and parameter descriptions below are resolved from the inst
 Architecture configuration
 --------------------------
 
-.. autoclass:: nampy.neural.configs.ensemble_treenam_config.DefaultEnsembleTreeNAMConfig
-   :no-index:
-   :no-members:
-   :no-inherited-members:
-
-Runnable example
-----------------
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/neural_reference/ensemble_treenam.py>`
-
-.. literalinclude:: /_examples/reference/neural_reference/ensemble_treenam.py
-   :language: python
-
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['prediction']
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components']
-     - nampy.contracts.AdditivePrediction
-     - scalar record
-   * - result['components'].response
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].link
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].terms
-     - dict
-     - 2 named fields
-   * - result['components'].terms['x']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].terms['z']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].intercept
-     - builtins.float
-     - ()
-   * - result['components'].backend
-     - builtins.str
-     - ()
-   * - result['components'].offset
-     - builtins.NoneType
-     - not applicable
-   * - result['components'].term_metadata
-     - dict
-     - 2 named fields
-   * - result['components'].term_metadata['x']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
-   * - result['components'].term_metadata['z']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
+Configuration class: ``DefaultEnsembleTreeNAMConfig``. Defaults below are resolved from its factory.
 
 Configuration parameters
 ------------------------
@@ -156,3 +90,91 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``str``
      - ``'mean'``
      - How outputs of the configured members or terms are combined.
+
+
+
+Runnable example
+----------------
+
+This example includes all imports and input data; no variables from another page are required.
+
+:download:`Download the complete example </_examples/reference/neural_reference/ensemble_treenam.py>`
+
+.. literalinclude:: /_examples/reference/neural_reference/ensemble_treenam.py
+   :language: python
+
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "components": {
+       "link": [
+         -0.4336499869823456,
+         -0.34237000346183777,
+         -0.40658000111579895,
+         -0.46386000514030457,
+         -0.4408000111579895,
+         -0.31106001138687134
+       ],
+       "response": [
+         -0.4336499869823456,
+         -0.34237000346183777,
+         -0.40658000111579895,
+         -0.46386000514030457,
+         -0.4408000111579895,
+         -0.31106001138687134
+       ],
+       "terms": {
+         "x": [
+           -0.2891499996185303,
+           -0.28863999247550964,
+           -0.288129985332489,
+           -0.28762000799179077,
+           -0.26034000515937805,
+           -0.25606998801231384
+         ],
+         "z": [
+           -0.14846999943256378,
+           -0.05770000070333481,
+           -0.12241999804973602,
+           -0.18020999431610107,
+           -0.18442000448703766,
+           -0.058970000594854355
+         ]
+       }
+     },
+     "prediction": [
+       -0.4336499869823456,
+       -0.34237000346183777,
+       -0.40658000111579895,
+       -0.46386000514030457,
+       -0.4408000111579895,
+       -0.31106001138687134
+     ]
+   }
+
+Example output types and shapes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Output field
+     - Python type / dtype
+     - Example shape
+   * - result
+     - dict
+     - 2 named fields
+   * - result['prediction']
+     - numpy.ndarray[float32]
+     - (64,)
+   * - result['components']
+     - nampy.contracts.AdditivePrediction
+     - scalar record

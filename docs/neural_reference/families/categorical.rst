@@ -5,6 +5,37 @@ categorical
 
 Neural distribution family for ``family='categorical'``. Configure its constructor through ``distributional_kwargs`` on an LSS estimator.
 
+Distribution definition and moments
+-----------------------------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Quantity
+     - Definition
+   * - Distribution / loss
+     - P(Y=j)=p_j, j=0,...,C-1; sum(p)=1.
+   * - Natural domains
+     - class probabilities p_j>=0, normalized across C classes
+   * - Conditional mean
+     - Probability vector p; a numeric class-label mean has no invariant categorical interpretation
+   * - Conditional variance
+     - Covariance of one-hot Y: diag(p)-p p^T
+
+References: `PyTorch probability distributions <https://docs.pytorch.org/docs/stable/distributions.html>`_. NAMpy defines its family transforms and point outputs below.
+
+The low-level categorical loss also accepts one-hot/probability targets of shape ``(n,C)`` (or ``(n,1,C)``), reducing them by argmax rather than fitting a soft-label cross-entropy objective. Scalar labels may have shape ``(n,1)``.
+
+Targets, transforms and scoring
+-------------------------------
+
+Target shape/encoding: ``(n,) integer class indices 0,...,C-1 (estimator encodes original labels)``. Network rows must align with target rows. Parameter column order is given in the output contract below. Positive default transforms use ``softplus(raw)+eps``; identity leaves unrestricted locations unchanged. Constructor transform options accept registered transform names or callables and must preserve the stated parameter domains.
+
+``compute_loss`` and ``compute_loss_per_sample`` consume raw network outputs, not already transformed parameters. The scalar loss is averaged over observations. Lower loss is better. LSS scoring follows the shared estimator contract; response SD summarizes conditional variability, not estimation uncertainty. Distribution-specific moments that do not exist cannot be interpreted as finite uncertainty estimates.
+
+Implementation definitions: :mod:`nampy.neural.distributions.distributions`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Signature
 ---------
 
@@ -28,19 +59,19 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
    * - ``num_classes``
      - ``int | None``
      - ``None``
-     - Number of response classes. LSS registry inference uses target labels or one-hot target width; direct family construction requires a valid explicit count.
+     - Number of classes C, at least two; None is inferred from integer training labels. Output class order is ``classes_``.
    * - ``name``
      - ``str``
      - ``'Categorical'``
-     - Display name of the distribution instance; does not select a different family or change the parameterization.
+     - Display label for this distribution; does not change its mathematical family.
    * - ``prob_transform``
      - ``str | callable(torch.Tensor) -> torch.Tensor``
      - ``'probabilities'``
-     - Transformation to class probabilities, default 'probabilities' (softmax across classes). A custom callable must return valid class probabilities.
+     - Transform from class logits to normalized class probabilities; default probabilities is row-wise softmax.
    * - ``eps``
      - ``float``
      - ``1e-08``
-     - Positive numerical floor used in parameter-domain safeguards and stable likelihood evaluation.
+     - Positive numerical floor used by positivity transforms and stable logarithms; it is not response noise.
 
 Outputs
 -------
@@ -60,33 +91,6 @@ Outputs
    * - Objective
      - Categorical cross-entropy
 
-CategoricalDistribution (categorical)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Property
-     - Meaning
-   * - Alias
-     - ``categorical``
-   * - Target support
-     - Integer class index or one-hot target
-   * - Parameter order
-     - class_0, class_1, class_2 (illustrated with three dimensions/classes)
-   * - Default transforms
-     - probs_transform: 'probabilities'
-   * - Point prediction
-     - Most likely class
-   * - Spread
-     - Not a scalar spread
-   * - Loss
-     - Categorical cross-entropy
-
-
-
 .. list-table::
    :header-rows: 1
    :class: api-reference-table
@@ -98,11 +102,11 @@ CategoricalDistribution (categorical)
    * - raw input
      - torch.Tensor[floating]
      - (n, C)
-     - Untransformed network predictors. C = classes, D = response dimensions, Q = requested quantile levels.
+     - Untransformed network predictors for categorical; columns follow param_names: ['class_0', 'class_1', 'class_2'].
    * - forward(raw)
      - torch.Tensor[floating]
      - (n, C)
-     - Transformed natural parameters or class probabilities; parameter order follows the contract table. dtype/device follow the supplied tensor.
+     - Class probabilities in class order.
    * - compute_loss(raw, y)
      - torch.Tensor[floating]
      - ()
@@ -114,7 +118,7 @@ CategoricalDistribution (categorical)
    * - predict_point(raw)
      - torch.Tensor
      - (n,)
-     - Family-defined point functional; class families return integer class indices, continuous families floating predictions.
+     - Integer class index maximizing probability.
    * - predict_spread
      - not a scalar spread API
      - not applicable
@@ -122,9 +126,11 @@ CategoricalDistribution (categorical)
 
 ``forward(raw)`` transforms a tensor of network outputs into natural parameters. ``compute_loss(raw, y)`` returns the scalar training objective; ``compute_loss_per_sample(raw, y)`` retains the observation dimension. ``predict_point(raw, transformed=False)`` returns point predictions; set transformed=True only when passing already transformed values.
 
-``predict`` returns family-transformed values; ``predict(raw=True)`` returns network predictors. Shapes follow the parameter ordering above, including class, vector and quantile exceptions. ``predict_point`` reduces to the family-defined point functional. Conditional spread is distributional spread, not parameter-estimation uncertainty.
+``predict`` returns family-transformed values; ``predict(raw=True)`` returns network predictors. Shapes and column meanings follow this family’s contract above. ``predict_point`` reduces to the family-defined point functional. Conditional spread is distributional spread, not parameter-estimation uncertainty.
 
 :doc:`Shared training parameters </api/neural_training>` · :doc:`All neural family contracts </api/utils>`
+
+
 Runnable example
 ----------------
 
@@ -135,10 +141,47 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/families/categorical.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "loss": [
+       1.0986100435256958
+     ],
+     "parameters": [
+       0.3333300054073334,
+       0.3333300054073334,
+       0.3333300054073334,
+       0.3333300054073334,
+       0.3333300054073334,
+       0.3333300054073334
+     ],
+     "point": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0
+     ],
+     "raw": [
+       0.0,
+       0.0,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

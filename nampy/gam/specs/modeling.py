@@ -131,8 +131,9 @@ def make_predictor_specs(model, feature_names, *, knots=None):
 
     terms.extend(main_terms)
 
-    n_predictors = int(getattr(model.family, "n_linear_predictors", 1))
-    parameter_names = tuple(getattr(model.family, "parameter_names", ()) or ())
+    family = getattr(model, "family", None)
+    n_predictors = int(getattr(family, "n_linear_predictors", 1))
+    parameter_names = tuple(getattr(family, "parameter_names", ()) or ())
     if parameter_names and len(parameter_names) != n_predictors:
         raise ValueError(
             f"Family {model.family.name!r} declares {len(parameter_names)} parameter "

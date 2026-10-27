@@ -5,6 +5,8 @@ NBM API
 
 :doc:`Model structure, interpretation and restrictions </models/nbm>`.
 
+
+
 Constructor defaults and parameter descriptions below are resolved from the installed estimator and its architecture configuration. Each supported task has its own reference page.
 
 .. toctree::
@@ -17,75 +19,7 @@ Constructor defaults and parameter descriptions below are resolved from the inst
 Architecture configuration
 --------------------------
 
-.. autoclass:: nampy.neural.configs.nbm_config.DefaultNBMConfig
-   :no-index:
-   :no-members:
-   :no-inherited-members:
-
-Runnable example
-----------------
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/neural_reference/nbm.py>`
-
-.. literalinclude:: /_examples/reference/neural_reference/nbm.py
-   :language: python
-
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['prediction']
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components']
-     - nampy.contracts.AdditivePrediction
-     - scalar record
-   * - result['components'].response
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].link
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].terms
-     - dict
-     - 2 named fields
-   * - result['components'].terms['x']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].terms['z']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].intercept
-     - builtins.float
-     - ()
-   * - result['components'].backend
-     - builtins.str
-     - ()
-   * - result['components'].offset
-     - builtins.NoneType
-     - not applicable
-   * - result['components'].term_metadata
-     - dict
-     - 2 named fields
-   * - result['components'].term_metadata['x']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
-   * - result['components'].term_metadata['z']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
+Configuration class: ``DefaultNBMConfig``. Defaults below are resolved from its factory.
 
 Configuration parameters
 ------------------------
@@ -196,3 +130,91 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``Union[float, Dict[str, float]]``
      - ``0.0``
      - Sentinel ignored by sparse execution, globally or per interaction order.
+
+
+
+Runnable example
+----------------
+
+This example includes all imports and input data; no variables from another page are required.
+
+:download:`Download the complete example </_examples/reference/neural_reference/nbm.py>`
+
+.. literalinclude:: /_examples/reference/neural_reference/nbm.py
+   :language: python
+
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "components": {
+       "link": [
+         0.07960999757051468,
+         0.08129999786615372,
+         0.08178000152111053,
+         0.07605999708175659,
+         0.07673999667167664,
+         0.08172000199556351
+       ],
+       "response": [
+         0.07960999757051468,
+         0.08129999786615372,
+         0.08178000152111053,
+         0.07605999708175659,
+         0.07673999667167664,
+         0.08172000199556351
+       ],
+       "terms": {
+         "x": [
+           0.021959999576210976,
+           0.021940000355243683,
+           0.021929999813437462,
+           0.02191000059247017,
+           0.021900000050663948,
+           0.021880000829696655
+         ],
+         "z": [
+           -0.03116999939084053,
+           -0.0294599998742342,
+           -0.028960000723600388,
+           -0.03466999903321266,
+           -0.033969998359680176,
+           -0.02897999994456768
+         ]
+       }
+     },
+     "prediction": [
+       0.07960999757051468,
+       0.08129999786615372,
+       0.08178000152111053,
+       0.07605999708175659,
+       0.07673999667167664,
+       0.08172000199556351
+     ]
+   }
+
+Example output types and shapes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Output field
+     - Python type / dtype
+     - Example shape
+   * - result
+     - dict
+     - 2 named fields
+   * - result['prediction']
+     - numpy.ndarray[float32]
+     - (64,)
+   * - result['components']
+     - nampy.contracts.AdditivePrediction
+     - scalar record

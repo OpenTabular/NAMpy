@@ -64,6 +64,8 @@ A mapping of variance-component standard deviations and names, with confidence l
      - scalar
      - Available curvature rank and interval coverage. Entire result is None when components cannot be reported.
 
+
+
 Runnable example
 ----------------
 
@@ -74,10 +76,34 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/gam_vcomp.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "names": [
+       "s(x)",
+       "s(z)"
+     ],
+     "rank": 3,
+     "rank_hess": 3,
+     "vc": [
+       0.52074,
+       0.23928,
+       1.13326,
+       0.00178,
+       0.0,
+       3.763035988729964e+91
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -95,15 +121,6 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
    * - result['names']
      - list
      - length 3
-   * - result['names'][0]
-     - builtins.str
-     - ()
-   * - result['names'][1]
-     - builtins.str
-     - ()
-   * - result['names'][2]
-     - builtins.str
-     - ()
    * - result['rank']
      - builtins.int
      - ()
@@ -113,12 +130,6 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
    * - result['conf_lev']
      - builtins.float
      - ()
-   * - result['all']
-     - numpy.ndarray[float64]
-     - (2,)
-   * - result['all_names']
-     - builtins.NoneType
-     - not applicable
 
 .. automethod:: nampy.gam.GAM.gam_vcomp
    :no-index:

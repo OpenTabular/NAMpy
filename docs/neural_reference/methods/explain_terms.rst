@@ -58,6 +58,8 @@ Returns
      - one row per retained term/output/bin
      - Term identity, feature value, mean contribution, count and importance; the example lists columns and dtypes.
 
+
+
 Runnable example
 ----------------
 
@@ -68,10 +70,19 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/methods/explain_terms.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   "  term term_type  output   value  contribution  count  importance\n0    x      main       0 -0.8755     -0.285340      8    0.253862\n1    x      main       0 -0.6250     -0.282527      8    0.253862"
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -97,12 +108,6 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
      - (16,)
    * - result['contribution']
      - float32
-     - (16,)
-   * - result['count']
-     - int64
-     - (16,)
-   * - result['importance']
-     - float64
      - (16,)
 
 .. automethod:: nampy.models._base.NeuralEstimatorBase.explain_terms

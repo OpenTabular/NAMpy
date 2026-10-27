@@ -6,7 +6,8 @@ Neural Distributions
 Distribution classes transform raw network outputs into valid parameters and
 provide the likelihood used by LSS estimators.
 
-.. include:: /_generated/reference/neural_families.inc
+See :doc:`/neural_reference/families/index` for the canonical distribution
+contracts, parameter domains, output columns, moments and executable examples.
 
 Metrics
 -------

@@ -13,7 +13,6 @@ import numpy as np
 from ..model_state import (
     _coerce_feature_matrix,
     _compiled_model,
-    _design_matrix,
     _fit_intercept,
     _require_design,
     _require_fitted,
@@ -27,6 +26,31 @@ def _build_prediction_matrices(
     _require_fitted(model)
     _require_design(model)
     compiled_model = _compiled_model(model)
+    if X_new is not None and not allow_missing_numeric:
+        X_new = _coerce_feature_matrix(model, X_new, none_is_training=False)
+    return compiled_prediction_matrices(
+        compiled_model,
+        X_new,
+        fit_intercept=_fit_intercept(model),
+        training_features=model.X_,
+        skip_term_ids=skip_term_ids,
+    )
+
+
+def compiled_prediction_matrices(
+    compiled_model,
+    X_new,
+    *,
+    fit_intercept,
+    training_features=None,
+    skip_term_ids=(),
+    fit_coordinates=False,
+):
+    """Build basis matrices independently of fitted coefficients/covariance.
+
+    The GAM facade retains its public prediction coordinates. Loss-based fits
+    request fit coordinates when the compiler exposes a wider prediction basis.
+    """
     use_training_prediction_matrix = bool(
         compiled_model is not None
         and any(
@@ -37,24 +61,25 @@ def _build_prediction_matrices(
 
     if X_new is None:
         if use_training_prediction_matrix:
-            Z_new = np.asarray(compiled_model.build_new_matrix(model.X_), dtype=np.float64)
+            Z_new = np.asarray(
+                compiled_model.build_new_matrix(training_features), dtype=np.float64
+            )
         else:
-            Z_new = np.asarray(_design_matrix(model), dtype=np.float64)
+            Z_new = np.asarray(compiled_model.design_matrix, dtype=np.float64)
     else:
-        if allow_missing_numeric:
-            X_new = np.asarray(X_new)
-            if X_new.ndim != 2:
-                raise ValueError("X must be a 2D feature matrix.")
-        else:
-            X_new = _coerce_feature_matrix(model, X_new, none_is_training=False)
-        Z_new = compiled_model.build_new_matrix(
-            X_new, skip_term_ids=skip_term_ids
-        )
+        X_new = np.asarray(X_new)
+        if X_new.ndim != 2:
+            raise ValueError("X must be a 2D feature matrix.")
+        Z_new = compiled_model.build_new_matrix(X_new, skip_term_ids=skip_term_ids)
 
-    if _fit_intercept(model):
+    if fit_intercept:
         Xp = np.column_stack([np.ones(Z_new.shape[0], dtype=np.float64), Z_new])
     else:
         Xp = Z_new
+
+    mapping = compiled_model.fit_to_prediction_parameterization_map
+    if fit_coordinates and mapping is not None:
+        Xp = Xp @ mapping
 
     return Z_new, Xp
 

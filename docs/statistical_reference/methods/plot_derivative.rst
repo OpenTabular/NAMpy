@@ -68,6 +68,8 @@ Prepared plotting data with Matplotlib figures, or figure collections as describ
      - one entry per rendered panel
      - Matplotlib figures containing the derivative curve and pointwise band.
 
+
+
 Runnable example
 ----------------
 
@@ -78,10 +80,21 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/plot_derivative.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   [
+     "Figure"
+   ]
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

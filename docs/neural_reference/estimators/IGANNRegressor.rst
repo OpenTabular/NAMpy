@@ -9,6 +9,8 @@ IGANNRegressor
    :no-inherited-members:
 
 .. include:: /_generated/reference/IGANNRegressor.inc
+
+
 Runnable example
 ----------------
 
@@ -19,10 +21,64 @@ This example includes its data and imports. Run it after installing NAMpy. Small
 .. literalinclude:: /_examples/reference/neural_reference/estimators/IGANNRegressor.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "components": {
+       "link": [
+         -0.8872699737548828,
+         -0.8634700179100037,
+         -0.8340499997138977,
+         -0.7932900190353394,
+         -0.7674599885940552,
+         -0.7514899969100952
+       ],
+       "response": [
+         -0.8872699737548828,
+         -0.8634700179100037,
+         -0.8340499997138977,
+         -0.7932900190353394,
+         -0.7674599885940552,
+         -0.7514899969100952
+       ],
+       "terms": {
+         "x": [
+           -0.8977199792861938,
+           -0.8698800206184387,
+           -0.8420000076293945,
+           -0.8141000270843506,
+           -0.7861499786376953,
+           -0.7581700086593628
+         ],
+         "z": [
+           -0.0027799999807029963,
+           -0.006819999776780605,
+           -0.005280000157654285,
+           0.007569999899715185,
+           0.005450000055134296,
+           -0.006550000049173832
+         ]
+       }
+     },
+     "prediction": [
+       -0.8872699737548828,
+       -0.8634700179100037,
+       -0.8340499997138977,
+       -0.7932900190353394,
+       -0.7674599885940552,
+       -0.7514899969100952
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -39,37 +95,4 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
      - (64,)
    * - result['components']
      - nampy.contracts.AdditivePrediction
-     - scalar record
-   * - result['components'].response
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].link
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].terms
-     - dict
-     - 2 named fields
-   * - result['components'].terms['x']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].terms['z']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].intercept
-     - builtins.float
-     - ()
-   * - result['components'].backend
-     - builtins.str
-     - ()
-   * - result['components'].offset
-     - builtins.NoneType
-     - not applicable
-   * - result['components'].term_metadata
-     - dict
-     - 2 named fields
-   * - result['components'].term_metadata['x']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
-   * - result['components'].term_metadata['z']
-     - nampy.contracts.AdditiveTermMetadata
      - scalar record

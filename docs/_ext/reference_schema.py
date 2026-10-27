@@ -965,13 +965,17 @@ def neural_family_returns(name, instance):
             "raw input",
             "torch.Tensor[floating]",
             f"(n, {width})",
-            "Untransformed network predictors. C = classes, D = response dimensions, Q = requested quantile levels.",
+            f"Untransformed network predictors for {name}; columns follow param_names: {list(instance.param_names)}.",
         ),
         (
             "forward(raw)",
             "torch.Tensor[floating]",
             f"(n, {natural_width})",
-            "Transformed natural parameters or class probabilities; parameter order follows the contract table. dtype/device follow the supplied tensor.",
+            (
+                "Class probabilities in class order."
+                if name in {"categorical", "ordinal"}
+                else "Transformed parameters in param_names order. dtype/device follow the supplied tensor."
+            ),
         ),
         (
             "compute_loss(raw, y)",
@@ -989,7 +993,11 @@ def neural_family_returns(name, instance):
             "predict_point(raw)",
             "torch.Tensor",
             point_shape,
-            "Family-defined point functional; class families return integer class indices, continuous families floating predictions.",
+            (
+                "Integer class index maximizing probability."
+                if name in {"categorical", "ordinal"}
+                else "Family-defined floating point prediction; see the conditional mean/point contract above."
+            ),
         ),
     ]
     from nampy.neural.distributions.distributions import BaseDistribution
@@ -1009,7 +1017,11 @@ def neural_family_returns(name, instance):
                 "predict_spread(raw)",
                 "torch.Tensor[floating]",
                 "(n,)",
-                "Conditional response SD; Student-t/log-logistic/inverse-gamma moment restrictions can produce NaN.",
+                (
+                    "Conditional response SD; a nonexistent second moment produces NaN."
+                    if name in {"studentt", "loglogistic", "inversegamma"}
+                    else "Conditional response standard deviation, distinct from parameter-estimation uncertainty."
+                ),
             )
         )
     return rows
@@ -1159,7 +1171,7 @@ def statistical_family_returns(name, family):
         shape = raw
         meaning = {
             "gaulss": "Source response columns (mu, tau), where tau=1/sigma. Natural output uses sigma instead.",
-            "gammals": "Source linked-family response columns; these are distinct from the natural (mean, coefficient-of-variation) interface below.",
+            "gammals": "Source response columns (mu, log(phi)), where Var(Y)=phi*mu**2. Natural GAMLSS output is (mu, sigma), with sigma=sqrt(phi), the coefficient of variation.",
             "gumbls": "Source response columns (location, log_scale); natural output exponentiates scale.",
             "gevlss": "Source response columns (mu, log_sigma, xi); natural output uses sigma.",
             "shash": "Source response columns (mu, log_sigma, epsilon, log_delta); natural output uses sigma and delta.",

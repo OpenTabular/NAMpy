@@ -10,5 +10,5 @@ data = pd.DataFrame({'x': rng.uniform(0, 1, n), 'z': rng.uniform(0, 1, n)})
 data['y'] = 0.4 + np.sin(3 * data.x) + 0.3 * data.z + rng.normal(0, 0.12, n)
 model = GAM(formula="y ~ s(x, bs='ps', k=7) + s(z, bs='cr', k=6)",
             optimize_smoothing=True, smoothing_method='reml').fit(data=data)
-result = model.one_se_rule()
-print(type(result).__name__)
+result = {'original_smoothing': np.asarray(model.smoothing_params).copy(), 'proposed_smoothing': model.one_se_rule()}
+print(result)

@@ -5,6 +5,35 @@ poisson
 
 Neural distribution family for ``family='poisson'``. Configure its constructor through ``distributional_kwargs`` on an LSS estimator.
 
+Distribution definition and moments
+-----------------------------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Quantity
+     - Definition
+   * - Distribution / loss
+     - P(Y=y)=exp(-lambda) lambda^y/y!, y=0,1,... .
+   * - Natural domains
+     - lambda>0
+   * - Conditional mean
+     - lambda
+   * - Conditional variance
+     - lambda
+
+References: `PyTorch probability distributions <https://docs.pytorch.org/docs/stable/distributions.html>`_. NAMpy defines its family transforms and point outputs below.
+
+Targets, transforms and scoring
+-------------------------------
+
+Target shape/encoding: ``(n,) floating scalar response; support follows the distribution definition above``. Network rows must align with target rows. Parameter column order is given in the output contract below. Positive default transforms use ``softplus(raw)+eps``; identity leaves unrestricted locations unchanged. Constructor transform options accept registered transform names or callables and must preserve the stated parameter domains.
+
+``compute_loss`` and ``compute_loss_per_sample`` consume raw network outputs, not already transformed parameters. The scalar loss is averaged over observations. Lower loss is better. LSS scoring follows the shared estimator contract; response SD summarizes conditional variability, not estimation uncertainty. Distribution-specific moments that do not exist cannot be interpreted as finite uncertainty estimates.
+
+Implementation definitions: :mod:`nampy.neural.distributions.distributions`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Signature
 ---------
 
@@ -28,15 +57,15 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
    * - ``name``
      - ``str``
      - ``'Poisson'``
-     - Display name of the distribution instance; does not select a different family or change the parameterization.
+     - Display label for this distribution; does not change its mathematical family.
    * - ``rate_transform``
      - ``str | callable(torch.Tensor) -> torch.Tensor``
      - ``'positive'``
-     - Transform from raw output to strictly positive rate; the default 'positive' uses softplus plus epsilon.
+     - Transform of the positive rate (inverse scale) column; default positive means softplus(raw)+eps.
    * - ``eps``
      - ``float``
      - ``1e-08``
-     - Positive numerical floor used in parameter-domain safeguards and stable likelihood evaluation.
+     - Positive numerical floor used by positivity transforms and stable logarithms; it is not response noise.
 
 Outputs
 -------
@@ -56,33 +85,6 @@ Outputs
    * - Objective
      - Poisson negative log likelihood
 
-PoissonDistribution (poisson)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Property
-     - Meaning
-   * - Alias
-     - ``poisson``
-   * - Target support
-     - Nonnegative integer
-   * - Parameter order
-     - rate
-   * - Default transforms
-     - rate_transform: 'positive'
-   * - Point prediction
-     - rate
-   * - Spread
-     - square root of rate
-   * - Loss
-     - Poisson negative log likelihood
-
-
-
 .. list-table::
    :header-rows: 1
    :class: api-reference-table
@@ -94,11 +96,11 @@ PoissonDistribution (poisson)
    * - raw input
      - torch.Tensor[floating]
      - (n, 1)
-     - Untransformed network predictors. C = classes, D = response dimensions, Q = requested quantile levels.
+     - Untransformed network predictors for poisson; columns follow param_names: ['rate'].
    * - forward(raw)
      - torch.Tensor[floating]
      - (n, 1)
-     - Transformed natural parameters or class probabilities; parameter order follows the contract table. dtype/device follow the supplied tensor.
+     - Transformed parameters in param_names order. dtype/device follow the supplied tensor.
    * - compute_loss(raw, y)
      - torch.Tensor[floating]
      - ()
@@ -110,17 +112,19 @@ PoissonDistribution (poisson)
    * - predict_point(raw)
      - torch.Tensor
      - (n,)
-     - Family-defined point functional; class families return integer class indices, continuous families floating predictions.
+     - Family-defined floating point prediction; see the conditional mean/point contract above.
    * - predict_spread(raw)
      - torch.Tensor[floating]
      - (n,)
-     - Conditional response SD; Student-t/log-logistic/inverse-gamma moment restrictions can produce NaN.
+     - Conditional response standard deviation, distinct from parameter-estimation uncertainty.
 
 ``forward(raw)`` transforms a tensor of network outputs into natural parameters. ``compute_loss(raw, y)`` returns the scalar training objective; ``compute_loss_per_sample(raw, y)`` retains the observation dimension. ``predict_point(raw, transformed=False)`` returns point predictions; set transformed=True only when passing already transformed values.
 
-``predict`` returns family-transformed values; ``predict(raw=True)`` returns network predictors. Shapes follow the parameter ordering above, including class, vector and quantile exceptions. ``predict_point`` reduces to the family-defined point functional. Conditional spread is distributional spread, not parameter-estimation uncertainty.
+``predict`` returns family-transformed values; ``predict(raw=True)`` returns network predictors. Shapes and column meanings follow this family’s contract above. ``predict_point`` reduces to the family-defined point functional. Conditional spread is distributional spread, not parameter-estimation uncertainty.
 
 :doc:`Shared training parameters </api/neural_training>` · :doc:`All neural family contracts </api/utils>`
+
+
 Runnable example
 ----------------
 
@@ -131,10 +135,47 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/families/poisson.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "loss": [
+       1.0596599578857422
+     ],
+     "parameters": [
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904
+     ],
+     "point": [
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904
+     ],
+     "raw": [
+       0.0,
+       0.0,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

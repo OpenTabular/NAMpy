@@ -76,11 +76,25 @@ def test_registered_features_have_dedicated_pages_and_parameter_contracts(tmp_pa
     )
     generate(tmp_path)
     reference.generate(docs)
+    from reference_symbols import SYMBOLS
+
+    for module, names in SYMBOLS.items():
+        for name in names:
+            assert (docs / f"api/generated/{module}.{name}.rst").exists()
     for descriptor in basis_descriptors():
         page = docs / f"statistical_reference/smooths/{descriptor.name}.rst"
         text = page.read_text()
         assert "Parameters\n" in text and "Outputs\n" in text
-        assert "transform_new(X_new)" in text
+        runtime_cls = (
+            descriptor.runtime_class.__name__
+            if descriptor.runtime_class
+            else {"fs": "FSmoothInteractionTerm", "sz": "SZSmoothInteractionTerm"}[
+                descriptor.name
+            ]
+        )
+        runtime = (docs / f"extension_reference/smooths/{runtime_cls}.rst").read_text()
+        assert "transform_new(X_new)" in runtime
+        assert "predict(type='terms')" in text
         assert "design_matrix(" not in text
     for spec in architectures().values():
         for task, suffix in [
@@ -262,3 +276,121 @@ def test_category_and_natural_parameter_shapes_remain_distinct():
         row[0] == "GAM.predict(type='link')" and row[2] == "(n, K)"
         for row in multinomial
     )
+
+
+def test_formula_and_runtime_contracts_have_separate_homes():
+    user = (ROOT / "docs/statistical_reference/smooths/cr.rst").read_text()
+    runtime = (
+        ROOT / "docs/extension_reference/smooths/CubicSplineTerm.rst"
+    ).read_text()
+    assert "Cubic regression spline" in user
+    assert "``shared_basis_setup``" not in user
+    assert "``shared_basis_setup``" in runtime
+    assert "/extension_reference/smooths/CubicSplineTerm" in user
+
+
+def test_family_contracts_do_not_leak_other_parameterizations():
+    normal = (ROOT / "docs/neural_reference/families/normal.rst").read_text()
+    assert "For Beta" not in normal
+    assert "class probabilities" not in normal
+    assert "sigma^2" in normal
+    from family_contracts import mathematical_contract
+
+    nb = mathematical_contract("negativebinom", "neural")
+    assert "r=1/alpha" in nb
+    quantile = mathematical_contract("quantile", "neural")
+    assert "otherwise the arithmetic average" in quantile
+
+
+def test_control_inventory_has_unique_canonical_anchors():
+    from reference_organization import CONTROL_GROUPS, control_anchor
+
+    from nampy.gam import gam_control
+
+    names = [name for _, group in CONTROL_GROUPS.values() for name in group]
+    assert len(names) == len(set(names))
+    assert set(names) == set(gam_control().__dataclass_fields__)
+    for slug, (_, group) in CONTROL_GROUPS.items():
+        text = (ROOT / f"docs/statistical_reference/controls/{slug}.rst").read_text()
+        for name in group:
+            assert f".. _{control_anchor(name)}:" in text
+    index = (ROOT / "docs/statistical_reference/controls/index.rst").read_text()
+    assert "   epsilon\n" not in index
+
+
+def test_small_result_previews_preserve_local_term_meanings():
+    import runpy
+
+    runner = runpy.run_path(str(ROOT / "docs/scripts/check_reference_examples.py"))
+    value = [[{"term": ("x", "z"), "order": 2, "contribution": 0.25}]]
+    assert runner["result_preview"](value)[0][0] == {
+        "term": ["x", "z"],
+        "order": 2,
+        "contribution": 0.25,
+    }
+
+
+def test_gammals_output_columns_match_the_live_response_transform():
+    import numpy as np
+    from reference_schema import statistical_family_returns
+
+    from nampy.gam.families.registry import make_gam_family
+
+    family = make_gam_family("gammals")
+    eta = np.array([[np.log(2.0), -1.0]])
+    response = family._predict_response_from_eta(eta)
+    natural = family.distribution_parameters_from_eta(eta)
+    np.testing.assert_allclose(response[:, 0], natural[:, 0])
+    np.testing.assert_allclose(response[:, 1], np.log(natural[:, 1] ** 2))
+    meaning = next(
+        row[3]
+        for row in statistical_family_returns("gammals", family)
+        if row[0] == "GAM.predict(type='response')"
+    )
+    assert "(mu, log(phi))" in meaning
+
+
+def test_public_inventory_is_stable_and_covers_registry_entries():
+    import json
+
+    text = (ROOT / "docs/_data/public_reference_inventory.json").read_text()
+    assert "0x" not in text
+    records = json.loads(text)
+    assert all(record.get("tests") and record.get("example") for record in records)
+    assert len({(r["kind"], r["symbol"]) for r in records}) == len(records)
+
+
+def test_control_names_link_directly_to_the_grouped_feature_anchor():
+    tree = new_document("control link")
+    tree += nodes.paragraph("", "", nodes.literal("", "epsilon"))
+    reference.reference_targets.cache_clear()
+    reference.link_references(
+        SimpleNamespace(builder=builder()), tree, "tutorials/example"
+    )
+    link = next(tree.findall(nodes.reference))
+    assert (
+        link["refuri"]
+        == "../statistical_reference/controls/coefficient_fitting.html#control-epsilon"
+    )
+
+
+def test_underscore_control_names_use_normalized_html_anchors():
+    target = reference.reference_targets()["ncv_threads"]
+    assert target == "statistical_reference/controls/execution#control-ncv-threads"
+    assert (
+        reference.relative_reference_uri(builder(), "compatibility", target)
+        == "statistical_reference/controls/execution.html#control-ncv-threads"
+    )
+
+
+def test_formula_defaults_are_independent_of_runtime_constructor_defaults():
+    import inspect
+
+    from nampy.gam.smooths import CubicSplineTerm
+    from nampy.gam.specs.smooth_build import build_smooth_spec
+
+    assert inspect.signature(build_smooth_spec).parameters["k"].default == -1
+    assert inspect.signature(CubicSplineTerm).parameters["k"].default == 10
+    text = (ROOT / "docs/statistical_reference/smooths/cr.rst").read_text()
+    k_row = text.split("   * - ``k``", 1)[1].split("   * - ", 1)[0]
+    assert "     - -1\n" in k_row

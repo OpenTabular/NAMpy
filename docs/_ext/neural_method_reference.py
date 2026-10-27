@@ -62,8 +62,8 @@ METHODS = {
     ),
     "local_term_importance": (
         "SPAMRegressor",
-        "list[dict]",
-        "one entry per observation",
+        "list[list[dict[str, object]]]",
+        "outer length n; up to top_k dictionaries per observation",
         "Architecture-specific polynomial term expansions for the requested output and top-k budget. Implemented by SPAM; unsupported architectures raise NotImplementedError.",
     ),
     "group_norms": (
@@ -118,6 +118,24 @@ PARAMETERS = {
 }
 
 
+OPTIONAL_HOOKS = {
+    "basis_transform": "linear_design",
+    "basis_metadata": "basis_metadata",
+    "local_term_importance": "local_term_importance",
+    "group_norms": "get_group_norms",
+    "training_history": "training_history_",
+}
+
+
+def supported_architectures(method):
+    from nampy.neural.registry import architectures
+
+    hook = OPTIONAL_HOOKS[method]
+    return [
+        name for name, spec in architectures().items() if hasattr(spec.module, hook)
+    ]
+
+
 def generate(root):
     from feature_reference import heading, signature, table, tree, write
 
@@ -126,6 +144,16 @@ def generate(root):
     for name, (cls, kind, shape, meaning) in METHODS.items():
         method = getattr(NeuralEstimatorBase, name)
         text = heading(name) + meaning + "\n\n" + signature(method, "estimator." + name)
+        if name in OPTIONAL_HOOKS:
+            supported = supported_architectures(name)
+            text += (
+                "Available architecture hooks: "
+                + ", ".join(
+                    f":doc:`{architecture} <../{architecture}>`"
+                    for architecture in supported
+                )
+                + ". Unsupported architectures raise ``NotImplementedError``; call after fitting. Native history and metadata retain their native-solver meaning.\n\n"
+            )
         rows = method_parameter_rows(method, PARAMETERS)
         text += heading("Parameters", "-") + (
             table(["Parameter", "Type / shape", "Default", "Meaning"], rows)
@@ -135,6 +163,8 @@ def generate(root):
         text += heading("Returns", "-") + table(
             ["Type", "Shape", "Meaning"], [(kind, shape, meaning)]
         )
+        if name == "local_term_importance":
+            text += "Each inner dictionary contains ``term`` (source-feature tuple), ``order`` (integer interaction degree), and ``contribution`` (float for the selected output). Terms are ranked by absolute contribution within each observation; these are local polynomial terms, not global feature-importance scores.\n\n"
         code = neural_estimator_example(cls)
         if name in {"plot_interactions", "interaction_importance"}:
             code = code.replace("interactions=[]", "interactions=[('x', 'z')]")

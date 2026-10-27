@@ -60,6 +60,8 @@ Dense NumPy matrix with n_samples rows and n_coefficients columns. Multiplying b
      - (n, p)
      - Design in fitted coefficient coordinates, excluding offsets.
 
+
+
 Runnable example
 ----------------
 
@@ -70,10 +72,26 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/lpmatrix.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   [
+     1.0,
+     -0.13711,
+     -0.25279,
+     0.18036,
+     0.22146,
+     -0.11894
+   ]
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

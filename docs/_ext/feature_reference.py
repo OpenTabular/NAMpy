@@ -12,6 +12,7 @@ from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
+from family_contracts import mathematical_contract
 from public_reference import descriptions, literal, table
 from reference_examples import (
     control_example,
@@ -24,6 +25,11 @@ from reference_examples import (
     smooth_example,
     statistical_estimator_example,
     statistical_family_example,
+)
+from reference_organization import (
+    neural_parameter_meanings,
+    organize_reference,
+    smooth_title,
 )
 from reference_schema import (
     FAMILY_NUISANCE_MEANINGS,
@@ -133,7 +139,7 @@ PARAMETERS = {
     "phiPen": "Upstream-style alias for phi_pen; None leaves phi_pen in effect.",
     "return_se": "If True, return prediction and associated pointwise standard-error arrays as a pair.",
     "cov": "Optional coefficient covariance selection/override. Cannot be combined with unconditional=True.",
-    "type": "Output scale or diagnostic residual type. Prediction accepts response, link, terms, iterms and lpmatrix; residual choices depend on the response family.",
+    "type": "Prediction mode: response, link, terms, iterms or lpmatrix. Response applies the family transformation; link retains additive predictors; term modes return contributions; lpmatrix returns the coefficient design.",
     "offset": "Known additive predictor offset, scalar/vector or supported per-predictor structure. New data require the appropriate new-data offset.",
     "terms": "Optional iterable of fitted term labels to include in prediction.",
     "exclude": "Optional iterable of fitted term labels to omit from prediction.",
@@ -298,8 +304,14 @@ def generate_smooths(root):
     import nampy.gam.smooths as smooths
     import nampy.gam.specs  # noqa: F401 - populate formula-only descriptors
     from nampy.gam.basis_registry import basis_descriptors
+    from nampy.gam.specs.smooth_build import build_smooth_spec
 
+    formula_defaults = {
+        name: parameter.default
+        for name, parameter in inspect.signature(build_smooth_spec).parameters.items()
+    }
     entries = []
+    runtime_pages = {}
     for d in sorted(basis_descriptors(), key=lambda d: d.name):
         name = d.name
         cls = (
@@ -329,7 +341,7 @@ def generate_smooths(root):
         elif cls.__name__ == "BivariateShapePSplineTerm":
             covariates = "Exactly two numerical covariates"
         description = SMOOTH_MEANINGS[name]
-        text = heading(name) + description + "\n\n"
+        text = heading(smooth_title(name, description)) + description + "\n\n"
         if "shape" in cls.__module__:
             text += "This is a SCAM-style shape-constrained basis. See :doc:`/user_guide/shape_constrained_gams` for its inequalities and supported fitting routes.\n\n"
         text += (
@@ -337,8 +349,8 @@ def generate_smooths(root):
             + f'.. code-block:: python\n\n   formula = "y ~ {formula}"\n\n'
         )
         text += "Formula constructors are parsed inside strings; they are not Python functions. ``k``, ``m``, ``by``, ``id``, ``sp`` and ``fx`` configure the term where supported. Formula ``id`` maps to runtime ``smoothing_id`` and ``fx`` maps to ``fixed``.\n\n"
-        text += signature(cls)
-        text += f"Runtime class: ``{cls.__module__}.{cls.__name__}``. Shared class defaults may name another variant: pass ``basis='{name}'`` when the constructor exposes ``basis``.\n\n"
+        runtime = signature(cls)
+        runtime += f"Runtime class: ``{cls.__module__}.{cls.__name__}``. Shared class defaults may name another variant: pass ``basis='{name}'`` when the constructor exposes ``basis``.\n\n"
         overrides = {
             "full": FAMILY_PARAMETERS["full"],
             **smooth_parameter_meanings(name),
@@ -351,7 +363,45 @@ def generate_smooths(root):
                     "k": "Requested rank before constraints. Automatic rank is M+8 for one covariate, M+27 for two, M+100 above two, where M is polynomial null-space dimension. It must accommodate the null space and available unique locations.",
                 }
             )
-        text += heading("Parameters", "-") + parameters(cls, overrides)
+        runtime += heading("Parameters", "-") + parameters(cls, overrides)
+        formula_names = {"k", "m", "by", "id", "sp", "fx"}
+        formula_rows = []
+        for option in sorted(formula_names):
+            target = {"id": "smoothing_id", "fx": "fixed"}.get(option, option)
+            formula_cls = cls.__mro__[1] if name in {"sc", "scad"} else cls
+            param = inspect.signature(formula_cls).parameters.get(target)
+            if param:
+                formula_rows.append(
+                    (
+                        f"``{option}``",
+                        parameter_type(target, formula_defaults.get(option), obj=cls),
+                        literal(formula_defaults.get(option)),
+                        overrides.get(target, PARAMETERS[target]),
+                    )
+                )
+        text += heading("Parameters", "-") + table(
+            ["Formula option", "Type / shape", "Default", "Meaning"], formula_rows
+        )
+        text += "Only supported formula options are shown here. Formula defaults come from the formula specification; k=-1 requests the basis-specific automatic rank, independently of runtime-constructor defaults. Runtime-only setup arguments belong to the separate implementation API. Point constraints and additional setup follow the capabilities below.\n\n"
+        if d.supports_pc:
+            text += "``pc`` (float or mapping, default None) imposes the function constraint f(x0)=0 through a basis reparameterization.\n\n"
+        if d.accepts_xt:
+            text += (
+                "``xt`` (mapping, default None) supplies basis-specific setup: "
+                + overrides.get("xt", PARAMETERS["xt"])
+                + "\n\n"
+            )
+
+        text += heading("Identifiability, penalty and prediction", "-")
+        text += "The basis penalty acts on fitted coefficient coordinates; requested rank k is not fitted EDF. Ordinary smooth centering separates the smooth from the model intercept, subject to the basis, numeric/factor by-variable and point-constraint rules. A point constraint replaces the relevant centering direction rather than fixing an arbitrary coefficient. Prediction reuses the fitted knots, constraints and penalty setup.\n\n"
+        if name in {"cr", "cs"}:
+            text += "Natural cubic spline tails extend linearly beyond the boundary knots. cs adds null-space shrinkage to the cr roughness penalty. Extrapolation is consequently more restrictive than adding a new spline outside the fitted knot interval.\n\n"
+        elif name in {"cc", "cp"}:
+            text += "New covariate values use the fitted periodic domain; matching boundary behavior is part of the cyclic construction. The cycle boundaries must represent a real period in the data.\n\n"
+        elif name in {"re", "mrf"}:
+            text += "Prediction uses fitted region/group levels rather than continuous extrapolation. Random-effect terms give unseen levels zero contribution; MRF terms reject unknown regions.\n\n"
+        else:
+            text += "Out-of-range behavior is basis-specific and follows the retained fitted basis, rather than automatic expansion of its rank or knot domain. For bounded spatial domains and shape constraints, inspect the domain/constraint restrictions in the runtime notes before extrapolating.\n\n"
         text += heading("Capabilities", "-") + table(
             ["Property", "Value"],
             [
@@ -363,14 +413,59 @@ def generate_smooths(root):
         )
         text += (
             heading("Outputs", "-")
-            + "The constructor returns an unfitted runtime term. ``fit(X, feature_names)`` initializes its basis and penalties and returns the term. ``transform_new(X_new)`` returns a dense ``(n_samples, n_term_coefficients)`` matrix in the fitted constraint coordinates. ``penalties`` returns the term's penalty matrices, each square in those coefficient coordinates. The term contributes ``transform_new(X_new) @ coefficients`` on the additive predictor scale. Basis dimension can decrease after constraints; it is distinct from fitted EDF.\n\n"
+            + "The formula adds a term to the fitted model's additive predictor. Its coefficient block has p_term columns after constraints, potentially fewer than the requested k; this dimension differs from EDF. ``predict(type='terms')`` returns a floating array with n rows and one column per retained term for a scalar predictor. ``lpmatrix`` returns the full floating model design, shape (n, p), including the other terms. The scalar Gaussian examples below produce response predictions of shape (n,). Runtime matrix and penalty contracts are documented separately.\n\n"
         )
         text += example_rst(
             root, f"statistical_reference/smooths/{name}", smooth_example(name, cls)
         )
-        text += module_notes(cls)
+        runtime += (
+            heading("Outputs", "-")
+            + "``fit(X, feature_names)`` accepts a numeric/categorical design with n rows and its d column names, initializes the term, and returns the same term instance. ``transform_new(X_new)`` returns a floating NumPy array of shape (n_new, p_term) in the fitted constraint coordinates. ``penalties`` is a list of floating square arrays, each (p_term, p_term). Multiplying the design by its coefficient vector gives the link contribution of shape (n_new,). Invalid feature names, dimensions and basis-specific domains raise ValueError; unsupported compositions raise NotImplementedError.\n\n"
+            + module_notes(cls)
+        )
+        default_basis = inspect.signature(cls).parameters.get("basis")
+        if cls.__name__ not in runtime_pages or (
+            default_basis and default_basis.default == name
+        ):
+            runtime_pages[cls.__name__] = heading(cls.__name__) + runtime
+        write(
+            root,
+            f"extension_reference/smooths/{name}.rst",
+            ":orphan:\n\n"
+            + heading(smooth_title(name, description) + " runtime")
+            + f":doc:`Canonical runtime constructor <{cls.__name__}>`.\n",
+        )
+        if name == "so":
+            text += ".. include:: /_includes/soap_domain_details.inc\n\n"
+        text += f":doc:`Runtime constructor and implementation notes </extension_reference/smooths/{cls.__name__}>`.\n\n"
+        related = (
+            {"cr", "cs", "bs", "ps"}
+            if name in {"cr", "cs", "bs", "ps"}
+            else {"cc", "cp"}
+            if name in {"cc", "cp"}
+            else {"tp", "ts", "ds", "gp"}
+            if name in {"tp", "ts", "ds", "gp"}
+            else {"te", "ti", "t2"}
+            if name in {"te", "ti", "t2"}
+            else {"re", "fs", "sz", "mrf"}
+            if name in {"re", "fs", "sz", "mrf"}
+            else {"so", "sf", "sw"}
+            if name in {"so", "sf", "sw"}
+            else set()
+        )
+        if related - {name}:
+            text += (
+                heading("Related bases", "-")
+                + " · ".join(
+                    f":doc:`{other} <{other}>`" for other in sorted(related - {name})
+                )
+                + "\n\n"
+            )
+
         text += ":doc:`Formula syntax </api/gam_formula>` · :doc:`Smooth overview </api/gam_smooths>` · :doc:`Prediction outputs <../methods/predict>`\n"
         write(root, f"statistical_reference/smooths/{name}.rst", text)
+    for class_name, body in runtime_pages.items():
+        write(root, f"extension_reference/smooths/{class_name}.rst", body)
     write(
         root,
         "statistical_reference/smooths/index.rst",
@@ -385,7 +480,9 @@ def generate_smooths(root):
 
 def family_sections(root):
     """Reuse precise family-specific scale/likelihood notes, without copying drift."""
-    text = (root / "api/gam_families.rst").read_text()
+    text = (
+        Path(__file__).resolve().parents[1] / "_includes/statistical_family_details.inc"
+    ).read_text()
     import re
 
     matches = list(re.finditer(r"^``([^`]+)``\n[~]+\n", text, re.M))
@@ -443,7 +540,18 @@ FAMILY_SUPPORT = {
 
 
 def generate_statistical_families(root):
-    from nampy.gam.families.registry import make_gam_family
+    from nampy.gam.families.registry import GENERAL_FAMILIES, make_gam_family
+
+    extensions = {
+        name
+        for name, spec in GENERAL_FAMILIES.items()
+        if spec.reference_group == "distributional_extensions"
+    }
+    missing = set(GENERAL_FAMILIES) - set(FAMILY_SUPPORT) - extensions
+    if missing:
+        raise ValueError(
+            f"General families need authored reference contracts: {sorted(missing)}"
+        )
 
     sections = family_sections(root)
     entries = []
@@ -471,6 +579,7 @@ def generate_statistical_families(root):
                 cls, {**FAMILY_PARAMETERS, **FAMILY_NUISANCE_MEANINGS.get(name, {})}
             )
         )
+        text += mathematical_contract(name, "statistical")
         text += heading("Outputs and fitting support", "-")
         names = getattr(family, "distribution_parameter_names", None) or getattr(
             family, "parameter_names", ()
@@ -519,6 +628,7 @@ def generate_statistical_families(root):
         text += f".. autoclass:: {cls.__module__}.{cls.__name__}\n   :no-index:\n   :members: distribution_parameters_from_eta, distribution_parameter_jacobian\n   :no-inherited-members:\n\n"
         text += ":doc:`Family overview and boundaries </api/gam_families>` · :doc:`Distributional modeling </user_guide/gamlss>`\n"
         write(root, f"statistical_reference/families/{name}.rst", text)
+    entries.extend(name for name in GENERAL_FAMILIES if name in extensions)
     write(
         root,
         "statistical_reference/families/index.rst",
@@ -658,6 +768,10 @@ def generate_methods(root):
             if name == "plot"
             else {}
         )
+        if name == "residuals":
+            overrides["type"] = (
+                "Residual definition: deviance, pearson, response, working or scaled. Availability and encoding depend on the fitted family; these are residuals, not prediction modes."
+            )
         text += (
             heading("Parameters", "-")
             + parameters(obj, overrides)
@@ -727,7 +841,7 @@ def generate_methods(root):
 
 
 def generate_neural(root):
-    from public_reference import FAMILY_MEANINGS
+    from public_reference import DEPENDENCE, FAMILY_MEANINGS
 
     from nampy.neural.distributions.registry import FAMILY_REGISTRY
     from nampy.neural.registry import architectures, get_architecture
@@ -741,6 +855,7 @@ def generate_neural(root):
             heading(spec.estimator_prefix + " API")
             + f":doc:`Model structure, interpretation and restrictions </models/{name}>`.\n\n"
         )
+        text += DEPENDENCE.get(name, "") + "\n\n"
         text += "Constructor defaults and parameter descriptions below are resolved from the installed estimator and its architecture configuration. Each supported task has its own reference page.\n\n.. toctree::\n   :maxdepth: 1\n\n"
         for task, suffix in [
             ("regression", "Regressor"),
@@ -765,23 +880,19 @@ def generate_neural(root):
         text += (
             "\n"
             + heading("Architecture configuration", "-")
-            + f".. autoclass:: {spec.config.__module__}.{spec.config.__name__}\n   :no-index:\n   :no-members:\n   :no-inherited-members:\n\n"
+            + f"Configuration class: ``{spec.config.__name__}``. Defaults below are resolved from its factory.\n\n"
         )
         example_class = spec.estimator_prefix + (
             "Regressor" if spec.supports("regression") else "LSS"
         )
+        text += heading("Configuration parameters", "-") + parameters(spec.config)
         text += example_rst(
             root,
             f"neural_reference/{name}",
             neural_estimator_example(example_class, spec),
         )
-        text += heading("Configuration parameters", "-") + parameters(spec.config)
         write(root, f"neural_reference/{name}.rst", text)
     family_entries = []
-    import re
-
-    existing = (root / "_generated/reference/neural_families.inc").read_text()
-    blocks = re.split(r"(?=^[A-Za-z]+[^\n]* \([a-z]+\)\n~+)", existing, flags=re.M)
     for name, spec in FAMILY_REGISTRY.items():
         family_entries.append(name)
         support, point, spread, loss = FAMILY_MEANINGS[name]
@@ -790,10 +901,11 @@ def generate_neural(root):
             heading(name)
             + f"Neural distribution family for ``family='{name}'``. Configure its constructor through ``distributional_kwargs`` on an LSS estimator.\n\n"
         )
+        text += mathematical_contract(name, "neural")
         text += (
             signature(cls)
             + heading("Parameters", "-")
-            + parameters(cls, NEURAL_FAMILY_PARAMETERS)
+            + parameters(cls, neural_parameter_meanings(name))
             + heading("Outputs", "-")
             + table(
                 ["Contract", "Meaning"],
@@ -805,9 +917,6 @@ def generate_neural(root):
                 ],
             )
         )
-        for block in blocks:
-            if re.match(rf"^[^\n]* \({re.escape(name)}\)\n", block):
-                text += block + "\n"
         sample_y = (
             np.ones((6, 3)) / 3
             if name in {"dirichlet", "mvnormdiag"}
@@ -819,7 +928,7 @@ def generate_neural(root):
             neural_family_returns(name, instance),
         )
         text += "``forward(raw)`` transforms a tensor of network outputs into natural parameters. ``compute_loss(raw, y)`` returns the scalar training objective; ``compute_loss_per_sample(raw, y)`` retains the observation dimension. ``predict_point(raw, transformed=False)`` returns point predictions; set transformed=True only when passing already transformed values.\n\n"
-        text += "``predict`` returns family-transformed values; ``predict(raw=True)`` returns network predictors. Shapes follow the parameter ordering above, including class, vector and quantile exceptions. ``predict_point`` reduces to the family-defined point functional. Conditional spread is distributional spread, not parameter-estimation uncertainty.\n\n:doc:`Shared training parameters </api/neural_training>` · :doc:`All neural family contracts </api/utils>`\n"
+        text += "``predict`` returns family-transformed values; ``predict(raw=True)`` returns network predictors. Shapes and column meanings follow this family’s contract above. ``predict_point`` reduces to the family-defined point functional. Conditional spread is distributional spread, not parameter-estimation uncertainty.\n\n:doc:`Shared training parameters </api/neural_training>` · :doc:`All neural family contracts </api/utils>`\n"
         text += example_rst(
             root, f"neural_reference/families/{name}", neural_family_example(name)
         )
@@ -870,8 +979,6 @@ def generate_neural(root):
                 "families/index",
                 "Training parameters </api/neural_training>",
                 "methods/index",
-                "extensions/index",
-                "internals",
             ],
             "Start with an architecture and response distribution, configure training, then explore custom estimators and implementation APIs. Prediction and explanation objects are shared with statistical models; see :doc:`/api/contracts` and :doc:`/api/plotting`.",
             related_links=False,
@@ -902,6 +1009,9 @@ def generate(root):
     from neural_method_reference import generate as generate_neural_methods
 
     generate_neural_methods(root)
+    from neighbor_reference import generate as generate_neighbors
+
+    generate_neighbors(root)
     write(
         root,
         "statistical_reference/index.rst",
@@ -916,12 +1026,14 @@ def generate(root):
                 "controls/index",
                 "methods/index",
                 "Fitted result objects </api/gam_results>",
-                "Extension APIs </api/gam_advanced>",
+                "Statistical extensions <extensions/index>",
+                "Inference conventions <inference>",
             ],
             "Choose an estimator, specify its formula, smooth terms and response family, then configure fitting and inspect predictions, inference and diagnostics. Extension APIs come last. Implemented scope and unsupported combinations are documented in :doc:`/compatibility`.",
             related_links=False,
         ),
     )
+    organize_reference(root)
     write(
         root,
         "_generated/reference/feature_inventory.json",
@@ -937,8 +1049,8 @@ def setup(app):
 
 
 CONTROL_MEANINGS = {
-    "nthreads": "Requested numerical fitting thread count; positive integer. Actual parallel execution depends on the selected numerical backend.",
-    "ncv_threads": "Requested thread count for neighborhood cross-validation; positive integer. Does not change neighborhood indexing.",
+    "nthreads": "Positive integer retained as compatibility metadata. This setting does not activate parallel native fitting kernels in NAMpy.",
+    "ncv_threads": "Positive integer retained as compatibility metadata. This setting does not activate parallel NCV kernels or change neighborhood indexing.",
     "irls_reg": "Nonnegative ridge stabilization for IRLS coefficient updates.",
     "epsilon": "Positive coefficient-fitting convergence tolerance; also seeds defaults in some outer optimizer controls.",
     "maxit": "Positive maximum coefficient-fitting iterations.",
@@ -1129,9 +1241,13 @@ def generate_controls_selection(root):
 
 
 def generate_estimators(root):
+    from nampy.models._statistical_registry import ESTIMATORS
+
     entries = []
-    for name in ["GAMRegressor", "GAMClassifier", "GAMLSS"]:
+    for name, spec in ESTIMATORS.items():
         entries.append(name)
+        if spec.group != "likelihood":
+            continue
         write(
             root,
             f"statistical_reference/estimators/{name}.rst",
@@ -1155,13 +1271,23 @@ def reference_targets():
     """Map inline code and existing Python references to central reference pages."""
     from nampy.gam import GAM
     from nampy.gam.basis_registry import basis_descriptors
+    from nampy.gam.design import __all__ as design_symbols
+    from nampy.gam.extensions import __all__ as extension_symbols
+    from nampy.gam.families.registry import GENERAL_FAMILIES
+    from nampy.models._statistical_registry import ESTIMATORS
     from nampy.neural.registry import architectures
 
-    targets = {
-        name: f"statistical_reference/estimators/{name}"
-        for name in ["GAMRegressor", "GAMClassifier", "GAMLSS"]
-    }
+    targets = {name: f"statistical_reference/estimators/{name}" for name in ESTIMATORS}
     targets["GAM"] = "statistical_reference/GAM"
+    targets.update(
+        {
+            name: f"statistical_reference/extensions/{name}"
+            for name in [*extension_symbols, *design_symbols]
+        }
+    )
+    targets.update(
+        {name: f"statistical_reference/families/{name}" for name in GENERAL_FAMILIES}
+    )
     for spec in architectures().values():
         for task, suffix in [
             ("regression", "Regressor"),
@@ -1183,8 +1309,14 @@ def reference_targets():
             for name in SELECTION_MEANINGS | OPTIMIZER_MEANINGS
         }
     )
+    from reference_organization import CONTROL_GROUPS, control_anchor
+
     targets.update(
-        {name: f"statistical_reference/controls/{name}" for name in CONTROL_MEANINGS}
+        {
+            name: f"statistical_reference/controls/{slug}#{control_anchor(name)}"
+            for slug, (_, names) in CONTROL_GROUPS.items()
+            for name in names
+        }
     )
     targets.update(
         {
@@ -1218,12 +1350,19 @@ def reference_targets():
         if descriptor.runtime_class:
             targets.setdefault(
                 descriptor.runtime_class.__name__,
-                f"statistical_reference/smooths/{descriptor.name}",
+                f"extension_reference/smooths/{descriptor.runtime_class.__name__}",
             )
     targets.update(
         {name: f"neural_reference/extensions/{name}" for name in NEURAL_EXTENSIONS}
     )
     return targets
+
+
+def relative_reference_uri(builder, source, target):
+    """Give Sphinx a document path; append the feature fragment afterwards."""
+    page, separator, anchor = target.partition("#")
+    uri = builder.get_relative_uri(source, page)
+    return uri + ("#" + anchor if separator else "")
 
 
 def link_references(app, doctree, docname):
@@ -1233,7 +1372,9 @@ def link_references(app, doctree, docname):
     from docutils import nodes
 
     targets = reference_targets()
-    if docname.startswith(("statistical_reference/", "neural_reference/")):
+    if docname.startswith(
+        ("statistical_reference/", "neural_reference/", "extension_reference/")
+    ):
         from sphinx import addnodes
 
         # no-index prevents duplicate Python-domain registrations, but viewcode
@@ -1281,7 +1422,7 @@ def link_references(app, doctree, docname):
             "",
             "",
             internal=True,
-            refuri=app.builder.get_relative_uri(docname, target),
+            refuri=relative_reference_uri(app.builder, docname, target),
             classes=["api-name-link"],
         )
         node.replace_self(link)
@@ -1319,7 +1460,7 @@ def link_code_html(content, source, builder, targets):
     names = {
         key: value
         for key, value in targets.items()
-        if key == "GAM"
+        if key in {"GAM", "ExpectileGAM", "QuantileGAM"}
         or key.endswith(("Regressor", "Classifier", "LSS"))
         or key in NEURAL_EXTENSIONS
     }
@@ -1357,32 +1498,6 @@ def link_code_examples(app, exception):
         updated = link_code_html(original, source, app.builder, targets)
         if updated != original:
             path.write_text(updated)
-
-
-NEURAL_FAMILY_PARAMETERS = {
-    "name": "Display name of the distribution instance; does not select a different family or change the parameterization.",
-    "mean_transform": "Transform of the network mean predictor. 'none' leaves real values unchanged; 'positive' uses softplus plus epsilon. A callable must preserve the required domain and tensor shape.",
-    "scale_transform": "Transform of the scale-related network predictor; normally 'positive' for positive scale. For Beta this controls its second positive shape parameter.",
-    "rate_transform": "Transform from raw output to strictly positive rate; the default 'positive' uses softplus plus epsilon.",
-    "shape_transform": "Transform from raw output to strictly positive shape/concentration; default 'positive'.",
-    "concentration_transform": "Positive transform applied to each Dirichlet concentration component.",
-    "df_transform": "Positive transform of the Student-t degrees-of-freedom predictor, before adding min_df.",
-    "loc_transform": "Transform of the location predictor, default 'none' for an unconstrained real location. Lognormal location is on the logarithmic response scale.",
-    "dispersion_transform": "Positive transform of the dispersion predictor; its natural parameter meaning is family-specific.",
-    "prob_transform": "Transformation to class probabilities, default 'probabilities' (softmax across classes). A custom callable must return valid class probabilities.",
-    "zero_prob_transform": "Transformation to the structural zero/hurdle probability, default sigmoid-based unit-interval mapping with numerical clipping.",
-    "eps": "Positive numerical floor used in parameter-domain safeguards and stable likelihood evaluation.",
-    "target_eps": "Clipping/stabilization threshold for targets near Beta or Dirichlet support boundaries.",
-    "n_dim": "Number of response dimensions for Dirichlet or diagonal multivariate normal. The estimator registry infers it from a two-dimensional target when omitted.",
-    "dim": "Alternative dimension argument for the diagonal multivariate normal constructor; use a dimension consistent with the target width.",
-    "num_classes": "Number of response classes. LSS registry inference uses target labels or one-hot target width; direct family construction requires a valid explicit count.",
-    "min_df": "Positive lower bound added to transformed Student-t degrees of freedom; spread is defined only where the resulting df exceeds two.",
-    "quantiles": "Strictly increasing probability levels in (0, 1). None uses [0.25, 0.5, 0.75]. Output columns follow this order.",
-    "enforce_monotonic": "Whether later predicted quantiles are cumulative positive increments from the first, enforcing noncrossing output. QNAM supplies its own ordered outputs and disables this second transformation.",
-    "rob": "Robust log-likelihood transformation strength for RobustNormal; None disables the robust transformation and uses ordinary Normal likelihood.",
-    "variance_power": "Fixed Tweedie power strictly between one and two; variance is dispersion * mean**variance_power.",
-    "series_max_terms": "Maximum terms in the truncated Tweedie compound Poisson-Gamma density series; controls approximation cost and accuracy.",
-}
 
 
 NEURAL_EXTENSIONS = {

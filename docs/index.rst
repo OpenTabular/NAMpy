@@ -165,6 +165,7 @@ look up a specific method.
    :hidden:
 
    Tutorials <tutorials/index>
+   Model guide <models/index>
    faq
 
 .. toctree::
@@ -191,13 +192,12 @@ look up a specific method.
    :maxdepth: 3
    :hidden:
 
-   Model guide <models/index>
    statistical_reference/index
    neural_reference/index
-   Shared predictions and explanations <api/contracts>
+   Predictions and explanations <api/contracts>
    Plotting <api/plotting>
-   compatibility
-   license
+   Extension APIs <extension_reference/index>
+   Compatibility and limitations <compatibility>
 
 .. toctree::
    :caption: Development
@@ -206,3 +206,4 @@ look up a specific method.
 
    contributing
    architecture
+   license

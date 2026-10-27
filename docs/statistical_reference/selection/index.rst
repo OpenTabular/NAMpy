@@ -3,7 +3,10 @@
 Smoothness selection
 ====================
 
-Selection criteria determine the objective; outer optimizers determine how smoothing parameters are updated.
+The criterion defines the objective; the optimizer determines how smoothing parameters are updated. Support depends on both choices and the family/coefficient route.
+
+Criteria
+--------
 
 .. toctree::
    :maxdepth: 1
@@ -19,8 +22,29 @@ Selection criteria determine the objective; outer optimizers determine how smoot
    p-reml
    ncv
    qncv
+
+Optimizers
+----------
+
+.. toctree::
+   :maxdepth: 1
+
    outer_newton
    bfgs
    efs
    optim
    nlm
+
+Special optimizer routes
+------------------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Route
+     - Restriction
+   * - ``magic``
+     - Gaussian identity-link GCV/UBRE performance iteration only; selected automatically for supported performance-iteration routes.
+   * - ``nlm.fd``
+     - Finite-difference NLM exposed for SCAM transformed-coefficient fits only; ordinary mgcv-style GAM routes reject it.

@@ -9,6 +9,8 @@ SPAMClassifier
    :no-inherited-members:
 
 .. include:: /_generated/reference/SPAMClassifier.inc
+
+
 Runnable example
 ----------------
 
@@ -19,10 +21,80 @@ This example includes its data and imports. Run it after installing NAMpy. Small
 .. literalinclude:: /_examples/reference/neural_reference/estimators/SPAMClassifier.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "components": {
+       "link": [
+         -0.15118999779224396,
+         -0.14071999490261078,
+         -0.14077000319957733,
+         -0.1862500011920929,
+         -0.1651100069284439,
+         -0.12564000487327576
+       ],
+       "response": [
+         0.46226999163627625,
+         0.46487998962402344,
+         0.46487000584602356,
+         0.45357000827789307,
+         0.4588199853897095,
+         0.46862998604774475
+       ],
+       "terms": {
+         "degree_2": [
+           -0.09181000292301178,
+           -0.13314999639987946,
+           -0.11230000108480453,
+           -0.057679999619722366,
+           -0.05192999914288521,
+           -0.11990000307559967
+         ],
+         "x": [
+           -0.04884999990463257,
+           -0.04729999974370003,
+           -0.04574999958276749,
+           -0.044199999421834946,
+           -0.042649999260902405,
+           -0.041099999099969864
+         ],
+         "z": [
+           0.023169999942183495,
+           0.07343000173568726,
+           0.05098000168800354,
+           -0.050680000334978104,
+           -0.03683000057935715,
+           0.06905999779701233
+         ]
+       }
+     },
+     "prediction": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0
+     ],
+     "probabilities": [
+       0.5377299785614014,
+       0.46226999163627625,
+       0.5351200103759766,
+       0.46487998962402344,
+       0.5351300239562988,
+       0.46487000584602356
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -42,43 +114,4 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
      - (64, 2)
    * - result['components']
      - nampy.contracts.AdditivePrediction
-     - scalar record
-   * - result['components'].response
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].link
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].terms
-     - dict
-     - 3 named fields
-   * - result['components'].terms['x']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].terms['z']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].terms['degree_2']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].intercept
-     - builtins.float
-     - ()
-   * - result['components'].backend
-     - builtins.str
-     - ()
-   * - result['components'].offset
-     - builtins.NoneType
-     - not applicable
-   * - result['components'].term_metadata
-     - dict
-     - 3 named fields
-   * - result['components'].term_metadata['x']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
-   * - result['components'].term_metadata['z']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
-   * - result['components'].term_metadata['degree_2']
-     - nampy.contracts.AdditiveTermMetadata
      - scalar record

@@ -9,6 +9,8 @@ NAMformerClassifier
    :no-inherited-members:
 
 .. include:: /_generated/reference/NAMformerClassifier.inc
+
+
 Runnable example
 ----------------
 
@@ -19,10 +21,80 @@ This example includes its data and imports. Run it after installing NAMpy. Small
 .. literalinclude:: /_examples/reference/neural_reference/estimators/NAMformerClassifier.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "components": {
+       "link": [
+         -0.6336399912834167,
+         -0.577459990978241,
+         -0.5165500044822693,
+         -0.05513999983668327,
+         0.02670999988913536,
+         0.7224299907684326
+       ],
+       "response": [
+         0.34668999910354614,
+         0.35951998829841614,
+         0.37365999817848206,
+         0.48622000217437744,
+         0.5066800117492676,
+         0.6731399893760681
+       ],
+       "terms": {
+         "global_transformer": [
+           -0.7653800249099731,
+           -0.6520100235939026,
+           -0.5997899770736694,
+           0.012889999896287918,
+           0.031449999660253525,
+           0.6399199962615967
+         ],
+         "x": [
+           -0.014139999635517597,
+           -0.015039999969303608,
+           -0.015939999371767044,
+           -0.04803000018000603,
+           -0.020600000396370888,
+           -0.011669999919831753
+         ],
+         "z": [
+           0.1460600048303604,
+           0.08976999670267105,
+           0.09937000274658203,
+           -0.01981000043451786,
+           0.016049999743700027,
+           0.09437000006437302
+         ]
+       }
+     },
+     "prediction": [
+       0,
+       0,
+       0,
+       0,
+       1,
+       1
+     ],
+     "probabilities": [
+       0.6533100008964539,
+       0.34668999910354614,
+       0.6404799818992615,
+       0.35951998829841614,
+       0.6263399720191956,
+       0.37365999817848206
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -42,43 +114,4 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
      - (64, 2)
    * - result['components']
      - nampy.contracts.AdditivePrediction
-     - scalar record
-   * - result['components'].response
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].link
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components'].terms
-     - dict
-     - 3 named fields
-   * - result['components'].terms['global_transformer']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].terms['x']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].terms['z']
-     - numpy.ndarray[float32]
-     - (64, 1)
-   * - result['components'].intercept
-     - builtins.float
-     - ()
-   * - result['components'].backend
-     - builtins.str
-     - ()
-   * - result['components'].offset
-     - builtins.NoneType
-     - not applicable
-   * - result['components'].term_metadata
-     - dict
-     - 3 named fields
-   * - result['components'].term_metadata['global_transformer']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
-   * - result['components'].term_metadata['x']
-     - nampy.contracts.AdditiveTermMetadata
-     - scalar record
-   * - result['components'].term_metadata['z']
-     - nampy.contracts.AdditiveTermMetadata
      - scalar record

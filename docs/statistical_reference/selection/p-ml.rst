@@ -66,6 +66,8 @@ Outputs and restrictions
 
 ``fit`` returns the estimator. Its ``gam_`` records the fitted coefficients and smoothing parameters. ``predict`` returns response predictions. The chosen criterion and outer optimizer are separate choices; a named criterion does not establish support for every family, tensor or coefficient transform. Consult the :doc:`fitting support matrix </api/gam_advanced>` and :doc:`compatibility boundaries </compatibility>`.
 
+
+
 Runnable example
 ----------------
 
@@ -76,10 +78,21 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/selection/p-ml.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   [
+     3.17742
+   ]
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

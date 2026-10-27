@@ -3,6 +3,6 @@
 from nampy.gam import gam_control
 
 control = gam_control(scam_max_half=30)
-result = control
+result = {'scam_max_half': control.scam_max_half}
 assert hasattr(control, 'scam_max_half')
 print(control.scam_max_half)

@@ -40,7 +40,7 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
    * - ``type``
      - ``str``
      - ``'deviance'``
-     - Output scale or diagnostic residual type. Prediction accepts response, link, terms, iterms and lpmatrix; residual choices depend on the response family.
+     - Prediction mode: response, link, terms, iterms or lpmatrix. Response applies the family transformation; link retains additive predictors; term modes return contributions; lpmatrix returns the coefficient design.
    * - ``seed``
      - ``int | None``
      - ``None``
@@ -80,6 +80,8 @@ Prepared plotting data with Matplotlib figures, or figure collections as describ
      - one payload per plot or diagnostic
      - Numerical grids/effects and associated Matplotlib figures; the example schema below identifies each payload field and its concrete shape.
 
+
+
 Runnable example
 ----------------
 
@@ -90,10 +92,232 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/plot_check.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "analytic": {
+       "histogram": {
+         "breaks": [
+           -0.4,
+           -0.3,
+           -0.2,
+           -0.1,
+           0.0,
+           0.1
+         ],
+         "counts": [
+           1,
+           3,
+           16,
+           22,
+           35,
+           15
+         ],
+         "density": [
+           0.10417,
+           0.3125,
+           1.66667,
+           2.29167,
+           3.64583,
+           1.5625
+         ],
+         "values": [
+           -0.054,
+           -0.18547,
+           0.09305,
+           0.12949,
+           0.00411,
+           0.0449
+         ]
+       },
+       "qq": {
+         "residuals": [
+           -0.3792,
+           -0.27799,
+           -0.27615,
+           -0.2163,
+           -0.19829,
+           -0.18825
+         ],
+         "simulated_residuals": [
+           -0.31815,
+           -0.31815,
+           -0.31815,
+           -0.2675,
+           -0.2675,
+           -0.2675
+         ],
+         "theoretical": [
+           -0.31815,
+           -0.2675,
+           -0.24125,
+           -0.22273,
+           -0.20815,
+           -0.19597
+         ],
+         "ylim": [
+           -0.3792,
+           0.25899
+         ]
+       },
+       "residual_vs_linear": {
+         "x": [
+           1.34793,
+           0.96621,
+           1.1574,
+           1.04873,
+           1.45279,
+           1.11514
+         ],
+         "xlab": "linear predictor",
+         "y": [
+           -0.054,
+           -0.18547,
+           0.09305,
+           0.12949,
+           0.00411,
+           0.0449
+         ],
+         "ylab": "residuals"
+       },
+       "response_vs_fitted": {
+         "x": [
+           1.34793,
+           0.96621,
+           1.1574,
+           1.04873,
+           1.45279,
+           1.11514
+         ],
+         "xlab": "Fitted Values",
+         "y": [
+           1.29393,
+           0.78074,
+           1.25046,
+           1.17822,
+           1.4569,
+           1.16004
+         ],
+         "ylab": "Response"
+       }
+     },
+     "simulated": {
+       "histogram": {
+         "breaks": [
+           -0.4,
+           -0.3,
+           -0.2,
+           -0.1,
+           0.0,
+           0.1
+         ],
+         "counts": [
+           1,
+           3,
+           16,
+           22,
+           35,
+           15
+         ],
+         "density": [
+           0.10417,
+           0.3125,
+           1.66667,
+           2.29167,
+           3.64583,
+           1.5625
+         ],
+         "values": [
+           -0.054,
+           -0.18547,
+           0.09305,
+           0.12949,
+           0.00411,
+           0.0449
+         ]
+       },
+       "qq": {
+         "residuals": [
+           -0.3792,
+           -0.27799,
+           -0.27615,
+           -0.2163,
+           -0.19829,
+           -0.18825
+         ],
+         "simulated_residuals": [
+           -0.35018,
+           -0.34283,
+           -0.28683,
+           -0.31453,
+           -0.28007,
+           -0.25178
+         ],
+         "theoretical": [
+           -0.32883,
+           -0.26925,
+           -0.2457,
+           -0.21783,
+           -0.20797,
+           -0.20121
+         ],
+         "ylim": [
+           -0.3792,
+           0.31086
+         ]
+       },
+       "residual_vs_linear": {
+         "x": [
+           1.34793,
+           0.96621,
+           1.1574,
+           1.04873,
+           1.45279,
+           1.11514
+         ],
+         "xlab": "linear predictor",
+         "y": [
+           -0.054,
+           -0.18547,
+           0.09305,
+           0.12949,
+           0.00411,
+           0.0449
+         ],
+         "ylab": "residuals"
+       },
+       "response_vs_fitted": {
+         "x": [
+           1.34793,
+           0.96621,
+           1.1574,
+           1.04873,
+           1.45279,
+           1.11514
+         ],
+         "xlab": "Fitted Values",
+         "y": [
+           1.29393,
+           0.78074,
+           1.25046,
+           1.17822,
+           1.4569,
+           1.16004
+         ],
+         "ylab": "Response"
+       }
+     }
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -108,237 +332,9 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
    * - result['analytic']
      - dict
      - 7 named fields
-   * - result['analytic']['qq']
-     - dict
-     - 13 named fields
-   * - result['analytic']['qq']['ylim']
-     - numpy.ndarray[float64]
-     - (2,)
-   * - result['analytic']['qq']['theoretical']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['analytic']['qq']['residuals']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['analytic']['qq']['simulated_residuals']
-     - numpy.ndarray[float64]
-     - (96, 3)
-   * - result['analytic']['qq']['lower']
-     - builtins.NoneType
-     - not applicable
-   * - result['analytic']['qq']['upper']
-     - builtins.NoneType
-     - not applicable
-   * - result['analytic']['qq']['reference']
-     - builtins.str
-     - ()
-   * - result['analytic']['qq']['rep']
-     - builtins.int
-     - ()
-   * - result['analytic']['qq']['requested_rep']
-     - builtins.int
-     - ()
-   * - result['analytic']['qq']['level']
-     - builtins.int
-     - ()
-   * - result['analytic']['qq']['type']
-     - builtins.str
-     - ()
-   * - result['analytic']['qq']['xlab']
-     - builtins.str
-     - ()
-   * - result['analytic']['qq']['ylab']
-     - builtins.str
-     - ()
-   * - result['analytic']['residual_vs_linear']
-     - dict
-     - 5 named fields
-   * - result['analytic']['residual_vs_linear']['x']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['analytic']['residual_vs_linear']['y']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['analytic']['residual_vs_linear']['xlab']
-     - builtins.str
-     - ()
-   * - result['analytic']['residual_vs_linear']['ylab']
-     - builtins.str
-     - ()
-   * - result['analytic']['residual_vs_linear']['title']
-     - builtins.str
-     - ()
-   * - result['analytic']['histogram']
-     - dict
-     - 7 named fields
-   * - result['analytic']['histogram']['values']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['analytic']['histogram']['breaks']
-     - numpy.ndarray[float64]
-     - (8,)
-   * - result['analytic']['histogram']['counts']
-     - numpy.ndarray[int64]
-     - (7,)
-   * - result['analytic']['histogram']['density']
-     - numpy.ndarray[float64]
-     - (7,)
-   * - result['analytic']['histogram']['mids']
-     - numpy.ndarray[float64]
-     - (7,)
-   * - result['analytic']['histogram']['xlab']
-     - builtins.str
-     - ()
-   * - result['analytic']['histogram']['title']
-     - builtins.str
-     - ()
-   * - result['analytic']['response_vs_fitted']
-     - dict
-     - 5 named fields
-   * - result['analytic']['response_vs_fitted']['x']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['analytic']['response_vs_fitted']['y']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['analytic']['response_vs_fitted']['xlab']
-     - builtins.str
-     - ()
-   * - result['analytic']['response_vs_fitted']['ylab']
-     - builtins.str
-     - ()
-   * - result['analytic']['response_vs_fitted']['title']
-     - builtins.str
-     - ()
-   * - result['analytic']['type']
-     - builtins.str
-     - ()
-   * - result['analytic']['old_style']
-     - builtins.bool
-     - ()
-   * - result['analytic']['figures']
-     - list
-     - length 1
-   * - result['analytic']['figures'][0]
-     - matplotlib.figure.Figure
-     - scalar object
    * - result['simulated']
      - dict
      - 7 named fields
-   * - result['simulated']['qq']
-     - dict
-     - 13 named fields
-   * - result['simulated']['qq']['ylim']
-     - numpy.ndarray[float64]
-     - (2,)
-   * - result['simulated']['qq']['theoretical']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['simulated']['qq']['residuals']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['simulated']['qq']['simulated_residuals']
-     - numpy.ndarray[float64]
-     - (96, 3)
-   * - result['simulated']['qq']['lower']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['simulated']['qq']['upper']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['simulated']['qq']['reference']
-     - builtins.str
-     - ()
-   * - result['simulated']['qq']['rep']
-     - builtins.int
-     - ()
-   * - result['simulated']['qq']['requested_rep']
-     - builtins.int
-     - ()
-   * - result['simulated']['qq']['level']
-     - builtins.float
-     - ()
-   * - result['simulated']['qq']['type']
-     - builtins.str
-     - ()
-   * - result['simulated']['qq']['xlab']
-     - builtins.str
-     - ()
-   * - result['simulated']['qq']['ylab']
-     - builtins.str
-     - ()
-   * - result['simulated']['residual_vs_linear']
-     - dict
-     - 5 named fields
-   * - result['simulated']['residual_vs_linear']['x']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['simulated']['residual_vs_linear']['y']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['simulated']['residual_vs_linear']['xlab']
-     - builtins.str
-     - ()
-   * - result['simulated']['residual_vs_linear']['ylab']
-     - builtins.str
-     - ()
-   * - result['simulated']['residual_vs_linear']['title']
-     - builtins.str
-     - ()
-   * - result['simulated']['histogram']
-     - dict
-     - 7 named fields
-   * - result['simulated']['histogram']['values']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['simulated']['histogram']['breaks']
-     - numpy.ndarray[float64]
-     - (8,)
-   * - result['simulated']['histogram']['counts']
-     - numpy.ndarray[int64]
-     - (7,)
-   * - result['simulated']['histogram']['density']
-     - numpy.ndarray[float64]
-     - (7,)
-   * - result['simulated']['histogram']['mids']
-     - numpy.ndarray[float64]
-     - (7,)
-   * - result['simulated']['histogram']['xlab']
-     - builtins.str
-     - ()
-   * - result['simulated']['histogram']['title']
-     - builtins.str
-     - ()
-   * - result['simulated']['response_vs_fitted']
-     - dict
-     - 5 named fields
-   * - result['simulated']['response_vs_fitted']['x']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['simulated']['response_vs_fitted']['y']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['simulated']['response_vs_fitted']['xlab']
-     - builtins.str
-     - ()
-   * - result['simulated']['response_vs_fitted']['ylab']
-     - builtins.str
-     - ()
-   * - result['simulated']['response_vs_fitted']['title']
-     - builtins.str
-     - ()
-   * - result['simulated']['type']
-     - builtins.str
-     - ()
-   * - result['simulated']['old_style']
-     - builtins.bool
-     - ()
-   * - result['simulated']['figures']
-     - list
-     - length 1
-   * - result['simulated']['figures'][0]
-     - matplotlib.figure.Figure
-     - scalar object
 
 .. automethod:: nampy.gam.GAM.plot_check
    :no-index:

@@ -80,6 +80,8 @@ A dictionary with output (full link predictor), named term arrays and intercept/
      - family-specific
      - Included for non-Gaussian families.
 
+
+
 Runnable example
 ----------------
 
@@ -90,10 +92,47 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/predict_terms.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "2f8a839992ee": [
+       0.28194,
+       -0.20294,
+       0.08988,
+       -0.0463,
+       0.10676,
+       -0.13891
+     ],
+     "4b6cb45b0bc4": [
+       -0.14571,
+       -0.04255,
+       -0.14418,
+       -0.11667,
+       0.13433,
+       0.04235
+     ],
+     "intercept": [
+       1.2117
+     ],
+     "output": [
+       1.34793,
+       0.96621,
+       1.1574,
+       1.04873,
+       1.45279,
+       1.11514
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -108,10 +147,10 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
    * - result['output']
      - numpy.ndarray[float64]
      - (96,)
-   * - result['98b025e15c7b']
+   * - result['2f8a839992ee']
      - numpy.ndarray[float64]
      - (96,)
-   * - result['afa82d80eb57']
+   * - result['4b6cb45b0bc4']
      - numpy.ndarray[float64]
      - (96,)
    * - result['intercept']

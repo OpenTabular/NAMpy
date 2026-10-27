@@ -40,7 +40,7 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
    * - ``type``
      - ``str``
      - ``'deviance'``
-     - Output scale or diagnostic residual type. Prediction accepts response, link, terms, iterms and lpmatrix; residual choices depend on the response family.
+     - Prediction mode: response, link, terms, iterms or lpmatrix. Response applies the family transformation; link retains additive predictors; term modes return contributions; lpmatrix returns the coefficient design.
    * - ``seed``
      - ``int | None``
      - ``None``
@@ -76,6 +76,8 @@ Prepared plotting data with Matplotlib figures, or figure collections as describ
      - one payload per plot or diagnostic
      - Numerical grids/effects and associated Matplotlib figures; the example schema below identifies each payload field and its concrete shape.
 
+
+
 Runnable example
 ----------------
 
@@ -86,10 +88,80 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/qq.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "analytic": {
+       "residuals": [
+         -0.3792,
+         -0.27799,
+         -0.27615,
+         -0.2163,
+         -0.19829,
+         -0.18825
+       ],
+       "simulated_residuals": [
+         -0.31815,
+         -0.31815,
+         -0.31815,
+         -0.2675,
+         -0.2675,
+         -0.2675
+       ],
+       "theoretical": [
+         -0.31815,
+         -0.2675,
+         -0.24125,
+         -0.22273,
+         -0.20815,
+         -0.19597
+       ],
+       "ylim": [
+         -0.3792,
+         0.25899
+       ]
+     },
+     "simulated": {
+       "residuals": [
+         -0.3792,
+         -0.27799,
+         -0.27615,
+         -0.2163,
+         -0.19829,
+         -0.18825
+       ],
+       "simulated_residuals": [
+         -0.35018,
+         -0.34283,
+         -0.28683,
+         -0.31453,
+         -0.28007,
+         -0.25178
+       ],
+       "theoretical": [
+         -0.32883,
+         -0.26925,
+         -0.2457,
+         -0.21783,
+         -0.20797,
+         -0.20121
+       ],
+       "ylim": [
+         -0.3792,
+         0.31086
+       ]
+     }
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -104,99 +176,9 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
    * - result['analytic']
      - dict
      - 14 named fields
-   * - result['analytic']['ylim']
-     - numpy.ndarray[float64]
-     - (2,)
-   * - result['analytic']['theoretical']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['analytic']['residuals']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['analytic']['simulated_residuals']
-     - numpy.ndarray[float64]
-     - (96, 3)
-   * - result['analytic']['lower']
-     - builtins.NoneType
-     - not applicable
-   * - result['analytic']['upper']
-     - builtins.NoneType
-     - not applicable
-   * - result['analytic']['reference']
-     - builtins.str
-     - ()
-   * - result['analytic']['rep']
-     - builtins.int
-     - ()
-   * - result['analytic']['requested_rep']
-     - builtins.int
-     - ()
-   * - result['analytic']['level']
-     - builtins.int
-     - ()
-   * - result['analytic']['type']
-     - builtins.str
-     - ()
-   * - result['analytic']['xlab']
-     - builtins.str
-     - ()
-   * - result['analytic']['ylab']
-     - builtins.str
-     - ()
-   * - result['analytic']['figures']
-     - list
-     - length 1
-   * - result['analytic']['figures'][0]
-     - matplotlib.figure.Figure
-     - scalar object
    * - result['simulated']
      - dict
      - 14 named fields
-   * - result['simulated']['ylim']
-     - numpy.ndarray[float64]
-     - (2,)
-   * - result['simulated']['theoretical']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['simulated']['residuals']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['simulated']['simulated_residuals']
-     - numpy.ndarray[float64]
-     - (96, 3)
-   * - result['simulated']['lower']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['simulated']['upper']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['simulated']['reference']
-     - builtins.str
-     - ()
-   * - result['simulated']['rep']
-     - builtins.int
-     - ()
-   * - result['simulated']['requested_rep']
-     - builtins.int
-     - ()
-   * - result['simulated']['level']
-     - builtins.float
-     - ()
-   * - result['simulated']['type']
-     - builtins.str
-     - ()
-   * - result['simulated']['xlab']
-     - builtins.str
-     - ()
-   * - result['simulated']['ylab']
-     - builtins.str
-     - ()
-   * - result['simulated']['figures']
-     - list
-     - length 1
-   * - result['simulated']['figures'][0]
-     - matplotlib.figure.Figure
-     - scalar object
 
 .. automethod:: nampy.gam.GAM.qq
    :no-index:

@@ -5,6 +5,35 @@ dirichlet
 
 Neural distribution family for ``family='dirichlet'``. Configure its constructor through ``distributional_kwargs`` on an LSS estimator.
 
+Distribution definition and moments
+-----------------------------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Quantity
+     - Definition
+   * - Distribution / loss
+     - f(y)=Gamma(A)/prod Gamma(alpha_i) prod y_i^(alpha_i-1), A=sum(alpha_i); y_i>0, sum(y)=1.
+   * - Natural domains
+     - alpha_1,...,alpha_D>0
+   * - Conditional mean
+     - alpha_i/A
+   * - Conditional variance
+     - alpha_i(A-alpha_i)/(A^2(A+1)); off-diagonal covariance -alpha_i alpha_j/(A^2(A+1))
+
+References: `PyTorch probability distributions <https://docs.pytorch.org/docs/stable/distributions.html>`_. NAMpy defines its family transforms and point outputs below.
+
+Targets, transforms and scoring
+-------------------------------
+
+Target shape/encoding: ``(n,D) floating, positive rows summing to one``. Network rows must align with target rows. Parameter column order is given in the output contract below. Positive default transforms use ``softplus(raw)+eps``; identity leaves unrestricted locations unchanged. Constructor transform options accept registered transform names or callables and must preserve the stated parameter domains.
+
+``compute_loss`` and ``compute_loss_per_sample`` consume raw network outputs, not already transformed parameters. The scalar loss is averaged over observations. Lower loss is better. LSS scoring follows the shared estimator contract; response SD summarizes conditional variability, not estimation uncertainty. Distribution-specific moments that do not exist cannot be interpreted as finite uncertainty estimates.
+
+Implementation definitions: :mod:`nampy.neural.distributions.distributions`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Signature
 ---------
 
@@ -28,23 +57,23 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
    * - ``n_dim``
      - ``int | None``
      - ``None``
-     - Number of response dimensions for Dirichlet or diagonal multivariate normal. The estimator registry infers it from a two-dimensional target when omitted.
+     - Response dimension D, positive integer; None is inferred from the two-dimensional training target.
    * - ``name``
      - ``str``
      - ``'Dirichlet'``
-     - Display name of the distribution instance; does not select a different family or change the parameterization.
+     - Display label for this distribution; does not change its mathematical family.
    * - ``concentration_transform``
      - ``str | callable(torch.Tensor) -> torch.Tensor``
      - ``'positive'``
-     - Positive transform applied to each Dirichlet concentration component.
+     - Transform applied to every positive Dirichlet concentration alpha_i.
    * - ``target_eps``
      - ``float``
      - ``1e-08``
-     - Clipping/stabilization threshold for targets near Beta or Dirichlet support boundaries.
+     - Positive clipping margin for targets at support boundaries. Clipping changes the evaluated boundary target.
    * - ``eps``
      - ``float``
      - ``1e-08``
-     - Positive numerical floor used in parameter-domain safeguards and stable likelihood evaluation.
+     - Positive numerical floor used by positivity transforms and stable logarithms; it is not response noise.
 
 Outputs
 -------
@@ -64,33 +93,6 @@ Outputs
    * - Objective
      - Dirichlet negative log likelihood
 
-DirichletDistribution (dirichlet)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Property
-     - Meaning
-   * - Alias
-     - ``dirichlet``
-   * - Target support
-     - Positive composition summing to one
-   * - Parameter order
-     - alpha_0, alpha_1, alpha_2 (illustrated with three dimensions/classes)
-   * - Default transforms
-     - concentration_transform: 'positive'
-   * - Point prediction
-     - Normalized concentration vector
-   * - Spread
-     - Not implemented by the family
-   * - Loss
-     - Dirichlet negative log likelihood
-
-
-
 .. list-table::
    :header-rows: 1
    :class: api-reference-table
@@ -102,11 +104,11 @@ DirichletDistribution (dirichlet)
    * - raw input
      - torch.Tensor[floating]
      - (n, D)
-     - Untransformed network predictors. C = classes, D = response dimensions, Q = requested quantile levels.
+     - Untransformed network predictors for dirichlet; columns follow param_names: ['alpha_0', 'alpha_1', 'alpha_2'].
    * - forward(raw)
      - torch.Tensor[floating]
      - (n, D)
-     - Transformed natural parameters or class probabilities; parameter order follows the contract table. dtype/device follow the supplied tensor.
+     - Transformed parameters in param_names order. dtype/device follow the supplied tensor.
    * - compute_loss(raw, y)
      - torch.Tensor[floating]
      - ()
@@ -118,7 +120,7 @@ DirichletDistribution (dirichlet)
    * - predict_point(raw)
      - torch.Tensor
      - (n, D)
-     - Family-defined point functional; class families return integer class indices, continuous families floating predictions.
+     - Family-defined floating point prediction; see the conditional mean/point contract above.
    * - predict_spread
      - not a scalar spread API
      - not applicable
@@ -126,9 +128,11 @@ DirichletDistribution (dirichlet)
 
 ``forward(raw)`` transforms a tensor of network outputs into natural parameters. ``compute_loss(raw, y)`` returns the scalar training objective; ``compute_loss_per_sample(raw, y)`` retains the observation dimension. ``predict_point(raw, transformed=False)`` returns point predictions; set transformed=True only when passing already transformed values.
 
-``predict`` returns family-transformed values; ``predict(raw=True)`` returns network predictors. Shapes follow the parameter ordering above, including class, vector and quantile exceptions. ``predict_point`` reduces to the family-defined point functional. Conditional spread is distributional spread, not parameter-estimation uncertainty.
+``predict`` returns family-transformed values; ``predict(raw=True)`` returns network predictors. Shapes and column meanings follow this family’s contract above. ``predict_point`` reduces to the family-defined point functional. Conditional spread is distributional spread, not parameter-estimation uncertainty.
 
 :doc:`Shared training parameters </api/neural_training>` · :doc:`All neural family contracts </api/utils>`
+
+
 Runnable example
 ----------------
 
@@ -139,10 +143,47 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/families/dirichlet.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "loss": [
+       -0.23904000222682953
+     ],
+     "parameters": [
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904
+     ],
+     "point": [
+       0.3333300054073334,
+       0.3333300054073334,
+       0.3333300054073334,
+       0.3333300054073334,
+       0.3333300054073334,
+       0.3333300054073334
+     ],
+     "raw": [
+       0.0,
+       0.0,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

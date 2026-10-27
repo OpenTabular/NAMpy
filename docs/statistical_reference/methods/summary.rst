@@ -56,6 +56,8 @@ GAMSummary structured record; also prints the formatted summary. Smooth signific
      - scalar record
      - Contains parametric and smooth significance tables, EDF, dispersion and goodness-of-fit fields; the method also prints the summary.
 
+
+
 Runnable example
 ----------------
 
@@ -66,10 +68,23 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/summary.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "family_name": "gaussian",
+     "formula": "y ~ s(x, bs='ps', k=7) + s(z, bs='cr', k=6)",
+     "link_name": "identity"
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -96,135 +111,6 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
    * - result.se
      - numpy.ndarray[float64]
      - (12,)
-   * - result.p_t
-     - numpy.ndarray[float64]
-     - (1,)
-   * - result.p_pv
-     - numpy.ndarray[float64]
-     - (1,)
-   * - result.p_table
-     - pandas.DataFrame
-     - (1, 4)
-   * - result.p_table['Estimate']
-     - float64
-     - (1,)
-   * - result.p_table['Std. Error']
-     - float64
-     - (1,)
-   * - result.p_table['t value']
-     - float64
-     - (1,)
-   * - result.p_table['Pr(>|t|)']
-     - float64
-     - (1,)
-   * - result.pterms_table
-     - pandas.DataFrame
-     - (0, 7)
-   * - result.pterms_table['label']
-     - object
-     - (0,)
-   * - result.pterms_table['df']
-     - object
-     - (0,)
-   * - result.pterms_table['wald_stat']
-     - object
-     - (0,)
-   * - result.pterms_table['p_value']
-     - object
-     - (0,)
-   * - result.pterms_table['test']
-     - object
-     - (0,)
-   * - result.pterms_table['covariance']
-     - object
-     - (0,)
-   * - result.pterms_table['dispersion']
-     - object
-     - (0,)
-   * - result.s_table
-     - pandas.DataFrame
-     - (2, 10)
-   * - result.s_table['label']
-     - str
-     - (2,)
-   * - result.s_table['edf']
-     - float64
-     - (2,)
-   * - result.s_table['ref_df']
-     - float64
-     - (2,)
-   * - result.s_table['wald_stat']
-     - float64
-     - (2,)
-   * - result.s_table['p_value']
-     - float64
-     - (2,)
-   * - result.s_table['test']
-     - str
-     - (2,)
-   * - result.s_table['term_type']
-     - str
-     - (2,)
-   * - result.s_table['basis_name']
-     - str
-     - (2,)
-   * - result.s_table['covariance']
-     - str
-     - (2,)
-   * - result.s_table['dispersion']
-     - float64
-     - (2,)
-   * - result.residual_df
-     - builtins.float
-     - ()
-   * - result.m
-     - builtins.int
-     - ()
-   * - result.scale
-     - builtins.float
-     - ()
-   * - result.dispersion
-     - builtins.float
-     - ()
-   * - result.scale_estimated
-     - builtins.bool
-     - ()
-   * - result.r_sq
-     - builtins.float
-     - ()
-   * - result.dev_expl
-     - builtins.float
-     - ()
-   * - result.null_deviance
-     - builtins.float
-     - ()
-   * - result.deviance
-     - builtins.float
-     - ()
-   * - result.n
-     - builtins.int
-     - ()
-   * - result.np
-     - builtins.int
-     - ()
-   * - result.rank
-     - builtins.int
-     - ()
-   * - result.method
-     - builtins.str
-     - ()
-   * - result.sp_criterion
-     - builtins.float
-     - ()
-   * - result.covariance
-     - builtins.str
-     - ()
-   * - result.edf_total
-     - builtins.float
-     - ()
-   * - result.metadata
-     - dict
-     - 0 named fields
 
 .. automethod:: nampy.gam.GAM.summary
    :no-index:

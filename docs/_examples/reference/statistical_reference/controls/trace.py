@@ -3,6 +3,6 @@
 from nampy.gam import gam_control
 
 control = gam_control(trace=False)
-result = control
+result = {'trace': control.trace}
 assert hasattr(control, 'trace')
 print(control.trace)

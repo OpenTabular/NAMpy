@@ -5,10 +5,10 @@ from __future__ import annotations
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
+from ._statistical_registry import ESTIMATORS as _STATISTICAL_ESTIMATORS
+
 _EXPORT_MODULES = {
-    "GAMClassifier": ".gam",
-    "GAMRegressor": ".gam",
-    "GAMLSS": ".gamlss",
+    **{name: spec.module for name, spec in _STATISTICAL_ESTIMATORS.items()},
     "NAMClassifier": ".nam",
     "NAMLSS": ".nam",
     "NAMRegressor": ".nam",
@@ -63,6 +63,7 @@ _EXPORT_MODULES = {
 
 if TYPE_CHECKING:
     from ._registered import NeuralEstimatorFamily, estimator_family
+    from .asymmetric_gam import ExpectileGAM, QuantileGAM
     from .classifier import NeuralClassifier
     from .ensemble import NeuralEnsemble
     from .ensemble_treenam import (

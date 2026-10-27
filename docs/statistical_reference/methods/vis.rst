@@ -44,7 +44,7 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
    * - ``type``
      - ``str``
      - ``'link'``
-     - Output scale or diagnostic residual type. Prediction accepts response, link, terms, iterms and lpmatrix; residual choices depend on the response family.
+     - Prediction mode: response, link, terms, iterms or lpmatrix. Response applies the family transformation; link retains additive predictors; term modes return contributions; lpmatrix returns the coefficient design.
    * - ``se``
      - ``float | bool``
      - ``-1``
@@ -124,6 +124,8 @@ Prepared plotting data with Matplotlib figures, or figure collections as describ
      - one payload per plot or diagnostic
      - Numerical grids/effects and associated Matplotlib figures; the example schema below identifies each payload field and its concrete shape.
 
+
+
 Runnable example
 ----------------
 
@@ -134,10 +136,48 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/vis.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "fit": [
+       0.34355,
+       0.80252,
+       1.14352,
+       1.32449,
+       1.36412,
+       1.25617
+     ],
+     "view": [
+       "x",
+       "z"
+     ],
+     "x": [
+       0.00373,
+       0.14542,
+       0.2871,
+       0.42878,
+       0.57046,
+       0.71214
+     ],
+     "y": [
+       0.00518,
+       0.1445,
+       0.28381,
+       0.42313,
+       0.56245,
+       0.70176
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -152,12 +192,6 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
    * - result['view']
      - list
      - length 2
-   * - result['view'][0]
-     - builtins.str
-     - ()
-   * - result['view'][1]
-     - builtins.str
-     - ()
    * - result['x']
      - numpy.ndarray[float64]
      - (8,)
@@ -170,63 +204,6 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
    * - result['se_fit']
      - numpy.ndarray[float64]
      - (64,)
-   * - result['lower']
-     - builtins.NoneType
-     - not applicable
-   * - result['upper']
-     - builtins.NoneType
-     - not applicable
-   * - result['newdata']
-     - pandas.DataFrame
-     - (64, 2)
-   * - result['newdata']['x']
-     - float64
-     - (64,)
-   * - result['newdata']['z']
-     - float64
-     - (64,)
-   * - result['grid_values']
-     - list
-     - length 2
-   * - result['grid_values'][0]
-     - numpy.ndarray[float64]
-     - (8,)
-   * - result['grid_values'][1]
-     - numpy.ndarray[float64]
-     - (8,)
-   * - result['factor_levels']
-     - dict
-     - 0 named fields
-   * - result['excluded']
-     - numpy.ndarray[bool]
-     - (64,)
-   * - result['unmasked_fit']
-     - numpy.ndarray[float64]
-     - (64,)
-   * - result['n_grid']
-     - builtins.int
-     - ()
-   * - result['se']
-     - builtins.float
-     - ()
-   * - result['lp']
-     - builtins.int
-     - ()
-   * - result['type']
-     - builtins.str
-     - ()
-   * - result['zlim']
-     - numpy.ndarray[float64]
-     - (2,)
-   * - result['zlab']
-     - builtins.str
-     - ()
-   * - result['figures']
-     - list
-     - length 1
-   * - result['figures'][0]
-     - matplotlib.figure.Figure
-     - scalar object
 
 .. automethod:: nampy.gam.GAM.vis
    :no-index:

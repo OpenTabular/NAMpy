@@ -12,7 +12,6 @@ Offsets are additive constants on the link scale included in the linear predicto
 import numpy as np
 
 from ..data import coerce_optional_offset, combine_offsets, copy_offset
-from ..model_state import _predictor_designs, _term_blocks_seq
 
 
 def smooth_offsets(model, X=None, *, skip_term_ids=()):
@@ -21,9 +20,16 @@ def smooth_offsets(model, X=None, *, skip_term_ids=()):
     Known soap boundary values are part of the smooth's predictor even when
     the caller supplies another offset. They are not estimated coefficients.
     """
-    n_predictors = len(_predictor_designs(model))
+    from ..model_state import _compiled_model
+
+    return compiled_offsets(_compiled_model(model), X, skip_term_ids=skip_term_ids)
+
+
+def compiled_offsets(compiled, X=None, *, skip_term_ids=()):
+    """Evaluate known term offsets from compilation state, without fitting."""
+    n_predictors = len(compiled.predictors) if compiled is not None else 0
     offsets = [None] * max(1, n_predictors)
-    for term in _term_blocks_seq(model):
+    for term in () if compiled is None else compiled.compiled_terms:
         if term.term_id in skip_term_ids:
             continue
         if X is None:

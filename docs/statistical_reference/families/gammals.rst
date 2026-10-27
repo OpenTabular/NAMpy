@@ -45,6 +45,34 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``-7.0``
      - Lower bound for log dispersion under the source lower-bounded log link; default -7. It is not a lower bound for Gaussian standard deviation.
 
+Distribution definition and moments
+-----------------------------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Quantity
+     - Definition
+   * - Distribution / loss
+     - f(y)=r^a y^(a-1) exp(-r y)/Gamma(a), y>0.
+   * - Natural domains
+     - shape a>0; rate r>0 (inverse scale)
+   * - Conditional mean
+     - a/r
+   * - Conditional variance
+     - a/r^2
+
+Statistical Gamma uses mean mu and dispersion phi: shape=1/phi and rate=1/(mu phi). Public GAMLSS uses sigma=sqrt(phi), so Var(Y)=(mu sigma)^2.
+
+References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
+
+`Upstream gammals parameterization <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/gammals.html>`_.
+
+Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
+
+Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Outputs and fitting support
 ---------------------------
 
@@ -88,13 +116,15 @@ Outputs and fitting support
    * - GAM.predict(type='response')
      - numpy.ndarray[float64]
      - (n, 2)
-     - Source linked-family response columns; these are distinct from the natural (mean, coefficient-of-variation) interface below.
+     - Source response columns (mu, log(phi)), where Var(Y)=phi*mu**2. Natural GAMLSS output is (mu, sigma), with sigma=sqrt(phi), the coefficient of variation.
    * - Natural parameter interface
      - numpy.ndarray[float64]
      - (n, 2)
      - Natural columns: mu, sigma. Used by GAMLSS.predict and distribution_parameters_from_eta. sigma is the positive coefficient of variation: sigma=exp(log_dispersion/2), Var(Y)=(mu*sigma)**2; it is not a Gaussian SD or Gamma rate.
 
 The constructor returns a family object, not predictions. ``GAM.fit`` returns the fitted model. For a single-predictor family, ``GAM.predict(type='response')`` normally returns a response-scale array, while ``type='link'`` returns the additive predictor. Multi-predictor families have family-specific response transformations. ``GAMLSS.predict`` exposes natural distribution parameters; ``predict(raw=True)`` exposes link predictors. These interfaces can have different column meanings.
+
+
 
 Runnable example
 ----------------
@@ -106,10 +136,44 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/gammals.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "link_predictors": [
+       0.25893,
+       -1.10778,
+       0.13629,
+       -1.10778,
+       0.31559,
+       -1.10778
+     ],
+     "natural_parameters": [
+       1.29555,
+       0.5755,
+       1.14601,
+       0.5755,
+       1.37106,
+       0.5755
+     ],
+     "source_response": [
+       1.29555,
+       -1.10502,
+       1.14601,
+       -1.10502,
+       1.37106,
+       -1.10502
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

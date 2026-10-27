@@ -1,4 +1,7 @@
 import copy
+from dataclasses import dataclass
+from types import MappingProxyType
+from typing import Callable
 
 import numpy as np
 
@@ -15,6 +18,11 @@ from .clog import CensoredLogisticFamily
 from .cnorm import CensoredNormalFamily
 from .cpois import CensoredPoissonFamily
 from .family_base import BaseFamily
+from .gamlss.distributional import (
+    BetaLocationPrecision,
+    NegativeBinomialLocationDispersion,
+    StudentLocationScale,
+)
 from .gamlss.gammals import gammals
 from .gamlss.gaulss import gaulss
 from .gamlss.gevlss import GevlssFamily
@@ -61,6 +69,9 @@ _GAMMA_LINK_MAP = {
 }
 
 _GENERAL_FAMILY_FACTORIES = {
+    "student_lss": (StudentLocationScale, {"df"}),
+    "beta_lss": (BetaLocationPrecision, set()),
+    "nb_lss": (NegativeBinomialLocationDispersion, set()),
     "gaulss": (gaulss, {"link", "b"}),
     "gammals": (gammals, {"link", "b"}),
     "gumbls": (GumblsFamily, {"link", "b"}),
@@ -72,12 +83,35 @@ _GENERAL_FAMILY_FACTORIES = {
 }
 
 
+@dataclass(frozen=True)
+class GeneralFamilySpec:
+    """Runtime constructor contract also used to discover reference pages."""
+
+    name: str
+    factory: Callable[..., BaseFamily]
+    options: frozenset[str]
+    reference_group: str
+
+
+GENERAL_FAMILIES = MappingProxyType(
+    {
+        name: GeneralFamilySpec(
+            name,
+            factory,
+            frozenset(options),
+            getattr(factory, "reference_group", "mgcv"),
+        )
+        for name, (factory, options) in _GENERAL_FAMILY_FACTORIES.items()
+    }
+)
+
+
 def _make_general_family(name, options):
-    factory, allowed = _GENERAL_FAMILY_FACTORIES[name]
-    unknown = set(options) - allowed
+    spec = GENERAL_FAMILIES[name]
+    unknown = set(options) - spec.options
     if unknown:
         raise ValueError(f"Unsupported {name} options: {', '.join(sorted(unknown))}.")
-    return factory(**options)
+    return spec.factory(**options)
 
 
 def clone_gam_family(family: BaseFamily) -> BaseFamily:
@@ -89,9 +123,7 @@ def clone_gam_family(family: BaseFamily) -> BaseFamily:
     R's copy-on-modify family lists.
     """
     if not isinstance(family, BaseFamily):
-        raise TypeError(
-            f"Expected a BaseFamily instance, got {type(family).__name__}."
-        )
+        raise TypeError(f"Expected a BaseFamily instance, got {type(family).__name__}.")
     try:
         cloned = copy.deepcopy(family)
     except Exception as exc:  # pragma: no cover - custom family diagnostic
@@ -130,34 +162,49 @@ def make_gam_family(family):
     if isinstance(family, dict):
         name = str(family.get("name", "")).lower()
         if name in _GENERAL_FAMILY_FACTORIES:
-            return _make_general_family(name, {k: v for k, v in family.items() if k != "name"})
+            return _make_general_family(
+                name, {k: v for k, v in family.items() if k != "name"}
+            )
         if name == "cpois":
             options = {k: v for k, v in family.items() if k != "name"}
             unknown = set(options) - {"link"}
             if unknown:
-                raise ValueError(f"Unsupported cpois options: {', '.join(sorted(unknown))}.")
+                raise ValueError(
+                    f"Unsupported cpois options: {', '.join(sorted(unknown))}."
+                )
             return CensoredPoissonFamily(**options)
         if name in {"cnorm", "clog", "bcg"}:
             options = {k: v for k, v in family.items() if k != "name"}
             unknown = set(options) - {"theta", "link"}
             if unknown:
-                raise ValueError(f"Unsupported {name} options: {', '.join(sorted(unknown))}.")
-            return {"cnorm": CensoredNormalFamily, "clog": CensoredLogisticFamily,
-                    "bcg": CensoredBoxCoxGaussianFamily}[name](**options)
+                raise ValueError(
+                    f"Unsupported {name} options: {', '.join(sorted(unknown))}."
+                )
+            return {
+                "cnorm": CensoredNormalFamily,
+                "clog": CensoredLogisticFamily,
+                "bcg": CensoredBoxCoxGaussianFamily,
+            }[name](**options)
         if name == "zip":
             options = {k: v for k, v in family.items() if k != "name"}
             unknown = set(options) - {"theta", "link", "b"}
             if unknown:
-                raise ValueError(f"Unsupported ziP options: {', '.join(sorted(unknown))}.")
+                raise ValueError(
+                    f"Unsupported ziP options: {', '.join(sorted(unknown))}."
+                )
             return ZeroInflatedPoissonFamily(**options)
         if name == "scat":
             options = {k: v for k, v in family.items() if k != "name"}
             unknown = set(options) - {"theta", "link", "min_df"}
             if unknown:
-                raise ValueError(f"Unsupported scat options: {', '.join(sorted(unknown))}.")
+                raise ValueError(
+                    f"Unsupported scat options: {', '.join(sorted(unknown))}."
+                )
             return ScaledTFamily(**options)
         if name in {"quasi", "quasipoisson", "quasibinomial"}:
-            return _make_quasi_family(name, {k: v for k, v in family.items() if k != "name"})
+            return _make_quasi_family(
+                name, {k: v for k, v in family.items() if k != "name"}
+            )
         link = str(family.get("link", "")).lower() or None
         if name in {"nb"}:
             theta = family.get("theta", 1.0)
@@ -259,12 +306,16 @@ def make_gam_family(family):
                     raise ValueError(f"{key} tuple options must be a dictionary.")
             return _make_general_family(key, spec)
         if key == "cpois":
-            return make_gam_family({"name": key, **(spec if isinstance(spec, dict) else {"link": spec})})
+            return make_gam_family(
+                {"name": key, **(spec if isinstance(spec, dict) else {"link": spec})}
+            )
         if key in {"scat", "zip", "cnorm", "clog", "bcg"}:
             options = spec if isinstance(spec, dict) else {"theta": spec}
             return make_gam_family({"name": key, **options})
         if key in {"quasi", "quasipoisson", "quasibinomial"}:
-            return _make_quasi_family(key, spec if isinstance(spec, dict) else {"link": spec})
+            return _make_quasi_family(
+                key, spec if isinstance(spec, dict) else {"link": spec}
+            )
         if key in {"gaussian", "normal"}:
             link_spec = (
                 str(spec.get("link", "identity")).lower()

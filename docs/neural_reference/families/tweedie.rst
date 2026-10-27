@@ -5,6 +5,35 @@ tweedie
 
 Neural distribution family for ``family='tweedie'``. Configure its constructor through ``distributional_kwargs`` on an LSS estimator.
 
+Distribution definition and moments
+-----------------------------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Quantity
+     - Definition
+   * - Distribution / loss
+     - Compound Poisson-gamma law for 1<p<2: N~Poisson(mu^(2-p)/(phi(2-p))); Y is a sum of N Gamma((2-p)/(p-1), scale=phi(p-1)mu^(p-1)) jumps.
+   * - Natural domains
+     - mu>0; phi>0; fixed power 1<p<2
+   * - Conditional mean
+     - mu
+   * - Conditional variance
+     - phi mu^p
+
+References: `PyTorch probability distributions <https://docs.pytorch.org/docs/stable/distributions.html>`_. NAMpy defines its family transforms and point outputs below.
+
+Targets, transforms and scoring
+-------------------------------
+
+Target shape/encoding: ``(n,) floating scalar response; support follows the distribution definition above``. Network rows must align with target rows. Parameter column order is given in the output contract below. Positive default transforms use ``softplus(raw)+eps``; identity leaves unrestricted locations unchanged. Constructor transform options accept registered transform names or callables and must preserve the stated parameter domains.
+
+``compute_loss`` and ``compute_loss_per_sample`` consume raw network outputs, not already transformed parameters. The scalar loss is averaged over observations. Lower loss is better. LSS scoring follows the shared estimator contract; response SD summarizes conditional variability, not estimation uncertainty. Distribution-specific moments that do not exist cannot be interpreted as finite uncertainty estimates.
+
+Implementation definitions: :mod:`nampy.neural.distributions.distributions`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Signature
 ---------
 
@@ -28,27 +57,27 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
    * - ``variance_power``
      - ``float``
      - ``1.5``
-     - Fixed Tweedie power strictly between one and two; variance is dispersion * mean**variance_power.
+     - Fixed Tweedie power p in (1,2), giving Var(Y)=dispersion*mean**p.
    * - ``name``
      - ``str``
      - ``'Tweedie'``
-     - Display name of the distribution instance; does not select a different family or change the parameterization.
+     - Display label for this distribution; does not change its mathematical family.
    * - ``mean_transform``
      - ``str | callable(torch.Tensor) -> torch.Tensor``
      - ``'positive'``
-     - Transform of the network mean predictor. 'none' leaves real values unchanged; 'positive' uses softplus plus epsilon. A callable must preserve the required domain and tensor shape.
+     - Transform of the conditional mean column; default identity for an unrestricted mean and positive for a positive mean.
    * - ``dispersion_transform``
      - ``str | callable(torch.Tensor) -> torch.Tensor``
      - ``'positive'``
-     - Positive transform of the dispersion predictor; its natural parameter meaning is family-specific.
+     - Transform of the positive dispersion column; its variance interpretation is given below.
    * - ``series_max_terms``
      - ``int``
      - ``200``
-     - Maximum terms in the truncated Tweedie compound Poisson-Gamma density series; controls approximation cost and accuracy.
+     - Positive maximum number of terms in the compound-Poisson likelihood series; controls truncation cost and accuracy.
    * - ``eps``
      - ``float``
      - ``1e-08``
-     - Positive numerical floor used in parameter-domain safeguards and stable likelihood evaluation.
+     - Positive numerical floor used by positivity transforms and stable logarithms; it is not response noise.
 
 Outputs
 -------
@@ -68,33 +97,6 @@ Outputs
    * - Objective
      - Compound Poisson-Gamma negative log likelihood; truncated series
 
-TweedieDistribution (tweedie)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Property
-     - Meaning
-   * - Alias
-     - ``tweedie``
-   * - Target support
-     - Nonnegative scalar
-   * - Parameter order
-     - mean, dispersion
-   * - Default transforms
-     - mean_transform: 'positive', dispersion_transform: 'positive'
-   * - Point prediction
-     - mean
-   * - Spread
-     - sqrt(dispersion times mean to variance_power)
-   * - Loss
-     - Compound Poisson-Gamma negative log likelihood; truncated series
-
-
-
 .. list-table::
    :header-rows: 1
    :class: api-reference-table
@@ -106,11 +108,11 @@ TweedieDistribution (tweedie)
    * - raw input
      - torch.Tensor[floating]
      - (n, 2)
-     - Untransformed network predictors. C = classes, D = response dimensions, Q = requested quantile levels.
+     - Untransformed network predictors for tweedie; columns follow param_names: ['mean', 'dispersion'].
    * - forward(raw)
      - torch.Tensor[floating]
      - (n, 2)
-     - Transformed natural parameters or class probabilities; parameter order follows the contract table. dtype/device follow the supplied tensor.
+     - Transformed parameters in param_names order. dtype/device follow the supplied tensor.
    * - compute_loss(raw, y)
      - torch.Tensor[floating]
      - ()
@@ -122,17 +124,19 @@ TweedieDistribution (tweedie)
    * - predict_point(raw)
      - torch.Tensor
      - (n,)
-     - Family-defined point functional; class families return integer class indices, continuous families floating predictions.
+     - Family-defined floating point prediction; see the conditional mean/point contract above.
    * - predict_spread(raw)
      - torch.Tensor[floating]
      - (n,)
-     - Conditional response SD; Student-t/log-logistic/inverse-gamma moment restrictions can produce NaN.
+     - Conditional response standard deviation, distinct from parameter-estimation uncertainty.
 
 ``forward(raw)`` transforms a tensor of network outputs into natural parameters. ``compute_loss(raw, y)`` returns the scalar training objective; ``compute_loss_per_sample(raw, y)`` retains the observation dimension. ``predict_point(raw, transformed=False)`` returns point predictions; set transformed=True only when passing already transformed values.
 
-``predict`` returns family-transformed values; ``predict(raw=True)`` returns network predictors. Shapes follow the parameter ordering above, including class, vector and quantile exceptions. ``predict_point`` reduces to the family-defined point functional. Conditional spread is distributional spread, not parameter-estimation uncertainty.
+``predict`` returns family-transformed values; ``predict(raw=True)`` returns network predictors. Shapes and column meanings follow this family’s contract above. ``predict_point`` reduces to the family-defined point functional. Conditional spread is distributional spread, not parameter-estimation uncertainty.
 
 :doc:`Shared training parameters </api/neural_training>` · :doc:`All neural family contracts </api/utils>`
+
+
 Runnable example
 ----------------
 
@@ -143,10 +147,47 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/families/tweedie.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "loss": [
+       0.9046199917793274
+     ],
+     "parameters": [
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904
+     ],
+     "point": [
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904,
+       0.693149983882904
+     ],
+     "raw": [
+       0.0,
+       0.0,
+       0.0,
+       0.0,
+       0.0,
+       0.0
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

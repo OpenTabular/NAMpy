@@ -9,6 +9,8 @@ GAMClassifier
    :no-inherited-members:
 
 .. include:: /_generated/reference/GAMClassifier.inc
+
+
 Runnable example
 ----------------
 
@@ -19,10 +21,72 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/estimators/GAMClassifier.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "components": {
+       "link": [
+         -0.49428,
+         0.06478,
+         -0.41189,
+         -0.22527,
+         0.12059,
+         0.17659
+       ],
+       "response": [
+         0.37889,
+         0.51619,
+         0.39846,
+         0.44392,
+         0.53011,
+         0.54403
+       ],
+       "terms": {
+         "x": [
+           -0.0931,
+           0.05687,
+           -0.01748,
+           0.04864,
+           -0.00175,
+           0.04264
+         ],
+         "z": [
+           -0.40069,
+           0.00839,
+           -0.39394,
+           -0.27342,
+           0.12282,
+           0.13443
+         ]
+       }
+     },
+     "prediction": [
+       0,
+       1,
+       0,
+       0,
+       1,
+       1
+     ],
+     "probabilities": [
+       0.62111,
+       0.37889,
+       0.48381,
+       0.51619,
+       0.60154,
+       0.39846
+     ]
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -40,33 +104,6 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
    * - result['components']
      - nampy.contracts.AdditivePrediction
      - scalar record
-   * - result['components'].response
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['components'].link
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['components'].terms
-     - dict
-     - 2 named fields
-   * - result['components'].terms['x']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['components'].terms['z']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['components'].intercept
-     - builtins.float
-     - ()
-   * - result['components'].backend
-     - builtins.str
-     - ()
-   * - result['components'].offset
-     - builtins.NoneType
-     - not applicable
-   * - result['components'].term_metadata
-     - dict
-     - 0 named fields
    * - result['probabilities']
      - numpy.ndarray[float64]
      - (96, 2)

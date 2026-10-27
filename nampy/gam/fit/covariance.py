@@ -5,9 +5,9 @@ Two covariance estimates are provided for each fitted model:
 
 - **Bayesian posterior covariance** ``Vp = scale * A^{-1}`` where
   ``A = X'WX + S`` is the penalized information matrix.  This is the
-  covariance used by default for confidence intervals on smooth functions;
-  it accounts for the smoothing-parameter uncertainty correction due to
-  the penalty.
+  covariance used by default for confidence intervals on smooth functions,
+  conditional on the smoothing parameters. Smoothing-parameter uncertainty
+  requires the separately computed unconditional covariance.
 
 - **Frequentist sandwich covariance** ``Vf = scale * A^{-1} X'WX A^{-1}``.
   This is appropriate when the model is viewed as a regression with a

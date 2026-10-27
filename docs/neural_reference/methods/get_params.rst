@@ -42,6 +42,8 @@ Returns
      - one entry per exposed constructor option
      - Resolved sklearn-style configuration mapping. deep controls nested parameter expansion where supported.
 
+
+
 Runnable example
 ----------------
 
@@ -52,10 +54,24 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/methods/get_params.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "activation": "type",
+     "adaptive_width": false,
+     "batch_norm": false,
+     "dropout": 0.1
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -81,120 +97,6 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
      - ()
    * - result['feature_dropout']
      - builtins.float
-     - ()
-   * - result['feature_layer']
-     - builtins.str
-     - ()
-   * - result['feature_output_bias']
-     - builtins.bool
-     - ()
-   * - result['feature_widths']
-     - dict
-     - 0 named fields
-   * - result['interaction_degree']
-     - builtins.NoneType
-     - not applicable
-   * - result['interactions']
-     - list
-     - length 0
-   * - result['intercept']
-     - builtins.bool
-     - ()
-   * - result['l2_regularization']
-     - builtins.float
-     - ()
-   * - result['layer_norm']
-     - builtins.bool
-     - ()
-   * - result['layer_sizes']
-     - list
-     - length 2
-   * - result['layer_sizes'][0]
-     - builtins.int
-     - ()
-   * - result['layer_sizes'][1]
-     - builtins.int
-     - ()
-   * - result['lr']
-     - builtins.float
-     - ()
-   * - result['lr_factor']
-     - builtins.float
-     - ()
-   * - result['lr_patience']
-     - builtins.int
-     - ()
-   * - result['norm']
-     - builtins.NoneType
-     - not applicable
-   * - result['num_basis_functions']
-     - builtins.int
-     - ()
-   * - result['output_regularization']
-     - builtins.float
-     - ()
-   * - result['regularize_interactions']
-     - builtins.bool
-     - ()
-   * - result['skip_connections']
-     - builtins.bool
-     - ()
-   * - result['units_multiplier']
-     - builtins.int
-     - ()
-   * - result['use_glu']
-     - builtins.bool
-     - ()
-   * - result['weight_decay']
-     - builtins.float
-     - ()
-   * - result['feature_preprocessing']
-     - builtins.NoneType
-     - not applicable
-   * - result['n_bins']
-     - builtins.int
-     - ()
-   * - result['numerical_preprocessing']
-     - builtins.str
-     - ()
-   * - result['categorical_preprocessing']
-     - builtins.str
-     - ()
-   * - result['use_decision_tree_bins']
-     - builtins.bool
-     - ()
-   * - result['binning_strategy']
-     - builtins.str
-     - ()
-   * - result['task']
-     - builtins.str
-     - ()
-   * - result['cat_cutoff']
-     - builtins.float
-     - ()
-   * - result['treat_all_integers_as_numerical']
-     - builtins.bool
-     - ()
-   * - result['degree']
-     - builtins.int
-     - ()
-   * - result['scaling_strategy']
-     - builtins.str
-     - ()
-   * - result['n_knots']
-     - builtins.int
-     - ()
-   * - result['use_decision_tree_knots']
-     - builtins.bool
-     - ()
-   * - result['knots_strategy']
-     - builtins.str
-     - ()
-   * - result['spline_implementation']
-     - builtins.str
-     - ()
-   * - result['min_unique_vals']
-     - builtins.int
      - ()
 
 .. automethod:: nampy.models._base.NeuralEstimatorBase.get_params

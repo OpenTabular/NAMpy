@@ -35,6 +35,8 @@ NumPy residual vector; available only after a nonzero ar1_rho fit.
      - (n_train,)
      - Response residuals whitened by the known fitted AR(1) transform.
 
+
+
 Runnable example
 ----------------
 
@@ -45,10 +47,26 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/ar1_standardized_residuals.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   [
+     -0.08988,
+     -0.12783,
+     0.11,
+     0.09782,
+     -0.02763,
+     0.02006
+   ]
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

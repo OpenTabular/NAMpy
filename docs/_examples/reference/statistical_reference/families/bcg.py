@@ -7,7 +7,6 @@ from nampy.gam import GAM
 rng = np.random.default_rng(7)
 n = 96
 data = pd.DataFrame({'x': rng.uniform(0, 1, n), 'z': rng.uniform(0, 1, n)})
-data['y'] = 0.4 + np.sin(3 * data.x) + 0.3 * data.z + rng.normal(0, 0.12, n)
 data['y'] = np.exp(0.3 + 0.2 * data.x + rng.normal(0, 0.15, n))
 from nampy.gam.families.registry import make_gam_family
 family = make_gam_family({'name': 'bcg'})

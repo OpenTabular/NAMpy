@@ -98,7 +98,12 @@ print({key: value.shape for key, value in result.items()})
 
 
 def statistical_family_example(name):
-    code = BASE
+    code = (
+        "\n".join(
+            line for line in BASE.splitlines() if not line.startswith("data['y'] =")
+        )
+        + "\n"
+    )
     family = repr(name)
     formula = "y ~ s(x, bs='cr', k=6)"
     setup = {
@@ -198,7 +203,7 @@ def method_example(name):
         "vcov": "model.vcov(unconditional=True)",
         "sp_vcov": "model.sp_vcov()",
         "gam_vcomp": "model.gam_vcomp()",
-        "one_se_rule": "model.one_se_rule()",
+        "one_se_rule": "{'original_smoothing': np.asarray(model.smoothing_params).copy(), 'proposed_smoothing': model.one_se_rule()}",
         "anova": "model.anova()",
         "aic": "model.aic()",
         "bic": "model.bic()",
@@ -227,9 +232,15 @@ with TemporaryDirectory() as directory:
     np.testing.assert_allclose(restored.predict(data), model.predict(data))
 """
         code += f"    result = {'saved' if name == 'save_model' else 'restored'}\n"
+    elif name == "predict":
+        code += "prediction, standard_error = model.predict(data, return_se=True)\nresult = {'prediction': prediction[:3], 'standard_error': standard_error[:3]}\n"
     else:
         code += f"result = {calls[name]}\n"
-    code += "print(type(result).__name__)\n"
+    code += (
+        "print(result)\n"
+        if name in {"predict", "one_se_rule"}
+        else "print(type(result).__name__)\n"
+    )
     return code
 
 
@@ -378,7 +389,7 @@ def control_example(name):
     from nampy.gam import gam_control
 
     value = getattr(gam_control(), name)
-    return f"from nampy.gam import gam_control\n\ncontrol = gam_control({name}={literal(value)})\nresult = control\nassert hasattr(control, {name!r})\nprint(control.{name})\n"
+    return f"from nampy.gam import gam_control\n\ncontrol = gam_control({name}={literal(value)})\nresult = {{{name!r}: control.{name}}}\nassert hasattr(control, {name!r})\nprint(control.{name})\n"
 
 
 def extension_example(name):
@@ -440,13 +451,23 @@ def example_rst(root, page, code):
     if not path.exists() or path.read_text() != text:
         path.write_text(text)
     relative = "/_examples/reference/" + page + ".py"
-    result = "Runnable example\n----------------\n\n"
+    result = "\n\nRunnable example\n----------------\n\n"
     result += (
         "This example includes its data and imports. Run it after installing NAMpy. Small neural training budgets demonstrate the API; they do not establish predictive quality.\n\n"
         if page.startswith("neural_reference/estimators")
         else "This example includes all imports and input data; no variables from another page are required.\n\n"
     )
     result += f":download:`Download the complete example <{relative}>`\n\n.. literalinclude:: {relative}\n   :language: python\n\n"
+    preview_path = Path(root) / "_examples/reference/output_previews.json"
+    if preview_path.exists():
+        previews = json.loads(preview_path.read_text())
+        if page in previews:
+            preview = json.dumps(previews[page], indent=2, ensure_ascii=False)
+            result += (
+                "Observed result preview\n~~~~~~~~~~~~~~~~~~~~~~~\n\n.. code-block:: text\n\n"
+                + textwrap.indent(preview, "   ")
+                + "\n\n"
+            )
     output_path = Path(root) / "_examples/reference/output_schemas.json"
     if output_path.exists():
         schemas = json.loads(output_path.read_text())
@@ -457,7 +478,13 @@ def example_rst(root, page, code):
                 "Example output types and shapes\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n"
             )
             result += "These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.\n\n"
+            result += "The preview lists up to six direct fields; the complete example is downloadable above.\n\n"
             result += table(
-                ["Output field", "Python type / dtype", "Example shape"], schemas[page]
+                ["Output field", "Python type / dtype", "Example shape"],
+                [
+                    row
+                    for row in schemas[page]
+                    if row[0].count("[") + row[0].count(".") <= 1
+                ][:6],
             )
     return result

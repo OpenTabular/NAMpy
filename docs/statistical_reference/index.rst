@@ -16,4 +16,5 @@ Choose an estimator, specify its formula, smooth terms and response family, then
    controls/index
    methods/index
    Fitted result objects </api/gam_results>
-   Extension APIs </api/gam_advanced>
+   Statistical extensions <extensions/index>
+   Inference conventions <inference>

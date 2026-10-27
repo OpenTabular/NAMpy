@@ -52,6 +52,8 @@ Serializable snapshot mapping with coefficient/prediction/penalty summaries and 
      - named fitted payload
      - Serializable coefficients, penalties, predictions, metadata and optionally covariance arrays; see the concrete example schema below.
 
+
+
 Runnable example
 ----------------
 
@@ -62,10 +64,58 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/parity_snapshot.py
    :language: python
 
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   {
+     "fit": {
+       "criterion_name": "reml",
+       "criterion_value": -52.71527837790031,
+       "family_name": "gaussian",
+       "link_name": "identity"
+     },
+     "parity": {
+       "criterion_view": {
+         "criterion_name": "reml",
+         "recomputed_criterion_source": "smoothing_score",
+         "recomputed_criterion_value": -52.71527837790031,
+         "stored_criterion_value": -52.71527837790031
+       },
+       "diagnostics": {
+         "smooth_cov_bayes": "2 fields",
+         "smooth_cov_freq": "2 fields",
+         "smooth_edf1": "2 fields",
+         "smooth_test_inputs": "6 fields"
+       }
+     },
+     "predictions": {
+       "link": [
+         1.3479291457229738,
+         0.9662065267399479
+       ],
+       "lpmatrix": [
+         1.0,
+         1.0
+       ],
+       "response": [
+         1.3479291457229738,
+         0.9662065267399479
+       ],
+       "terms": [
+         0.28193942789790044,
+         -0.2029423403077168
+       ]
+     }
+   }
+
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The preview lists up to six direct fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -80,277 +130,10 @@ These are the concrete shapes for the example above; symbolic dimensions in the 
    * - result['fit']
      - dict
      - 20 named fields
-   * - result['fit']['family_name']
-     - builtins.str
-     - ()
-   * - result['fit']['link_name']
-     - builtins.str
-     - ()
-   * - result['fit']['criterion_name']
-     - builtins.str
-     - ()
-   * - result['fit']['criterion_value']
-     - builtins.float
-     - ()
-   * - result['fit']['coef_full']
-     - list
-     - length 12
-   * - result['fit']['coef_full'][0]
-     - builtins.float
-     - ()
-   * - result['fit']['coef_full'][1]
-     - builtins.float
-     - ()
-   * - result['fit']['coef_full'][2]
-     - builtins.float
-     - ()
-   * - result['fit']['intercept']
-     - builtins.float
-     - ()
-   * - result['fit']['smoothing_params']
-     - list
-     - length 2
-   * - result['fit']['smoothing_params'][0]
-     - builtins.float
-     - ()
-   * - result['fit']['smoothing_params'][1]
-     - builtins.float
-     - ()
-   * - result['fit']['edf_total']
-     - builtins.float
-     - ()
-   * - result['fit']['edf_by_term']
-     - list
-     - length 2
-   * - result['fit']['edf_by_term'][0]
-     - builtins.float
-     - ()
-   * - result['fit']['edf_by_term'][1]
-     - builtins.float
-     - ()
-   * - result['fit']['trace_H']
-     - builtins.float
-     - ()
-   * - result['fit']['scale']
-     - builtins.float
-     - ()
-   * - result['fit']['rss']
-     - builtins.float
-     - ()
-   * - result['fit']['deviance']
-     - builtins.float
-     - ()
-   * - result['fit']['edf2']
-     - list
-     - length 12
-   * - result['fit']['edf2'][0]
-     - builtins.float
-     - ()
-   * - result['fit']['edf2'][1]
-     - builtins.float
-     - ()
-   * - result['fit']['edf2'][2]
-     - builtins.float
-     - ()
-   * - result['fit']['side_condition_reports']
-     - list
-     - length 1
-   * - result['fit']['side_condition_reports'][0]
-     - dict
-     - 4 named fields
-   * - result['fit']['term_results']
-     - list
-     - length 2
-   * - result['fit']['term_results'][0]
-     - dict
-     - 12 named fields
-   * - result['fit']['term_results'][1]
-     - dict
-     - 12 named fields
-   * - result['fit']['metadata']
-     - dict
-     - 3 named fields
-   * - result['fit']['metadata']['n_samples']
-     - builtins.int
-     - ()
-   * - result['fit']['metadata']['n_coef']
-     - builtins.int
-     - ()
-   * - result['fit']['metadata']['fit_intercept']
-     - builtins.bool
-     - ()
-   * - result['fit']['family_theta']
-     - builtins.NoneType
-     - not applicable
-   * - result['fit']['estimate_theta']
-     - builtins.bool
-     - ()
-   * - result['fit']['log_smoothing_params']
-     - list
-     - length 2
-   * - result['fit']['log_smoothing_params'][0]
-     - builtins.float
-     - ()
-   * - result['fit']['log_smoothing_params'][1]
-     - builtins.float
-     - ()
    * - result['predictions']
      - dict
      - 6 named fields
-   * - result['predictions']['response']
-     - list
-     - length 96
-   * - result['predictions']['response'][0]
-     - builtins.float
-     - ()
-   * - result['predictions']['response'][1]
-     - builtins.float
-     - ()
-   * - result['predictions']['response'][2]
-     - builtins.float
-     - ()
-   * - result['predictions']['link']
-     - list
-     - length 96
-   * - result['predictions']['link'][0]
-     - builtins.float
-     - ()
-   * - result['predictions']['link'][1]
-     - builtins.float
-     - ()
-   * - result['predictions']['link'][2]
-     - builtins.float
-     - ()
-   * - result['predictions']['terms']
-     - list
-     - length 192
-   * - result['predictions']['terms'][0]
-     - builtins.float
-     - ()
-   * - result['predictions']['terms'][1]
-     - builtins.float
-     - ()
-   * - result['predictions']['terms'][2]
-     - builtins.float
-     - ()
-   * - result['predictions']['lpmatrix']
-     - list
-     - length 1152
-   * - result['predictions']['lpmatrix'][0]
-     - builtins.float
-     - ()
-   * - result['predictions']['lpmatrix'][1]
-     - builtins.float
-     - ()
-   * - result['predictions']['lpmatrix'][2]
-     - builtins.float
-     - ()
-   * - result['predictions']['se_response']
-     - list
-     - length 96
-   * - result['predictions']['se_response'][0]
-     - builtins.float
-     - ()
-   * - result['predictions']['se_response'][1]
-     - builtins.float
-     - ()
-   * - result['predictions']['se_response'][2]
-     - builtins.float
-     - ()
-   * - result['predictions']['se_link']
-     - list
-     - length 96
-   * - result['predictions']['se_link'][0]
-     - builtins.float
-     - ()
-   * - result['predictions']['se_link'][1]
-     - builtins.float
-     - ()
-   * - result['predictions']['se_link'][2]
-     - builtins.float
-     - ()
    * - result['parity']
-     - dict
-     - 2 named fields
-   * - result['parity']['criterion_view']
-     - dict
-     - 8 named fields
-   * - result['parity']['criterion_view']['criterion_name']
-     - builtins.str
-     - ()
-   * - result['parity']['criterion_view']['stored_criterion_value']
-     - builtins.float
-     - ()
-   * - result['parity']['criterion_view']['recomputed_criterion_value']
-     - builtins.float
-     - ()
-   * - result['parity']['criterion_view']['recomputed_criterion_source']
-     - builtins.str
-     - ()
-   * - result['parity']['criterion_view']['criterion_backend']
-     - builtins.str
-     - ()
-   * - result['parity']['criterion_view']['profiled_criterion_value']
-     - builtins.float
-     - ()
-   * - result['parity']['criterion_view']['joint_criterion_value']
-     - builtins.float
-     - ()
-   * - result['parity']['criterion_view']['joint_log_sigma2']
-     - builtins.float
-     - ()
-   * - result['parity']['diagnostics']
-     - dict
-     - 17 named fields
-   * - result['parity']['diagnostics']['smooth_cov_bayes']
-     - dict
-     - 2 named fields
-   * - result['parity']['diagnostics']['smooth_cov_freq']
-     - dict
-     - 2 named fields
-   * - result['parity']['diagnostics']['smooth_edf1']
-     - dict
-     - 2 named fields
-   * - result['parity']['diagnostics']['smooth_test_inputs']
-     - dict
-     - 6 named fields
-   * - result['parity']['diagnostics']['smooth_function_space']
-     - dict
-     - 3 named fields
-   * - result['parity']['diagnostics']['concurvity_labels']
-     - list
-     - length 3
-   * - result['parity']['diagnostics']['concurvity_full']
-     - list
-     - length 3
-   * - result['parity']['diagnostics']['concurvity_pairwise']
-     - dict
-     - 4 named fields
-   * - result['parity']['diagnostics']['sp_vcov']
-     - list
-     - length 3
-   * - result['parity']['diagnostics']['optimizer_endpoint']
-     - dict
-     - 39 named fields
-   * - result['parity']['diagnostics']['gam_vcomp']
-     - list
-     - length 3
-   * - result['parity']['diagnostics']['gam_vcomp_names']
-     - list
-     - length 3
-   * - result['parity']['diagnostics']['one_se_rule']
-     - list
-     - length 3
-   * - result['parity']['diagnostics']['residuals']
-     - dict
-     - 5 named fields
-   * - result['parity']['diagnostics']['k_check']
-     - dict
-     - 2 named fields
-   * - result['parity']['diagnostics']['anova_parametric']
-     - dict
-     - 2 named fields
-   * - result['parity']['diagnostics']['anova_smooth']
      - dict
      - 2 named fields
 
