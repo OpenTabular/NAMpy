@@ -1238,10 +1238,24 @@ def link_references(app, doctree, docname):
 
         # no-index prevents duplicate Python-domain registrations, but viewcode
         # still emits backlinks. Give each displayed signature a local anchor.
+        # Viewcode caches the first import path it sees for a source module,
+        # which can be a public re-export rather than this directive's module.
+        # Preserve that alias too so clean and incremental builds both work.
+        viewcode_modules = getattr(getattr(app, "env", None), "_viewcode_modules", {})
         for node in doctree.findall(addnodes.desc_signature):
             module, fullname = node.get("module"), node.get("fullname")
-            if module and fullname and not node["ids"]:
-                node["ids"].append(f"{module}.{fullname}")
+            if not module or not fullname:
+                continue
+            anchors = [f"{module}.{fullname}"]
+            for entry in viewcode_modules.values():
+                if not entry:
+                    continue
+                _, _, used, refname = entry
+                if used.get(fullname) == docname:
+                    anchors.append(f"{refname}.{fullname}")
+            for anchor in anchors:
+                if anchor not in node["ids"]:
+                    node["ids"].append(anchor)
     for node in list(doctree.findall(nodes.literal)):
         # Link only standalone inline literals, never code examples, signatures,
         # existing links or their descendants.

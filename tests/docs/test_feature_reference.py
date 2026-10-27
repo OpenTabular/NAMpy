@@ -129,6 +129,34 @@ def test_unindexed_reference_signatures_keep_viewcode_backlinks():
     assert signature["ids"] == ["nampy.models.GAMRegressor.fit"]
 
 
+def test_reexported_config_viewcode_backlinks_keep_cached_import_path():
+    from sphinx import addnodes
+
+    from nampy.neural.registry import architectures
+
+    for name, spec in architectures().items():
+        config = spec.config
+        docname = f"neural_reference/{name}"
+        tree = new_document("config signature")
+        signature = addnodes.desc_signature()
+        signature["module"] = config.__module__
+        signature["fullname"] = config.__name__
+        tree += signature
+        # A clean build sees the public API guide before the dedicated page.
+        # Sphinx retains that first refname even after updating the target page.
+        entry = ("source", {}, {config.__name__: docname}, "nampy.neural.configs")
+        app = SimpleNamespace(
+            builder=builder(),
+            env=SimpleNamespace(_viewcode_modules={config.__module__: entry}),
+        )
+        reference.link_references(app, tree, docname)
+        reference.link_references(app, tree, docname)
+        assert signature["ids"] == [
+            f"{config.__module__}.{config.__name__}",
+            f"nampy.neural.configs.{config.__name__}",
+        ]
+
+
 def test_existing_guides_are_links_instead_of_duplicate_sidebar_branches():
     text = reference.tree("Reference", ["smooths/index", "Formula </api/gam_formula>"])
     assert "   smooths/index" in text
