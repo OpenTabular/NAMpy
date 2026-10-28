@@ -14,14 +14,10 @@ build:
   jobs:
     post_create_environment:
       - pip install --upgrade pip setuptools wheel
-
-# Python configuration
-python:
-  install:
-    - method: pip
-      path: .
-      extra_requirements:
-        - docs
+    install:
+      # Match CI and avoid downloading CUDA libraries for documentation builds.
+      - python -m pip install -c .github/constraints-ci.txt -r .github/requirements-ci-cpu-torch.txt
+      - python -m pip install -c .github/constraints-ci.txt ".[docs]"
 
 # Sphinx configuration
 sphinx:
