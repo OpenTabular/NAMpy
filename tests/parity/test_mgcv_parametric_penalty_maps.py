@@ -81,7 +81,7 @@ def source_reference(inputs, probe=PROBE):
     return result
 
 
-def fit_python(inputs):
+def fit_python(inputs, *, control=None):
     data = pd.DataFrame(inputs["data"])
     data["y"] = data[f"y_{inputs['family']}"]
     data["B"] = list(data[["x", "u", "v"]].to_numpy())
@@ -94,7 +94,7 @@ def fit_python(inputs):
         smoothing_method="REML",
         smoothing_optimizer=optimizer,
         optimize_smoothing=True,
-        control={"epsilon": 1e-10, "newton": {"conv.tol": 1e-10}},
+        control=control or {"epsilon": 1e-10, "newton": {"conv.tol": 1e-10}},
         para_pen={
             "B": {
                 "penalties": inputs["penalties"],
@@ -115,6 +115,20 @@ def test_dense_parametric_log_map_source_fits(family, state):
     assert reference["ok"], reference
     model, data, newdata = fit_python(inputs)
     assert_fit(model, data, newdata, reference)
+
+
+def test_mixed_gaussian_log_map_equivalent_newton_endpoint():
+    inputs = payload(family="gaussian", state="mixed")
+    reference = source_reference(inputs)
+    # Stop one Newton step earlier on the roundoff-level objective plateau,
+    # reproducing the endpoint seen with macOS's numerical libraries.
+    model, data, newdata = fit_python(
+        inputs, control={"epsilon": 1e-10, "newton": {"conv.tol": 1e-8}}
+    )
+    assert_fit(model, data, newdata, reference)
+    np.testing.assert_allclose(
+        model.fit_result().criterion_value, reference["score"], atol=1e-10, rtol=0
+    )
 
 
 @pytest.mark.parametrize(
@@ -565,15 +579,22 @@ def assert_fit(model, data, newdata, reference):
         "scale": model.fit_result().scale,
         "aic": model.aic(),
         "loglik": model.loglik(),
+        "score": model.fit_result().criterion_value,
     }.items():
         np.testing.assert_allclose(
             actual, reference[name], atol=2e-7, rtol=2e-7, err_msg=name
         )
+    # Newton optimizes log(SP). At roundoff-level changes in REML, BLAS
+    # differences can reject its final step: the mixed Gaussian fixture's
+    # last step changes log(SP) by 3.66e-7 but REML by only 2.84e-14.
+    # Allow 1e-6 in those coordinates, keeping fitted quantities above and
+    # fixed-coordinate score/gradient/Hessian checks at their tighter tolerances.
     np.testing.assert_allclose(
-        model.smoothing_params[~model.smoothing_fixed_mask_],
-        reference["sp"],
-        atol=2e-7,
-        rtol=2e-7,
+        np.log(model.smoothing_params[~model.smoothing_fixed_mask_]),
+        np.log(reference["sp"]),
+        atol=1e-6,
+        rtol=0,
+        err_msg="optimized log smoothing parameters",
     )
     if reference["unconditional_covariance"] is not None:
         np.testing.assert_allclose(
