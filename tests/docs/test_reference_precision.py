@@ -123,7 +123,10 @@ def test_extension_family_leads_with_supported_parameterization(name, reference)
     assert f"gamlss.dist::{reference}" in text
     assert "References: `mgcv" not in text
     if name == "student_lss":
-        assert text.index(r"2<\nu<\infty") < text.index(r"\nu>0")
+        assert r"2<\nu<\infty" in text
+        assert r"\nu>0" not in text
+        assert ":doc:`/statistical_reference/families/theory`" in text
+        assert text.count(r"\sigma^2\nu/(\nu-2)") == 1
     elif name == "beta_lss":
         assert r"\frac{\mu(1-\mu)}{1+\phi}" in text
     else:

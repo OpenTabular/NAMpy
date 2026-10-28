@@ -66,7 +66,9 @@ def test_introductory_regression_renders_real_effect_figures(tmp_path, monkeypat
 
 
 @pytest.mark.parametrize("kind", ["main", "contextual", "global"])
-def test_validation_report_checks_observed_term_kinds(kind):
+@pytest.mark.parametrize("task", ["regression", "classification", "distributional"])
+@pytest.mark.parametrize("status", ["Passed", "Failed", "Not run", "Unsupported"])
+def test_validation_report_checks_observed_term_kinds(kind, task, status):
     notebook = nbformat.read(
         ROOT / "docs/development/notebooks/04_distributional_models.ipynb", 4
     )
@@ -75,11 +77,12 @@ def test_validation_report_checks_observed_term_kinds(kind):
         for cell in notebook.cells
         if "def demonstrated_term_kinds" in cell.source
     )
-    function = next(
+    functions = [
         node
         for node in ast.parse(source).body
-        if isinstance(node, ast.FunctionDef) and node.name == "demonstrated_term_kinds"
-    )
+        if isinstance(node, ast.FunctionDef)
+        and node.name in {"task_status", "demonstrated_term_kinds"}
+    ]
     values = np.arange(4.0)
     components = AdditivePrediction(
         values,
@@ -89,18 +92,38 @@ def test_validation_report_checks_observed_term_kinds(kind):
         "neural",
         term_metadata={"term": AdditiveTermMetadata(("x",), kind=kind)},
     )
-    estimator = SimpleNamespace(predict_components=lambda _X: components)
+    calls = []
+
+    def predict_components(_X):
+        calls.append(_X)
+        return components
+
+    estimator = SimpleNamespace(predict_components=predict_components)
+    report = pd.DataFrame([{"architecture": "example", "status": status}])
+    empty_report = report.iloc[:0]
     namespace = {
         "np": np,
         "X": pd.DataFrame({"x": values}),
-        "regression_models": {"example": estimator},
-        "classification_models": {},
-        "lss_models": {},
+        "architectures": lambda: {
+            "example": SimpleNamespace(
+                supports=lambda capability: capability == task and status != "Unsupported"
+            )
+        },
+        "regression_models": {"example": estimator} if task == "regression" else {},
+        "classification_models": {"example": estimator} if task == "classification" else {},
+        "lss_models": {"example": estimator} if task == "distributional" else {},
+        "regression_report": report if task == "regression" else empty_report,
+        "classification_report": report if task == "classification" else empty_report,
+        "lss_report": report if task == "distributional" else empty_report,
     }
     exec(
-        compile(ast.Module(body=[function], type_ignores=[]), "<report>", "exec"),
+        compile(ast.Module(body=functions, type_ignores=[]), "<report>", "exec"),
         namespace,
     )
+    if status != "Passed":
+        assert namespace["demonstrated_term_kinds"]("example") == set()
+        assert not calls
+        return
     assert namespace["demonstrated_term_kinds"]("example") == {kind}
     components.terms["term"] = values + 100
     with pytest.raises((ValueError, AssertionError)):
