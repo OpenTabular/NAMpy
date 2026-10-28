@@ -5,4 +5,4 @@
 id_links_bases
 ==============
 
-See :ref:`control-id-links-bases` for its type, default, domain, consumer and tested example.
+See :ref:`id_links_bases <control-id-links-bases>` for its type, default, valid values and fitting role.

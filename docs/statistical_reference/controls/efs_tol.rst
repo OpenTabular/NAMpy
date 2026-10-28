@@ -5,4 +5,4 @@
 efs_tol
 =======
 
-See :ref:`control-efs-tol` for its type, default, domain, consumer and tested example.
+See :ref:`efs_tol <control-efs-tol>` for its type, default, valid values and fitting role.

@@ -104,7 +104,16 @@ def main():
             # Index/architecture inventories organize features, rather than
             # defining a callable. Every remaining feature requires an example.
             text = path.read_text()
-            if ":ref:`control-" in text or path.name == "inference.rst":
+            if (
+                path.parent.name == "controls"
+                and ":orphan:" in text
+                and ":ref:" in text
+            ) or path.name in {
+                "inference.rst",
+                "asymmetric_fitting.rst",
+                "penalties.rst",
+                "theory.rst",
+            }:
                 continue
             if path.parent.name == "controls" and path.stem in {
                 "coefficient_fitting",

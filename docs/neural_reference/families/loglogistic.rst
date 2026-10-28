@@ -3,27 +3,37 @@
 loglogistic
 ===========
 
-Neural distribution family for ``family='loglogistic'``. Configure its constructor through ``distributional_kwargs`` on an LSS estimator.
+Theory and interpretation
+-------------------------
 
-Distribution definition and moments
------------------------------------
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Quantity
-     - Definition
-   * - Distribution / loss
-     - F(y)=1/(1+(y/alpha)^(-beta)), y>0.
-   * - Natural domains
-     - scale alpha>0; shape beta>0
-   * - Conditional mean
-     - alpha (pi/beta)/sin(pi/beta) for beta>1; infinite otherwise
-   * - Conditional variance
-     - alpha^2 [(2pi/beta)/sin(2pi/beta)-((pi/beta)/sin(pi/beta))^2] for beta>2; infinite otherwise
+* **Distribution / loss:** F(y)=1/(1+(y/alpha)^(-beta)), y>0.
+* **Natural domains:** scale alpha>0; shape beta>0
+* **Conditional mean:** alpha (pi/beta)/sin(pi/beta) for beta>1; infinite otherwise
+* **Conditional variance:** alpha^2 [(2pi/beta)/sin(2pi/beta)-((pi/beta)/sin(pi/beta))^2] for beta>2; infinite otherwise
 
 References: `PyTorch probability distributions <https://docs.pytorch.org/docs/stable/distributions.html>`_. NAMpy defines its family transforms and point outputs below.
+
+A log-logistic response has a logistic distribution on the log
+scale. Its scale alpha is the response median, and beta controls the
+heaviness of its right tail.
+
+.. math::
+
+   \log Y\sim\operatorname{Logistic}(\log\alpha,1/\beta),\qquad P(Y>y)=\{1+(y/\alpha)^\beta\}^{-1}.
+
+Mean and variance exist only for beta>1 and beta>2 respectively.
+Positive shape alone is sufficient for a density but not those
+moments. A larger alpha moves the response distribution upward;
+changing beta alters its tail and concentration. As with Weibull,
+using a positive response law is distinct from implementing censored
+survival fitting.
+
+Neural training composes this response objective with the chosen architecture. Its raw outputs pass through the configured domain transforms; likelihood parameterization and network architecture are separate choices.
+
+See :doc:`/statistical_reference/families/theory` for likelihoods,
+links, weights and distributional predictors. The mathematical law
+does not imply support for every fitting or smoothing-selection route;
+the contracts below define the implemented combinations.
 
 Targets, transforms and scoring
 -------------------------------
@@ -33,6 +43,8 @@ Target shape/encoding: ``(n,) floating scalar response; support follows the dist
 ``compute_loss`` and ``compute_loss_per_sample`` consume raw network outputs, not already transformed parameters. The scalar loss is averaged over observations. Lower loss is better. LSS scoring follows the shared estimator contract; response SD summarizes conditional variability, not estimation uncertainty. Distribution-specific moments that do not exist cannot be interpreted as finite uncertainty estimates.
 
 Implementation definitions: :mod:`nampy.neural.distributions.distributions`. See the source link on the runtime contract for the implemented transforms and objective.
+
+Neural distribution family for ``family='loglogistic'``. Configure its constructor through ``distributional_kwargs`` on an LSS estimator.
 
 Signature
 ---------
@@ -142,36 +154,59 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
+.. rubric:: parameters
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - scale
+     - shape
+   * - 0.693149983882904
+     - 0.693149983882904
+   * - 0.693149983882904
+     - 0.693149983882904
+
+Full shape: ``[8, 2]``; omitted by axis: ``[6, 0]``.
+
+.. rubric:: raw
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - scale
+     - shape
+   * - 0.0
+     - 0.0
+   * - 0.0
+     - 0.0
+
+Full shape: ``[8, 2]``; omitted by axis: ``[6, 0]``.
+
 .. code-block:: text
 
    {
-     "loss": [
-       1.7689000368118286
-     ],
-     "parameters": [
-       0.693149983882904,
-       0.693149983882904,
-       0.693149983882904,
-       0.693149983882904,
-       0.693149983882904,
-       0.693149983882904
-     ],
-     "point": [
-       0.693149983882904,
-       0.693149983882904,
-       0.693149983882904,
-       0.693149983882904,
-       0.693149983882904,
-       0.693149983882904
-     ],
-     "raw": [
-       0.0,
-       0.0,
-       0.0,
-       0.0,
-       0.0,
-       0.0
-     ]
+     "loss": 1.7688990831375122,
+     "point": {
+       "kind": "array",
+       "omitted_by_axis": [
+         2
+       ],
+       "shape": [
+         8
+       ],
+       "values": [
+         0.693149983882904,
+         0.693149983882904,
+         0.693149983882904,
+         0.693149983882904,
+         0.693149983882904,
+         0.693149983882904
+       ]
+     }
    }
 
 Example output types and shapes
@@ -179,7 +214,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

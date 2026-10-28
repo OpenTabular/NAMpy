@@ -2,7 +2,7 @@
 
 :orphan:
 
-Locally increasing P-spline before a specified change point xc, with an unconstrained coefficient block afterward (``lmpi``) runtime
-====================================================================================================================================
+Locally increasing P-spline (``lmpi``) runtime
+==============================================
 
 :doc:`Canonical runtime constructor <ShapeConstrainedPSplineTerm>`.

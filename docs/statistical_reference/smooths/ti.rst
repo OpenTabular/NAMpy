@@ -5,6 +5,31 @@ Tensor interaction (``ti``)
 
 Tensor interaction after marginal constraints remove main-effect directions. Combine with separate marginal smooths for an ANOVA decomposition.
 
+Theory and interpretation
+-------------------------
+
+A tensor interaction first applies the requested marginal
+identifiability constraints and then forms their product. Centering
+marginal bases removes the constant directions that would otherwise
+reproduce lower-order effects.
+
+.. math::
+
+   \eta=f_x(x)+f_z(z)+f_{xz}(x,z),\qquad B_{xz}=\widetilde B_x\odot\widetilde B_z.
+
+Here the row-wise tensor product takes all column products for
+each observation. With centered margins, the joint term describes
+departures from the additive main effects. For k_x and k_z raw
+marginal widths, the interaction often has (k_x-1)(k_z-1) columns,
+but the actual constraints and null spaces determine its rank.
+mc can disable selected marginal constraints; doing so changes the
+decomposition and can reintroduce overlap. Interpretation requires
+inspecting all main and interaction terms together.
+
+For coefficient coordinates, centering, null spaces and EDF, see
+:doc:`/statistical_reference/smooths/theory`. The formula and runtime
+contracts below specify which mathematical options NAMpy exposes.
+
 Formula interface
 -----------------
 
@@ -25,32 +50,54 @@ Parameters
      - Type / shape
      - Default
      - Meaning
+   * - ``bs``
+     - str | sequence[str]
+     - ``'cr' per margin``
+     - Marginal basis codes, recycled from a scalar or supplied one per margin; e.g. bs=c('cr','ps'). Alias basis is accepted.
+   * - ``k``
+     - int | sequence[int]
+     - ``5**d[j] per margin``
+     - Marginal basis dimensions before constraints. A scalar is recycled; a sequence has one value per margin. The unconstrained tensor dimension is their product.
+   * - ``m``
+     - int | sequence | None
+     - ``None``
+     - Optional scalar/order sequence or per-margin specifications, interpreted by each marginal basis. Margins retain their own derivative/covariance order conventions.
    * - ``by``
-     - str | int | None
-     - None
-     - Optional numeric multiplier or factor defining varying-coefficient or level-specific effects. Identifiability constraints depend on its type.
-   * - ``fx``
-     - bool
-     - False
-     - Fit as an unpenalized regression term rather than estimating a roughness penalty (formula spelling: fx).
+     - str | expression | None
+     - ``None``
+     - Numeric multiplier or categorical source column/expression defining varying-coefficient or level-specific effects; evaluated on training and new rows.
    * - ``id``
      - str | int | None
-     - None
-     - Optional identifier linking smoothing parameters across compatible terms.
-   * - ``k``
-     - int | Sequence[int]
-     - -1
-     - Scalar basis dimension repeated across margins or one integer per margin. Before constraints, tensor width is the product of marginal basis widths.
-   * - ``m``
-     - int | Sequence[int | float] | None
-     - None
-     - Optional scalar/order sequence or per-margin specifications, interpreted by each marginal basis. Margins retain their own derivative/covariance order conventions.
+     - ``None``
+     - Share smoothing parameters across compatible terms. Alias smoothing_id is accepted; basis sharing follows id_links_bases.
    * - ``sp``
-     - float | array-like, shape (n_penalties,) | None
-     - None
-     - Optional penalty strength(s). Formula-level nonnegative values fix the corresponding smoothing parameters; negative entries request estimation.
+     - float | sequence[float] | None
+     - ``None``
+     - Penalty strengths in term penalty order. Nonnegative supplied values fix strengths; negative entries request estimation when automatic selection is enabled.
+   * - ``xt``
+     - mapping | sequence[mapping | None] | str | None
+     - ``None``
+     - Optional per-margin setup mappings, aligned with basis and feature groups; a common mapping is forwarded according to the tensor constructor.
+   * - ``fx``
+     - bool | sequence[bool]
+     - ``False``
+     - Unpenalized marginal regression bases when True. te/ti accept one flag per margin; a scalar is recycled.
+   * - ``pc``
+     - float | sequence[float] | mapping[str,float] | None
+     - ``None``
+     - Homogeneous function constraint f(x0)=0. Supply one coordinate per input covariate, or a named mapping; the basis is reparameterized at the point.
+   * - ``d``
+     - sequence[int] | None
+     - ``one covariate per margin``
+     - Positive marginal dimensions whose sum equals the covariate count. Groups consecutive covariates into multivariate margins; k is per margin, not per coordinate.
+   * - ``mc``
+     - sequence[bool] | None
+     - ``all True``
+     - One centering flag per margin; None applies the default marginal constraints that remove main-effect directions. Disabling a constraint changes the interaction space.
 
-Only supported formula options are shown here. Formula defaults come from the formula specification; k=-1 requests the basis-specific automatic rank, independently of runtime-constructor defaults. Runtime-only setup arguments belong to the separate implementation API. Point constraints and additional setup follow the capabilities below.
+The formula compiler resolves defaults independently of runtime constructors. ``knots`` and ``select`` belong to the model, not the formula call. Runtime-only setup options are documented in the implementation API.
+
+``bs`` and ``k`` are specified per margin; ``d`` groups covariates into those margins. ``np`` is not implemented by NAMpy's formula compiler.
 
 Identifiability, penalty and prediction
 ---------------------------------------
@@ -69,18 +116,20 @@ Capabilities
    * - Property
      - Value
    * - Covariates
-     - Two or more covariates, grouped into tensor margins
+     - Two or more covariates, grouped into margins
    * - Tensor marginal
      - False
    * - Point constraints
-     - False
+     - True
    * - Additional xt setup
-     - False
+     - True
 
 Outputs
 -------
 
-The formula adds a term to the fitted model's additive predictor. Its coefficient block has p_term columns after constraints, potentially fewer than the requested k; this dimension differs from EDF. ``predict(type='terms')`` returns a floating array with n rows and one column per retained term for a scalar predictor. ``lpmatrix`` returns the full floating model design, shape (n, p), including the other terms. The scalar Gaussian examples below produce response predictions of shape (n,). Runtime matrix and penalty contracts are documented separately.
+The formula adds a term to the fitted model's additive predictor. Its coefficient block has p_term columns after constraints; this dimension differs from EDF. ``predict(type='terms')`` returns a floating array with n rows and one column per retained term for a scalar predictor. ``lpmatrix`` returns the full floating model design, shape (n, p), including the other terms. The scalar Gaussian examples below produce response predictions of shape (n,). Runtime matrix and penalty contracts are documented separately.
+
+Before identifiability constraints, the tensor has the product of the marginal basis dimensions, not a single k columns. Marginal/term constraints and retained t2 blocks determine the final coefficient count.
 
 
 
@@ -97,33 +146,44 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "coefficient_covariance": [
-       0.00123,
-       0.0,
-       -7e-05,
-       -0.0003,
-       -0.00063,
-       -0.00021
-     ],
-     "full_model_design": [
-       1.0,
-       0.08365,
-       0.12148,
-       0.10945,
-       0.05287,
-       0.11357
-     ],
-     "prediction": [
-       1.22608,
-       1.25405,
-       1.29989,
-       1.26478,
-       1.12628,
-       1.16767
-     ]
+     "coefficient_covariance": {
+       "kind": "array",
+       "shape": [
+         21,
+         21
+       ],
+       "values": "omitted; see shape contract"
+     },
+     "full_model_design": {
+       "kind": "array",
+       "shape": [
+         96,
+         21
+       ],
+       "values": "omitted; see shape contract"
+     },
+     "prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         1.22608,
+         1.25405,
+         1.29989,
+         1.26478,
+         1.12628,
+         1.16767
+       ]
+     }
    }
 
 Example output types and shapes
@@ -131,7 +191,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

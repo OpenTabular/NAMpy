@@ -73,16 +73,48 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
-   "  term term_type  output   value  contribution  count  importance\n0    x      main       0 -0.8755     -0.285340      8    0.253862\n1    x      main       0 -0.6250     -0.282527      8    0.253862"
+   {
+     "columns": [
+       "term",
+       "term_type",
+       "output",
+       "value"
+     ],
+     "kind": "table",
+     "omitted_by_axis": [
+       14,
+       3
+     ],
+     "shape": [
+       16,
+       7
+     ],
+     "values": [
+       [
+         "x",
+         "main",
+         0,
+         -0.8755
+       ],
+       [
+         "x",
+         "main",
+         0,
+         -0.625
+       ]
+     ]
+   }
 
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

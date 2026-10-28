@@ -2,7 +2,7 @@
 
 :orphan:
 
-Bivariate monotone-decreasing interaction construction, retaining the source signed interaction coordinates (``tismd``) runtime
-===============================================================================================================================
+Decreasing tensor interaction (``tismd``) runtime
+=================================================
 
 :doc:`Canonical runtime constructor <BivariateShapePSplineTerm>`.

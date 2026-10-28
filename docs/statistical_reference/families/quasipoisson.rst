@@ -3,6 +3,43 @@
 quasipoisson
 ============
 
+Theory and interpretation
+-------------------------
+
+* **Distribution / loss:** Quasi-likelihood specifies a mean-variance relation rather than a normalized probability density.
+* **Natural domains:** mu in the domain of the configured link; dispersion phi>0
+* **Conditional mean:** mu
+* **Conditional variance:** phi mu
+
+A likelihood-based AIC is unavailable for a quasi-likelihood family. Deviance and Pearson residuals retain their estimating-equation meanings.
+
+References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
+
+Quasi-likelihood specifies a mean and variance function without
+a complete probability density. Its estimating equation weights
+residuals by the inverse of the assumed variance.
+
+.. math::
+
+   \frac{\partial Q(y,\mu)}{\partial\mu}=\frac{y-\mu}{\phi V(\mu)}.
+
+Quasi-Poisson takes V(mu)=mu; quasi-binomial takes
+V(mu)=mu*(1-mu), with the documented trial convention. Phi can
+allow extra variation while retaining a mean-link model. This
+does not supply probabilities for new observations, so normalized
+likelihood comparisons and likelihood-based AIC are unavailable.
+Mean-model diagnostics still depend on an adequate variance
+relation and independence assumptions.
+
+See :doc:`/statistical_reference/families/theory` for likelihoods,
+links, weights and distributional predictors. The mathematical law
+does not imply support for every fitting or smoothing-selection route;
+the contracts below define the implemented combinations.
+
+Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
+
+Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Quasi-likelihood Poisson mean/variance relationship with estimated dispersion and default log link.
 
 Usage
@@ -44,32 +81,6 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``keyword arguments``
      - Variable arguments
      - Additional options documented by the linked implementation; unknown options may be rejected.
-
-Distribution definition and moments
------------------------------------
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Quantity
-     - Definition
-   * - Distribution / loss
-     - Quasi-likelihood specifies a mean-variance relation rather than a normalized probability density.
-   * - Natural domains
-     - mu in the domain of the configured link; dispersion phi>0
-   * - Conditional mean
-     - mu
-   * - Conditional variance
-     - phi mu
-
-A likelihood-based AIC is unavailable for a quasi-likelihood family. Deviance and Pearson residuals retain their estimating-equation meanings.
-
-References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
-
-Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
-
-Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
 
 Outputs and fitting support
 ---------------------------
@@ -133,25 +144,45 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "link_prediction": [
-       1.14208,
-       1.41966,
-       1.33704,
-       0.73792,
-       0.82029,
-       1.41132
-     ],
-     "response_prediction": [
-       3.13327,
-       4.13571,
-       3.80777,
-       2.09158,
-       2.27117,
-       4.10136
-     ]
+     "link_prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         1.14208,
+         1.41966,
+         1.33704,
+         0.73792,
+         0.82029,
+         1.41132
+       ]
+     },
+     "response_prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         3.13327,
+         4.13571,
+         3.80777,
+         2.09158,
+         2.27117,
+         4.10136
+       ]
+     }
    }
 
 Example output types and shapes
@@ -159,7 +190,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

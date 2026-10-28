@@ -3,7 +3,7 @@
 Fitting controls
 ================
 
-Settings are grouped by the algorithm that consumes them. Defaults are resolved by gam_control(), including nested optimizer mappings.
+Choose settings by their consuming algorithm. Each group has one configuration table and one complete example.
 
 .. toctree::
    :maxdepth: 1

@@ -83,32 +83,20 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "derivative": [
-       -0.6181,
-       -2.76039,
-       -1.96837,
-       2.3564,
-       1.72704,
-       -2.64866
-     ],
-     "derivative_matrix": [
-       0.07757,
-       -0.33853,
-       -2.3585,
-       2.65296,
-       0.59285,
-       0.00678
-     ],
-     "se": [
-       0.21645,
-       0.32752,
-       0.18589,
-       0.19561,
-       0.16011,
-       0.29128
+     "fields": {
+       "order": 1,
+       "term_label": "s(x)"
+     },
+     "kind": "SmoothDerivativeResult",
+     "omitted_fields": [
+       "derivative",
+       "se",
+       "derivative_matrix"
      ]
    }
 
@@ -117,7 +105,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

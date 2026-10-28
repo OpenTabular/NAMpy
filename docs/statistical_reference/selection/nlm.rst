@@ -5,6 +5,28 @@ nlm
 
 NLM-style smoothing optimization configured by the nlm control mapping.
 
+Theory and interpretation
+-------------------------
+
+The NLM-style route minimizes a smooth scalar objective using
+local numerical derivative and curvature information. In NAMpy this
+dispatch is restricted to supported SCAM transformed-coefficient
+fits rather than ordinary unrestricted GAM fitting.
+
+.. math::
+
+   C(\rho+\delta)\approx C(\rho)+g^\mathsf T\delta+\tfrac12\delta^\mathsf TH\delta.
+
+Finite-difference steps, parameter scales, tolerances and step
+limits influence derivative quality and convergence. The transformed
+coefficient solve must remain valid at perturbed smoothing values.
+This describes the local numerical model, not a guarantee that the
+Hessian is exact or that every GAM objective accepts this route.
+
+See :doc:`/statistical_reference/selection/theory` for the full
+coefficient/selection loop, notation and comparison rules. The
+configuration and support contracts below describe NAMpy's routes.
+
 Configuration
 -------------
 
@@ -81,18 +103,29 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
-   [
-     3.24244
-   ]
+   {
+     "kind": "array",
+     "omitted_by_axis": [
+       0
+     ],
+     "shape": [
+       1
+     ],
+     "values": [
+       3.24244
+     ]
+   }
 
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

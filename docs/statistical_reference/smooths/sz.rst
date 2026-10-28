@@ -5,6 +5,30 @@ Sum-to-zero factor smooth (``sz``)
 
 Sum-to-zero factor smooths: constrained level-specific deviations that can accompany a common main smooth.
 
+Theory and interpretation
+-------------------------
+
+A sum-to-zero factor smooth represents level-specific deviations
+from a common smooth. Constraints remove the average coefficient
+direction across factor levels, making a separate shared main smooth
+interpretable.
+
+.. math::
+
+   \eta=f_0(x)+f_g(x),\qquad \sum_{l=1}^{L}\beta_{lr}=0\quad\text{for each basis coefficient }r.
+
+Because the same basis coordinates are constrained across levels,
+the deviations sum to zero as functions, not merely at one location.
+With multiple factors, the construction excludes the appropriate
+lower-order factor effects under its documented constraints. A curve
+for a level is reconstructed by adding its deviation to the common
+smooth and other model terms. This is an identifiability construction,
+not evidence that each deviation is well estimated.
+
+For coefficient coordinates, centering, null spaces and EDF, see
+:doc:`/statistical_reference/smooths/theory`. The formula and runtime
+contracts below specify which mathematical options NAMpy exposes.
+
 Formula interface
 -----------------
 
@@ -25,32 +49,40 @@ Parameters
      - Type / shape
      - Default
      - Meaning
-   * - ``by``
-     - str | int | None
-     - None
-     - Optional numeric multiplier or factor defining varying-coefficient or level-specific effects. Identifiability constraints depend on its type.
-   * - ``fx``
-     - bool
-     - False
-     - Fit as an unpenalized regression term rather than estimating a roughness penalty (formula spelling: fx).
-   * - ``id``
-     - str | int | None
-     - None
-     - Optional identifier linking smoothing parameters across compatible terms.
+   * - ``bs``
+     - str
+     - ``model basis ('tp' by default)``
+     - Select this basis with bs='sz'. The alias basis is also accepted.
    * - ``k``
      - int
-     - -1
+     - ``model k (10 by default)``
      - Dimension of each numerical marginal basis before expanding across factor levels and applying the factor-smooth constraints.
    * - ``m``
-     - int | Sequence[int | float] | None
-     - None
+     - int | sequence | None
+     - ``None``
      - Optional marginal basis-specific order. It is forwarded only where the selected marginal constructor supports this factor-smooth composition.
+   * - ``by``
+     - str | expression | None
+     - ``None``
+     - Numeric multiplier or categorical source column/expression defining varying-coefficient or level-specific effects; evaluated on training and new rows.
+   * - ``id``
+     - str | int | None
+     - ``None``
+     - Share smoothing parameters across compatible terms. Alias smoothing_id is accepted; basis sharing follows id_links_bases.
    * - ``sp``
-     - float | array-like, shape (n_penalties,) | None
-     - None
-     - Optional penalty strength(s). Formula-level nonnegative values fix the corresponding smoothing parameters; negative entries request estimation.
+     - float | sequence[float] | None
+     - ``None``
+     - Penalty strengths in term penalty order. Nonnegative supplied values fix strengths; negative entries request estimation when automatic selection is enabled.
+   * - ``xt``
+     - mapping | sequence[mapping | None] | str | None
+     - ``None``
+     - Marginal basis name or mapping, for example {'bs': 'cr'}; None uses tp. Remaining options are forwarded only when the chosen marginal basis advertises support. fs requires exactly one factor; sz supports sum-to-zero factor deviations.
+   * - ``fx``
+     - bool
+     - ``False``
+     - Fit the smooth without its roughness penalty. Model-level null-space selection cannot be combined with a fixed unpenalized term.
 
-Only supported formula options are shown here. Formula defaults come from the formula specification; k=-1 requests the basis-specific automatic rank, independently of runtime-constructor defaults. Runtime-only setup arguments belong to the separate implementation API. Point constraints and additional setup follow the capabilities below.
+The formula compiler resolves defaults independently of runtime constructors. ``knots`` and ``select`` belong to the model, not the formula call. Runtime-only setup options are documented in the implementation API.
 
 Identifiability, penalty and prediction
 ---------------------------------------
@@ -69,18 +101,18 @@ Capabilities
    * - Property
      - Value
    * - Covariates
-     - Numerical covariate(s) and categorical factor column(s)
+     - Numerical covariate(s) and categorical factor(s)
    * - Tensor marginal
      - False
    * - Point constraints
      - False
    * - Additional xt setup
-     - False
+     - True
 
 Outputs
 -------
 
-The formula adds a term to the fitted model's additive predictor. Its coefficient block has p_term columns after constraints, potentially fewer than the requested k; this dimension differs from EDF. ``predict(type='terms')`` returns a floating array with n rows and one column per retained term for a scalar predictor. ``lpmatrix`` returns the full floating model design, shape (n, p), including the other terms. The scalar Gaussian examples below produce response predictions of shape (n,). Runtime matrix and penalty contracts are documented separately.
+The formula adds a term to the fitted model's additive predictor. Its coefficient block has p_term columns after constraints; this dimension differs from EDF. ``predict(type='terms')`` returns a floating array with n rows and one column per retained term for a scalar predictor. ``lpmatrix`` returns the full floating model design, shape (n, p), including the other terms. The scalar Gaussian examples below produce response predictions of shape (n,). Runtime matrix and penalty contracts are documented separately.
 
 
 
@@ -97,33 +129,44 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "coefficient_covariance": [
-       0.00126,
-       -0.00012,
-       -1e-05,
-       -5e-05,
-       0.0,
-       -0.00013
-     ],
-     "full_model_design": [
-       1.0,
-       -0.6132,
-       0.84149,
-       -0.2355,
-       -0.24067,
-       1.0
-     ],
-     "prediction": [
-       1.22493,
-       1.103,
-       1.24764,
-       1.1708,
-       1.22601,
-       1.25993
-     ]
+     "coefficient_covariance": {
+       "kind": "array",
+       "shape": [
+         13,
+         13
+       ],
+       "values": "omitted; see shape contract"
+     },
+     "full_model_design": {
+       "kind": "array",
+       "shape": [
+         96,
+         13
+       ],
+       "values": "omitted; see shape contract"
+     },
+     "prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         1.22493,
+         1.103,
+         1.24764,
+         1.1708,
+         1.22601,
+         1.25993
+       ]
+     }
    }
 
 Example output types and shapes
@@ -131,7 +174,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

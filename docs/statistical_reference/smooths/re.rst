@@ -5,6 +5,30 @@ Random effect (``re``)
 
 Random effect represented by a parametric indicator/product design and a ridge-type precision penalty; suitable for penalized group coefficients.
 
+Theory and interpretation
+-------------------------
+
+A random-effect smooth constructs a parametric design Z from its
+supplied variables, then shrinks its coefficients with a precision
+penalty. A single categorical variable gives group indicators;
+additional variables form the corresponding parametric product design.
+
+.. math::
+
+   \eta=X\alpha+Zb,\qquad b\sim N(0,\tau^2I),\qquad J(b)=b^\mathsf Tb.
+
+For a Gaussian response with variance phi, the usual penalty
+coordinate satisfies lambda=phi/tau^2 before internal rescaling.
+Large lambda pools group deviations strongly toward zero; small
+lambda allows more between-group variation. A supplied structured
+precision replaces I where supported. This is partial pooling of
+coefficients, not smoothing over an ordered group-number axis.
+Prediction for unseen groups follows the documented runtime policy.
+
+For coefficient coordinates, centering, null spaces and EDF, see
+:doc:`/statistical_reference/smooths/theory`. The formula and runtime
+contracts below specify which mathematical options NAMpy exposes.
+
 Formula interface
 -----------------
 
@@ -25,30 +49,40 @@ Parameters
      - Type / shape
      - Default
      - Meaning
-   * - ``by``
-     - str | int | None
-     - None
-     - Optional numeric multiplier or factor defining varying-coefficient or level-specific effects. Identifiability constraints depend on its type.
-   * - ``fx``
-     - bool
-     - False
-     - Accepted for interface compatibility and ignored by this constructor; random effects are represented through their penalty.
-   * - ``id``
-     - str | int | None
-     - None
-     - Must be None: linked smoothing IDs for random-effect terms raise NotImplementedError.
+   * - ``bs``
+     - str
+     - ``model basis ('tp' by default)``
+     - Select this basis with bs='re'. The alias basis is also accepted.
    * - ``k``
      - int
-     - -1
+     - ``model k (10 by default)``
      - Accepted for interface compatibility; ignored by this runtime constructor. Random-effect design size is determined by the numeric/factor product design.
+   * - ``m``
+     - int | sequence | None
+     - ``None``
+     - Accepted by the common parser but not used by this basis.
+   * - ``by``
+     - str | expression | None
+     - ``None``
+     - Numeric multiplier or categorical source column/expression defining varying-coefficient or level-specific effects; evaluated on training and new rows.
+   * - ``id``
+     - str | int | None
+     - ``None``
+     - Share smoothing parameters across compatible terms. Alias smoothing_id is accepted; basis sharing follows id_links_bases.
    * - ``sp``
-     - float | array-like, shape (n_penalties,) | None
-     - None
-     - Optional penalty strength(s). Formula-level nonnegative values fix the corresponding smoothing parameters; negative entries request estimation.
+     - float | sequence[float] | None
+     - ``None``
+     - Penalty strengths in term penalty order. Nonnegative supplied values fix strengths; negative entries request estimation when automatic selection is enabled.
+   * - ``xt``
+     - mapping | sequence[mapping | None] | str | None
+     - ``None``
+     - Optional precision specification with S (one matrix or a list) and corresponding rank information. None uses an identity ridge penalty on the full random-effect design.
+   * - ``fx``
+     - bool
+     - ``False``
+     - Fit the smooth without its roughness penalty. Model-level null-space selection cannot be combined with a fixed unpenalized term.
 
-Only supported formula options are shown here. Formula defaults come from the formula specification; k=-1 requests the basis-specific automatic rank, independently of runtime-constructor defaults. Runtime-only setup arguments belong to the separate implementation API. Point constraints and additional setup follow the capabilities below.
-
-``xt`` (mapping, default None) supplies basis-specific setup: Optional precision specification with S (one matrix or a list) and corresponding rank information. None uses an identity ridge penalty on the full random-effect design.
+The formula compiler resolves defaults independently of runtime constructors. ``knots`` and ``select`` belong to the model, not the formula call. Runtime-only setup options are documented in the implementation API.
 
 Identifiability, penalty and prediction
 ---------------------------------------
@@ -67,7 +101,7 @@ Capabilities
    * - Property
      - Value
    * - Covariates
-     - 1 to unbounded
+     - One or more covariates
    * - Tensor marginal
      - True
    * - Point constraints
@@ -78,7 +112,7 @@ Capabilities
 Outputs
 -------
 
-The formula adds a term to the fitted model's additive predictor. Its coefficient block has p_term columns after constraints, potentially fewer than the requested k; this dimension differs from EDF. ``predict(type='terms')`` returns a floating array with n rows and one column per retained term for a scalar predictor. ``lpmatrix`` returns the full floating model design, shape (n, p), including the other terms. The scalar Gaussian examples below produce response predictions of shape (n,). Runtime matrix and penalty contracts are documented separately.
+The formula adds a term to the fitted model's additive predictor. Its coefficient block has p_term columns after constraints; this dimension differs from EDF. ``predict(type='terms')`` returns a floating array with n rows and one column per retained term for a scalar predictor. ``lpmatrix`` returns the full floating model design, shape (n, p), including the other terms. The scalar Gaussian examples below produce response predictions of shape (n,). Runtime matrix and penalty contracts are documented separately.
 
 
 
@@ -95,33 +129,44 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "coefficient_covariance": [
-       0.04056,
-       -0.03933,
-       -0.03933,
-       -0.03933,
-       -0.03933,
-       0.04171
-     ],
-     "full_model_design": [
-       1.0,
-       1.0,
-       0.0,
-       0.0,
-       1.0,
-       0.0
-     ],
-     "prediction": [
-       1.20524,
-       1.18117,
-       1.2487,
-       1.20524,
-       1.18117,
-       1.2487
-     ]
+     "coefficient_covariance": {
+       "kind": "array",
+       "shape": [
+         4,
+         4
+       ],
+       "values": "omitted; see shape contract"
+     },
+     "full_model_design": {
+       "kind": "array",
+       "shape": [
+         96,
+         4
+       ],
+       "values": "omitted; see shape contract"
+     },
+     "prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         1.20524,
+         1.18117,
+         1.2487,
+         1.20524,
+         1.18117,
+         1.2487
+       ]
+     }
    }
 
 Example output types and shapes
@@ -129,7 +174,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

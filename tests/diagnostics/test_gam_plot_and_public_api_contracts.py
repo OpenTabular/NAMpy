@@ -28,6 +28,10 @@ def test_public_gam_package_exports_contract():
     """Keep package exports aligned with the repository public-API rule."""
     assert gam_package.__all__ == [
         "GAM",
+        "CompiledDesign",
+        "DesignEvaluation",
+        "DesignTerm",
+        "compile_design",
         "fit_model_core",
         "solve_fit",
         "FitCoreSolution",
@@ -36,6 +40,9 @@ def test_public_gam_package_exports_contract():
         "normalize_nei",
     ]
     assert gam_package.GAM is GAM
+    design_module = importlib.import_module("nampy.gam.design")
+    for name in ("CompiledDesign", "DesignEvaluation", "DesignTerm", "compile_design"):
+        assert getattr(gam_package, name) is getattr(design_module, name)
     assert not hasattr(nampy, "GAM")
 
 

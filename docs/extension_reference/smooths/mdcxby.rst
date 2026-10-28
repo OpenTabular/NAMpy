@@ -2,7 +2,7 @@
 
 :orphan:
 
-P-spline constrained to be decreasing and convex (``mdcxby``) runtime
-=====================================================================
+Decreasing, convex P-spline with by variable (``mdcxby``) runtime
+=================================================================
 
 :doc:`Canonical runtime constructor <ShapeConstrainedPSplineTerm>`.

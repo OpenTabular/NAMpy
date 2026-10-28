@@ -118,53 +118,42 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
      "components": {
-       "link": [
-         -0.20162999629974365,
-         -0.26151999831199646,
-         -0.3134399950504303,
-         -0.34428998827934265,
-         -0.3903999924659729,
-         -0.6612399816513062
-       ],
-       "response": [
-         -0.20162999629974365,
-         -0.26151999831199646,
-         -0.3134399950504303,
-         -0.34428998827934265,
-         -0.3903999924659729,
-         -0.6612399816513062
-       ],
-       "terms": {
-         "x": [
-           -0.1009100005030632,
-           -0.25165000557899475,
-           -0.2569800019264221,
-           -0.24236999452114105,
-           -0.4141699969768524,
-           -0.5810099840164185
-         ],
-         "z": [
-           -0.09114000201225281,
-           -0.0003000000142492354,
-           -0.046890001744031906,
-           -0.09233999997377396,
-           0.03334999829530716,
-           -0.07066000252962112
-         ]
-       }
+       "fields": {
+         "backend": "neural",
+         "intercept": -0.00957536231726408
+       },
+       "kind": "AdditivePrediction",
+       "omitted_fields": [
+         "response",
+         "link",
+         "terms",
+         "offset",
+         "term_metadata"
+       ]
      },
-     "prediction": [
-       -0.20162999629974365,
-       -0.26151999831199646,
-       -0.3134399950504303,
-       -0.34428998827934265,
-       -0.3903999924659729,
-       -0.6612399816513062
-     ]
+     "prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         58
+       ],
+       "shape": [
+         64
+       ],
+       "values": [
+         -0.20162999629974365,
+         -0.26151999831199646,
+         -0.3134399950504303,
+         -0.34428998827934265,
+         -0.3903999924659729,
+         -0.6612399816513062
+       ]
+     }
    }
 
 Example output types and shapes
@@ -172,7 +161,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

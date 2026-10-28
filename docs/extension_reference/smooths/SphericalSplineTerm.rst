@@ -80,7 +80,7 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
    * - ``xt``
      - ``Mapping[str, object] | None``
      - ``None``
-     - Additional basis-specific setup. Soap uses bnd/nmax; MRF uses graph/precision information; factor smooths can select their marginal basis here.
+     - Optional max.knots (default 2000) and seed (default 1) control low-rank construction-location subsampling on the sphere.
    * - ``null_penalty_tol``
      - ``float``
      - ``1e-10``

@@ -5,6 +5,13 @@ Smoothness selection
 
 The criterion defines the objective; the optimizer determines how smoothing parameters are updated. Support depends on both choices and the family/coefficient route.
 
+Start with :doc:`theory` for coefficient fitting, the outer selection loop, predictive risk and marginal likelihood.
+
+.. toctree::
+   :maxdepth: 1
+
+   Mathematical foundations <theory>
+
 Criteria
 --------
 

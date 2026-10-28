@@ -3,6 +3,42 @@
 scat
 ====
 
+Theory and interpretation
+-------------------------
+
+* **Distribution / loss:** Y=loc+scale T_df, T_df has standard Student-t density proportional to (1+t^2/df)^(-(df+1)/2).
+* **Natural domains:** df>0; loc in R; scale>0
+* **Conditional mean:** loc for df>1; undefined otherwise
+* **Conditional variance:** scale^2 df/(df-2) for df>2; infinite for 1<df<=2; undefined for df<=1
+
+Public location and scale do not imply Gaussian variance. student_lss defaults to fixed df=5; scat has its own nuisance-parameter estimation convention.
+
+References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
+
+A Student-t location-scale model replaces Gaussian quadratic tail
+growth with a logarithmic residual term. It can accommodate occasional
+large residuals while retaining a smooth location predictor.
+
+.. math::
+
+   -\ell=\log\sigma+\frac{\nu+1}{2}\log\left(1+\frac{(y-\mu)^2}{\nu\sigma^2}\right)+c(\nu).
+
+Degrees of freedom nu control tail thickness; the Gaussian limit
+is nu tending to infinity. Sigma is a t scale, with response variance
+sigma**2*nu/(nu-2) when nu>2. Finite-variance student_lss fixes nu>2;
+scat and the neural Student-t interface have their own documented
+estimation/domain rules. Robustness to residual outliers does not
+automatically protect against influential covariate configurations.
+
+See :doc:`/statistical_reference/families/theory` for likelihoods,
+links, weights and distributional predictors. The mathematical law
+does not imply support for every fitting or smoothing-selection route;
+the contracts below define the implemented combinations.
+
+Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
+
+Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Scaled Student-t regression for heavy-tailed real responses. Nuisance parameters control degrees of freedom and scale; min_df bounds the former.
 
 Usage
@@ -48,32 +84,6 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``float``
      - ``3.0``
      - Lower bound on the estimated Student-t degrees of freedom.
-
-Distribution definition and moments
------------------------------------
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Quantity
-     - Definition
-   * - Distribution / loss
-     - Y=loc+scale T_df, T_df has standard Student-t density proportional to (1+t^2/df)^(-(df+1)/2).
-   * - Natural domains
-     - df>0; loc in R; scale>0
-   * - Conditional mean
-     - loc for df>1; undefined otherwise
-   * - Conditional variance
-     - scale^2 df/(df-2) for df>2; infinite for 1<df<=2; undefined for df<=1
-
-Public location and scale do not imply Gaussian variance. student_lss defaults to fixed df=5; scat has its own nuisance-parameter estimation convention.
-
-References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
-
-Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
-
-Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
 
 Outputs and fitting support
 ---------------------------
@@ -137,25 +147,45 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "link_prediction": [
-       0.61999,
-       0.94454,
-       0.82426,
-       0.11717,
-       0.2065,
-       0.92522
-     ],
-     "response_prediction": [
-       0.61999,
-       0.94454,
-       0.82426,
-       0.11717,
-       0.2065,
-       0.92522
-     ]
+     "link_prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         0.61999,
+         0.94454,
+         0.82426,
+         0.11717,
+         0.2065,
+         0.92522
+       ]
+     },
+     "response_prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         0.61999,
+         0.94454,
+         0.82426,
+         0.11717,
+         0.2065,
+         0.92522
+       ]
+     }
    }
 
 Example output types and shapes
@@ -163,7 +193,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

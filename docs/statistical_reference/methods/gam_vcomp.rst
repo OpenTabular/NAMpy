@@ -79,23 +79,50 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "names": [
-       "s(x)",
-       "s(z)"
+     "names": {
+       "items": [
+         "s(x)",
+         "s(z)"
+       ],
+       "kind": "list",
+       "length": 3,
+       "omitted": 1
+     },
+     "omitted_fields": [
+       "conf_lev",
+       "all",
+       "all_names"
      ],
      "rank": 3,
      "rank_hess": 3,
-     "vc": [
-       0.52074,
-       0.23928,
-       1.13326,
-       0.00178,
-       0.0,
-       3.763035988729964e+91
-     ]
+     "vc": {
+       "kind": "array",
+       "omitted_by_axis": [
+         1,
+         0
+       ],
+       "shape": [
+         3,
+         3
+       ],
+       "values": [
+         [
+           0.52074,
+           0.23928,
+           1.13326
+         ],
+         [
+           0.00178,
+           0.0,
+           3.763035988729964e+91
+         ]
+       ]
+     }
    }
 
 Example output types and shapes
@@ -103,7 +130,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

@@ -3,500 +3,65 @@
 Shape-constrained fitting
 =========================
 
-Pass these settings through ``control=gam_control(...)``. The result is a validated immutable ``GAMControl``; it is not a prediction result. Unknown keys raise ``TypeError``. Domain violations raise ``ValueError`` except the explicitly documented reset policies.
+These settings apply to the SCAM transformed-coefficient route. Ordinary unconstrained bases do not use them.
 
-.. _control-scam-max-half:
-
-scam_max_half
--------------
-
-Positive maximum step halvings in the SCAM coefficient solver.
-
-**Consumer and overrides:** SCAM transformed-coefficient solver. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.
-
-.. rubric:: Signature and default
-
-.. code-block:: python
-
-   from nampy.gam import gam_control
-
-   control = gam_control(scam_max_half=30)
+Create one validated ``GAMControl`` with ``gam_control(...)`` and pass it as ``control=``. Unknown keys raise ``TypeError``; invalid values raise ``ValueError`` except the documented reset policies.
 
 .. list-table::
    :header-rows: 1
    :class: api-reference-table
 
-   * - Parameter
-     - Type
-     - Resolved default
-     - Aliases
-   * - scam_max_half
-     - int
-     - ``30``
-     - ``maxHalf``
-
-.. rubric:: Returns and use
-
-``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.
-
-:doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`
-
-
-.. rubric:: Runnable example
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/statistical_reference/controls/scam_max_half.py>`
-
-.. literalinclude:: /_examples/reference/statistical_reference/controls/scam_max_half.py
-   :language: python
-
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   {
-     "scam_max_half": 30
-   }
-
-.. rubric:: Example output types and shapes
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The preview lists up to six direct fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 1 named fields
-   * - result['scam_max_half']
-     - builtins.int
-     - ()
-
-
-.. _control-scam-devtol-fit:
-
-scam_devtol_fit
----------------
-
-Positive relative deviance convergence tolerance for constrained coefficient fitting.
-
-**Consumer and overrides:** SCAM transformed-coefficient solver. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.
-
-.. rubric:: Signature and default
-
-.. code-block:: python
-
-   from nampy.gam import gam_control
-
-   control = gam_control(scam_devtol_fit=1e-07)
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Parameter
-     - Type
-     - Resolved default
-     - Aliases
-   * - scam_devtol_fit
-     - float
-     - ``1e-07``
-     - ``devtol.fit``
-
-.. rubric:: Returns and use
-
-``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.
-
-:doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`
-
-
-.. rubric:: Runnable example
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/statistical_reference/controls/scam_devtol_fit.py>`
-
-.. literalinclude:: /_examples/reference/statistical_reference/controls/scam_devtol_fit.py
-   :language: python
-
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   {
-     "scam_devtol_fit": 1e-07
-   }
-
-.. rubric:: Example output types and shapes
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The preview lists up to six direct fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 1 named fields
-   * - result['scam_devtol_fit']
-     - builtins.float
-     - ()
-
-
-.. _control-scam-steptol-fit:
-
-scam_steptol_fit
-----------------
-
-Positive coefficient-step convergence tolerance for constrained fitting.
-
-**Consumer and overrides:** SCAM transformed-coefficient solver. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.
-
-.. rubric:: Signature and default
-
-.. code-block:: python
-
-   from nampy.gam import gam_control
-
-   control = gam_control(scam_steptol_fit=1e-07)
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Parameter
-     - Type
-     - Resolved default
-     - Aliases
-   * - scam_steptol_fit
-     - float
-     - ``1e-07``
-     - ``steptol.fit``
-
-.. rubric:: Returns and use
-
-``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.
-
-:doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`
-
-
-.. rubric:: Runnable example
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/statistical_reference/controls/scam_steptol_fit.py>`
-
-.. literalinclude:: /_examples/reference/statistical_reference/controls/scam_steptol_fit.py
-   :language: python
-
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   {
-     "scam_steptol_fit": 1e-07
-   }
-
-.. rubric:: Example output types and shapes
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The preview lists up to six direct fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 1 named fields
-   * - result['scam_steptol_fit']
-     - builtins.float
-     - ()
-
-
-.. _control-scam-print-warn:
-
-scam_print_warn
----------------
-
-Emit the supported constrained-fitting warnings.
-
-**Consumer and overrides:** SCAM transformed-coefficient solver. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.
-
-.. rubric:: Signature and default
-
-.. code-block:: python
-
-   from nampy.gam import gam_control
-
-   control = gam_control(scam_print_warn=False)
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Parameter
-     - Type
-     - Resolved default
-     - Aliases
-   * - scam_print_warn
-     - bool
-     - ``False``
-     - ``print.warn``
-
-.. rubric:: Returns and use
-
-``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.
-
-:doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`
-
-
-.. rubric:: Runnable example
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/statistical_reference/controls/scam_print_warn.py>`
-
-.. literalinclude:: /_examples/reference/statistical_reference/controls/scam_print_warn.py
-   :language: python
-
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   {
-     "scam_print_warn": false
-   }
-
-.. rubric:: Example output types and shapes
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The preview lists up to six direct fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 1 named fields
-   * - result['scam_print_warn']
-     - builtins.bool
-     - ()
-
-
-.. _control-scam-b-notexp:
-
-scam_b_notexp
--------------
-
-Positive softplus/non-exponential coefficient-transform scale.
-
-**Consumer and overrides:** SCAM transformed-coefficient solver. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.
-
-.. rubric:: Signature and default
-
-.. code-block:: python
-
-   from nampy.gam import gam_control
-
-   control = gam_control(scam_b_notexp=1.0)
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Parameter
-     - Type
-     - Resolved default
-     - Aliases
-   * - scam_b_notexp
-     - float
-     - ``1.0``
-     - ``b.notexp``
-
-.. rubric:: Returns and use
-
-``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.
-
-:doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`
-
-
-.. rubric:: Runnable example
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/statistical_reference/controls/scam_b_notexp.py>`
-
-.. literalinclude:: /_examples/reference/statistical_reference/controls/scam_b_notexp.py
-   :language: python
-
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   {
-     "scam_b_notexp": 1.0
-   }
-
-.. rubric:: Example output types and shapes
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The preview lists up to six direct fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 1 named fields
-   * - result['scam_b_notexp']
-     - builtins.float
-     - ()
-
-
-.. _control-scam-threshold-notexp:
-
-scam_threshold_notexp
----------------------
-
-Positive threshold switching the stabilized positive-coefficient transform to its linear branch.
-
-**Consumer and overrides:** SCAM transformed-coefficient solver. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.
-
-.. rubric:: Signature and default
-
-.. code-block:: python
-
-   from nampy.gam import gam_control
-
-   control = gam_control(scam_threshold_notexp=20.0)
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Parameter
-     - Type
-     - Resolved default
-     - Aliases
-   * - scam_threshold_notexp
-     - float
-     - ``20.0``
-     - ``threshold.notexp``
-
-.. rubric:: Returns and use
-
-``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.
-
-:doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`
-
-
-.. rubric:: Runnable example
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/statistical_reference/controls/scam_threshold_notexp.py>`
-
-.. literalinclude:: /_examples/reference/statistical_reference/controls/scam_threshold_notexp.py
-   :language: python
-
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   {
-     "scam_threshold_notexp": 20.0
-   }
-
-.. rubric:: Example output types and shapes
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The preview lists up to six direct fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 1 named fields
-   * - result['scam_threshold_notexp']
-     - builtins.float
-     - ()
-
-
-.. _control-scam-bfgs:
-
-scam_bfgs
----------
-
-Mapping of constrained BFGS settings, including analytical-gradient checks and step/gradient tolerances.
-
-**Consumer and overrides:** SCAM transformed-coefficient solver. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.
-
-.. rubric:: Signature and default
-
-.. code-block:: python
-
-   from nampy.gam import gam_control
-
-   control = gam_control(scam_bfgs={'check_analytical': False, 'del': 0.0001, 'steptol_bfgs': 1e-07, 'gradtol_bfgs': 1e-06, 'max_n_step': 5.0, 'max_half': 30})
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Parameter
-     - Type
-     - Resolved default
-     - Aliases
-   * - scam_bfgs
-     - Mapping[str, Any]
-     - ``{'check_analytical': False, 'del': 0.0001, 'steptol_bfgs': 1e-07, 'gradtol_bfgs': 1e-06, 'max_n_step': 5.0, 'max_half': 30}``
-     - ``bfgs``
-
-.. rubric:: Returns and use
-
-``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.
-
-:doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`
-.. rubric:: Nested options
+   * - Setting
+     - Type / default
+     - Valid values
+     - Effect
+   * - .. _control-scam-max-half:
+
+       ``scam_max_half``
+     - ``int``, ``30``
+     - Positive integer
+     - Positive maximum step halvings in the SCAM coefficient solver.
+   * - .. _control-scam-devtol-fit:
+
+       ``scam_devtol_fit``
+     - ``float``, ``1e-07``
+     - > 0
+     - Positive relative deviance convergence tolerance for constrained coefficient fitting.
+   * - .. _control-scam-steptol-fit:
+
+       ``scam_steptol_fit``
+     - ``float``, ``1e-07``
+     - > 0
+     - Positive coefficient-step convergence tolerance for constrained fitting.
+   * - .. _control-scam-print-warn:
+
+       ``scam_print_warn``
+     - ``bool``, ``False``
+     - True or False
+     - Emit the supported constrained-fitting warnings.
+   * - .. _control-scam-b-notexp:
+
+       ``scam_b_notexp``
+     - ``float``, ``1.0``
+     - > 0
+     - Positive softplus/non-exponential coefficient-transform scale.
+   * - .. _control-scam-threshold-notexp:
+
+       ``scam_threshold_notexp``
+     - ``float``, ``20.0``
+     - > 0
+     - Positive threshold switching the stabilized positive-coefficient transform to its linear branch.
+   * - .. _control-scam-bfgs:
+
+       ``scam_bfgs``
+     - ``Mapping[str, Any]``, ``resolved below``
+     - Mapping; see nested options below
+     - Mapping of constrained BFGS settings, including analytical-gradient checks and step/gradient tolerances.
+
+Accepted aliases: ``maxHalf`` → ``scam_max_half``, ``devtol.fit`` → ``scam_devtol_fit``, ``steptol.fit`` → ``scam_steptol_fit``, ``print.warn`` → ``scam_print_warn``, ``b.notexp`` → ``scam_b_notexp``, ``threshold.notexp`` → ``scam_threshold_notexp``, ``bfgs`` → ``scam_bfgs``.
+
+scam_bfgs nested options
+------------------------
 
 .. list-table::
    :header-rows: 1
@@ -505,73 +70,36 @@ Mapping of constrained BFGS settings, including analytical-gradient checks and s
    * - Option
      - Type
      - Resolved default
-     - Meaning
+     - Effect
    * - ``check_analytical``
-     - ``bool``
+     - bool
      - ``False``
      - Enable constrained BFGS analytical-gradient checks.
    * - ``del``
-     - ``float``
+     - float
      - ``0.0001``
      - Finite-difference perturbation used in supported constrained gradient checks.
    * - ``steptol_bfgs``
-     - ``float``
+     - float
      - ``1e-07``
      - Positive constrained BFGS step stopping tolerance.
    * - ``gradtol_bfgs``
-     - ``float``
+     - float
      - ``1e-06``
      - Positive constrained BFGS gradient stopping tolerance.
    * - ``max_n_step``
-     - ``float``
+     - float
      - ``5.0``
      - Maximum Newton-direction log smoothing step magnitude.
    * - ``max_half``
-     - ``int``
+     - int
      - ``30``
      - Maximum line-search step halvings.
 
+Combined example
+----------------
 
-
-.. rubric:: Runnable example
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/statistical_reference/controls/scam_bfgs.py>`
-
-.. literalinclude:: /_examples/reference/statistical_reference/controls/scam_bfgs.py
+.. literalinclude:: /_examples/reference/statistical_reference/controls/shape_fitting.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   {
-     "scam_bfgs": {
-       "check_analytical": false,
-       "del": 0.0001,
-       "gradtol_bfgs": 1e-06,
-       "steptol_bfgs": 1e-07
-     }
-   }
-
-.. rubric:: Example output types and shapes
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The preview lists up to six direct fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 1 named fields
-   * - result['scam_bfgs']
-     - dict
-     - 6 named fields
+:download:`Download this example </_examples/reference/statistical_reference/controls/shape_fitting.py>`.

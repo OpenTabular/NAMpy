@@ -2,7 +2,7 @@
 
 :orphan:
 
-Bivariate tensor P-spline monotone increasing in the second covariate, with an unconstrained first margin (``tesmi2``) runtime
-==============================================================================================================================
+Increasing second-margin spline (``tesmi2``) runtime
+====================================================
 
 :doc:`Canonical runtime constructor <BivariateShapePSplineTerm>`.

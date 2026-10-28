@@ -23,41 +23,69 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "basis": [
-       NaN,
-       NaN,
-       NaN,
-       NaN,
-       NaN,
-       NaN
-     ],
-     "cumulative_design": [
-       0.0,
-       0.0,
-       0.0,
-       0.0,
-       4.0,
-       6.0
-     ],
-     "history": [
-       0.30472,
-       NaN,
-       NaN,
-       NaN,
-       -1.03998,
-       0.30472
-     ],
-     "predictions": [
-       0.42814,
-       0.35914,
-       0.26215,
-       0.07162,
-       -0.1853,
-       -0.09283
-     ]
+     "basis": {
+       "kind": "array",
+       "shape": [
+         100,
+         4
+       ],
+       "values": "omitted; see shape contract"
+     },
+     "cumulative_design": {
+       "kind": "array",
+       "shape": [
+         3,
+         4
+       ],
+       "values": "omitted; see shape contract"
+     },
+     "history": {
+       "kind": "array",
+       "omitted_by_axis": [
+         98,
+         0
+       ],
+       "shape": [
+         100,
+         4
+       ],
+       "values": [
+         [
+           0.30472,
+           NaN,
+           NaN,
+           NaN
+         ],
+         [
+           -1.03998,
+           0.30472,
+           NaN,
+           NaN
+         ]
+       ]
+     },
+     "predictions": {
+       "kind": "array",
+       "omitted_by_axis": [
+         91
+       ],
+       "shape": [
+         97
+       ],
+       "values": [
+         0.42814,
+         0.35914,
+         0.26215,
+         0.07162,
+         -0.1853,
+         -0.09283
+       ]
+     }
    }
 
 Example output types and shapes
@@ -65,7 +93,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

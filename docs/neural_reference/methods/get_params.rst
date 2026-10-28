@@ -57,13 +57,54 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
      "activation": "type",
      "adaptive_width": false,
      "batch_norm": false,
-     "dropout": 0.1
+     "dropout": 0.1,
+     "omitted_fields": [
+       "feature_dropout",
+       "feature_layer",
+       "feature_output_bias",
+       "feature_widths",
+       "interaction_degree",
+       "interactions",
+       "intercept",
+       "l2_regularization",
+       "layer_norm",
+       "layer_sizes",
+       "lr",
+       "lr_factor",
+       "lr_patience",
+       "norm",
+       "num_basis_functions",
+       "output_regularization",
+       "regularize_interactions",
+       "skip_connections",
+       "units_multiplier",
+       "use_glu",
+       "weight_decay",
+       "feature_preprocessing",
+       "n_bins",
+       "numerical_preprocessing",
+       "categorical_preprocessing",
+       "use_decision_tree_bins",
+       "binning_strategy",
+       "task",
+       "cat_cutoff",
+       "treat_all_integers_as_numerical",
+       "degree",
+       "scaling_strategy",
+       "n_knots",
+       "use_decision_tree_knots",
+       "knots_strategy",
+       "spline_implementation",
+       "min_unique_vals"
+     ]
    }
 
 Example output types and shapes
@@ -71,7 +112,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

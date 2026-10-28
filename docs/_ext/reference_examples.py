@@ -462,12 +462,32 @@ def example_rst(root, page, code):
     if preview_path.exists():
         previews = json.loads(preview_path.read_text())
         if page in previews:
-            preview = json.dumps(previews[page], indent=2, ensure_ascii=False)
-            result += (
-                "Observed result preview\n~~~~~~~~~~~~~~~~~~~~~~~\n\n.. code-block:: text\n\n"
-                + textwrap.indent(preview, "   ")
-                + "\n\n"
-            )
+            result += "Observed result preview\n~~~~~~~~~~~~~~~~~~~~~~~\n\n"
+            result += "Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.\n\n"
+            preview = previews[page]
+            remaining = dict(preview) if isinstance(preview, dict) else preview
+            if isinstance(preview, dict):
+                from public_reference import table
+
+                for key, value in preview.items():
+                    if (
+                        isinstance(value, dict)
+                        and value.get("kind") in {"array", "table"}
+                        and "columns" in value
+                    ):
+                        result += f".. rubric:: {key}\n\n" + table(
+                            value["columns"], value["values"]
+                        )
+                        result += f"Full shape: ``{value['shape']}``; omitted by axis: ``{value['omitted_by_axis']}``.\n\n"
+                        remaining.pop(key)
+            if remaining:
+                result += (
+                    ".. code-block:: text\n\n"
+                    + textwrap.indent(
+                        json.dumps(remaining, indent=2, ensure_ascii=False), "   "
+                    )
+                    + "\n\n"
+                )
     output_path = Path(root) / "_examples/reference/output_schemas.json"
     if output_path.exists():
         schemas = json.loads(output_path.read_text())
@@ -478,7 +498,7 @@ def example_rst(root, page, code):
                 "Example output types and shapes\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n"
             )
             result += "These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.\n\n"
-            result += "The preview lists up to six direct fields; the complete example is downloadable above.\n\n"
+            result += "The shape table summarizes direct output fields; the complete example is downloadable above.\n\n"
             result += table(
                 ["Output field", "Python type / dtype", "Example shape"],
                 [

@@ -3,27 +3,37 @@
 categorical
 ===========
 
-Neural distribution family for ``family='categorical'``. Configure its constructor through ``distributional_kwargs`` on an LSS estimator.
+Theory and interpretation
+-------------------------
 
-Distribution definition and moments
------------------------------------
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Quantity
-     - Definition
-   * - Distribution / loss
-     - P(Y=j)=p_j, j=0,...,C-1; sum(p)=1.
-   * - Natural domains
-     - class probabilities p_j>=0, normalized across C classes
-   * - Conditional mean
-     - Probability vector p; a numeric class-label mean has no invariant categorical interpretation
-   * - Conditional variance
-     - Covariance of one-hot Y: diag(p)-p p^T
+* **Distribution / loss:** P(Y=j)=p_j, j=0,...,C-1; sum(p)=1.
+* **Natural domains:** class probabilities p_j>=0, normalized across C classes
+* **Conditional mean:** Probability vector p; a numeric class-label mean has no invariant categorical interpretation
+* **Conditional variance:** Covariance of one-hot Y: diag(p)-p p^T
 
 References: `PyTorch probability distributions <https://docs.pytorch.org/docs/stable/distributions.html>`_. NAMpy defines its family transforms and point outputs below.
+
+A categorical model assigns probability to each unordered label.
+Reference-category logits identify the statistical multinomial model
+by fixing category zero's logit, removing an arbitrary common shift.
+
+.. math::
+
+   p_0=\frac{1}{1+\sum_{k=1}^{K}e^{\eta_k}},\qquad p_j=\frac{e^{\eta_j}}{1+\sum_{k=1}^{K}e^{\eta_k}},\qquad -\ell=-\log p_y.
+
+Each eta_j is log odds relative to category zero, not an
+independently fitted probability. All probabilities depend on all
+logits through the shared denominator. A neural categorical head
+instead supplies C logits and applies softmax; common logit shifts
+leave probabilities unchanged. The class-label ordering controls
+output columns and carries no numerical distance interpretation.
+
+Neural training composes this response objective with the chosen architecture. Its raw outputs pass through the configured domain transforms; likelihood parameterization and network architecture are separate choices.
+
+See :doc:`/statistical_reference/families/theory` for likelihoods,
+links, weights and distributional predictors. The mathematical law
+does not imply support for every fitting or smoothing-selection route;
+the contracts below define the implemented combinations.
 
 The low-level categorical loss also accepts one-hot/probability targets of shape ``(n,C)`` (or ``(n,1,C)``), reducing them by argmax rather than fitting a soft-label cross-entropy objective. Scalar labels may have shape ``(n,1)``.
 
@@ -35,6 +45,8 @@ Target shape/encoding: ``(n,) integer class indices 0,...,C-1 (estimator encodes
 ``compute_loss`` and ``compute_loss_per_sample`` consume raw network outputs, not already transformed parameters. The scalar loss is averaged over observations. Lower loss is better. LSS scoring follows the shared estimator contract; response SD summarizes conditional variability, not estimation uncertainty. Distribution-specific moments that do not exist cannot be interpreted as finite uncertainty estimates.
 
 Implementation definitions: :mod:`nampy.neural.distributions.distributions`. See the source link on the runtime contract for the implemented transforms and objective.
+
+Neural distribution family for ``family='categorical'``. Configure its constructor through ``distributional_kwargs`` on an LSS estimator.
 
 Signature
 ---------
@@ -144,36 +156,65 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
+.. rubric:: parameters
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - class_0
+     - class_1
+     - class_2
+   * - 0.3333300054073334
+     - 0.3333300054073334
+     - 0.3333300054073334
+   * - 0.3333300054073334
+     - 0.3333300054073334
+     - 0.3333300054073334
+
+Full shape: ``[8, 3]``; omitted by axis: ``[6, 0]``.
+
+.. rubric:: raw
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - class_0
+     - class_1
+     - class_2
+   * - 0.0
+     - 0.0
+     - 0.0
+   * - 0.0
+     - 0.0
+     - 0.0
+
+Full shape: ``[8, 3]``; omitted by axis: ``[6, 0]``.
+
 .. code-block:: text
 
    {
-     "loss": [
-       1.0986100435256958
-     ],
-     "parameters": [
-       0.3333300054073334,
-       0.3333300054073334,
-       0.3333300054073334,
-       0.3333300054073334,
-       0.3333300054073334,
-       0.3333300054073334
-     ],
-     "point": [
-       0,
-       0,
-       0,
-       0,
-       0,
-       0
-     ],
-     "raw": [
-       0.0,
-       0.0,
-       0.0,
-       0.0,
-       0.0,
-       0.0
-     ]
+     "loss": 1.0986123085021973,
+     "point": {
+       "kind": "array",
+       "omitted_by_axis": [
+         2
+       ],
+       "shape": [
+         8
+       ],
+       "values": [
+         0,
+         0,
+         0,
+         0,
+         0,
+         0
+       ]
+     }
    }
 
 Example output types and shapes
@@ -181,7 +222,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

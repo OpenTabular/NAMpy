@@ -3,6 +3,42 @@
 binomial
 ========
 
+Theory and interpretation
+-------------------------
+
+* **Distribution / loss:** Y successes in m trials; P(Y=y)=choose(m,y)p^y(1-p)^(m-y). Bernoulli is m=1.
+* **Natural domains:** p in [0,1]; positive trials m
+* **Conditional mean:** m p (p for proportions)
+* **Conditional variance:** m p(1-p) (p(1-p)/m for proportions)
+
+References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
+
+Binomial regression models a success probability from a specified
+number of trials. Bernoulli data are the one-trial case. A logit
+predictor is a log odds, so a term difference is a conditional odds
+ratio after exponentiation.
+
+.. math::
+
+   \log\frac{p}{1-p}=\eta,\qquad -\ell=-y\log p-(m-y)\log(1-p)+\text{constant}.
+
+Trial totals carry information: a proportion from 100 trials is
+not equivalent to the same proportion from one trial. Use the documented
+grouped-response or trial-weight encoding. Odds ratios are not risk
+ratios, and probability changes depend on the starting probability.
+Large fitted log odds can indicate separation; smoothing regularizes
+penalized directions but does not guarantee every unpenalized
+coefficient is estimable.
+
+See :doc:`/statistical_reference/families/theory` for likelihoods,
+links, weights and distributional predictors. The mathematical law
+does not imply support for every fitting or smoothing-selection route;
+the contracts below define the implemented combinations.
+
+Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
+
+Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Binary/proportion or supported grouped-binomial responses; prior weights encode trial counts for proportions. Links: logit, probit, cloglog, cauchit and log.
 
 Usage
@@ -40,30 +76,6 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``float``
      - ``1e-09``
      - Positive numerical safeguard used in probability/domain clipping; this is not an additional distribution parameter.
-
-Distribution definition and moments
------------------------------------
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Quantity
-     - Definition
-   * - Distribution / loss
-     - Y successes in m trials; P(Y=y)=choose(m,y)p^y(1-p)^(m-y). Bernoulli is m=1.
-   * - Natural domains
-     - p in [0,1]; positive trials m
-   * - Conditional mean
-     - m p (p for proportions)
-   * - Conditional variance
-     - m p(1-p) (p(1-p)/m for proportions)
-
-References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
-
-Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
-
-Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
 
 Outputs and fitting support
 ---------------------------
@@ -127,25 +139,45 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "link_prediction": [
-       0.29603,
-       0.88744,
-       0.93062,
-       -0.59626,
-       -0.40322,
-       0.95066
-     ],
-     "response_prediction": [
-       0.57347,
-       0.70836,
-       0.7172,
-       0.3552,
-       0.40054,
-       0.72125
-     ]
+     "link_prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         0.29603,
+         0.88744,
+         0.93062,
+         -0.59626,
+         -0.40322,
+         0.95066
+       ]
+     },
+     "response_prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         0.57347,
+         0.70836,
+         0.7172,
+         0.3552,
+         0.40054,
+         0.72125
+       ]
+     }
    }
 
 Example output types and shapes
@@ -153,7 +185,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

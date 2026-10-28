@@ -5,4 +5,4 @@
 scale_penalty
 =============
 
-See :ref:`control-scale-penalty` for its type, default, domain, consumer and tested example.
+See :ref:`scale_penalty <control-scale-penalty>` for its type, default, valid values and fitting role.

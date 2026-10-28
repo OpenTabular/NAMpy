@@ -5,6 +5,29 @@ LAML
 
 Laplace approximate marginal likelihood selection through the supported REML/general-family dispatch.
 
+Theory and interpretation
+-------------------------
+
+Laplace approximate marginal likelihood replaces an intractable
+coefficient integral by a quadratic expansion around the penalized
+optimum. The local curvature contributes a log-determinant correction.
+
+.. math::
+
+   \log L_{\mathrm{Lap}}\approx\ell(\widehat\beta)-\tfrac12\widehat\beta^\mathsf TS_\lambda\widehat\beta+\tfrac12\log|S_\lambda|_+-\tfrac12\log|H|+c.
+
+H is the penalized negative log-likelihood Hessian; the positive
+determinant uses only penalized directions. This schematic expression
+omits route-specific scale, fixed-effect and normalization terms.
+LAML names an approximation principle, not a new response family or
+a distinct guarantee of exact integration. NAMpy's laml spelling
+follows its supported REML/general-family dispatch; it is not an
+unrestricted integration option for every model.
+
+See :doc:`/statistical_reference/selection/theory` for the full
+coefficient/selection loop, notation and comparison rules. The
+configuration and support contracts below describe NAMpy's routes.
+
 Configuration
 -------------
 
@@ -81,18 +104,29 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
-   [
-     3.24245
-   ]
+   {
+     "kind": "array",
+     "omitted_by_axis": [
+       0
+     ],
+     "shape": [
+       1
+     ],
+     "values": [
+       3.24245
+     ]
+   }
 
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

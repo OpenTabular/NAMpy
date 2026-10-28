@@ -5,4 +5,4 @@
 nlm
 ===
 
-See :ref:`control-nlm` for its type, default, domain, consumer and tested example.
+See :ref:`nlm <control-nlm>` for its type, default, valid values and fitting role.

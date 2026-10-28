@@ -5,6 +5,30 @@ NCV
 
 Neighborhood cross-validation: approximate deletion of specified observation neighborhoods followed by prediction at specified held-out rows.
 
+Theory and interpretation
+-------------------------
+
+Neighborhood cross-validation removes specified observation
+sets, then evaluates prediction loss at associated held-out rows.
+Deletion sets and prediction sets need not be the same, which can
+represent local dependence or observation clusters.
+
+.. math::
+
+   \operatorname{NCV}(\lambda)=\sum_k\sum_{i\in P_k}d\{y_i,\widehat\mu_i^{(-D_k)}(\lambda)\}.
+
+D_k is a deletion neighborhood and P_k its prediction rows.
+NAMpy approximates the coefficient change using the fitted
+likelihood's derivative/curvature information instead of fully
+refitting every deletion. A neighborhood should reflect the intended
+prediction problem; ordinary leave-one-row-out can be optimistic
+when nearby rows share information. The nei contract specifies
+indexing and membership; ncv_threads does not enable parallel kernels.
+
+See :doc:`/statistical_reference/selection/theory` for the full
+coefficient/selection loop, notation and comparison rules. The
+configuration and support contracts below describe NAMpy's routes.
+
 Configuration
 -------------
 
@@ -83,18 +107,29 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
-   [
-     7.86133
-   ]
+   {
+     "kind": "array",
+     "omitted_by_axis": [
+       0
+     ],
+     "shape": [
+       1
+     ],
+     "values": [
+       7.86133
+     ]
+   }
 
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

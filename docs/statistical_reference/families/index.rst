@@ -5,6 +5,10 @@ Response families
 
 Choose by response support, then compare parameterization and fitting interface. Column meanings on the individual page take precedence over a similarly named family in another backend.
 
+The parameter column describes natural distribution parameters, not link predictors or lower-level response output columns. Family pages distinguish these interfaces. Fixed nuisance parameters are listed in each constructor contract.
+
+For likelihoods, links, response support and joint parameter predictors, start with :doc:`/statistical_reference/families/theory`. Individual pages develop the theory of their response law before its API contracts.
+
 Continuous responses
 --------------------
 
@@ -14,7 +18,7 @@ Continuous responses
 
    * - Family
      - Response support / interpretation
-     - Parameters in order
+     - Natural distribution parameters (column order)
      - Interface
    * - :doc:`gaulss <gaulss>`
      - Gaussian location-scale regression with two additive predictors. The first models mean; the second models inverse standard deviation through the logb link.
@@ -58,7 +62,7 @@ Positive responses
 
    * - Family
      - Response support / interpretation
-     - Parameters in order
+     - Natural distribution parameters (column order)
      - Interface
    * - :doc:`gamma <gamma>`
      - Strictly positive continuous response. Links: inverse (default), identity and log. Dispersion is a scale parameter, not a second additive predictor.
@@ -82,7 +86,7 @@ Nonnegative semicontinuous responses
 
    * - Family
      - Response support / interpretation
-     - Parameters in order
+     - Natural distribution parameters (column order)
      - Interface
    * - :doc:`tw <tw>`
      - Tweedie response with mass at zero and positive continuous values. Power is constrained between a and b, with 1 < a < b < 2. theta controls the power parameterization/estimation.
@@ -102,7 +106,7 @@ Proportions
 
    * - Family
      - Response support / interpretation
-     - Parameters in order
+     - Natural distribution parameters (column order)
      - Interface
    * - :doc:`beta_lss <beta_lss>`
      - Proportion strictly between zero and one, mean/precision predictors.
@@ -122,7 +126,7 @@ Counts
 
    * - Family
      - Response support / interpretation
-     - Parameters in order
+     - Natural distribution parameters (column order)
      - Interface
    * - :doc:`nb <nb>`
      - Nonnegative counts with variance mu + mu**2/theta. The nb registry alias estimates theta by default; the class constructor alone defaults to fixed theta. A nonpositive registry theta requests estimation.
@@ -162,7 +166,7 @@ Categorical and ordered responses
 
    * - Family
      - Response support / interpretation
-     - Parameters in order
+     - Natural distribution parameters (column order)
      - Interface
    * - :doc:`binomial <binomial>`
      - Binary/proportion or supported grouped-binomial responses; prior weights encode trial counts for proportions. Links: logit, probit, cloglog, cauchit and log.
@@ -170,8 +174,8 @@ Categorical and ordered responses
      - GAMClassifier / core GAM
    * - :doc:`multinom <multinom>`
      - Multinomial logit regression against reference category zero, with K predictors and K+1 response probabilities.
-     - ``p0``, ``p1``
-     - GAMRegressor / core GAM
+     - ``p0, ..., pK``
+     - GAMLSS / core GAM
    * - :doc:`ocat <ocat>`
      - Ordered categorical responses. Supply R (number of categories) or compatible theta cut-point information; identity is the latent-predictor link.
      - ``mu``
@@ -190,7 +194,7 @@ Censored responses
 
    * - Family
      - Response support / interpretation
-     - Parameters in order
+     - Natural distribution parameters (column order)
      - Interface
    * - :doc:`bcg <bcg>`
      - Censored Box-Cox Gaussian response, with transformation and scale nuisance parameters.
@@ -212,6 +216,7 @@ Censored responses
 .. toctree::
    :hidden:
 
+   Mathematical foundations <theory>
    gaussian
    binomial
    poisson

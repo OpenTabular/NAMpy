@@ -5,4 +5,4 @@
 keep_data
 =========
 
-See :ref:`control-keep-data` for its type, default, domain, consumer and tested example.
+See :ref:`keep_data <control-keep-data>` for its type, default, valid values and fitting role.

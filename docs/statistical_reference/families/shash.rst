@@ -3,6 +3,46 @@
 shash
 =====
 
+Theory and interpretation
+-------------------------
+
+* **Distribution / loss:** Z=sinh(delta asinh((Y-mu)/(sigma delta))-epsilon)~Normal(0,1); density is the normal density of Z times the absolute transformation Jacobian.
+* **Natural domains:** mu in R; sigma>0; skew epsilon in R; tail delta>0
+* **Conditional mean:** mu+sigma delta E[sinh((asinh(Z)+epsilon)/delta)], Z standard normal
+* **Conditional variance:** (sigma delta)^2 Var[sinh((asinh(Z)+epsilon)/delta)]; finite for delta>0
+
+The public point prediction is the conditional median mu+sigma*delta*sinh(epsilon/delta); location mu is not generally the mean or median. The moments above use the mgcv scale reparameterization including the delta factor.
+
+References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
+
+`Upstream shash parameterization <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/shash.html>`_.
+
+The sinh-arcsinh law transforms a Gaussian latent variable to
+control skewness and tail weight separately from location and scale.
+In NAMpy's statistical parameterization, the delta scale factor is
+part of the transformation.
+
+.. math::
+
+   Z=\sinh\!\left[\delta\,\operatorname{asinh}\!\left(\frac{Y-\mu}{\sigma\delta}\right)-\epsilon\right]\sim N(0,1).
+
+The response density multiplies the Gaussian latent density by
+the absolute Jacobian of this transformation. Epsilon changes
+asymmetry; delta changes tail weight. At epsilon=0 and delta=1 the
+law reduces to a Gaussian. With skewness present, mu is generally
+neither the response mean nor its median; the documented point
+prediction uses the transformed median. Parameter contributions
+therefore need a parameter-specific interpretation.
+
+See :doc:`/statistical_reference/families/theory` for likelihoods,
+links, weights and distributional predictors. The mathematical law
+does not imply support for every fitting or smoothing-selection route;
+the contracts below define the implemented combinations.
+
+Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
+
+Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Sinh-arcsinh distributional regression for location, scale, skewness and tail shape, using four predictors.
 
 Usage
@@ -52,34 +92,6 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``float | None``
      - ``None``
      - Upstream-style alias for phi_pen; None leaves phi_pen in effect.
-
-Distribution definition and moments
------------------------------------
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Quantity
-     - Definition
-   * - Distribution / loss
-     - Z=sinh(delta asinh((Y-mu)/(sigma delta))-epsilon)~Normal(0,1); density is the normal density of Z times the absolute transformation Jacobian.
-   * - Natural domains
-     - mu in R; sigma>0; skew epsilon in R; tail delta>0
-   * - Conditional mean
-     - mu+sigma delta E[sinh((asinh(Z)+epsilon)/delta)], Z standard normal
-   * - Conditional variance
-     - (sigma delta)^2 Var[sinh((asinh(Z)+epsilon)/delta)]; finite for delta>0
-
-The public point prediction is the conditional median mu+sigma*delta*sinh(epsilon/delta); location mu is not generally the mean or median. The moments above use the mgcv scale reparameterization including the delta factor.
-
-References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
-
-`Upstream shash parameterization <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/shash.html>`_.
-
-Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
-
-Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
 
 Outputs and fitting support
 ---------------------------
@@ -147,33 +159,86 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "link_predictors": [
-       0.7144,
-       -1.24264,
-       -0.27638,
-       0.06762,
-       1.04578,
-       -1.24264
-     ],
-     "natural_parameters": [
-       0.7144,
-       0.29862,
-       -0.27638,
-       1.06996,
-       1.04578,
-       0.29862
-     ],
-     "source_response": [
-       0.7144,
-       -1.20858,
-       -0.27638,
-       0.06762,
-       1.04578,
-       -1.20858
-     ]
+     "link_predictors": {
+       "kind": "array",
+       "omitted_by_axis": [
+         94,
+         0
+       ],
+       "shape": [
+         96,
+         4
+       ],
+       "values": [
+         [
+           0.7144,
+           -1.24264,
+           -0.27638,
+           0.06762
+         ],
+         [
+           1.04578,
+           -1.24264,
+           -0.27638,
+           0.06762
+         ]
+       ]
+     },
+     "natural_parameters": {
+       "kind": "array",
+       "omitted_by_axis": [
+         94,
+         0
+       ],
+       "shape": [
+         96,
+         4
+       ],
+       "values": [
+         [
+           0.7144,
+           0.29862,
+           -0.27638,
+           1.06996
+         ],
+         [
+           1.04578,
+           0.29862,
+           -0.27638,
+           1.06996
+         ]
+       ]
+     },
+     "source_response": {
+       "kind": "array",
+       "omitted_by_axis": [
+         94,
+         0
+       ],
+       "shape": [
+         96,
+         4
+       ],
+       "values": [
+         [
+           0.7144,
+           -1.20858,
+           -0.27638,
+           0.06762
+         ],
+         [
+           1.04578,
+           -1.20858,
+           -0.27638,
+           0.06762
+         ]
+       ]
+     }
    }
 
 Example output types and shapes
@@ -181,7 +246,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

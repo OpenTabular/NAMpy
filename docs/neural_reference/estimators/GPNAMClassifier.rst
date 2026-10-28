@@ -24,61 +24,63 @@ This example includes its data and imports. Run it after installing NAMpy. Small
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
      "components": {
-       "link": [
-         -0.08574999868869781,
-         -0.04828999936580658,
-         0.0026100000832229853,
-         -0.00646999990567565,
-         -0.03824000060558319,
-         0.012570000253617764
-       ],
-       "response": [
-         0.4785799980163574,
-         0.4879299998283386,
-         0.5006499886512756,
-         0.49838000535964966,
-         0.4904400110244751,
-         0.5031399726867676
-       ],
-       "terms": {
-         "x": [
-           -0.022590000182390213,
-           -0.009290000423789024,
-           -0.004000000189989805,
-           -0.012029999867081642,
-           0.004699999932199717,
-           0.012659999541938305
-         ],
-         "z": [
-           -0.05508999899029732,
-           -0.03092999942600727,
-           0.014680000022053719,
-           0.013629999943077564,
-           -0.034869998693466187,
-           0.00798999983817339
-         ]
-       }
+       "fields": {
+         "backend": "neural",
+         "intercept": -0.008069289848208427
+       },
+       "kind": "AdditivePrediction",
+       "omitted_fields": [
+         "response",
+         "link",
+         "terms",
+         "offset",
+         "term_metadata"
+       ]
      },
-     "prediction": [
-       0,
-       0,
-       1,
-       0,
-       0,
-       1
-     ],
-     "probabilities": [
-       0.5214200019836426,
-       0.4785799980163574,
-       0.5120700001716614,
-       0.4879299998283386,
-       0.49935001134872437,
-       0.5006499886512756
-     ]
+     "prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         58
+       ],
+       "shape": [
+         64
+       ],
+       "values": [
+         0,
+         0,
+         1,
+         0,
+         0,
+         1
+       ]
+     },
+     "probabilities": {
+       "kind": "array",
+       "omitted_by_axis": [
+         62,
+         0
+       ],
+       "shape": [
+         64,
+         2
+       ],
+       "values": [
+         [
+           0.5214200019836426,
+           0.4785799980163574
+         ],
+         [
+           0.5120700001716614,
+           0.4879299998283386
+         ]
+       ]
+     }
    }
 
 Example output types and shapes
@@ -86,7 +88,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

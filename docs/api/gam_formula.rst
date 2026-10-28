@@ -17,7 +17,7 @@ only need to pass the formula to :class:`nampy.gam.GAM`:
    ).fit(data)
 
 See :ref:`formula-visual-reference` to choose terms from fitted examples,
-:ref:`gam-formula-language` for the compact syntax table, and
+:ref:`gam-formula-language` for a worked formula workflow, and
 :ref:`gam-smooth-bases` for every public ``bs=`` code.
 The objects below are useful when validating formulas or extending the
 statistical backend.

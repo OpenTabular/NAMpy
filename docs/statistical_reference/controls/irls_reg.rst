@@ -5,4 +5,4 @@
 irls_reg
 ========
 
-See :ref:`control-irls-reg` for its type, default, domain, consumer and tested example.
+See :ref:`irls_reg <control-irls-reg>` for its type, default, valid values and fitting role.

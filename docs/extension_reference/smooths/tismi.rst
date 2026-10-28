@@ -2,7 +2,7 @@
 
 :orphan:
 
-Bivariate monotone-increasing interaction construction, retaining interaction coordinates after removal of marginal directions (``tismi``) runtime
-==================================================================================================================================================
+Increasing tensor interaction (``tismi``) runtime
+=================================================
 
 :doc:`Canonical runtime constructor <BivariateShapePSplineTerm>`.

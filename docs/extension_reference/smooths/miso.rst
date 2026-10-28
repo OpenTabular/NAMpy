@@ -2,7 +2,7 @@
 
 :orphan:
 
-Monotone increasing smooth anchored at zero at the start of its domain (``miso``) runtime
-=========================================================================================
+Increasing spline, zero start (``miso``) runtime
+================================================
 
 :doc:`Canonical runtime constructor <ShapeConstrainedPSplineTerm>`.

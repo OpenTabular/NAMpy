@@ -71,16 +71,48 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
-   "       k_prime       edf   k_index  p_value\nlabel                                      \ns(x)         6  4.020580  1.123501      1.0\ns(z)         5  1.000049  0.821828      0.1"
+   {
+     "columns": [
+       "k_prime",
+       "edf",
+       "k_index",
+       "p_value"
+     ],
+     "kind": "table",
+     "omitted_by_axis": [
+       0,
+       0
+     ],
+     "shape": [
+       2,
+       4
+     ],
+     "values": [
+       [
+         6.0,
+         4.020579707819975,
+         1.1235005940607536,
+         1.0
+       ],
+       [
+         5.0,
+         1.000048893701336,
+         0.8218281859488787,
+         0.1
+       ]
+     ]
+   }
 
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

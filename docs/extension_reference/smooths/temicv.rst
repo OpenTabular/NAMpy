@@ -2,7 +2,7 @@
 
 :orphan:
 
-Bivariate monotone-increasing/concave tensor P-spline (``temicv``) runtime
-==========================================================================
+Increasing / concave tensor spline (``temicv``) runtime
+=======================================================
 
 :doc:`Canonical runtime constructor <BivariateShapePSplineTerm>`.

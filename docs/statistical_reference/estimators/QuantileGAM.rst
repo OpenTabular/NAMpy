@@ -5,9 +5,12 @@ QuantileGAM
 
 Types, defaults and output shapes are specified below. Smoothing is fixed; use validation loss to choose its strength.
 
-.. autoclass:: nampy.models.QuantileGAM
-   :members: fit, predict, predict_components, lpmatrix, score, plot
-   :inherited-members:
+Signature
+---------
+
+.. code-block:: python
+
+   QuantileGAM(formula=None, *, level=0.5, smoothing_params=None, k=10, basis='tp', fit_intercept=True, bandwidth=0.0, max_iter=10000, tol=1e-09)
 
 Constructor parameter details
 -----------------------------
@@ -27,9 +30,9 @@ Constructor parameter details
    * - level
      - float
      - 0.5
-     - Level strictly inside (0,1). The expectile midpoint is a conditional mean; the quantile midpoint is a median.
+     - Level strictly inside (0,1); 0.5 targets the conditional median.
    * - smoothing_params
-     - Sequence[float] | None
+     - float | sequence[float] | mapping | None
      - None
      - Fixed nonnegative strengths, one per compiled penalty. None uses ones; this does not run REML.
    * - k
@@ -51,7 +54,7 @@ Constructor parameter details
    * - tol
      - float
      - 1e-09
-     - Positive numerical stopping tolerance. LAWS uses a scaled gradient tolerance; exact quantile QP uses primal and dual residual tolerances; smooth ELF uses a gradient tolerance.
+     - Positive primal/dual residual tolerance for exact pinball, or gradient tolerance for smooth ELF; see the shared solver conventions.
    * - bandwidth
      - float
      - 0.0
@@ -60,6 +63,298 @@ Constructor parameter details
 The coefficient vector includes the intercept. The objective is a **sum** of observation losses plus half the coefficient penalty; changing weights changes the effective regularization. Independent levels can cross. Neither Gaussian standard errors nor calibrated qgam intervals are supplied.
 
 For smoothing selection, use ``sklearn.model_selection.GridSearchCV`` with ``param_grid={'smoothing_params': [[.01], [.1], [1.]]}`` and these estimators' negative-loss ``score``. The basis is fitted inside each fold.
+
+Methods
+-------
+
+Methods other than fit require a fitted estimator and raise NotFittedError beforehand. New-data arrays are supported only by formula-free models; formula models require DataFrames. Inputs must be finite and match the fitted feature schema.
+
+.. _quantilegam-fit:
+
+fit
+~~~
+
+.. code-block:: python
+
+   model.fit(X=None, y=None, *, data=None, sample_weight=None, offset=None)
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Parameter
+     - Type / shape
+     - Default
+     - Meaning
+   * - ``X``
+     - pandas.DataFrame | array-like (n,d) | None
+     - ``None``
+     - Training/new rows. Formula mode requires a DataFrame containing source features and formula-offset columns; formula-free models also accept numeric arrays in fitted column order.
+   * - ``y``
+     - array-like (n,) or (n,1) | None
+     - ``None``
+     - Finite scalar response. At fit time None reads the formula response column; formula-free fitting requires y. score always requires the true response.
+   * - ``data``
+     - pandas.DataFrame | array-like (n,d) | None
+     - ``None``
+     - Fit-only alias for X; supply exactly one of X and data.
+   * - ``sample_weight``
+     - array-like (n,) | str | None
+     - ``None``
+     - Finite nonnegative weights with positive sum; None means ones. fit additionally accepts a formula-data column name; score accepts an array, not a column name.
+   * - ``offset``
+     - array-like (n,) | None
+     - ``None``
+     - Known additive offset, default zeros, added to evaluated formula/smooth-owned offsets. Separate fit-time offsets are not reused by predict on new data.
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Output
+     - Type
+     - Shape
+     - Meaning
+   * - self
+     - estimator instance
+     - scalar object
+     - Stores the fitted design and loss solution. Missing/nonfinite input, invalid weights, or incompatible shapes raise errors. Nonconvergence emits ConvergenceWarning and leaves diagnostics in ``fit_result_``.
+
+.. _quantilegam-predict:
+
+predict
+~~~~~~~
+
+.. code-block:: python
+
+   model.predict(X, *, offset=None)
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Parameter
+     - Type / shape
+     - Default
+     - Meaning
+   * - ``X``
+     - pandas.DataFrame | array-like (n,d)
+     - Required
+     - Training/new rows. Formula mode requires a DataFrame containing source features and formula-offset columns; formula-free models also accept numeric arrays in fitted column order.
+   * - ``offset``
+     - array-like (n,) | None
+     - ``None``
+     - Known additive offset, default zeros, added to evaluated formula/smooth-owned offsets. Separate fit-time offsets are not reused by predict on new data.
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Output
+     - Type
+     - Shape
+     - Meaning
+   * - prediction
+     - numpy.ndarray[float64]
+     - (n,)
+     - Conditional expectile/quantile on the response scale, including supplied/evaluated offsets. No standard-error tuple or interval is returned.
+
+.. _quantilegam-score:
+
+score
+~~~~~
+
+.. code-block:: python
+
+   model.score(X, y, sample_weight=None)
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Parameter
+     - Type / shape
+     - Default
+     - Meaning
+   * - ``X``
+     - pandas.DataFrame | array-like (n,d)
+     - Required
+     - Training/new rows. Formula mode requires a DataFrame containing source features and formula-offset columns; formula-free models also accept numeric arrays in fitted column order.
+   * - ``y``
+     - array-like (n,) or (n,1)
+     - Required
+     - Finite scalar response. At fit time None reads the formula response column; formula-free fitting requires y. score always requires the true response.
+   * - ``sample_weight``
+     - array-like (n,) | None
+     - ``None``
+     - Finite nonnegative weights with positive sum; None means ones. fit additionally accepts a formula-data column name; score accepts an array, not a column name.
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Output
+     - Type
+     - Shape
+     - Meaning
+   * - score
+     - float
+     - ()
+     - Negative weighted mean unpenalized validation loss; higher is better. Does not return R² or training penalized objective.
+
+For residual ``r=y-predict(X)``, the per-row loss is ``max(level*r, (level-1)*r), including when bandwidth>0``. The result is ``-sum(w*loss)/sum(w)``. The smoothing penalty is excluded. score has no offset keyword; formula offsets are evaluated from X, while a separate fit-only offset is omitted. ``GridSearchCV.fit(X, y)`` needs y explicitly for scoring even when fit can read a formula response column.
+
+.. _quantilegam-predict-components:
+
+predict_components
+~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+   model.predict_components(X, *, offset=None)
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Parameter
+     - Type / shape
+     - Default
+     - Meaning
+   * - ``X``
+     - pandas.DataFrame | array-like (n,d)
+     - Required
+     - Training/new rows. Formula mode requires a DataFrame containing source features and formula-offset columns; formula-free models also accept numeric arrays in fitted column order.
+   * - ``offset``
+     - array-like (n,) | None
+     - ``None``
+     - Known additive offset, default zeros, added to evaluated formula/smooth-owned offsets. Separate fit-time offsets are not reused by predict on new data.
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Output
+     - Type
+     - Shape
+     - Meaning
+   * - components
+     - AdditivePrediction
+     - response/link (n,); term arrays (n,1)
+     - Identity response/link scale. Intercept plus named terms plus offset reconstructs prediction. ``coef_`` and all terms use the same identified design coordinates.
+
+.. _quantilegam-lpmatrix:
+
+lpmatrix
+~~~~~~~~
+
+.. code-block:: python
+
+   model.lpmatrix(X)
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Parameter
+     - Type / shape
+     - Default
+     - Meaning
+   * - ``X``
+     - pandas.DataFrame | array-like (n,d)
+     - Required
+     - Training/new rows. Formula mode requires a DataFrame containing source features and formula-offset columns; formula-free models also accept numeric arrays in fitted column order.
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Output
+     - Type
+     - Shape
+     - Meaning
+   * - matrix
+     - numpy.ndarray[float64]
+     - (n,p)
+     - Full coefficient design including an intercept when fitted. ``matrix @ coef_`` excludes known offsets; add the evaluated new-data offset to reconstruct predict.
+
+.. _quantilegam-plot:
+
+plot
+~~~~
+
+.. code-block:: python
+
+   model.plot(X, *, term_features=None, rug=False, figsize=None)
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Parameter
+     - Type / shape
+     - Default
+     - Meaning
+   * - ``X``
+     - pandas.DataFrame | array-like (n,d)
+     - Required
+     - Training/new rows. Formula mode requires a DataFrame containing source features and formula-offset columns; formula-free models also accept numeric arrays in fitted column order.
+   * - ``term_features``
+     - mapping[str,str] | None
+     - ``None``
+     - Map term labels to numeric DataFrame columns used for plotting. None infers one-feature terms; multivariate terms require an explicit mapping.
+   * - ``rug``
+     - bool
+     - ``False``
+     - Add observed input locations beneath term curves when True.
+   * - ``figsize``
+     - tuple[float,float] | None
+     - ``None``
+     - Figure width and height in inches; None uses renderer defaults.
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Output
+     - Type
+     - Shape
+     - Meaning
+   * - figures
+     - list[matplotlib.figure.Figure]
+     - one per rendered page
+     - Observed-row term curves, with optional rug. These are contributions, not partial-dependence curves or inferential bands. Formula offsets are evaluated; fit-only offsets are not reused.
+
+Fitted attributes and convergence
+---------------------------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Attribute
+     - Type / shape
+     - Meaning
+   * - ``coef_``
+     - numpy.ndarray (p,)
+     - Full identified coefficient vector, including any intercept.
+   * - ``design_``
+     - CompiledDesign
+     - Fitted basis/preprocessing, term ownership and known-offset evaluation.
+   * - ``smoothing_params_``
+     - numpy.ndarray (s,)
+     - Resolved fixed nonnegative penalty strengths.
+   * - ``penalty_``
+     - numpy.ndarray (p,p)
+     - Full fixed coefficient penalty S.
+   * - ``n_features_in_``
+     - int
+     - Fitted source schema width.
+   * - ``fit_result_``
+     - LossFit
+     - coefficients (p,), fitted (n,), objective (float), iterations (int), converged (bool), optimality (float). fitted is ``B@coef_``, excluding offsets. objective is summed training loss plus beta.T@S@beta/2.
+
+Check ``fit_result_.converged``, ``iterations`` and ``optimality`` before interpreting a solution. :doc:`asymmetric_fitting` defines each solver stopping rule. No likelihood EDF, Gaussian covariance or calibrated intervals are attached to these loss fits.
 
 
 
@@ -76,64 +371,55 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
      "components": {
-       "link": [
-         -0.1375,
-         -0.18507,
-         -0.23245,
-         -0.27934,
-         -0.32533,
-         -0.36991
-       ],
-       "response": [
-         -0.1375,
-         -0.18507,
-         -0.23245,
-         -0.27934,
-         -0.32533,
-         -0.36991
-       ],
-       "terms": {
-         "s(x, k=6)": [
-           -0.38898,
-           -0.43655,
-           -0.48393,
-           -0.53082,
-           -0.57681,
-           -0.62139
-         ]
-       }
+       "fields": {
+         "backend": "gam",
+         "intercept": 0.2231726057374658
+       },
+       "kind": "AdditivePrediction",
+       "omitted_fields": [
+         "response",
+         "link",
+         "terms",
+         "offset",
+         "term_metadata"
+       ]
      },
      "fit": {
-       "coefficients": [
-         0.25148,
-         -1.4802,
-         0.39126,
-         -0.10638,
-         0.24396,
-         -0.76885
-       ],
-       "fitted": [
-         -0.1375,
-         -0.18507,
-         -0.23245,
-         -0.27934,
-         -0.32533,
-         -0.36991
-       ],
-       "objective": 6.342552925737662
+       "fields": {
+         "converged": true,
+         "iterations": 1100,
+         "objective": 5.3783859194969175,
+         "optimality": 2.0261570199409107e-15
+       },
+       "kind": "LossFit",
+       "omitted_fields": [
+         "coefficients",
+         "fitted"
+       ]
      },
-     "prediction": [
-       -0.1375,
-       -0.18507,
-       -0.23245,
-       -0.27934,
-       -0.32533,
-       -0.36991
-     ]
+     "prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         54
+       ],
+       "shape": [
+         60
+       ],
+       "values": [
+         -0.1563,
+         -0.2063,
+         -0.25606,
+         -0.30521,
+         -0.35326,
+         -0.39961
+       ]
+     }
    }
 
 Example output types and shapes
@@ -141,7 +427,105 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Output field
+     - Python type / dtype
+     - Example shape
+   * - result
+     - dict
+     - 3 named fields
+   * - result['prediction']
+     - numpy.ndarray[float64]
+     - (60,)
+   * - result['components']
+     - nampy.contracts.AdditivePrediction
+     - scalar record
+   * - result['fit']
+     - nampy.gam.extensions.objectives.LossFit
+     - scalar record
+
+Smooth ELF alternative
+----------------------
+
+A positive bandwidth changes the training loss; validation score still measures pinball loss.
+
+
+
+Runnable example
+----------------
+
+This example includes all imports and input data; no variables from another page are required.
+
+:download:`Download the complete example </_examples/reference/statistical_reference/estimators/QuantileGAM_smooth.py>`
+
+.. literalinclude:: /_examples/reference/statistical_reference/estimators/QuantileGAM_smooth.py
+   :language: python
+
+Observed result preview
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
+.. code-block:: text
+
+   {
+     "components": {
+       "fields": {
+         "backend": "gam",
+         "intercept": 0.25147634390777696
+       },
+       "kind": "AdditivePrediction",
+       "omitted_fields": [
+         "response",
+         "link",
+         "terms",
+         "offset",
+         "term_metadata"
+       ]
+     },
+     "fit": {
+       "fields": {
+         "converged": true,
+         "iterations": 6,
+         "objective": 6.342552925737662,
+         "optimality": 2.1965200178897946e-13
+       },
+       "kind": "LossFit",
+       "omitted_fields": [
+         "coefficients",
+         "fitted"
+       ]
+     },
+     "prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         54
+       ],
+       "shape": [
+         60
+       ],
+       "values": [
+         -0.1375,
+         -0.18507,
+         -0.23245,
+         -0.27934,
+         -0.32533,
+         -0.36991
+       ]
+     }
+   }
+
+Example output types and shapes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
+
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

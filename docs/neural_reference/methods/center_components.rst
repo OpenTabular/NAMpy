@@ -65,43 +65,23 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "link": [
-       0.08444999903440475,
-       0.09307999908924103,
-       0.08865000307559967,
-       0.08654999732971191,
-       0.08972000330686569,
-       0.09339000284671783
-     ],
-     "response": [
-       0.08444999903440475,
-       0.09307999908924103,
-       0.08865000307559967,
-       0.08654999732971191,
-       0.08972000330686569,
-       0.09339000284671783
-     ],
-     "terms": {
-       "x": [
-         -0.03128,
-         -0.03241,
-         -0.03211,
-         -0.03181,
-         -0.03151,
-         -0.03121
-       ],
-       "z": [
-         -0.00307,
-         0.00668,
-         0.00196,
-         -0.00045,
-         0.00243,
-         0.00579
-       ]
-     }
+     "fields": {
+       "backend": "neural",
+       "intercept": 0.11880259308964014
+     },
+     "kind": "AdditivePrediction",
+     "omitted_fields": [
+       "response",
+       "link",
+       "terms",
+       "offset",
+       "term_metadata"
+     ]
    }
 
 Example output types and shapes
@@ -109,7 +89,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

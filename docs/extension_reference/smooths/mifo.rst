@@ -2,7 +2,7 @@
 
 :orphan:
 
-Monotone increasing smooth anchored at zero at the end of its domain, with the mirrored endpoint knot (``mifo``) runtime
-========================================================================================================================
+Increasing spline, zero end (``mifo``) runtime
+==============================================
 
 :doc:`Canonical runtime constructor <ShapeConstrainedPSplineTerm>`.

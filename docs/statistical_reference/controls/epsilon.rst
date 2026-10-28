@@ -5,4 +5,4 @@
 epsilon
 =======
 
-See :ref:`control-epsilon` for its type, default, domain, consumer and tested example.
+See :ref:`epsilon <control-epsilon>` for its type, default, valid values and fitting role.

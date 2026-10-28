@@ -3,31 +3,41 @@
 hurdlenegativebinom
 ===================
 
-Neural distribution family for ``family='hurdlenegativebinom'``. Configure its constructor through ``distributional_kwargs`` on an LSS estimator.
+Theory and interpretation
+-------------------------
 
-Distribution definition and moments
------------------------------------
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Quantity
-     - Definition
-   * - Distribution / loss
-     - Base count law g is negative binomial with mean mu and total count r. P(Y=0)=pi; P(Y=y>0)=(1-pi)g(y)/(1-g(0)). Set m_plus=m/(1-g(0)) and v_plus=(v+m^2)/(1-g(0))-m_plus^2.
-   * - Natural domains
-     - zero probability pi in [0,1); positive base rate/mean; NB total count r>0
-   * - Conditional mean
-     - (1-pi)m_plus
-   * - Conditional variance
-     - (1-pi)v_plus+pi(1-pi)m_plus^2
+* **Distribution / loss:** Base count law g is negative binomial with mean mu and total count r. P(Y=0)=pi; P(Y=y>0)=(1-pi)g(y)/(1-g(0)). Set m_plus=m/(1-g(0)) and v_plus=(v+m^2)/(1-g(0))-m_plus^2.
+* **Natural domains:** zero probability pi in [0,1); positive base rate/mean; NB total count r>0
+* **Conditional mean:** (1-pi)m_plus
+* **Conditional variance:** (1-pi)v_plus+pi(1-pi)m_plus^2
 
 Here m and v denote the base count mean and variance.
 
 Neural dispersion alpha is inverse total count: r=1/alpha; Var(base count)=mu+alpha mu^2.
 
 References: `PyTorch probability distributions <https://docs.pytorch.org/docs/stable/distributions.html>`_. NAMpy defines its family transforms and point outputs below.
+
+A hurdle model separates occurrence from the size of a
+positive count. The positive-count law is truncated at zero,
+so only the occurrence component can generate a zero.
+
+.. math::
+
+   P(Y=0)=\pi,\qquad P(Y=y>0)=(1-\pi)\frac{g(y)}{1-g(0)}.
+
+This differs from adding an extra zero mass to an
+untruncated count law. Changing the count intensity changes
+the mean among positive observations; changing pi changes
+the chance of any positive observation. The unconditional
+mean combines both mechanisms. A presence predictor is
+1-pi on the probability scale, not the zero probability pi.
+
+Neural training composes this response objective with the chosen architecture. Its raw outputs pass through the configured domain transforms; likelihood parameterization and network architecture are separate choices.
+
+See :doc:`/statistical_reference/families/theory` for likelihoods,
+links, weights and distributional predictors. The mathematical law
+does not imply support for every fitting or smoothing-selection route;
+the contracts below define the implemented combinations.
 
 Targets, transforms and scoring
 -------------------------------
@@ -37,6 +47,8 @@ Target shape/encoding: ``(n,) floating scalar response; support follows the dist
 ``compute_loss`` and ``compute_loss_per_sample`` consume raw network outputs, not already transformed parameters. The scalar loss is averaged over observations. Lower loss is better. LSS scoring follows the shared estimator contract; response SD summarizes conditional variability, not estimation uncertainty. Distribution-specific moments that do not exist cannot be interpreted as finite uncertainty estimates.
 
 Implementation definitions: :mod:`nampy.neural.distributions.distributions`. See the source link on the runtime contract for the implemented transforms and objective.
+
+Neural distribution family for ``family='hurdlenegativebinom'``. Configure its constructor through ``distributional_kwargs`` on an LSS estimator.
 
 Signature
 ---------
@@ -150,36 +162,65 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
+.. rubric:: parameters
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - zero_prob
+     - mean
+     - dispersion
+   * - 0.5
+     - 0.693149983882904
+     - 0.693149983882904
+   * - 0.5
+     - 0.693149983882904
+     - 0.693149983882904
+
+Full shape: ``[8, 3]``; omitted by axis: ``[6, 0]``.
+
+.. rubric:: raw
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - zero_prob
+     - mean
+     - dispersion
+   * - 0.0
+     - 0.0
+     - 0.0
+   * - 0.0
+     - 0.0
+     - 0.0
+
+Full shape: ``[8, 3]``; omitted by axis: ``[6, 0]``.
+
 .. code-block:: text
 
    {
-     "loss": [
-       1.1792500019073486
-     ],
-     "parameters": [
-       0.5,
-       0.693149983882904,
-       0.693149983882904,
-       0.5,
-       0.693149983882904,
-       0.693149983882904
-     ],
-     "point": [
-       0.801829993724823,
-       0.801829993724823,
-       0.801829993724823,
-       0.801829993724823,
-       0.801829993724823,
-       0.801829993724823
-     ],
-     "raw": [
-       0.0,
-       0.0,
-       0.0,
-       0.0,
-       0.0,
-       0.0
-     ]
+     "loss": 1.1792492866516113,
+     "point": {
+       "kind": "array",
+       "omitted_by_axis": [
+         2
+       ],
+       "shape": [
+         8
+       ],
+       "values": [
+         0.801829993724823,
+         0.801829993724823,
+         0.801829993724823,
+         0.801829993724823,
+         0.801829993724823,
+         0.801829993724823
+       ]
+     }
    }
 
 Example output types and shapes
@@ -187,7 +228,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

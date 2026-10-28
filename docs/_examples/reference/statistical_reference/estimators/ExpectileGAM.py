@@ -14,3 +14,8 @@ figures = model.plot(data)
 assert prediction.shape == (60,)
 assert model.fit_result_.converged
 result = {'prediction': prediction, 'components': components, 'fit': model.fit_result_}
+score = model.score(data, data.y)
+design = model.lpmatrix(data)
+components.validate_additive_reconstruction()
+assert design.shape[1] == model.coef_.size
+print(score)

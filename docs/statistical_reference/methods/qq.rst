@@ -91,68 +91,178 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
      "analytic": {
-       "residuals": [
-         -0.3792,
-         -0.27799,
-         -0.27615,
-         -0.2163,
-         -0.19829,
-         -0.18825
+       "omitted_fields": [
+         "lower",
+         "upper",
+         "reference",
+         "rep",
+         "requested_rep",
+         "level",
+         "type",
+         "xlab",
+         "ylab",
+         "figures"
        ],
-       "simulated_residuals": [
-         -0.31815,
-         -0.31815,
-         -0.31815,
-         -0.2675,
-         -0.2675,
-         -0.2675
-       ],
-       "theoretical": [
-         -0.31815,
-         -0.2675,
-         -0.24125,
-         -0.22273,
-         -0.20815,
-         -0.19597
-       ],
-       "ylim": [
-         -0.3792,
-         0.25899
-       ]
+       "residuals": {
+         "kind": "array",
+         "omitted_by_axis": [
+           90
+         ],
+         "shape": [
+           96
+         ],
+         "values": [
+           -0.3792,
+           -0.27799,
+           -0.27615,
+           -0.2163,
+           -0.19829,
+           -0.18825
+         ]
+       },
+       "simulated_residuals": {
+         "kind": "array",
+         "omitted_by_axis": [
+           94,
+           0
+         ],
+         "shape": [
+           96,
+           3
+         ],
+         "values": [
+           [
+             -0.31815,
+             -0.31815,
+             -0.31815
+           ],
+           [
+             -0.2675,
+             -0.2675,
+             -0.2675
+           ]
+         ]
+       },
+       "theoretical": {
+         "kind": "array",
+         "omitted_by_axis": [
+           90
+         ],
+         "shape": [
+           96
+         ],
+         "values": [
+           -0.31815,
+           -0.2675,
+           -0.24125,
+           -0.22273,
+           -0.20815,
+           -0.19597
+         ]
+       },
+       "ylim": {
+         "kind": "array",
+         "omitted_by_axis": [
+           0
+         ],
+         "shape": [
+           2
+         ],
+         "values": [
+           -0.3792,
+           0.25899
+         ]
+       }
      },
      "simulated": {
-       "residuals": [
-         -0.3792,
-         -0.27799,
-         -0.27615,
-         -0.2163,
-         -0.19829,
-         -0.18825
+       "omitted_fields": [
+         "lower",
+         "upper",
+         "reference",
+         "rep",
+         "requested_rep",
+         "level",
+         "type",
+         "xlab",
+         "ylab",
+         "figures"
        ],
-       "simulated_residuals": [
-         -0.35018,
-         -0.34283,
-         -0.28683,
-         -0.31453,
-         -0.28007,
-         -0.25178
-       ],
-       "theoretical": [
-         -0.32883,
-         -0.26925,
-         -0.2457,
-         -0.21783,
-         -0.20797,
-         -0.20121
-       ],
-       "ylim": [
-         -0.3792,
-         0.31086
-       ]
+       "residuals": {
+         "kind": "array",
+         "omitted_by_axis": [
+           90
+         ],
+         "shape": [
+           96
+         ],
+         "values": [
+           -0.3792,
+           -0.27799,
+           -0.27615,
+           -0.2163,
+           -0.19829,
+           -0.18825
+         ]
+       },
+       "simulated_residuals": {
+         "kind": "array",
+         "omitted_by_axis": [
+           94,
+           0
+         ],
+         "shape": [
+           96,
+           3
+         ],
+         "values": [
+           [
+             -0.35018,
+             -0.34283,
+             -0.28683
+           ],
+           [
+             -0.31453,
+             -0.28007,
+             -0.25178
+           ]
+         ]
+       },
+       "theoretical": {
+         "kind": "array",
+         "omitted_by_axis": [
+           90
+         ],
+         "shape": [
+           96
+         ],
+         "values": [
+           -0.32883,
+           -0.26925,
+           -0.2457,
+           -0.21783,
+           -0.20797,
+           -0.20121
+         ]
+       },
+       "ylim": {
+         "kind": "array",
+         "omitted_by_axis": [
+           0
+         ],
+         "shape": [
+           2
+         ],
+         "values": [
+           -0.3792,
+           0.31086
+         ]
+       }
      }
    }
 
@@ -161,7 +271,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

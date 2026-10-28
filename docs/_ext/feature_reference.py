@@ -15,7 +15,6 @@ import numpy as np
 from family_contracts import mathematical_contract
 from public_reference import descriptions, literal, table
 from reference_examples import (
-    control_example,
     example_rst,
     extension_example,
     method_example,
@@ -34,11 +33,12 @@ from reference_organization import (
 from reference_schema import (
     FAMILY_NUISANCE_MEANINGS,
     METHOD_RETURNS,
-    NESTED_CONTROLS,
     neural_family_returns,
     parameter_type,
     smooth_parameter_meanings,
 )
+from reference_theory import smooth_theory
+from selection_theory import selection_theory
 
 
 def heading(text, char="="):
@@ -301,15 +301,12 @@ def module_notes(cls):
 
 
 def generate_smooths(root):
+    from smooth_contracts import formula_option_rows, smooth_inputs
+
     import nampy.gam.smooths as smooths
     import nampy.gam.specs  # noqa: F401 - populate formula-only descriptors
     from nampy.gam.basis_registry import basis_descriptors
-    from nampy.gam.specs.smooth_build import build_smooth_spec
 
-    formula_defaults = {
-        name: parameter.default
-        for name, parameter in inspect.signature(build_smooth_spec).parameters.items()
-    }
     entries = []
     runtime_pages = {}
     for d in sorted(basis_descriptors(), key=lambda d: d.name):
@@ -333,15 +330,10 @@ def generate_smooths(root):
         if cls.__name__ == "BivariateShapePSplineTerm":
             feature = "x, z"
             formula = f"s({feature}, bs='{name}')"
-        covariates = f"{d.min_features} to {d.max_features or 'unbounded'}"
-        if name in {"fs", "sz"}:
-            covariates = "Numerical covariate(s) and categorical factor column(s)"
-        elif name in {"te", "ti", "t2"}:
-            covariates = "Two or more covariates, grouped into tensor margins"
-        elif cls.__name__ == "BivariateShapePSplineTerm":
-            covariates = "Exactly two numerical covariates"
+        covariates = smooth_inputs(d)
         description = SMOOTH_MEANINGS[name]
         text = heading(smooth_title(name, description)) + description + "\n\n"
+        text += smooth_theory(name)
         if "shape" in cls.__module__:
             text += "This is a SCAM-style shape-constrained basis. See :doc:`/user_guide/shape_constrained_gams` for its inequalities and supported fitting routes.\n\n"
         text += (
@@ -355,43 +347,21 @@ def generate_smooths(root):
             "full": FAMILY_PARAMETERS["full"],
             **smooth_parameter_meanings(name),
         }
-        if name in {"tp", "ts"}:
-            overrides.update(
-                {
-                    "m": "Penalty derivative order. None/nonpositive selects the smallest integer m with 2*m > d+1 for d covariates. A two-element sequence with second entry zero drops the penalty null space for tp; this is not supported for ts.",
-                    "xt": "Optional mapping: max.knots (default 2000) limits distinct construction locations; seed (default 1) controls deterministic subsampling. Prediction reuses the fitted setup.",
-                    "k": "Requested rank before constraints. Automatic rank is M+8 for one covariate, M+27 for two, M+100 above two, where M is polynomial null-space dimension. It must accommodate the null space and available unique locations.",
-                }
-            )
         runtime += heading("Parameters", "-") + parameters(cls, overrides)
-        formula_names = {"k", "m", "by", "id", "sp", "fx"}
-        formula_rows = []
-        for option in sorted(formula_names):
-            target = {"id": "smoothing_id", "fx": "fixed"}.get(option, option)
-            formula_cls = cls.__mro__[1] if name in {"sc", "scad"} else cls
-            param = inspect.signature(formula_cls).parameters.get(target)
-            if param:
-                formula_rows.append(
-                    (
-                        f"``{option}``",
-                        parameter_type(target, formula_defaults.get(option), obj=cls),
-                        literal(formula_defaults.get(option)),
-                        overrides.get(target, PARAMETERS[target]),
-                    )
-                )
         text += heading("Parameters", "-") + table(
-            ["Formula option", "Type / shape", "Default", "Meaning"], formula_rows
+            ["Formula option", "Type / shape", "Default", "Meaning"],
+            formula_option_rows(d),
         )
-        text += "Only supported formula options are shown here. Formula defaults come from the formula specification; k=-1 requests the basis-specific automatic rank, independently of runtime-constructor defaults. Runtime-only setup arguments belong to the separate implementation API. Point constraints and additional setup follow the capabilities below.\n\n"
-        if d.supports_pc:
-            text += "``pc`` (float or mapping, default None) imposes the function constraint f(x0)=0 through a basis reparameterization.\n\n"
-        if d.accepts_xt:
+        text += "The formula compiler resolves defaults independently of runtime constructors. ``knots`` and ``select`` belong to the model, not the formula call. Runtime-only setup options are documented in the implementation API.\n\n"
+        if name in {"te", "ti", "t2"}:
             text += (
-                "``xt`` (mapping, default None) supplies basis-specific setup: "
-                + overrides.get("xt", PARAMETERS["xt"])
-                + "\n\n"
+                "``bs`` and ``k`` are specified per margin; ``d`` groups covariates into those margins. ``np`` is not implemented by NAMpy's formula compiler."
+                + (
+                    " ``fx`` is not accepted by t2; use fixed model penalties for supported routes.\n\n"
+                    if name == "t2"
+                    else "\n\n"
+                )
             )
-
         text += heading("Identifiability, penalty and prediction", "-")
         text += "The basis penalty acts on fitted coefficient coordinates; requested rank k is not fitted EDF. Ordinary smooth centering separates the smooth from the model intercept, subject to the basis, numeric/factor by-variable and point-constraint rules. A point constraint replaces the relevant centering direction rather than fixing an arbitrary coefficient. Prediction reuses the fitted knots, constraints and penalty setup.\n\n"
         if name in {"cr", "cs"}:
@@ -407,14 +377,19 @@ def generate_smooths(root):
             [
                 ("Covariates", covariates),
                 ("Tensor marginal", str(d.supports_tensor)),
-                ("Point constraints", str(d.supports_pc)),
-                ("Additional xt setup", str(d.accepts_xt)),
+                ("Point constraints", str(d.supports_pc or name in {"te", "ti", "t2"})),
+                (
+                    "Additional xt setup",
+                    str(d.accepts_xt or name in {"te", "ti", "t2", "fs", "sz"}),
+                ),
             ],
         )
         text += (
             heading("Outputs", "-")
-            + "The formula adds a term to the fitted model's additive predictor. Its coefficient block has p_term columns after constraints, potentially fewer than the requested k; this dimension differs from EDF. ``predict(type='terms')`` returns a floating array with n rows and one column per retained term for a scalar predictor. ``lpmatrix`` returns the full floating model design, shape (n, p), including the other terms. The scalar Gaussian examples below produce response predictions of shape (n,). Runtime matrix and penalty contracts are documented separately.\n\n"
+            + "The formula adds a term to the fitted model's additive predictor. Its coefficient block has p_term columns after constraints; this dimension differs from EDF. ``predict(type='terms')`` returns a floating array with n rows and one column per retained term for a scalar predictor. ``lpmatrix`` returns the full floating model design, shape (n, p), including the other terms. The scalar Gaussian examples below produce response predictions of shape (n,). Runtime matrix and penalty contracts are documented separately.\n\n"
         )
+        if name in {"te", "ti", "t2"}:
+            text += "Before identifiability constraints, the tensor has the product of the marginal basis dimensions, not a single k columns. Marginal/term constraints and retained t2 blocks determine the final coefficient count.\n\n"
         text += example_rst(
             root, f"statistical_reference/smooths/{name}", smooth_example(name, cls)
         )
@@ -569,7 +544,8 @@ def generate_statistical_families(root):
         family = make_gam_family(options)
         cls = type(family)
         entries.append(name)
-        text = heading(name) + description + "\n\n" + heading("Usage", "-")
+        text = heading(name) + mathematical_contract(name, "statistical")
+        text += description + "\n\n" + heading("Usage", "-")
         text += f".. code-block:: python\n\n   from nampy.gam.families.registry import make_gam_family\n\n   family = make_gam_family({options!r})\n\n"
         text += "Pass this family instance or the equivalent name/options mapping as ``GAM(family=...)``. The factory returns independent mutable family state for each fit.\n\n"
         text += (
@@ -579,7 +555,6 @@ def generate_statistical_families(root):
                 cls, {**FAMILY_PARAMETERS, **FAMILY_NUISANCE_MEANINGS.get(name, {})}
             )
         )
-        text += mathematical_contract(name, "statistical")
         text += heading("Outputs and fitting support", "-")
         names = getattr(family, "distribution_parameter_names", None) or getattr(
             family, "parameter_names", ()
@@ -588,12 +563,32 @@ def generate_statistical_families(root):
             ["Property", "Value"],
             [
                 ("Family class", getattr(family, "family_class", "ordinary")),
-                ("Linear predictors", getattr(family, "n_linear_predictors", 1)),
+                (
+                    "Linear predictors",
+                    "K"
+                    if name == "multinom"
+                    else getattr(family, "n_linear_predictors", 1),
+                ),
                 (
                     "Natural parameter names",
-                    repr(names)
+                    "p0, ..., pK"
+                    if name == "multinom"
+                    else repr(names)
                     if names
                     else "Single-predictor family; see response output contract below",
+                ),
+                *(
+                    [
+                        ("Response columns", "p0, ..., pK"),
+                        ("Link columns", "eta1, ..., etaK"),
+                        ("Default", "K=1: two response categories"),
+                        (
+                            "Adapters",
+                            "GAMLSS and core GAM; GAMRegressor rejects general families",
+                        ),
+                    ]
+                    if name == "multinom"
+                    else []
                 ),
                 *[
                     (
@@ -782,6 +777,8 @@ def generate_methods(root):
         text += table(
             ["Returned field", "Type", "Shape", "Meaning"], METHOD_RETURNS[name]
         )
+        if name == "concurvity":
+            text += ".. include:: /_includes/concurvity_rank_notes.inc\n\n"
         if name == "plot":
             from reference_schema import plot_parameter_rows
 
@@ -899,9 +896,9 @@ def generate_neural(root):
         cls = spec.distribution
         text = (
             heading(name)
+            + mathematical_contract(name, "neural")
             + f"Neural distribution family for ``family='{name}'``. Configure its constructor through ``distributional_kwargs`` on an LSS estimator.\n\n"
         )
-        text += mathematical_contract(name, "neural")
         text += (
             signature(cls)
             + heading("Parameters", "-")
@@ -1021,6 +1018,7 @@ def generate(root):
                 "estimators/index",
                 "Formula language </api/gam_formula>",
                 "smooths/index",
+                "penalties",
                 "families/index",
                 "selection/index",
                 "controls/index",
@@ -1100,67 +1098,11 @@ OPTIMIZER_MEANINGS = {
 
 
 def generate_controls_selection(root):
-    from dataclasses import fields
-
-    from nampy.gam import gam_control
-    from nampy.gam.control import _KEY_ALIASES
-
-    controls = gam_control()
-    for field in fields(controls):
-        name = field.name
-        aliases = [alias for alias, target in _KEY_ALIASES.items() if target == name]
-        text = heading(name) + CONTROL_MEANINGS[name] + "\n\n"
-        text += (
-            heading("Signature and default", "-")
-            + f".. code-block:: python\n\n   from nampy.gam import gam_control\n\n   control = gam_control({name}={literal(getattr(controls, name))})\n\n"
-        )
-        text += table(
-            ["Parameter", "Type", "Resolved default", "Aliases"],
-            [
-                (
-                    name,
-                    str(field.type),
-                    f"``{literal(getattr(controls, name))}``",
-                    ", ".join(f"``{a}``" for a in aliases) or "None",
-                )
-            ],
-        )
-        text += (
-            heading("Returns and use", "-")
-            + "``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.\n\n"
-        )
-        text += ":doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`\n"
-        nested = getattr(controls, name)
-        if isinstance(nested, dict):
-            text += heading("Nested options", "-") + table(
-                ["Option", "Type", "Resolved default", "Meaning"],
-                [
-                    (
-                        f"``{key}``",
-                        f"``{type(value).__name__}``",
-                        f"``{literal(value)}``",
-                        NESTED_CONTROLS[key],
-                    )
-                    for key, value in nested.items()
-                ],
-            )
-        text += example_rst(
-            root, f"statistical_reference/controls/{name}", control_example(name)
-        )
-        write(root, f"statistical_reference/controls/{name}.rst", text)
-    write(
-        root,
-        "statistical_reference/controls/index.rst",
-        tree(
-            "Fitting controls",
-            [f.name for f in fields(controls)],
-            "One page per validated GAMControl setting; defaults are resolved through gam_control, including nested optimizer defaults.",
-        ),
-    )
     for name, meaning in {**SELECTION_MEANINGS, **OPTIMIZER_MEANINGS}.items():
         is_optimizer = name in OPTIMIZER_MEANINGS
         option = "smoothing_optimizer" if is_optimizer else "smoothing_method"
         text = heading(name.upper() if not is_optimizer else name) + meaning + "\n\n"
+        text += selection_theory(name)
         text += (
             heading("Configuration", "-")
             + f".. code-block:: python\n\n   from nampy.models import GAMRegressor\n\n   model = GAMRegressor(optimize_smoothing={name != 'fixed'}, {option}={name!r})\n   # model.fit(X_train, y_train)\n\n"
@@ -1234,8 +1176,12 @@ def generate_controls_selection(root):
         "statistical_reference/selection/index.rst",
         tree(
             "Smoothness selection",
-            [*SELECTION_MEANINGS, *OPTIMIZER_MEANINGS],
-            "Selection criteria determine the objective; outer optimizers determine how smoothing parameters are updated.",
+            [
+                "Mathematical foundations <theory>",
+                *SELECTION_MEANINGS,
+                *OPTIMIZER_MEANINGS,
+            ],
+            "Selection criteria determine the objective; outer optimizers determine how smoothing parameters are updated. Start with :doc:`theory` for the inner/outer optimization loop and the statistical meaning of each criterion.",
         ),
     )
 
@@ -1262,7 +1208,10 @@ def generate_estimators(root):
     write(
         root,
         "statistical_reference/estimators/index.rst",
-        tree("Statistical estimators", [*entries, "GAM (statistical engine) <../GAM>"]),
+        tree(
+            "Statistical estimators",
+            [*entries, "asymmetric_fitting", "GAM (statistical engine) <../GAM>"],
+        ),
     )
 
 

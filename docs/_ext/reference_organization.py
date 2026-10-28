@@ -9,6 +9,8 @@ from __future__ import annotations
 import inspect
 import json
 
+from smooth_contracts import SHAPE_NAMES, smooth_inputs
+
 SMOOTH_NAMES = {
     "tp": "Thin-plate regression spline",
     "ts": "Shrinkage thin-plate spline",
@@ -35,6 +37,9 @@ SMOOTH_NAMES = {
     "ti": "Tensor interaction",
     "t2": "Range/null-space tensor product",
 }
+
+
+SMOOTH_NAMES.update(SHAPE_NAMES)
 
 
 def smooth_title(name, description):
@@ -197,6 +202,8 @@ def grouped_families(root, backend, names):
         else "Neural response distributions"
     )
     text += "Choose by response support, then compare parameterization and fitting interface. Column meanings on the individual page take precedence over a similarly named family in another backend.\n\n"
+    text += "The parameter column describes natural distribution parameters, not link predictors or lower-level response output columns. Family pages distinguish these interfaces. Fixed nuisance parameters are listed in each constructor contract.\n\n"
+    text += "For likelihoods, links, response support and joint parameter predictors, start with :doc:`/statistical_reference/families/theory`. Individual pages develop the theory of their response law before its API contracts.\n\n"
     covered = set()
     for title, members in FAMILY_GROUPS.items():
         selected = sorted(set(names) & members)
@@ -232,9 +239,11 @@ def grouped_families(root, backend, names):
                 )
                 interface = (
                     "GAMLSS / core GAM"
-                    if getattr(family, "n_linear_predictors", 1) > 1
+                    if getattr(family, "family_class", "") == "general"
                     else "GAMRegressor / core GAM"
                 )
+                if name == "multinom":
+                    params = ("p0, ..., pK",)
                 if name == "binomial":
                     interface = "GAMClassifier / core GAM"
             else:
@@ -262,14 +271,17 @@ def grouped_families(root, backend, names):
             [
                 "Family",
                 "Response support / interpretation",
-                "Parameters in order",
+                "Natural distribution parameters (column order)",
                 "Interface",
             ],
             rows,
         )
     if covered != set(names):
         raise ValueError(f"Family index needs a support group: {set(names) - covered}")
-    text += ".. toctree::\n   :hidden:\n\n" + "".join(f"   {name}\n" for name in names)
+    text += ".. toctree::\n   :hidden:\n\n"
+    if backend == "statistical":
+        text += "   Mathematical foundations <theory>\n"
+    text += "".join(f"   {name}\n" for name in names)
     write(root, f"{backend}_reference/families/index.rst", text)
 
 
@@ -277,7 +289,6 @@ def organize_reference(root):
     from dataclasses import fields
 
     from feature_reference import (
-        CONTROL_MEANINGS,
         FAMILY_SUPPORT,
         SMOOTH_MEANINGS,
         heading,
@@ -315,26 +326,26 @@ def organize_reference(root):
             else "Multivariate, spatial and spherical smooths"
             if name in {"tp", "ts", "ds", "gp", "sos", "so", "sf", "sw"}
             else "Shape-constrained smooths"
-            if name not in SMOOTH_NAMES
+            if name in SHAPE_NAMES
             else "Ordinary one-dimensional smooths"
         )
         groups[group].append(
             (
                 f":doc:`{name} <{name}>`",
                 SMOOTH_NAMES.get(name, SMOOTH_MEANINGS[name].split(".")[0]),
-                f"{d.min_features}–{d.max_features or 'unbounded'} covariates",
+                smooth_inputs(d),
                 SMOOTH_MEANINGS[name],
             )
         )
     text = (
         heading("Smooth bases and tensor products")
-        + "Choose the modeling purpose first. Each detail page documents the formula interface and links separately to its runtime constructor.\n\n"
+        + "Choose the modeling purpose first. Start with :doc:`theory` for basis expansions, penalties, null spaces and EDF. Each detail page explains its specific construction, then documents the formula interface and links separately to its runtime constructor.\n\n"
     )
     for title, rows in groups.items():
         text += heading(title, "-") + table(
             ["Code", "Name", "Inputs", "Main distinction"], rows
         )
-    text += ".. toctree::\n   :hidden:\n\n" + "".join(
+    text += ".. toctree::\n   :hidden:\n\n   Mathematical foundations <theory>\n" + "".join(
         f"   {d.name}\n" for d in descriptors
     )
     write(root, "statistical_reference/smooths/index.rst", text)
@@ -375,76 +386,11 @@ def organize_reference(root):
         ),
     )
 
+    from control_reference import generate as generate_controls
+
+    generate_controls(root)
     defaults = gam_control()
     all_fields = {f.name: f for f in fields(defaults)}
-    grouped = {n for _, names in CONTROL_GROUPS.values() for n in names}
-    if grouped != set(all_fields):
-        raise ValueError(f"Control groups differ: {grouped ^ set(all_fields)}")
-    for slug, (title, names) in CONTROL_GROUPS.items():
-        body = (
-            heading(title)
-            + "Pass these settings through ``control=gam_control(...)``. The result is a validated immutable ``GAMControl``; it is not a prediction result. Unknown keys raise ``TypeError``. Domain violations raise ``ValueError`` except the explicitly documented reset policies.\n\n"
-        )
-        for name in names:
-            old = root / f"statistical_reference/controls/{name}.rst"
-            old_text = old.read_text()
-            start = old_text.index("Signature and default\n")
-            # Preserve detailed defaults, aliases, validation notes, nested options and tested example.
-            content = old_text[start:]
-            body += (
-                f".. _{control_anchor(name)}:\n\n"
-                + heading(name, "-")
-                + CONTROL_MEANINGS[name]
-                + "\n\n"
-            )
-            consumer = (
-                "SCAM transformed-coefficient solver"
-                if slug == "shape_fitting"
-                else "Selected outer optimizer; other outer routes ignore its nested settings"
-                if slug == "smoothing_optimization"
-                else "IRLS/coefficient solver and dispersion postprocessing"
-                if slug == "coefficient_fitting"
-                else "Basis compiler before coefficient fitting"
-                if slug == "basis_penalty"
-                else "Fitting diagnostics and retained metadata"
-            )
-            body += f"**Consumer and overrides:** {consumer}. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.\n\n"
-            # Avoid heading collisions inside a grouped page.
-            content = (
-                content.replace(
-                    "Signature and default\n---------------------",
-                    ".. rubric:: Signature and default",
-                )
-                .replace(
-                    "Returns and use\n---------------", ".. rubric:: Returns and use"
-                )
-                .replace("Nested options\n--------------", ".. rubric:: Nested options")
-                .replace(
-                    "Runnable example\n----------------", ".. rubric:: Runnable example"
-                )
-                .replace(
-                    "Example output types and shapes\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
-                    ".. rubric:: Example output types and shapes",
-                )
-            )
-            body += content + "\n\n"
-            write(
-                root,
-                f"statistical_reference/controls/{name}.rst",
-                ":orphan:\n\n"
-                + heading(name)
-                + f"See :ref:`{control_anchor(name)}` for its type, default, domain, consumer and tested example.\n",
-            )
-        write(root, f"statistical_reference/controls/{slug}.rst", body)
-    write(
-        root,
-        "statistical_reference/controls/index.rst",
-        tree(
-            "Fitting controls",
-            [f"{title} <{slug}>" for slug, (title, _) in CONTROL_GROUPS.items()],
-            "Settings are grouped by the algorithm that consumes them. Defaults are resolved by gam_control(), including nested optimizer mappings.",
-        ),
-    )
 
     grouped_families(
         root,
@@ -464,6 +410,8 @@ def organize_reference(root):
     selection = (
         heading("Smoothness selection")
         + "The criterion defines the objective; the optimizer determines how smoothing parameters are updated. Support depends on both choices and the family/coefficient route.\n\n"
+        + "Start with :doc:`theory` for coefficient fitting, the outer selection loop, predictive risk and marginal likelihood.\n\n"
+        + ".. toctree::\n   :maxdepth: 1\n\n   Mathematical foundations <theory>\n\n"
     )
     for title, choices in [
         ("Criteria", SELECTION_MEANINGS),
@@ -574,9 +522,9 @@ def organize_reference(root):
                     ],
                     "input_contract": f"statistical_reference/controls/{slug}#{control_anchor(name)}",
                     "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/"
-                    + name,
+                    + slug,
                     "restrictions": f"statistical_reference/controls/{slug}#{control_anchor(name)}",
-                    "example": f"statistical_reference/controls/{name}",
+                    "example": f"statistical_reference/controls/{slug}",
                     "tests": ["tests/docs/test_feature_reference.py"],
                 }
             )

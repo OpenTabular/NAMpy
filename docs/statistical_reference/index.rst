@@ -11,6 +11,7 @@ Choose an estimator, specify its formula, smooth terms and response family, then
    estimators/index
    Formula language </api/gam_formula>
    smooths/index
+   penalties
    families/index
    selection/index
    controls/index

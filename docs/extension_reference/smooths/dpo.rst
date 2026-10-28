@@ -2,7 +2,7 @@
 
 :orphan:
 
-Positive, decreasing P-spline using a reversed cumulative coefficient (``dpo``) runtime
-=======================================================================================
+Positive decreasing P-spline (``dpo``) runtime
+==============================================
 
 :doc:`Canonical runtime constructor <ShapeConstrainedPSplineTerm>`.

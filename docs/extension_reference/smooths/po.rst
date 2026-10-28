@@ -2,7 +2,7 @@
 
 :orphan:
 
-Positive P-spline using positive coefficients in a nonnegative B-spline basis (``po``) runtime
-==============================================================================================
+Positive P-spline (``po``) runtime
+==================================
 
 :doc:`Canonical runtime constructor <ShapeConstrainedPSplineTerm>`.

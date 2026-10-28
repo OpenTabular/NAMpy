@@ -23,34 +23,90 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
+.. rubric:: expanded
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - x
+     - time
+     - event
+     - ped_id
+   * - 1.3507473233305594
+     - 0.3655537896876375
+     - 1.0
+     - 0.0
+   * - 0.34309058470100834
+     - 0.4624161904492137
+     - 1.0
+     - 1.0
+
+Full shape: ``[215, 10]``; omitted by axis: ``[213, 6]``.
+
 .. code-block:: text
 
    {
-     "cumulative_hazard": [
-       0.52507,
-       1.12383,
-       1.80628,
-       2.55526,
-       3.2688,
-       3.86137
+     "cumulative_hazard": {
+       "kind": "array",
+       "omitted_by_axis": [
+         0,
+         4
+       ],
+       "shape": [
+         1,
+         8
+       ],
+       "values": [
+         [
+           0.52507,
+           1.12383,
+           1.80628,
+           2.55526
+         ]
+       ]
+     },
+     "hazard": {
+       "kind": "array",
+       "omitted_by_axis": [
+         0,
+         4
+       ],
+       "shape": [
+         1,
+         8
+       ],
+       "values": [
+         [
+           1.05015,
+           1.19752,
+           1.36489,
+           1.49796
+         ]
+       ]
+     },
+     "omitted_fields": [
+       "survival"
      ],
-     "expanded": "          x      time  event  ped_id  tstart  tend  exposure    offset  ped_event  interval\n0  1.350747  0.365554    1.0       0     0.0   0.5  0.365554 -1.006342          1         0\n1  0.343091  0.462416    1.0       1     0.0   0.5  0.462416 -0.771290          1         0",
-     "hazard": [
-       1.05015,
-       1.19752,
-       1.36489,
-       1.49796,
-       1.42709,
-       1.18513
-     ],
-     "time": [
-       0.5,
-       1.0,
-       1.5,
-       2.0,
-       2.5,
-       3.0
-     ]
+     "time": {
+       "kind": "array",
+       "omitted_by_axis": [
+         2
+       ],
+       "shape": [
+         8
+       ],
+       "values": [
+         0.5,
+         1.0,
+         1.5,
+         2.0,
+         2.5,
+         3.0
+       ]
+     }
    }
 
 Example output types and shapes
@@ -58,7 +114,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

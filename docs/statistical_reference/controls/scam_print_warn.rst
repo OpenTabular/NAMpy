@@ -5,4 +5,4 @@
 scam_print_warn
 ===============
 
-See :ref:`control-scam-print-warn` for its type, default, domain, consumer and tested example.
+See :ref:`scam_print_warn <control-scam-print-warn>` for its type, default, valid values and fitting role.

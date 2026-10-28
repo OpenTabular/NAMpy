@@ -3,307 +3,49 @@
 Output and execution
 ====================
 
-Pass these settings through ``control=gam_control(...)``. The result is a validated immutable ``GAMControl``; it is not a prediction result. Unknown keys raise ``TypeError``. Domain violations raise ``ValueError`` except the explicitly documented reset policies.
+nthreads and ncv_threads are compatibility metadata and do not activate parallel native kernels. trace controls available diagnostics; keep_data records the requested retention policy.
 
-.. _control-nthreads:
-
-nthreads
---------
-
-Positive integer retained as compatibility metadata. This setting does not activate parallel native fitting kernels in NAMpy.
-
-**Consumer and overrides:** Fitting diagnostics and retained metadata. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.
-
-.. rubric:: Signature and default
-
-.. code-block:: python
-
-   from nampy.gam import gam_control
-
-   control = gam_control(nthreads=1)
+Create one validated ``GAMControl`` with ``gam_control(...)`` and pass it as ``control=``. Unknown keys raise ``TypeError``; invalid values raise ``ValueError`` except the documented reset policies.
 
 .. list-table::
    :header-rows: 1
    :class: api-reference-table
 
-   * - Parameter
-     - Type
-     - Resolved default
-     - Aliases
-   * - nthreads
-     - int
-     - ``1``
-     - None
+   * - Setting
+     - Type / default
+     - Valid values
+     - Effect
+   * - .. _control-nthreads:
 
-.. rubric:: Returns and use
+       ``nthreads``
+     - ``int``, ``1``
+     - Positive integer (rounded)
+     - Positive integer retained as compatibility metadata. This setting does not activate parallel native fitting kernels in NAMpy.
+   * - .. _control-ncv-threads:
 
-``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.
+       ``ncv_threads``
+     - ``int``, ``1``
+     - Positive integer (rounded)
+     - Positive integer retained as compatibility metadata. This setting does not activate parallel NCV kernels or change neighborhood indexing.
+   * - .. _control-trace:
 
-:doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`
+       ``trace``
+     - ``bool``, ``False``
+     - True or False
+     - Emit supported fitting/optimizer progress diagnostics.
+   * - .. _control-keep-data:
 
+       ``keep_data``
+     - ``bool``, ``False``
+     - True or False
+     - Record the requested upstream data-retention policy in the fit controls.
 
-.. rubric:: Runnable example
+Accepted aliases: ``ncv.threads`` → ``ncv_threads``, ``keepData`` → ``keep_data``.
 
-This example includes all imports and input data; no variables from another page are required.
+Combined example
+----------------
 
-:download:`Download the complete example </_examples/reference/statistical_reference/controls/nthreads.py>`
-
-.. literalinclude:: /_examples/reference/statistical_reference/controls/nthreads.py
+.. literalinclude:: /_examples/reference/statistical_reference/controls/execution.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   {
-     "nthreads": 1
-   }
-
-.. rubric:: Example output types and shapes
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The preview lists up to six direct fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 1 named fields
-   * - result['nthreads']
-     - builtins.int
-     - ()
-
-
-.. _control-ncv-threads:
-
-ncv_threads
------------
-
-Positive integer retained as compatibility metadata. This setting does not activate parallel NCV kernels or change neighborhood indexing.
-
-**Consumer and overrides:** Fitting diagnostics and retained metadata. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.
-
-.. rubric:: Signature and default
-
-.. code-block:: python
-
-   from nampy.gam import gam_control
-
-   control = gam_control(ncv_threads=1)
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Parameter
-     - Type
-     - Resolved default
-     - Aliases
-   * - ncv_threads
-     - int
-     - ``1``
-     - ``ncv.threads``
-
-.. rubric:: Returns and use
-
-``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.
-
-:doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`
-
-
-.. rubric:: Runnable example
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/statistical_reference/controls/ncv_threads.py>`
-
-.. literalinclude:: /_examples/reference/statistical_reference/controls/ncv_threads.py
-   :language: python
-
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   {
-     "ncv_threads": 1
-   }
-
-.. rubric:: Example output types and shapes
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The preview lists up to six direct fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 1 named fields
-   * - result['ncv_threads']
-     - builtins.int
-     - ()
-
-
-.. _control-trace:
-
-trace
------
-
-Emit supported fitting/optimizer progress diagnostics.
-
-**Consumer and overrides:** Fitting diagnostics and retained metadata. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.
-
-.. rubric:: Signature and default
-
-.. code-block:: python
-
-   from nampy.gam import gam_control
-
-   control = gam_control(trace=False)
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Parameter
-     - Type
-     - Resolved default
-     - Aliases
-   * - trace
-     - bool
-     - ``False``
-     - None
-
-.. rubric:: Returns and use
-
-``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.
-
-:doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`
-
-
-.. rubric:: Runnable example
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/statistical_reference/controls/trace.py>`
-
-.. literalinclude:: /_examples/reference/statistical_reference/controls/trace.py
-   :language: python
-
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   {
-     "trace": false
-   }
-
-.. rubric:: Example output types and shapes
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The preview lists up to six direct fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 1 named fields
-   * - result['trace']
-     - builtins.bool
-     - ()
-
-
-.. _control-keep-data:
-
-keep_data
----------
-
-Record the requested upstream data-retention policy in the fit controls.
-
-**Consumer and overrides:** Fitting diagnostics and retained metadata. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.
-
-.. rubric:: Signature and default
-
-.. code-block:: python
-
-   from nampy.gam import gam_control
-
-   control = gam_control(keep_data=False)
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Parameter
-     - Type
-     - Resolved default
-     - Aliases
-   * - keep_data
-     - bool
-     - ``False``
-     - ``keepData``
-
-.. rubric:: Returns and use
-
-``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.
-
-:doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`
-
-
-.. rubric:: Runnable example
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/statistical_reference/controls/keep_data.py>`
-
-.. literalinclude:: /_examples/reference/statistical_reference/controls/keep_data.py
-   :language: python
-
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   {
-     "keep_data": false
-   }
-
-.. rubric:: Example output types and shapes
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The preview lists up to six direct fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 1 named fields
-   * - result['keep_data']
-     - builtins.bool
-     - ()
+:download:`Download this example </_examples/reference/statistical_reference/controls/execution.py>`.

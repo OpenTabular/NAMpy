@@ -3,6 +3,40 @@
 multinom
 ========
 
+Theory and interpretation
+-------------------------
+
+* **Distribution / loss:** P(Y=j)=p_j, j=0,...,C-1; sum(p)=1.
+* **Natural domains:** class probabilities p_j>=0, normalized across C classes
+* **Conditional mean:** Probability vector p; a numeric class-label mean has no invariant categorical interpretation
+* **Conditional variance:** Covariance of one-hot Y: diag(p)-p p^T
+
+References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
+
+A categorical model assigns probability to each unordered label.
+Reference-category logits identify the statistical multinomial model
+by fixing category zero's logit, removing an arbitrary common shift.
+
+.. math::
+
+   p_0=\frac{1}{1+\sum_{k=1}^{K}e^{\eta_k}},\qquad p_j=\frac{e^{\eta_j}}{1+\sum_{k=1}^{K}e^{\eta_k}},\qquad -\ell=-\log p_y.
+
+Each eta_j is log odds relative to category zero, not an
+independently fitted probability. All probabilities depend on all
+logits through the shared denominator. A neural categorical head
+instead supplies C logits and applies softmax; common logit shifts
+leave probabilities unchanged. The class-label ordering controls
+output columns and carries no numerical distance interpretation.
+
+See :doc:`/statistical_reference/families/theory` for likelihoods,
+links, weights and distributional predictors. The mathematical law
+does not imply support for every fitting or smoothing-selection route;
+the contracts below define the implemented combinations.
+
+Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
+
+Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Multinomial logit regression against reference category zero, with K predictors and K+1 response probabilities.
 
 Usage
@@ -41,30 +75,6 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``1``
      - Number of non-reference multinomial categories/predictors. Observed labels are 0 through K and probability prediction has K+1 columns.
 
-Distribution definition and moments
------------------------------------
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Quantity
-     - Definition
-   * - Distribution / loss
-     - P(Y=j)=p_j, j=0,...,C-1; sum(p)=1.
-   * - Natural domains
-     - class probabilities p_j>=0, normalized across C classes
-   * - Conditional mean
-     - Probability vector p; a numeric class-label mean has no invariant categorical interpretation
-   * - Conditional variance
-     - Covariance of one-hot Y: diag(p)-p p^T
-
-References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
-
-Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
-
-Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
-
 Outputs and fitting support
 ---------------------------
 
@@ -77,9 +87,17 @@ Outputs and fitting support
    * - Family class
      - general
    * - Linear predictors
-     - 1
+     - K
    * - Natural parameter names
-     - ('p0', 'p1')
+     - p0, ..., pK
+   * - Response columns
+     - p0, ..., pK
+   * - Link columns
+     - eta1, ..., etaK
+   * - Default
+     - K=1: two response categories
+   * - Adapters
+     - GAMLSS and core GAM; GAMRegressor rejects general families
    * - REML
      - True
    * - ML
@@ -131,33 +149,78 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "link_predictors": [
-       -0.03369,
-       -0.0,
-       0.41019,
-       -0.0,
-       -0.18218,
-       -0.0
-     ],
-     "natural_parameters": [
-       0.33705,
-       0.32589,
-       0.33705,
-       0.28514,
-       0.42973,
-       0.28514
-     ],
-     "source_response": [
-       0.33705,
-       0.32589,
-       0.33705,
-       0.28514,
-       0.42973,
-       0.28514
-     ]
+     "link_predictors": {
+       "kind": "array",
+       "omitted_by_axis": [
+         94,
+         0
+       ],
+       "shape": [
+         96,
+         2
+       ],
+       "values": [
+         [
+           -0.03369,
+           -0.0
+         ],
+         [
+           0.41019,
+           -0.0
+         ]
+       ]
+     },
+     "natural_parameters": {
+       "kind": "array",
+       "omitted_by_axis": [
+         94,
+         0
+       ],
+       "shape": [
+         96,
+         3
+       ],
+       "values": [
+         [
+           0.33705,
+           0.32589,
+           0.33705
+         ],
+         [
+           0.28514,
+           0.42973,
+           0.28514
+         ]
+       ]
+     },
+     "source_response": {
+       "kind": "array",
+       "omitted_by_axis": [
+         94,
+         0
+       ],
+       "shape": [
+         96,
+         3
+       ],
+       "values": [
+         [
+           0.33705,
+           0.32589,
+           0.33705
+         ],
+         [
+           0.28514,
+           0.42973,
+           0.28514
+         ]
+       ]
+     }
    }
 
 Example output types and shapes
@@ -165,7 +228,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

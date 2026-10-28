@@ -3,27 +3,37 @@
 poisson
 =======
 
-Neural distribution family for ``family='poisson'``. Configure its constructor through ``distributional_kwargs`` on an LSS estimator.
+Theory and interpretation
+-------------------------
 
-Distribution definition and moments
------------------------------------
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Quantity
-     - Definition
-   * - Distribution / loss
-     - P(Y=y)=exp(-lambda) lambda^y/y!, y=0,1,... .
-   * - Natural domains
-     - lambda>0
-   * - Conditional mean
-     - lambda
-   * - Conditional variance
-     - lambda
+* **Distribution / loss:** P(Y=y)=exp(-lambda) lambda^y/y!, y=0,1,... .
+* **Natural domains:** lambda>0
+* **Conditional mean:** lambda
+* **Conditional variance:** lambda
 
 References: `PyTorch probability distributions <https://docs.pytorch.org/docs/stable/distributions.html>`_. NAMpy defines its family transforms and point outputs below.
+
+Poisson regression models nonnegative event counts with equal
+conditional mean and variance. A log link makes the rate positive and
+gives an additive effect a multiplicative interpretation.
+
+.. math::
+
+   \log\mu=\eta,\qquad -\log p(y\mid\mu)=\mu-y\log\mu+\log\Gamma(y+1).
+
+A one-unit predictor change multiplies the mean by exp(1); a term
+difference delta multiplies it by exp(delta). For varying exposure t,
+offset(log(t)) specifies expected count t*exp(eta_without_offset).
+Conditional overdispersion suggests checking missing predictors,
+dependence, or a different count law. Fractional nonnegative responses
+are not literal Poisson event counts.
+
+Neural training composes this response objective with the chosen architecture. Its raw outputs pass through the configured domain transforms; likelihood parameterization and network architecture are separate choices.
+
+See :doc:`/statistical_reference/families/theory` for likelihoods,
+links, weights and distributional predictors. The mathematical law
+does not imply support for every fitting or smoothing-selection route;
+the contracts below define the implemented combinations.
 
 Targets, transforms and scoring
 -------------------------------
@@ -33,6 +43,8 @@ Target shape/encoding: ``(n,) floating scalar response; support follows the dist
 ``compute_loss`` and ``compute_loss_per_sample`` consume raw network outputs, not already transformed parameters. The scalar loss is averaged over observations. Lower loss is better. LSS scoring follows the shared estimator contract; response SD summarizes conditional variability, not estimation uncertainty. Distribution-specific moments that do not exist cannot be interpreted as finite uncertainty estimates.
 
 Implementation definitions: :mod:`nampy.neural.distributions.distributions`. See the source link on the runtime contract for the implemented transforms and objective.
+
+Neural distribution family for ``family='poisson'``. Configure its constructor through ``distributional_kwargs`` on an LSS estimator.
 
 Signature
 ---------
@@ -138,36 +150,53 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
+.. rubric:: parameters
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - rate
+   * - 0.693149983882904
+   * - 0.693149983882904
+
+Full shape: ``[8, 1]``; omitted by axis: ``[6, 0]``.
+
+.. rubric:: raw
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - rate
+   * - 0.0
+   * - 0.0
+
+Full shape: ``[8, 1]``; omitted by axis: ``[6, 0]``.
+
 .. code-block:: text
 
    {
-     "loss": [
-       1.0596599578857422
-     ],
-     "parameters": [
-       0.693149983882904,
-       0.693149983882904,
-       0.693149983882904,
-       0.693149983882904,
-       0.693149983882904,
-       0.693149983882904
-     ],
-     "point": [
-       0.693149983882904,
-       0.693149983882904,
-       0.693149983882904,
-       0.693149983882904,
-       0.693149983882904,
-       0.693149983882904
-     ],
-     "raw": [
-       0.0,
-       0.0,
-       0.0,
-       0.0,
-       0.0,
-       0.0
-     ]
+     "loss": 1.0596600770950317,
+     "point": {
+       "kind": "array",
+       "omitted_by_axis": [
+         2
+       ],
+       "shape": [
+         8
+       ],
+       "values": [
+         0.693149983882904,
+         0.693149983882904,
+         0.693149983882904,
+         0.693149983882904,
+         0.693149983882904,
+         0.693149983882904
+       ]
+     }
    }
 
 Example output types and shapes
@@ -175,7 +204,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

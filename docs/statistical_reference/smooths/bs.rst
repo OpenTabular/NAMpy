@@ -5,6 +5,29 @@ Derivative-penalized B-spline (``bs``)
 
 B-spline with integrated derivative penalties. Unlike ps, its penalty acts on derivatives of the represented function.
 
+Theory and interpretation
+-------------------------
+
+Derivative-penalized B-splines keep the local B-spline representation
+but measure roughness in function space. Differentiating each basis
+function and integrating products constructs the penalty exactly up
+to the numerical integration used by the constructor.
+
+.. math::
+
+   S^{(q)}_{rs}=\int b_r^{(q)}(x)b_s^{(q)}(x)dx,\qquad J_q(f)=\int\{f^{(q)}(x)\}^2dx.
+
+With multiple requested derivative orders, each penalty gets its own
+smoothing coordinate. A q-th derivative penalty leaves polynomials of
+degree below q unpenalized when those polynomials are in the basis.
+Unlike a difference penalty, the derivative construction explicitly
+incorporates the covariate metric and knot spacing. Basis order must
+be high enough to define the requested derivatives.
+
+For coefficient coordinates, centering, null spaces and EDF, see
+:doc:`/statistical_reference/smooths/theory`. The formula and runtime
+contracts below specify which mathematical options NAMpy exposes.
+
 Formula interface
 -----------------
 
@@ -25,34 +48,44 @@ Parameters
      - Type / shape
      - Default
      - Meaning
-   * - ``by``
-     - str | int | None
-     - None
-     - Optional numeric multiplier or factor defining varying-coefficient or level-specific effects. Identifiability constraints depend on its type.
-   * - ``fx``
-     - bool
-     - False
-     - Fit as an unpenalized regression term rather than estimating a roughness penalty (formula spelling: fx).
-   * - ``id``
-     - str | int | None
-     - None
-     - Optional identifier linking smoothing parameters across compatible terms.
+   * - ``bs``
+     - str
+     - ``model basis ('tp' by default)``
+     - Select this basis with bs='bs'. The alias basis is also accepted.
    * - ``k``
      - int
-     - -1
-     - Requested basis dimension before identifiability constraints; not the effective degrees of freedom. Negative values select basis-specific automatic dimensions. Tensor terms may accept marginal dimensions.
+     - ``-1 (automatic)``
+     - Requested basis dimension before constraints; automatic resolution depends on the basis and covariate dimension.
    * - ``m``
-     - int | Sequence[int | float] | None
-     - None
+     - int | sequence | None
+     - ``None``
      - None resolves to (3, 2): cubic degree and integrated squared second derivative. A scalar degree uses derivative order max(0, degree-1); a sequence starts with degree followed by distinct derivative penalty orders, each between zero and degree.
+   * - ``by``
+     - str | expression | None
+     - ``None``
+     - Numeric multiplier or categorical source column/expression defining varying-coefficient or level-specific effects; evaluated on training and new rows.
+   * - ``id``
+     - str | int | None
+     - ``None``
+     - Share smoothing parameters across compatible terms. Alias smoothing_id is accepted; basis sharing follows id_links_bases.
    * - ``sp``
-     - float | array-like, shape (n_penalties,) | None
-     - None
-     - Optional penalty strength(s). Formula-level nonnegative values fix the corresponding smoothing parameters; negative entries request estimation.
+     - float | sequence[float] | None
+     - ``None``
+     - Penalty strengths in term penalty order. Nonnegative supplied values fix strengths; negative entries request estimation when automatic selection is enabled.
+   * - ``xt``
+     - mapping | sequence[mapping | None] | str | None
+     - ``None``
+     - No additional xt setup is consumed by this basis.
+   * - ``fx``
+     - bool
+     - ``False``
+     - Fit the smooth without its roughness penalty. Model-level null-space selection cannot be combined with a fixed unpenalized term.
+   * - ``pc``
+     - float | sequence[float] | mapping[str,float] | None
+     - ``None``
+     - Homogeneous function constraint f(x0)=0. Supply one coordinate per input covariate, or a named mapping; the basis is reparameterized at the point.
 
-Only supported formula options are shown here. Formula defaults come from the formula specification; k=-1 requests the basis-specific automatic rank, independently of runtime-constructor defaults. Runtime-only setup arguments belong to the separate implementation API. Point constraints and additional setup follow the capabilities below.
-
-``pc`` (float or mapping, default None) imposes the function constraint f(x0)=0 through a basis reparameterization.
+The formula compiler resolves defaults independently of runtime constructors. ``knots`` and ``select`` belong to the model, not the formula call. Runtime-only setup options are documented in the implementation API.
 
 Identifiability, penalty and prediction
 ---------------------------------------
@@ -71,7 +104,7 @@ Capabilities
    * - Property
      - Value
    * - Covariates
-     - 1 to 1
+     - One covariate
    * - Tensor marginal
      - True
    * - Point constraints
@@ -82,7 +115,7 @@ Capabilities
 Outputs
 -------
 
-The formula adds a term to the fitted model's additive predictor. Its coefficient block has p_term columns after constraints, potentially fewer than the requested k; this dimension differs from EDF. ``predict(type='terms')`` returns a floating array with n rows and one column per retained term for a scalar predictor. ``lpmatrix`` returns the full floating model design, shape (n, p), including the other terms. The scalar Gaussian examples below produce response predictions of shape (n,). Runtime matrix and penalty contracts are documented separately.
+The formula adds a term to the fitted model's additive predictor. Its coefficient block has p_term columns after constraints; this dimension differs from EDF. ``predict(type='terms')`` returns a floating array with n rows and one column per retained term for a scalar predictor. ``lpmatrix`` returns the full floating model design, shape (n, p), including the other terms. The scalar Gaussian examples below produce response predictions of shape (n,). Runtime matrix and penalty contracts are documented separately.
 
 
 
@@ -99,33 +132,44 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "coefficient_covariance": [
-       0.00024,
-       0.0,
-       0.0,
-       0.0,
-       0.0,
-       0.0
-     ],
-     "full_model_design": [
-       1.0,
-       -0.073,
-       -0.15055,
-       -0.16201,
-       -0.11725,
-       0.3642
-     ],
-     "prediction": [
-       1.50075,
-       1.02549,
-       1.34308,
-       1.16048,
-       1.32942,
-       1.09994
-     ]
+     "coefficient_covariance": {
+       "kind": "array",
+       "shape": [
+         10,
+         10
+       ],
+       "values": "omitted; see shape contract"
+     },
+     "full_model_design": {
+       "kind": "array",
+       "shape": [
+         96,
+         10
+       ],
+       "values": "omitted; see shape contract"
+     },
+     "prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         1.50075,
+         1.02549,
+         1.34308,
+         1.16048,
+         1.32942,
+         1.09994
+       ]
+     }
    }
 
 Example output types and shapes
@@ -133,7 +177,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

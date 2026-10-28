@@ -1,5 +1,3 @@
-:orphan:
-
 Statistical extension scope and upstream validation
 ===================================================
 
@@ -46,9 +44,6 @@ Implemented scope
   Series boundaries and missing lags propagate correctly. This is a cross-basis
   construction API; it does not replicate all of dlnm's automatic basis choices,
   attributable-risk tools or plotting interfaces.
-
-The attachment recommended postponing component-wise boosting and Bayesian
-mixture/latent-variable frameworks. Those fitting engines are not introduced.
 
 Design compilation and numerical boundary checks
 ------------------------------------------------

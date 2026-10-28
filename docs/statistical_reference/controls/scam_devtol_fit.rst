@@ -5,4 +5,4 @@
 scam_devtol_fit
 ===============
 
-See :ref:`control-scam-devtol-fit` for its type, default, domain, consumer and tested example.
+See :ref:`scam_devtol_fit <control-scam-devtol-fit>` for its type, default, valid values and fitting role.

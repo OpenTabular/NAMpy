@@ -3,6 +3,43 @@
 gamma
 =====
 
+Theory and interpretation
+-------------------------
+
+* **Distribution / loss:** f(y)=r^a y^(a-1) exp(-r y)/Gamma(a), y>0.
+* **Natural domains:** shape a>0; rate r>0 (inverse scale)
+* **Conditional mean:** a/r
+* **Conditional variance:** a/r^2
+
+Statistical Gamma uses mean mu and dispersion phi: shape=1/phi and rate=1/(mu phi). Public GAMLSS uses sigma=sqrt(phi), so Var(Y)=(mu sigma)^2.
+
+References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
+
+A Gamma response is positive and right-skewed. In mean/dispersion
+notation its shape is 1/phi and its rate is 1/(mu*phi). This makes
+relative variability constant when phi is constant.
+
+.. math::
+
+   \operatorname{Var}(Y)=\phi\mu^2,\qquad \operatorname{CV}(Y)=\sqrt\phi,\qquad g(\mu)=\eta.
+
+With a log mean link, term differences multiply the conditional
+mean. A varying dispersion predictor changes relative variability
+independently of the mean. Zeros are outside the Gamma density; an
+exposure model or semicontinuous distribution is needed when zeros
+are genuine outcomes. The shape/rate neural interface and the
+mean/dispersion statistical interface require the parameter conversion
+above; the runtime output table determines the public column order.
+
+See :doc:`/statistical_reference/families/theory` for likelihoods,
+links, weights and distributional predictors. The mathematical law
+does not imply support for every fitting or smoothing-selection route;
+the contracts below define the implemented combinations.
+
+Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
+
+Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Strictly positive continuous response. Links: inverse (default), identity and log. Dispersion is a scale parameter, not a second additive predictor.
 
 Usage
@@ -40,32 +77,6 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``float``
      - ``1e-09``
      - Positive numerical safeguard used in probability/domain clipping; this is not an additional distribution parameter.
-
-Distribution definition and moments
------------------------------------
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Quantity
-     - Definition
-   * - Distribution / loss
-     - f(y)=r^a y^(a-1) exp(-r y)/Gamma(a), y>0.
-   * - Natural domains
-     - shape a>0; rate r>0 (inverse scale)
-   * - Conditional mean
-     - a/r
-   * - Conditional variance
-     - a/r^2
-
-Statistical Gamma uses mean mu and dispersion phi: shape=1/phi and rate=1/(mu phi). Public GAMLSS uses sigma=sqrt(phi), so Var(Y)=(mu sigma)^2.
-
-References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
-
-Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
-
-Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
 
 Outputs and fitting support
 ---------------------------
@@ -129,25 +140,45 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "link_prediction": [
-       0.77252,
-       0.8787,
-       0.7278,
-       1.05862,
-       1.06145,
-       0.83601
-     ],
-     "response_prediction": [
-       1.29446,
-       1.13804,
-       1.37401,
-       0.94463,
-       0.94211,
-       1.19616
-     ]
+     "link_prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         0.77252,
+         0.8787,
+         0.7278,
+         1.05862,
+         1.06145,
+         0.83601
+       ]
+     },
+     "response_prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         1.29446,
+         1.13804,
+         1.37401,
+         0.94463,
+         0.94211,
+         1.19616
+       ]
+     }
    }
 
 Example output types and shapes
@@ -155,7 +186,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

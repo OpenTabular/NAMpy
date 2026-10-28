@@ -3,38 +3,48 @@
 beta_lss
 ========
 
-Types, defaults and output shapes
----------------------------------
+Theory and interpretation
+-------------------------
 
-Distribution definition and moments
------------------------------------
+* **Distribution / loss:** Y~Beta(mu*phi,(1-mu)*phi); natural columns are (mu,phi), mean and precision.
+* **Natural domains:** 0<mu<1; finite phi>0; target 0<Y<1
+* **Conditional mean:** mu
+* **Conditional variance:** mu*(1-mu)/(1+phi)
 
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
+Alternative shape parameters are alpha=mu*phi and beta=(1-mu)*phi. For gamlss.dist BE, use sigma_BE=1/sqrt(phi+1); sigma_BE is not NAMpy precision phi. Raw predictors are (logit(mu),log(phi)).
 
-   * - Quantity
-     - Definition
-   * - Distribution / loss
-     - f(y)=y^(alpha-1)(1-y)^(beta-1)/B(alpha,beta), 0<y<1.
-   * - Natural domains
-     - alpha>0; beta>0
-   * - Conditional mean
-     - alpha/(alpha+beta)
-   * - Conditional variance
-     - alpha beta/((alpha+beta)^2 (alpha+beta+1))
+Distribution reference: `gamlss.dist::BE <https://github.com/cran/gamlss.dist/blob/master/man/BE.Rd>`_. Fitting uses NAMpy's joint penalized engine, not gamlss RS backfitting. See :doc:`/development/neighbor_parity` for the tested mapping and numerical comparisons.
 
-Mean/precision form: alpha=mu phi, beta=(1-mu)phi. The public beta_lss columns are (mu,phi); betar estimates/fixes precision as a nuisance parameter.
+Beta regression models a continuous proportion strictly between
+zero and one. Replacing shape parameters a,b by mean mu and precision
+phi separates the center of the distribution from its concentration.
 
-References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
+.. math::
+
+   a=\mu\phi,\quad b=(1-\mu)\phi,\qquad E[Y]=\mu,\quad \operatorname{Var}(Y)=\frac{\mu(1-\mu)}{1+\phi}.
+
+A logit mean predictor keeps mu in (0,1); a positive precision
+transform keeps phi positive. Larger precision narrows the distribution
+at fixed mean. This is not a binomial proportion with a known trial
+count: phi models continuous dispersion, not sample size. Exact zeros
+and ones are outside the density; numerical clipping is a boundary
+convention and does not create point masses at either endpoint.
+
+See :doc:`/statistical_reference/families/theory` for likelihoods,
+links, weights and distributional predictors. The mathematical law
+does not imply support for every fitting or smoothing-selection route;
+the contracts below define the implemented combinations.
 
 Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
 
 Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
 
+Types, defaults and output shapes
+---------------------------------
+
 .. autoclass:: nampy.gam.families.gamlss.distributional.BetaLocationPrecision
 
-Pass the family name or an options mapping to ``GAMLSS(family=...)``. Student-t accepts ``{'name': 'student_lss', 'df': 5.0}``; beta and negative binomial accept no constructor options. All three have two joint predictors.
+Pass ``GAMLSS(family='beta_lss')``; this family has no constructor options.
 
 ``predict(X)`` returns natural parameters as a float ``(n,2)`` array, ``predict(X, raw=True)`` returns link predictors ``(n,2)``, ``predict_point(X)`` returns the conditional mean ``(n,)``, and ``predict_components(X)`` returns an AdditivePrediction whose link and each term are ``(n,2)``. ``X`` is a DataFrame or numeric ``(n,d)`` array, consistent with formula mode.
 
@@ -55,61 +65,63 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
      "components": {
-       "link": [
-         -0.72468,
-         2.05585,
-         -0.71567,
-         2.05933,
-         -0.70666,
-         2.06281
-       ],
-       "response": [
-         0.32636,
-         7.81345,
-         0.32835,
-         7.84071,
-         0.33034,
-         7.86807
-       ],
-       "terms": {
-         "mu:s(x,k=5)": [
-           -0.04432,
-           0.0,
-           -0.03531,
-           0.0,
-           -0.0263,
-           0.0
-         ],
-         "phi:x": [
-           0.0,
-           -0.20726,
-           0.0,
-           -0.20378,
-           0.0,
-           -0.2003
-         ]
-       }
+       "fields": {
+         "backend": "gam"
+       },
+       "kind": "AdditivePrediction",
+       "omitted_fields": [
+         "response",
+         "link",
+         "terms",
+         "intercept",
+         "offset",
+         "term_metadata"
+       ]
      },
-     "parameters": [
-       0.32636,
-       7.81345,
-       0.32835,
-       7.84071,
-       0.33034,
-       7.86807
-     ],
-     "point": [
-       0.32636,
-       0.32835,
-       0.33034,
-       0.33233,
-       0.33432,
-       0.33632
-     ]
+     "parameters": {
+       "kind": "array",
+       "omitted_by_axis": [
+         118,
+         0
+       ],
+       "shape": [
+         120,
+         2
+       ],
+       "values": [
+         [
+           0.32636,
+           7.81345
+         ],
+         [
+           0.32835,
+           7.84071
+         ]
+       ]
+     },
+     "point": {
+       "kind": "array",
+       "omitted_by_axis": [
+         114
+       ],
+       "shape": [
+         120
+       ],
+       "values": [
+         0.32636,
+         0.32835,
+         0.33034,
+         0.33233,
+         0.33432,
+         0.33632
+       ]
+     }
    }
 
 Example output types and shapes
@@ -117,7 +129,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

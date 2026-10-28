@@ -2,7 +2,7 @@
 
 :orphan:
 
-Monotone increasing P-spline (``mpi``) runtime
-==============================================
+Increasing P-spline (``mpi``) runtime
+=====================================
 
 :doc:`Canonical runtime constructor <ShapeConstrainedPSplineTerm>`.

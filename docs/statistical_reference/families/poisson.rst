@@ -3,6 +3,40 @@
 poisson
 =======
 
+Theory and interpretation
+-------------------------
+
+* **Distribution / loss:** P(Y=y)=exp(-lambda) lambda^y/y!, y=0,1,... .
+* **Natural domains:** lambda>0
+* **Conditional mean:** lambda
+* **Conditional variance:** lambda
+
+References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
+
+Poisson regression models nonnegative event counts with equal
+conditional mean and variance. A log link makes the rate positive and
+gives an additive effect a multiplicative interpretation.
+
+.. math::
+
+   \log\mu=\eta,\qquad -\log p(y\mid\mu)=\mu-y\log\mu+\log\Gamma(y+1).
+
+A one-unit predictor change multiplies the mean by exp(1); a term
+difference delta multiplies it by exp(delta). For varying exposure t,
+offset(log(t)) specifies expected count t*exp(eta_without_offset).
+Conditional overdispersion suggests checking missing predictors,
+dependence, or a different count law. Fractional nonnegative responses
+are not literal Poisson event counts.
+
+See :doc:`/statistical_reference/families/theory` for likelihoods,
+links, weights and distributional predictors. The mathematical law
+does not imply support for every fitting or smoothing-selection route;
+the contracts below define the implemented combinations.
+
+Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
+
+Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Nonnegative integer counts. Links: log (default), identity and sqrt. Response prediction is the count mean.
 
 Usage
@@ -40,30 +74,6 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``float``
      - ``1e-09``
      - Positive numerical safeguard used in probability/domain clipping; this is not an additional distribution parameter.
-
-Distribution definition and moments
------------------------------------
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Quantity
-     - Definition
-   * - Distribution / loss
-     - P(Y=y)=exp(-lambda) lambda^y/y!, y=0,1,... .
-   * - Natural domains
-     - lambda>0
-   * - Conditional mean
-     - lambda
-   * - Conditional variance
-     - lambda
-
-References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
-
-Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
-
-Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
 
 Outputs and fitting support
 ---------------------------
@@ -127,25 +137,45 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "link_prediction": [
-       1.14208,
-       1.41966,
-       1.33704,
-       0.73792,
-       0.82029,
-       1.41132
-     ],
-     "response_prediction": [
-       3.13327,
-       4.13571,
-       3.80777,
-       2.09158,
-       2.27117,
-       4.10136
-     ]
+     "link_prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         1.14208,
+         1.41966,
+         1.33704,
+         0.73792,
+         0.82029,
+         1.41132
+       ]
+     },
+     "response_prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         3.13327,
+         4.13571,
+         3.80777,
+         2.09158,
+         2.27117,
+         4.10136
+       ]
+     }
    }
 
 Example output types and shapes
@@ -153,7 +183,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

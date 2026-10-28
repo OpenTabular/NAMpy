@@ -5,6 +5,30 @@ REML
 
 Restricted marginal likelihood smoothing selection, accounting for unpenalized coefficient directions.
 
+Theory and interpretation
+-------------------------
+
+Restricted marginal likelihood additionally accounts for the
+estimation of unpenalized coefficient directions. In a Gaussian
+mixed-model view it can be expressed through residual contrasts that
+eliminate the fixed effects.
+
+.. math::
+
+   y=X\alpha+Zb+\varepsilon,\quad C^\mathsf TX=0,\qquad L_R(\lambda,\phi)=p(C^\mathsf Ty\mid\lambda,\phi).
+
+Penalized and unpenalized directions come from the penalty's
+range and null spaces. Centering and rank handling therefore matter
+to the score as well as to coefficient uniqueness. For non-Gaussian
+models the supported restricted/Laplace construction plays the same
+role. REML values from different fixed-effect spaces do not represent
+the same residual contrasts and should not be compared as ordinary
+likelihoods. Wrappers default to REML where their route supports it.
+
+See :doc:`/statistical_reference/selection/theory` for the full
+coefficient/selection loop, notation and comparison rules. The
+configuration and support contracts below describe NAMpy's routes.
+
 Configuration
 -------------
 
@@ -81,18 +105,29 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
-   [
-     3.24245
-   ]
+   {
+     "kind": "array",
+     "omitted_by_axis": [
+       0
+     ],
+     "shape": [
+       1
+     ],
+     "values": [
+       3.24245
+     ]
+   }
 
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

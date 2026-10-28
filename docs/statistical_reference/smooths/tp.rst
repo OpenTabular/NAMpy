@@ -5,6 +5,32 @@ Thin-plate regression spline (``tp``)
 
 Thin-plate regression spline: a low-rank, rotation-invariant smooth of one or more numerical covariates. The usual penalty leaves a polynomial null space unpenalized.
 
+Theory and interpretation
+-------------------------
+
+A thin-plate smooth starts with a rotation-invariant measure of roughness.
+In d dimensions, derivatives of total order m enter the penalty below,
+with 2m>d. Its zero-penalty functions are polynomials of degree less than m.
+A truncated eigendecomposition of the radial-kernel part supplies a
+low-rank regression basis; polynomial columns complete the null space.
+
+.. math::
+
+   J_m(f)=\int_{\mathbb R^d}\sum_{|\alpha|=m}\frac{m!}{\alpha!}\{D^\alpha f(x)\}^2\,dx.
+
+For d=1 and m=2, J is integrated squared curvature and its null space
+contains straight lines. Increasing lambda favors that null space;
+it does not generally delete the term. Increasing k retains more kernel
+directions, while m changes the definition of roughness. Isotropy makes
+sense when joint coordinate distances have a meaningful scale; use a
+tensor product for variables such as time and temperature with unrelated
+units. Training locations or the selected construction subset define
+a fixed basis that is reused at prediction time.
+
+For coefficient coordinates, centering, null spaces and EDF, see
+:doc:`/statistical_reference/smooths/theory`. The formula and runtime
+contracts below specify which mathematical options NAMpy exposes.
+
 Formula interface
 -----------------
 
@@ -25,36 +51,44 @@ Parameters
      - Type / shape
      - Default
      - Meaning
-   * - ``by``
-     - str | int | None
-     - None
-     - Optional numeric multiplier or factor defining varying-coefficient or level-specific effects. Identifiability constraints depend on its type.
-   * - ``fx``
-     - bool
-     - False
-     - Fit as an unpenalized regression term rather than estimating a roughness penalty (formula spelling: fx).
-   * - ``id``
-     - str | int | None
-     - None
-     - Optional identifier linking smoothing parameters across compatible terms.
+   * - ``bs``
+     - str
+     - ``model basis ('tp' by default)``
+     - Select this basis with bs='tp'. The alias basis is also accepted.
    * - ``k``
      - int
-     - -1
-     - Requested rank before constraints. Automatic rank is M+8 for one covariate, M+27 for two, M+100 above two, where M is polynomial null-space dimension. It must accommodate the null space and available unique locations.
+     - ``-1 (automatic)``
+     - Automatic rank is M+8 in one dimension, M+27 in two and M+100 above two, where M is the polynomial null-space dimension. The rank must accommodate the null space and distinct construction locations.
    * - ``m``
-     - int | Sequence[int | float] | None
-     - None
-     - Penalty derivative order. None/nonpositive selects the smallest integer m with 2*m > d+1 for d covariates. A two-element sequence with second entry zero drops the penalty null space for tp; this is not supported for ts.
+     - int | sequence | None
+     - ``None``
+     - Penalty derivative order. None selects the smallest integer m with 2*m>d+1. For tp, a two-element sequence ending in zero removes the polynomial null space; ts does not support that removal.
+   * - ``by``
+     - str | expression | None
+     - ``None``
+     - Numeric multiplier or categorical source column/expression defining varying-coefficient or level-specific effects; evaluated on training and new rows.
+   * - ``id``
+     - str | int | None
+     - ``None``
+     - Share smoothing parameters across compatible terms. Alias smoothing_id is accepted; basis sharing follows id_links_bases.
    * - ``sp``
-     - float | array-like, shape (n_penalties,) | None
-     - None
-     - Optional penalty strength(s). Formula-level nonnegative values fix the corresponding smoothing parameters; negative entries request estimation.
+     - float | sequence[float] | None
+     - ``None``
+     - Penalty strengths in term penalty order. Nonnegative supplied values fix strengths; negative entries request estimation when automatic selection is enabled.
+   * - ``xt``
+     - mapping | sequence[mapping | None] | str | None
+     - ``None``
+     - Optional max.knots (default 2000) and seed (default 1) for deterministic construction-location subsampling. Prediction reuses the retained fitted setup.
+   * - ``fx``
+     - bool
+     - ``False``
+     - Fit the smooth without its roughness penalty. Model-level null-space selection cannot be combined with a fixed unpenalized term.
+   * - ``pc``
+     - float | sequence[float] | mapping[str,float] | None
+     - ``None``
+     - Homogeneous function constraint f(x0)=0. Supply one coordinate per input covariate, or a named mapping; the basis is reparameterized at the point.
 
-Only supported formula options are shown here. Formula defaults come from the formula specification; k=-1 requests the basis-specific automatic rank, independently of runtime-constructor defaults. Runtime-only setup arguments belong to the separate implementation API. Point constraints and additional setup follow the capabilities below.
-
-``pc`` (float or mapping, default None) imposes the function constraint f(x0)=0 through a basis reparameterization.
-
-``xt`` (mapping, default None) supplies basis-specific setup: Optional mapping: max.knots (default 2000) limits distinct construction locations; seed (default 1) controls deterministic subsampling. Prediction reuses the fitted setup.
+The formula compiler resolves defaults independently of runtime constructors. ``knots`` and ``select`` belong to the model, not the formula call. Runtime-only setup options are documented in the implementation API.
 
 Identifiability, penalty and prediction
 ---------------------------------------
@@ -73,7 +107,7 @@ Capabilities
    * - Property
      - Value
    * - Covariates
-     - 1 to unbounded
+     - One or more covariates
    * - Tensor marginal
      - True
    * - Point constraints
@@ -84,7 +118,7 @@ Capabilities
 Outputs
 -------
 
-The formula adds a term to the fitted model's additive predictor. Its coefficient block has p_term columns after constraints, potentially fewer than the requested k; this dimension differs from EDF. ``predict(type='terms')`` returns a floating array with n rows and one column per retained term for a scalar predictor. ``lpmatrix`` returns the full floating model design, shape (n, p), including the other terms. The scalar Gaussian examples below produce response predictions of shape (n,). Runtime matrix and penalty contracts are documented separately.
+The formula adds a term to the fitted model's additive predictor. Its coefficient block has p_term columns after constraints; this dimension differs from EDF. ``predict(type='terms')`` returns a floating array with n rows and one column per retained term for a scalar predictor. ``lpmatrix`` returns the full floating model design, shape (n, p), including the other terms. The scalar Gaussian examples below produce response predictions of shape (n,). Runtime matrix and penalty contracts are documented separately.
 
 
 
@@ -101,33 +135,44 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "coefficient_covariance": [
-       0.00027,
-       0.0,
-       0.0,
-       0.0,
-       -0.0,
-       -0.0
-     ],
-     "full_model_design": [
-       1.0,
-       0.71477,
-       -0.24416,
-       0.02667,
-       0.45459,
-       -0.38588
-     ],
-     "prediction": [
-       1.46768,
-       1.07092,
-       1.2938,
-       1.13061,
-       1.2814,
-       1.11769
-     ]
+     "coefficient_covariance": {
+       "kind": "array",
+       "shape": [
+         10,
+         10
+       ],
+       "values": "omitted; see shape contract"
+     },
+     "full_model_design": {
+       "kind": "array",
+       "shape": [
+         96,
+         10
+       ],
+       "values": "omitted; see shape contract"
+     },
+     "prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         1.46768,
+         1.07092,
+         1.2938,
+         1.13061,
+         1.2814,
+         1.11769
+       ]
+     }
    }
 
 Example output types and shapes
@@ -135,7 +180,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

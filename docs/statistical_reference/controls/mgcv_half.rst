@@ -5,4 +5,4 @@
 mgcv_half
 =========
 
-See :ref:`control-mgcv-half` for its type, default, domain, consumer and tested example.
+See :ref:`mgcv_half <control-mgcv-half>` for its type, default, valid values and fitting role.

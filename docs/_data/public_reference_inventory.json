@@ -1638,9 +1638,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/smoothing_optimization#control-edge-correct",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/edge_correct",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/smoothing_optimization",
     "restrictions": "statistical_reference/controls/smoothing_optimization#control-edge-correct",
-    "example": "statistical_reference/controls/edge_correct",
+    "example": "statistical_reference/controls/smoothing_optimization",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -1660,9 +1660,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/smoothing_optimization#control-efs-lspmax",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/efs_lspmax",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/smoothing_optimization",
     "restrictions": "statistical_reference/controls/smoothing_optimization#control-efs-lspmax",
-    "example": "statistical_reference/controls/efs_lspmax",
+    "example": "statistical_reference/controls/smoothing_optimization",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -1682,9 +1682,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/smoothing_optimization#control-efs-tol",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/efs_tol",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/smoothing_optimization",
     "restrictions": "statistical_reference/controls/smoothing_optimization#control-efs-tol",
-    "example": "statistical_reference/controls/efs_tol",
+    "example": "statistical_reference/controls/smoothing_optimization",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -1704,9 +1704,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/coefficient_fitting#control-epsilon",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/epsilon",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/coefficient_fitting",
     "restrictions": "statistical_reference/controls/coefficient_fitting#control-epsilon",
-    "example": "statistical_reference/controls/epsilon",
+    "example": "statistical_reference/controls/coefficient_fitting",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -1726,9 +1726,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/basis_penalty#control-id-links-bases",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/id_links_bases",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/basis_penalty",
     "restrictions": "statistical_reference/controls/basis_penalty#control-id-links-bases",
-    "example": "statistical_reference/controls/id_links_bases",
+    "example": "statistical_reference/controls/basis_penalty",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -1748,9 +1748,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/coefficient_fitting#control-irls-reg",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/irls_reg",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/coefficient_fitting",
     "restrictions": "statistical_reference/controls/coefficient_fitting#control-irls-reg",
-    "example": "statistical_reference/controls/irls_reg",
+    "example": "statistical_reference/controls/coefficient_fitting",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -1770,9 +1770,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/execution#control-keep-data",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/keep_data",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/execution",
     "restrictions": "statistical_reference/controls/execution#control-keep-data",
-    "example": "statistical_reference/controls/keep_data",
+    "example": "statistical_reference/controls/execution",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -1792,9 +1792,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/coefficient_fitting#control-maxit",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/maxit",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/coefficient_fitting",
     "restrictions": "statistical_reference/controls/coefficient_fitting#control-maxit",
-    "example": "statistical_reference/controls/maxit",
+    "example": "statistical_reference/controls/coefficient_fitting",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -1814,9 +1814,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/smoothing_optimization#control-mgcv-half",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/mgcv_half",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/smoothing_optimization",
     "restrictions": "statistical_reference/controls/smoothing_optimization#control-mgcv-half",
-    "example": "statistical_reference/controls/mgcv_half",
+    "example": "statistical_reference/controls/smoothing_optimization",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -1836,9 +1836,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/smoothing_optimization#control-mgcv-tol",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/mgcv_tol",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/smoothing_optimization",
     "restrictions": "statistical_reference/controls/smoothing_optimization#control-mgcv-tol",
-    "example": "statistical_reference/controls/mgcv_tol",
+    "example": "statistical_reference/controls/smoothing_optimization",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -1858,9 +1858,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/execution#control-ncv-threads",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/ncv_threads",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/execution",
     "restrictions": "statistical_reference/controls/execution#control-ncv-threads",
-    "example": "statistical_reference/controls/ncv_threads",
+    "example": "statistical_reference/controls/execution",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -1880,9 +1880,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/smoothing_optimization#control-newton",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/newton",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/smoothing_optimization",
     "restrictions": "statistical_reference/controls/smoothing_optimization#control-newton",
-    "example": "statistical_reference/controls/newton",
+    "example": "statistical_reference/controls/smoothing_optimization",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -1902,9 +1902,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/smoothing_optimization#control-nlm",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/nlm",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/smoothing_optimization",
     "restrictions": "statistical_reference/controls/smoothing_optimization#control-nlm",
-    "example": "statistical_reference/controls/nlm",
+    "example": "statistical_reference/controls/smoothing_optimization",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -1924,9 +1924,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/execution#control-nthreads",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/nthreads",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/execution",
     "restrictions": "statistical_reference/controls/execution#control-nthreads",
-    "example": "statistical_reference/controls/nthreads",
+    "example": "statistical_reference/controls/execution",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -1946,9 +1946,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/smoothing_optimization#control-optim",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/optim",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/smoothing_optimization",
     "restrictions": "statistical_reference/controls/smoothing_optimization#control-optim",
-    "example": "statistical_reference/controls/optim",
+    "example": "statistical_reference/controls/smoothing_optimization",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -1968,9 +1968,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/coefficient_fitting#control-rank-tol",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/rank_tol",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/coefficient_fitting",
     "restrictions": "statistical_reference/controls/coefficient_fitting#control-rank-tol",
-    "example": "statistical_reference/controls/rank_tol",
+    "example": "statistical_reference/controls/coefficient_fitting",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -1990,9 +1990,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/coefficient_fitting#control-scale-est",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/scale_est",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/coefficient_fitting",
     "restrictions": "statistical_reference/controls/coefficient_fitting#control-scale-est",
-    "example": "statistical_reference/controls/scale_est",
+    "example": "statistical_reference/controls/coefficient_fitting",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -2012,9 +2012,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/basis_penalty#control-scale-penalty",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/scale_penalty",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/basis_penalty",
     "restrictions": "statistical_reference/controls/basis_penalty#control-scale-penalty",
-    "example": "statistical_reference/controls/scale_penalty",
+    "example": "statistical_reference/controls/basis_penalty",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -2034,9 +2034,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/shape_fitting#control-scam-b-notexp",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/scam_b_notexp",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/shape_fitting",
     "restrictions": "statistical_reference/controls/shape_fitting#control-scam-b-notexp",
-    "example": "statistical_reference/controls/scam_b_notexp",
+    "example": "statistical_reference/controls/shape_fitting",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -2056,9 +2056,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/shape_fitting#control-scam-bfgs",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/scam_bfgs",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/shape_fitting",
     "restrictions": "statistical_reference/controls/shape_fitting#control-scam-bfgs",
-    "example": "statistical_reference/controls/scam_bfgs",
+    "example": "statistical_reference/controls/shape_fitting",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -2078,9 +2078,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/shape_fitting#control-scam-devtol-fit",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/scam_devtol_fit",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/shape_fitting",
     "restrictions": "statistical_reference/controls/shape_fitting#control-scam-devtol-fit",
-    "example": "statistical_reference/controls/scam_devtol_fit",
+    "example": "statistical_reference/controls/shape_fitting",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -2100,9 +2100,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/shape_fitting#control-scam-max-half",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/scam_max_half",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/shape_fitting",
     "restrictions": "statistical_reference/controls/shape_fitting#control-scam-max-half",
-    "example": "statistical_reference/controls/scam_max_half",
+    "example": "statistical_reference/controls/shape_fitting",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -2122,9 +2122,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/shape_fitting#control-scam-print-warn",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/scam_print_warn",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/shape_fitting",
     "restrictions": "statistical_reference/controls/shape_fitting#control-scam-print-warn",
-    "example": "statistical_reference/controls/scam_print_warn",
+    "example": "statistical_reference/controls/shape_fitting",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -2144,9 +2144,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/shape_fitting#control-scam-steptol-fit",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/scam_steptol_fit",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/shape_fitting",
     "restrictions": "statistical_reference/controls/shape_fitting#control-scam-steptol-fit",
-    "example": "statistical_reference/controls/scam_steptol_fit",
+    "example": "statistical_reference/controls/shape_fitting",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -2166,9 +2166,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/shape_fitting#control-scam-threshold-notexp",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/scam_threshold_notexp",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/shape_fitting",
     "restrictions": "statistical_reference/controls/shape_fitting#control-scam-threshold-notexp",
-    "example": "statistical_reference/controls/scam_threshold_notexp",
+    "example": "statistical_reference/controls/shape_fitting",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -2188,9 +2188,9 @@
       }
     ],
     "input_contract": "statistical_reference/controls/execution#control-trace",
-    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/trace",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/controls/execution",
     "restrictions": "statistical_reference/controls/execution#control-trace",
-    "example": "statistical_reference/controls/trace",
+    "example": "statistical_reference/controls/execution",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]

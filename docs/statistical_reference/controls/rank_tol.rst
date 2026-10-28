@@ -5,4 +5,4 @@
 rank_tol
 ========
 
-See :ref:`control-rank-tol` for its type, default, domain, consumer and tested example.
+See :ref:`rank_tol <control-rank-tol>` for its type, default, valid values and fitting role.

@@ -56,7 +56,7 @@ Term plots
 ``GAM.plot_derivative`` renders the existing derivative results with a pointwise
 Bayesian interval. ``GAM.plot`` also renders polygon-backed MRF smooths and SOS hemispheres.
 ``GAM.vis`` displays full-model conditional prediction surfaces. See
-:doc:`../user_guide/statistical_gams` for inputs and supported boundaries.
+:doc:`/statistical_reference/methods/index` for inputs and supported boundaries.
 
 
 Plotting is split into preparation and rendering so applications can reuse the

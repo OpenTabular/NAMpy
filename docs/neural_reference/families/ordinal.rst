@@ -3,27 +3,37 @@
 ordinal
 =======
 
-Neural distribution family for ``family='ordinal'``. Configure its constructor through ``distributional_kwargs`` on an LSS estimator.
+Theory and interpretation
+-------------------------
 
-Distribution definition and moments
------------------------------------
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Quantity
-     - Definition
-   * - Distribution / loss
-     - P(Y<=j)=sigmoid(c_j-eta), with ordered cutpoints c_j; class probabilities are successive cumulative differences.
-   * - Natural domains
-     - eta in R; ordered fitted thresholds, C classes
-   * - Conditional mean
-     - Class probabilities determine moments of encoded labels; predict_point chooses a class
-   * - Conditional variance
-     - For integer labels: sum(j^2 p_j)-(sum(j p_j))^2
+* **Distribution / loss:** P(Y<=j)=sigmoid(c_j-eta), with ordered cutpoints c_j; class probabilities are successive cumulative differences.
+* **Natural domains:** eta in R; ordered fitted thresholds, C classes
+* **Conditional mean:** Class probabilities determine moments of encoded labels; predict_point chooses a class
+* **Conditional variance:** For integer labels: sum(j^2 p_j)-(sum(j p_j))^2
 
 References: `PyTorch probability distributions <https://docs.pytorch.org/docs/stable/distributions.html>`_. NAMpy defines its family transforms and point outputs below.
+
+An ordinal model uses ordered thresholds to partition a latent
+location. A common predictor moves the cumulative probabilities
+together, while ordered cutpoints prevent negative class probabilities.
+
+.. math::
+
+   P(Y\leq j)=F(c_j-\eta),\qquad P(Y=j)=F(c_j-\eta)-F(c_{j-1}-\eta).
+
+F is logistic for the proportional-odds construction. Threshold
+locations and an intercept are not independently identifiable without
+the constructor's anchoring rule. A larger eta shifts probability
+toward higher categories. This uses ordering without assuming equal
+distances between labels; moments of integer encodings depend on the
+chosen encoding. Class probabilities are often the most useful output.
+
+Neural training composes this response objective with the chosen architecture. Its raw outputs pass through the configured domain transforms; likelihood parameterization and network architecture are separate choices.
+
+See :doc:`/statistical_reference/families/theory` for likelihoods,
+links, weights and distributional predictors. The mathematical law
+does not imply support for every fitting or smoothing-selection route;
+the contracts below define the implemented combinations.
 
 Targets, transforms and scoring
 -------------------------------
@@ -33,6 +43,8 @@ Target shape/encoding: ``(n,) integer class indices 0,...,C-1 (estimator encodes
 ``compute_loss`` and ``compute_loss_per_sample`` consume raw network outputs, not already transformed parameters. The scalar loss is averaged over observations. Lower loss is better. LSS scoring follows the shared estimator contract; response SD summarizes conditional variability, not estimation uncertainty. Distribution-specific moments that do not exist cannot be interpreted as finite uncertainty estimates.
 
 Implementation definitions: :mod:`nampy.neural.distributions.distributions`. See the source link on the runtime contract for the implemented transforms and objective.
+
+Neural distribution family for ``family='ordinal'``. Configure its constructor through ``distributional_kwargs`` on an LSS estimator.
 
 Signature
 ---------
@@ -138,36 +150,59 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
+.. rubric:: parameters
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - class_0
+     - class_1
+     - class_2
+   * - 0.3775399923324585
+     - 0.24492000043392181
+     - 0.3775399923324585
+   * - 0.3775399923324585
+     - 0.24492000043392181
+     - 0.3775399923324585
+
+Full shape: ``[8, 3]``; omitted by axis: ``[6, 0]``.
+
+.. rubric:: raw
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - eta
+   * - 0.0
+   * - 0.0
+
+Full shape: ``[8, 1]``; omitted by axis: ``[6, 0]``.
+
 .. code-block:: text
 
    {
-     "loss": [
-       1.1363600492477417
-     ],
-     "parameters": [
-       0.3775399923324585,
-       0.24492000043392181,
-       0.3775399923324585,
-       0.3775399923324585,
-       0.24492000043392181,
-       0.3775399923324585
-     ],
-     "point": [
-       0,
-       0,
-       0,
-       0,
-       0,
-       0
-     ],
-     "raw": [
-       0.0,
-       0.0,
-       0.0,
-       0.0,
-       0.0,
-       0.0
-     ]
+     "loss": 1.1363590955734253,
+     "point": {
+       "kind": "array",
+       "omitted_by_axis": [
+         2
+       ],
+       "shape": [
+         8
+       ],
+       "values": [
+         0,
+         0,
+         0,
+         0,
+         0,
+         0
+       ]
+     }
    }
 
 Example output types and shapes
@@ -175,7 +210,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

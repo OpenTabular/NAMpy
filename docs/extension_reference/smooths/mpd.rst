@@ -2,7 +2,7 @@
 
 :orphan:
 
-Monotone decreasing P-spline (``mpd``) runtime
-==============================================
+Decreasing P-spline (``mpd``) runtime
+=====================================
 
 :doc:`Canonical runtime constructor <ShapeConstrainedPSplineTerm>`.

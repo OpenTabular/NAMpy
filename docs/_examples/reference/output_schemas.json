@@ -9641,6 +9641,20 @@
       "(96,)"
     ]
   ],
+  "statistical_reference/controls/basis_penalty": [
+    [
+      "result",
+      "numpy.ndarray[float64]",
+      "(3,)"
+    ]
+  ],
+  "statistical_reference/controls/coefficient_fitting": [
+    [
+      "result",
+      "numpy.ndarray[float64]",
+      "(3,)"
+    ]
+  ],
   "statistical_reference/controls/edge_correct": [
     [
       "result",
@@ -9687,6 +9701,13 @@
       "result['epsilon']",
       "builtins.float",
       "()"
+    ]
+  ],
+  "statistical_reference/controls/execution": [
+    [
+      "result",
+      "numpy.ndarray[float64]",
+      "(3,)"
     ]
   ],
   "statistical_reference/controls/id_links_bases": [
@@ -10031,6 +10052,20 @@
       "()"
     ]
   ],
+  "statistical_reference/controls/shape_fitting": [
+    [
+      "result",
+      "numpy.ndarray[float64]",
+      "(3,)"
+    ]
+  ],
+  "statistical_reference/controls/smoothing_optimization": [
+    [
+      "result",
+      "numpy.ndarray[float64]",
+      "(3,)"
+    ]
+  ],
   "statistical_reference/controls/trace": [
     [
       "result",
@@ -10292,6 +10327,103 @@
     ]
   ],
   "statistical_reference/estimators/QuantileGAM": [
+    [
+      "result",
+      "dict",
+      "3 named fields"
+    ],
+    [
+      "result['prediction']",
+      "numpy.ndarray[float64]",
+      "(60,)"
+    ],
+    [
+      "result['components']",
+      "nampy.contracts.AdditivePrediction",
+      "scalar record"
+    ],
+    [
+      "result['components'].response",
+      "numpy.ndarray[float64]",
+      "(60,)"
+    ],
+    [
+      "result['components'].link",
+      "numpy.ndarray[float64]",
+      "(60,)"
+    ],
+    [
+      "result['components'].terms",
+      "dict",
+      "1 named fields"
+    ],
+    [
+      "result['components'].terms['s(x, k=6)']",
+      "numpy.ndarray[float64]",
+      "(60, 1)"
+    ],
+    [
+      "result['components'].intercept",
+      "builtins.float",
+      "()"
+    ],
+    [
+      "result['components'].backend",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result['components'].offset",
+      "numpy.ndarray[float64]",
+      "(60,)"
+    ],
+    [
+      "result['components'].term_metadata",
+      "dict",
+      "1 named fields"
+    ],
+    [
+      "result['components'].term_metadata['s(x, k=6)']",
+      "nampy.contracts.AdditiveTermMetadata",
+      "scalar record"
+    ],
+    [
+      "result['fit']",
+      "nampy.gam.extensions.objectives.LossFit",
+      "scalar record"
+    ],
+    [
+      "result['fit'].coefficients",
+      "numpy.ndarray[float64]",
+      "(6,)"
+    ],
+    [
+      "result['fit'].fitted",
+      "numpy.ndarray[float64]",
+      "(60,)"
+    ],
+    [
+      "result['fit'].objective",
+      "builtins.float",
+      "()"
+    ],
+    [
+      "result['fit'].iterations",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result['fit'].converged",
+      "builtins.bool",
+      "()"
+    ],
+    [
+      "result['fit'].optimality",
+      "builtins.float",
+      "()"
+    ]
+  ],
+  "statistical_reference/estimators/QuantileGAM_smooth": [
     [
       "result",
       "dict",
@@ -13982,12 +14114,12 @@
       "(96,)"
     ],
     [
-      "result['2f8a839992ee']",
+      "result['45bdcbb157f6']",
       "numpy.ndarray[float64]",
       "(96,)"
     ],
     [
-      "result['4b6cb45b0bc4']",
+      "result['e81f23cf4be4']",
       "numpy.ndarray[float64]",
       "(96,)"
     ],
@@ -14574,6 +14706,38 @@
       "result['figures'][0]",
       "matplotlib.figure.Figure",
       "scalar object"
+    ]
+  ],
+  "statistical_reference/penalties": [
+    [
+      "result",
+      "dict",
+      "3 named fields"
+    ],
+    [
+      "result['prediction']",
+      "numpy.ndarray[float64]",
+      "(3,)"
+    ],
+    [
+      "result['constraint_shape']",
+      "tuple",
+      "length 2"
+    ],
+    [
+      "result['constraint_shape'][0]",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result['constraint_shape'][1]",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result['constrained_design']",
+      "numpy.ndarray[float64]",
+      "(96, 6)"
     ]
   ],
   "statistical_reference/selection/bfgs": [

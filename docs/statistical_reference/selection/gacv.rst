@@ -5,6 +5,29 @@ GACV
 
 Generalized approximate cross-validation for supported PIRLS models.
 
+Theory and interpretation
+-------------------------
+
+Generalized approximate cross-validation uses the converged
+penalized IRLS fit to approximate held-out deviance. It includes a
+Pearson-type residual correction rather than simply squaring the
+GCV denominator.
+
+.. math::
+
+   \operatorname{GACV}=\frac{D}{n}+\frac{2\gamma\,\operatorname{tr}(A)\,P}{n\{n-\gamma\operatorname{tr}(A)\}}.
+
+P is the weighted Pearson residual sum evaluated by the PIRLS
+kernel, D is its criterion deviance, and n is its observation count.
+Both the fitted weights and EDF depend on lambda. This is an
+approximation to a predictive criterion, not exact repeated refitting
+of every held-out observation. Availability depends on a supported
+PIRLS family and derivative route.
+
+See :doc:`/statistical_reference/selection/theory` for the full
+coefficient/selection loop, notation and comparison rules. The
+configuration and support contracts below describe NAMpy's routes.
+
 Configuration
 -------------
 
@@ -81,18 +104,29 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
-   [
-     7.38763
-   ]
+   {
+     "kind": "array",
+     "omitted_by_axis": [
+       0
+     ],
+     "shape": [
+       1
+     ],
+     "values": [
+       7.38763
+     ]
+   }
 
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

@@ -73,49 +73,55 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
-   [
-     [
+   {
+     "items": [
        {
-         "contribution": -0.07125948742032051,
-         "order": 1,
-         "term": [
-           "x"
-         ]
-       },
-       {
-         "contribution": 0.015347519889473915,
-         "order": 1,
-         "term": [
-           "z"
-         ]
+         "items": [
+           {
+             "contribution": -0.07125948742032051,
+             "order": 1,
+             "term": {
+               "items": [
+                 "x"
+               ],
+               "kind": "tuple",
+               "length": 1,
+               "omitted": 0
+             }
+           },
+           {
+             "contribution": 0.015347519889473915,
+             "order": 1,
+             "term": {
+               "items": [
+                 "z"
+               ],
+               "kind": "tuple",
+               "length": 1,
+               "omitted": 0
+             }
+           }
+         ],
+         "kind": "list",
+         "length": 3,
+         "omitted": 1
        }
      ],
-     [
-       {
-         "contribution": -0.06899730488657951,
-         "order": 1,
-         "term": [
-           "x"
-         ]
-       },
-       {
-         "contribution": 0.04863093048334122,
-         "order": 1,
-         "term": [
-           "z"
-         ]
-       }
-     ]
-   ]
+     "kind": "list",
+     "length": 64,
+     "omitted": 63
+   }
 
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

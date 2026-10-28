@@ -3,196 +3,71 @@
 Smoothing optimization
 ======================
 
-Pass these settings through ``control=gam_control(...)``. The result is a validated immutable ``GAMControl``; it is not a prediction result. Unknown keys raise ``TypeError``. Domain violations raise ``ValueError`` except the explicitly documented reset policies.
+Only the chosen outer optimizer consumes its nested mapping; other routes ignore it. The example uses outer Newton. NLM, optim and EFS options remain independently configurable.
 
-.. _control-mgcv-tol:
-
-mgcv_tol
---------
-
-Positive numerical convergence tolerance for smoothing optimization.
-
-**Consumer and overrides:** Selected outer optimizer; other outer routes ignore its nested settings. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.
-
-.. rubric:: Signature and default
-
-.. code-block:: python
-
-   from nampy.gam import gam_control
-
-   control = gam_control(mgcv_tol=1e-07)
+Create one validated ``GAMControl`` with ``gam_control(...)`` and pass it as ``control=``. Unknown keys raise ``TypeError``; invalid values raise ``ValueError`` except the documented reset policies.
 
 .. list-table::
    :header-rows: 1
    :class: api-reference-table
 
-   * - Parameter
-     - Type
-     - Resolved default
-     - Aliases
-   * - mgcv_tol
-     - float
-     - ``1e-07``
-     - ``mgcv.tol``
+   * - Setting
+     - Type / default
+     - Valid values
+     - Effect
+   * - .. _control-mgcv-tol:
 
-.. rubric:: Returns and use
+       ``mgcv_tol``
+     - ``float``, ``1e-07``
+     - > 0
+     - Positive numerical convergence tolerance for smoothing optimization.
+   * - .. _control-mgcv-half:
 
-``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.
+       ``mgcv_half``
+     - ``int``, ``15``
+     - Nonnegative integer
+     - Nonnegative maximum smoothing step halvings.
+   * - .. _control-nlm:
 
-:doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`
+       ``nlm``
+     - ``Mapping[str, Any]``, ``resolved below``
+     - Mapping; see nested options below
+     - Mapping of nlm controls: ndigit, gradtol, stepmax, steptol, iterlim, check_analyticals. gam_control fills normalized defaults.
+   * - .. _control-optim:
 
+       ``optim``
+     - ``Mapping[str, Any]``, ``resolved below``
+     - Mapping; see nested options below
+     - Mapping of optim controls, including factr; gam_control normalizes factr and supplies its default.
+   * - .. _control-newton:
 
-.. rubric:: Runnable example
+       ``newton``
+     - ``Mapping[str, Any]``, ``resolved below``
+     - Mapping; see nested options below
+     - Mapping of outer Newton controls: conv_tol, max_n_step, max_s_step, max_half and use_svd.
+   * - .. _control-efs-lspmax:
 
-This example includes all imports and input data; no variables from another page are required.
+       ``efs_lspmax``
+     - ``float``, ``15.0``
+     - Real log-penalty upper bound
+     - Maximum log smoothing parameter in extended Fellner-Schall updates.
+   * - .. _control-efs-tol:
 
-:download:`Download the complete example </_examples/reference/statistical_reference/controls/mgcv_tol.py>`
+       ``efs_tol``
+     - ``float``, ``0.1``
+     - > 0; nonpositive resets to 0.1
+     - Positive stopping tolerance for extended Fellner-Schall smoothing selection; nonpositive inputs reset to 0.1.
+   * - .. _control-edge-correct:
 
-.. literalinclude:: /_examples/reference/statistical_reference/controls/mgcv_tol.py
-   :language: python
+       ``edge_correct``
+     - ``bool | float``, ``False``
+     - bool or nonnegative float
+     - Enable boundary correction of smoothing-parameter curvature, or supply a nonnegative correction setting.
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
+Accepted aliases: ``mgcv.tol`` → ``mgcv_tol``, ``mgcv.half`` → ``mgcv_half``, ``efs.lspmax`` → ``efs_lspmax``, ``efs.tol`` → ``efs_tol``, ``edge.correct`` → ``edge_correct``.
 
-.. code-block:: text
-
-   {
-     "mgcv_tol": 1e-07
-   }
-
-.. rubric:: Example output types and shapes
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The preview lists up to six direct fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 1 named fields
-   * - result['mgcv_tol']
-     - builtins.float
-     - ()
-
-
-.. _control-mgcv-half:
-
-mgcv_half
----------
-
-Nonnegative maximum smoothing step halvings.
-
-**Consumer and overrides:** Selected outer optimizer; other outer routes ignore its nested settings. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.
-
-.. rubric:: Signature and default
-
-.. code-block:: python
-
-   from nampy.gam import gam_control
-
-   control = gam_control(mgcv_half=15)
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Parameter
-     - Type
-     - Resolved default
-     - Aliases
-   * - mgcv_half
-     - int
-     - ``15``
-     - ``mgcv.half``
-
-.. rubric:: Returns and use
-
-``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.
-
-:doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`
-
-
-.. rubric:: Runnable example
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/statistical_reference/controls/mgcv_half.py>`
-
-.. literalinclude:: /_examples/reference/statistical_reference/controls/mgcv_half.py
-   :language: python
-
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   {
-     "mgcv_half": 15
-   }
-
-.. rubric:: Example output types and shapes
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The preview lists up to six direct fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 1 named fields
-   * - result['mgcv_half']
-     - builtins.int
-     - ()
-
-
-.. _control-nlm:
-
-nlm
----
-
-Mapping of nlm controls: ndigit, gradtol, stepmax, steptol, iterlim, check_analyticals. gam_control fills normalized defaults.
-
-**Consumer and overrides:** Selected outer optimizer; other outer routes ignore its nested settings. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.
-
-.. rubric:: Signature and default
-
-.. code-block:: python
-
-   from nampy.gam import gam_control
-
-   control = gam_control(nlm={'ndigit': 7, 'gradtol': 1e-06, 'stepmax': 2.0, 'steptol': 0.0001, 'iterlim': 200, 'check_analyticals': False})
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Parameter
-     - Type
-     - Resolved default
-     - Aliases
-   * - nlm
-     - Mapping[str, Any]
-     - ``{'ndigit': 7, 'gradtol': 1e-06, 'stepmax': 2.0, 'steptol': 0.0001, 'iterlim': 200, 'check_analyticals': False}``
-     - None
-
-.. rubric:: Returns and use
-
-``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.
-
-:doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`
-.. rubric:: Nested options
+nlm nested options
+------------------
 
 .. list-table::
    :header-rows: 1
@@ -201,114 +76,34 @@ Mapping of nlm controls: ndigit, gradtol, stepmax, steptol, iterlim, check_analy
    * - Option
      - Type
      - Resolved default
-     - Meaning
+     - Effect
    * - ``ndigit``
-     - ``int``
+     - int
      - ``7``
      - Estimated reliable objective digits; normalized to integers from 2 through 15.
    * - ``gradtol``
-     - ``float``
+     - float
      - ``1e-06``
      - Positive outer-gradient stopping tolerance.
    * - ``stepmax``
-     - ``float``
+     - float
      - ``2.0``
      - Maximum permitted NLM step magnitude; zero is reset to 2.
    * - ``steptol``
-     - ``float``
+     - float
      - ``0.0001``
      - Positive relative-step stopping tolerance.
    * - ``iterlim``
-     - ``int``
+     - int
      - ``200``
      - Nonnegative integer limit on NLM iterations.
    * - ``check_analyticals``
-     - ``bool``
+     - bool
      - ``False``
      - Check supplied analytical derivatives against numerical references where supported.
 
-
-
-.. rubric:: Runnable example
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/statistical_reference/controls/nlm.py>`
-
-.. literalinclude:: /_examples/reference/statistical_reference/controls/nlm.py
-   :language: python
-
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   {
-     "nlm": {
-       "gradtol": 1e-06,
-       "ndigit": 7,
-       "stepmax": 2.0,
-       "steptol": 0.0001
-     }
-   }
-
-.. rubric:: Example output types and shapes
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The preview lists up to six direct fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 1 named fields
-   * - result['nlm']
-     - dict
-     - 6 named fields
-
-
-.. _control-optim:
-
-optim
------
-
-Mapping of optim controls, including factr; gam_control normalizes factr and supplies its default.
-
-**Consumer and overrides:** Selected outer optimizer; other outer routes ignore its nested settings. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.
-
-.. rubric:: Signature and default
-
-.. code-block:: python
-
-   from nampy.gam import gam_control
-
-   control = gam_control(optim={'factr': 10000000.0})
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Parameter
-     - Type
-     - Resolved default
-     - Aliases
-   * - optim
-     - Mapping[str, Any]
-     - ``{'factr': 10000000.0}``
-     - None
-
-.. rubric:: Returns and use
-
-``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.
-
-:doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`
-.. rubric:: Nested options
+optim nested options
+--------------------
 
 .. list-table::
    :header-rows: 1
@@ -317,91 +112,14 @@ Mapping of optim controls, including factr; gam_control normalizes factr and sup
    * - Option
      - Type
      - Resolved default
-     - Meaning
+     - Effect
    * - ``factr``
-     - ``float``
+     - float
      - ``10000000.0``
      - Positive relative function-change tolerance multiplier for the optim route.
 
-
-
-.. rubric:: Runnable example
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/statistical_reference/controls/optim.py>`
-
-.. literalinclude:: /_examples/reference/statistical_reference/controls/optim.py
-   :language: python
-
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   {
-     "optim": {
-       "factr": 10000000.0
-     }
-   }
-
-.. rubric:: Example output types and shapes
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The preview lists up to six direct fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 1 named fields
-   * - result['optim']
-     - dict
-     - 1 named fields
-
-
-.. _control-newton:
-
-newton
-------
-
-Mapping of outer Newton controls: conv_tol, max_n_step, max_s_step, max_half and use_svd.
-
-**Consumer and overrides:** Selected outer optimizer; other outer routes ignore its nested settings. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.
-
-.. rubric:: Signature and default
-
-.. code-block:: python
-
-   from nampy.gam import gam_control
-
-   control = gam_control(newton={'conv_tol': 1e-06, 'max_n_step': 5.0, 'max_s_step': 2.0, 'max_half': 30, 'use_svd': False})
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Parameter
-     - Type
-     - Resolved default
-     - Aliases
-   * - newton
-     - Mapping[str, Any]
-     - ``{'conv_tol': 1e-06, 'max_n_step': 5.0, 'max_s_step': 2.0, 'max_half': 30, 'use_svd': False}``
-     - None
-
-.. rubric:: Returns and use
-
-``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.
-
-:doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`
-.. rubric:: Nested options
+newton nested options
+---------------------
 
 .. list-table::
    :header-rows: 1
@@ -410,297 +128,32 @@ Mapping of outer Newton controls: conv_tol, max_n_step, max_s_step, max_half and
    * - Option
      - Type
      - Resolved default
-     - Meaning
+     - Effect
    * - ``conv_tol``
-     - ``float``
+     - float
      - ``1e-06``
      - Outer Newton convergence tolerance.
    * - ``max_n_step``
-     - ``float``
+     - float
      - ``5.0``
      - Maximum Newton-direction log smoothing step magnitude.
    * - ``max_s_step``
-     - ``float``
+     - float
      - ``2.0``
      - Maximum steepest-direction log smoothing step magnitude.
    * - ``max_half``
-     - ``int``
+     - int
      - ``30``
      - Maximum line-search step halvings.
    * - ``use_svd``
-     - ``bool``
+     - bool
      - ``False``
      - Use the SVD-supported Newton linear solve.
 
+Combined example
+----------------
 
-
-.. rubric:: Runnable example
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/statistical_reference/controls/newton.py>`
-
-.. literalinclude:: /_examples/reference/statistical_reference/controls/newton.py
+.. literalinclude:: /_examples/reference/statistical_reference/controls/smoothing_optimization.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   {
-     "newton": {
-       "conv_tol": 1e-06,
-       "max_half": 30,
-       "max_n_step": 5.0,
-       "max_s_step": 2.0
-     }
-   }
-
-.. rubric:: Example output types and shapes
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The preview lists up to six direct fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 1 named fields
-   * - result['newton']
-     - dict
-     - 5 named fields
-
-
-.. _control-efs-lspmax:
-
-efs_lspmax
-----------
-
-Maximum log smoothing parameter in extended Fellner-Schall updates.
-
-**Consumer and overrides:** Selected outer optimizer; other outer routes ignore its nested settings. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.
-
-.. rubric:: Signature and default
-
-.. code-block:: python
-
-   from nampy.gam import gam_control
-
-   control = gam_control(efs_lspmax=15.0)
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Parameter
-     - Type
-     - Resolved default
-     - Aliases
-   * - efs_lspmax
-     - float
-     - ``15.0``
-     - ``efs.lspmax``
-
-.. rubric:: Returns and use
-
-``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.
-
-:doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`
-
-
-.. rubric:: Runnable example
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/statistical_reference/controls/efs_lspmax.py>`
-
-.. literalinclude:: /_examples/reference/statistical_reference/controls/efs_lspmax.py
-   :language: python
-
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   {
-     "efs_lspmax": 15.0
-   }
-
-.. rubric:: Example output types and shapes
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The preview lists up to six direct fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 1 named fields
-   * - result['efs_lspmax']
-     - builtins.float
-     - ()
-
-
-.. _control-efs-tol:
-
-efs_tol
--------
-
-Positive stopping tolerance for extended Fellner-Schall smoothing selection; nonpositive inputs reset to 0.1.
-
-**Consumer and overrides:** Selected outer optimizer; other outer routes ignore its nested settings. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.
-
-.. rubric:: Signature and default
-
-.. code-block:: python
-
-   from nampy.gam import gam_control
-
-   control = gam_control(efs_tol=0.1)
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Parameter
-     - Type
-     - Resolved default
-     - Aliases
-   * - efs_tol
-     - float
-     - ``0.1``
-     - ``efs.tol``
-
-.. rubric:: Returns and use
-
-``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.
-
-:doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`
-
-
-.. rubric:: Runnable example
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/statistical_reference/controls/efs_tol.py>`
-
-.. literalinclude:: /_examples/reference/statistical_reference/controls/efs_tol.py
-   :language: python
-
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   {
-     "efs_tol": 0.1
-   }
-
-.. rubric:: Example output types and shapes
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The preview lists up to six direct fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 1 named fields
-   * - result['efs_tol']
-     - builtins.float
-     - ()
-
-
-.. _control-edge-correct:
-
-edge_correct
-------------
-
-Enable boundary correction of smoothing-parameter curvature, or supply a nonnegative correction setting.
-
-**Consumer and overrides:** Selected outer optimizer; other outer routes ignore its nested settings. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.
-
-.. rubric:: Signature and default
-
-.. code-block:: python
-
-   from nampy.gam import gam_control
-
-   control = gam_control(edge_correct=False)
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Parameter
-     - Type
-     - Resolved default
-     - Aliases
-   * - edge_correct
-     - bool | float
-     - ``False``
-     - ``edge.correct``
-
-.. rubric:: Returns and use
-
-``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.
-
-:doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`
-
-
-.. rubric:: Runnable example
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/statistical_reference/controls/edge_correct.py>`
-
-.. literalinclude:: /_examples/reference/statistical_reference/controls/edge_correct.py
-   :language: python
-
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   {
-     "edge_correct": false
-   }
-
-.. rubric:: Example output types and shapes
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The preview lists up to six direct fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 1 named fields
-   * - result['edge_correct']
-     - builtins.bool
-     - ()
+:download:`Download this example </_examples/reference/statistical_reference/controls/smoothing_optimization.py>`.

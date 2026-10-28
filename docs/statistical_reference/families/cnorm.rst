@@ -3,6 +3,44 @@
 cnorm
 =====
 
+Theory and interpretation
+-------------------------
+
+* **Distribution / loss:** Latent CDF F(y)=Phi((y-mu)/sigma), y in R. Censoring contributions follow the documented exact/interval/one-sided encoding.
+* **Natural domains:** mu in R; sigma>0
+* **Conditional mean:** mu
+* **Conditional variance:** sigma^2
+
+Targets include censoring bounds rather than treating bounds as ordinary observations. The worked example and parameterization notes below define the exact two-column encoding and one-sided sentinel convention.
+
+References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
+
+Censoring describes partial knowledge of a latent response.
+An interval contributes its probability mass, rather than the
+density at either endpoint. A right-censored value contributes a
+survival probability.
+
+.. math::
+
+   \ell_i=\begin{cases}\log f(y_i)&\text{exact},\\\log\{F(u_i)-F(l_i)\}&\text{continuous interval},\\\log\{1-F(l_i)\}&\text{right censored}.\end{cases}
+
+For closed integer Poisson intervals use F(u)-F(l-1).
+Replacing a bound with an ordinary observed response biases the
+target. Censoring models the observation process while retaining
+the latent law's parameters and moments. Truncation, which
+conditions on inclusion in the sample, requires a different
+likelihood normalization. Follow the exact target encoding
+below, including its endpoint and one-sided conventions.
+
+See :doc:`/statistical_reference/families/theory` for likelihoods,
+links, weights and distributional predictors. The mathematical law
+does not imply support for every fitting or smoothing-selection route;
+the contracts below define the implemented combinations.
+
+Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
+
+Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Censored normal response. The response encoding carries censoring information; theta controls the scale nuisance parameter.
 
 Usage
@@ -44,32 +82,6 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``str``
      - ``'identity'``
      - Link name or ordered sequence of links. Supported choices and interpretation are specific to this family; sequence order follows its linear predictors.
-
-Distribution definition and moments
------------------------------------
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Quantity
-     - Definition
-   * - Distribution / loss
-     - Latent CDF F(y)=Phi((y-mu)/sigma), y in R. Censoring contributions follow the documented exact/interval/one-sided encoding.
-   * - Natural domains
-     - mu in R; sigma>0
-   * - Conditional mean
-     - mu
-   * - Conditional variance
-     - sigma^2
-
-Targets include censoring bounds rather than treating bounds as ordinary observations. The worked example and parameterization notes below define the exact two-column encoding and one-sided sentinel convention.
-
-References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
-
-Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
-
-Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
 
 Outputs and fitting support
 ---------------------------
@@ -133,25 +145,45 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "link_prediction": [
-       2.59423,
-       2.99212,
-       2.88796,
-       2.22004,
-       2.27318,
-       2.98446
-     ],
-     "response_prediction": [
-       2.59423,
-       2.99212,
-       2.88796,
-       2.22004,
-       2.27318,
-       2.98446
-     ]
+     "link_prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         2.59423,
+         2.99212,
+         2.88796,
+         2.22004,
+         2.27318,
+         2.98446
+       ]
+     },
+     "response_prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         2.59423,
+         2.99212,
+         2.88796,
+         2.22004,
+         2.27318,
+         2.98446
+       ]
+     }
    }
 
 Example output types and shapes
@@ -159,7 +191,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

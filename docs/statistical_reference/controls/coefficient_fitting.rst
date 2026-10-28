@@ -3,383 +3,55 @@
 Coefficient fitting
 ===================
 
-Pass these settings through ``control=gam_control(...)``. The result is a validated immutable ``GAMControl``; it is not a prediction result. Unknown keys raise ``TypeError``. Domain violations raise ``ValueError`` except the explicitly documented reset policies.
+IRLS/coefficient updates consume these tolerances. A positive fixed model scale overrides scale_est. rank_tol has the reset policy shown in the table.
 
-.. _control-epsilon:
-
-epsilon
--------
-
-Positive coefficient-fitting convergence tolerance; also seeds defaults in some outer optimizer controls.
-
-**Consumer and overrides:** IRLS/coefficient solver and dispersion postprocessing. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.
-
-.. rubric:: Signature and default
-
-.. code-block:: python
-
-   from nampy.gam import gam_control
-
-   control = gam_control(epsilon=1e-07)
+Create one validated ``GAMControl`` with ``gam_control(...)`` and pass it as ``control=``. Unknown keys raise ``TypeError``; invalid values raise ``ValueError`` except the documented reset policies.
 
 .. list-table::
    :header-rows: 1
    :class: api-reference-table
 
-   * - Parameter
-     - Type
-     - Resolved default
-     - Aliases
-   * - epsilon
-     - float
-     - ``1e-07``
-     - None
+   * - Setting
+     - Type / default
+     - Valid values
+     - Effect
+   * - .. _control-epsilon:
 
-.. rubric:: Returns and use
+       ``epsilon``
+     - ``float``, ``1e-07``
+     - > 0
+     - Positive coefficient-fitting convergence tolerance; also seeds defaults in some outer optimizer controls.
+   * - .. _control-maxit:
 
-``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.
+       ``maxit``
+     - ``int``, ``200``
+     - Positive integer
+     - Positive maximum coefficient-fitting iterations.
+   * - .. _control-irls-reg:
 
-:doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`
+       ``irls_reg``
+     - ``float``, ``0.0``
+     - >= 0
+     - Nonnegative ridge stabilization for IRLS coefficient updates.
+   * - .. _control-rank-tol:
 
+       ``rank_tol``
+     - ``float``, ``1.4901161193847656e-08``
+     - [0,1]; invalid values warn and reset to sqrt(machine epsilon)
+     - Numerical rank tolerance in [0, 1]. Invalid values warn and reset to sqrt(machine epsilon).
+   * - .. _control-scale-est:
 
-.. rubric:: Runnable example
+       ``scale_est``
+     - ``str``, ``'fletcher'``
+     - 'fletcher', 'pearson', 'deviance'
+     - Dispersion estimator: fletcher, pearson or deviance. Does not replace a positive fixed model scale.
 
-This example includes all imports and input data; no variables from another page are required.
+Accepted aliases: ``irls.reg`` → ``irls_reg``, ``rank.tol`` → ``rank_tol``, ``scale.est`` → ``scale_est``.
 
-:download:`Download the complete example </_examples/reference/statistical_reference/controls/epsilon.py>`
+Combined example
+----------------
 
-.. literalinclude:: /_examples/reference/statistical_reference/controls/epsilon.py
+.. literalinclude:: /_examples/reference/statistical_reference/controls/coefficient_fitting.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   {
-     "epsilon": 1e-07
-   }
-
-.. rubric:: Example output types and shapes
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The preview lists up to six direct fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 1 named fields
-   * - result['epsilon']
-     - builtins.float
-     - ()
-
-
-.. _control-maxit:
-
-maxit
------
-
-Positive maximum coefficient-fitting iterations.
-
-**Consumer and overrides:** IRLS/coefficient solver and dispersion postprocessing. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.
-
-.. rubric:: Signature and default
-
-.. code-block:: python
-
-   from nampy.gam import gam_control
-
-   control = gam_control(maxit=200)
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Parameter
-     - Type
-     - Resolved default
-     - Aliases
-   * - maxit
-     - int
-     - ``200``
-     - None
-
-.. rubric:: Returns and use
-
-``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.
-
-:doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`
-
-
-.. rubric:: Runnable example
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/statistical_reference/controls/maxit.py>`
-
-.. literalinclude:: /_examples/reference/statistical_reference/controls/maxit.py
-   :language: python
-
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   {
-     "maxit": 200
-   }
-
-.. rubric:: Example output types and shapes
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The preview lists up to six direct fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 1 named fields
-   * - result['maxit']
-     - builtins.int
-     - ()
-
-
-.. _control-irls-reg:
-
-irls_reg
---------
-
-Nonnegative ridge stabilization for IRLS coefficient updates.
-
-**Consumer and overrides:** IRLS/coefficient solver and dispersion postprocessing. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.
-
-.. rubric:: Signature and default
-
-.. code-block:: python
-
-   from nampy.gam import gam_control
-
-   control = gam_control(irls_reg=0.0)
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Parameter
-     - Type
-     - Resolved default
-     - Aliases
-   * - irls_reg
-     - float
-     - ``0.0``
-     - ``irls.reg``
-
-.. rubric:: Returns and use
-
-``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.
-
-:doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`
-
-
-.. rubric:: Runnable example
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/statistical_reference/controls/irls_reg.py>`
-
-.. literalinclude:: /_examples/reference/statistical_reference/controls/irls_reg.py
-   :language: python
-
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   {
-     "irls_reg": 0.0
-   }
-
-.. rubric:: Example output types and shapes
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The preview lists up to six direct fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 1 named fields
-   * - result['irls_reg']
-     - builtins.float
-     - ()
-
-
-.. _control-rank-tol:
-
-rank_tol
---------
-
-Numerical rank tolerance in [0, 1]. Invalid values warn and reset to sqrt(machine epsilon).
-
-**Consumer and overrides:** IRLS/coefficient solver and dispersion postprocessing. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.
-
-.. rubric:: Signature and default
-
-.. code-block:: python
-
-   from nampy.gam import gam_control
-
-   control = gam_control(rank_tol=1.4901161193847656e-08)
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Parameter
-     - Type
-     - Resolved default
-     - Aliases
-   * - rank_tol
-     - float
-     - ``1.4901161193847656e-08``
-     - ``rank.tol``
-
-.. rubric:: Returns and use
-
-``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.
-
-:doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`
-
-
-.. rubric:: Runnable example
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/statistical_reference/controls/rank_tol.py>`
-
-.. literalinclude:: /_examples/reference/statistical_reference/controls/rank_tol.py
-   :language: python
-
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   {
-     "rank_tol": 1.4901161193847656e-08
-   }
-
-.. rubric:: Example output types and shapes
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The preview lists up to six direct fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 1 named fields
-   * - result['rank_tol']
-     - builtins.float
-     - ()
-
-
-.. _control-scale-est:
-
-scale_est
----------
-
-Dispersion estimator: fletcher, pearson or deviance. Does not replace a positive fixed model scale.
-
-**Consumer and overrides:** IRLS/coefficient solver and dispersion postprocessing. Explicit model scale overrides ``scale_est``; solver-specific settings have no effect outside that solver. Thread controls remain metadata.
-
-.. rubric:: Signature and default
-
-.. code-block:: python
-
-   from nampy.gam import gam_control
-
-   control = gam_control(scale_est='fletcher')
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Parameter
-     - Type
-     - Resolved default
-     - Aliases
-   * - scale_est
-     - str
-     - ``'fletcher'``
-     - ``scale.est``
-
-.. rubric:: Returns and use
-
-``gam_control`` returns an immutable, validated ``GAMControl`` object. Pass it as ``control=control`` to ``GAM`` or a statistical estimator. Mapping-valued fields are copied and normalized. Unknown keys raise ``TypeError``; invalid domains raise ``ValueError`` unless the resetting behavior above applies. This setting configures fitting; it does not itself return predictions.
-
-:doc:`Statistical estimator <../estimators/GAMRegressor>` · :doc:`Supported fitting combinations </api/gam_advanced>`
-
-
-.. rubric:: Runnable example
-
-This example includes all imports and input data; no variables from another page are required.
-
-:download:`Download the complete example </_examples/reference/statistical_reference/controls/scale_est.py>`
-
-.. literalinclude:: /_examples/reference/statistical_reference/controls/scale_est.py
-   :language: python
-
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   {
-     "scale_est": "fletcher"
-   }
-
-.. rubric:: Example output types and shapes
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The preview lists up to six direct fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 1 named fields
-   * - result['scale_est']
-     - builtins.str
-     - ()
+:download:`Download this example </_examples/reference/statistical_reference/controls/coefficient_fitting.py>`.

@@ -23,32 +23,21 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "estimate": [
-       1.34793,
-       0.96621,
-       1.1574,
-       1.04873,
-       1.45279,
-       1.11514
-     ],
-     "lower": [
-       1.28313,
-       0.90974,
-       1.08238,
-       0.98952,
-       1.39039,
-       1.06399
-     ],
-     "standard_error": [
-       0.03306,
-       0.02881,
-       0.03828,
-       0.03021,
-       0.03184,
-       0.0261
+     "fields": {
+       "critical_value": 1.959963984540054
+     },
+     "kind": "FunctionalInterval",
+     "omitted_fields": [
+       "estimate",
+       "standard_error",
+       "lower",
+       "upper",
+       "significant"
      ]
    }
 
@@ -57,7 +46,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

@@ -765,7 +765,13 @@ def method_parameter_rows(method, extra_meanings=None):
 def smooth_parameter_meanings(name):
     """Basis-specific semantics beyond the shared runtime term contract."""
     result = {}
-    if name in {"ps", "cp"}:
+    if name in {"tp", "ts"}:
+        result.update(
+            m="Penalty derivative order. None selects the smallest integer m with 2*m>d+1. For tp, a two-element sequence ending in zero removes the polynomial null space; ts does not support that removal.",
+            xt="Optional max.knots (default 2000) and seed (default 1) for deterministic construction-location subsampling. Prediction reuses the retained fitted setup.",
+            k="Automatic rank is M+8 in one dimension, M+27 in two and M+100 above two, where M is the polynomial null-space dimension. The rank must accommodate the null space and distinct construction locations.",
+        )
+    elif name in {"ps", "cp"}:
         result["m"] = (
             "None resolves to [2, 2]. The first integer is basis order (polynomial degree = first + 1); the second is the coefficient difference-penalty order. Both are nonnegative. cp uses cyclic basis/difference construction."
         )
@@ -804,6 +810,9 @@ def smooth_parameter_meanings(name):
             "Function-basis dimension: an integer or one value per margin. Automatic values are 40 in one dimension and 15 per margin in two dimensions; the penalty-basis dimension m must remain compatible."
         )
     elif name == "sos":
+        result["xt"] = (
+            "Optional max.knots (default 2000) and seed (default 1) control low-rank construction-location subsampling on the sphere."
+        )
         result["m"] = (
             "Spherical kernel order, accepting integer branches -2 through 4; default 0 uses the second-order Wendelberger construction. Coordinates are latitude then longitude in degrees."
         )

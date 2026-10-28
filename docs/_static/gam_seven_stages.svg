@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 862" role="img" aria-labelledby="title desc">
+  <title id="title">The seven stages of a statistical GAM</title>
+  <desc id="desc">Inputs pass through a public interface, formula specifications, fitted bases and penalties, compilation, coefficient fitting with optional smoothing selection, fitted result artifacts, and prediction with inference and diagnostics. New rows enter the final stage using retained basis state.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="#42617a" stroke-width="1.5"/></marker>
+  </defs>
+  <rect width="1000" height="862" rx="16" fill="#fafcff"/>
+  <g font-family="system-ui, sans-serif" fill="#183349">
+    <text x="38" y="41" font-size="23" font-weight="700">From model intent to an inspected prediction</text>
+    <text x="38" y="69" font-size="15" fill="#486174">Seven responsibility stages · one statistical backend</text>
+    <g fill="#eaf4fb" stroke="#87adc8" stroke-width="1.5">
+      <rect x="38" y="100" width="585" height="76" rx="10"/>
+      <rect x="38" y="205" width="585" height="76" rx="10"/>
+      <rect x="38" y="310" width="585" height="76" rx="10"/>
+      <rect x="38" y="415" width="585" height="76" rx="10"/>
+      <rect x="38" y="520" width="585" height="98" rx="10" fill="#e8f6f1" stroke="#65a18a"/>
+      <rect x="38" y="647" width="585" height="76" rx="10"/>
+      <rect x="38" y="752" width="585" height="76" rx="10"/>
+    </g>
+    <g font-size="19" font-weight="650">
+      <text x="58" y="130">1  Public interface and fit lifecycle</text>
+      <text x="58" y="235">2  Formula and canonical specifications</text>
+      <text x="58" y="340">3  Basis, penalty and constraint construction</text>
+      <text x="58" y="445">4  Numerical model compilation</text>
+      <text x="58" y="550">5  Coefficient fitting and smoothness selection</text>
+      <text x="58" y="677">6  Fitted results and inference artifacts</text>
+      <text x="58" y="782">7  Prediction, inference and diagnosis</text>
+    </g>
+    <g font-size="15" fill="#334f63">
+      <text x="58" y="155">Validate configuration; isolate the new fitting session</text>
+      <text x="58" y="260">Resolve response, terms, families, weights and offsets</text>
+      <text x="58" y="365">Retain knots, basis setup, coefficient maps and penalties</text>
+      <text x="58" y="470">Assemble predictor designs, coefficient slices and ownership</text>
+      <text x="58" y="575">Inner coefficient solve ↔ outer criterion / smoothing update</text>
+      <text x="58" y="599">Fixed smoothing omits the outer loop; solver routes differ</text>
+      <text x="58" y="702">Store coefficients, smoothing, covariance and diagnostics</text>
+      <text x="58" y="807">Reuse fitted bases; reconstruct link predictors; apply family</text>
+    </g>
+    <g stroke="#42617a" stroke-width="1.7" marker-end="url(#arrow)">
+      <path d="M330 177V199"/><path d="M330 282V304"/>
+      <path d="M330 387V409"/><path d="M330 492V514"/>
+      <path d="M330 619V641"/><path d="M330 724V746"/>
+    </g>
+    <g font-size="15" fill="#486174">
+      <text x="658" y="126" font-weight="650">Model intent + training data</text>
+      <text x="658" y="150">Formula or arrays; estimator options</text>
+      <text x="658" y="336" font-weight="650">Mathematical representation</text>
+      <text x="658" y="360">Function space + roughness + constraints</text>
+      <text x="658" y="546" font-weight="650">Numerical estimation</text>
+      <text x="658" y="570">Gaussian / PIRLS / joint / shape routes</text>
+      <text x="658" y="594">Criterion is distinct from optimizer</text>
+      <text x="658" y="778" font-weight="650">New rows + retained fit state</text>
+      <text x="658" y="802">No basis refit or smoothing reselection</text>
+    </g>
+  </g>
+</svg>

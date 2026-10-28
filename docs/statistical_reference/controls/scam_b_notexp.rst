@@ -5,4 +5,4 @@
 scam_b_notexp
 =============
 
-See :ref:`control-scam-b-notexp` for its type, default, domain, consumer and tested example.
+See :ref:`scam_b_notexp <control-scam-b-notexp>` for its type, default, valid values and fitting role.

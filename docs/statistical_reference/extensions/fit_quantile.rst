@@ -23,40 +23,36 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
      "exact": {
-       "coefficients": [
-         0.54482,
-         0.51064,
-         0.0373
-       ],
-       "fitted": [
-         0.07148,
-         0.09394,
-         0.11659,
-         0.13944,
-         0.16249,
-         0.18573
-       ],
-       "objective": 1.4721224710346765
+       "fields": {
+         "converged": true,
+         "iterations": 1075,
+         "objective": 1.4721224710346765,
+         "optimality": 2.6020852139652106e-15
+       },
+       "kind": "LossFit",
+       "omitted_fields": [
+         "coefficients",
+         "fitted"
+       ]
      },
      "smooth": {
-       "coefficients": [
-         0.58661,
-         0.49282,
-         0.03286
-       ],
-       "fitted": [
-         0.12665,
-         0.14864,
-         0.1708,
-         0.19313,
-         0.21564,
-         0.23832
-       ],
-       "objective": 2.5544674860031527
+       "fields": {
+         "converged": true,
+         "iterations": 4,
+         "objective": 2.5544674860031527,
+         "optimality": 3.063993503360507e-12
+       },
+       "kind": "LossFit",
+       "omitted_fields": [
+         "coefficients",
+         "fitted"
+       ]
      }
    }
 
@@ -65,7 +61,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

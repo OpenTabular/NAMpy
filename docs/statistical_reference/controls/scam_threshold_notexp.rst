@@ -5,4 +5,4 @@
 scam_threshold_notexp
 =====================
 
-See :ref:`control-scam-threshold-notexp` for its type, default, domain, consumer and tested example.
+See :ref:`scam_threshold_notexp <control-scam-threshold-notexp>` for its type, default, valid values and fitting role.

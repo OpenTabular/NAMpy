@@ -2,7 +2,7 @@
 
 :orphan:
 
-Concave P-spline with nonpositive curvature (``cvby``) runtime
-==============================================================
+Concave P-spline with by variable (``cvby``) runtime
+====================================================
 
 :doc:`Canonical runtime constructor <ShapeConstrainedPSplineTerm>`.

@@ -3,27 +3,36 @@
 mvnormdiag
 ==========
 
-Neural distribution family for ``family='mvnormdiag'``. Configure its constructor through ``distributional_kwargs`` on an LSS estimator.
+Theory and interpretation
+-------------------------
 
-Distribution definition and moments
------------------------------------
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Quantity
-     - Definition
-   * - Distribution / loss
-     - Y_i independently Normal(loc_i,scale_i^2) conditional on inputs; joint density is the product over dimensions.
-   * - Natural domains
-     - loc_1,...,loc_D in R, then scale_1,...,scale_D>0
-   * - Conditional mean
-     - loc vector
-   * - Conditional variance
-     - Diagonal covariance diag(scale_i^2)
+* **Distribution / loss:** Y_i independently Normal(loc_i,scale_i^2) conditional on inputs; joint density is the product over dimensions.
+* **Natural domains:** loc_1,...,loc_D in R, then scale_1,...,scale_D>0
+* **Conditional mean:** loc vector
+* **Conditional variance:** Diagonal covariance diag(scale_i^2)
 
 References: `PyTorch probability distributions <https://docs.pytorch.org/docs/stable/distributions.html>`_. NAMpy defines its family transforms and point outputs below.
+
+A diagonal multivariate Gaussian predicts one location and one
+scale per response dimension. Conditional independence makes the
+joint log density the sum of its scalar Gaussian log densities.
+
+.. math::
+
+   \ell(y)=\sum_{j=1}^{D}\log N(y_j\mid\mu_j,\sigma_j^2),\qquad \operatorname{Cov}(Y\mid x)=\operatorname{diag}(\sigma_1^2,\ldots,\sigma_D^2).
+
+Shared predictors can produce marginal association across
+outcomes, but residual conditional cross-covariance is fixed to zero.
+A wide output head therefore does not imply a full covariance model.
+Each location/scale pair has its own domain and contribution columns;
+the output contract fixes their concatenation order.
+
+Neural training composes this response objective with the chosen architecture. Its raw outputs pass through the configured domain transforms; likelihood parameterization and network architecture are separate choices.
+
+See :doc:`/statistical_reference/families/theory` for likelihoods,
+links, weights and distributional predictors. The mathematical law
+does not imply support for every fitting or smoothing-selection route;
+the contracts below define the implemented combinations.
 
 Targets, transforms and scoring
 -------------------------------
@@ -33,6 +42,8 @@ Target shape/encoding: ``(n,D) floating response matrix``. Network rows must ali
 ``compute_loss`` and ``compute_loss_per_sample`` consume raw network outputs, not already transformed parameters. The scalar loss is averaged over observations. Lower loss is better. LSS scoring follows the shared estimator contract; response SD summarizes conditional variability, not estimation uncertainty. Distribution-specific moments that do not exist cannot be interpreted as finite uncertainty estimates.
 
 Implementation definitions: :mod:`nampy.neural.distributions.distributions`. See the source link on the runtime contract for the implemented transforms and objective.
+
+Neural distribution family for ``family='mvnormdiag'``. Configure its constructor through ``distributional_kwargs`` on an LSS estimator.
 
 Signature
 ---------
@@ -150,36 +161,77 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
+.. rubric:: parameters
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - loc_0
+     - loc_1
+     - loc_2
+     - scale_0
+   * - 0.0
+     - 0.0
+     - 0.0
+     - 0.693149983882904
+   * - 0.0
+     - 0.0
+     - 0.0
+     - 0.693149983882904
+
+Full shape: ``[8, 6]``; omitted by axis: ``[6, 2]``.
+
+.. rubric:: raw
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - loc_0
+     - loc_1
+     - loc_2
+     - scale_0
+   * - 0.0
+     - 0.0
+     - 0.0
+     - 0.0
+   * - 0.0
+     - 0.0
+     - 0.0
+     - 0.0
+
+Full shape: ``[8, 6]``; omitted by axis: ``[6, 2]``.
+
 .. code-block:: text
 
    {
-     "loss": [
-       4.779329776763916
-     ],
-     "parameters": [
-       0.0,
-       0.0,
-       0.0,
-       0.693149983882904,
-       0.693149983882904,
-       0.693149983882904
-     ],
-     "point": [
-       0.0,
-       0.0,
-       0.0,
-       0.0,
-       0.0,
-       0.0
-     ],
-     "raw": [
-       0.0,
-       0.0,
-       0.0,
-       0.0,
-       0.0,
-       0.0
-     ]
+     "loss": 4.779330730438232,
+     "point": {
+       "kind": "array",
+       "omitted_by_axis": [
+         6,
+         0
+       ],
+       "shape": [
+         8,
+         3
+       ],
+       "values": [
+         [
+           0.0,
+           0.0,
+           0.0
+         ],
+         [
+           0.0,
+           0.0,
+           0.0
+         ]
+       ]
+     }
    }
 
 Example output types and shapes
@@ -187,7 +239,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

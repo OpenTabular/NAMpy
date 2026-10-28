@@ -3,7 +3,7 @@
 Smooth bases and tensor products
 ================================
 
-Choose the modeling purpose first. Each detail page documents the formula interface and links separately to its runtime constructor.
+Choose the modeling purpose first. Start with :doc:`theory` for basis expansions, penalties, null spaces and EDF. Each detail page explains its specific construction, then documents the formula interface and links separately to its runtime constructor.
 
 Ordinary one-dimensional smooths
 --------------------------------
@@ -18,31 +18,31 @@ Ordinary one-dimensional smooths
      - Main distinction
    * - :doc:`ad <ad>`
      - Adaptive spline
-     - 1–2 covariates
+     - One or two covariates
      - Adaptive spline with multiple penalties whose weights allow roughness to vary over the covariate domain. Supports one or two covariates.
    * - :doc:`bs <bs>`
      - Derivative-penalized B-spline
-     - 1–1 covariates
+     - One covariate
      - B-spline with integrated derivative penalties. Unlike ps, its penalty acts on derivatives of the represented function.
    * - :doc:`cr <cr>`
      - Cubic regression spline
-     - 1–1 covariates
+     - One covariate
      - Cubic regression spline with a second-derivative roughness penalty and a low-dimensional knot basis.
    * - :doc:`cs <cs>`
      - Shrinkage cubic spline
-     - 1–1 covariates
+     - One covariate
      - Cubic regression spline with a shrinkage penalty that also penalizes the ordinary cubic spline's null space.
    * - :doc:`ps <ps>`
      - P-spline
-     - 1–1 covariates
+     - One covariate
      - P-spline: a B-spline representation with a discrete difference penalty on neighboring coefficients.
    * - :doc:`sc <sc>`
      - Unconstrained SC B-spline
-     - 1–1 covariates
+     - One covariate
      - B-spline constructor branch corresponding to mgcv sc. This constructor does not itself impose shape inequalities; use the SCAM bases for constrained fitting.
    * - :doc:`scad <scad>`
      - Adaptive SC B-spline
-     - 1–2 covariates
+     - One or two covariates
      - Adaptive B-spline constructor branch corresponding to mgcv scad. This constructor does not itself impose shape inequalities.
 
 Cyclic smooths
@@ -58,11 +58,11 @@ Cyclic smooths
      - Main distinction
    * - :doc:`cc <cc>`
      - Cyclic cubic spline
-     - 1–1 covariates
+     - One covariate
      - Cyclic cubic regression spline. The fitted effect joins smoothly at the period boundaries; use this for a genuinely periodic covariate.
    * - :doc:`cp <cp>`
      - Cyclic P-spline
-     - 1–1 covariates
+     - One covariate
      - Cyclic P-spline with a periodic basis and cyclic coefficient-difference penalty.
 
 Multivariate, spatial and spherical smooths
@@ -78,35 +78,35 @@ Multivariate, spatial and spherical smooths
      - Main distinction
    * - :doc:`ds <ds>`
      - Duchon spline
-     - 1–unbounded covariates
+     - One or more covariates
      - Duchon spline: a low-rank isotropic smooth with derivative order and spectral weighting controlled by m.
    * - :doc:`gp <gp>`
      - Gaussian-process smooth
-     - 1–unbounded covariates
+     - One or more covariates
      - Gaussian-process smooth represented by a reduced-rank covariance basis; m selects the covariance construction and its scale options.
    * - :doc:`sf <sf>`
      - Soap boundary film
-     - 2–2 covariates
+     - Two covariates
      - Soap boundary-film component. Its values are determined by the supplied domain boundary rather than an unconstrained plane-wide spline.
    * - :doc:`so <so>`
      - Soap-film smooth
-     - 2–2 covariates
+     - Two covariates
      - Soap-film smooth over a bounded planar domain. Combines a smooth boundary film with an interior component that vanishes at the boundary.
    * - :doc:`sos <sos>`
      - Spherical spline
-     - 2–2 covariates
+     - Two covariates
      - Spline on a sphere for latitude and longitude, avoiding a planar distance interpretation of geographic coordinates.
    * - :doc:`sw <sw>`
      - Soap interior smooth
-     - 2–2 covariates
+     - Two covariates
      - Soap interior component with zero boundary values. Interior knot locations determine its interior basis dimension.
    * - :doc:`tp <tp>`
      - Thin-plate regression spline
-     - 1–unbounded covariates
+     - One or more covariates
      - Thin-plate regression spline: a low-rank, rotation-invariant smooth of one or more numerical covariates. The usual penalty leaves a polynomial null space unpenalized.
    * - :doc:`ts <ts>`
      - Shrinkage thin-plate spline
-     - 1–unbounded covariates
+     - One or more covariates
      - Thin-plate shrinkage spline. A modified full-rank penalty also shrinks the polynomial null space, allowing the whole term to approach zero.
 
 Group effects and structured penalties
@@ -122,19 +122,19 @@ Group effects and structured penalties
      - Main distinction
    * - :doc:`fs <fs>`
      - Factor-specific smooth
-     - 1–1 covariates
+     - Numerical covariate(s) and categorical factor(s)
      - Factor-smooth interaction: a separate penalized curve per factor level, including penalties for the marginal null space.
    * - :doc:`mrf <mrf>`
      - Markov random field
-     - 1–1 covariates
+     - One covariate
      - Markov random-field smooth for discrete regions. A neighborhood graph or supplied precision matrix penalizes differences between connected areas.
    * - :doc:`re <re>`
      - Random effect
-     - 1–unbounded covariates
+     - One or more covariates
      - Random effect represented by a parametric indicator/product design and a ridge-type precision penalty; suitable for penalized group coefficients.
    * - :doc:`sz <sz>`
      - Sum-to-zero factor smooth
-     - 1–1 covariates
+     - Numerical covariate(s) and categorical factor(s)
      - Sum-to-zero factor smooths: constrained level-specific deviations that can accompany a common main smooth.
 
 Tensor products
@@ -150,15 +150,15 @@ Tensor products
      - Main distinction
    * - :doc:`t2 <t2>`
      - Range/null-space tensor product
-     - 1–1 covariates
+     - Two or more covariates, grouped into margins
      - Alternative full tensor product with separate range/null-space penalty blocks. full and ord determine which blocks are retained.
    * - :doc:`te <te>`
      - Full tensor product
-     - 1–1 covariates
+     - Two or more covariates, grouped into margins
      - Full tensor-product smooth. Separate marginal bases and penalties allow covariates with different units and scales.
    * - :doc:`ti <ti>`
      - Tensor interaction
-     - 1–1 covariates
+     - Two or more covariates, grouped into margins
      - Tensor interaction after marginal constraints remove main-effect directions. Combine with separate marginal smooths for an ANOVA decomposition.
 
 Shape-constrained smooths
@@ -174,172 +174,173 @@ Shape-constrained smooths
      - Main distinction
    * - :doc:`cpop <cpop>`
      - Cyclic positive P-spline
-     - 1–1 covariates
+     - One covariate
      - Cyclic positive P-spline. A periodic B-spline design and positive coefficient map enforce periodicity and positivity together.
    * - :doc:`cv <cv>`
-     - Concave P-spline with nonpositive curvature; the linear trend remains a separate unconstrained direction
-     - 1–1 covariates
+     - Concave P-spline
+     - One covariate
      - Concave P-spline with nonpositive curvature; the linear trend remains a separate unconstrained direction.
    * - :doc:`cvby <cvby>`
-     - Concave P-spline with nonpositive curvature; the linear trend remains a separate unconstrained direction
-     - 1–1 covariates
+     - Concave P-spline with by variable
+     - One covariate
      - Concave P-spline with nonpositive curvature; the linear trend remains a separate unconstrained direction. Numeric-by variant retaining the coefficient directions required for row-wise weighted/linear-functional terms. Supply the multiplier with by=.
    * - :doc:`cx <cx>`
-     - Convex P-spline with nonnegative curvature; the linear trend remains a separate unconstrained direction
-     - 1–1 covariates
+     - Convex P-spline
+     - One covariate
      - Convex P-spline with nonnegative curvature; the linear trend remains a separate unconstrained direction.
    * - :doc:`cxby <cxby>`
-     - Convex P-spline with nonnegative curvature; the linear trend remains a separate unconstrained direction
-     - 1–1 covariates
+     - Convex P-spline with by variable
+     - One covariate
      - Convex P-spline with nonnegative curvature; the linear trend remains a separate unconstrained direction. Numeric-by variant retaining the coefficient directions required for row-wise weighted/linear-functional terms. Supply the multiplier with by=.
    * - :doc:`dpo <dpo>`
-     - Positive, decreasing P-spline using a reversed cumulative coefficient construction
-     - 1–1 covariates
+     - Positive decreasing P-spline
+     - One covariate
      - Positive, decreasing P-spline using a reversed cumulative coefficient construction.
    * - :doc:`ipo <ipo>`
-     - Positive, increasing P-spline using positive cumulative coefficients
-     - 1–1 covariates
+     - Positive increasing P-spline
+     - One covariate
      - Positive, increasing P-spline using positive cumulative coefficients.
    * - :doc:`lipl <lipl>`
-     - Increasing P-spline with a plateau after a specified change point xc
-     - 1–1 covariates
+     - Increasing spline with plateau
+     - One covariate
      - Increasing P-spline with a plateau after a specified change point xc. Supply xt={'xc': value}; user-supplied knots are unsupported.
    * - :doc:`lmpi <lmpi>`
-     - Locally increasing P-spline before a specified change point xc, with an unconstrained coefficient block afterward
-     - 1–1 covariates
+     - Locally increasing P-spline
+     - One covariate
      - Locally increasing P-spline before a specified change point xc, with an unconstrained coefficient block afterward. Supply xt={'xc': value}; user-supplied knots are unsupported.
    * - :doc:`mdcv <mdcv>`
-     - P-spline constrained to be decreasing and concave
-     - 1–1 covariates
+     - Decreasing, concave P-spline
+     - One covariate
      - P-spline constrained to be decreasing and concave.
    * - :doc:`mdcvby <mdcvby>`
-     - P-spline constrained to be decreasing and concave
-     - 1–1 covariates
+     - Decreasing, concave P-spline with by variable
+     - One covariate
      - P-spline constrained to be decreasing and concave. Numeric-by variant retaining the coefficient directions required for row-wise weighted/linear-functional terms. Supply the multiplier with by=.
    * - :doc:`mdcx <mdcx>`
-     - P-spline constrained to be decreasing and convex
-     - 1–1 covariates
+     - Decreasing, convex P-spline
+     - One covariate
      - P-spline constrained to be decreasing and convex.
    * - :doc:`mdcxby <mdcxby>`
-     - P-spline constrained to be decreasing and convex
-     - 1–1 covariates
+     - Decreasing, convex P-spline with by variable
+     - One covariate
      - P-spline constrained to be decreasing and convex. Numeric-by variant retaining the coefficient directions required for row-wise weighted/linear-functional terms. Supply the multiplier with by=.
    * - :doc:`micv <micv>`
-     - P-spline constrained to be increasing and concave
-     - 1–1 covariates
+     - Increasing, concave P-spline
+     - One covariate
      - P-spline constrained to be increasing and concave.
    * - :doc:`micvby <micvby>`
-     - P-spline constrained to be increasing and concave
-     - 1–1 covariates
+     - Increasing, concave P-spline with by variable
+     - One covariate
      - P-spline constrained to be increasing and concave. Numeric-by variant retaining the coefficient directions required for row-wise weighted/linear-functional terms. Supply the multiplier with by=.
    * - :doc:`micx <micx>`
-     - P-spline constrained to be increasing and convex
-     - 1–1 covariates
+     - Increasing, convex P-spline
+     - One covariate
      - P-spline constrained to be increasing and convex.
    * - :doc:`micxby <micxby>`
-     - P-spline constrained to be increasing and convex
-     - 1–1 covariates
+     - Increasing, convex P-spline with by variable
+     - One covariate
      - P-spline constrained to be increasing and convex. Numeric-by variant retaining the coefficient directions required for row-wise weighted/linear-functional terms. Supply the multiplier with by=.
    * - :doc:`mifo <mifo>`
-     - Monotone increasing smooth anchored at zero at the end of its domain, with the mirrored endpoint knot construction
-     - 1–1 covariates
+     - Increasing spline, zero end
+     - One covariate
      - Monotone increasing smooth anchored at zero at the end of its domain, with the mirrored endpoint knot construction.
    * - :doc:`miso <miso>`
-     - Monotone increasing smooth anchored at zero at the start of its domain
-     - 1–1 covariates
+     - Increasing spline, zero start
+     - One covariate
      - Monotone increasing smooth anchored at zero at the start of its domain. Collapsed initial inner knots avoid an artificial flat initial segment.
    * - :doc:`mpd <mpd>`
-     - Monotone decreasing P-spline; transformed coefficients impose a nonpositive first derivative
-     - 1–1 covariates
+     - Decreasing P-spline
+     - One covariate
      - Monotone decreasing P-spline; transformed coefficients impose a nonpositive first derivative.
    * - :doc:`mpdby <mpdby>`
-     - Monotone decreasing P-spline; transformed coefficients impose a nonpositive first derivative
-     - 1–1 covariates
+     - Decreasing P-spline with by variable
+     - One covariate
      - Monotone decreasing P-spline; transformed coefficients impose a nonpositive first derivative. Numeric-by variant retaining the coefficient directions required for row-wise weighted/linear-functional terms. Supply the multiplier with by=.
    * - :doc:`mpi <mpi>`
-     - Monotone increasing P-spline; transformed coefficients impose a nonnegative first derivative
-     - 1–1 covariates
+     - Increasing P-spline
+     - One covariate
      - Monotone increasing P-spline; transformed coefficients impose a nonnegative first derivative.
    * - :doc:`mpiby <mpiby>`
-     - Monotone increasing P-spline; transformed coefficients impose a nonnegative first derivative
-     - 1–1 covariates
+     - Increasing P-spline with by variable
+     - One covariate
      - Monotone increasing P-spline; transformed coefficients impose a nonnegative first derivative. Numeric-by variant retaining the coefficient directions required for row-wise weighted/linear-functional terms. Supply the multiplier with by=.
    * - :doc:`po <po>`
-     - Positive P-spline using positive coefficients in a nonnegative B-spline basis
-     - 1–1 covariates
+     - Positive P-spline
+     - One covariate
      - Positive P-spline using positive coefficients in a nonnegative B-spline basis.
    * - :doc:`tecvcv <tecvcv>`
-     - Bivariate tensor P-spline with concave/concave marginal coefficient construction
-     - 1–1 covariates
+     - Concave / concave tensor spline
+     - Two covariates
      - Bivariate tensor P-spline with concave/concave marginal coefficient construction.
    * - :doc:`tecxcv <tecxcv>`
-     - Bivariate tensor P-spline with convex first-margin and concave second-margin construction
-     - 1–1 covariates
+     - Convex / concave tensor spline
+     - Two covariates
      - Bivariate tensor P-spline with convex first-margin and concave second-margin construction.
    * - :doc:`tecxcx <tecxcx>`
-     - Bivariate tensor P-spline with convex/convex marginal coefficient construction
-     - 1–1 covariates
+     - Convex / convex tensor spline
+     - Two covariates
      - Bivariate tensor P-spline with convex/convex marginal coefficient construction.
    * - :doc:`tedecv <tedecv>`
-     - Bivariate monotone-decreasing/concave tensor P-spline construction, preserving the source signed marginal maps
-     - 1–1 covariates
+     - Decreasing / concave tensor spline
+     - Two covariates
      - Bivariate monotone-decreasing/concave tensor P-spline construction, preserving the source signed marginal maps.
    * - :doc:`tedecx <tedecx>`
-     - Bivariate monotone-decreasing/convex tensor P-spline construction, preserving the source signed marginal maps
-     - 1–1 covariates
+     - Decreasing / convex tensor spline
+     - Two covariates
      - Bivariate monotone-decreasing/convex tensor P-spline construction, preserving the source signed marginal maps.
    * - :doc:`tedmd <tedmd>`
-     - Bivariate double-monotone decreasing tensor P-spline, using the source signed cumulative coefficient map
-     - 1–1 covariates
+     - Decreasing in both covariates
+     - Two covariates
      - Bivariate double-monotone decreasing tensor P-spline, using the source signed cumulative coefficient map.
    * - :doc:`tedmi <tedmi>`
-     - Bivariate double-monotone increasing tensor P-spline, with cumulative coefficient maps and two marginal penalties
-     - 1–1 covariates
+     - Increasing in both covariates
+     - Two covariates
      - Bivariate double-monotone increasing tensor P-spline, with cumulative coefficient maps and two marginal penalties.
    * - :doc:`temicv <temicv>`
-     - Bivariate monotone-increasing/concave tensor P-spline construction; the first margin uses the monotone accumulation map
-     - 1–1 covariates
+     - Increasing / concave tensor spline
+     - Two covariates
      - Bivariate monotone-increasing/concave tensor P-spline construction; the first margin uses the monotone accumulation map.
    * - :doc:`temicx <temicx>`
-     - Bivariate monotone-increasing/convex tensor P-spline construction
-     - 1–1 covariates
+     - Increasing / convex tensor spline
+     - Two covariates
      - Bivariate monotone-increasing/convex tensor P-spline construction. Feature order determines which marginal receives each coefficient map.
    * - :doc:`tescv <tescv>`
-     - Bivariate tensor P-spline with concavity imposed along the second margin and unconstrained first-margin directions
-     - 1–1 covariates
+     - Concave second-margin spline
+     - Two covariates
      - Bivariate tensor P-spline with concavity imposed along the second margin and unconstrained first-margin directions.
    * - :doc:`tescx <tescx>`
-     - Bivariate tensor P-spline with convexity imposed along the second margin and unconstrained first-margin directions
-     - 1–1 covariates
+     - Convex second-margin spline
+     - Two covariates
      - Bivariate tensor P-spline with convexity imposed along the second margin and unconstrained first-margin directions.
    * - :doc:`tesmd1 <tesmd1>`
-     - Bivariate tensor P-spline monotone decreasing in the first covariate, with an unconstrained second margin
-     - 1–1 covariates
+     - Decreasing first-margin spline
+     - Two covariates
      - Bivariate tensor P-spline monotone decreasing in the first covariate, with an unconstrained second margin.
    * - :doc:`tesmd2 <tesmd2>`
-     - Bivariate tensor P-spline monotone decreasing in the second covariate, with an unconstrained first margin
-     - 1–1 covariates
+     - Decreasing second-margin spline
+     - Two covariates
      - Bivariate tensor P-spline monotone decreasing in the second covariate, with an unconstrained first margin.
    * - :doc:`tesmi1 <tesmi1>`
-     - Bivariate tensor P-spline monotone increasing in the first covariate, with an unconstrained second margin
-     - 1–1 covariates
+     - Increasing first-margin spline
+     - Two covariates
      - Bivariate tensor P-spline monotone increasing in the first covariate, with an unconstrained second margin.
    * - :doc:`tesmi2 <tesmi2>`
-     - Bivariate tensor P-spline monotone increasing in the second covariate, with an unconstrained first margin
-     - 1–1 covariates
+     - Increasing second-margin spline
+     - Two covariates
      - Bivariate tensor P-spline monotone increasing in the second covariate, with an unconstrained first margin.
    * - :doc:`tismd <tismd>`
-     - Bivariate monotone-decreasing interaction construction, retaining the source signed interaction coordinates
-     - 1–1 covariates
+     - Decreasing tensor interaction
+     - Two covariates
      - Bivariate monotone-decreasing interaction construction, retaining the source signed interaction coordinates.
    * - :doc:`tismi <tismi>`
-     - Bivariate monotone-increasing interaction construction, retaining interaction coordinates after removal of marginal directions
-     - 1–1 covariates
+     - Increasing tensor interaction
+     - Two covariates
      - Bivariate monotone-increasing interaction construction, retaining interaction coordinates after removal of marginal directions.
 
 .. toctree::
    :hidden:
 
+   Mathematical foundations <theory>
    ad
    bs
    cc

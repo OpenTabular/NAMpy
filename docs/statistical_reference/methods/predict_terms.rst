@@ -95,36 +95,63 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "2f8a839992ee": [
-       0.28194,
-       -0.20294,
-       0.08988,
-       -0.0463,
-       0.10676,
-       -0.13891
-     ],
-     "4b6cb45b0bc4": [
-       -0.14571,
-       -0.04255,
-       -0.14418,
-       -0.11667,
-       0.13433,
-       0.04235
-     ],
-     "intercept": [
-       1.2117
-     ],
-     "output": [
-       1.34793,
-       0.96621,
-       1.1574,
-       1.04873,
-       1.45279,
-       1.11514
-     ]
+     "45bdcbb157f6": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         0.28194,
+         -0.20294,
+         0.08988,
+         -0.0463,
+         0.10676,
+         -0.13891
+       ]
+     },
+     "e81f23cf4be4": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         -0.14571,
+         -0.04255,
+         -0.14418,
+         -0.11667,
+         0.13433,
+         0.04235
+       ]
+     },
+     "intercept": 1.2117033510481068,
+     "output": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         1.34793,
+         0.96621,
+         1.1574,
+         1.04873,
+         1.45279,
+         1.11514
+       ]
+     }
    }
 
 Example output types and shapes
@@ -132,7 +159,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1
@@ -147,10 +174,10 @@ The preview lists up to six direct fields; the complete example is downloadable 
    * - result['output']
      - numpy.ndarray[float64]
      - (96,)
-   * - result['2f8a839992ee']
+   * - result['45bdcbb157f6']
      - numpy.ndarray[float64]
      - (96,)
-   * - result['4b6cb45b0bc4']
+   * - result['e81f23cf4be4']
      - numpy.ndarray[float64]
      - (96,)
    * - result['intercept']

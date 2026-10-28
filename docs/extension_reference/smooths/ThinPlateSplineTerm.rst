@@ -32,7 +32,7 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
    * - ``k``
      - ``int``
      - ``-1``
-     - Requested rank before constraints. Automatic rank is M+8 for one covariate, M+27 for two, M+100 above two, where M is polynomial null-space dimension. It must accommodate the null space and available unique locations.
+     - Automatic rank is M+8 in one dimension, M+27 in two and M+100 above two, where M is the polynomial null-space dimension. The rank must accommodate the null space and distinct construction locations.
    * - ``basis``
      - ``str``
      - ``'tp'``
@@ -40,7 +40,7 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
    * - ``m``
      - ``int | Sequence[int | float] | None``
      - ``None``
-     - Penalty derivative order. None/nonpositive selects the smallest integer m with 2*m > d+1 for d covariates. A two-element sequence with second entry zero drops the penalty null space for tp; this is not supported for ts.
+     - Penalty derivative order. None selects the smallest integer m with 2*m>d+1. For tp, a two-element sequence ending in zero removes the polynomial null space; ts does not support that removal.
    * - ``label``
      - ``str | None``
      - ``None``
@@ -84,7 +84,7 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
    * - ``xt``
      - ``Mapping[str, object] | None``
      - ``None``
-     - Optional mapping: max.knots (default 2000) limits distinct construction locations; seed (default 1) controls deterministic subsampling. Prediction reuses the fitted setup.
+     - Optional max.knots (default 2000) and seed (default 1) for deterministic construction-location subsampling. Prediction reuses the retained fitted setup.
    * - ``null_penalty_tol``
      - ``float``
      - ``1e-10``

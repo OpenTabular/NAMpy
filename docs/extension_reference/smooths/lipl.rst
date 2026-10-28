@@ -2,7 +2,7 @@
 
 :orphan:
 
-Increasing P-spline with a plateau after a specified change point xc (``lipl``) runtime
-=======================================================================================
+Increasing spline with plateau (``lipl``) runtime
+=================================================
 
 :doc:`Canonical runtime constructor <ShapeConstrainedPSplineTerm>`.

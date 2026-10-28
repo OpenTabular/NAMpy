@@ -3,6 +3,46 @@
 zip
 ===
 
+Theory and interpretation
+-------------------------
+
+* **Distribution / loss:** Base count law g is Poisson with rate lambda. P(Y=0)=pi; P(Y=y>0)=(1-pi)g(y)/(1-g(0)). Set m_plus=m/(1-g(0)) and v_plus=(v+m^2)/(1-g(0))-m_plus^2.
+* **Natural domains:** zero probability pi in [0,1); positive base rate/mean; NB total count r>0
+* **Conditional mean:** (1-pi)m_plus
+* **Conditional variance:** (1-pi)v_plus+pi(1-pi)m_plus^2
+
+Here m and v denote the base count mean and variance.
+
+Statistical ``zip`` couples presence to log intensity through its nuisance coefficients; it does not estimate an independent zero-probability predictor. Statistical ``ziplss`` uses its documented presence link, so convert presence to zero probability before using this formula.
+
+References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
+
+A hurdle model separates occurrence from the size of a
+positive count. The positive-count law is truncated at zero,
+so only the occurrence component can generate a zero.
+
+.. math::
+
+   P(Y=0)=\pi,\qquad P(Y=y>0)=(1-\pi)\frac{g(y)}{1-g(0)}.
+
+This differs from adding an extra zero mass to an
+untruncated count law. Changing the count intensity changes
+the mean among positive observations; changing pi changes
+the chance of any positive observation. The unconditional
+mean combines both mechanisms. A presence predictor is
+1-pi on the probability scale, not the zero probability pi.
+
+Statistical zip couples occurrence to intensity through its nuisance parameters; the two mechanisms do not have independently specified smooth predictors.
+
+See :doc:`/statistical_reference/families/theory` for likelihoods,
+links, weights and distributional predictors. The mathematical law
+does not imply support for every fitting or smoothing-selection route;
+the contracts below define the implemented combinations.
+
+Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
+
+Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Single-predictor hurdle Poisson family (ziP). Presence is tied to the Poisson predictor through nuisance parameters; this differs from two-predictor ziplss.
 
 Usage
@@ -48,34 +88,6 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``float``
      - ``0.0``
      - Nonnegative lower bound on the presence/log-intensity slope. Negative input is reset to zero.
-
-Distribution definition and moments
------------------------------------
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Quantity
-     - Definition
-   * - Distribution / loss
-     - Base count law g is Poisson with rate lambda. P(Y=0)=pi; P(Y=y>0)=(1-pi)g(y)/(1-g(0)). Set m_plus=m/(1-g(0)) and v_plus=(v+m^2)/(1-g(0))-m_plus^2.
-   * - Natural domains
-     - zero probability pi in [0,1); positive base rate/mean; NB total count r>0
-   * - Conditional mean
-     - (1-pi)m_plus
-   * - Conditional variance
-     - (1-pi)v_plus+pi(1-pi)m_plus^2
-
-Here m and v denote the base count mean and variance.
-
-Statistical ``zip`` couples presence to log intensity through its nuisance coefficients; it does not estimate an independent zero-probability predictor. Statistical ``ziplss`` uses its documented presence link, so convert presence to zero probability before using this formula.
-
-References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
-
-Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
-
-Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
 
 Outputs and fitting support
 ---------------------------
@@ -139,25 +151,45 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "link_prediction": [
-       1.16244,
-       1.05002,
-       1.20732,
-       1.00196,
-       1.10026,
-       1.10073
-     ],
-     "response_prediction": [
-       2.13308,
-       1.89926,
-       2.23657,
-       1.80946,
-       1.99947,
-       2.00043
-     ]
+     "link_prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         1.16244,
+         1.05002,
+         1.20732,
+         1.00196,
+         1.10026,
+         1.10073
+       ]
+     },
+     "response_prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         2.13308,
+         1.89926,
+         2.23657,
+         1.80946,
+         1.99947,
+         2.00043
+       ]
+     }
    }
 
 Example output types and shapes
@@ -165,7 +197,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

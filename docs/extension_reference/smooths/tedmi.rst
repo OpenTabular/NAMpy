@@ -2,7 +2,7 @@
 
 :orphan:
 
-Bivariate double-monotone increasing tensor P-spline, with cumulative coefficient maps and two marginal penalties (``tedmi``) runtime
-=====================================================================================================================================
+Increasing in both covariates (``tedmi``) runtime
+=================================================
 
 :doc:`Canonical runtime constructor <BivariateShapePSplineTerm>`.

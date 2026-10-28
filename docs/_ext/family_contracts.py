@@ -141,7 +141,8 @@ ALIASES = {
 
 
 def mathematical_contract(name, backend):
-    from feature_reference import heading, table
+    from family_theory import family_theory
+    from feature_reference import heading
 
     key = ALIASES.get(name, name)
     special = ""
@@ -256,15 +257,37 @@ def mathematical_contract(name, backend):
             "Var(Z)=sigma^2 at unit prior weight. Response Var(Y)=E[h_lambda^(-1)(Z)^2]-E[h_lambda^(-1)(Z)]^2; for lambda=0 this is (exp(sigma^2)-1)exp(2mu+sigma^2).",
         )
         special += "Box-Cox response moments require an inverse-transform calculation on its valid domain and need not exist for all negative-lambda tails. NAMpy preserves the upstream transformed-response likelihood and returns the transformed Gaussian location; it does not return an inverse-transform response mean. Prior weight w rescales transformed variance to sigma^2/w.\n\n"
+    if backend == "statistical" and name == "student_lss":
+        contract = (
+            "Y=mu+sigma*T_df, with fixed degrees of freedom; NAMpy fits (mu,sigma) jointly.",
+            "mu in R; sigma>0; fixed df must be finite and >2 (default 5)",
+            "mu",
+            "sigma^2*df/(df-2)",
+        )
+        special += "Broader mathematical note: a Student-t law is defined for df>0, but NAMpy's student_lss constructor restricts df>2 to ensure finite response variance. It fits no degrees-of-freedom predictor. The gamlss.dist TF mapping is nu=df, with the same mu and sigma (t scale).\n\n"
+    elif backend == "statistical" and name == "beta_lss":
+        contract = (
+            "Y~Beta(mu*phi,(1-mu)*phi); natural columns are (mu,phi), mean and precision.",
+            "0<mu<1; finite phi>0; target 0<Y<1",
+            "mu",
+            "mu*(1-mu)/(1+phi)",
+        )
+        special += "Alternative shape parameters are alpha=mu*phi and beta=(1-mu)*phi. For gamlss.dist BE, use sigma_BE=1/sqrt(phi+1); sigma_BE is not NAMpy precision phi. Raw predictors are (logit(mu),log(phi)).\n\n"
+    elif backend == "statistical" and name == "nb_lss":
+        contract = (
+            "Negative-binomial counts with natural columns (mu,alpha), mean and inverse-shape dispersion; total_count=1/alpha.",
+            "finite mu>0; finite alpha>0; target integers 0,1,...",
+            "mu",
+            "mu+alpha*mu^2",
+        )
+        special += "The gamlss.dist NBI mapping is mu_NBI=mu and sigma_NBI=alpha. In the shape/probability form use r=1/alpha and success probability r/(r+mu). Raw predictors are (log(mu),log(alpha)).\n\n"
     definition, domains, mean, variance = contract
     if backend == "statistical":
         if name in {"gamma", "gammals"}:
             special += "Statistical Gamma uses mean mu and dispersion phi: shape=1/phi and rate=1/(mu phi). Public GAMLSS uses sigma=sqrt(phi), so Var(Y)=(mu sigma)^2.\n\n"
-        if name in {"beta_lss", "betar"}:
+        if name == "betar":
             special += "Mean/precision form: alpha=mu phi, beta=(1-mu)phi. The public beta_lss columns are (mu,phi); betar estimates/fixes precision as a nuisance parameter.\n\n"
-        if name == "nb_lss":
-            special += "Public nb_lss dispersion alpha is inverse total count: total_count=1/alpha and Var(Y)=mu+alpha mu^2.\n\n"
-        if name in {"student_lss", "scat"}:
+        if name == "scat":
             special += "Public location and scale do not imply Gaussian variance. student_lss defaults to fixed df=5; scat has its own nuisance-parameter estimation convention.\n\n"
     if backend == "neural" and name in {"negativebinom", "zinb", "hurdlenegativebinom"}:
         special += "Neural dispersion alpha is inverse total count: r=1/alpha; Var(base count)=mu+alpha mu^2.\n\n"
@@ -273,25 +296,30 @@ def mathematical_contract(name, backend):
     if name == "robustnormal":
         special += "The underlying response law is Gaussian. If rob is not None, its log density l is replaced by softplus(l+rob)-softplus(rob); training minimizes its negative. This transformed objective is not a normalized likelihood. rob=None recovers ordinary NLL.\n\n"
     text = (
-        heading("Distribution definition and moments", "-")
-        + table(
-            ["Quantity", "Definition"],
-            [
+        heading("Theory and interpretation", "-")
+        + "".join(
+            f"* **{label}:** {value}\n"
+            for label, value in [
                 ("Distribution / loss", definition),
                 ("Natural domains", domains),
                 ("Conditional mean", mean),
                 ("Conditional variance", variance),
-            ],
+            ]
         )
+        + "\n"
         + special
     )
-    if backend == "statistical":
+    if backend == "statistical" and name in {"student_lss", "beta_lss", "nb_lss"}:
+        reference = {"student_lss": "TF", "beta_lss": "BE", "nb_lss": "NBI"}[name]
+        text += f"Distribution reference: `gamlss.dist::{reference} <https://github.com/cran/gamlss.dist/blob/master/man/{reference}.Rd>`_. Fitting uses NAMpy's joint penalized engine, not gamlss RS backfitting. See :doc:`/development/neighbor_parity` for the tested mapping and numerical comparisons.\n\n"
+    elif backend == "statistical":
         text += "References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.\n\n"
         if name in {"gammals", "shash", "bcg"}:
             text += f"`Upstream {name} parameterization <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/{name}.html>`_.\n\n"
     else:
         text += "References: `PyTorch probability distributions <https://docs.pytorch.org/docs/stable/distributions.html>`_. NAMpy defines its family transforms and point outputs below.\n\n"
 
+    text += family_theory(name, backend, include_heading=False)
     if backend == "neural":
         if name == "categorical":
             text += "The low-level categorical loss also accepts one-hot/probability targets of shape ``(n,C)`` (or ``(n,1,C)``), reducing them by argmax rather than fitting a soft-label cross-entropy objective. Scalar labels may have shape ``(n,1)``.\n\n"

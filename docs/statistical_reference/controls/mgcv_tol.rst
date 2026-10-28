@@ -5,4 +5,4 @@
 mgcv_tol
 ========
 
-See :ref:`control-mgcv-tol` for its type, default, domain, consumer and tested example.
+See :ref:`mgcv_tol <control-mgcv-tol>` for its type, default, valid values and fitting role.

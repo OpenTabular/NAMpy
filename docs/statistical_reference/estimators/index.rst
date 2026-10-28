@@ -13,4 +13,5 @@ Statistical estimators
    GAMLSS
    ExpectileGAM
    QuantileGAM
+   asymmetric_fitting
    GAM (statistical engine) <../GAM>

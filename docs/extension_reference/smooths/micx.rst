@@ -2,7 +2,7 @@
 
 :orphan:
 
-P-spline constrained to be increasing and convex (``micx``) runtime
-===================================================================
+Increasing, convex P-spline (``micx``) runtime
+==============================================
 
 :doc:`Canonical runtime constructor <ShapeConstrainedPSplineTerm>`.

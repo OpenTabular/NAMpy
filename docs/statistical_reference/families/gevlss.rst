@@ -3,6 +3,40 @@
 gevlss
 ======
 
+Theory and interpretation
+-------------------------
+
+* **Distribution / loss:** F(y)=exp(-(1+xi (y-mu)/sigma)^(-1/xi)); support 1+xi(y-mu)/sigma>0. The xi=0 limit is Gumbel.
+* **Natural domains:** mu in R; sigma>0; shape xi subject to the configured link bounds
+* **Conditional mean:** mu+sigma (Gamma(1-xi)-1)/xi for xi<1 (continuous xi=0 limit); undefined otherwise
+* **Conditional variance:** sigma^2 (Gamma(1-2xi)-Gamma(1-xi)^2)/xi^2 for xi<1/2; infinite otherwise
+
+References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
+
+Generalized extreme-value regression adds a shape parameter to
+location and scale. Shape determines whether the tail has a finite
+endpoint, a Gumbel limit, or a heavy upper tail.
+
+.. math::
+
+   t=1+\xi(y-\mu)/\sigma>0,\qquad F(y)=\exp\{-t^{-1/\xi}\}.
+
+Support depends on every predicted parameter, so coefficient
+steps must preserve valid likelihood evaluations. The continuous
+xi=0 limit is Gumbel. A finite mean requires xi<1 and a finite
+variance requires xi<1/2. Constructor link bounds can impose stronger
+restrictions. Smooth shape predictors require enough tail information;
+a finite fit is not by itself evidence of stable extrapolation.
+
+See :doc:`/statistical_reference/families/theory` for likelihoods,
+links, weights and distributional predictors. The mathematical law
+does not imply support for every fitting or smoothing-selection route;
+the contracts below define the implemented combinations.
+
+Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
+
+Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Generalized extreme-value location, scale and shape regression with three predictors and parameter-dependent response support.
 
 Usage
@@ -40,30 +74,6 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``Sequence[str], one per linear predictor``
      - ``('identity', 'identity', 'logit')``
      - Link name or ordered sequence of links. Supported choices and interpretation are specific to this family; sequence order follows its linear predictors.
-
-Distribution definition and moments
------------------------------------
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Quantity
-     - Definition
-   * - Distribution / loss
-     - F(y)=exp(-(1+xi (y-mu)/sigma)^(-1/xi)); support 1+xi(y-mu)/sigma>0. The xi=0 limit is Gumbel.
-   * - Natural domains
-     - mu in R; sigma>0; shape xi subject to the configured link bounds
-   * - Conditional mean
-     - mu+sigma (Gamma(1-xi)-1)/xi for xi<1 (continuous xi=0 limit); undefined otherwise
-   * - Conditional variance
-     - sigma^2 (Gamma(1-2xi)-Gamma(1-xi)^2)/xi^2 for xi<1/2; infinite otherwise
-
-References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
-
-Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
-
-Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
 
 Outputs and fitting support
 ---------------------------
@@ -131,33 +141,80 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "link_predictors": [
-       0.6233,
-       -1.35745,
-       0.95988,
-       0.9432,
-       -1.35745,
-       0.95988
-     ],
-     "natural_parameters": [
-       0.6233,
-       0.25732,
-       0.08465,
-       0.9432,
-       0.25732,
-       0.08465
-     ],
-     "source_response": [
-       0.6233,
-       -1.35745,
-       0.08465,
-       0.9432,
-       -1.35745,
-       0.08465
-     ]
+     "link_predictors": {
+       "kind": "array",
+       "omitted_by_axis": [
+         94,
+         0
+       ],
+       "shape": [
+         96,
+         3
+       ],
+       "values": [
+         [
+           0.6233,
+           -1.35745,
+           0.95988
+         ],
+         [
+           0.9432,
+           -1.35745,
+           0.95988
+         ]
+       ]
+     },
+     "natural_parameters": {
+       "kind": "array",
+       "omitted_by_axis": [
+         94,
+         0
+       ],
+       "shape": [
+         96,
+         3
+       ],
+       "values": [
+         [
+           0.6233,
+           0.25732,
+           0.08465
+         ],
+         [
+           0.9432,
+           0.25732,
+           0.08465
+         ]
+       ]
+     },
+     "source_response": {
+       "kind": "array",
+       "omitted_by_axis": [
+         94,
+         0
+       ],
+       "shape": [
+         96,
+         3
+       ],
+       "values": [
+         [
+           0.6233,
+           -1.35745,
+           0.08465
+         ],
+         [
+           0.9432,
+           -1.35745,
+           0.08465
+         ]
+       ]
+     }
    }
 
 Example output types and shapes
@@ -165,7 +222,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

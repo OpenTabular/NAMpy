@@ -323,11 +323,11 @@ def test_small_result_previews_preserve_local_term_meanings():
 
     runner = runpy.run_path(str(ROOT / "docs/scripts/check_reference_examples.py"))
     value = [[{"term": ("x", "z"), "order": 2, "contribution": 0.25}]]
-    assert runner["result_preview"](value)[0][0] == {
-        "term": ["x", "z"],
-        "order": 2,
-        "contribution": 0.25,
-    }
+    preview = runner["result_preview"](value)
+    term = preview["items"][0]["items"][0]
+    assert term["order"] == 2 and term["contribution"] == 0.25
+    assert term["term"]["items"] == ["x", "z"]
+    assert preview["omitted"] == 0
 
 
 def test_gammals_output_columns_match_the_live_response_transform():
@@ -383,14 +383,14 @@ def test_underscore_control_names_use_normalized_html_anchors():
     )
 
 
-def test_formula_defaults_are_independent_of_runtime_constructor_defaults():
-    import inspect
+def test_formula_defaults_follow_the_compiler_not_the_spec_record_default():
+    from smooth_contracts import formula_option_rows
 
-    from nampy.gam.smooths import CubicSplineTerm
-    from nampy.gam.specs.smooth_build import build_smooth_spec
+    from nampy.gam.basis_registry import require_basis_descriptor
 
-    assert inspect.signature(build_smooth_spec).parameters["k"].default == -1
-    assert inspect.signature(CubicSplineTerm).parameters["k"].default == 10
-    text = (ROOT / "docs/statistical_reference/smooths/cr.rst").read_text()
-    k_row = text.split("   * - ``k``", 1)[1].split("   * - ", 1)[0]
-    assert "     - -1\n" in k_row
+    cr = {row[0]: row for row in formula_option_rows(require_basis_descriptor("cr"))}
+    tp = {row[0]: row for row in formula_option_rows(require_basis_descriptor("tp"))}
+    te = {row[0]: row for row in formula_option_rows(require_basis_descriptor("te"))}
+    assert "model k (10 by default)" in cr["``k``"][2]
+    assert "-1 (automatic)" in tp["``k``"][2]
+    assert "5**d[j]" in te["``k``"][2]

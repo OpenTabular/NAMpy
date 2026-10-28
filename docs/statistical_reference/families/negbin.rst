@@ -3,6 +3,40 @@
 negbin
 ======
 
+Theory and interpretation
+-------------------------
+
+* **Distribution / loss:** P(Y=y)=Gamma(y+r)/(Gamma(r)y!) (r/(r+mu))^r (mu/(r+mu))^y.
+* **Natural domains:** mu>0; total count r>0
+* **Conditional mean:** mu
+* **Conditional variance:** mu+mu^2/r
+
+References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
+
+The negative binomial can be viewed as a Poisson law with a
+Gamma-distributed latent rate. Integrating out that rate gives
+overdispersed counts with a quadratic mean-variance relationship.
+
+.. math::
+
+   \Lambda\sim\operatorname{Gamma}(r,\text{rate}=r/\mu),\quad Y\mid\Lambda\sim\operatorname{Poisson}(\Lambda),\quad \operatorname{Var}(Y)=\mu+\mu^2/r.
+
+Writing alpha=1/r gives variance mu+alpha*mu**2. Larger alpha
+increases overdispersion; r tending to infinity gives the Poisson
+limit. Distinguish a fixed nuisance dispersion, an estimated global
+dispersion, and a separate dispersion predictor: they are different
+models even if they use the same probability law. The model's mean
+remains mu; its spread is not sqrt(mu) as in a Poisson model.
+
+See :doc:`/statistical_reference/families/theory` for likelihoods,
+links, weights and distributional predictors. The mathematical law
+does not imply support for every fitting or smoothing-selection route;
+the contracts below define the implemented combinations.
+
+Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
+
+Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Negative-binomial counts with explicit fixed theta by default. Unlike nb, this alias requires theta. Use family={'name': 'negbin', 'theta': 2.0}.
 
 Usage
@@ -52,30 +86,6 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``float``
      - ``1e-09``
      - Positive numerical safeguard used in probability/domain clipping; this is not an additional distribution parameter.
-
-Distribution definition and moments
------------------------------------
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Quantity
-     - Definition
-   * - Distribution / loss
-     - P(Y=y)=Gamma(y+r)/(Gamma(r)y!) (r/(r+mu))^r (mu/(r+mu))^y.
-   * - Natural domains
-     - mu>0; total count r>0
-   * - Conditional mean
-     - mu
-   * - Conditional variance
-     - mu+mu^2/r
-
-References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
-
-Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
-
-Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
 
 Outputs and fitting support
 ---------------------------
@@ -139,25 +149,45 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "link_prediction": [
-       0.50579,
-       0.95111,
-       0.80734,
-       -0.44402,
-       -0.14597,
-       0.93928
-     ],
-     "response_prediction": [
-       1.6583,
-       2.58858,
-       2.24193,
-       0.64145,
-       0.86418,
-       2.55815
-     ]
+     "link_prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         0.50579,
+         0.95111,
+         0.80734,
+         -0.44402,
+         -0.14597,
+         0.93928
+       ]
+     },
+     "response_prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         1.6583,
+         2.58858,
+         2.24193,
+         0.64145,
+         0.86418,
+         2.55815
+       ]
+     }
    }
 
 Example output types and shapes
@@ -165,7 +195,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

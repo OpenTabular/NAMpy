@@ -5,6 +5,28 @@ UBRE
 
 Unbiased risk / AIC-type selection for supported known-scale response models; the scale convention matters.
 
+Theory and interpretation
+-------------------------
+
+UBRE estimates prediction risk when the response scale is known.
+It combines lack of fit with a linear effective-complexity correction;
+under the appropriate likelihood convention this is an AIC-type
+criterion up to scaling and constants.
+
+.. math::
+
+   \operatorname{UBRE}=D/n-\phi+2\gamma\phi\operatorname{tr}(A)/n.
+
+Phi is the known scale, such as one for ordinary Poisson or
+binomial likelihoods. It is not an arbitrary fitted residual variance
+inserted after optimization. NAMpy rejects UBRE when its route has
+no known scale. Criterion values need consistent targets, weighting,
+scale and likelihood conventions to be comparable.
+
+See :doc:`/statistical_reference/selection/theory` for the full
+coefficient/selection loop, notation and comparison rules. The
+configuration and support contracts below describe NAMpy's routes.
+
 Configuration
 -------------
 
@@ -81,18 +103,29 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
-   [
-     185.76687
-   ]
+   {
+     "kind": "array",
+     "omitted_by_axis": [
+       0
+     ],
+     "shape": [
+       1
+     ],
+     "values": [
+       185.76687
+     ]
+   }
 
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

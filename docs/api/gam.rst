@@ -5,9 +5,8 @@ Statistical GAM API
 
 NAMpy's statistical backend implements formula, smooth-construction, fitting,
 prediction, and inference conventions familiar from R's ``mgcv``. The
-:doc:`../user_guide/statistical_gams` page lists supported formula symbols,
-bases, families, selection methods, and analysis utilities with short usage
-examples.
+:doc:`../user_guide/statistical_gams` page works through formula specification, fitting, prediction and diagnosis
+with reproducible data.
 
 The detailed :doc:`statistical reference </statistical_reference/index>` follows
 estimator setup, formulas, smooths, families, fitting and inference in order.

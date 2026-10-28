@@ -5,6 +5,28 @@ bfgs
 
 Quasi-Newton outer smoothing optimization using criterion gradients and an approximate Hessian.
 
+Theory and interpretation
+-------------------------
+
+BFGS is a quasi-Newton method: it learns a local inverse-Hessian
+approximation from changes in criterion gradients. It optimizes the
+same criterion as an exact outer Newton route when that combination
+is supported.
+
+.. math::
+
+   s_k=\rho_{k+1}-\rho_k,\quad y_k=\nabla C_{k+1}-\nabla C_k,\qquad M_{k+1}y_k=s_k.
+
+M approximates inverse criterion curvature; a line search checks
+candidate progress. This avoids an explicit exact outer Hessian but
+still requires trustworthy criterion/gradient evaluations. It does
+not change REML into a different statistical objective, and finite
+coefficients alone do not establish outer convergence.
+
+See :doc:`/statistical_reference/selection/theory` for the full
+coefficient/selection loop, notation and comparison rules. The
+configuration and support contracts below describe NAMpy's routes.
+
 Configuration
 -------------
 
@@ -81,18 +103,29 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
-   [
-     3.24244
-   ]
+   {
+     "kind": "array",
+     "omitted_by_axis": [
+       0
+     ],
+     "shape": [
+       1
+     ],
+     "values": [
+       3.24244
+     ]
+   }
 
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

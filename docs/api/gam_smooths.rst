@@ -196,6 +196,6 @@ Explicit constraint construction
 The construction interface below exposes the raw basis and homogeneous
 constraint operator, or absorbs it together with the penalties and prediction
 maps. Its supported bases and compositions are described in
-:doc:`../user_guide/statistical_gams`.
+:doc:`/statistical_reference/penalties`.
 
 .. autofunction:: nampy.gam.compiler.construct.smooth_con

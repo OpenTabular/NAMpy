@@ -202,14 +202,16 @@ def generate(root):
             for key, parameter in signature.parameters.items()
         }
         page = f"statistical_reference/estimators/{name}"
-        code = ASYMMETRIC.format(
-            name=name, extra=", bandwidth=.1" if "bandwidth" in defaults else ""
-        )
+        code = ASYMMETRIC.format(name=name, extra="")
         text = (
             heading(name)
             + "Types, defaults and output shapes are specified below. Smoothing is fixed; use validation loss to choose its strength.\n\n"
         )
-        text += f".. autoclass:: nampy.models.{name}\n   :members: fit, predict, predict_components, lpmatrix, score, plot\n   :inherited-members:\n\n"
+        from feature_reference import signature as render_signature
+        from loss_estimator_reference import method_contracts, shared_solver_page
+
+        text += render_signature(getattr(models, name), name)
+        shared_solver_page(root)
         parameters = [
             (
                 "formula",
@@ -221,11 +223,13 @@ def generate(root):
                 "level",
                 "float",
                 "0.5",
-                "Level strictly inside (0,1). The expectile midpoint is a conditional mean; the quantile midpoint is a median.",
+                "Level strictly inside (0,1); 0.5 targets the conditional mean."
+                if name == "ExpectileGAM"
+                else "Level strictly inside (0,1); 0.5 targets the conditional median.",
             ),
             (
                 "smoothing_params",
-                "Sequence[float] | None",
+                "float | sequence[float] | mapping | None",
                 "None",
                 "Fixed nonnegative strengths, one per compiled penalty. None uses ones; this does not run REML.",
             ),
@@ -257,7 +261,9 @@ def generate(root):
                 "tol",
                 "float",
                 "1e-9",
-                "Positive numerical stopping tolerance. LAWS uses a scaled gradient tolerance; exact quantile QP uses primal and dual residual tolerances; smooth ELF uses a gradient tolerance.",
+                "Positive scaled objective-gradient tolerance for LAWS."
+                if name == "ExpectileGAM"
+                else "Positive primal/dual residual tolerance for exact pinball, or gradient tolerance for smooth ELF; see the shared solver conventions.",
             ),
         ]
         if "bandwidth" in defaults:
@@ -278,7 +284,18 @@ def generate(root):
         )
         text += "The coefficient vector includes the intercept. The objective is a **sum** of observation losses plus half the coefficient penalty; changing weights changes the effective regularization. Independent levels can cross. Neither Gaussian standard errors nor calibrated qgam intervals are supplied.\n\n"
         text += "For smoothing selection, use ``sklearn.model_selection.GridSearchCV`` with ``param_grid={'smoothing_params': [[.01], [.1], [1.]]}`` and these estimators' negative-loss ``score``. The basis is fitted inside each fold.\n\n"
+        text += method_contracts(getattr(models, name))
+        code += "score = model.score(data, data.y)\ndesign = model.lpmatrix(data)\ncomponents.validate_additive_reconstruction()\nassert design.shape[1] == model.coef_.size\nprint(score)\n"
         text += example_rst(root, page, code)
+        if name == "QuantileGAM":
+            smooth_code = code.replace(
+                "smoothing_params=[.1])", "smoothing_params=[.1], bandwidth=.1)"
+            )
+            text += (
+                heading("Smooth ELF alternative", "-")
+                + "A positive bandwidth changes the training loss; validation score still measures pinball loss.\n\n"
+                + example_rst(root, page + "_smooth", smooth_code)
+            )
         write(root, page + ".rst", text)
     for name, (title, code) in FUNCTIONS.items():
         page = "statistical_reference/extensions/" + name
@@ -343,15 +360,17 @@ point = model.predict_point(data)
 assert parameters.shape == (n,2)
 result = {{'parameters': parameters, 'point': point, 'components': model.predict_components(data)}}
 """
-        text = (
-            heading(name)
-            + "Types, defaults and output shapes\n---------------------------------\n\n"
-        )
+        text = heading(name)
         from family_contracts import mathematical_contract
 
         text += mathematical_contract(name, "statistical")
+        text += heading("Types, defaults and output shapes", "-")
         text += f".. autoclass:: nampy.gam.families.gamlss.distributional.{cls}\n\n"
-        text += "Pass the family name or an options mapping to ``GAMLSS(family=...)``. Student-t accepts ``{'name': 'student_lss', 'df': 5.0}``; beta and negative binomial accept no constructor options. All three have two joint predictors.\n\n"
+        text += (
+            "Pass ``{'name': 'student_lss', 'df': 5.0}`` to configure fixed degrees of freedom; df must be finite and >2.\n\n"
+            if name == "student_lss"
+            else f"Pass ``GAMLSS(family={name!r})``; this family has no constructor options.\n\n"
+        )
         text += "``predict(X)`` returns natural parameters as a float ``(n,2)`` array, ``predict(X, raw=True)`` returns link predictors ``(n,2)``, ``predict_point(X)`` returns the conditional mean ``(n,)``, and ``predict_components(X)`` returns an AdditivePrediction whose link and each term are ``(n,2)``. ``X`` is a DataFrame or numeric ``(n,d)`` array, consistent with formula mode.\n\n"
         text += "Likelihood derivatives through order four are analytic, including mixed derivatives; fixed smoothing and joint Laplace ML/REML derivatives are tested. Response and Pearson residuals are available. Deviance residuals and null deviance are not defined by this implementation; use explicit response/Pearson diagnostics rather than the default deviance-residual plotting workflow.\n\n"
         text += example_rst(root, page, code)

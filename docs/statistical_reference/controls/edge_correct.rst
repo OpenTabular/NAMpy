@@ -5,4 +5,4 @@
 edge_correct
 ============
 
-See :ref:`control-edge-correct` for its type, default, domain, consumer and tested example.
+See :ref:`edge_correct <control-edge-correct>` for its type, default, valid values and fitting role.

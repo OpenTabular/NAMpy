@@ -3,6 +3,42 @@
 tw
 ==
 
+Theory and interpretation
+-------------------------
+
+* **Distribution / loss:** Compound Poisson-gamma law for 1<p<2: N~Poisson(mu^(2-p)/(phi(2-p))); Y is a sum of N Gamma((2-p)/(p-1), scale=phi(p-1)mu^(p-1)) jumps.
+* **Natural domains:** mu>0; phi>0; fixed power 1<p<2
+* **Conditional mean:** mu
+* **Conditional variance:** phi mu^p
+
+References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
+
+For power 1<p<2, a Tweedie response is a compound Poisson sum of
+positive Gamma jumps. The event count can be zero, creating an exact
+zero mass alongside a continuous positive density.
+
+.. math::
+
+   Y=\sum_{j=1}^{N}Z_j,\qquad N\sim\operatorname{Poisson}(\lambda_N),\quad P(Y=0)=e^{-\lambda_N},\quad \operatorname{Var}(Y)=\phi\mu^p.
+
+The zero probability is coupled to mean, dispersion and power; it
+is not an independent zero-inflation predictor. p controls the
+mean-variance relationship, while phi controls its magnitude.
+Estimating power can require numerical density-series evaluation.
+Statistical tw can estimate a global power, twlss gives power and
+dispersion their own predictors, and the neural interface fixes the
+configured power. Their fitting routes are different even though
+the compound-law interpretation is shared.
+
+See :doc:`/statistical_reference/families/theory` for likelihoods,
+links, weights and distributional predictors. The mathematical law
+does not imply support for every fitting or smoothing-selection route;
+the contracts below define the implemented combinations.
+
+Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
+
+Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Tweedie response with mass at zero and positive continuous values. Power is constrained between a and b, with 1 < a < b < 2. theta controls the power parameterization/estimation.
 
 Usage
@@ -56,30 +92,6 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``float``
      - ``1e-09``
      - Positive numerical safeguard used in probability/domain clipping; this is not an additional distribution parameter.
-
-Distribution definition and moments
------------------------------------
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Quantity
-     - Definition
-   * - Distribution / loss
-     - Compound Poisson-gamma law for 1<p<2: N~Poisson(mu^(2-p)/(phi(2-p))); Y is a sum of N Gamma((2-p)/(p-1), scale=phi(p-1)mu^(p-1)) jumps.
-   * - Natural domains
-     - mu>0; phi>0; fixed power 1<p<2
-   * - Conditional mean
-     - mu
-   * - Conditional variance
-     - phi mu^p
-
-References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
-
-Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
-
-Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
 
 Outputs and fitting support
 ---------------------------
@@ -143,25 +155,45 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "link_prediction": [
-       -0.01959,
-       -0.16216,
-       0.08688,
-       -0.34857,
-       -0.42878,
-       -0.09058
-     ],
-     "response_prediction": [
-       0.9806,
-       0.8503,
-       1.09077,
-       0.7057,
-       0.6513,
-       0.9134
-     ]
+     "link_prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         -0.01959,
+         -0.16216,
+         0.08688,
+         -0.34857,
+         -0.42878,
+         -0.09058
+       ]
+     },
+     "response_prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         0.9806,
+         0.8503,
+         1.09077,
+         0.7057,
+         0.6513,
+         0.9134
+       ]
+     }
    }
 
 Example output types and shapes
@@ -169,7 +201,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

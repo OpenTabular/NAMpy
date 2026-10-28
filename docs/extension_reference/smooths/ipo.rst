@@ -2,7 +2,7 @@
 
 :orphan:
 
-Positive, increasing P-spline using positive cumulative coefficients (``ipo``) runtime
-======================================================================================
+Positive increasing P-spline (``ipo``) runtime
+==============================================
 
 :doc:`Canonical runtime constructor <ShapeConstrainedPSplineTerm>`.

@@ -5,6 +5,10 @@ Neural response distributions
 
 Choose by response support, then compare parameterization and fitting interface. Column meanings on the individual page take precedence over a similarly named family in another backend.
 
+The parameter column describes natural distribution parameters, not link predictors or lower-level response output columns. Family pages distinguish these interfaces. Fixed nuisance parameters are listed in each constructor contract.
+
+For likelihoods, links, response support and joint parameter predictors, start with :doc:`/statistical_reference/families/theory`. Individual pages develop the theory of their response law before its API contracts.
+
 Continuous responses
 --------------------
 
@@ -14,7 +18,7 @@ Continuous responses
 
    * - Family
      - Response support / interpretation
-     - Parameters in order
+     - Natural distribution parameters (column order)
      - Interface
    * - :doc:`normal <normal>`
      - Real scalar
@@ -38,7 +42,7 @@ Positive responses
 
    * - Family
      - Response support / interpretation
-     - Parameters in order
+     - Natural distribution parameters (column order)
      - Interface
    * - :doc:`gamma <gamma>`
      - Positive scalar
@@ -70,7 +74,7 @@ Nonnegative semicontinuous responses
 
    * - Family
      - Response support / interpretation
-     - Parameters in order
+     - Natural distribution parameters (column order)
      - Interface
    * - :doc:`tweedie <tweedie>`
      - Nonnegative scalar
@@ -86,7 +90,7 @@ Proportions
 
    * - Family
      - Response support / interpretation
-     - Parameters in order
+     - Natural distribution parameters (column order)
      - Interface
    * - :doc:`beta <beta>`
      - Unit interval; numerical target clipping applies
@@ -102,7 +106,7 @@ Counts
 
    * - Family
      - Response support / interpretation
-     - Parameters in order
+     - Natural distribution parameters (column order)
      - Interface
    * - :doc:`hurdlenegativebinom <hurdlenegativebinom>`
      - Nonnegative integer
@@ -138,7 +142,7 @@ Categorical and ordered responses
 
    * - Family
      - Response support / interpretation
-     - Parameters in order
+     - Natural distribution parameters (column order)
      - Interface
    * - :doc:`categorical <categorical>`
      - Integer class index or one-hot target
@@ -158,7 +162,7 @@ Multivariate responses
 
    * - Family
      - Response support / interpretation
-     - Parameters in order
+     - Natural distribution parameters (column order)
      - Interface
    * - :doc:`dirichlet <dirichlet>`
      - Positive composition summing to one
@@ -178,7 +182,7 @@ Quantiles
 
    * - Family
      - Response support / interpretation
-     - Parameters in order
+     - Natural distribution parameters (column order)
      - Interface
    * - :doc:`quantile <quantile>`
      - Real scalar

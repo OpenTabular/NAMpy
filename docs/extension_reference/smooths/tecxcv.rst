@@ -2,7 +2,7 @@
 
 :orphan:
 
-Bivariate tensor P-spline with convex first-margin and concave second-margin (``tecxcv``) runtime
-=================================================================================================
+Convex / concave tensor spline (``tecxcv``) runtime
+===================================================
 
 :doc:`Canonical runtime constructor <BivariateShapePSplineTerm>`.

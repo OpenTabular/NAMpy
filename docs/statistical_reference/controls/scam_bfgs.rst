@@ -5,4 +5,4 @@
 scam_bfgs
 =========
 
-See :ref:`control-scam-bfgs` for its type, default, domain, consumer and tested example.
+See :ref:`scam_bfgs <control-scam-bfgs>` for its type, default, valid values and fitting role.

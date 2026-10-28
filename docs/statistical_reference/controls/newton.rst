@@ -5,4 +5,4 @@
 newton
 ======
 
-See :ref:`control-newton` for its type, default, domain, consumer and tested example.
+See :ref:`newton <control-newton>` for its type, default, valid values and fitting role.

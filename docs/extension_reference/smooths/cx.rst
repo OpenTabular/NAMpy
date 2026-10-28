@@ -2,7 +2,7 @@
 
 :orphan:
 
-Convex P-spline with nonnegative curvature (``cx``) runtime
-===========================================================
+Convex P-spline (``cx``) runtime
+================================
 
 :doc:`Canonical runtime constructor <ShapeConstrainedPSplineTerm>`.

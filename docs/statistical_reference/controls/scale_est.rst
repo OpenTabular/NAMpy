@@ -5,4 +5,4 @@
 scale_est
 =========
 
-See :ref:`control-scale-est` for its type, default, domain, consumer and tested example.
+See :ref:`scale_est <control-scale-est>` for its type, default, valid values and fitting role.

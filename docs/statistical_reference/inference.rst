@@ -10,6 +10,37 @@ standard error independently.
 Covariance and intervals
 ------------------------
 
+The Gaussian identified-design case makes the covariance distinction
+concrete. Let K=X-transpose W X + S and let phi be response dispersion.
+Conditioning on smoothing parameters, a Gaussian penalty/prior approximation
+and the sampling covariance of the penalized estimate give, respectively,
+
+.. math::
+
+   V_B=\phi K^{-1},\qquad
+   V_F=\phi K^{-1}X^\mathsf TWXK^{-1}.
+
+The former includes uncertainty in penalized directions under the local
+Gaussian-prior interpretation. The latter propagates sampling variation
+through a biased/shrunk estimator; it does not remove shrinkage bias.
+These are illustrative Gaussian formulas in consistent scale coordinates,
+not a promise that all families use one common Hessian. General-family and
+shape-constrained routes use their own curvature and coefficient maps.
+
+For a linear functional a-transpose theta, variance is a-transpose V a.
+For a nonlinear natural parameter h(eta), the delta method uses the Jacobian:
+
+.. math::
+
+   \operatorname{Cov}\{h(\widehat\eta)\}\approx
+   J_h B_{\rm new}V_\theta B_{\rm new}^\mathsf TJ_h^\mathsf T.
+
+Cross-parameter covariance matters when h combines several predictors.
+The law of total variance motivates smoothing-uncertainty corrections by
+including variation of coefficients as estimated log smoothing parameters
+change. The supported correction is a local approximation, not exact
+integration over every smoothing value.
+
 ``vcov(freq=False, unconditional=False)`` returns Bayesian penalized covariance
 conditional on the selected smoothing parameters. ``freq=True`` requests the
 frequentist sampling covariance of the penalized estimate, where supported.

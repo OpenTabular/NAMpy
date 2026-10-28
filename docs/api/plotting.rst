@@ -41,3 +41,5 @@ Diagnostic and surface renderers
    render_qq
    render_model_check
    render_prediction_surface
+
+.. include:: /_includes/statistical_plot_notes.inc

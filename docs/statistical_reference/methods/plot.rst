@@ -179,57 +179,148 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
      "by_resids": false,
-     "partial_resids": false,
-     "pd": [
-       {
-         "kind": "1d",
-         "scale": true,
-         "se": [
-           0.10094,
-           0.07465,
-           0.05973,
-           0.05086,
-           0.04519,
-           0.04239
-         ],
-         "x": [
-           0.00373,
-           0.03793,
-           0.07213,
-           0.10633,
-           0.14053,
-           0.17473
-         ]
-       },
-       {
-         "kind": "1d",
-         "scale": true,
-         "se": [
-           0.0446,
-           0.04166,
-           0.03872,
-           0.03578,
-           0.03284,
-           0.0299
-         ],
-         "x": [
-           0.00518,
-           0.03881,
-           0.07244,
-           0.10606,
-           0.13969,
-           0.17332
-         ]
-       }
+     "omitted_fields": [
+       "shift",
+       "trans",
+       "jit",
+       "select",
+       "scale",
+       "rug_default",
+       "figures"
      ],
-     "ylim": [
-       -0.8174257720786204,
-       0.34582408483846444
-     ]
+     "partial_resids": false,
+     "pd": {
+       "items": [
+         {
+           "kind": "1d",
+           "omitted_fields": [
+             "clev",
+             "raw",
+             "xlab",
+             "ylab",
+             "main",
+             "xlim",
+             "fit",
+             "label",
+             "ll",
+             "ul",
+             "se_mult",
+             "se_fit",
+             "plot_ci",
+             "plot_me",
+             "scheme"
+           ],
+           "scale": true,
+           "se": {
+             "kind": "array",
+             "omitted_by_axis": [
+               24
+             ],
+             "shape": [
+               30
+             ],
+             "values": [
+               0.10094,
+               0.07465,
+               0.05973,
+               0.05086,
+               0.04519,
+               0.04239
+             ]
+           },
+           "x": {
+             "kind": "array",
+             "omitted_by_axis": [
+               24
+             ],
+             "shape": [
+               30
+             ],
+             "values": [
+               0.00373,
+               0.03793,
+               0.07213,
+               0.10633,
+               0.14053,
+               0.17473
+             ]
+           }
+         },
+         {
+           "kind": "1d",
+           "omitted_fields": [
+             "clev",
+             "raw",
+             "xlab",
+             "ylab",
+             "main",
+             "xlim",
+             "fit",
+             "label",
+             "ll",
+             "ul",
+             "se_mult",
+             "se_fit",
+             "plot_ci",
+             "plot_me",
+             "scheme"
+           ],
+           "scale": true,
+           "se": {
+             "kind": "array",
+             "omitted_by_axis": [
+               24
+             ],
+             "shape": [
+               30
+             ],
+             "values": [
+               0.0446,
+               0.04166,
+               0.03872,
+               0.03578,
+               0.03284,
+               0.0299
+             ]
+           },
+           "x": {
+             "kind": "array",
+             "omitted_by_axis": [
+               24
+             ],
+             "shape": [
+               30
+             ],
+             "values": [
+               0.00518,
+               0.03881,
+               0.07244,
+               0.10606,
+               0.13969,
+               0.17332
+             ]
+           }
+         }
+       ],
+       "kind": "list",
+       "length": 2,
+       "omitted": 0
+     },
+     "ylim": {
+       "items": [
+         -0.8174257720786204,
+         0.34582408483846444
+       ],
+       "kind": "tuple",
+       "length": 2,
+       "omitted": 0
+     }
    }
 
 Example output types and shapes
@@ -237,7 +328,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

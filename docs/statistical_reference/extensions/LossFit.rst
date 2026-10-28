@@ -23,23 +23,22 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "coefficients": [
-       0.39127,
-       0.48762,
-       0.04137
-     ],
-     "fitted": [
-       -0.05498,
-       -0.03411,
-       -0.01302,
-       0.00828,
-       0.02981,
-       0.05155
-     ],
-     "objective": 0.40486510576649887
+     "fields": {
+       "converged": true,
+       "iterations": 1,
+       "objective": 0.40486510576649887,
+       "optimality": 4.1858877475320355e-15
+     },
+     "kind": "LossFit",
+     "omitted_fields": [
+       "coefficients",
+       "fitted"
+     ]
    }
 
 Example output types and shapes
@@ -47,7 +46,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

@@ -5,6 +5,29 @@ GCV
 
 Generalized cross-validation balances residual error against an effective-degrees-of-freedom adjustment. Available only for supported family/design routes.
 
+Theory and interpretation
+-------------------------
+
+For a Gaussian linear smoother, leave-one-out residuals involve
+individual leverages. GCV replaces those leverages by their average,
+producing a rotationally invariant approximation to prediction error.
+Supported non-Gaussian routes substitute model deviance for RSS.
+
+.. math::
+
+   \operatorname{GCV}(\lambda)=\frac{D(\widehat\beta_\lambda)/n}{\{1-\gamma\operatorname{tr}(A_\lambda)/n\}^2}.
+
+D is residual sum of squares in the unweighted Gaussian case;
+tr(A) is effective degrees of freedom and gamma is the configured
+score inflation, normally one. The denominator penalizes flexibility.
+Small denominators can make scores unstable, and correlated errors
+undermine an ordinary leave-one-out interpretation. k still bounds
+the space over which GCV can choose a curve.
+
+See :doc:`/statistical_reference/selection/theory` for the full
+coefficient/selection loop, notation and comparison rules. The
+configuration and support contracts below describe NAMpy's routes.
+
 Configuration
 -------------
 
@@ -81,18 +104,29 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
-   [
-     7.8363
-   ]
+   {
+     "kind": "array",
+     "omitted_by_axis": [
+       0
+     ],
+     "shape": [
+       1
+     ],
+     "values": [
+       7.8363
+     ]
+   }
 
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

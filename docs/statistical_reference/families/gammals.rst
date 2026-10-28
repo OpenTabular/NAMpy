@@ -3,6 +3,47 @@
 gammals
 =======
 
+Theory and interpretation
+-------------------------
+
+* **Distribution / loss:** f(y)=r^a y^(a-1) exp(-r y)/Gamma(a), y>0.
+* **Natural domains:** shape a>0; rate r>0 (inverse scale)
+* **Conditional mean:** a/r
+* **Conditional variance:** a/r^2
+
+Statistical Gamma uses mean mu and dispersion phi: shape=1/phi and rate=1/(mu phi). Public GAMLSS uses sigma=sqrt(phi), so Var(Y)=(mu sigma)^2.
+
+References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
+
+`Upstream gammals parameterization <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/gammals.html>`_.
+
+A Gamma response is positive and right-skewed. In mean/dispersion
+notation its shape is 1/phi and its rate is 1/(mu*phi). This makes
+relative variability constant when phi is constant.
+
+.. math::
+
+   \operatorname{Var}(Y)=\phi\mu^2,\qquad \operatorname{CV}(Y)=\sqrt\phi,\qquad g(\mu)=\eta.
+
+With a log mean link, term differences multiply the conditional
+mean. A varying dispersion predictor changes relative variability
+independently of the mean. Zeros are outside the Gamma density; an
+exposure model or semicontinuous distribution is needed when zeros
+are genuine outcomes. The shape/rate neural interface and the
+mean/dispersion statistical interface require the parameter conversion
+above; the runtime output table determines the public column order.
+
+The source-family predictors use log mean and log dispersion. Public location-scale outputs can use sigma=sqrt(phi); inspect the natural output columns rather than assigning sigma to a raw second column.
+
+See :doc:`/statistical_reference/families/theory` for likelihoods,
+links, weights and distributional predictors. The mathematical law
+does not imply support for every fitting or smoothing-selection route;
+the contracts below define the implemented combinations.
+
+Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
+
+Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Gamma location-scale regression with two additive predictors for log mean and log dispersion under the source family parameterization.
 
 Usage
@@ -44,34 +85,6 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``float``
      - ``-7.0``
      - Lower bound for log dispersion under the source lower-bounded log link; default -7. It is not a lower bound for Gaussian standard deviation.
-
-Distribution definition and moments
------------------------------------
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Quantity
-     - Definition
-   * - Distribution / loss
-     - f(y)=r^a y^(a-1) exp(-r y)/Gamma(a), y>0.
-   * - Natural domains
-     - shape a>0; rate r>0 (inverse scale)
-   * - Conditional mean
-     - a/r
-   * - Conditional variance
-     - a/r^2
-
-Statistical Gamma uses mean mu and dispersion phi: shape=1/phi and rate=1/(mu phi). Public GAMLSS uses sigma=sqrt(phi), so Var(Y)=(mu sigma)^2.
-
-References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
-
-`Upstream gammals parameterization <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/gammals.html>`_.
-
-Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
-
-Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
 
 Outputs and fitting support
 ---------------------------
@@ -139,33 +152,74 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "link_predictors": [
-       0.25893,
-       -1.10778,
-       0.13629,
-       -1.10778,
-       0.31559,
-       -1.10778
-     ],
-     "natural_parameters": [
-       1.29555,
-       0.5755,
-       1.14601,
-       0.5755,
-       1.37106,
-       0.5755
-     ],
-     "source_response": [
-       1.29555,
-       -1.10502,
-       1.14601,
-       -1.10502,
-       1.37106,
-       -1.10502
-     ]
+     "link_predictors": {
+       "kind": "array",
+       "omitted_by_axis": [
+         94,
+         0
+       ],
+       "shape": [
+         96,
+         2
+       ],
+       "values": [
+         [
+           0.25893,
+           -1.10778
+         ],
+         [
+           0.13629,
+           -1.10778
+         ]
+       ]
+     },
+     "natural_parameters": {
+       "kind": "array",
+       "omitted_by_axis": [
+         94,
+         0
+       ],
+       "shape": [
+         96,
+         2
+       ],
+       "values": [
+         [
+           1.29555,
+           0.5755
+         ],
+         [
+           1.14601,
+           0.5755
+         ]
+       ]
+     },
+     "source_response": {
+       "kind": "array",
+       "omitted_by_axis": [
+         94,
+         0
+       ],
+       "shape": [
+         96,
+         2
+       ],
+       "values": [
+         [
+           1.29555,
+           -1.10502
+         ],
+         [
+           1.14601,
+           -1.10502
+         ]
+       ]
+     }
    }
 
 Example output types and shapes
@@ -173,7 +227,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

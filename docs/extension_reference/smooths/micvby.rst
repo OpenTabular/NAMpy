@@ -2,7 +2,7 @@
 
 :orphan:
 
-P-spline constrained to be increasing and concave (``micvby``) runtime
-======================================================================
+Increasing, concave P-spline with by variable (``micvby``) runtime
+==================================================================
 
 :doc:`Canonical runtime constructor <ShapeConstrainedPSplineTerm>`.

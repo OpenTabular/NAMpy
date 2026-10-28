@@ -67,6 +67,8 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
@@ -74,39 +76,170 @@ Observed result preview
        "criterion_name": "reml",
        "criterion_value": -52.71527837790031,
        "family_name": "gaussian",
-       "link_name": "identity"
+       "link_name": "identity",
+       "omitted_fields": [
+         "coef_full",
+         "intercept",
+         "smoothing_params",
+         "edf_total",
+         "edf_by_term",
+         "trace_H",
+         "scale",
+         "rss",
+         "deviance",
+         "edf2",
+         "side_condition_reports",
+         "term_results",
+         "metadata",
+         "family_theta",
+         "estimate_theta",
+         "log_smoothing_params"
+       ]
      },
      "parity": {
        "criterion_view": {
          "criterion_name": "reml",
+         "omitted_fields": [
+           "criterion_backend",
+           "profiled_criterion_value",
+           "joint_criterion_value",
+           "joint_log_sigma2"
+         ],
          "recomputed_criterion_source": "smoothing_score",
          "recomputed_criterion_value": -52.71527837790031,
          "stored_criterion_value": -52.71527837790031
        },
        "diagnostics": {
-         "smooth_cov_bayes": "2 fields",
-         "smooth_cov_freq": "2 fields",
-         "smooth_edf1": "2 fields",
-         "smooth_test_inputs": "6 fields"
+         "omitted_fields": [
+           "smooth_function_space",
+           "concurvity_labels",
+           "concurvity_full",
+           "concurvity_pairwise",
+           "sp_vcov",
+           "optimizer_endpoint",
+           "gam_vcomp",
+           "gam_vcomp_names",
+           "one_se_rule",
+           "residuals",
+           "k_check",
+           "anova_parametric",
+           "anova_smooth"
+         ],
+         "smooth_cov_bayes": {
+           "blocks": {
+             "items": [],
+             "kind": "list",
+             "length": 2,
+             "omitted": 2
+           },
+           "labels": {
+             "items": [],
+             "kind": "list",
+             "length": 2,
+             "omitted": 2
+           }
+         },
+         "smooth_cov_freq": {
+           "blocks": {
+             "items": [],
+             "kind": "list",
+             "length": 2,
+             "omitted": 2
+           },
+           "labels": {
+             "items": [],
+             "kind": "list",
+             "length": 2,
+             "omitted": 2
+           }
+         },
+         "smooth_edf1": {
+           "labels": {
+             "items": [],
+             "kind": "list",
+             "length": 2,
+             "omitted": 2
+           },
+           "values": {
+             "items": [],
+             "kind": "list",
+             "length": 2,
+             "omitted": 2
+           }
+         },
+         "smooth_test_inputs": {
+           "coef_blocks": {
+             "items": [],
+             "kind": "list",
+             "length": 2,
+             "omitted": 2
+           },
+           "edf": {
+             "items": [],
+             "kind": "list",
+             "length": 2,
+             "omitted": 2
+           },
+           "labels": {
+             "items": [],
+             "kind": "list",
+             "length": 2,
+             "omitted": 2
+           },
+           "omitted_fields": [
+             "edf1",
+             "residual_df"
+           ],
+           "r_blocks": {
+             "items": [],
+             "kind": "list",
+             "length": 2,
+             "omitted": 2
+           }
+         }
        }
      },
      "predictions": {
-       "link": [
-         1.3479291457229738,
-         0.9662065267399479
+       "link": {
+         "items": [
+           1.3479291457229738,
+           0.9662065267399479
+         ],
+         "kind": "list",
+         "length": 96,
+         "omitted": 94
+       },
+       "lpmatrix": {
+         "items": [
+           1.0,
+           1.0
+         ],
+         "kind": "list",
+         "length": 1152,
+         "omitted": 1150
+       },
+       "omitted_fields": [
+         "se_response",
+         "se_link"
        ],
-       "lpmatrix": [
-         1.0,
-         1.0
-       ],
-       "response": [
-         1.3479291457229738,
-         0.9662065267399479
-       ],
-       "terms": [
-         0.28193942789790044,
-         -0.2029423403077168
-       ]
+       "response": {
+         "items": [
+           1.3479291457229738,
+           0.9662065267399479
+         ],
+         "kind": "list",
+         "length": 96,
+         "omitted": 94
+       },
+       "terms": {
+         "items": [
+           0.28193942789790044,
+           -0.2029423403077168
+         ],
+         "kind": "list",
+         "length": 192,
+         "omitted": 190
+       }
      }
    }
 
@@ -115,7 +248,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

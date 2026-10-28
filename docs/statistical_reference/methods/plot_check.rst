@@ -95,218 +95,502 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
      "analytic": {
        "histogram": {
-         "breaks": [
-           -0.4,
-           -0.3,
-           -0.2,
-           -0.1,
-           0.0,
-           0.1
+         "breaks": {
+           "kind": "array",
+           "omitted_by_axis": [
+             2
+           ],
+           "shape": [
+             8
+           ],
+           "values": [
+             -0.4,
+             -0.3,
+             -0.2,
+             -0.1,
+             0.0,
+             0.1
+           ]
+         },
+         "counts": {
+           "kind": "array",
+           "omitted_by_axis": [
+             1
+           ],
+           "shape": [
+             7
+           ],
+           "values": [
+             1,
+             3,
+             16,
+             22,
+             35,
+             15
+           ]
+         },
+         "density": {
+           "kind": "array",
+           "omitted_by_axis": [
+             1
+           ],
+           "shape": [
+             7
+           ],
+           "values": [
+             0.10417,
+             0.3125,
+             1.66667,
+             2.29167,
+             3.64583,
+             1.5625
+           ]
+         },
+         "omitted_fields": [
+           "mids",
+           "xlab",
+           "title"
          ],
-         "counts": [
-           1,
-           3,
-           16,
-           22,
-           35,
-           15
-         ],
-         "density": [
-           0.10417,
-           0.3125,
-           1.66667,
-           2.29167,
-           3.64583,
-           1.5625
-         ],
-         "values": [
-           -0.054,
-           -0.18547,
-           0.09305,
-           0.12949,
-           0.00411,
-           0.0449
-         ]
+         "values": {
+           "kind": "array",
+           "omitted_by_axis": [
+             90
+           ],
+           "shape": [
+             96
+           ],
+           "values": [
+             -0.054,
+             -0.18547,
+             0.09305,
+             0.12949,
+             0.00411,
+             0.0449
+           ]
+         }
        },
+       "omitted_fields": [
+         "type",
+         "old_style",
+         "figures"
+       ],
        "qq": {
-         "residuals": [
-           -0.3792,
-           -0.27799,
-           -0.27615,
-           -0.2163,
-           -0.19829,
-           -0.18825
+         "omitted_fields": [
+           "lower",
+           "upper",
+           "reference",
+           "rep",
+           "requested_rep",
+           "level",
+           "type",
+           "xlab",
+           "ylab"
          ],
-         "simulated_residuals": [
-           -0.31815,
-           -0.31815,
-           -0.31815,
-           -0.2675,
-           -0.2675,
-           -0.2675
-         ],
-         "theoretical": [
-           -0.31815,
-           -0.2675,
-           -0.24125,
-           -0.22273,
-           -0.20815,
-           -0.19597
-         ],
-         "ylim": [
-           -0.3792,
-           0.25899
-         ]
+         "residuals": {
+           "kind": "array",
+           "omitted_by_axis": [
+             90
+           ],
+           "shape": [
+             96
+           ],
+           "values": [
+             -0.3792,
+             -0.27799,
+             -0.27615,
+             -0.2163,
+             -0.19829,
+             -0.18825
+           ]
+         },
+         "simulated_residuals": {
+           "kind": "array",
+           "omitted_by_axis": [
+             94,
+             0
+           ],
+           "shape": [
+             96,
+             3
+           ],
+           "values": [
+             [
+               -0.31815,
+               -0.31815,
+               -0.31815
+             ],
+             [
+               -0.2675,
+               -0.2675,
+               -0.2675
+             ]
+           ]
+         },
+         "theoretical": {
+           "kind": "array",
+           "omitted_by_axis": [
+             90
+           ],
+           "shape": [
+             96
+           ],
+           "values": [
+             -0.31815,
+             -0.2675,
+             -0.24125,
+             -0.22273,
+             -0.20815,
+             -0.19597
+           ]
+         },
+         "ylim": {
+           "kind": "array",
+           "omitted_by_axis": [
+             0
+           ],
+           "shape": [
+             2
+           ],
+           "values": [
+             -0.3792,
+             0.25899
+           ]
+         }
        },
        "residual_vs_linear": {
-         "x": [
-           1.34793,
-           0.96621,
-           1.1574,
-           1.04873,
-           1.45279,
-           1.11514
+         "omitted_fields": [
+           "title"
          ],
+         "x": {
+           "kind": "array",
+           "omitted_by_axis": [
+             90
+           ],
+           "shape": [
+             96
+           ],
+           "values": [
+             1.34793,
+             0.96621,
+             1.1574,
+             1.04873,
+             1.45279,
+             1.11514
+           ]
+         },
          "xlab": "linear predictor",
-         "y": [
-           -0.054,
-           -0.18547,
-           0.09305,
-           0.12949,
-           0.00411,
-           0.0449
-         ],
+         "y": {
+           "kind": "array",
+           "omitted_by_axis": [
+             90
+           ],
+           "shape": [
+             96
+           ],
+           "values": [
+             -0.054,
+             -0.18547,
+             0.09305,
+             0.12949,
+             0.00411,
+             0.0449
+           ]
+         },
          "ylab": "residuals"
        },
        "response_vs_fitted": {
-         "x": [
-           1.34793,
-           0.96621,
-           1.1574,
-           1.04873,
-           1.45279,
-           1.11514
+         "omitted_fields": [
+           "title"
          ],
+         "x": {
+           "kind": "array",
+           "omitted_by_axis": [
+             90
+           ],
+           "shape": [
+             96
+           ],
+           "values": [
+             1.34793,
+             0.96621,
+             1.1574,
+             1.04873,
+             1.45279,
+             1.11514
+           ]
+         },
          "xlab": "Fitted Values",
-         "y": [
-           1.29393,
-           0.78074,
-           1.25046,
-           1.17822,
-           1.4569,
-           1.16004
-         ],
+         "y": {
+           "kind": "array",
+           "omitted_by_axis": [
+             90
+           ],
+           "shape": [
+             96
+           ],
+           "values": [
+             1.29393,
+             0.78074,
+             1.25046,
+             1.17822,
+             1.4569,
+             1.16004
+           ]
+         },
          "ylab": "Response"
        }
      },
      "simulated": {
        "histogram": {
-         "breaks": [
-           -0.4,
-           -0.3,
-           -0.2,
-           -0.1,
-           0.0,
-           0.1
+         "breaks": {
+           "kind": "array",
+           "omitted_by_axis": [
+             2
+           ],
+           "shape": [
+             8
+           ],
+           "values": [
+             -0.4,
+             -0.3,
+             -0.2,
+             -0.1,
+             0.0,
+             0.1
+           ]
+         },
+         "counts": {
+           "kind": "array",
+           "omitted_by_axis": [
+             1
+           ],
+           "shape": [
+             7
+           ],
+           "values": [
+             1,
+             3,
+             16,
+             22,
+             35,
+             15
+           ]
+         },
+         "density": {
+           "kind": "array",
+           "omitted_by_axis": [
+             1
+           ],
+           "shape": [
+             7
+           ],
+           "values": [
+             0.10417,
+             0.3125,
+             1.66667,
+             2.29167,
+             3.64583,
+             1.5625
+           ]
+         },
+         "omitted_fields": [
+           "mids",
+           "xlab",
+           "title"
          ],
-         "counts": [
-           1,
-           3,
-           16,
-           22,
-           35,
-           15
-         ],
-         "density": [
-           0.10417,
-           0.3125,
-           1.66667,
-           2.29167,
-           3.64583,
-           1.5625
-         ],
-         "values": [
-           -0.054,
-           -0.18547,
-           0.09305,
-           0.12949,
-           0.00411,
-           0.0449
-         ]
+         "values": {
+           "kind": "array",
+           "omitted_by_axis": [
+             90
+           ],
+           "shape": [
+             96
+           ],
+           "values": [
+             -0.054,
+             -0.18547,
+             0.09305,
+             0.12949,
+             0.00411,
+             0.0449
+           ]
+         }
        },
+       "omitted_fields": [
+         "type",
+         "old_style",
+         "figures"
+       ],
        "qq": {
-         "residuals": [
-           -0.3792,
-           -0.27799,
-           -0.27615,
-           -0.2163,
-           -0.19829,
-           -0.18825
+         "omitted_fields": [
+           "lower",
+           "upper",
+           "reference",
+           "rep",
+           "requested_rep",
+           "level",
+           "type",
+           "xlab",
+           "ylab"
          ],
-         "simulated_residuals": [
-           -0.35018,
-           -0.34283,
-           -0.28683,
-           -0.31453,
-           -0.28007,
-           -0.25178
-         ],
-         "theoretical": [
-           -0.32883,
-           -0.26925,
-           -0.2457,
-           -0.21783,
-           -0.20797,
-           -0.20121
-         ],
-         "ylim": [
-           -0.3792,
-           0.31086
-         ]
+         "residuals": {
+           "kind": "array",
+           "omitted_by_axis": [
+             90
+           ],
+           "shape": [
+             96
+           ],
+           "values": [
+             -0.3792,
+             -0.27799,
+             -0.27615,
+             -0.2163,
+             -0.19829,
+             -0.18825
+           ]
+         },
+         "simulated_residuals": {
+           "kind": "array",
+           "omitted_by_axis": [
+             94,
+             0
+           ],
+           "shape": [
+             96,
+             3
+           ],
+           "values": [
+             [
+               -0.35018,
+               -0.34283,
+               -0.28683
+             ],
+             [
+               -0.31453,
+               -0.28007,
+               -0.25178
+             ]
+           ]
+         },
+         "theoretical": {
+           "kind": "array",
+           "omitted_by_axis": [
+             90
+           ],
+           "shape": [
+             96
+           ],
+           "values": [
+             -0.32883,
+             -0.26925,
+             -0.2457,
+             -0.21783,
+             -0.20797,
+             -0.20121
+           ]
+         },
+         "ylim": {
+           "kind": "array",
+           "omitted_by_axis": [
+             0
+           ],
+           "shape": [
+             2
+           ],
+           "values": [
+             -0.3792,
+             0.31086
+           ]
+         }
        },
        "residual_vs_linear": {
-         "x": [
-           1.34793,
-           0.96621,
-           1.1574,
-           1.04873,
-           1.45279,
-           1.11514
+         "omitted_fields": [
+           "title"
          ],
+         "x": {
+           "kind": "array",
+           "omitted_by_axis": [
+             90
+           ],
+           "shape": [
+             96
+           ],
+           "values": [
+             1.34793,
+             0.96621,
+             1.1574,
+             1.04873,
+             1.45279,
+             1.11514
+           ]
+         },
          "xlab": "linear predictor",
-         "y": [
-           -0.054,
-           -0.18547,
-           0.09305,
-           0.12949,
-           0.00411,
-           0.0449
-         ],
+         "y": {
+           "kind": "array",
+           "omitted_by_axis": [
+             90
+           ],
+           "shape": [
+             96
+           ],
+           "values": [
+             -0.054,
+             -0.18547,
+             0.09305,
+             0.12949,
+             0.00411,
+             0.0449
+           ]
+         },
          "ylab": "residuals"
        },
        "response_vs_fitted": {
-         "x": [
-           1.34793,
-           0.96621,
-           1.1574,
-           1.04873,
-           1.45279,
-           1.11514
+         "omitted_fields": [
+           "title"
          ],
+         "x": {
+           "kind": "array",
+           "omitted_by_axis": [
+             90
+           ],
+           "shape": [
+             96
+           ],
+           "values": [
+             1.34793,
+             0.96621,
+             1.1574,
+             1.04873,
+             1.45279,
+             1.11514
+           ]
+         },
          "xlab": "Fitted Values",
-         "y": [
-           1.29393,
-           0.78074,
-           1.25046,
-           1.17822,
-           1.4569,
-           1.16004
-         ],
+         "y": {
+           "kind": "array",
+           "omitted_by_axis": [
+             90
+           ],
+           "shape": [
+             96
+           ],
+           "values": [
+             1.29393,
+             0.78074,
+             1.25046,
+             1.17822,
+             1.4569,
+             1.16004
+           ]
+         },
          "ylab": "Response"
        }
      }
@@ -317,7 +601,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

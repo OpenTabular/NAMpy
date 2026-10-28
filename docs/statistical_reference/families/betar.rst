@@ -3,6 +3,42 @@
 betar
 =====
 
+Theory and interpretation
+-------------------------
+
+* **Distribution / loss:** f(y)=y^(alpha-1)(1-y)^(beta-1)/B(alpha,beta), 0<y<1.
+* **Natural domains:** alpha>0; beta>0
+* **Conditional mean:** alpha/(alpha+beta)
+* **Conditional variance:** alpha beta/((alpha+beta)^2 (alpha+beta+1))
+
+Mean/precision form: alpha=mu phi, beta=(1-mu)phi. The public beta_lss columns are (mu,phi); betar estimates/fixes precision as a nuisance parameter.
+
+References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
+
+Beta regression models a continuous proportion strictly between
+zero and one. Replacing shape parameters a,b by mean mu and precision
+phi separates the center of the distribution from its concentration.
+
+.. math::
+
+   a=\mu\phi,\quad b=(1-\mu)\phi,\qquad E[Y]=\mu,\quad \operatorname{Var}(Y)=\frac{\mu(1-\mu)}{1+\phi}.
+
+A logit mean predictor keeps mu in (0,1); a positive precision
+transform keeps phi positive. Larger precision narrows the distribution
+at fixed mean. This is not a binomial proportion with a known trial
+count: phi models continuous dispersion, not sample size. Exact zeros
+and ones are outside the density; numerical clipping is a boundary
+convention and does not create point masses at either endpoint.
+
+See :doc:`/statistical_reference/families/theory` for likelihoods,
+links, weights and distributional predictors. The mathematical law
+does not imply support for every fitting or smoothing-selection route;
+the contracts below define the implemented combinations.
+
+Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
+
+Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
+
 Beta regression for responses in the unit interval, with numerical endpoint clipping controlled by eps. theta represents precision; None requests its estimation.
 
 Usage
@@ -48,32 +84,6 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``float``
      - ``2.220446049250313e-14``
      - Positive numerical safeguard used in probability/domain clipping; this is not an additional distribution parameter.
-
-Distribution definition and moments
------------------------------------
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Quantity
-     - Definition
-   * - Distribution / loss
-     - f(y)=y^(alpha-1)(1-y)^(beta-1)/B(alpha,beta), 0<y<1.
-   * - Natural domains
-     - alpha>0; beta>0
-   * - Conditional mean
-     - alpha/(alpha+beta)
-   * - Conditional variance
-     - alpha beta/((alpha+beta)^2 (alpha+beta+1))
-
-Mean/precision form: alpha=mu phi, beta=(1-mu)phi. The public beta_lss columns are (mu,phi); betar estimates/fixes precision as a nuisance parameter.
-
-References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
-
-Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
-
-Implementation definitions: :mod:`nampy.gam.families`. See the source link on the runtime contract for the implemented transforms and objective.
 
 Outputs and fitting support
 ---------------------------
@@ -137,25 +147,45 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
    {
-     "link_prediction": [
-       -0.1488,
-       -0.04316,
-       -0.14159,
-       -0.03357,
-       0.05286,
-       -0.06599
-     ],
-     "response_prediction": [
-       0.46287,
-       0.48921,
-       0.46466,
-       0.49161,
-       0.51321,
-       0.48351
-     ]
+     "link_prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         -0.1488,
+         -0.04316,
+         -0.14159,
+         -0.03357,
+         0.05286,
+         -0.06599
+       ]
+     },
+     "response_prediction": {
+       "kind": "array",
+       "omitted_by_axis": [
+         90
+       ],
+       "shape": [
+         96
+       ],
+       "values": [
+         0.46287,
+         0.48921,
+         0.46466,
+         0.49161,
+         0.51321,
+         0.48351
+       ]
+     }
    }
 
 Example output types and shapes
@@ -163,7 +193,7 @@ Example output types and shapes
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

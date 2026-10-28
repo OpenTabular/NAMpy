@@ -5,4 +5,4 @@
 scam_steptol_fit
 ================
 
-See :ref:`control-scam-steptol-fit` for its type, default, domain, consumer and tested example.
+See :ref:`scam_steptol_fit <control-scam-steptol-fit>` for its type, default, valid values and fitting role.

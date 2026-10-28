@@ -5,4 +5,4 @@
 optim
 =====
 
-See :ref:`control-optim` for its type, default, domain, consumer and tested example.
+See :ref:`optim <control-optim>` for its type, default, valid values and fitting role.

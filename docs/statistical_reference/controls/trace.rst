@@ -5,4 +5,4 @@
 trace
 =====
 
-See :ref:`control-trace` for its type, default, domain, consumer and tested example.
+See :ref:`trace <control-trace>` for its type, default, valid values and fitting role.

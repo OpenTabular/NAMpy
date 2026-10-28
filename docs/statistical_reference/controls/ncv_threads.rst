@@ -5,4 +5,4 @@
 ncv_threads
 ===========
 
-See :ref:`control-ncv-threads` for its type, default, domain, consumer and tested example.
+See :ref:`ncv_threads <control-ncv-threads>` for its type, default, valid values and fitting role.

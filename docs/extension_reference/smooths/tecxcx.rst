@@ -2,7 +2,7 @@
 
 :orphan:
 
-Bivariate tensor P-spline with convex/convex marginal coefficient (``tecxcx``) runtime
-======================================================================================
+Convex / convex tensor spline (``tecxcx``) runtime
+==================================================
 
 :doc:`Canonical runtime constructor <BivariateShapePSplineTerm>`.

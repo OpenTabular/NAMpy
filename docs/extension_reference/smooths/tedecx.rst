@@ -2,7 +2,7 @@
 
 :orphan:
 
-Bivariate monotone-decreasing/convex tensor P-spline construction, preserving the source signed marginal maps (``tedecx``) runtime
-==================================================================================================================================
+Decreasing / convex tensor spline (``tedecx``) runtime
+======================================================
 
 :doc:`Canonical runtime constructor <BivariateShapePSplineTerm>`.

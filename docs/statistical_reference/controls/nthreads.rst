@@ -5,4 +5,4 @@
 nthreads
 ========
 
-See :ref:`control-nthreads` for its type, default, domain, consumer and tested example.
+See :ref:`nthreads <control-nthreads>` for its type, default, valid values and fitting role.

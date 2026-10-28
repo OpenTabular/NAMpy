@@ -5,6 +5,29 @@ efs
 
 Extended Fellner-Schall smoothing updates. Particularly relevant for families such as twlss that lack higher analytic outer derivatives.
 
+Theory and interpretation
+-------------------------
+
+Extended Fellner-Schall updates use penalty quadratic forms and
+curvature traces to update variance-component/smoothing coordinates.
+They avoid the full high-order outer derivative machinery required
+by exact Newton smoothing selection.
+
+.. math::
+
+   \lambda_j^{\mathrm{new}}\ \propto\ \frac{\text{effective dimension for penalty }j}{\widehat\beta^\mathsf TS_j\widehat\beta}.
+
+This is the variance-component balance underlying the update,
+not a literal replacement for the implementation's scaled trace,
+safeguards and bounds. Repeated updates alternate with coefficient
+fitting. EFS is especially useful for supported general families
+whose higher derivatives are unavailable, including twlss. It is
+an optimization/update method, not a cross-validation criterion.
+
+See :doc:`/statistical_reference/selection/theory` for the full
+coefficient/selection loop, notation and comparison rules. The
+configuration and support contracts below describe NAMpy's routes.
+
 Configuration
 -------------
 
@@ -81,18 +104,29 @@ This example includes all imports and input data; no variables from another page
 Observed result preview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
+
 .. code-block:: text
 
-   [
-     3.24244
-   ]
+   {
+     "kind": "array",
+     "omitted_by_axis": [
+       0
+     ],
+     "shape": [
+       1
+     ],
+     "values": [
+       3.24244
+     ]
+   }
 
 Example output types and shapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
 
-The preview lists up to six direct fields; the complete example is downloadable above.
+The shape table summarizes direct output fields; the complete example is downloadable above.
 
 .. list-table::
    :header-rows: 1

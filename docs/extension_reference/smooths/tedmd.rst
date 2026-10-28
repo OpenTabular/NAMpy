@@ -2,7 +2,7 @@
 
 :orphan:
 
-Bivariate double-monotone decreasing tensor P-spline, using the source signed cumulative coefficient map (``tedmd``) runtime
-============================================================================================================================
+Decreasing in both covariates (``tedmd``) runtime
+=================================================
 
 :doc:`Canonical runtime constructor <BivariateShapePSplineTerm>`.
