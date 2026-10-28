@@ -16,7 +16,7 @@
     "tests/reference_fixtures/registered_seven_stage/smooth_responses.json": "39162a58323beb2f23f2d1ffa7547bc7422bdeef59401c7dc713d685eac78a52",
     "tests/diagnostics/test_mgcv_k_check_shared_plan.py": "f577ece48dc1a2a4e2227072395f502cdceb896eb1763c952e0daeda40614793",
     "tests/parity/probes/mgcv_shared_plan_k_check.R": "576f5ea7567d4b42561a05c2efaefaf79321e3f9e57eb5c76f334396a266306c",
-    "tests/parity/test_mgcv_smooth_family_crossings.py": "c15bdbc6ba5a9e6559a484aa841ea2d8ac20e2df04c6c5eecdeed787b2691665"
+    "tests/parity/test_mgcv_smooth_family_crossings.py": "59be72c8fe55ef4f684b72c82988e828f945fb6c2c31c24727131ecbbb98f677"
   },
   "capture_count": 42,
   "captures": {

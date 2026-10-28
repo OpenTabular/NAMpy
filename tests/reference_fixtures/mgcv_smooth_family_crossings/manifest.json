@@ -14,7 +14,7 @@
     "tests/parity/test_recent_family_seven_stage_pipeline.py": "f031b807d7a3d9785e21397f667364660e9b17a8221bda6a784508de2e6ce9e9",
     "tests/parity/seven_stage_coverage.json": "35b9e6737fbe1ab7e669df852eb8da6a822d2ee41e43680b959e1ba527bbc433",
     "tests/reference_fixtures/registered_seven_stage/smooth_responses.json": "39162a58323beb2f23f2d1ffa7547bc7422bdeef59401c7dc713d685eac78a52",
-    "tests/parity/test_mgcv_smooth_family_crossings.py": "c15bdbc6ba5a9e6559a484aa841ea2d8ac20e2df04c6c5eecdeed787b2691665"
+    "tests/parity/test_mgcv_smooth_family_crossings.py": "59be72c8fe55ef4f684b72c82988e828f945fb6c2c31c24727131ecbbb98f677"
   },
   "capture_count": 72,
   "captures": {

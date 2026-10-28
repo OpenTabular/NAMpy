@@ -94,7 +94,42 @@ def test_stage_6_non_gaussian_observable_invariants(crossing):
         case.data,
         case.newdata,
         expected,
-        tolerance=2e-5 if case.basis == "cs" else 2e-7,
+        # mgcv assigns unequal shrinkage to two numerical null directions.
+        # LAPACK rotations therefore change the penalty itself, not just its
+        # coordinates. The rotation regression below bounds this variation.
+        tolerance=1e-4 if case.basis == "cs" else 2e-7,
+    )
+
+
+@pytest.mark.parametrize("family", FAMILIES)
+@pytest.mark.parametrize("angle", [0, np.pi / 4, np.pi / 2, 3 * np.pi / 4])
+def test_cs_observable_invariants_across_null_space_rotations(
+    monkeypatch, family, angle
+):
+    from scipy.linalg import eigh
+
+    def rotated_eigh(matrix, **kwargs):
+        values, vectors = eigh(matrix, **kwargs)
+        cosine, sine = np.cos(angle), np.sin(angle)
+        vectors[:, :2] = vectors[:, :2] @ np.array([[cosine, -sine], [sine, cosine]])
+        return values, vectors
+
+    monkeypatch.setattr("nampy.gam.splines.univariate.cr.scipy_eigh", rotated_eigh)
+    case, source_formula, source, knots = fit_crossing_case("cs", family)
+    expected = pipeline_reference(
+        "cs-" + family,
+        case.data,
+        case.newdata,
+        [source_formula],
+        source,
+        knots=knots,
+        sp=case.model.smoothing_params,
+        namespace="mgcv_smooth_family_crossings",
+    )
+    # Compare only observable functions, kernels and statistics. No particular
+    # orientation of the upstream numerical null eigenvectors is required.
+    assert_reference_invariants(
+        case.model, case.data, case.newdata, expected, tolerance=1e-4
     )
 
 
