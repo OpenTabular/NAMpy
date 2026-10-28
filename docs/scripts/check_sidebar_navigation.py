@@ -100,7 +100,20 @@ def main():
                 "Tutorials",
                 "Model guide",
                 "Frequently Asked Questions",
+                "Download documentation",
             ], getting_started
+            page.get_by_role("link", name="Download documentation", exact=True).click()
+            page.wait_for_url(f"{origin}/downloads.html")
+            assert page.locator("h1").inner_text().startswith("Download documentation")
+            assert page.locator(
+                ".wy-menu-vertical li.current > a.current"
+            ).evaluate_all("links => links.map(a => new URL(a.href).pathname)") == [
+                "/downloads.html"
+            ]
+            assert page.get_by_role("link", name=re.compile(r"^Docs workflow")).get_attribute(
+                "href"
+            ) == "https://github.com/OpenTabular/NAMpy/actions/workflows/docs.yml"
+            page.go_back(wait_until="domcontentloaded")
             assert "Concepts" not in [section["title"] for section in sections]
             for title, minimum in [("How-to Guides", 12)]:
                 section = next(item for item in sections if item["title"] == title)
