@@ -3,13 +3,15 @@
 quasibinomial
 =============
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** Quasi-likelihood specifies a mean-variance relation rather than a normalized probability density.
-* **Natural domains:** mu in the domain of the configured link; dispersion phi>0
-* **Conditional mean:** mu
-* **Conditional variance:** phi mu(1-mu)
+   \frac{\partial Q(y,\mu)}{\partial\mu}=\frac{y-\mu}{\phi V(\mu)}
+
+* **Natural domains:** :math:`0<\mu<1,\quad\phi>0`
+* **Conditional mean:** :math:`\mathbb E[Y\mid x]=\mu`
+* **Conditional variance:** :math:`\operatorname{Var}(Y\mid x)=\phi\mu(1-\mu)`
+
+Quasi-likelihood specifies a mean-variance relationship, not a normalized probability density.
 
 A likelihood-based AIC is unavailable for a quasi-likelihood family. Deviance and Pearson residuals retain their estimating-equation meanings.
 
@@ -76,11 +78,11 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
    * - ``link``
      - ``str``
      - ``'logit'``
-     - Link name or ordered sequence of links. Supported choices and interpretation are specific to this family; sequence order follows its linear predictors.
+     - Single named link string. Supported names and formulas are in the link reference; sequences are not accepted here.
    * - ``kwargs``
      - ``keyword arguments``
      - Variable arguments
-     - Additional options documented by the linked implementation; unknown options may be rejected.
+     - Direct-class inherited eps (float, default 1e-9). The named quasi classes also forward power (float | None, default None) under its link compatibility rules. Factory mappings accept only their explicitly listed options; see the general quasi configuration contract.
 
 Outputs and fitting support
 ---------------------------
@@ -141,73 +143,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/quasibinomial.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "link_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         0.74874,
-         0.84218,
-         1.04268,
-         -1.41357,
-         -1.22235,
-         0.90711
-       ]
-     },
-     "response_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         0.6789,
-         0.69892,
-         0.73937,
-         0.19567,
-         0.22752,
-         0.71241
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['response_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['link_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">link_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.74874</span><span class="example-result-value">0.84218</span><span class="example-result-value">1.0427</span><span class="example-result-value">-1.4136</span><span class="example-result-value">-1.2224</span><span class="example-result-value">0.90711</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">response_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.6789</span><span class="example-result-value">0.69892</span><span class="example-result-value">0.73937</span><span class="example-result-value">0.19567</span><span class="example-result-value">0.22752</span><span class="example-result-value">0.71241</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 Implementation notes
 --------------------

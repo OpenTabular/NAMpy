@@ -9,6 +9,8 @@ The parameter column describes natural distribution parameters, not link predict
 
 For likelihoods, links, response support and joint parameter predictors, start with :doc:`/statistical_reference/families/theory`. Individual pages develop the theory of their response law before its API contracts.
 
+Choose a parameter transformation in the :doc:`link-function reference </statistical_reference/links/index>`; the response law and its link are separate choices.
+
 Continuous responses
 --------------------
 

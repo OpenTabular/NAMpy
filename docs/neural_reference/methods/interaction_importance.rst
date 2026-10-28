@@ -66,68 +66,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/methods/interaction_importance.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "columns": [
-       "term",
-       "term_type",
-       "output",
-       "importance"
-     ],
-     "kind": "table",
-     "omitted_by_axis": [
-       0,
-       0
-     ],
-     "shape": [
-       1,
-       4
-     ],
-     "values": [
-       [
-         "x:z",
-         "interaction",
-         0,
-         0.031801801174879074
-       ]
-     ]
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - pandas.DataFrame
-     - (1, 4)
-   * - result['term']
-     - str
-     - (1,)
-   * - result['term_type']
-     - str
-     - (1,)
-   * - result['output']
-     - int64
-     - (1,)
-   * - result['importance']
-     - float64
-     - (1,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">result</span><span class="example-result-meta">DataFrame · 1 × 4</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>term</dt><dd><span>x:z</span></dd></div><div class="example-result-coordinate"><dt>term_type</dt><dd><span>interaction</span></dd></div><div class="example-result-coordinate"><dt>output</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>importance</dt><dd><span>0.031802</span></dd></div></dl></li></ol></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 .. automethod:: nampy.models._base.NeuralEstimatorBase.interaction_importance
    :no-index:

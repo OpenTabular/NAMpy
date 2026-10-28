@@ -1,4 +1,56 @@
 /* Logo treatments for the Read the Docs theme. */
+.wy-menu-vertical .section-index {
+  color: inherit;
+  display: inline;
+  font-size: inherit;
+  padding: 0;
+}
+
+.wy-menu-vertical .module-code-navigation ul {
+  display: block;
+  margin-left: 0.75rem;
+}
+
+.module-code-navigation summary {
+  cursor: pointer;
+  font-size: 90%;
+  font-weight: 400;
+  line-height: 18px;
+  padding: 0.3rem 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.module-code-navigation details > ul {
+  border-left: 1px solid #d9e2e7;
+}
+
+.wy-menu-vertical .module-code-navigation a {
+  overflow-wrap: anywhere;
+}
+
+.module-source-index a,
+.module-source-index span {
+  overflow-wrap: anywhere;
+}
+
+.module-source-index ul {
+  margin-left: 1.25rem;
+}
+
+.module-source-index li {
+  margin: 0.25rem 0;
+}
+
+.module-source-index span[id] {
+  font-weight: 600;
+}
+
+.wy-menu-vertical .module-code-navigation a[aria-current="page"] {
+  background: #e3edf3;
+  color: #234d66;
+  font-weight: 600;
+}
+
 .rst-content img.landing-logo {
   display: block;
   width: 100%;
@@ -230,4 +282,109 @@ readthedocs-flyout {
 }
 .highlight .api-code-link:hover {
   text-decoration-style: solid;
+}
+
+/* Example results use semantic summaries rather than JSON dumps or tables. */
+.example-result {
+  margin: 1rem 0 1.75rem;
+  border-top: 1px solid #dce3eb;
+}
+.example-result-item {
+  border-bottom: 1px solid #dce3eb;
+  padding: 1rem 0;
+  min-width: 0;
+}
+.example-result-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .4rem 1rem;
+}
+details.example-result-item > summary {
+  cursor: pointer;
+  display: list-item;
+}
+details.example-result-item > summary:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 4px;
+}
+.example-result-label {
+  font-weight: 650;
+  color: #203b53;
+  overflow-wrap: anywhere;
+}
+.example-result-meta {
+  display: inline-block;
+  color: #637589;
+  font-size: .82rem;
+  font-weight: 400;
+  margin-left: .6rem;
+  overflow-wrap: anywhere;
+}
+.example-result-heading > .example-result-meta {
+  margin-left: 0;
+}
+details.example-result-item > summary .example-result-meta {
+  margin-left: .75rem;
+}
+.example-result-body {
+  padding-top: .65rem;
+}
+.example-result-scalar {
+  color: #203b53;
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.example-result-values,
+.example-result-coordinates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem 1.25rem;
+  margin: .3rem 0;
+}
+.example-result-value,
+.example-result-coordinate dd {
+  font-variant-numeric: tabular-nums;
+  color: #203b53;
+}
+.rst-content .example-result-rows,
+.rst-content .example-result-sequence {
+  list-style: none;
+  margin: 0;
+}
+.rst-content .example-result-rows > li,
+.rst-content .example-result-sequence > li {
+  list-style: none;
+  margin: .6rem 0;
+}
+.example-result-row-label,
+.example-result-coordinate dt {
+  color: #637589;
+  font-size: .8rem;
+  font-weight: 400;
+}
+.rst-content .example-result dd {
+  margin: 0;
+}
+.example-result-coordinate dd {
+  padding-top: .1rem;
+}
+.example-result-fields > div {
+  padding: .4rem 0;
+}
+.example-result-fields dt {
+  font-size: .9rem;
+}
+.example-result-fields .example-result-scalar {
+  font-size: 1rem;
+}
+.rst-content .example-result-note,
+.rst-content .example-result-footnote {
+  color: #637589;
+  font-size: .8rem;
+  margin: .55rem 0 0;
+}
+.example-result-footnote {
+  padding-top: .65rem;
 }

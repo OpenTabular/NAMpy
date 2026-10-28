@@ -3,13 +3,15 @@
 studentt
 ========
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** Y=loc+scale T_df, T_df has standard Student-t density proportional to (1+t^2/df)^(-(df+1)/2).
-* **Natural domains:** df>0; loc in R; scale>0
-* **Conditional mean:** loc for df>1; undefined otherwise
-* **Conditional variance:** scale^2 df/(df-2) for df>2; infinite for 1<df<=2; undefined for df<=1
+   f(y)=\frac{\Gamma((\nu+1)/2)}{\Gamma(\nu/2)\sqrt{\nu\pi}\,\sigma}\left(1+\frac{(y-\mu)^2}{\nu\sigma^2}\right)^{-(\nu+1)/2}
+
+* **Natural domains:** :math:`\nu>0,\quad\mu\in\mathbb R,\quad\sigma>0`; :math:`\mu` is location and :math:`\sigma` is t scale.
+* **Conditional mean:** :math:`\mathbb E[Y\mid x]=\mu` for :math:`\nu>1`; undefined otherwise.
+* **Conditional variance:** :math:`\operatorname{Var}(Y\mid x)=\sigma^2\nu/(\nu-2)` for :math:`\nu>2`; infinite for :math:`1<\nu\leq2`; undefined for :math:`\nu\leq1`.
+
+:math:`Y=\mu+\sigma T_\nu,\quad T_\nu\sim t_\nu`
 
 References: `PyTorch probability distributions <https://docs.pytorch.org/docs/stable/distributions.html>`_. NAMpy defines its family transforms and point outputs below.
 
@@ -159,96 +161,11 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/families/studentt.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. rubric:: parameters
+Example result
+~~~~~~~~~~~~~~
 
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
+.. raw:: html
 
-   * - df
-     - loc
-     - scale
-   * - 0.6941499710083008
-     - 0.0
-     - 0.693149983882904
-   * - 0.6941499710083008
-     - 0.0
-     - 0.693149983882904
-
-Full shape: ``[8, 3]``; omitted by axis: ``[6, 0]``.
-
-.. rubric:: raw
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - df
-     - loc
-     - scale
-   * - 0.0
-     - 0.0
-     - 0.0
-   * - 0.0
-     - 0.0
-     - 0.0
-
-Full shape: ``[8, 3]``; omitted by axis: ``[6, 0]``.
-
-.. code-block:: text
-
-   {
-     "loss": 2.0314910411834717,
-     "point": {
-       "kind": "array",
-       "omitted_by_axis": [
-         2
-       ],
-       "shape": [
-         8
-       ],
-       "values": [
-         0.0,
-         0.0,
-         0.0,
-         0.0,
-         0.0,
-         0.0
-       ]
-     }
-   }
-
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 4 named fields
-   * - result['raw']
-     - torch.Tensor[torch.float32]
-     - (8, 3)
-   * - result['parameters']
-     - torch.Tensor[torch.float32]
-     - (8, 3)
-   * - result['loss']
-     - torch.Tensor[torch.float32]
-     - ()
-   * - result['point']
-     - torch.Tensor[torch.float32]
-     - (8,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">loss</span><span class="example-result-meta">Tensor[float32] · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">2.0315</span></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">parameters</span><span class="example-result-meta">Tensor[float32] · 8 × 3</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>df</dt><dd><span>0.69415</span></dd></div><div class="example-result-coordinate"><dt>loc</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>scale</dt><dd><span>0.69315</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>df</dt><dd><span>0.69415</span></dd></div><div class="example-result-coordinate"><dt>loc</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>scale</dt><dd><span>0.69315</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 8 rows.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">point</span><span class="example-result-meta">Tensor[float32] · 8</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0</span><span class="example-result-value">0</span><span class="example-result-value">0</span><span class="example-result-value">0</span><span class="example-result-value">0</span><span class="example-result-value">0</span></div><p class="example-result-note">Showing 6 of 8 values.</p></div></section><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">raw</span><span class="example-result-meta">Tensor[float32] · 8 × 3</span></summary><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>df</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>loc</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>scale</dt><dd><span>0</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>df</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>loc</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>scale</dt><dd><span>0</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 8 rows.</p></div></details><p class="example-result-footnote">Sample values are rounded for display.</p></div>

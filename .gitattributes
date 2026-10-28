@@ -1,2 +1,4 @@
-# Fixture identities hash these source probes, including on Windows checkouts.
-tests/smooths/probes/*.R text eol=lf
+# Fixture identities hash these inputs and sources, including on Windows checkouts.
+tests/reference_fixtures/**/*.json text eol=lf
+tests/**/*.py text eol=lf
+tests/**/*.R text eol=lf

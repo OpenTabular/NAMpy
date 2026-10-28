@@ -70,77 +70,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/methods/explain_terms.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "columns": [
-       "term",
-       "term_type",
-       "output",
-       "value"
-     ],
-     "kind": "table",
-     "omitted_by_axis": [
-       14,
-       3
-     ],
-     "shape": [
-       16,
-       7
-     ],
-     "values": [
-       [
-         "x",
-         "main",
-         0,
-         -0.8755
-       ],
-       [
-         "x",
-         "main",
-         0,
-         -0.625
-       ]
-     ]
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - pandas.DataFrame
-     - (16, 7)
-   * - result['term']
-     - str
-     - (16,)
-   * - result['term_type']
-     - str
-     - (16,)
-   * - result['output']
-     - int64
-     - (16,)
-   * - result['value']
-     - float64
-     - (16,)
-   * - result['contribution']
-     - float32
-     - (16,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">result</span><span class="example-result-meta">DataFrame · 16 × 7</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>term</dt><dd><span>x</span></dd></div><div class="example-result-coordinate"><dt>term_type</dt><dd><span>main</span></dd></div><div class="example-result-coordinate"><dt>output</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>value</dt><dd><span>-0.8755</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>term</dt><dd><span>x</span></dd></div><div class="example-result-coordinate"><dt>term_type</dt><dd><span>main</span></dd></div><div class="example-result-coordinate"><dt>output</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>value</dt><dd><span>-0.625</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 16 rows and 4 of 7 columns.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 .. automethod:: nampy.models._base.NeuralEstimatorBase.explain_terms
    :no-index:

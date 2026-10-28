@@ -483,3 +483,9 @@ are available for ``cr/cs/cc/ps/cp/bs`` without ``by``, ``pc`` or linked IDs.
 Other bases/compositions and cancelling constraint-column sums are rejected.
 Absorption can be disabled for construction inspection, but never for fitted
 GAMs. See :doc:`user_guide/statistical_gams` for matrix coordinates and ordering.
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+
+   Published PreTab boundary <user_guide/pretab_compatibility>

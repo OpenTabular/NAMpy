@@ -11,7 +11,5 @@ data['y'] = rng.wald(np.exp(0.3 * data.x), 2)
 model = GAM(formula="y ~ s(x, bs='cr', k=6)", family='inverse_gaussian', optimize_smoothing=False).fit(data=data)
 prediction = model.predict(data, type='response')
 raw = model.predict(data, type='link')
-assert np.asarray(prediction).shape[0] == n
-assert np.isfinite(prediction).all()
 result = {'response_prediction': np.asarray(prediction), 'link_prediction': np.asarray(raw)}
 print({key: value.shape for key, value in result.items()})

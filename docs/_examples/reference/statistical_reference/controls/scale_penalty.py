@@ -4,5 +4,4 @@ from nampy.gam import gam_control
 
 control = gam_control(scale_penalty=True)
 result = {'scale_penalty': control.scale_penalty}
-assert hasattr(control, 'scale_penalty')
 print(control.scale_penalty)

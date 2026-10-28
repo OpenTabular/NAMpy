@@ -47,32 +47,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/aic.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   -119.92581008934738
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - builtins.float
-     - ()
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">result</span><span class="example-result-meta">float · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">-119.93</span></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 .. automethod:: nampy.gam.GAM.aic
    :no-index:

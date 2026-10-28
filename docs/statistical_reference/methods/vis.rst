@@ -124,6 +124,8 @@ Prepared plotting data with Matplotlib figures, or figure collections as describ
      - one payload per plot or diagnostic
      - Numerical grids/effects and associated Matplotlib figures; the example schema below identifies each payload field and its concrete shape.
 
+For direct construction of a normalized prediction-grid mask, see :doc:`exclude_too_far </extension_reference/statistical/exclude_too_far>`. Its True entries indicate excluded grid nodes.
+
 
 
 Runnable example
@@ -136,125 +138,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/vis.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "fit": {
-       "kind": "array",
-       "omitted_by_axis": [
-         58
-       ],
-       "shape": [
-         64
-       ],
-       "values": [
-         0.34355,
-         0.80252,
-         1.14352,
-         1.32449,
-         1.36412,
-         1.25617
-       ]
-     },
-     "omitted_fields": [
-       "se_fit",
-       "lower",
-       "upper",
-       "newdata",
-       "grid_values",
-       "factor_levels",
-       "excluded",
-       "unmasked_fit",
-       "n_grid",
-       "se",
-       "lp",
-       "type",
-       "zlim",
-       "zlab",
-       "figures"
-     ],
-     "view": {
-       "items": [
-         "x",
-         "z"
-       ],
-       "kind": "list",
-       "length": 2,
-       "omitted": 0
-     },
-     "x": {
-       "kind": "array",
-       "omitted_by_axis": [
-         2
-       ],
-       "shape": [
-         8
-       ],
-       "values": [
-         0.00373,
-         0.14542,
-         0.2871,
-         0.42878,
-         0.57046,
-         0.71214
-       ]
-     },
-     "y": {
-       "kind": "array",
-       "omitted_by_axis": [
-         2
-       ],
-       "shape": [
-         8
-       ],
-       "values": [
-         0.00518,
-         0.1445,
-         0.28381,
-         0.42313,
-         0.56245,
-         0.70176
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 19 named fields
-   * - result['view']
-     - list
-     - length 2
-   * - result['x']
-     - numpy.ndarray[float64]
-     - (8,)
-   * - result['y']
-     - numpy.ndarray[float64]
-     - (8,)
-   * - result['fit']
-     - numpy.ndarray[float64]
-     - (64,)
-   * - result['se_fit']
-     - numpy.ndarray[float64]
-     - (64,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">fit</span><span class="example-result-meta">ndarray[float64] · 64</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.34355</span><span class="example-result-value">0.80252</span><span class="example-result-value">1.1435</span><span class="example-result-value">1.3245</span><span class="example-result-value">1.3641</span><span class="example-result-value">1.2562</span></div><p class="example-result-note">Showing 6 of 64 values.</p></div></section><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">view</span><span class="example-result-meta">list · length 2</span></summary><div class="example-result-body"><ol class="example-result-sequence"><li><span class="example-result-scalar">x</span></li><li><span class="example-result-scalar">z</span></li></ol></div></details><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">x</span><span class="example-result-meta">ndarray[float64] · 8</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.00373</span><span class="example-result-value">0.14542</span><span class="example-result-value">0.2871</span><span class="example-result-value">0.42878</span><span class="example-result-value">0.57046</span><span class="example-result-value">0.71214</span></div><p class="example-result-note">Showing 6 of 8 values.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">y</span><span class="example-result-meta">ndarray[float64] · 8</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.00518</span><span class="example-result-value">0.1445</span><span class="example-result-value">0.28381</span><span class="example-result-value">0.42313</span><span class="example-result-value">0.56245</span><span class="example-result-value">0.70176</span></div><p class="example-result-note">Showing 6 of 8 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p><p class="example-result-note">15 additional output fields are available in the returned result.</p></div>
 
 .. automethod:: nampy.gam.GAM.vis
    :no-index:

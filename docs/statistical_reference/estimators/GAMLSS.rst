@@ -4,7 +4,6 @@ GAMLSS
 ======
 
 .. autoclass:: nampy.models.GAMLSS
-   :no-index:
    :no-members:
    :no-inherited-members:
 
@@ -21,98 +20,11 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/estimators/GAMLSS.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "natural_parameters": {
-       "kind": "array",
-       "omitted_by_axis": [
-         94,
-         0
-       ],
-       "shape": [
-         96,
-         2
-       ],
-       "values": [
-         [
-           1.36961,
-           0.14189
-         ],
-         [
-           0.91712,
-           0.12487
-         ]
-       ]
-     },
-     "point": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         1.36961,
-         0.91712,
-         1.17842,
-         1.06389,
-         1.44426,
-         1.1482
-       ]
-     },
-     "raw": {
-       "kind": "array",
-       "omitted_by_axis": [
-         94,
-         0
-       ],
-       "shape": [
-         96,
-         2
-       ],
-       "values": [
-         [
-           1.36961,
-           -2.02582
-         ],
-         [
-           0.91712,
-           -2.16396
-         ]
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 3 named fields
-   * - result['natural_parameters']
-     - numpy.ndarray[float64]
-     - (96, 2)
-   * - result['raw']
-     - numpy.ndarray[float64]
-     - (96, 2)
-   * - result['point']
-     - numpy.ndarray[float64]
-     - (96,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">natural_parameters</span><span class="example-result-meta">ndarray[float64] · 96 × 2</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>1.3696</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.14189</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0.91712</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.12487</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 96 rows.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">point</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">1.3696</span><span class="example-result-value">0.91712</span><span class="example-result-value">1.1784</span><span class="example-result-value">1.0639</span><span class="example-result-value">1.4443</span><span class="example-result-value">1.1482</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">raw</span><span class="example-result-meta">ndarray[float64] · 96 × 2</span></summary><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>1.3696</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>-2.0258</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0.91712</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>-2.164</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 96 rows.</p></div></details><p class="example-result-footnote">Sample values are rounded for display.</p></div>

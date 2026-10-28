@@ -3,15 +3,15 @@
 beta_lss
 ========
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** Y~Beta(mu*phi,(1-mu)*phi); natural columns are (mu,phi), mean and precision.
-* **Natural domains:** 0<mu<1; finite phi>0; target 0<Y<1
-* **Conditional mean:** mu
-* **Conditional variance:** mu*(1-mu)/(1+phi)
+   Y\sim\operatorname{Beta}(\mu\phi,(1-\mu)\phi)
 
-Alternative shape parameters are alpha=mu*phi and beta=(1-mu)*phi. For gamlss.dist BE, use sigma_BE=1/sqrt(phi+1); sigma_BE is not NAMpy precision phi. Raw predictors are (logit(mu),log(phi)).
+* **Natural domains:** :math:`0<\mu<1,\quad0<\phi<\infty,\quad0<Y<1`
+* **Conditional mean:** :math:`\mathbb E[Y\mid x]=\mu`
+* **Conditional variance:** :math:`\operatorname{Var}(Y\mid x)=\frac{\mu(1-\mu)}{1+\phi}`
+
+Alternative shape parameters are :math:`a=\mu\phi,\ b=(1-\mu)\phi`. For gamlss.dist BE, use :math:`\sigma_{\mathrm{BE}}=1/\sqrt{\phi+1}`; this is not NAMpy precision. Raw predictors are :math:`(\operatorname{logit}\mu,\log\phi)`.
 
 Distribution reference: `gamlss.dist::BE <https://github.com/cran/gamlss.dist/blob/master/man/BE.Rd>`_. Fitting uses NAMpy's joint penalized engine, not gamlss RS backfitting. See :doc:`/development/neighbor_parity` for the tested mapping and numerical comparisons.
 
@@ -62,91 +62,11 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/beta_lss.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "components": {
-       "fields": {
-         "backend": "gam"
-       },
-       "kind": "AdditivePrediction",
-       "omitted_fields": [
-         "response",
-         "link",
-         "terms",
-         "intercept",
-         "offset",
-         "term_metadata"
-       ]
-     },
-     "parameters": {
-       "kind": "array",
-       "omitted_by_axis": [
-         118,
-         0
-       ],
-       "shape": [
-         120,
-         2
-       ],
-       "values": [
-         [
-           0.32636,
-           7.81345
-         ],
-         [
-           0.32835,
-           7.84071
-         ]
-       ]
-     },
-     "point": {
-       "kind": "array",
-       "omitted_by_axis": [
-         114
-       ],
-       "shape": [
-         120
-       ],
-       "values": [
-         0.32636,
-         0.32835,
-         0.33034,
-         0.33233,
-         0.33432,
-         0.33632
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 3 named fields
-   * - result['parameters']
-     - numpy.ndarray[float64]
-     - (120, 2)
-   * - result['point']
-     - numpy.ndarray[float64]
-     - (120,)
-   * - result['components']
-     - nampy.contracts.AdditivePrediction
-     - scalar record
+   <div class="example-result" aria-label="Example result"><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">components</span><span class="example-result-meta">AdditivePrediction · scalar record</span></summary><div class="example-result-body"><dl class="example-result-fields"><div><dt>backend<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">gam</span></dd></div></dl><p class="example-result-note">6 additional fields available on the returned object.</p></div></details><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">parameters</span><span class="example-result-meta">ndarray[float64] · 120 × 2</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0.32636</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>7.8134</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0.32835</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>7.8407</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 120 rows.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">point</span><span class="example-result-meta">ndarray[float64] · 120</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.32636</span><span class="example-result-value">0.32835</span><span class="example-result-value">0.33034</span><span class="example-result-value">0.33233</span><span class="example-result-value">0.33432</span><span class="example-result-value">0.33632</span></div><p class="example-result-note">Showing 6 of 120 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>

@@ -3,13 +3,15 @@
 tw
 ==
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** Compound Poisson-gamma law for 1<p<2: N~Poisson(mu^(2-p)/(phi(2-p))); Y is a sum of N Gamma((2-p)/(p-1), scale=phi(p-1)mu^(p-1)) jumps.
-* **Natural domains:** mu>0; phi>0; fixed power 1<p<2
-* **Conditional mean:** mu
-* **Conditional variance:** phi mu^p
+   Y=\sum_{j=1}^NZ_j,\quad N\sim\operatorname{Poisson}\!\left(\frac{\mu^{2-p}}{\phi(2-p)}\right)
+
+* **Natural domains:** :math:`\mu>0,\quad\phi>0,\quad1<p<2`; power is fixed or modeled according to the family contract.
+* **Conditional mean:** :math:`\mathbb E[Y\mid x]=\mu`
+* **Conditional variance:** :math:`\operatorname{Var}(Y\mid x)=\phi\mu^p`
+
+:math:`Z_j\sim\operatorname{Gamma}\!\left(\frac{2-p}{p-1},\ \mathrm{scale}=\phi(p-1)\mu^{p-1}\right)`
 
 References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
 
@@ -152,73 +154,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/tw.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "link_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         -0.01959,
-         -0.16216,
-         0.08688,
-         -0.34857,
-         -0.42878,
-         -0.09058
-       ]
-     },
-     "response_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         0.9806,
-         0.8503,
-         1.09077,
-         0.7057,
-         0.6513,
-         0.9134
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['response_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['link_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">link_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">-0.01959</span><span class="example-result-value">-0.16216</span><span class="example-result-value">0.08688</span><span class="example-result-value">-0.34857</span><span class="example-result-value">-0.42878</span><span class="example-result-value">-0.09058</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">response_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.9806</span><span class="example-result-value">0.8503</span><span class="example-result-value">1.0908</span><span class="example-result-value">0.7057</span><span class="example-result-value">0.6513</span><span class="example-result-value">0.9134</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 Implementation notes
 --------------------

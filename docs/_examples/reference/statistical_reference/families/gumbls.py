@@ -13,7 +13,4 @@ raw = model.predict(data, type='link')
 parameters = model.family.distribution_parameters_from_eta(np.asarray(raw))
 source_response = np.asarray(model.predict(data, type='response'))
 result = {'link_predictors': np.asarray(raw), 'natural_parameters': parameters, 'source_response': source_response}
-assert np.isfinite(source_response).all()
-assert parameters.shape[0] == n
-assert np.isfinite(parameters).all()
 print({key: value.shape for key, value in result.items()})

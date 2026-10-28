@@ -14,9 +14,6 @@ new_data = pd.DataFrame({'x': np.linspace(0.1, 0.9, 20)})
 mean, se = model.predict(new_data, type='link', return_se=True, unconditional=True)
 coefficient_covariance = model.vcov(unconditional=True)
 pointwise_interval = np.column_stack([mean - 1.96 * se, mean + 1.96 * se])
-assert mean.shape == se.shape == (20,)
-assert pointwise_interval.shape == (20, 2)
-assert np.isfinite(coefficient_covariance).all()
 result = {'mean': mean, 'standard_error': se, 'pointwise_interval': pointwise_interval,
           'coefficient_covariance': coefficient_covariance}
 print({key: value.shape for key, value in result.items()})

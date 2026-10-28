@@ -3,13 +3,13 @@
 multinom
 ========
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** P(Y=j)=p_j, j=0,...,C-1; sum(p)=1.
-* **Natural domains:** class probabilities p_j>=0, normalized across C classes
-* **Conditional mean:** Probability vector p; a numeric class-label mean has no invariant categorical interpretation
-* **Conditional variance:** Covariance of one-hot Y: diag(p)-p p^T
+   \Pr(Y=j)=p_j,\quad j\in\{0,\ldots,C-1\}
+
+* **Natural domains:** :math:`p_j\geq0,\quad\sum_{j=0}^{C-1}p_j=1`
+* **Conditional mean:** For the one-hot vector :math:`Z`, :math:`\mathbb E[Z\mid x]=p`; numeric label means depend on the encoding.
+* **Conditional variance:** :math:`\operatorname{Cov}(Z\mid x)=\operatorname{diag}(p)-pp^{\mathsf T}` for one-hot :math:`Z`.
 
 References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
 
@@ -146,109 +146,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/multinom.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "link_predictors": {
-       "kind": "array",
-       "omitted_by_axis": [
-         94,
-         0
-       ],
-       "shape": [
-         96,
-         2
-       ],
-       "values": [
-         [
-           -0.03369,
-           -0.0
-         ],
-         [
-           0.41019,
-           -0.0
-         ]
-       ]
-     },
-     "natural_parameters": {
-       "kind": "array",
-       "omitted_by_axis": [
-         94,
-         0
-       ],
-       "shape": [
-         96,
-         3
-       ],
-       "values": [
-         [
-           0.33705,
-           0.32589,
-           0.33705
-         ],
-         [
-           0.28514,
-           0.42973,
-           0.28514
-         ]
-       ]
-     },
-     "source_response": {
-       "kind": "array",
-       "omitted_by_axis": [
-         94,
-         0
-       ],
-       "shape": [
-         96,
-         3
-       ],
-       "values": [
-         [
-           0.33705,
-           0.32589,
-           0.33705
-         ],
-         [
-           0.28514,
-           0.42973,
-           0.28514
-         ]
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 3 named fields
-   * - result['link_predictors']
-     - numpy.ndarray[float64]
-     - (96, 2)
-   * - result['natural_parameters']
-     - numpy.ndarray[float64]
-     - (96, 3)
-   * - result['source_response']
-     - numpy.ndarray[float64]
-     - (96, 3)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">link_predictors</span><span class="example-result-meta">ndarray[float64] · 96 × 2</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>-0.03369</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>-0</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0.41019</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>-0</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 96 rows.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">natural_parameters</span><span class="example-result-meta">ndarray[float64] · 96 × 3</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0.33705</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.32589</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>0.33705</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0.28514</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.42973</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>0.28514</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 96 rows.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">source_response</span><span class="example-result-meta">ndarray[float64] · 96 × 3</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0.33705</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.32589</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>0.33705</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0.28514</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.42973</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>0.28514</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 96 rows.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 Parameterization and interpretation
 -----------------------------------

@@ -60,39 +60,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/methods/basis_transform.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "kind": "array",
-     "shape": [
-       64,
-       32
-     ],
-     "values": "omitted; see shape contract"
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - numpy.ndarray[float32]
-     - (64, 32)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">result</span><span class="example-result-meta">ndarray[float32] · 64 × 32</span></div><div class="example-result-body"><p class="example-result-note">Values omitted; dimensions shown above.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 .. automethod:: nampy.models._base.NeuralEstimatorBase.basis_transform
    :no-index:

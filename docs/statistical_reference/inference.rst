@@ -103,3 +103,70 @@ For every argument and a complete example, see :doc:`uncertainty`,
 :doc:`methods/vcov`, :doc:`methods/sp_vcov`, :doc:`methods/edf1`,
 :doc:`methods/aic` and :doc:`methods/bic`. The definitions above follow
 ``nampy.gam.inference.loglik`` and the fitted covariance postprocessing code.
+
+.. _quadratic-form-inference:
+
+Quadratic forms and smooth-term reference distributions
+-------------------------------------------------------
+
+A coefficient-based term statistic can have a weighted chi-square reference
+law rather than an ordinary chi-square with an integer number of degrees of
+freedom. For a centered Gaussian vector with covariance V and a symmetric
+quadratic-form matrix A, diagonalizing the covariance-scaled form gives
+
+.. math::
+
+   T=b^{\mathsf T}Ab\ \overset{d}{=}\ \sum_j\lambda_jZ_j^2,
+   \qquad Z_j\sim N(0,1),
+
+where the weights are eigenvalues of :math:`V^{1/2}AV^{1/2}`. Rank truncation,
+penalization and covariance choice affect those weights. This explains why
+inserting a rounded EDF into a generic chi-square CDF does not reproduce every
+smooth-term test. Estimated scale and random-effect boundary cases also need
+their appropriate reference construction. ``re_test`` on summary/ANOVA controls
+the supported random-effect testing behavior; not every term uses one formula.
+
+The more general numerical helper evaluates independent components
+
+.. math::
+
+   Q=\sum_j\lambda_j\chi^2_{h_j}(\delta_j)+\sigma_z Z,
+   \qquad Z\sim N(0,1).
+
+Its characteristic function is
+
+.. math::
+
+   \varphi_Q(t)=e^{-\sigma_z^2t^2/2}
+   \prod_j\left[(1-2it\lambda_j)^{-h_j/2}
+   \exp\left\{\frac{it\lambda_j\delta_j}{1-2it\lambda_j}\right\}\right].
+
+Davies numerically inverts this function using truncation/integration error
+controls. :doc:`psum_chisq </extension_reference/statistical/psum_chisq>` defaults
+to an upper-tail probability; :doc:`DaviesAlgorithm
+</extension_reference/statistical/DaviesAlgorithm>` exposes the raw lower-tail
+calculation, trace and fault code. The wrapper warns on significant round-off
+or a failed numerical route. Its current central-failure fallback uses Liu's
+upper-tail approximation, even if a lower tail was requested, and omits the
+optional Gaussian term. Failed noncentral cases yield NaN. The helper page
+documents these conventions explicitly.
+
+For central components, cumulants satisfy
+
+.. math::
+
+   \kappa_k=2^{k-1}(k-1)!\sum_jh_j\lambda_j^k
+   \quad(\sigma_z=0).
+
+:doc:`liu2 </extension_reference/statistical/liu2>` uses moment matching to a
+scaled noncentral chi-square approximation for the intended nonnegative
+quadratic form. It does not integrate the exact weighted law, and its
+nonpositive-threshold return convention is not a general lower-tail CDF.
+
+These numerical routines evaluate a chosen reference law. They do not prove
+that a fitted model satisfies its distributional assumptions, remove smoothing
+uncertainty, or turn approximate term tests into exact finite-sample tests.
+Use the summary/ANOVA contracts and fitted-route limitations when interpreting
+p-values. Algorithm references are collected in the
+`mgcv probability-helper documentation
+<https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/psum.chisq.html>`_.

@@ -3,13 +3,13 @@
 inverse_gaussian
 ================
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** f(y)=sqrt(lambda/(2 pi y^3)) exp(-lambda(y-mu)^2/(2 mu^2 y)), y>0.
-* **Natural domains:** mu>0; precision lambda=1/phi>0
-* **Conditional mean:** mu
-* **Conditional variance:** phi mu^3
+   f(y)=\sqrt{\frac{\lambda}{2\pi y^3}}\exp\left\{-\frac{\lambda(y-\mu)^2}{2\mu^2y}\right\},\quad y>0
+
+* **Natural domains:** :math:`\mu>0,\quad\lambda=1/\phi>0`
+* **Conditional mean:** :math:`\mathbb E[Y\mid x]=\mu`
+* **Conditional variance:** :math:`\operatorname{Var}(Y\mid x)=\phi\mu^3`
 
 References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
 
@@ -138,73 +138,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/inverse_gaussian.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "link_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         0.53331,
-         0.52837,
-         0.6125,
-         0.95186,
-         1.15661,
-         0.56975
-       ]
-     },
-     "response_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         1.36934,
-         1.37573,
-         1.27775,
-         1.02497,
-         0.92984,
-         1.32483
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['response_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['link_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">link_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.53331</span><span class="example-result-value">0.52837</span><span class="example-result-value">0.6125</span><span class="example-result-value">0.95186</span><span class="example-result-value">1.1566</span><span class="example-result-value">0.56975</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">response_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">1.3693</span><span class="example-result-value">1.3757</span><span class="example-result-value">1.2777</span><span class="example-result-value">1.025</span><span class="example-result-value">0.92984</span><span class="example-result-value">1.3248</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 Implementation notes
 --------------------

@@ -74,131 +74,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/concurvity.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "labels": {
-       "items": [
-         "para",
-         "s(x, bs='ps', k=7)"
-       ],
-       "kind": "list",
-       "length": 3,
-       "omitted": 1
-     },
-     "measure_names": {
-       "items": [
-         "worst",
-         "observed"
-       ],
-       "kind": "tuple",
-       "length": 3,
-       "omitted": 1
-     },
-     "values": {
-       "estimate": {
-         "kind": "array",
-         "omitted_by_axis": [
-           1,
-           0
-         ],
-         "shape": [
-           3,
-           3
-         ],
-         "values": [
-           [
-             1.0,
-             0.0,
-             0.0
-           ],
-           [
-             0.0,
-             1.0,
-             0.06019
-           ]
-         ]
-       },
-       "observed": {
-         "kind": "array",
-         "omitted_by_axis": [
-           1,
-           0
-         ],
-         "shape": [
-           3,
-           3
-         ],
-         "values": [
-           [
-             1.0,
-             0.0,
-             0.0
-           ],
-           [
-             0.0,
-             1.0,
-             0.08538
-           ]
-         ]
-       },
-       "worst": {
-         "kind": "array",
-         "omitted_by_axis": [
-           1,
-           0
-         ],
-         "shape": [
-           3,
-           3
-         ],
-         "values": [
-           [
-             1.0,
-             0.0,
-             0.0
-           ],
-           [
-             0.0,
-             1.0,
-             0.17468
-           ]
-         ]
-       }
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 3 named fields
-   * - result['measure_names']
-     - tuple
-     - length 3
-   * - result['labels']
-     - list
-     - length 3
-   * - result['values']
-     - dict
-     - 3 named fields
+   <div class="example-result" aria-label="Example result"><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">labels</span><span class="example-result-meta">list · length 3</span></summary><div class="example-result-body"><ol class="example-result-sequence"><li><span class="example-result-scalar">para</span></li><li><span class="example-result-scalar">s(x, bs=&#x27;ps&#x27;, k=7)</span></li></ol><p class="example-result-note">Showing 2 of 3 items.</p></div></details><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">measure_names</span><span class="example-result-meta">tuple · length 3</span></summary><div class="example-result-body"><ol class="example-result-sequence"><li><span class="example-result-scalar">worst</span></li><li><span class="example-result-scalar">observed</span></li></ol><p class="example-result-note">Showing 2 of 3 items.</p></div></details><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">values</span><span class="example-result-meta">dict · 3 named fields</span></summary><div class="example-result-body"><dl class="example-result-fields"><div><dt>estimate<span class="example-result-meta">ndarray[float64] · 3 × 3</span></dt><dd><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>1</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>0</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>1</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>0.06019</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 3 rows.</p></dd></div><div><dt>observed<span class="example-result-meta">ndarray[float64] · 3 × 3</span></dt><dd><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>1</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>0</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>1</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>0.08538</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 3 rows.</p></dd></div><div><dt>worst<span class="example-result-meta">ndarray[float64] · 3 × 3</span></dt><dd><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>1</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>0</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>1</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>0.17468</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 3 rows.</p></dd></div></dl></div></details><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 .. automethod:: nampy.gam.GAM.concurvity
    :no-index:

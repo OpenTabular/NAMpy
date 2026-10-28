@@ -44,14 +44,23 @@ def _tw_null_fit(y, a=1.001, b=1.999):
         ms = np.max(np.abs(step))
         if ms > 3:
             step = step * 3 / ms
+        accepted = False
         while True:
             th1 = th - step
-            ld1 = density(th1)
-            if np.sum(ld1[:, 0]) < lds[0]:
+            if np.array_equal(th1, th):
+                break
+            # Compare the same column reduction on both sides. Summing the
+            # strided likelihood column separately can round below lds[0]
+            # even at identical parameters, causing endless step halving.
+            ld1 = np.sum(density(th1), axis=0)
+            if ld1[0] < lds[0]:
                 step = step / 2
             else:
-                th, lds = th1, np.sum(ld1, axis=0)
+                th, lds = th1, ld1
+                accepted = True
                 break
+        if not accepted:
+            break
     return np.array([np.exp(th[0]), float(_tw_p_from_theta(np.array([th[1]]), a, b)[0]), np.exp(th[2])])
 
 

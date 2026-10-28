@@ -10,7 +10,6 @@ Signature
 ---------
 
 .. autoclass:: nampy.gam.GAM
-   :no-index:
    :no-members:
    :no-inherited-members:
 

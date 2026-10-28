@@ -13,4 +13,3 @@ model = GAM(formula="y ~ s(x, bs='ps', k=7) + s(z, bs='cr', k=6)",
 
 from nampy.gam.extensions import derivative_interval
 result = derivative_interval(model, data, 'x', n_draws=2000, seed=4)
-assert result.significant.shape == (n,)

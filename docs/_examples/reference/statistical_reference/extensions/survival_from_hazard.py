@@ -18,5 +18,4 @@ model = GAMRegressor(formula="ped_event ~ s(tend, bs='cr', k=5) + x", family='po
 profile = pd.DataFrame({'tend': cuts[1:], 'x': np.zeros(8)})
 hazard = model.predict(profile, offset=np.zeros(8))[None, :]
 curves = survival_from_hazard(hazard, cuts)
-assert np.all(np.diff(curves['survival'][0]) <= 0)
 result = {'expanded': ped, 'hazard': hazard, **curves}

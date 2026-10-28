@@ -3,13 +3,15 @@
 gaussian
 ========
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** Y=mu+sigma Z, Z~Normal(0,1); f(y)=exp(-(y-mu)^2/(2 sigma^2))/(sqrt(2 pi) sigma).
-* **Natural domains:** mu in R; sigma>0
-* **Conditional mean:** mu
-* **Conditional variance:** sigma^2
+   f(y)=\frac{\exp\{-(y-\mu)^2/(2\sigma^2)\}}{\sqrt{2\pi}\,\sigma}
+
+* **Natural domains:** :math:`\mu\in\mathbb R,\quad\sigma>0`
+* **Conditional mean:** :math:`\mathbb E[Y\mid x]=\mu`
+* **Conditional variance:** :math:`\operatorname{Var}(Y\mid x)=\sigma^2`
+
+:math:`Y=\mu+\sigma Z,\quad Z\sim\mathcal N(0,1)`
 
 References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
 
@@ -135,73 +137,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/gaussian.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "link_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         1.58161,
-         1.95127,
-         1.84134,
-         1.20096,
-         1.25681,
-         1.93922
-       ]
-     },
-     "response_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         1.58161,
-         1.95127,
-         1.84134,
-         1.20096,
-         1.25681,
-         1.93922
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['response_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['link_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">link_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">1.5816</span><span class="example-result-value">1.9513</span><span class="example-result-value">1.8413</span><span class="example-result-value">1.201</span><span class="example-result-value">1.2568</span><span class="example-result-value">1.9392</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">response_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">1.5816</span><span class="example-result-value">1.9513</span><span class="example-result-value">1.8413</span><span class="example-result-value">1.201</span><span class="example-result-value">1.2568</span><span class="example-result-value">1.9392</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 .. autoclass:: nampy.gam.families.gaussian.GaussianIdentityFamily
    :no-index:

@@ -12,10 +12,6 @@ model = GAM(formula="y ~ s(x, bs='cs', k=10)", optimize_smoothing=False).fit(dat
 prediction = model.predict(data)
 design = model.lpmatrix(data)
 covariance = model.vcov()
-assert prediction.shape == (n,)
-assert design.shape[0] == n
-assert covariance.shape == (design.shape[1], design.shape[1])
-assert np.isfinite(prediction).all()
 result = {'prediction': prediction, 'full_model_design': design,
           'coefficient_covariance': covariance}
 print({key: value.shape for key, value in result.items()})

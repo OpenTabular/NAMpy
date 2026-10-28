@@ -56,6 +56,8 @@ GAMSummary structured record; also prints the formatted summary. Smooth signific
      - scalar record
      - Contains parametric and smooth significance tables, EDF, dispersion and goodness-of-fit fields; the method also prints the summary.
 
+The :ref:`quadratic-form inference explanation <quadratic-form-inference>` describes weighted chi-square reference laws, numerical tail evaluation and approximation limits.
+
 
 
 Runnable example
@@ -68,80 +70,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/summary.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "fields": {
-       "family_name": "gaussian",
-       "formula": "y ~ s(x, bs='ps', k=7) + s(z, bs='cr', k=6)",
-       "link_name": "identity",
-       "residual_df": 89.97937139847869
-     },
-     "kind": "GAMSummary",
-     "omitted_fields": [
-       "p_coeff",
-       "se",
-       "p_t",
-       "p_pv",
-       "p_table",
-       "pterms_table",
-       "s_table",
-       "m",
-       "scale",
-       "dispersion",
-       "scale_estimated",
-       "r_sq",
-       "dev_expl",
-       "null_deviance",
-       "deviance",
-       "n",
-       "np",
-       "rank",
-       "method",
-       "sp_criterion",
-       "covariance",
-       "edf_total",
-       "metadata"
-     ]
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - nampy.gam.inference.summary.GAMSummary
-     - scalar record
-   * - result.family_name
-     - builtins.str
-     - ()
-   * - result.link_name
-     - builtins.str
-     - ()
-   * - result.formula
-     - builtins.str
-     - ()
-   * - result.p_coeff
-     - numpy.ndarray[float64]
-     - (1,)
-   * - result.se
-     - numpy.ndarray[float64]
-     - (12,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">result</span><span class="example-result-meta">GAMSummary · scalar record</span></div><div class="example-result-body"><dl class="example-result-fields"><div><dt>family_name<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">gaussian</span></dd></div><div><dt>formula<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">y ~ s(x, bs=&#x27;ps&#x27;, k=7) + s(z, bs=&#x27;cr&#x27;, k=6)</span></dd></div><div><dt>link_name<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">identity</span></dd></div><div><dt>residual_df<span class="example-result-meta">float · scalar</span></dt><dd><span class="example-result-scalar">89.979</span></dd></div></dl><p class="example-result-note">23 additional fields available on the returned object.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p><p class="example-result-note">23 additional output fields are available in the returned result.</p></div>
 
 .. automethod:: nampy.gam.GAM.summary
    :no-index:

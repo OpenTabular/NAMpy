@@ -3,15 +3,17 @@
 robustnormal
 ============
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** Y=mu+sigma Z, Z~Normal(0,1); f(y)=exp(-(y-mu)^2/(2 sigma^2))/(sqrt(2 pi) sigma).
-* **Natural domains:** mu in R; sigma>0
-* **Conditional mean:** mu
-* **Conditional variance:** sigma^2
+   f(y)=\frac{\exp\{-(y-\mu)^2/(2\sigma^2)\}}{\sqrt{2\pi}\,\sigma}
 
-The underlying response law is Gaussian. If rob is not None, its log density l is replaced by softplus(l+rob)-softplus(rob); training minimizes its negative. This transformed objective is not a normalized likelihood. rob=None recovers ordinary NLL.
+* **Natural domains:** :math:`\mu\in\mathbb R,\quad\sigma>0`
+* **Conditional mean:** :math:`\mathbb E[Y\mid x]=\mu`
+* **Conditional variance:** :math:`\operatorname{Var}(Y\mid x)=\sigma^2`
+
+:math:`Y=\mu+\sigma Z,\quad Z\sim\mathcal N(0,1)`
+
+The underlying response law is Gaussian. If ``rob`` is not None, its log density :math:`\ell` is replaced by :math:`\operatorname{softplus}(\ell+\mathrm{rob})-\operatorname{softplus}(\mathrm{rob})`; training minimizes its negative. This transformed objective is not a normalized likelihood. ``rob=None`` recovers ordinary NLL.
 
 References: `PyTorch probability distributions <https://docs.pytorch.org/docs/stable/distributions.html>`_. NAMpy defines its family transforms and point outputs below.
 
@@ -160,90 +162,11 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/families/robustnormal.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. rubric:: parameters
+Example result
+~~~~~~~~~~~~~~
 
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
+.. raw:: html
 
-   * - mean
-     - scale
-   * - 0.0
-     - 0.693149983882904
-   * - 0.0
-     - 0.693149983882904
-
-Full shape: ``[8, 2]``; omitted by axis: ``[6, 0]``.
-
-.. rubric:: raw
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - mean
-     - scale
-   * - 0.0
-     - 0.0
-   * - 0.0
-     - 0.0
-
-Full shape: ``[8, 2]``; omitted by axis: ``[6, 0]``.
-
-.. code-block:: text
-
-   {
-     "loss": 0.5417227149009705,
-     "point": {
-       "kind": "array",
-       "omitted_by_axis": [
-         2
-       ],
-       "shape": [
-         8
-       ],
-       "values": [
-         0.0,
-         0.0,
-         0.0,
-         0.0,
-         0.0,
-         0.0
-       ]
-     }
-   }
-
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 4 named fields
-   * - result['raw']
-     - torch.Tensor[torch.float32]
-     - (8, 2)
-   * - result['parameters']
-     - torch.Tensor[torch.float32]
-     - (8, 2)
-   * - result['loss']
-     - torch.Tensor[torch.float32]
-     - ()
-   * - result['point']
-     - torch.Tensor[torch.float32]
-     - (8,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">loss</span><span class="example-result-meta">Tensor[float32] · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">0.54172</span></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">parameters</span><span class="example-result-meta">Tensor[float32] · 8 × 2</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>mean</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>scale</dt><dd><span>0.69315</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>mean</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>scale</dt><dd><span>0.69315</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 8 rows.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">point</span><span class="example-result-meta">Tensor[float32] · 8</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0</span><span class="example-result-value">0</span><span class="example-result-value">0</span><span class="example-result-value">0</span><span class="example-result-value">0</span><span class="example-result-value">0</span></div><p class="example-result-note">Showing 6 of 8 values.</p></div></section><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">raw</span><span class="example-result-meta">Tensor[float32] · 8 × 2</span></summary><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>mean</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>scale</dt><dd><span>0</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>mean</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>scale</dt><dd><span>0</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 8 rows.</p></div></details><p class="example-result-footnote">Sample values are rounded for display.</p></div>

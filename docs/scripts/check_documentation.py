@@ -27,6 +27,7 @@ class Page(HTMLParser):
         self.robots = ""
         self.redirect = None
         self.nav_labels = []
+        self.nav_links = []
         self.stack = []
         self.anchor = None
         self.autosummary_rows = []
@@ -77,6 +78,8 @@ class Page(HTMLParser):
             "wy-menu-vertical" in cls.split() for _, cls in self.stack
         ):
             self.anchor = ""
+            if attrs.get("href"):
+                self.nav_links.append(attrs["href"])
 
     def handle_endtag(self, tag):
         if tag == "td" and self.summary_cell is not None:
@@ -108,7 +111,14 @@ def main():
     pages = {p.resolve(): Page(p.read_text()) for p in build.rglob("*.html")}
     errors = []
     for path, page in pages.items():
-        if any(folder in path.parts for folder in ("statistical_reference", "neural_reference", "extension_reference")):
+        if any(
+            folder in path.parts
+            for folder in (
+                "statistical_reference",
+                "neural_reference",
+                "extension_reference",
+            )
+        ):
             html = path.read_text()
             if re.search(r"<p>Runnable example\s*[-~]{3,}", html):
                 errors.append(f"{path}: example heading rendered as literal underline")
@@ -162,7 +172,20 @@ def main():
                     )
     homepage = pages.get((build / "index.html").resolve())
     if homepage is not None:
+        sidebar_pages = set()
+        for href in homepage.nav_links:
+            url = urlsplit(href)
+            if url.scheme or url.netloc:
+                continue
+            target = (build / unquote(url.path)).resolve()
+            if target.is_dir():
+                target /= "index.html"
+            sidebar_pages.add(target)
         for path, page in pages.items():
+            if not page.redirect and path not in sidebar_pages:
+                errors.append(
+                    f"{path.relative_to(build)}: page has no place in the sidebar"
+                )
             if page.nav_labels and page.nav_labels != homepage.nav_labels:
                 errors.append(
                     f"{path.relative_to(build)}: global navigation differs from the homepage"
@@ -172,11 +195,9 @@ def main():
         page = pages.get(path)
         if page is None or not page.redirect or "noindex" not in page.robots:
             errors.append(f"{old}: redirect missing or indexable")
-    search_source = (build / "searchindex.js").read_text().strip()
-    search = json.loads(search_source.removeprefix("Search.setIndex(").rstrip(";)"))
-    for old in REDIRECTS:
-        if old in search["docnames"]:
-            errors.append(f"{old}: obsolete page remains indexed")
+    for filename in ("genindex.html", "search.html", "searchindex.js"):
+        if (build / filename).exists():
+            errors.append(f"{filename}: removed utility page or search index remains")
     for path in [
         *(ROOT / "docs/notebooks").glob("*.ipynb"),
         *(ROOT / "docs/development/notebooks").glob("*.ipynb"),

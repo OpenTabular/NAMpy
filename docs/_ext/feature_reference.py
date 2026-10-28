@@ -134,7 +134,7 @@ PARAMETERS = {
     "K": "Number of non-reference multinomial categories/predictors. Observed labels are 0 through K and probability prediction has K+1 columns.",
     "min_df": "Lower bound on the estimated Student-t degrees of freedom.",
     "variance": "Quasi-family variance function name; controls the mean/variance relationship rather than defining a normalized likelihood.",
-    "power": "Optional exponent for the quasi variance-power specification.",
+    "power": "Finite numeric quasi link exponent, independent of variance: values <=0 choose log, 1 chooses identity, and other positive values choose mu**power. None uses the named link; incompatible named links are rejected.",
     "phi_pen": "Nonnegative estimation ridge on squared log tail shape in shash; omitted from normalized predictive density scoring.",
     "phiPen": "Upstream-style alias for phi_pen; None leaves phi_pen in effect.",
     "return_se": "If True, return prediction and associated pointwise standard-error arrays as a pair.",
@@ -403,13 +403,6 @@ def generate_smooths(root):
             default_basis and default_basis.default == name
         ):
             runtime_pages[cls.__name__] = heading(cls.__name__) + runtime
-        write(
-            root,
-            f"extension_reference/smooths/{name}.rst",
-            ":orphan:\n\n"
-            + heading(smooth_title(name, description) + " runtime")
-            + f":doc:`Canonical runtime constructor <{cls.__name__}>`.\n",
-        )
         if name == "so":
             text += ".. include:: /_includes/soap_domain_details.inc\n\n"
         text += f":doc:`Runtime constructor and implementation notes </extension_reference/smooths/{cls.__name__}>`.\n\n"
@@ -548,13 +541,28 @@ def generate_statistical_families(root):
         text += description + "\n\n" + heading("Usage", "-")
         text += f".. code-block:: python\n\n   from nampy.gam.families.registry import make_gam_family\n\n   family = make_gam_family({options!r})\n\n"
         text += "Pass this family instance or the equivalent name/options mapping as ``GAM(family=...)``. The factory returns independent mutable family state for each fit.\n\n"
+        parameter_meanings = {
+            **FAMILY_PARAMETERS,
+            **FAMILY_NUISANCE_MEANINGS.get(name, {}),
+        }
+        if name in {"quasi", "quasipoisson", "quasibinomial"}:
+            parameter_meanings["link"] = (
+                "Single named link string. Supported names and formulas are in the link reference; sequences are not accepted here."
+            )
+            parameter_meanings["kwargs"] = (
+                "Direct-class inherited eps (float, default 1e-9). The named quasi classes also forward power (float | None, default None) under its link compatibility rules. Factory mappings accept only their explicitly listed options; see the general quasi configuration contract."
+            )
+        if name == "quasi":
+            parameter_meanings["variance"] = (
+                "One of constant, mu, mu(1-mu), mu^2 or mu^3 (spaces are removed). This selects V(mu), independently of the link exponent."
+            )
         text += (
             signature(cls)
             + heading("Parameters", "-")
-            + parameters(
-                cls, {**FAMILY_PARAMETERS, **FAMILY_NUISANCE_MEANINGS.get(name, {})}
-            )
+            + parameters(cls, parameter_meanings)
         )
+        if name == "quasi":
+            text += ".. include:: /_includes/quasi_configuration.inc\n\n"
         text += heading("Outputs and fitting support", "-")
         names = getattr(family, "distribution_parameter_names", None) or getattr(
             family, "parameter_names", ()
@@ -779,6 +787,12 @@ def generate_methods(root):
         )
         if name == "concurvity":
             text += ".. include:: /_includes/concurvity_rank_notes.inc\n\n"
+        if name in {"summary", "anova"}:
+            text += "The :ref:`quadratic-form inference explanation <quadratic-form-inference>` describes weighted chi-square reference laws, numerical tail evaluation and approximation limits.\n\n"
+        if name == "gam_check":
+            text += "For raw outer-gradient, Hessian and boundary diagnostics, see :doc:`optimizer_endpoint_diagnostics </extension_reference/statistical/optimizer_endpoint_diagnostics>`. Coefficient convergence and smoothing-endpoint stationarity are separate checks.\n\n"
+        if name in {"plot", "vis"}:
+            text += "For direct construction of a normalized prediction-grid mask, see :doc:`exclude_too_far </extension_reference/statistical/exclude_too_far>`. Its True entries indicate excluded grid nodes.\n\n"
         if name == "plot":
             from reference_schema import plot_parameter_rows
 
@@ -866,7 +880,7 @@ def generate_neural(root):
             text += f"   {cls_name} <estimators/{cls_name}>\n"
             body = (
                 heading(cls_name)
-                + f".. autoclass:: nampy.models.{cls_name}\n   :no-index:\n   :no-members:\n   :no-inherited-members:\n\n.. include:: /_generated/reference/{cls_name}.inc\n"
+                + f".. autoclass:: nampy.models.{cls_name}\n   :no-members:\n   :no-inherited-members:\n\n.. include:: /_generated/reference/{cls_name}.inc\n"
             )
             body += example_rst(
                 root,
@@ -878,6 +892,7 @@ def generate_neural(root):
             "\n"
             + heading("Architecture configuration", "-")
             + f"Configuration class: ``{spec.config.__name__}``. Defaults below are resolved from its factory.\n\n"
+            + f".. autoclass:: nampy.neural.configs.{spec.config.__name__}\n   :no-members:\n   :no-inherited-members:\n\n"
         )
         example_class = spec.estimator_prefix + (
             "Regressor" if spec.supports("regression") else "LSS"
@@ -961,6 +976,7 @@ def generate_neural(root):
             [
                 "Architecture modules </api/basemodels>",
                 "Training and extension modules </api/neural>",
+                "Distribution metrics </api/utils>",
             ],
             "Low-level modules for implementing architectures, objectives, data pipelines and interaction discovery. Configuration classes are documented with each architecture; see also :doc:`the configuration index </api/configs>` and :doc:`distribution utilities </api/utils>`.",
             related_links=False,
@@ -1009,6 +1025,9 @@ def generate(root):
     from neighbor_reference import generate as generate_neighbors
 
     generate_neighbors(root)
+    from statistical_helpers_reference import generate as generate_statistical_helpers
+
+    generate_statistical_helpers(root)
     write(
         root,
         "statistical_reference/index.rst",
@@ -1020,6 +1039,7 @@ def generate(root):
                 "smooths/index",
                 "penalties",
                 "families/index",
+                "links/index",
                 "selection/index",
                 "controls/index",
                 "methods/index",
@@ -1198,7 +1218,7 @@ def generate_estimators(root):
             root,
             f"statistical_reference/estimators/{name}.rst",
             heading(name)
-            + f".. autoclass:: nampy.models.{name}\n   :no-index:\n   :no-members:\n   :no-inherited-members:\n\n.. include:: /_generated/reference/{name}.inc\n"
+            + f".. autoclass:: nampy.models.{name}\n   :no-members:\n   :no-inherited-members:\n\n.. include:: /_generated/reference/{name}.inc\n"
             + example_rst(
                 root,
                 f"statistical_reference/estimators/{name}",
@@ -1304,6 +1324,12 @@ def reference_targets():
     targets.update(
         {name: f"neural_reference/extensions/{name}" for name in NEURAL_EXTENSIONS}
     )
+    from statistical_helpers_reference import helper_specs
+
+    targets.update(
+        {name: "extension_reference/statistical/" + name for name in helper_specs()}
+    )
+    targets["make_gam_family"] = "statistical_reference/links/index"
     return targets
 
 

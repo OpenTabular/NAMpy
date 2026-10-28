@@ -4,6 +4,18 @@ GAM Extension API
 These namespaces expose the building blocks used to extend or validate the
 statistical backend. Most analyses should start with :class:`nampy.gam.GAM`.
 
+The :doc:`statistical helper reference </extension_reference/statistical/index>`
+provides detailed contracts and examples for route checks, optimizer endpoint
+diagnostics, grid masking and weighted chi-square probabilities.
+
+.. toctree::
+   :maxdepth: 1
+
+   Core fitting interfaces <gam>
+   Diagnostic preparation and rendering <gam_diagnostics>
+   Inference result interfaces <gam_inference>
+   Basis construction interfaces <gam_smooths>
+
 Controls and fitting
 --------------------
 

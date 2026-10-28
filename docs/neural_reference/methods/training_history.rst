@@ -45,57 +45,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/methods/training_history.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "train_loss": {
-       "items": [
-         0.21494713425636292,
-         0.16607101261615753
-       ],
-       "kind": "tuple",
-       "length": 2,
-       "omitted": 0
-     },
-     "val_loss": {
-       "items": [
-         0.3584846258163452,
-         0.2794914245605469
-       ],
-       "kind": "tuple",
-       "length": 2,
-       "omitted": 0
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['train_loss']
-     - tuple
-     - length 2
-   * - result['val_loss']
-     - tuple
-     - length 2
+   <div class="example-result" aria-label="Example result"><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">train_loss</span><span class="example-result-meta">tuple · length 2</span></summary><div class="example-result-body"><ol class="example-result-sequence"><li><span class="example-result-scalar">0.21495</span></li><li><span class="example-result-scalar">0.16607</span></li></ol></div></details><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">val_loss</span><span class="example-result-meta">tuple · length 2</span></summary><div class="example-result-body"><ol class="example-result-sequence"><li><span class="example-result-scalar">0.35848</span></li><li><span class="example-result-scalar">0.27949</span></li></ol></div></details><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 .. automethod:: nampy.models._base.NeuralEstimatorBase.training_history
    :no-index:

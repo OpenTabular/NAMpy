@@ -16279,5 +16279,432 @@
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
+  },
+  {
+    "kind": "statistical_helper",
+    "symbol": "DaviesAlgorithm",
+    "public_import": "nampy.gam.inference.chi_square_mixtures.DaviesAlgorithm",
+    "signature": "()",
+    "parameters": [],
+    "page": "extension_reference/statistical/DaviesAlgorithm",
+    "example": "extension_reference/statistical/DaviesAlgorithm",
+    "input_contract": "extension_reference/statistical/DaviesAlgorithm",
+    "return_schema": "_examples/reference/output_schemas.json#extension_reference/statistical/DaviesAlgorithm",
+    "restrictions": "extension_reference/statistical/DaviesAlgorithm",
+    "tests": [
+      "tests/docs/test_statistical_helper_reference.py"
+    ]
+  },
+  {
+    "kind": "statistical_helper",
+    "symbol": "exclude_too_far",
+    "public_import": "nampy.gam.diagnostics.plots.exclude_too_far",
+    "signature": "(g1, g2, d1, d2, dist)",
+    "parameters": [
+      {
+        "name": "g1",
+        "default": "inspect._empty"
+      },
+      {
+        "name": "g2",
+        "default": "inspect._empty"
+      },
+      {
+        "name": "d1",
+        "default": "inspect._empty"
+      },
+      {
+        "name": "d2",
+        "default": "inspect._empty"
+      },
+      {
+        "name": "dist",
+        "default": "inspect._empty"
+      }
+    ],
+    "page": "extension_reference/statistical/exclude_too_far",
+    "example": "extension_reference/statistical/exclude_too_far",
+    "input_contract": "extension_reference/statistical/exclude_too_far",
+    "return_schema": "_examples/reference/output_schemas.json#extension_reference/statistical/exclude_too_far",
+    "restrictions": "extension_reference/statistical/exclude_too_far",
+    "tests": [
+      "tests/docs/test_statistical_helper_reference.py"
+    ]
+  },
+  {
+    "kind": "statistical_helper",
+    "symbol": "liu2",
+    "public_import": "nampy.gam.inference.chi_square_mixtures.liu2",
+    "signature": "(x: 'float | np.ndarray', lb: 'np.ndarray', *, df: 'np.ndarray | None' = None, lower_tail: 'bool' = False) -> 'float | np.ndarray'",
+    "parameters": [
+      {
+        "name": "x",
+        "default": "inspect._empty"
+      },
+      {
+        "name": "lb",
+        "default": "inspect._empty"
+      },
+      {
+        "name": "df",
+        "default": "None"
+      },
+      {
+        "name": "lower_tail",
+        "default": "False"
+      }
+    ],
+    "page": "extension_reference/statistical/liu2",
+    "example": "extension_reference/statistical/liu2",
+    "input_contract": "extension_reference/statistical/liu2",
+    "return_schema": "_examples/reference/output_schemas.json#extension_reference/statistical/liu2",
+    "restrictions": "extension_reference/statistical/liu2",
+    "tests": [
+      "tests/docs/test_statistical_helper_reference.py"
+    ]
+  },
+  {
+    "kind": "statistical_helper",
+    "symbol": "n_free_smoothing_params",
+    "public_import": "nampy.gam.fit.selection.optimize.driver.n_free_smoothing_params",
+    "signature": "(model)",
+    "parameters": [
+      {
+        "name": "model",
+        "default": "inspect._empty"
+      }
+    ],
+    "page": "extension_reference/statistical/n_free_smoothing_params",
+    "example": "extension_reference/statistical/n_free_smoothing_params",
+    "input_contract": "extension_reference/statistical/n_free_smoothing_params",
+    "return_schema": "_examples/reference/output_schemas.json#extension_reference/statistical/n_free_smoothing_params",
+    "restrictions": "extension_reference/statistical/n_free_smoothing_params",
+    "tests": [
+      "tests/docs/test_statistical_helper_reference.py"
+    ]
+  },
+  {
+    "kind": "statistical_helper",
+    "symbol": "optimizer_endpoint_diagnostics",
+    "public_import": "nampy.gam.fit.selection.postfit.optimizer_endpoint_diagnostics",
+    "signature": "(model, *, conv_tol: 'float' = 1e-06, fd_step: 'float' = 0.001)",
+    "parameters": [
+      {
+        "name": "model",
+        "default": "inspect._empty"
+      },
+      {
+        "name": "conv_tol",
+        "default": "1e-06"
+      },
+      {
+        "name": "fd_step",
+        "default": "0.001"
+      }
+    ],
+    "page": "extension_reference/statistical/optimizer_endpoint_diagnostics",
+    "example": "extension_reference/statistical/optimizer_endpoint_diagnostics",
+    "input_contract": "extension_reference/statistical/optimizer_endpoint_diagnostics",
+    "return_schema": "_examples/reference/output_schemas.json#extension_reference/statistical/optimizer_endpoint_diagnostics",
+    "restrictions": "extension_reference/statistical/optimizer_endpoint_diagnostics",
+    "tests": [
+      "tests/docs/test_statistical_helper_reference.py"
+    ]
+  },
+  {
+    "kind": "statistical_helper",
+    "symbol": "psum_chisq",
+    "public_import": "nampy.gam.inference.chi_square_mixtures.psum_chisq",
+    "signature": "(q: 'float | np.ndarray', lb: 'np.ndarray', *, df: 'np.ndarray | None' = None, nc: 'np.ndarray | None' = None, sigz: 'float' = 0.0, lower_tail: 'bool' = False, tol: 'float' = 2e-05, nlim: 'int' = 100000) -> 'float | np.ndarray'",
+    "parameters": [
+      {
+        "name": "q",
+        "default": "inspect._empty"
+      },
+      {
+        "name": "lb",
+        "default": "inspect._empty"
+      },
+      {
+        "name": "df",
+        "default": "None"
+      },
+      {
+        "name": "nc",
+        "default": "None"
+      },
+      {
+        "name": "sigz",
+        "default": "0.0"
+      },
+      {
+        "name": "lower_tail",
+        "default": "False"
+      },
+      {
+        "name": "tol",
+        "default": "2e-05"
+      },
+      {
+        "name": "nlim",
+        "default": "100000"
+      }
+    ],
+    "page": "extension_reference/statistical/psum_chisq",
+    "example": "extension_reference/statistical/psum_chisq",
+    "input_contract": "extension_reference/statistical/psum_chisq",
+    "return_schema": "_examples/reference/output_schemas.json#extension_reference/statistical/psum_chisq",
+    "restrictions": "extension_reference/statistical/psum_chisq",
+    "tests": [
+      "tests/docs/test_statistical_helper_reference.py"
+    ]
+  },
+  {
+    "kind": "statistical_helper",
+    "symbol": "resolve_smoothing_method",
+    "public_import": "nampy.gam.fit.selection.optimize.driver.resolve_smoothing_method",
+    "signature": "(model, method)",
+    "parameters": [
+      {
+        "name": "model",
+        "default": "inspect._empty"
+      },
+      {
+        "name": "method",
+        "default": "inspect._empty"
+      }
+    ],
+    "page": "extension_reference/statistical/resolve_smoothing_method",
+    "example": "extension_reference/statistical/resolve_smoothing_method",
+    "input_contract": "extension_reference/statistical/resolve_smoothing_method",
+    "return_schema": "_examples/reference/output_schemas.json#extension_reference/statistical/resolve_smoothing_method",
+    "restrictions": "extension_reference/statistical/resolve_smoothing_method",
+    "tests": [
+      "tests/docs/test_statistical_helper_reference.py"
+    ]
+  },
+  {
+    "kind": "statistical_helper",
+    "symbol": "supports_smoothing_method",
+    "public_import": "nampy.gam.fit.selection.optimize.driver.supports_smoothing_method",
+    "signature": "(model, method)",
+    "parameters": [
+      {
+        "name": "model",
+        "default": "inspect._empty"
+      },
+      {
+        "name": "method",
+        "default": "inspect._empty"
+      }
+    ],
+    "page": "extension_reference/statistical/supports_smoothing_method",
+    "example": "extension_reference/statistical/supports_smoothing_method",
+    "input_contract": "extension_reference/statistical/supports_smoothing_method",
+    "return_schema": "_examples/reference/output_schemas.json#extension_reference/statistical/supports_smoothing_method",
+    "restrictions": "extension_reference/statistical/supports_smoothing_method",
+    "tests": [
+      "tests/docs/test_statistical_helper_reference.py"
+    ]
+  },
+  {
+    "kind": "statistical_link",
+    "symbol": "link:cauchit",
+    "public_import": "nampy.gam.families.registry.make_gam_family",
+    "signature": "(family)",
+    "parameters": [
+      {
+        "name": "family",
+        "default": "inspect._empty"
+      }
+    ],
+    "page": "statistical_reference/links/cauchit",
+    "example": "statistical_reference/links/cauchit",
+    "input_contract": "statistical_reference/links/cauchit",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/links/cauchit",
+    "restrictions": "statistical_reference/links/cauchit",
+    "tests": [
+      "tests/docs/test_statistical_helper_reference.py"
+    ]
+  },
+  {
+    "kind": "statistical_link",
+    "symbol": "link:cloglog",
+    "public_import": "nampy.gam.families.registry.make_gam_family",
+    "signature": "(family)",
+    "parameters": [
+      {
+        "name": "family",
+        "default": "inspect._empty"
+      }
+    ],
+    "page": "statistical_reference/links/cloglog",
+    "example": "statistical_reference/links/cloglog",
+    "input_contract": "statistical_reference/links/cloglog",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/links/cloglog",
+    "restrictions": "statistical_reference/links/cloglog",
+    "tests": [
+      "tests/docs/test_statistical_helper_reference.py"
+    ]
+  },
+  {
+    "kind": "statistical_link",
+    "symbol": "link:identity",
+    "public_import": "nampy.gam.families.registry.make_gam_family",
+    "signature": "(family)",
+    "parameters": [
+      {
+        "name": "family",
+        "default": "inspect._empty"
+      }
+    ],
+    "page": "statistical_reference/links/identity",
+    "example": "statistical_reference/links/identity",
+    "input_contract": "statistical_reference/links/identity",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/links/identity",
+    "restrictions": "statistical_reference/links/identity",
+    "tests": [
+      "tests/docs/test_statistical_helper_reference.py"
+    ]
+  },
+  {
+    "kind": "statistical_link",
+    "symbol": "link:inverse",
+    "public_import": "nampy.gam.families.registry.make_gam_family",
+    "signature": "(family)",
+    "parameters": [
+      {
+        "name": "family",
+        "default": "inspect._empty"
+      }
+    ],
+    "page": "statistical_reference/links/inverse",
+    "example": "statistical_reference/links/inverse",
+    "input_contract": "statistical_reference/links/inverse",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/links/inverse",
+    "restrictions": "statistical_reference/links/inverse",
+    "tests": [
+      "tests/docs/test_statistical_helper_reference.py"
+    ]
+  },
+  {
+    "kind": "statistical_link",
+    "symbol": "link:inverse_squared",
+    "public_import": "nampy.gam.families.registry.make_gam_family",
+    "signature": "(family)",
+    "parameters": [
+      {
+        "name": "family",
+        "default": "inspect._empty"
+      }
+    ],
+    "page": "statistical_reference/links/inverse_squared",
+    "example": "statistical_reference/links/inverse_squared",
+    "input_contract": "statistical_reference/links/inverse_squared",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/links/inverse_squared",
+    "restrictions": "statistical_reference/links/inverse_squared",
+    "tests": [
+      "tests/docs/test_statistical_helper_reference.py"
+    ]
+  },
+  {
+    "kind": "statistical_link",
+    "symbol": "link:log",
+    "public_import": "nampy.gam.families.registry.make_gam_family",
+    "signature": "(family)",
+    "parameters": [
+      {
+        "name": "family",
+        "default": "inspect._empty"
+      }
+    ],
+    "page": "statistical_reference/links/log",
+    "example": "statistical_reference/links/log",
+    "input_contract": "statistical_reference/links/log",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/links/log",
+    "restrictions": "statistical_reference/links/log",
+    "tests": [
+      "tests/docs/test_statistical_helper_reference.py"
+    ]
+  },
+  {
+    "kind": "statistical_link",
+    "symbol": "link:logit",
+    "public_import": "nampy.gam.families.registry.make_gam_family",
+    "signature": "(family)",
+    "parameters": [
+      {
+        "name": "family",
+        "default": "inspect._empty"
+      }
+    ],
+    "page": "statistical_reference/links/logit",
+    "example": "statistical_reference/links/logit",
+    "input_contract": "statistical_reference/links/logit",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/links/logit",
+    "restrictions": "statistical_reference/links/logit",
+    "tests": [
+      "tests/docs/test_statistical_helper_reference.py"
+    ]
+  },
+  {
+    "kind": "statistical_link",
+    "symbol": "link:power",
+    "public_import": "nampy.gam.families.registry.make_gam_family",
+    "signature": "(family)",
+    "parameters": [
+      {
+        "name": "family",
+        "default": "inspect._empty"
+      }
+    ],
+    "page": "statistical_reference/links/power",
+    "example": "statistical_reference/links/power",
+    "input_contract": "statistical_reference/links/power",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/links/power",
+    "restrictions": "statistical_reference/links/power",
+    "tests": [
+      "tests/docs/test_statistical_helper_reference.py"
+    ]
+  },
+  {
+    "kind": "statistical_link",
+    "symbol": "link:probit",
+    "public_import": "nampy.gam.families.registry.make_gam_family",
+    "signature": "(family)",
+    "parameters": [
+      {
+        "name": "family",
+        "default": "inspect._empty"
+      }
+    ],
+    "page": "statistical_reference/links/probit",
+    "example": "statistical_reference/links/probit",
+    "input_contract": "statistical_reference/links/probit",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/links/probit",
+    "restrictions": "statistical_reference/links/probit",
+    "tests": [
+      "tests/docs/test_statistical_helper_reference.py"
+    ]
+  },
+  {
+    "kind": "statistical_link",
+    "symbol": "link:sqrt",
+    "public_import": "nampy.gam.families.registry.make_gam_family",
+    "signature": "(family)",
+    "parameters": [
+      {
+        "name": "family",
+        "default": "inspect._empty"
+      }
+    ],
+    "page": "statistical_reference/links/sqrt",
+    "example": "statistical_reference/links/sqrt",
+    "input_contract": "statistical_reference/links/sqrt",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/links/sqrt",
+    "restrictions": "statistical_reference/links/sqrt",
+    "tests": [
+      "tests/docs/test_statistical_helper_reference.py"
+    ]
   }
 ]

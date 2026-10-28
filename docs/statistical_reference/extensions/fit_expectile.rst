@@ -20,56 +20,11 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/extensions/fit_expectile.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "fields": {
-       "converged": true,
-       "iterations": 2,
-       "objective": 0.28154322220980205,
-       "optimality": 7.605027718682322e-15
-     },
-     "kind": "LossFit",
-     "omitted_fields": [
-       "coefficients",
-       "fitted"
-     ]
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - nampy.gam.extensions.objectives.LossFit
-     - scalar record
-   * - result.coefficients
-     - numpy.ndarray[float64]
-     - (3,)
-   * - result.fitted
-     - numpy.ndarray[float64]
-     - (40,)
-   * - result.objective
-     - builtins.float
-     - ()
-   * - result.iterations
-     - builtins.int
-     - ()
-   * - result.converged
-     - builtins.bool
-     - ()
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">result</span><span class="example-result-meta">LossFit · scalar record</span></div><div class="example-result-body"><dl class="example-result-fields"><div><dt>converged<span class="example-result-meta">bool · scalar</span></dt><dd><span class="example-result-scalar">True</span></dd></div><div><dt>iterations<span class="example-result-meta">int · scalar</span></dt><dd><span class="example-result-scalar">2</span></dd></div><div><dt>objective<span class="example-result-meta">float · scalar</span></dt><dd><span class="example-result-scalar">0.28154</span></dd></div><div><dt>optimality<span class="example-result-meta">float · scalar</span></dt><dd><span class="example-result-scalar">7.605e-15</span></dd></div></dl><p class="example-result-note">2 additional fields available on the returned object.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p><p class="example-result-note">2 additional output fields are available in the returned result.</p></div>

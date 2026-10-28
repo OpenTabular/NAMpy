@@ -126,75 +126,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/smooths/re.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "coefficient_covariance": {
-       "kind": "array",
-       "shape": [
-         4,
-         4
-       ],
-       "values": "omitted; see shape contract"
-     },
-     "full_model_design": {
-       "kind": "array",
-       "shape": [
-         96,
-         4
-       ],
-       "values": "omitted; see shape contract"
-     },
-     "prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         1.20524,
-         1.18117,
-         1.2487,
-         1.20524,
-         1.18117,
-         1.2487
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 3 named fields
-   * - result['prediction']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['full_model_design']
-     - numpy.ndarray[float64]
-     - (96, 4)
-   * - result['coefficient_covariance']
-     - numpy.ndarray[float64]
-     - (4, 4)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">coefficient_covariance</span><span class="example-result-meta">ndarray[float64] · 4 × 4</span></div><div class="example-result-body"><p class="example-result-note">Values omitted; dimensions shown above.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">full_model_design</span><span class="example-result-meta">ndarray[float64] · 96 × 4</span></div><div class="example-result-body"><p class="example-result-note">Values omitted; dimensions shown above.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">1.2052</span><span class="example-result-value">1.1812</span><span class="example-result-value">1.2487</span><span class="example-result-value">1.2052</span><span class="example-result-value">1.1812</span><span class="example-result-value">1.2487</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 :doc:`Runtime constructor and implementation notes </extension_reference/smooths/RandomEffectTerm>`.
 

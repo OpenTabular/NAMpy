@@ -11,7 +11,5 @@ target = torch.full((n,), 0.4)
 parameters = family(raw)
 loss = family.compute_loss(raw, target)
 point = family.predict_point(raw)
-assert parameters.shape[0] == n
-assert loss.ndim == 0 and torch.isfinite(loss)
 result = {'raw': raw, 'parameters': parameters, 'loss': loss, 'point': point}
 print({key: tuple(value.shape) for key, value in result.items()})

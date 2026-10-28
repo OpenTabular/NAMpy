@@ -60,6 +60,8 @@ AnovaGAMSingle for a single model or AnovaGAMComparison for multiple models. Com
      - scalar record
      - Within-model term tests or between-model comparison rows, depending on additional models.
 
+The :ref:`quadratic-form inference explanation <quadratic-form-inference>` describes weighted chi-square reference laws, numerical tail evaluation and approximation limits.
+
 
 
 Runnable example
@@ -72,60 +74,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/anova.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "fields": {
-       "covariance": "bayes",
-       "dispersion": 0.015424822107003806,
-       "family_name": "gaussian",
-       "link_name": "identity"
-     },
-     "kind": "AnovaGAMSingle",
-     "omitted_fields": [
-       "residual_df",
-       "parametric_table",
-       "smooth_table"
-     ]
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - nampy.gam.inference.anova.AnovaGAMSingle
-     - scalar record
-   * - result.family_name
-     - builtins.str
-     - ()
-   * - result.link_name
-     - builtins.str
-     - ()
-   * - result.covariance
-     - builtins.str
-     - ()
-   * - result.dispersion
-     - builtins.float
-     - ()
-   * - result.residual_df
-     - builtins.float
-     - ()
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">result</span><span class="example-result-meta">AnovaGAMSingle · scalar record</span></div><div class="example-result-body"><dl class="example-result-fields"><div><dt>covariance<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">bayes</span></dd></div><div><dt>dispersion<span class="example-result-meta">float · scalar</span></dt><dd><span class="example-result-scalar">0.015425</span></dd></div><div><dt>family_name<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">gaussian</span></dd></div><div><dt>link_name<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">identity</span></dd></div></dl><p class="example-result-note">3 additional fields available on the returned object.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p><p class="example-result-note">3 additional output fields are available in the returned result.</p></div>
 
 .. automethod:: nampy.gam.GAM.anova
    :no-index:

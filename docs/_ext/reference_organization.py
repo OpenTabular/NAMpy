@@ -204,6 +204,8 @@ def grouped_families(root, backend, names):
     text += "Choose by response support, then compare parameterization and fitting interface. Column meanings on the individual page take precedence over a similarly named family in another backend.\n\n"
     text += "The parameter column describes natural distribution parameters, not link predictors or lower-level response output columns. Family pages distinguish these interfaces. Fixed nuisance parameters are listed in each constructor contract.\n\n"
     text += "For likelihoods, links, response support and joint parameter predictors, start with :doc:`/statistical_reference/families/theory`. Individual pages develop the theory of their response law before its API contracts.\n\n"
+    if backend == "statistical":
+        text += "Choose a parameter transformation in the :doc:`link-function reference </statistical_reference/links/index>`; the response law and its link are separate choices.\n\n"
     covered = set()
     for title, members in FAMILY_GROUPS.items():
         selected = sorted(set(names) & members)
@@ -345,8 +347,9 @@ def organize_reference(root):
         text += heading(title, "-") + table(
             ["Code", "Name", "Inputs", "Main distinction"], rows
         )
-    text += ".. toctree::\n   :hidden:\n\n   Mathematical foundations <theory>\n" + "".join(
-        f"   {d.name}\n" for d in descriptors
+    text += (
+        ".. toctree::\n   :hidden:\n\n   Mathematical foundations <theory>\n"
+        + "".join(f"   {d.name}\n" for d in descriptors)
     )
     write(root, "statistical_reference/smooths/index.rst", text)
     canonical_classes = {}
@@ -356,14 +359,6 @@ def organize_reference(root):
                 descriptor.runtime_class.__name__, descriptor.name
             )
     canonical_classes.update(FSmoothInteractionTerm="fs", SZSmoothInteractionTerm="sz")
-    for name in canonical_classes:
-        write(
-            root,
-            f"api/generated/nampy.gam.smooths.{name}.rst",
-            ":orphan:\n\n"
-            + heading(name)
-            + f":doc:`Canonical runtime constructor </extension_reference/smooths/{name}>`.\n",
-        )
     # Generate these explicitly: an old autosummary folder is absent in clean checkouts.
     for name in ["BaseSmoothTerm", "ByState", "make_smooth_term", "register_smooth"]:
         directive = (
@@ -436,6 +431,7 @@ def organize_reference(root):
             ),
         ],
     )
+    selection += "For programmatic route checks, method normalization and endpoint convergence diagnostics, see the :doc:`statistical helper APIs </extension_reference/statistical/index>`.\n\n"
     write(root, "statistical_reference/selection/index.rst", selection)
     write(
         root,
@@ -446,6 +442,7 @@ def organize_reference(root):
                 "smooths/index",
                 "design",
                 "term_construction",
+                "statistical/index",
                 "Neural estimator extension </neural_reference/extensions/index>",
                 "Neural implementation modules </neural_reference/internals>",
                 "Statistical implementation modules </api/gam_advanced>",
@@ -676,6 +673,11 @@ def organize_reference(root):
             return_schema="_examples/reference/output_schemas.json#" + entry["example"],
             restrictions=entry["page"],
         )
+    from statistical_helpers_reference import inventory_features
+
+    for symbol, obj, page, kind in inventory_features():
+        record(symbol, obj, page, page, kind)
+        inventory[-1]["tests"] = ["tests/docs/test_statistical_helper_reference.py"]
     inventory.sort(key=lambda entry: (entry["kind"], entry["symbol"]))
     write(
         root,

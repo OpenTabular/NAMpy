@@ -200,7 +200,6 @@ def main():
     max_abs_decomp_error = np.max(np.abs(reconstructed - learned["output"]))
     max_abs_pred_error = np.max(np.abs(reconstructed - preds_ens))
     components.validate_additive_reconstruction(atol=1e-5)
-    assert max_abs_decomp_error < 1e-5
 
     print("\nExact additive decomposition check:")
     print(f"  max |reconstructed - returned output| : {max_abs_decomp_error:.8f}")

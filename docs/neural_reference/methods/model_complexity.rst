@@ -43,41 +43,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/methods/model_complexity.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "total_parameters": 275,
-     "trainable_parameters": 275
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['total_parameters']
-     - builtins.int
-     - ()
-   * - result['trainable_parameters']
-     - builtins.int
-     - ()
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">total_parameters</span><span class="example-result-meta">int · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">275</span></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">trainable_parameters</span><span class="example-result-meta">int · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">275</span></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 .. automethod:: nampy.models._base.NeuralEstimatorBase.model_complexity
    :no-index:

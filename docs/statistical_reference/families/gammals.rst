@@ -3,15 +3,17 @@
 gammals
 =======
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** f(y)=r^a y^(a-1) exp(-r y)/Gamma(a), y>0.
-* **Natural domains:** shape a>0; rate r>0 (inverse scale)
-* **Conditional mean:** a/r
-* **Conditional variance:** a/r^2
+   f(y)=\frac{r^a}{\Gamma(a)}y^{a-1}e^{-ry},\quad y>0
 
-Statistical Gamma uses mean mu and dispersion phi: shape=1/phi and rate=1/(mu phi). Public GAMLSS uses sigma=sqrt(phi), so Var(Y)=(mu sigma)^2.
+* **Natural domains:** :math:`\mu>0,\quad\phi>0,\quad Y>0`
+* **Conditional mean:** :math:`\mathbb E[Y\mid x]=\mu`
+* **Conditional variance:** :math:`\operatorname{Var}(Y\mid x)=\phi\mu^2`
+
+:math:`a=1/\phi,\quad r=1/(\mu\phi)`
+
+Statistical Gamma uses mean and dispersion: :math:`a=1/\phi,\ r=1/(\mu\phi)`. Public GAMLSS uses :math:`\sigma=\sqrt\phi`, so :math:`\operatorname{Var}(Y\mid x)=(\mu\sigma)^2`.
 
 References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
 
@@ -149,105 +151,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/gammals.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "link_predictors": {
-       "kind": "array",
-       "omitted_by_axis": [
-         94,
-         0
-       ],
-       "shape": [
-         96,
-         2
-       ],
-       "values": [
-         [
-           0.25893,
-           -1.10778
-         ],
-         [
-           0.13629,
-           -1.10778
-         ]
-       ]
-     },
-     "natural_parameters": {
-       "kind": "array",
-       "omitted_by_axis": [
-         94,
-         0
-       ],
-       "shape": [
-         96,
-         2
-       ],
-       "values": [
-         [
-           1.29555,
-           0.5755
-         ],
-         [
-           1.14601,
-           0.5755
-         ]
-       ]
-     },
-     "source_response": {
-       "kind": "array",
-       "omitted_by_axis": [
-         94,
-         0
-       ],
-       "shape": [
-         96,
-         2
-       ],
-       "values": [
-         [
-           1.29555,
-           -1.10502
-         ],
-         [
-           1.14601,
-           -1.10502
-         ]
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 3 named fields
-   * - result['link_predictors']
-     - numpy.ndarray[float64]
-     - (96, 2)
-   * - result['natural_parameters']
-     - numpy.ndarray[float64]
-     - (96, 2)
-   * - result['source_response']
-     - numpy.ndarray[float64]
-     - (96, 2)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">link_predictors</span><span class="example-result-meta">ndarray[float64] · 96 × 2</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0.25893</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>-1.1078</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0.13629</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>-1.1078</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 96 rows.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">natural_parameters</span><span class="example-result-meta">ndarray[float64] · 96 × 2</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>1.2955</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.5755</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>1.146</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.5755</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 96 rows.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">source_response</span><span class="example-result-meta">ndarray[float64] · 96 × 2</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>1.2955</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>-1.105</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>1.146</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>-1.105</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 96 rows.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 .. autoclass:: nampy.gam.families.gamlss.gammals.GammalsFamily
    :no-index:

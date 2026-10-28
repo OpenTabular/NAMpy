@@ -60,6 +60,8 @@ Structured diagnostic report including supported residual and k-check results. U
      - named diagnostic fields
      - Numerical convergence/residual report plus basis-dimension checks. The example below lists the actual returned fields.
 
+For raw outer-gradient, Hessian and boundary diagnostics, see :doc:`optimizer_endpoint_diagnostics </extension_reference/statistical/optimizer_endpoint_diagnostics>`. Coefficient convergence and smoothing-endpoint stationarity are separate checks.
+
 
 
 Runnable example
@@ -72,103 +74,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/gam_check.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "mgcv_comparable": {
-       "k_check": {
-         "columns": [
-           "k_prime",
-           "edf",
-           "k_index",
-           "p_value"
-         ],
-         "kind": "table",
-         "omitted_by_axis": [
-           0,
-           0
-         ],
-         "shape": [
-           2,
-           4
-         ],
-         "values": [
-           [
-             6.0,
-             4.020579707819975,
-             1.1235005940607536,
-             1.0
-           ],
-           [
-             5.0,
-             1.000048893701336,
-             0.8218281859488787,
-             0.1
-           ]
-         ]
-       },
-       "residual_type": "deviance",
-       "residuals": {
-         "kind": "array",
-         "omitted_by_axis": [
-           90
-         ],
-         "shape": [
-           96
-         ],
-         "values": [
-           -0.054,
-           -0.18547,
-           0.09305,
-           0.12949,
-           0.00411,
-           0.0449
-         ]
-       }
-     },
-     "nampy_specific": {
-       "convergence": {
-         "message": "full convergence",
-         "method": "reml",
-         "nit": 10,
-         "omitted_fields": [
-           "used_gradient",
-           "used_hessian"
-         ],
-         "success": true
-       },
-       "model_rank": 12
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['mgcv_comparable']
-     - dict
-     - 3 named fields
-   * - result['nampy_specific']
-     - dict
-     - 2 named fields
+   <div class="example-result" aria-label="Example result"><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">mgcv_comparable</span><span class="example-result-meta">dict · 3 named fields</span></summary><div class="example-result-body"><dl class="example-result-fields"><div><dt>k_check<span class="example-result-meta">DataFrame · 2 × 4</span></dt><dd><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>k_prime</dt><dd><span>6</span></dd></div><div class="example-result-coordinate"><dt>edf</dt><dd><span>4.0206</span></dd></div><div class="example-result-coordinate"><dt>k_index</dt><dd><span>1.1235</span></dd></div><div class="example-result-coordinate"><dt>p_value</dt><dd><span>1</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>k_prime</dt><dd><span>5</span></dd></div><div class="example-result-coordinate"><dt>edf</dt><dd><span>1</span></dd></div><div class="example-result-coordinate"><dt>k_index</dt><dd><span>0.82183</span></dd></div><div class="example-result-coordinate"><dt>p_value</dt><dd><span>0.1</span></dd></div></dl></li></ol></dd></div><div><dt>residual_type<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">deviance</span></dd></div><div><dt>residuals<span class="example-result-meta">ndarray[float64] · 96</span></dt><dd><div class="example-result-values"><span class="example-result-value">-0.054</span><span class="example-result-value">-0.18547</span><span class="example-result-value">0.09305</span><span class="example-result-value">0.12949</span><span class="example-result-value">0.00411</span><span class="example-result-value">0.0449</span></div><p class="example-result-note">Showing 6 of 96 values.</p></dd></div></dl></div></details><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">nampy_specific</span><span class="example-result-meta">dict · 2 named fields</span></summary><div class="example-result-body"><dl class="example-result-fields"><div><dt>convergence<span class="example-result-meta">dict · 6 named fields</span></dt><dd><dl class="example-result-fields"><div><dt>message<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">full convergence</span></dd></div><div><dt>method<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">reml</span></dd></div><div><dt>nit<span class="example-result-meta">int · scalar</span></dt><dd><span class="example-result-scalar">10</span></dd></div><div><dt>success<span class="example-result-meta">bool · scalar</span></dt><dd><span class="example-result-scalar">True</span></dd></div></dl><p class="example-result-note">2 additional fields available on the returned object.</p></dd></div><div><dt>model_rank<span class="example-result-meta">int · scalar</span></dt><dd><span class="example-result-scalar">12</span></dd></div></dl></div></details><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 .. automethod:: nampy.gam.GAM.gam_check
    :no-index:

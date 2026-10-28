@@ -447,8 +447,6 @@ def generate(root):
 
     output = root / "docs/_generated/reference"
     output.mkdir(parents=True, exist_ok=True)
-    generated = root / "docs/api/generated"
-    generated.mkdir(parents=True, exist_ok=True)
     for name in ["GAMRegressor", "GAMClassifier", "GAMLSS"]:
         write_if_changed(
             output / f"{name}.inc", statistical_text(getattr(models, name))
@@ -505,20 +503,6 @@ def generate(root):
                 output / f"{cls.__name__}.inc",
                 estimator_text(cls, spec, task).rstrip() + "\n",
             )
-            filename = generated / f"nampy.models.{cls.__name__}.rst"
-            title = f"nampy.models.{cls.__name__}"
-            text = (
-                title
-                + "\n"
-                + "=" * len(title)
-                + "\n\n.. currentmodule:: nampy.models\n\n"
-                + f".. autoclass:: {cls.__name__}\n\n.. include:: /_generated/reference/{cls.__name__}.inc\n"
-            )
-            if (
-                not filename.exists()
-                or filename.read_text(encoding="utf-8-sig") != text
-            ):
-                filename.write_text(text)
     generate_families(root)
     write_if_changed(
         output / "model_capabilities.inc",

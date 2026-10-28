@@ -132,124 +132,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/smooths/tismd.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "basis": {
-       "kind": "array",
-       "shape": [
-         96,
-         29
-       ],
-       "values": "omitted; see shape contract"
-     },
-     "penalties": {
-       "items": [
-         {
-           "kind": "array",
-           "omitted_by_axis": [
-             27,
-             25
-           ],
-           "shape": [
-             29,
-             29
-           ],
-           "values": [
-             [
-               0.0,
-               0.0,
-               0.0,
-               0.0
-             ],
-             [
-               0.0,
-               0.0,
-               0.0,
-               0.0
-             ]
-           ]
-         },
-         {
-           "kind": "array",
-           "omitted_by_axis": [
-             27,
-             25
-           ],
-           "shape": [
-             29,
-             29
-           ],
-           "values": [
-             [
-               19.41637,
-               -19.41637,
-               0.0,
-               0.0
-             ],
-             [
-               -19.41637,
-               38.83274,
-               -19.41637,
-               0.0
-             ]
-           ]
-         }
-       ],
-       "kind": "list",
-       "length": 2,
-       "omitted": 0
-     },
-     "surface": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         -0.53994,
-         0.12984,
-         -0.46568,
-         -0.62035,
-         0.21945,
-         0.57756
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 3 named fields
-   * - result['basis']
-     - numpy.ndarray[float64]
-     - (96, 29)
-   * - result['penalties']
-     - list
-     - length 2
-   * - result['surface']
-     - numpy.ndarray[float64]
-     - (96,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">basis</span><span class="example-result-meta">ndarray[float64] · 96 × 29</span></div><div class="example-result-body"><p class="example-result-note">Values omitted; dimensions shown above.</p></div></section><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">penalties</span><span class="example-result-meta">list · length 2</span></summary><div class="example-result-body"><ol class="example-result-sequence"><li><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>column 4</dt><dd><span>0</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>column 4</dt><dd><span>0</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 29 rows and 4 of 29 columns.</p></li><li><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>19.416</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>-19.416</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>column 4</dt><dd><span>0</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>-19.416</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>38.833</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>-19.416</span></dd></div><div class="example-result-coordinate"><dt>column 4</dt><dd><span>0</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 29 rows and 4 of 29 columns.</p></li></ol></div></details><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">surface</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">-0.53994</span><span class="example-result-value">0.12984</span><span class="example-result-value">-0.46568</span><span class="example-result-value">-0.62035</span><span class="example-result-value">0.21945</span><span class="example-result-value">0.57756</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 :doc:`Runtime constructor and implementation notes </extension_reference/smooths/BivariateShapePSplineTerm>`.
 

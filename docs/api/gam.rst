@@ -20,11 +20,7 @@ adapters below select smoothness with REML by default.
 
 .. currentmodule:: nampy.gam
 
-.. autosummary::
-   :toctree: generated/
-   :nosignatures:
-
-   GAM
+:doc:`Canonical estimator contracts </statistical_reference/estimators/index>`
 
 .. code-block:: python
 
@@ -74,13 +70,7 @@ Scikit-learn adapters
 The adapters wrap :class:`nampy.gam.GAM` without adding any numerics; they
 default to automatic REML smoothing selection (mgcv's ``gam()`` behavior).
 
-.. autosummary::
-   :toctree: generated/
-   :nosignatures:
-
-   GAMRegressor
-   GAMClassifier
-   GAMLSS
+:doc:`Canonical estimator contracts </statistical_reference/estimators/index>`
 
 .. code-block:: python
 
@@ -141,9 +131,4 @@ Shared contracts
 Backend-neutral feature and prediction contracts used by the GAM adapters
 and neural estimators:
 
-.. autosummary::
-   :toctree: generated/
-   :nosignatures:
-
-   FeatureSchema
-   AdditivePrediction
+See :doc:`contracts` for ``FeatureSchema`` and ``AdditivePrediction``.

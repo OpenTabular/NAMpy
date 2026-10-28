@@ -20,62 +20,11 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/extensions/fit_quantile.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "exact": {
-       "fields": {
-         "converged": true,
-         "iterations": 1075,
-         "objective": 1.4721224710346765,
-         "optimality": 2.6020852139652106e-15
-       },
-       "kind": "LossFit",
-       "omitted_fields": [
-         "coefficients",
-         "fitted"
-       ]
-     },
-     "smooth": {
-       "fields": {
-         "converged": true,
-         "iterations": 4,
-         "objective": 2.5544674860031527,
-         "optimality": 3.063993503360507e-12
-       },
-       "kind": "LossFit",
-       "omitted_fields": [
-         "coefficients",
-         "fitted"
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['exact']
-     - nampy.gam.extensions.objectives.LossFit
-     - scalar record
-   * - result['smooth']
-     - nampy.gam.extensions.objectives.LossFit
-     - scalar record
+   <div class="example-result" aria-label="Example result"><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">exact</span><span class="example-result-meta">LossFit · scalar record</span></summary><div class="example-result-body"><dl class="example-result-fields"><div><dt>converged<span class="example-result-meta">bool · scalar</span></dt><dd><span class="example-result-scalar">True</span></dd></div><div><dt>iterations<span class="example-result-meta">int · scalar</span></dt><dd><span class="example-result-scalar">1075</span></dd></div><div><dt>objective<span class="example-result-meta">float · scalar</span></dt><dd><span class="example-result-scalar">1.4721</span></dd></div><div><dt>optimality<span class="example-result-meta">float · scalar</span></dt><dd><span class="example-result-scalar">2.6021e-15</span></dd></div></dl><p class="example-result-note">2 additional fields available on the returned object.</p></div></details><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">smooth</span><span class="example-result-meta">LossFit · scalar record</span></summary><div class="example-result-body"><dl class="example-result-fields"><div><dt>converged<span class="example-result-meta">bool · scalar</span></dt><dd><span class="example-result-scalar">True</span></dd></div><div><dt>iterations<span class="example-result-meta">int · scalar</span></dt><dd><span class="example-result-scalar">4</span></dd></div><div><dt>objective<span class="example-result-meta">float · scalar</span></dt><dd><span class="example-result-scalar">2.5545</span></dd></div><div><dt>optimality<span class="example-result-meta">float · scalar</span></dt><dd><span class="example-result-scalar">3.064e-12</span></dd></div></dl><p class="example-result-note">2 additional fields available on the returned object.</p></div></details><p class="example-result-footnote">Sample values are rounded for display.</p></div>

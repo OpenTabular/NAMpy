@@ -56,7 +56,7 @@ About 10% of outcomes should fall below a well-calibrated 10th-percentile predic
    prediction = np.asarray(model.predict(X_test))
    for column, quantile in enumerate(quantiles):
        coverage = np.mean(y_test <= prediction[:, column])
-       assert 0 <= coverage <= 1
+       print(f"{quantile:.0%} quantile: {coverage:.1%} observed coverage")
 
    lower, median, upper = prediction.T
    interval_coverage = np.mean((y_test >= lower) & (y_test <= upper))

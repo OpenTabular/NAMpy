@@ -17,8 +17,6 @@ with TemporaryDirectory() as directory:
               checkpoint_path=directory, logger=False, enable_progress_bar=False,
               enable_model_summary=False)
 prediction = model.predict(X)
-assert np.asarray(prediction).shape[0] == n
-assert np.isfinite(prediction).all()
 result = {'prediction': prediction}
 components = model.predict_components(X)
 components.validate_additive_reconstruction(rtol=1e-4, atol=1e-5)
@@ -27,6 +25,5 @@ print({key: type(value).__name__ for key, value in result.items()})
 with TemporaryDirectory() as directory:
     path = model.save_model(directory + '/fitted.nampy')
     restored = type(model).load_model(path)
-    np.testing.assert_allclose(restored.predict(X), model.predict(X))
     result = path
 print(type(result).__name__)

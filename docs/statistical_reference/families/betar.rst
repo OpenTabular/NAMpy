@@ -3,15 +3,15 @@
 betar
 =====
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** f(y)=y^(alpha-1)(1-y)^(beta-1)/B(alpha,beta), 0<y<1.
-* **Natural domains:** alpha>0; beta>0
-* **Conditional mean:** alpha/(alpha+beta)
-* **Conditional variance:** alpha beta/((alpha+beta)^2 (alpha+beta+1))
+   Y\sim\operatorname{Beta}(\mu\phi,(1-\mu)\phi)
 
-Mean/precision form: alpha=mu phi, beta=(1-mu)phi. The public beta_lss columns are (mu,phi); betar estimates/fixes precision as a nuisance parameter.
+* **Natural domains:** :math:`0<\mu<1,\quad0<\phi<\infty,\quad0<Y<1`
+* **Conditional mean:** :math:`\mathbb E[Y\mid x]=\mu`
+* **Conditional variance:** :math:`\operatorname{Var}(Y\mid x)=\frac{\mu(1-\mu)}{1+\phi}`
+
+Mean/precision form: :math:`a=\mu\phi,\ b=(1-\mu)\phi`. The public beta_lss columns are :math:`(\mu,\phi)`; betar estimates/fixes precision as a nuisance parameter.
 
 References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
 
@@ -144,73 +144,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/betar.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "link_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         -0.1488,
-         -0.04316,
-         -0.14159,
-         -0.03357,
-         0.05286,
-         -0.06599
-       ]
-     },
-     "response_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         0.46287,
-         0.48921,
-         0.46466,
-         0.49161,
-         0.51321,
-         0.48351
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['response_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['link_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">link_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">-0.1488</span><span class="example-result-value">-0.04316</span><span class="example-result-value">-0.14159</span><span class="example-result-value">-0.03357</span><span class="example-result-value">0.05286</span><span class="example-result-value">-0.06599</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">response_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.46287</span><span class="example-result-value">0.48921</span><span class="example-result-value">0.46466</span><span class="example-result-value">0.49161</span><span class="example-result-value">0.51321</span><span class="example-result-value">0.48351</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 Implementation notes
 --------------------

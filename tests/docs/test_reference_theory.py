@@ -10,6 +10,7 @@ sys.path.insert(0, str(ROOT / "docs/_ext"))
 
 
 def test_theory_covers_the_live_feature_registries():
+    from family_math import distribution_contract
     from family_theory import family_theory
     from feature_reference import FAMILY_SUPPORT, OPTIMIZER_MEANINGS, SELECTION_MEANINGS
     from reference_theory import smooth_theory
@@ -27,12 +28,24 @@ def test_theory_covers_the_live_feature_registries():
         assert ".. math::" in family_theory(name, "statistical")
     for name in FAMILY_REGISTRY:
         assert ".. math::" in family_theory(name, "neural")
+    for backend, names in [
+        ("statistical", set(FAMILY_SUPPORT) | set(GENERAL_FAMILIES)),
+        ("neural", set(FAMILY_REGISTRY)),
+    ]:
+        for name in names:
+            contract = distribution_contract(name, backend)
+            assert len(contract) == 4
+            for index, value in enumerate(contract):
+                if name == "quantile" and index >= 2:
+                    continue  # Quantile outputs do not determine these moments.
+                assert ":math:`" in value, (backend, name, index)
     for name in SELECTION_MEANINGS | OPTIMIZER_MEANINGS:
         assert ".. math::" in selection_theory(name)
 
 
-@pytest.mark.parametrize("kind", ["smooth", "family", "selection"])
+@pytest.mark.parametrize("kind", ["smooth", "family", "family_math", "selection"])
 def test_unknown_features_require_an_authored_theory_decision(kind):
+    from family_math import distribution_contract
     from family_theory import family_theory
     from reference_theory import smooth_theory
     from selection_theory import selection_theory
@@ -40,6 +53,7 @@ def test_unknown_features_require_an_authored_theory_decision(kind):
     render = {
         "smooth": smooth_theory,
         "family": lambda name: family_theory(name, "statistical"),
+        "family_math": lambda name: distribution_contract(name, "statistical"),
         "selection": selection_theory,
     }[kind]
     with pytest.raises(KeyError):

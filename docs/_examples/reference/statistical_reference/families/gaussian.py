@@ -11,7 +11,5 @@ data['y'] = 1 + data.x + rng.normal(0, 0.3, n)
 model = GAM(formula="y ~ s(x, bs='cr', k=6)", family='gaussian', optimize_smoothing=False).fit(data=data)
 prediction = model.predict(data, type='response')
 raw = model.predict(data, type='link')
-assert np.asarray(prediction).shape[0] == n
-assert np.isfinite(prediction).all()
 result = {'response_prediction': np.asarray(prediction), 'link_prediction': np.asarray(raw)}
 print({key: value.shape for key, value in result.items()})

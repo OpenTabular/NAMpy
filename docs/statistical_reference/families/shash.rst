@@ -3,15 +3,17 @@
 shash
 =====
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** Z=sinh(delta asinh((Y-mu)/(sigma delta))-epsilon)~Normal(0,1); density is the normal density of Z times the absolute transformation Jacobian.
-* **Natural domains:** mu in R; sigma>0; skew epsilon in R; tail delta>0
-* **Conditional mean:** mu+sigma delta E[sinh((asinh(Z)+epsilon)/delta)], Z standard normal
-* **Conditional variance:** (sigma delta)^2 Var[sinh((asinh(Z)+epsilon)/delta)]; finite for delta>0
+   Z=\sinh\!\left[\delta\operatorname{asinh}\!\left(\frac{Y-\mu}{\sigma\delta}\right)-\epsilon\right]\sim\mathcal N(0,1)
 
-The public point prediction is the conditional median mu+sigma*delta*sinh(epsilon/delta); location mu is not generally the mean or median. The moments above use the mgcv scale reparameterization including the delta factor.
+* **Natural domains:** :math:`\mu,\epsilon\in\mathbb R,\quad\sigma,\delta>0`
+* **Conditional mean:** :math:`\mathbb E[Y\mid x]=\mu+\sigma\delta\,\mathbb E\!\left[\sinh\!\left(\frac{\operatorname{asinh}Z+\epsilon}{\delta}\right)\right]`
+* **Conditional variance:** :math:`\operatorname{Var}(Y\mid x)=(\sigma\delta)^2\operatorname{Var}\!\left[\sinh\!\left(\frac{\operatorname{asinh}Z+\epsilon}{\delta}\right)\right]`; finite for :math:`\delta>0`.
+
+:math:`f_Y(y)=\varphi(z(y))|z'(y)|`
+
+The public point prediction is the conditional median :math:`\mu+\sigma\delta\sinh(\epsilon/\delta)`; location :math:`\mu` is not generally the mean or median. The moments above use the mgcv scale reparameterization including the :math:`\delta` factor.
 
 References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
 
@@ -156,117 +158,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/shash.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "link_predictors": {
-       "kind": "array",
-       "omitted_by_axis": [
-         94,
-         0
-       ],
-       "shape": [
-         96,
-         4
-       ],
-       "values": [
-         [
-           0.7144,
-           -1.24264,
-           -0.27638,
-           0.06762
-         ],
-         [
-           1.04578,
-           -1.24264,
-           -0.27638,
-           0.06762
-         ]
-       ]
-     },
-     "natural_parameters": {
-       "kind": "array",
-       "omitted_by_axis": [
-         94,
-         0
-       ],
-       "shape": [
-         96,
-         4
-       ],
-       "values": [
-         [
-           0.7144,
-           0.29862,
-           -0.27638,
-           1.06996
-         ],
-         [
-           1.04578,
-           0.29862,
-           -0.27638,
-           1.06996
-         ]
-       ]
-     },
-     "source_response": {
-       "kind": "array",
-       "omitted_by_axis": [
-         94,
-         0
-       ],
-       "shape": [
-         96,
-         4
-       ],
-       "values": [
-         [
-           0.7144,
-           -1.20858,
-           -0.27638,
-           0.06762
-         ],
-         [
-           1.04578,
-           -1.20858,
-           -0.27638,
-           0.06762
-         ]
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 3 named fields
-   * - result['link_predictors']
-     - numpy.ndarray[float64]
-     - (96, 4)
-   * - result['natural_parameters']
-     - numpy.ndarray[float64]
-     - (96, 4)
-   * - result['source_response']
-     - numpy.ndarray[float64]
-     - (96, 4)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">link_predictors</span><span class="example-result-meta">ndarray[float64] · 96 × 4</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0.7144</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>-1.2426</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>-0.27638</span></dd></div><div class="example-result-coordinate"><dt>column 4</dt><dd><span>0.06762</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>1.0458</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>-1.2426</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>-0.27638</span></dd></div><div class="example-result-coordinate"><dt>column 4</dt><dd><span>0.06762</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 96 rows.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">natural_parameters</span><span class="example-result-meta">ndarray[float64] · 96 × 4</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0.7144</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.29862</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>-0.27638</span></dd></div><div class="example-result-coordinate"><dt>column 4</dt><dd><span>1.07</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>1.0458</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.29862</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>-0.27638</span></dd></div><div class="example-result-coordinate"><dt>column 4</dt><dd><span>1.07</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 96 rows.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">source_response</span><span class="example-result-meta">ndarray[float64] · 96 × 4</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0.7144</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>-1.2086</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>-0.27638</span></dd></div><div class="example-result-coordinate"><dt>column 4</dt><dd><span>0.06762</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>1.0458</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>-1.2086</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>-0.27638</span></dd></div><div class="example-result-coordinate"><dt>column 4</dt><dd><span>0.06762</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 96 rows.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 Parameterization and interpretation
 -----------------------------------

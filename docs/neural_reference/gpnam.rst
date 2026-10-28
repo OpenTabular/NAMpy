@@ -21,6 +21,10 @@ Architecture configuration
 
 Configuration class: ``DefaultGPNAMConfig``. Defaults below are resolved from its factory.
 
+.. autoclass:: nampy.neural.configs.DefaultGPNAMConfig
+   :no-members:
+   :no-inherited-members:
+
 Configuration parameters
 ------------------------
 
@@ -115,67 +119,11 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/gpnam.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "components": {
-       "fields": {
-         "backend": "neural",
-         "intercept": -0.00957536231726408
-       },
-       "kind": "AdditivePrediction",
-       "omitted_fields": [
-         "response",
-         "link",
-         "terms",
-         "offset",
-         "term_metadata"
-       ]
-     },
-     "prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         58
-       ],
-       "shape": [
-         64
-       ],
-       "values": [
-         -0.20162999629974365,
-         -0.26151999831199646,
-         -0.3134399950504303,
-         -0.34428998827934265,
-         -0.3903999924659729,
-         -0.6612399816513062
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['prediction']
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components']
-     - nampy.contracts.AdditivePrediction
-     - scalar record
+   <div class="example-result" aria-label="Example result"><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">components</span><span class="example-result-meta">AdditivePrediction · scalar record</span></summary><div class="example-result-body"><dl class="example-result-fields"><div><dt>backend<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">neural</span></dd></div><div><dt>intercept<span class="example-result-meta">float · scalar</span></dt><dd><span class="example-result-scalar">-0.0095754</span></dd></div></dl><p class="example-result-note">5 additional fields available on the returned object.</p></div></details><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">prediction</span><span class="example-result-meta">ndarray[float32] · 64</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">-0.20163</span><span class="example-result-value">-0.26152</span><span class="example-result-value">-0.31344</span><span class="example-result-value">-0.34429</span><span class="example-result-value">-0.3904</span><span class="example-result-value">-0.66124</span></div><p class="example-result-note">Showing 6 of 64 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>

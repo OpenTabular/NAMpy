@@ -71,9 +71,6 @@ def test_registered_features_have_dedicated_pages_and_parameter_contracts(tmp_pa
 
     docs = tmp_path / "docs"
     (docs / "api").mkdir(parents=True)
-    (docs / "api/gam_families.rst").write_text(
-        (ROOT / "docs/api/gam_families.rst").read_text()
-    )
     generate(tmp_path)
     reference.generate(docs)
     from reference_symbols import SYMBOLS
@@ -297,7 +294,7 @@ def test_family_contracts_do_not_leak_other_parameterizations():
     from family_contracts import mathematical_contract
 
     nb = mathematical_contract("negativebinom", "neural")
-    assert "r=1/alpha" in nb
+    assert r"r=1/\alpha" in nb
     quantile = mathematical_contract("quantile", "neural")
     assert "otherwise the arithmetic average" in quantile
 

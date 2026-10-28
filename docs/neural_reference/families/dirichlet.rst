@@ -3,13 +3,15 @@
 dirichlet
 =========
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** f(y)=Gamma(A)/prod Gamma(alpha_i) prod y_i^(alpha_i-1), A=sum(alpha_i); y_i>0, sum(y)=1.
-* **Natural domains:** alpha_1,...,alpha_D>0
-* **Conditional mean:** alpha_i/A
-* **Conditional variance:** alpha_i(A-alpha_i)/(A^2(A+1)); off-diagonal covariance -alpha_i alpha_j/(A^2(A+1))
+   f(y)=\frac{\Gamma(A)}{\prod_j\Gamma(\alpha_j)}\prod_jy_j^{\alpha_j-1},\quad A=\sum_j\alpha_j
+
+* **Natural domains:** :math:`\alpha_j>0,\quad j=1,\ldots,D`
+* **Conditional mean:** :math:`\mathbb E[Y_j\mid x]=\alpha_j/A`
+* **Conditional variance:** :math:`\operatorname{Var}(Y_j\mid x)=\frac{\alpha_j(A-\alpha_j)}{A^2(A+1)}`; :math:`\operatorname{Cov}(Y_i,Y_j\mid x)=-\frac{\alpha_i\alpha_j}{A^2(A+1)},\quad i\ne j`
+
+:math:`y_j>0,\quad\sum_jy_j=1`
 
 References: `PyTorch probability distributions <https://docs.pytorch.org/docs/stable/distributions.html>`_. NAMpy defines its family transforms and point outputs below.
 
@@ -156,102 +158,11 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/families/dirichlet.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. rubric:: parameters
+Example result
+~~~~~~~~~~~~~~
 
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
+.. raw:: html
 
-   * - alpha_0
-     - alpha_1
-     - alpha_2
-   * - 0.693149983882904
-     - 0.693149983882904
-     - 0.693149983882904
-   * - 0.693149983882904
-     - 0.693149983882904
-     - 0.693149983882904
-
-Full shape: ``[8, 3]``; omitted by axis: ``[6, 0]``.
-
-.. rubric:: raw
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - alpha_0
-     - alpha_1
-     - alpha_2
-   * - 0.0
-     - 0.0
-     - 0.0
-   * - 0.0
-     - 0.0
-     - 0.0
-
-Full shape: ``[8, 3]``; omitted by axis: ``[6, 0]``.
-
-.. code-block:: text
-
-   {
-     "loss": -0.23904132843017578,
-     "point": {
-       "kind": "array",
-       "omitted_by_axis": [
-         6,
-         0
-       ],
-       "shape": [
-         8,
-         3
-       ],
-       "values": [
-         [
-           0.3333300054073334,
-           0.3333300054073334,
-           0.3333300054073334
-         ],
-         [
-           0.3333300054073334,
-           0.3333300054073334,
-           0.3333300054073334
-         ]
-       ]
-     }
-   }
-
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 4 named fields
-   * - result['raw']
-     - torch.Tensor[torch.float32]
-     - (8, 3)
-   * - result['parameters']
-     - torch.Tensor[torch.float32]
-     - (8, 3)
-   * - result['loss']
-     - torch.Tensor[torch.float32]
-     - ()
-   * - result['point']
-     - torch.Tensor[torch.float32]
-     - (8, 3)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">loss</span><span class="example-result-meta">Tensor[float32] · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">-0.23904</span></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">parameters</span><span class="example-result-meta">Tensor[float32] · 8 × 3</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>alpha_0</dt><dd><span>0.69315</span></dd></div><div class="example-result-coordinate"><dt>alpha_1</dt><dd><span>0.69315</span></dd></div><div class="example-result-coordinate"><dt>alpha_2</dt><dd><span>0.69315</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>alpha_0</dt><dd><span>0.69315</span></dd></div><div class="example-result-coordinate"><dt>alpha_1</dt><dd><span>0.69315</span></dd></div><div class="example-result-coordinate"><dt>alpha_2</dt><dd><span>0.69315</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 8 rows.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">point</span><span class="example-result-meta">Tensor[float32] · 8 × 3</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0.33333</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.33333</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>0.33333</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0.33333</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.33333</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>0.33333</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 8 rows.</p></div></section><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">raw</span><span class="example-result-meta">Tensor[float32] · 8 × 3</span></summary><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>alpha_0</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>alpha_1</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>alpha_2</dt><dd><span>0</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>alpha_0</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>alpha_1</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>alpha_2</dt><dd><span>0</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 8 rows.</p></div></details><p class="example-result-footnote">Sample values are rounded for display.</p></div>

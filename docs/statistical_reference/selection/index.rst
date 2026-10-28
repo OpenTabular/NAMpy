@@ -55,3 +55,5 @@ Special optimizer routes
      - Gaussian identity-link GCV/UBRE performance iteration only; selected automatically for supported performance-iteration routes.
    * - ``nlm.fd``
      - Finite-difference NLM exposed for SCAM transformed-coefficient fits only; ordinary mgcv-style GAM routes reject it.
+
+For programmatic route checks, method normalization and endpoint convergence diagnostics, see the :doc:`statistical helper APIs </extension_reference/statistical/index>`.

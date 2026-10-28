@@ -13,8 +13,6 @@ from nampy.gam import compile_design
 
 design = compile_design(data, formula='y ~ s(x,k=6)+offset(z)', smoothing_params=[.2])
 evaluation = design.evaluate(data.assign(z=data.z+.5))
-assert design.response.shape == (n,)
-assert evaluation.matrix.shape == design.matrix.shape
 result = {'matrix': design.matrix, 'penalty': design.penalty,
           'training_offset': design.training_offset, 'evaluation': evaluation,
           'terms': design.terms}

@@ -70,78 +70,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/methods/local_term_importance.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "items": [
-       {
-         "items": [
-           {
-             "contribution": -0.07125948742032051,
-             "order": 1,
-             "term": {
-               "items": [
-                 "x"
-               ],
-               "kind": "tuple",
-               "length": 1,
-               "omitted": 0
-             }
-           },
-           {
-             "contribution": 0.015347519889473915,
-             "order": 1,
-             "term": {
-               "items": [
-                 "z"
-               ],
-               "kind": "tuple",
-               "length": 1,
-               "omitted": 0
-             }
-           }
-         ],
-         "kind": "list",
-         "length": 3,
-         "omitted": 1
-       }
-     ],
-     "kind": "list",
-     "length": 64,
-     "omitted": 63
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - list
-     - length 64
-   * - result[0]
-     - list
-     - length 3
-   * - result[1]
-     - list
-     - length 3
-   * - result[2]
-     - list
-     - length 3
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">result</span><span class="example-result-meta">list · length 64</span></div><div class="example-result-body"><ol class="example-result-sequence"><li><ol class="example-result-sequence"><li><dl class="example-result-fields"><div><dt>contribution<span class="example-result-meta">float · scalar</span></dt><dd><span class="example-result-scalar">-0.071259</span></dd></div><div><dt>order<span class="example-result-meta">int · scalar</span></dt><dd><span class="example-result-scalar">1</span></dd></div><div><dt>term<span class="example-result-meta">tuple · length 1</span></dt><dd><ol class="example-result-sequence"><li><span class="example-result-scalar">x</span></li></ol></dd></div></dl></li><li><dl class="example-result-fields"><div><dt>contribution<span class="example-result-meta">float · scalar</span></dt><dd><span class="example-result-scalar">0.015348</span></dd></div><div><dt>order<span class="example-result-meta">int · scalar</span></dt><dd><span class="example-result-scalar">1</span></dd></div><div><dt>term<span class="example-result-meta">tuple · length 1</span></dt><dd><ol class="example-result-sequence"><li><span class="example-result-scalar">z</span></li></ol></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 3 items.</p></li></ol><p class="example-result-note">Showing 1 of 64 items.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 .. automethod:: nampy.models._base.NeuralEstimatorBase.local_term_importance
    :no-index:

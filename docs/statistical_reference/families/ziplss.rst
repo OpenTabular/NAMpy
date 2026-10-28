@@ -3,15 +3,17 @@
 ziplss
 ======
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** Base count law g is Poisson with rate lambda. P(Y=0)=pi; P(Y=y>0)=(1-pi)g(y)/(1-g(0)). Set m_plus=m/(1-g(0)) and v_plus=(v+m^2)/(1-g(0))-m_plus^2.
-* **Natural domains:** zero probability pi in [0,1); positive base rate/mean; NB total count r>0
-* **Conditional mean:** (1-pi)m_plus
-* **Conditional variance:** (1-pi)v_plus+pi(1-pi)m_plus^2
+   \Pr(Y=0)=\pi,\quad\Pr(Y=y>0)=(1-\pi)\frac{g(y)}{1-g(0)}
 
-Here m and v denote the base count mean and variance.
+* **Natural domains:** :math:`0\leq\pi<1,\quad\lambda>0`
+* **Conditional mean:** :math:`\mathbb E[Y\mid x]=(1-\pi)m_+`
+* **Conditional variance:** :math:`\operatorname{Var}(Y\mid x)=(1-\pi)v_++\pi(1-\pi)m_+^2`
+
+:math:`m_+=\frac{m}{1-g(0)},\quad v_+=\frac{v+m^2}{1-g(0)}-m_+^2`. The base law :math:`g` is Poisson; :math:`m=v=\lambda`
+
+Here :math:`m` and :math:`v` denote the base count mean and variance.
 
 Statistical ``zip`` couples presence to log intensity through its nuisance coefficients; it does not estimate an independent zero-probability predictor. Statistical ``ziplss`` uses its documented presence link, so convert presence to zero probability before using this formula.
 
@@ -142,101 +144,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/ziplss.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "link_predictors": {
-       "kind": "array",
-       "omitted_by_axis": [
-         94,
-         0
-       ],
-       "shape": [
-         96,
-         2
-       ],
-       "values": [
-         [
-           1.18134,
-           0.00896
-         ],
-         [
-           1.01857,
-           0.00896
-         ]
-       ]
-     },
-     "natural_parameters": {
-       "kind": "array",
-       "omitted_by_axis": [
-         94,
-         0
-       ],
-       "shape": [
-         96,
-         2
-       ],
-       "values": [
-         [
-           3.25873,
-           0.63542
-         ],
-         [
-           2.76924,
-           0.63542
-         ]
-       ]
-     },
-     "source_response": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         2.15342,
-         1.87735,
-         2.15719,
-         1.92247,
-         2.05183,
-         1.95379
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 3 named fields
-   * - result['link_predictors']
-     - numpy.ndarray[float64]
-     - (96, 2)
-   * - result['natural_parameters']
-     - numpy.ndarray[float64]
-     - (96, 2)
-   * - result['source_response']
-     - numpy.ndarray[float64]
-     - (96,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">link_predictors</span><span class="example-result-meta">ndarray[float64] · 96 × 2</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>1.1813</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.00896</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>1.0186</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.00896</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 96 rows.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">natural_parameters</span><span class="example-result-meta">ndarray[float64] · 96 × 2</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>3.2587</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.63542</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>2.7692</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.63542</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 96 rows.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">source_response</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">2.1534</span><span class="example-result-value">1.8774</span><span class="example-result-value">2.1572</span><span class="example-result-value">1.9225</span><span class="example-result-value">2.0518</span><span class="example-result-value">1.9538</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 Parameterization and interpretation
 -----------------------------------

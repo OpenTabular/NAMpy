@@ -3,13 +3,15 @@
 quantile
 ========
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** For each level q, minimize rho_q(y-v)=(y-v)(q-I[y<v]); sum over levels and average over rows. This is a loss, not a normalized density.
-* **Natural domains:** Requested quantiles in configured level order; levels in (0,1)
-* **Conditional mean:** Not determined by a finite quantile vector; point output uses the 0.5 quantile when present, otherwise the arithmetic average of the predicted quantiles
-* **Conditional variance:** Not determined; predict_spread is unavailable
+   \rho_q(y-v)=(y-v)\{q-\mathbf1(y<v)\}
+
+* **Natural domains:** :math:`0<q_1<\cdots<q_Q<1`; predicted values are in configured quantile order.
+* **Conditional mean:** Not determined by a finite quantile vector; point output uses :math:`q=0.5` when present, otherwise the arithmetic average of the predicted quantiles.
+* **Conditional variance:** Not determined by the quantile outputs; ``predict_spread`` is unavailable.
+
+sum over levels and average over observations. This is a loss, not a normalized density
 
 References: `PyTorch probability distributions <https://docs.pytorch.org/docs/stable/distributions.html>`_. NAMpy defines its family transforms and point outputs below.
 
@@ -151,96 +153,11 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/families/quantile.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. rubric:: parameters
+Example result
+~~~~~~~~~~~~~~
 
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
+.. raw:: html
 
-   * - q_0.25
-     - q_0.5
-     - q_0.75
-   * - 0.0
-     - 0.693149983882904
-     - 1.3862899541854858
-   * - 0.0
-     - 0.693149983882904
-     - 1.3862899541854858
-
-Full shape: ``[8, 3]``; omitted by axis: ``[6, 0]``.
-
-.. rubric:: raw
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - q_0.25
-     - q_0.5
-     - q_0.75
-   * - 0.0
-     - 0.0
-     - 0.0
-   * - 0.0
-     - 0.0
-     - 0.0
-
-Full shape: ``[8, 3]``; omitted by axis: ``[6, 0]``.
-
-.. code-block:: text
-
-   {
-     "loss": 0.5,
-     "point": {
-       "kind": "array",
-       "omitted_by_axis": [
-         2
-       ],
-       "shape": [
-         8
-       ],
-       "values": [
-         0.693149983882904,
-         0.693149983882904,
-         0.693149983882904,
-         0.693149983882904,
-         0.693149983882904,
-         0.693149983882904
-       ]
-     }
-   }
-
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 4 named fields
-   * - result['raw']
-     - torch.Tensor[torch.float32]
-     - (8, 3)
-   * - result['parameters']
-     - torch.Tensor[torch.float32]
-     - (8, 3)
-   * - result['loss']
-     - torch.Tensor[torch.float32]
-     - ()
-   * - result['point']
-     - torch.Tensor[torch.float32]
-     - (8,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">loss</span><span class="example-result-meta">Tensor[float32] · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">0.5</span></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">parameters</span><span class="example-result-meta">Tensor[float32] · 8 × 3</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>q_0.25</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>q_0.5</dt><dd><span>0.69315</span></dd></div><div class="example-result-coordinate"><dt>q_0.75</dt><dd><span>1.3863</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>q_0.25</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>q_0.5</dt><dd><span>0.69315</span></dd></div><div class="example-result-coordinate"><dt>q_0.75</dt><dd><span>1.3863</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 8 rows.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">point</span><span class="example-result-meta">Tensor[float32] · 8</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.69315</span><span class="example-result-value">0.69315</span><span class="example-result-value">0.69315</span><span class="example-result-value">0.69315</span><span class="example-result-value">0.69315</span><span class="example-result-value">0.69315</span></div><p class="example-result-note">Showing 6 of 8 values.</p></div></section><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">raw</span><span class="example-result-meta">Tensor[float32] · 8 × 3</span></summary><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>q_0.25</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>q_0.5</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>q_0.75</dt><dd><span>0</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>q_0.25</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>q_0.5</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>q_0.75</dt><dd><span>0</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 8 rows.</p></div></details><p class="example-result-footnote">Sample values are rounded for display.</p></div>

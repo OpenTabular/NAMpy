@@ -3,15 +3,17 @@
 zip
 ===
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** Base count law g is Poisson with rate lambda. P(Y=0)=pi; P(Y=y>0)=(1-pi)g(y)/(1-g(0)). Set m_plus=m/(1-g(0)) and v_plus=(v+m^2)/(1-g(0))-m_plus^2.
-* **Natural domains:** zero probability pi in [0,1); positive base rate/mean; NB total count r>0
-* **Conditional mean:** (1-pi)m_plus
-* **Conditional variance:** (1-pi)v_plus+pi(1-pi)m_plus^2
+   \Pr(Y=0)=\pi,\quad\Pr(Y=y>0)=(1-\pi)\frac{g(y)}{1-g(0)}
 
-Here m and v denote the base count mean and variance.
+* **Natural domains:** :math:`0\leq\pi<1,\quad\lambda>0`
+* **Conditional mean:** :math:`\mathbb E[Y\mid x]=(1-\pi)m_+`
+* **Conditional variance:** :math:`\operatorname{Var}(Y\mid x)=(1-\pi)v_++\pi(1-\pi)m_+^2`
+
+:math:`m_+=\frac{m}{1-g(0)},\quad v_+=\frac{v+m^2}{1-g(0)}-m_+^2`. The base law :math:`g` is Poisson; :math:`m=v=\lambda`
+
+Here :math:`m` and :math:`v` denote the base count mean and variance.
 
 Statistical ``zip`` couples presence to log intensity through its nuisance coefficients; it does not estimate an independent zero-probability predictor. Statistical ``ziplss`` uses its documented presence link, so convert presence to zero probability before using this formula.
 
@@ -148,73 +150,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/zip.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "link_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         1.16244,
-         1.05002,
-         1.20732,
-         1.00196,
-         1.10026,
-         1.10073
-       ]
-     },
-     "response_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         2.13308,
-         1.89926,
-         2.23657,
-         1.80946,
-         1.99947,
-         2.00043
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['response_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['link_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">link_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">1.1624</span><span class="example-result-value">1.05</span><span class="example-result-value">1.2073</span><span class="example-result-value">1.002</span><span class="example-result-value">1.1003</span><span class="example-result-value">1.1007</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">response_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">2.1331</span><span class="example-result-value">1.8993</span><span class="example-result-value">2.2366</span><span class="example-result-value">1.8095</span><span class="example-result-value">1.9995</span><span class="example-result-value">2.0004</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 Parameterization and interpretation
 -----------------------------------

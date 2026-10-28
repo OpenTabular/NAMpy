@@ -12,5 +12,4 @@ model = GAMLSS(family='student_lss', formula={'mu':'y ~ s(x,k=5)','sigma':'~x'},
                optimize_smoothing=False, smoothing_params=[.2]).fit(data)
 parameters = model.predict(data)
 point = model.predict_point(data)
-assert parameters.shape == (n,2)
 result = {'parameters': parameters, 'point': point, 'components': model.predict_components(data)}

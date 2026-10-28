@@ -108,67 +108,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/predict.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         0
-       ],
-       "shape": [
-         3
-       ],
-       "values": [
-         1.34793,
-         0.96621,
-         1.1574
-       ]
-     },
-     "standard_error": {
-       "kind": "array",
-       "omitted_by_axis": [
-         0
-       ],
-       "shape": [
-         3
-       ],
-       "values": [
-         0.03306,
-         0.02881,
-         0.03828
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['prediction']
-     - numpy.ndarray[float64]
-     - (3,)
-   * - result['standard_error']
-     - numpy.ndarray[float64]
-     - (3,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">prediction</span><span class="example-result-meta">ndarray[float64] · 3</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">1.3479</span><span class="example-result-value">0.96621</span><span class="example-result-value">1.1574</span></div></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">standard_error</span><span class="example-result-meta">ndarray[float64] · 3</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.03306</span><span class="example-result-value">0.02881</span><span class="example-result-value">0.03828</span></div></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 .. automethod:: nampy.gam.GAM.predict
    :no-index:

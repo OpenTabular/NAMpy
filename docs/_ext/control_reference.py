@@ -79,13 +79,6 @@ def generate(root):
                 f"   * - ``{name}``",
                 f"   * - .. _{control_anchor(name)}:\n\n       ``{name}``",
             )
-            write(
-                root,
-                f"statistical_reference/controls/{name}.rst",
-                ":orphan:\n\n"
-                + heading(name)
-                + f"See :ref:`{name} <{control_anchor(name)}>` for its type, default, valid values and fitting role.\n",
-            )
         text += rendered
         aliases = [
             (alias, target) for alias, target in _KEY_ALIASES.items() if target in names

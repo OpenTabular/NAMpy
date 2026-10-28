@@ -81,6 +81,7 @@ jobs:
       run: >-
         pytest
         tests/regressions/test_no_platform_numeric_bindings.py
+        tests/regressions/test_fixture_checkout_integrity.py
         tests/optimization/test_gam_linalg_exports.py
         tests/optimization/test_mgcv_gam_side_parity.py::test_gam_side_penalty_root_is_checked_through_its_identified_gram_matrix
         tests/parity/test_gam_parity_invariants.py
@@ -158,6 +159,7 @@ jobs:
         tests/families/test_mgcv_gevlss_workflows.py
         tests/families/test_shash_family_contracts.py
         tests/families/test_twlss_family_contracts.py
+        tests/families/test_twlss_null_fit_contracts.py
         tests/families/test_twlss_persistence_contracts.py
         tests/families/test_general_efs_initialization_invariants.py
         tests/families/test_general_family_mgcv_parity.py::test_general_family_newdata_unconditional_standard_errors_match_mgcv

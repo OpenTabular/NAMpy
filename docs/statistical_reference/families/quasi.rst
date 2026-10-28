@@ -3,13 +3,15 @@
 quasi
 =====
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** Quasi-likelihood specifies a mean-variance relation rather than a normalized probability density.
-* **Natural domains:** mu in the domain of the configured link; dispersion phi>0
-* **Conditional mean:** mu
-* **Conditional variance:** phi V(mu), using the configured variance function
+   \frac{\partial Q(y,\mu)}{\partial\mu}=\frac{y-\mu}{\phi V(\mu)}
+
+* **Natural domains:** :math:`\mu\in\operatorname{dom}(g),\quad\phi>0`
+* **Conditional mean:** :math:`\mathbb E[Y\mid x]=\mu`
+* **Conditional variance:** :math:`\operatorname{Var}(Y\mid x)=\phi V(\mu)`
+
+Quasi-likelihood specifies a mean-variance relationship, not a normalized probability density.
 
 A likelihood-based AIC is unavailable for a quasi-likelihood family. Deviance and Pearson residuals retain their estimating-equation meanings.
 
@@ -76,19 +78,21 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
    * - ``link``
      - ``str``
      - ``'identity'``
-     - Link name or ordered sequence of links. Supported choices and interpretation are specific to this family; sequence order follows its linear predictors.
+     - Single named link string. Supported names and formulas are in the link reference; sequences are not accepted here.
    * - ``variance``
      - ``str``
      - ``'constant'``
-     - Quasi-family variance function name; controls the mean/variance relationship rather than defining a normalized likelihood.
+     - One of constant, mu, mu(1-mu), mu^2 or mu^3 (spaces are removed). This selects V(mu), independently of the link exponent.
    * - ``power``
      - ``float | None``
      - ``None``
-     - Optional exponent for the quasi variance-power specification.
+     - Finite numeric quasi link exponent, independent of variance: values <=0 choose log, 1 chooses identity, and other positive values choose mu**power. None uses the named link; incompatible named links are rejected.
    * - ``kwargs``
      - ``keyword arguments``
      - Variable arguments
-     - Additional options documented by the linked implementation; unknown options may be rejected.
+     - Direct-class inherited eps (float, default 1e-9). The named quasi classes also forward power (float | None, default None) under its link compatibility rules. Factory mappings accept only their explicitly listed options; see the general quasi configuration contract.
+
+.. include:: /_includes/quasi_configuration.inc
 
 Outputs and fitting support
 ---------------------------
@@ -149,73 +153,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/quasi.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "link_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         0.58161,
-         0.95127,
-         0.84134,
-         0.20096,
-         0.25681,
-         0.93922
-       ]
-     },
-     "response_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         0.58161,
-         0.95127,
-         0.84134,
-         0.20096,
-         0.25681,
-         0.93922
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['response_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['link_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">link_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">1.1966</span><span class="example-result-value">1.267</span><span class="example-result-value">1.2254</span><span class="example-result-value">1.0756</span><span class="example-result-value">1.0882</span><span class="example-result-value">1.2567</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">response_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">1.432</span><span class="example-result-value">1.6053</span><span class="example-result-value">1.5017</span><span class="example-result-value">1.1569</span><span class="example-result-value">1.1842</span><span class="example-result-value">1.5793</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 Implementation notes
 --------------------

@@ -92,97 +92,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/predict_terms.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "45bdcbb157f6": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         0.28194,
-         -0.20294,
-         0.08988,
-         -0.0463,
-         0.10676,
-         -0.13891
-       ]
-     },
-     "e81f23cf4be4": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         -0.14571,
-         -0.04255,
-         -0.14418,
-         -0.11667,
-         0.13433,
-         0.04235
-       ]
-     },
-     "intercept": 1.2117033510481068,
-     "output": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         1.34793,
-         0.96621,
-         1.1574,
-         1.04873,
-         1.45279,
-         1.11514
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 4 named fields
-   * - result['output']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['45bdcbb157f6']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['e81f23cf4be4']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['intercept']
-     - numpy.ndarray[float64]
-     - ()
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">45bdcbb157f6</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.28194</span><span class="example-result-value">-0.20294</span><span class="example-result-value">0.08988</span><span class="example-result-value">-0.0463</span><span class="example-result-value">0.10676</span><span class="example-result-value">-0.13891</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">e81f23cf4be4</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">-0.14571</span><span class="example-result-value">-0.04255</span><span class="example-result-value">-0.14418</span><span class="example-result-value">-0.11667</span><span class="example-result-value">0.13433</span><span class="example-result-value">0.04235</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">intercept</span><span class="example-result-meta">ndarray[float64] · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">1.2117</span></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">output</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">1.3479</span><span class="example-result-value">0.96621</span><span class="example-result-value">1.1574</span><span class="example-result-value">1.0487</span><span class="example-result-value">1.4528</span><span class="example-result-value">1.1151</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 .. automethod:: nampy.gam.GAM.predict_terms
    :no-index:

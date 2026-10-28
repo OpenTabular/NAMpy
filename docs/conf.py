@@ -38,6 +38,7 @@ extensions = [
     "public_reference",
     "feature_reference",
     "site_integrity",
+    "source_navigation",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
@@ -125,7 +126,7 @@ html_static_path = ["_static"]
 html_theme_options = {
     "collapse_navigation": False,
     "logo_only": False,
-    "navigation_depth": 4,
+    "navigation_depth": -1,
     "titles_only": True,
     "prev_next_buttons_location": "bottom",
     "style_external_links": True,
@@ -152,6 +153,7 @@ html_favicon = "_static/logo-sidebar-refined.svg"
 
 # If true, links to the reST sources are added to the pages.
 html_show_sourcelink = False
+html_use_index = False
 
 # If true, "Created using Sphinx" is shown in the HTML footer.
 html_show_sphinx = True

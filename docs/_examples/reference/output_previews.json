@@ -536,6 +536,183 @@
       ]
     }
   },
+  "extension_reference/statistical/DaviesAlgorithm": {
+    "lower_tail_probability": 0.6792349933983786,
+    "status": 0,
+    "trace": {
+      "items": [
+        2.077208557037448,
+        1114.0
+      ],
+      "kind": "list",
+      "length": 7,
+      "omitted": 5
+    }
+  },
+  "extension_reference/statistical/exclude_too_far": {
+    "excluded": 16,
+    "retained": 9,
+    "surface_mask": {
+      "kind": "array",
+      "omitted_by_axis": [
+        3,
+        1
+      ],
+      "shape": [
+        5,
+        5
+      ],
+      "values": [
+        [
+          false,
+          false,
+          true,
+          true
+        ],
+        [
+          false,
+          false,
+          true,
+          true
+        ]
+      ]
+    }
+  },
+  "extension_reference/statistical/liu2": {
+    "lower_tail": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        0.18511,
+        0.68015,
+        0.91404
+      ]
+    },
+    "thresholds": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        1.0,
+        4.0,
+        8.0
+      ]
+    },
+    "upper_tail": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        0.81489,
+        0.31985,
+        0.08596
+      ]
+    }
+  },
+  "extension_reference/statistical/n_free_smoothing_params": {
+    "all_free": 2,
+    "fixed_mask": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        2
+      ],
+      "values": [
+        true,
+        false
+      ]
+    },
+    "partly_fixed": 1
+  },
+  "extension_reference/statistical/optimizer_endpoint_diagnostics": {
+    "flat_ridge_suspected": false,
+    "free_parameters": 2,
+    "projected_gradient": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        2
+      ],
+      "values": [
+        0.0,
+        -2e-05
+      ]
+    },
+    "stationary": true
+  },
+  "extension_reference/statistical/psum_chisq": {
+    "lower_tail": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        0.18296,
+        0.67923,
+        0.91493
+      ]
+    },
+    "thresholds": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        1.0,
+        4.0,
+        8.0
+      ]
+    },
+    "upper_tail": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        0.81704,
+        0.32077,
+        0.08507
+      ]
+    }
+  },
+  "extension_reference/statistical/resolve_smoothing_method": {
+    "None": "reml",
+    "REML": "reml",
+    "auto": "reml",
+    "gcv.cp": "gcv"
+  },
+  "extension_reference/statistical/supports_smoothing_method": {
+    "fixed": true,
+    "gcv": true,
+    "reml": true,
+    "ubre": false
+  },
   "neural_reference/ensemble_treenam": {
     "components": {
       "fields": {
@@ -7717,12 +7894,12 @@
         96
       ],
       "values": [
-        0.58161,
-        0.95127,
-        0.84134,
-        0.20096,
-        0.25681,
-        0.93922
+        1.19665,
+        1.26701,
+        1.22544,
+        1.0756,
+        1.08823,
+        1.25672
       ]
     },
     "response_prediction": {
@@ -7734,12 +7911,12 @@
         96
       ],
       "values": [
-        0.58161,
-        0.95127,
-        0.84134,
-        0.20096,
-        0.25681,
-        0.93922
+        1.43198,
+        1.60532,
+        1.50171,
+        1.15691,
+        1.18424,
+        1.57934
       ]
     }
   },
@@ -8193,6 +8370,586 @@
       3
     ],
     "values": "omitted; see shape contract"
+  },
+  "statistical_reference/links/cauchit": {
+    "inverse_derivative": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        0.0304,
+        0.31831,
+        0.0304
+      ]
+    },
+    "predictor": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        -3.07768,
+        -0.0,
+        3.07768
+      ]
+    },
+    "recovered_mean": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        0.1,
+        0.5,
+        0.9
+      ]
+    },
+    "second_forward_derivative": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        -636.19313,
+        -0.0,
+        636.19313
+      ]
+    }
+  },
+  "statistical_reference/links/cloglog": {
+    "inverse_derivative": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        0.09482,
+        0.34657,
+        0.23026
+      ]
+    },
+    "predictor": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        -2.25037,
+        -0.36651,
+        0.83403
+      ]
+    },
+    "recovered_mean": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        0.1,
+        0.5,
+        0.9
+      ]
+    },
+    "second_forward_derivative": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        -99.49638,
+        -2.5547,
+        24.56828
+      ]
+    }
+  },
+  "statistical_reference/links/identity": {
+    "inverse_derivative": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    "predictor": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        0.5,
+        1.0,
+        2.0
+      ]
+    },
+    "recovered_mean": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        0.5,
+        1.0,
+        2.0
+      ]
+    },
+    "second_forward_derivative": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "statistical_reference/links/inverse": {
+    "inverse_derivative": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        -0.25,
+        -1.0,
+        -4.0
+      ]
+    },
+    "predictor": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        2.0,
+        1.0,
+        0.5
+      ]
+    },
+    "recovered_mean": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        0.5,
+        1.0,
+        2.0
+      ]
+    },
+    "second_forward_derivative": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        16.0,
+        2.0,
+        0.25
+      ]
+    }
+  },
+  "statistical_reference/links/inverse_squared": {
+    "inverse_derivative": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        -0.0625,
+        -0.5,
+        -4.0
+      ]
+    },
+    "predictor": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        4.0,
+        1.0,
+        0.25
+      ]
+    },
+    "recovered_mean": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        0.5,
+        1.0,
+        2.0
+      ]
+    },
+    "second_forward_derivative": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        96.0,
+        6.0,
+        0.375
+      ]
+    }
+  },
+  "statistical_reference/links/log": {
+    "inverse_derivative": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        0.5,
+        1.0,
+        2.0
+      ]
+    },
+    "predictor": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        -0.69315,
+        0.0,
+        0.69315
+      ]
+    },
+    "recovered_mean": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        0.5,
+        1.0,
+        2.0
+      ]
+    },
+    "second_forward_derivative": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        -4.0,
+        -1.0,
+        -0.25
+      ]
+    }
+  },
+  "statistical_reference/links/logit": {
+    "inverse_derivative": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        0.09,
+        0.25,
+        0.09
+      ]
+    },
+    "predictor": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        -2.19722,
+        0.0,
+        2.19722
+      ]
+    },
+    "recovered_mean": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        0.1,
+        0.5,
+        0.9
+      ]
+    },
+    "second_forward_derivative": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        -98.76543,
+        0.0,
+        98.76543
+      ]
+    }
+  },
+  "statistical_reference/links/power": {
+    "inverse_derivative": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        1.41421,
+        2.0,
+        2.82843
+      ]
+    },
+    "predictor": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        0.70711,
+        1.0,
+        1.41421
+      ]
+    },
+    "recovered_mean": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        0.5,
+        1.0,
+        2.0
+      ]
+    },
+    "second_forward_derivative": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        -0.70711,
+        -0.25,
+        -0.08839
+      ]
+    }
+  },
+  "statistical_reference/links/probit": {
+    "inverse_derivative": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        0.1755,
+        0.39894,
+        0.1755
+      ]
+    },
+    "predictor": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        -1.28155,
+        0.0,
+        1.28155
+      ]
+    },
+    "recovered_mean": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        0.1,
+        0.5,
+        0.9
+      ]
+    },
+    "second_forward_derivative": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        -41.60927,
+        0.0,
+        41.60927
+      ]
+    }
+  },
+  "statistical_reference/links/sqrt": {
+    "inverse_derivative": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        1.41421,
+        2.0,
+        2.82843
+      ]
+    },
+    "predictor": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        0.70711,
+        1.0,
+        1.41421
+      ]
+    },
+    "recovered_mean": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        0.5,
+        1.0,
+        2.0
+      ]
+    },
+    "second_forward_derivative": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        3
+      ],
+      "values": [
+        -0.70711,
+        -0.25,
+        -0.08839
+      ]
+    }
   },
   "statistical_reference/methods/aic": -119.92581008934738,
   "statistical_reference/methods/anova": {

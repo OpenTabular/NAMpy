@@ -3,17 +3,19 @@
 cpois
 =====
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** Latent P(Y=j)=exp(-lambda)lambda^j/j!, j=0,1,.... Censoring contributions follow the documented exact/interval/one-sided encoding.
-* **Natural domains:** lambda>0
-* **Conditional mean:** lambda
-* **Conditional variance:** lambda
+   \Pr(Y=y)=e^{-\lambda}\lambda^y/y!,\quad y\in\{0,1,\ldots\}
+
+* **Natural domains:** :math:`\lambda>0`
+* **Conditional mean:** :math:`\mathbb E[Y\mid x]=\lambda` for the latent response.
+* **Conditional variance:** :math:`\operatorname{Var}(Y\mid x)=\lambda` for the latent response.
+
+The formula describes the latent law. Censoring contributes interval or one-sided probabilities.
 
 Targets include censoring bounds rather than treating bounds as ordinary observations. The worked example and parameterization notes below define the exact two-column encoding and one-sided sentinel convention.
 
-For a closed integer interval [l,u], its probability is F(u)-F(l-1); continuous endpoint formulas must not be applied to integer intervals without the discrete correction.
+For a closed integer interval :math:`[l,u]`, its probability is :math:`F(u)-F(l-1)`; continuous endpoint formulas must not be applied to integer intervals without the discrete correction.
 
 References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
 
@@ -140,73 +142,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/cpois.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "link_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         1.46059,
-         1.6982,
-         1.65178,
-         1.18641,
-         1.22898,
-         1.69951
-       ]
-     },
-     "response_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         4.3085,
-         5.46409,
-         5.21623,
-         3.2753,
-         3.41776,
-         5.47125
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['response_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['link_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">link_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">1.4606</span><span class="example-result-value">1.6982</span><span class="example-result-value">1.6518</span><span class="example-result-value">1.1864</span><span class="example-result-value">1.229</span><span class="example-result-value">1.6995</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">response_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">4.3085</span><span class="example-result-value">5.4641</span><span class="example-result-value">5.2162</span><span class="example-result-value">3.2753</span><span class="example-result-value">3.4178</span><span class="example-result-value">5.4713</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 Parameterization and interpretation
 -----------------------------------

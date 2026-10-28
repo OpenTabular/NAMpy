@@ -54,91 +54,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/methods/get_params.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "activation": "type",
-     "adaptive_width": false,
-     "batch_norm": false,
-     "dropout": 0.1,
-     "omitted_fields": [
-       "feature_dropout",
-       "feature_layer",
-       "feature_output_bias",
-       "feature_widths",
-       "interaction_degree",
-       "interactions",
-       "intercept",
-       "l2_regularization",
-       "layer_norm",
-       "layer_sizes",
-       "lr",
-       "lr_factor",
-       "lr_patience",
-       "norm",
-       "num_basis_functions",
-       "output_regularization",
-       "regularize_interactions",
-       "skip_connections",
-       "units_multiplier",
-       "use_glu",
-       "weight_decay",
-       "feature_preprocessing",
-       "n_bins",
-       "numerical_preprocessing",
-       "categorical_preprocessing",
-       "use_decision_tree_bins",
-       "binning_strategy",
-       "task",
-       "cat_cutoff",
-       "treat_all_integers_as_numerical",
-       "degree",
-       "scaling_strategy",
-       "n_knots",
-       "use_decision_tree_knots",
-       "knots_strategy",
-       "spline_implementation",
-       "min_unique_vals"
-     ]
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 41 named fields
-   * - result['activation']
-     - type
-     - class object
-   * - result['adaptive_width']
-     - builtins.bool
-     - ()
-   * - result['batch_norm']
-     - builtins.bool
-     - ()
-   * - result['dropout']
-     - builtins.float
-     - ()
-   * - result['feature_dropout']
-     - builtins.float
-     - ()
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">activation</span><span class="example-result-meta">type · class object</span></div><div class="example-result-body"><span class="example-result-scalar">type</span></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">adaptive_width</span><span class="example-result-meta">bool · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">False</span></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">batch_norm</span><span class="example-result-meta">bool · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">False</span></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">dropout</span><span class="example-result-meta">float · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">0.1</span></div></section><p class="example-result-footnote">Sample values are rounded for display.</p><p class="example-result-note">37 additional output fields are available in the returned result.</p></div>
 
 .. automethod:: nampy.models._base.NeuralEstimatorBase.get_params
    :no-index:

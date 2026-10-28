@@ -10,6 +10,8 @@ import json
 import textwrap
 from pathlib import Path
 
+from example_source import without_assertions
+
 BASE = """import numpy as np
 import pandas as pd
 from nampy.gam import GAM
@@ -123,7 +125,7 @@ def statistical_family_example(name):
         "clog": "data['y'] = 2 + data.x + rng.logistic(0, 0.3, n)\ndata['bound'] = data.y.astype(float)\ndata.loc[:5, 'bound'] = np.inf",
         "bcg": "data['y'] = np.exp(0.3 + 0.2 * data.x + rng.normal(0, 0.15, n))",
         "cpois": "data['y'] = 1 + rng.poisson(np.exp(0.5 + data.x))\ndata['bound'] = data.y.astype(float)\ndata.loc[:5, 'bound'] = np.inf",
-        "quasi": "data['y'] = data.x + rng.normal(0, 0.3, n)",
+        "quasi": "data['y'] = rng.wald((1 + 0.3 * data.x)**2, 200.0)",
         "quasipoisson": "data['y'] = rng.poisson(np.exp(0.5 + data.x))",
         "quasibinomial": "data['y'] = rng.binomial(1, 0.2 + 0.5 * data.x)",
         "gaulss": "data['y'] = data.x + rng.normal(0, 0.2 + 0.3 * data.x, n)",
@@ -150,6 +152,8 @@ def statistical_family_example(name):
     if name == "bcg":
         code += "from nampy.gam.families.registry import make_gam_family\nfamily = make_gam_family({'name': 'bcg'})\nfamily.putTheta([0.0, np.log(0.3)])\nfamily.n_theta = 0\n"
         family = "family"
+    if name == "quasi":
+        family = "{'name': 'quasi', 'variance': 'mu^3', 'power': 0.5}"
     from nampy.gam.families.registry import _GENERAL_FAMILY_FACTORIES, make_gam_family
 
     if name in _GENERAL_FAMILY_FACTORIES:
@@ -445,7 +449,7 @@ def example_rst(root, page, code):
         '"""Runnable reference example: '
         + page
         + '."""\n\n'
-        + textwrap.dedent(code).strip()
+        + without_assertions(textwrap.dedent(code)).strip()
         + "\n"
     )
     if not path.exists() or path.read_text() != text:
@@ -459,52 +463,12 @@ def example_rst(root, page, code):
     )
     result += f":download:`Download the complete example <{relative}>`\n\n.. literalinclude:: {relative}\n   :language: python\n\n"
     preview_path = Path(root) / "_examples/reference/output_previews.json"
-    if preview_path.exists():
+    schema_path = Path(root) / "_examples/reference/output_schemas.json"
+    if preview_path.exists() and schema_path.exists():
+        from example_results import result_rst
+
         previews = json.loads(preview_path.read_text())
+        schemas = json.loads(schema_path.read_text())
         if page in previews:
-            result += "Observed result preview\n~~~~~~~~~~~~~~~~~~~~~~~\n\n"
-            result += "Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.\n\n"
-            preview = previews[page]
-            remaining = dict(preview) if isinstance(preview, dict) else preview
-            if isinstance(preview, dict):
-                from public_reference import table
-
-                for key, value in preview.items():
-                    if (
-                        isinstance(value, dict)
-                        and value.get("kind") in {"array", "table"}
-                        and "columns" in value
-                    ):
-                        result += f".. rubric:: {key}\n\n" + table(
-                            value["columns"], value["values"]
-                        )
-                        result += f"Full shape: ``{value['shape']}``; omitted by axis: ``{value['omitted_by_axis']}``.\n\n"
-                        remaining.pop(key)
-            if remaining:
-                result += (
-                    ".. code-block:: text\n\n"
-                    + textwrap.indent(
-                        json.dumps(remaining, indent=2, ensure_ascii=False), "   "
-                    )
-                    + "\n\n"
-                )
-    output_path = Path(root) / "_examples/reference/output_schemas.json"
-    if output_path.exists():
-        schemas = json.loads(output_path.read_text())
-        if page in schemas:
-            from public_reference import table
-
-            result += (
-                "Example output types and shapes\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n"
-            )
-            result += "These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.\n\n"
-            result += "The shape table summarizes direct output fields; the complete example is downloadable above.\n\n"
-            result += table(
-                ["Output field", "Python type / dtype", "Example shape"],
-                [
-                    row
-                    for row in schemas[page]
-                    if row[0].count("[") + row[0].count(".") <= 1
-                ][:6],
-            )
+            result += result_rst(previews[page], schemas.get(page, []))
     return result

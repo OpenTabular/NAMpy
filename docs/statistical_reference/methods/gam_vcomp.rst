@@ -76,87 +76,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/gam_vcomp.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "names": {
-       "items": [
-         "s(x)",
-         "s(z)"
-       ],
-       "kind": "list",
-       "length": 3,
-       "omitted": 1
-     },
-     "omitted_fields": [
-       "conf_lev",
-       "all",
-       "all_names"
-     ],
-     "rank": 3,
-     "rank_hess": 3,
-     "vc": {
-       "kind": "array",
-       "omitted_by_axis": [
-         1,
-         0
-       ],
-       "shape": [
-         3,
-         3
-       ],
-       "values": [
-         [
-           0.52074,
-           0.23928,
-           1.13326
-         ],
-         [
-           0.00178,
-           0.0,
-           3.763035988729964e+91
-         ]
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 7 named fields
-   * - result['vc']
-     - numpy.ndarray[float64]
-     - (3, 3)
-   * - result['names']
-     - list
-     - length 3
-   * - result['rank']
-     - builtins.int
-     - ()
-   * - result['rank_hess']
-     - builtins.int
-     - ()
-   * - result['conf_lev']
-     - builtins.float
-     - ()
+   <div class="example-result" aria-label="Example result"><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">names</span><span class="example-result-meta">list · length 3</span></summary><div class="example-result-body"><ol class="example-result-sequence"><li><span class="example-result-scalar">s(x)</span></li><li><span class="example-result-scalar">s(z)</span></li></ol><p class="example-result-note">Showing 2 of 3 items.</p></div></details><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">rank</span><span class="example-result-meta">int · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">3</span></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">rank_hess</span><span class="example-result-meta">int · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">3</span></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">vc</span><span class="example-result-meta">ndarray[float64] · 3 × 3</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0.52074</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.23928</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>1.1333</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0.00178</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>3.763e+91</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 3 rows.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p><p class="example-result-note">3 additional output fields are available in the returned result.</p></div>
 
 .. automethod:: nampy.gam.GAM.gam_vcomp
    :no-index:

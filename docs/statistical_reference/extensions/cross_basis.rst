@@ -20,100 +20,11 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/extensions/cross_basis.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "basis": {
-       "kind": "array",
-       "shape": [
-         100,
-         4
-       ],
-       "values": "omitted; see shape contract"
-     },
-     "cumulative_design": {
-       "kind": "array",
-       "shape": [
-         3,
-         4
-       ],
-       "values": "omitted; see shape contract"
-     },
-     "history": {
-       "kind": "array",
-       "omitted_by_axis": [
-         98,
-         0
-       ],
-       "shape": [
-         100,
-         4
-       ],
-       "values": [
-         [
-           0.30472,
-           NaN,
-           NaN,
-           NaN
-         ],
-         [
-           -1.03998,
-           0.30472,
-           NaN,
-           NaN
-         ]
-       ]
-     },
-     "predictions": {
-       "kind": "array",
-       "omitted_by_axis": [
-         91
-       ],
-       "shape": [
-         97
-       ],
-       "values": [
-         0.42814,
-         0.35914,
-         0.26215,
-         0.07162,
-         -0.1853,
-         -0.09283
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 4 named fields
-   * - result['history']
-     - numpy.ndarray[float64]
-     - (100, 4)
-   * - result['basis']
-     - numpy.ndarray[float64]
-     - (100, 4)
-   * - result['predictions']
-     - numpy.ndarray[float64]
-     - (97,)
-   * - result['cumulative_design']
-     - numpy.ndarray[float64]
-     - (3, 4)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">basis</span><span class="example-result-meta">ndarray[float64] · 100 × 4</span></div><div class="example-result-body"><p class="example-result-note">Values omitted; dimensions shown above.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">cumulative_design</span><span class="example-result-meta">ndarray[float64] · 3 × 4</span></div><div class="example-result-body"><p class="example-result-note">Values omitted; dimensions shown above.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">history</span><span class="example-result-meta">ndarray[float64] · 100 × 4</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0.30472</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>nan</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>nan</span></dd></div><div class="example-result-coordinate"><dt>column 4</dt><dd><span>nan</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>-1.04</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.30472</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>nan</span></dd></div><div class="example-result-coordinate"><dt>column 4</dt><dd><span>nan</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 100 rows.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">predictions</span><span class="example-result-meta">ndarray[float64] · 97</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.42814</span><span class="example-result-value">0.35914</span><span class="example-result-value">0.26215</span><span class="example-result-value">0.07162</span><span class="example-result-value">-0.1853</span><span class="example-result-value">-0.09283</span></div><p class="example-result-note">Showing 6 of 97 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>

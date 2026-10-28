@@ -60,66 +60,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/one_se_rule.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "original_smoothing": {
-       "kind": "array",
-       "omitted_by_axis": [
-         0
-       ],
-       "shape": [
-         2
-       ],
-       "values": [
-         0.91012,
-         12416993.79903
-       ]
-     },
-     "proposed_smoothing": {
-       "kind": "array",
-       "omitted_by_axis": [
-         0
-       ],
-       "shape": [
-         3
-       ],
-       "values": [
-         1.85987,
-         1.4253072605375285e+19,
-         1.03864
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['original_smoothing']
-     - numpy.ndarray[float64]
-     - (2,)
-   * - result['proposed_smoothing']
-     - numpy.ndarray[float64]
-     - (3,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">original_smoothing</span><span class="example-result-meta">ndarray[float64] · 2</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.91012</span><span class="example-result-value">1.2417e+07</span></div></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">proposed_smoothing</span><span class="example-result-meta">ndarray[float64] · 3</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">1.8599</span><span class="example-result-value">1.4253e+19</span><span class="example-result-value">1.0386</span></div></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 .. automethod:: nampy.gam.GAM.one_se_rule
    :no-index:

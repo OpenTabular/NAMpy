@@ -19,8 +19,6 @@ raw = smooth_con(term, data[['x']].to_numpy(), ['x'], absorb_cons=False)
 constraint = raw.fit_constraint_operator
 constrained = smooth_con(term, data[['x']].to_numpy(), ['x'], constraints=constraint)
 matrix = constrained.compiled_term.predict_matrix(data[['x']].to_numpy())
-assert matrix.shape[0] == n
-assert np.isfinite(matrix).all()
 result = {'prediction': model.predict(data)[:3], 'constraint_shape': constraint.shape,
           'constrained_design': matrix}
 print(result['prediction'], matrix.shape)

@@ -4,7 +4,6 @@ NAMLSS
 ======
 
 .. autoclass:: nampy.models.NAMLSS
-   :no-index:
    :no-members:
    :no-inherited-members:
 
@@ -21,115 +20,11 @@ This example includes its data and imports. Run it after installing NAMpy. Small
 .. literalinclude:: /_examples/reference/neural_reference/estimators/NAMLSS.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "components": {
-       "fields": {
-         "backend": "neural"
-       },
-       "kind": "AdditivePrediction",
-       "omitted_fields": [
-         "response",
-         "link",
-         "terms",
-         "intercept",
-         "offset",
-         "term_metadata"
-       ]
-     },
-     "point": {
-       "kind": "array",
-       "omitted_by_axis": [
-         58
-       ],
-       "shape": [
-         64
-       ],
-       "values": [
-         -0.5577499866485596,
-         -0.6039699912071228,
-         -0.5872600078582764,
-         -0.6056200265884399,
-         -0.5911999940872192,
-         -0.6004999876022339
-       ]
-     },
-     "prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         62,
-         0
-       ],
-       "shape": [
-         64,
-         2
-       ],
-       "values": [
-         [
-           -0.5577499866485596,
-           0.44477999210357666
-         ],
-         [
-           -0.6039699912071228,
-           0.43740999698638916
-         ]
-       ]
-     },
-     "raw": {
-       "kind": "array",
-       "omitted_by_axis": [
-         62,
-         0
-       ],
-       "shape": [
-         64,
-         2
-       ],
-       "values": [
-         [
-           -0.5577499866485596,
-           -0.5795599818229675
-         ],
-         [
-           -0.6039699912071228,
-           -0.6002100110054016
-         ]
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 4 named fields
-   * - result['prediction']
-     - numpy.ndarray[float32]
-     - (64, 2)
-   * - result['raw']
-     - numpy.ndarray[float32]
-     - (64, 2)
-   * - result['point']
-     - numpy.ndarray[float32]
-     - (64,)
-   * - result['components']
-     - nampy.contracts.AdditivePrediction
-     - scalar record
+   <div class="example-result" aria-label="Example result"><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">components</span><span class="example-result-meta">AdditivePrediction · scalar record</span></summary><div class="example-result-body"><dl class="example-result-fields"><div><dt>backend<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">neural</span></dd></div></dl><p class="example-result-note">6 additional fields available on the returned object.</p></div></details><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">point</span><span class="example-result-meta">ndarray[float32] · 64</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">-0.55775</span><span class="example-result-value">-0.60397</span><span class="example-result-value">-0.58726</span><span class="example-result-value">-0.60562</span><span class="example-result-value">-0.5912</span><span class="example-result-value">-0.6005</span></div><p class="example-result-note">Showing 6 of 64 values.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">prediction</span><span class="example-result-meta">ndarray[float32] · 64 × 2</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>-0.55775</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.44478</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>-0.60397</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.43741</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 64 rows.</p></div></section><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">raw</span><span class="example-result-meta">ndarray[float32] · 64 × 2</span></summary><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>-0.55775</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>-0.57956</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>-0.60397</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>-0.60021</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 64 rows.</p></div></details><p class="example-result-footnote">Sample values are rounded for display.</p></div>

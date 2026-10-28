@@ -50,10 +50,22 @@ def main():
                 "items: Array.from(p.nextElementSibling.children).map(li => "
                 "li.querySelector(':scope > a')?.textContent.trim())}))"
             )
+            titles = [section["title"] for section in sections]
+            assert titles.index("Module code") < titles.index("Development")
+            assert page.locator("#rtd-search-form").count() == 0
+            fonts = page.evaluate("""() => {
+                const properties = ['fontFamily', 'fontSize', 'fontWeight', 'lineHeight'];
+                const read = element => properties.map(key => getComputedStyle(element)[key]);
+                return {
+                    reference: read(document.querySelector('.wy-menu-vertical .toctree-l1 > a')),
+                    groups: Array.from(document.querySelectorAll('.module-code-navigation summary'), read)
+                };
+            }""")
+            assert fonts["groups"] and all(font == fonts["reference"] for font in fonts["groups"]), fonts
             assert "Tutorials" not in [section["title"] for section in sections]
             development = next(section for section in sections if section["title"] == "Development")
             assert development["items"] == [
-                "Contributing to NAMpy", "Architecture and validation", "License"
+                "Contributing to NAMpy", "Architecture and validation", "Validation reports", "License"
             ], development
             reference = next(section for section in sections if section["title"] == "Reference")
             assert "Compatibility and limitations" in reference["items"], reference

@@ -13,6 +13,7 @@ Choose an estimator, specify its formula, smooth terms and response family, then
    smooths/index
    penalties
    families/index
+   links/index
    selection/index
    controls/index
    methods/index

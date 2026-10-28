@@ -20,53 +20,11 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/extensions/coefficient_draws.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "kind": "array",
-     "omitted_by_axis": [
-       1998,
-       8
-     ],
-     "shape": [
-       2000,
-       12
-     ],
-     "values": [
-       [
-         1.20344,
-         -0.2692,
-         1.05615,
-         1.36411
-       ],
-       [
-         1.21572,
-         -0.19794,
-         0.82617,
-         1.43553
-       ]
-     ]
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - numpy.ndarray[float64]
-     - (2000, 12)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">result</span><span class="example-result-meta">ndarray[float64] · 2000 × 12</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>1.2034</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>-0.2692</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>1.0561</span></dd></div><div class="example-result-coordinate"><dt>column 4</dt><dd><span>1.3641</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>1.2157</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>-0.19794</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>0.82617</span></dd></div><div class="example-result-coordinate"><dt>column 4</dt><dd><span>1.4355</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 2000 rows and 4 of 12 columns.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>

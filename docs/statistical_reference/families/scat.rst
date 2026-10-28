@@ -3,13 +3,15 @@
 scat
 ====
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** Y=loc+scale T_df, T_df has standard Student-t density proportional to (1+t^2/df)^(-(df+1)/2).
-* **Natural domains:** df>0; loc in R; scale>0
-* **Conditional mean:** loc for df>1; undefined otherwise
-* **Conditional variance:** scale^2 df/(df-2) for df>2; infinite for 1<df<=2; undefined for df<=1
+   f(y)=\frac{\Gamma((\nu+1)/2)}{\Gamma(\nu/2)\sqrt{\nu\pi}\,\sigma}\left(1+\frac{(y-\mu)^2}{\nu\sigma^2}\right)^{-(\nu+1)/2}
+
+* **Natural domains:** :math:`\nu>0,\quad\mu\in\mathbb R,\quad\sigma>0`; :math:`\mu` is location and :math:`\sigma` is t scale.
+* **Conditional mean:** :math:`\mathbb E[Y\mid x]=\mu` for :math:`\nu>1`; undefined otherwise.
+* **Conditional variance:** :math:`\operatorname{Var}(Y\mid x)=\sigma^2\nu/(\nu-2)` for :math:`\nu>2`; infinite for :math:`1<\nu\leq2`; undefined for :math:`\nu\leq1`.
+
+:math:`Y=\mu+\sigma T_\nu,\quad T_\nu\sim t_\nu`
 
 Public location and scale do not imply Gaussian variance. student_lss defaults to fixed df=5; scat has its own nuisance-parameter estimation convention.
 
@@ -144,73 +146,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/scat.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "link_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         0.61999,
-         0.94454,
-         0.82426,
-         0.11717,
-         0.2065,
-         0.92522
-       ]
-     },
-     "response_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         0.61999,
-         0.94454,
-         0.82426,
-         0.11717,
-         0.2065,
-         0.92522
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['response_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['link_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">link_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.61999</span><span class="example-result-value">0.94454</span><span class="example-result-value">0.82426</span><span class="example-result-value">0.11717</span><span class="example-result-value">0.2065</span><span class="example-result-value">0.92522</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">response_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.61999</span><span class="example-result-value">0.94454</span><span class="example-result-value">0.82426</span><span class="example-result-value">0.11717</span><span class="example-result-value">0.2065</span><span class="example-result-value">0.92522</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 Parameterization and interpretation
 -----------------------------------

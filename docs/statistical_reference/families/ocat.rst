@@ -3,13 +3,13 @@
 ocat
 ====
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** P(Y<=j)=sigmoid(c_j-eta), with ordered cutpoints c_j; class probabilities are successive cumulative differences.
-* **Natural domains:** eta in R; ordered fitted thresholds, C classes
-* **Conditional mean:** Class probabilities determine moments of encoded labels; predict_point chooses a class
-* **Conditional variance:** For integer labels: sum(j^2 p_j)-(sum(j p_j))^2
+   \Pr(Y\leq j)=\operatorname{sigmoid}(c_j-\eta),\quad p_j=F(c_j-\eta)-F(c_{j-1}-\eta)
+
+* **Natural domains:** :math:`\eta\in\mathbb R,\quad-\infty=c_{-1}<c_0<\cdots<c_{C-2}<c_{C-1}=\infty`
+* **Conditional mean:** For integer-encoded labels, :math:`\mathbb E[Y\mid x]=\sum_{j=0}^{C-1}jp_j`; point prediction chooses a class.
+* **Conditional variance:** :math:`\operatorname{Var}(Y\mid x)=\sum_{j=0}^{C-1}j^2p_j-\left(\sum_{j=0}^{C-1}jp_j\right)^2` for that encoding.
 
 References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
 
@@ -146,79 +146,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/ocat.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "link_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         -0.39645,
-         0.03923,
-         0.21566,
-         -0.19358,
-         -0.29333,
-         0.1378
-       ]
-     },
-     "response_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         94,
-         0
-       ],
-       "shape": [
-         96,
-         3
-       ],
-       "values": [
-         [
-           0.35353,
-           0.33274,
-           0.31373
-         ],
-         [
-           0.2613,
-           0.32461,
-           0.41409
-         ]
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['response_prediction']
-     - numpy.ndarray[float64]
-     - (96, 3)
-   * - result['link_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">link_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">-0.39645</span><span class="example-result-value">0.03923</span><span class="example-result-value">0.21566</span><span class="example-result-value">-0.19358</span><span class="example-result-value">-0.29333</span><span class="example-result-value">0.1378</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">response_prediction</span><span class="example-result-meta">ndarray[float64] · 96 × 3</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0.35353</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.33274</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>0.31373</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0.2613</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.32461</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>0.41409</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 96 rows.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 Implementation notes
 --------------------

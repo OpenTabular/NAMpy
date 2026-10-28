@@ -3,13 +3,13 @@
 beta
 ====
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** f(y)=y^(alpha-1)(1-y)^(beta-1)/B(alpha,beta), 0<y<1.
-* **Natural domains:** alpha>0; beta>0
-* **Conditional mean:** alpha/(alpha+beta)
-* **Conditional variance:** alpha beta/((alpha+beta)^2 (alpha+beta+1))
+   f(y)=\frac{y^{a-1}(1-y)^{b-1}}{\mathrm B(a,b)},\quad 0<y<1
+
+* **Natural domains:** :math:`a>0,\quad b>0`
+* **Conditional mean:** :math:`\mathbb E[Y\mid x]=\frac{a}{a+b}`
+* **Conditional variance:** :math:`\operatorname{Var}(Y\mid x)=\frac{ab}{(a+b)^2(a+b+1)}`
 
 References: `PyTorch probability distributions <https://docs.pytorch.org/docs/stable/distributions.html>`_. NAMpy defines its family transforms and point outputs below.
 
@@ -155,90 +155,11 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/families/beta.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. rubric:: parameters
+Example result
+~~~~~~~~~~~~~~
 
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
+.. raw:: html
 
-   * - alpha
-     - beta
-   * - 0.693149983882904
-     - 0.693149983882904
-   * - 0.693149983882904
-     - 0.693149983882904
-
-Full shape: ``[8, 2]``; omitted by axis: ``[6, 0]``.
-
-.. rubric:: raw
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - alpha
-     - beta
-   * - 0.0
-     - 0.0
-   * - 0.0
-     - 0.0
-
-Full shape: ``[8, 2]``; omitted by axis: ``[6, 0]``.
-
-.. code-block:: text
-
-   {
-     "loss": 0.2193497270345688,
-     "point": {
-       "kind": "array",
-       "omitted_by_axis": [
-         2
-       ],
-       "shape": [
-         8
-       ],
-       "values": [
-         0.5,
-         0.5,
-         0.5,
-         0.5,
-         0.5,
-         0.5
-       ]
-     }
-   }
-
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 4 named fields
-   * - result['raw']
-     - torch.Tensor[torch.float32]
-     - (8, 2)
-   * - result['parameters']
-     - torch.Tensor[torch.float32]
-     - (8, 2)
-   * - result['loss']
-     - torch.Tensor[torch.float32]
-     - ()
-   * - result['point']
-     - torch.Tensor[torch.float32]
-     - (8,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">loss</span><span class="example-result-meta">Tensor[float32] · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">0.21935</span></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">parameters</span><span class="example-result-meta">Tensor[float32] · 8 × 2</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>alpha</dt><dd><span>0.69315</span></dd></div><div class="example-result-coordinate"><dt>beta</dt><dd><span>0.69315</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>alpha</dt><dd><span>0.69315</span></dd></div><div class="example-result-coordinate"><dt>beta</dt><dd><span>0.69315</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 8 rows.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">point</span><span class="example-result-meta">Tensor[float32] · 8</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.5</span><span class="example-result-value">0.5</span><span class="example-result-value">0.5</span><span class="example-result-value">0.5</span><span class="example-result-value">0.5</span><span class="example-result-value">0.5</span></div><p class="example-result-note">Showing 6 of 8 values.</p></div></section><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">raw</span><span class="example-result-meta">Tensor[float32] · 8 × 2</span></summary><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>alpha</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>beta</dt><dd><span>0</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>alpha</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>beta</dt><dd><span>0</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 8 rows.</p></div></details><p class="example-result-footnote">Sample values are rounded for display.</p></div>

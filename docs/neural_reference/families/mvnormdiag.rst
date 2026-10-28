@@ -3,13 +3,15 @@
 mvnormdiag
 ==========
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** Y_i independently Normal(loc_i,scale_i^2) conditional on inputs; joint density is the product over dimensions.
-* **Natural domains:** loc_1,...,loc_D in R, then scale_1,...,scale_D>0
-* **Conditional mean:** loc vector
-* **Conditional variance:** Diagonal covariance diag(scale_i^2)
+   Y_j\mid x\sim\mathcal N(\mu_j,\sigma_j^2)
+
+* **Natural domains:** :math:`\mu_j\in\mathbb R,\quad\sigma_j>0,\quad j=1,\ldots,D`
+* **Conditional mean:** :math:`\mathbb E[Y\mid x]=\boldsymbol\mu`
+* **Conditional variance:** :math:`\operatorname{Cov}(Y\mid x)=\operatorname{diag}(\sigma_1^2,\ldots,\sigma_D^2)`
+
+Coordinates are conditionally independent; :math:`f(y\mid x)=\prod_{j=1}^Df_j(y_j\mid x)`
 
 References: `PyTorch probability distributions <https://docs.pytorch.org/docs/stable/distributions.html>`_. NAMpy defines its family transforms and point outputs below.
 
@@ -158,108 +160,11 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/families/mvnormdiag.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. rubric:: parameters
+Example result
+~~~~~~~~~~~~~~
 
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
+.. raw:: html
 
-   * - loc_0
-     - loc_1
-     - loc_2
-     - scale_0
-   * - 0.0
-     - 0.0
-     - 0.0
-     - 0.693149983882904
-   * - 0.0
-     - 0.0
-     - 0.0
-     - 0.693149983882904
-
-Full shape: ``[8, 6]``; omitted by axis: ``[6, 2]``.
-
-.. rubric:: raw
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - loc_0
-     - loc_1
-     - loc_2
-     - scale_0
-   * - 0.0
-     - 0.0
-     - 0.0
-     - 0.0
-   * - 0.0
-     - 0.0
-     - 0.0
-     - 0.0
-
-Full shape: ``[8, 6]``; omitted by axis: ``[6, 2]``.
-
-.. code-block:: text
-
-   {
-     "loss": 4.779330730438232,
-     "point": {
-       "kind": "array",
-       "omitted_by_axis": [
-         6,
-         0
-       ],
-       "shape": [
-         8,
-         3
-       ],
-       "values": [
-         [
-           0.0,
-           0.0,
-           0.0
-         ],
-         [
-           0.0,
-           0.0,
-           0.0
-         ]
-       ]
-     }
-   }
-
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 4 named fields
-   * - result['raw']
-     - torch.Tensor[torch.float32]
-     - (8, 6)
-   * - result['parameters']
-     - torch.Tensor[torch.float32]
-     - (8, 6)
-   * - result['loss']
-     - torch.Tensor[torch.float32]
-     - ()
-   * - result['point']
-     - torch.Tensor[torch.float32]
-     - (8, 3)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">loss</span><span class="example-result-meta">Tensor[float32] · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">4.7793</span></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">parameters</span><span class="example-result-meta">Tensor[float32] · 8 × 6</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>loc_0</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>loc_1</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>loc_2</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>scale_0</dt><dd><span>0.69315</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>loc_0</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>loc_1</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>loc_2</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>scale_0</dt><dd><span>0.69315</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 8 rows and 4 of 6 columns.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">point</span><span class="example-result-meta">Tensor[float32] · 8 × 3</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>0</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>0</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 8 rows.</p></div></section><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">raw</span><span class="example-result-meta">Tensor[float32] · 8 × 6</span></summary><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>loc_0</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>loc_1</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>loc_2</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>scale_0</dt><dd><span>0</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>loc_0</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>loc_1</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>loc_2</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>scale_0</dt><dd><span>0</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 8 rows and 4 of 6 columns.</p></div></details><p class="example-result-footnote">Sample values are rounded for display.</p></div>

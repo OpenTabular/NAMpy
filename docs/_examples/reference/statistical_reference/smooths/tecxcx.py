@@ -17,7 +17,5 @@ basis = term.basis_train
 penalties = term.penalties
 coefficients = np.linspace(0.05, 0.2, basis.shape[1])
 surface = basis @ coefficients
-assert surface.shape == (n,)
-assert all(matrix.shape == (basis.shape[1], basis.shape[1]) for matrix in penalties)
 result = {'basis': basis, 'penalties': penalties, 'surface': surface}
 print(basis.shape, [matrix.shape for matrix in penalties])

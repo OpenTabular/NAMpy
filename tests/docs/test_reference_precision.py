@@ -123,11 +123,11 @@ def test_extension_family_leads_with_supported_parameterization(name, reference)
     assert f"gamlss.dist::{reference}" in text
     assert "References: `mgcv" not in text
     if name == "student_lss":
-        assert text.index("finite and >2") < text.index("df>0")
+        assert text.index(r"2<\nu<\infty") < text.index(r"\nu>0")
     elif name == "beta_lss":
-        assert "mu*(1-mu)/(1+phi)" in text
+        assert r"\frac{\mu(1-\mu)}{1+\phi}" in text
     else:
-        assert "mu+alpha*mu^2" in text
+        assert r"\mu+\alpha\mu^2" in text
 
 
 def test_multinomial_contract_and_adapter_inventory_are_symbolic():

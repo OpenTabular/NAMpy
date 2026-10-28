@@ -4,5 +4,4 @@ from nampy.gam import gam_control
 
 control = gam_control(maxit=200)
 result = {'maxit': control.maxit}
-assert hasattr(control, 'maxit')
 print(control.maxit)

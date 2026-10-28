@@ -11,6 +11,7 @@ Implementation interfaces for building terms, registering architectures and exte
    smooths/index
    design
    term_construction
+   statistical/index
    Neural estimator extension </neural_reference/extensions/index>
    Neural implementation modules </neural_reference/internals>
    Statistical implementation modules </api/gam_advanced>

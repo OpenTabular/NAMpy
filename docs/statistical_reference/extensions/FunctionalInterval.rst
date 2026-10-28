@@ -20,56 +20,11 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/extensions/FunctionalInterval.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "fields": {
-       "critical_value": 1.959963984540054
-     },
-     "kind": "FunctionalInterval",
-     "omitted_fields": [
-       "estimate",
-       "standard_error",
-       "lower",
-       "upper",
-       "significant"
-     ]
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - nampy.gam.extensions.inference.FunctionalInterval
-     - scalar record
-   * - result.estimate
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result.standard_error
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result.lower
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result.upper
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result.critical_value
-     - builtins.float
-     - ()
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">result</span><span class="example-result-meta">FunctionalInterval · scalar record</span></div><div class="example-result-body"><dl class="example-result-fields"><div><dt>critical_value<span class="example-result-meta">float · scalar</span></dt><dd><span class="example-result-scalar">1.96</span></dd></div></dl><p class="example-result-note">5 additional fields available on the returned object.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p><p class="example-result-note">5 additional output fields are available in the returned result.</p></div>

@@ -19,11 +19,7 @@ Base Classes
 
 .. currentmodule:: nampy.neural.task
 
-.. autosummary::
-   :toctree: generated/
-   :nosignatures:
-
-   TaskModule
+The :doc:`training API <neural>` owns the ``TaskModule`` interface.
 
 .. currentmodule:: nampy.neural.architectures
 

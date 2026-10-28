@@ -68,74 +68,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/k_check.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "columns": [
-       "k_prime",
-       "edf",
-       "k_index",
-       "p_value"
-     ],
-     "kind": "table",
-     "omitted_by_axis": [
-       0,
-       0
-     ],
-     "shape": [
-       2,
-       4
-     ],
-     "values": [
-       [
-         6.0,
-         4.020579707819975,
-         1.1235005940607536,
-         1.0
-       ],
-       [
-         5.0,
-         1.000048893701336,
-         0.8218281859488787,
-         0.1
-       ]
-     ]
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - pandas.DataFrame
-     - (2, 4)
-   * - result['k_prime']
-     - int64
-     - (2,)
-   * - result['edf']
-     - float64
-     - (2,)
-   * - result['k_index']
-     - float64
-     - (2,)
-   * - result['p_value']
-     - float64
-     - (2,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">result</span><span class="example-result-meta">DataFrame · 2 × 4</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>k_prime</dt><dd><span>6</span></dd></div><div class="example-result-coordinate"><dt>edf</dt><dd><span>4.0206</span></dd></div><div class="example-result-coordinate"><dt>k_index</dt><dd><span>1.1235</span></dd></div><div class="example-result-coordinate"><dt>p_value</dt><dd><span>1</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>k_prime</dt><dd><span>5</span></dd></div><div class="example-result-coordinate"><dt>edf</dt><dd><span>1</span></dd></div><div class="example-result-coordinate"><dt>k_index</dt><dd><span>0.82183</span></dd></div><div class="example-result-coordinate"><dt>p_value</dt><dd><span>0.1</span></dd></div></dl></li></ol></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 .. automethod:: nampy.gam.GAM.k_check
    :no-index:

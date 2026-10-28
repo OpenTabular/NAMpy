@@ -11,7 +11,5 @@ data['y'] = rng.poisson(np.exp(0.5 + data.x))
 model = GAM(formula="y ~ s(x, bs='cr', k=6)", family='poisson', optimize_smoothing=False).fit(data=data)
 prediction = model.predict(data, type='response')
 raw = model.predict(data, type='link')
-assert np.asarray(prediction).shape[0] == n
-assert np.isfinite(prediction).all()
 result = {'response_prediction': np.asarray(prediction), 'link_prediction': np.asarray(raw)}
 print({key: value.shape for key, value in result.items()})

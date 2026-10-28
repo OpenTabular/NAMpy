@@ -9,6 +9,20 @@
     </li>
   {% endset %}
   {% set navigation = super() %}
+  {% set navigation = navigation.replace('<span class="caption-text">Reference</span>', '<a class="caption-text section-index" href="' ~ pathto('api/index') ~ '">Reference</a>') %}
+  {% set navigation = navigation.replace('<span class="caption-text">How-to Guides</span>', '<a class="caption-text section-index" href="' ~ pathto('howto/index') ~ '">How-to Guides</a>') %}
+  {% set module_section %}
+  {% if module_navigation %}
+  <p class="caption" role="heading"><span class="caption-text">Module code</span></p>
+  <ul class="module-code-navigation">
+    <li><a href="{{ module_index_uri|e }}"{% if module_index_active %} class="current" aria-current="page"{% endif %}>Module index</a>
+      <ul>{{ module_navigation|safe }}</ul>
+    </li>
+  </ul>
+  {% endif %}
+  {% endset %}
+  {% set development_heading = '<p class="caption" role="heading"><span class="caption-text">Development</span></p>' %}
+  {% set navigation = navigation.replace(development_heading, module_section ~ development_heading, 1) %}
   {{ navigation.replace('<li class="toctree-l1', home_item ~ '<li class="toctree-l1', 1)|safe }}
 {% endblock %}
 

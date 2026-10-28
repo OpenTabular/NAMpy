@@ -3,13 +3,15 @@
 binomial
 ========
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** Y successes in m trials; P(Y=y)=choose(m,y)p^y(1-p)^(m-y). Bernoulli is m=1.
-* **Natural domains:** p in [0,1]; positive trials m
-* **Conditional mean:** m p (p for proportions)
-* **Conditional variance:** m p(1-p) (p(1-p)/m for proportions)
+   \Pr(Y=y)=\binom{m}{y}p^y(1-p)^{m-y},\quad y\in\{0,\ldots,m\}
+
+* **Natural domains:** :math:`p\in[0,1],\quad m\in\mathbb N_{>0}`
+* **Conditional mean:** :math:`\mathbb E[Y\mid x]=mp,\quad\mathbb E[Y/m\mid x]=p`
+* **Conditional variance:** :math:`\operatorname{Var}(Y\mid x)=mp(1-p),\quad\operatorname{Var}(Y/m\mid x)=p(1-p)/m`
+
+Bernoulli when :math:`m=1`
 
 References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
 
@@ -136,73 +138,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/binomial.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "link_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         0.29603,
-         0.88744,
-         0.93062,
-         -0.59626,
-         -0.40322,
-         0.95066
-       ]
-     },
-     "response_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         0.57347,
-         0.70836,
-         0.7172,
-         0.3552,
-         0.40054,
-         0.72125
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['response_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['link_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">link_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.29603</span><span class="example-result-value">0.88744</span><span class="example-result-value">0.93062</span><span class="example-result-value">-0.59626</span><span class="example-result-value">-0.40322</span><span class="example-result-value">0.95066</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">response_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.57347</span><span class="example-result-value">0.70836</span><span class="example-result-value">0.7172</span><span class="example-result-value">0.3552</span><span class="example-result-value">0.40054</span><span class="example-result-value">0.72125</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 .. autoclass:: nampy.gam.families.binomial.BinomialLogitFamily
    :no-index:

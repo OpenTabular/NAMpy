@@ -45,98 +45,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/methods/basis_metadata.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "feature_names": {
-       "items": [
-         "x",
-         "z"
-       ],
-       "kind": "tuple",
-       "length": 2,
-       "omitted": 0
-     },
-     "frequencies": {
-       "kind": "array",
-       "omitted_by_axis": [
-         10
-       ],
-       "shape": [
-         16
-       ],
-       "values": [
-         -1.5647300481796265,
-         -1.1868300437927246,
-         -0.9289000034332275,
-         -0.7215200066566467,
-         -0.5414000153541565,
-         -0.3773899972438812
-       ]
-     },
-     "interaction_names": {
-       "items": [],
-       "kind": "tuple",
-       "length": 0,
-       "omitted": 0
-     },
-     "kernel_widths": {
-       "kind": "array",
-       "omitted_by_axis": [
-         0
-       ],
-       "shape": [
-         2
-       ],
-       "values": [
-         0.024630000814795494,
-         0.023809999227523804
-       ]
-     },
-     "omitted_fields": [
-       "phases",
-       "interaction_frequencies",
-       "interaction_phases"
-     ]
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 7 named fields
-   * - result['feature_names']
-     - tuple
-     - length 2
-   * - result['interaction_names']
-     - tuple
-     - length 0
-   * - result['kernel_widths']
-     - numpy.ndarray[float32]
-     - (2,)
-   * - result['frequencies']
-     - numpy.ndarray[float32]
-     - (16,)
-   * - result['phases']
-     - numpy.ndarray[float32]
-     - (2, 16)
+   <div class="example-result" aria-label="Example result"><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">feature_names</span><span class="example-result-meta">tuple · length 2</span></summary><div class="example-result-body"><ol class="example-result-sequence"><li><span class="example-result-scalar">x</span></li><li><span class="example-result-scalar">z</span></li></ol></div></details><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">frequencies</span><span class="example-result-meta">ndarray[float32] · 16</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">-1.5647</span><span class="example-result-value">-1.1868</span><span class="example-result-value">-0.9289</span><span class="example-result-value">-0.72152</span><span class="example-result-value">-0.5414</span><span class="example-result-value">-0.37739</span></div><p class="example-result-note">Showing 6 of 16 values.</p></div></section><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">interaction_names</span><span class="example-result-meta">tuple · length 0</span></summary><div class="example-result-body"><ol class="example-result-sequence"></ol></div></details><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">kernel_widths</span><span class="example-result-meta">ndarray[float32] · 2</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.02463</span><span class="example-result-value">0.02381</span></div></div></section><p class="example-result-footnote">Sample values are rounded for display.</p><p class="example-result-note">3 additional output fields are available in the returned result.</p></div>
 
 .. automethod:: nampy.models._base.NeuralEstimatorBase.basis_metadata
    :no-index:

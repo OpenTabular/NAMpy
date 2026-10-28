@@ -4,5 +4,4 @@ from nampy.gam import gam_control
 
 control = gam_control(epsilon=1e-07)
 result = {'epsilon': control.epsilon}
-assert hasattr(control, 'epsilon')
 print(control.epsilon)

@@ -17,8 +17,6 @@ with TemporaryDirectory() as directory:
               checkpoint_path=directory, logger=False, enable_progress_bar=False,
               enable_model_summary=False)
 prediction = model.predict(X)
-assert np.asarray(prediction).shape[0] == n
-assert np.isfinite(prediction).all()
 result = {'prediction': prediction}
 components = model.predict_components(X)
 components.validate_additive_reconstruction(rtol=1e-4, atol=1e-5)

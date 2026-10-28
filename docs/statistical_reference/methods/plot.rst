@@ -48,6 +48,8 @@ Prepared plotting data with Matplotlib figures, or figure collections as describ
      - one payload per plot or diagnostic
      - Numerical grids/effects and associated Matplotlib figures; the example schema below identifies each payload field and its concrete shape.
 
+For direct construction of a normalized prediction-grid mask, see :doc:`exclude_too_far </extension_reference/statistical/exclude_too_far>`. Its True entries indicate excluded grid nodes.
+
 Expanded plotting keyword arguments
 -----------------------------------
 
@@ -176,185 +178,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/methods/plot.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "by_resids": false,
-     "omitted_fields": [
-       "shift",
-       "trans",
-       "jit",
-       "select",
-       "scale",
-       "rug_default",
-       "figures"
-     ],
-     "partial_resids": false,
-     "pd": {
-       "items": [
-         {
-           "kind": "1d",
-           "omitted_fields": [
-             "clev",
-             "raw",
-             "xlab",
-             "ylab",
-             "main",
-             "xlim",
-             "fit",
-             "label",
-             "ll",
-             "ul",
-             "se_mult",
-             "se_fit",
-             "plot_ci",
-             "plot_me",
-             "scheme"
-           ],
-           "scale": true,
-           "se": {
-             "kind": "array",
-             "omitted_by_axis": [
-               24
-             ],
-             "shape": [
-               30
-             ],
-             "values": [
-               0.10094,
-               0.07465,
-               0.05973,
-               0.05086,
-               0.04519,
-               0.04239
-             ]
-           },
-           "x": {
-             "kind": "array",
-             "omitted_by_axis": [
-               24
-             ],
-             "shape": [
-               30
-             ],
-             "values": [
-               0.00373,
-               0.03793,
-               0.07213,
-               0.10633,
-               0.14053,
-               0.17473
-             ]
-           }
-         },
-         {
-           "kind": "1d",
-           "omitted_fields": [
-             "clev",
-             "raw",
-             "xlab",
-             "ylab",
-             "main",
-             "xlim",
-             "fit",
-             "label",
-             "ll",
-             "ul",
-             "se_mult",
-             "se_fit",
-             "plot_ci",
-             "plot_me",
-             "scheme"
-           ],
-           "scale": true,
-           "se": {
-             "kind": "array",
-             "omitted_by_axis": [
-               24
-             ],
-             "shape": [
-               30
-             ],
-             "values": [
-               0.0446,
-               0.04166,
-               0.03872,
-               0.03578,
-               0.03284,
-               0.0299
-             ]
-           },
-           "x": {
-             "kind": "array",
-             "omitted_by_axis": [
-               24
-             ],
-             "shape": [
-               30
-             ],
-             "values": [
-               0.00518,
-               0.03881,
-               0.07244,
-               0.10606,
-               0.13969,
-               0.17332
-             ]
-           }
-         }
-       ],
-       "kind": "list",
-       "length": 2,
-       "omitted": 0
-     },
-     "ylim": {
-       "items": [
-         -0.8174257720786204,
-         0.34582408483846444
-       ],
-       "kind": "tuple",
-       "length": 2,
-       "omitted": 0
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 11 named fields
-   * - result['pd']
-     - list
-     - length 2
-   * - result['ylim']
-     - tuple
-     - length 2
-   * - result['partial_resids']
-     - builtins.bool
-     - ()
-   * - result['by_resids']
-     - builtins.bool
-     - ()
-   * - result['shift']
-     - builtins.float
-     - ()
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">by_resids</span><span class="example-result-meta">bool · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">False</span></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">partial_resids</span><span class="example-result-meta">bool · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">False</span></div></section><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">pd</span><span class="example-result-meta">list · length 2</span></summary><div class="example-result-body"><ol class="example-result-sequence"><li><dl class="example-result-fields"><div><dt>kind<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">1d</span></dd></div><div><dt>scale<span class="example-result-meta">bool · scalar</span></dt><dd><span class="example-result-scalar">True</span></dd></div><div><dt>se<span class="example-result-meta">ndarray[float64] · 30</span></dt><dd><div class="example-result-values"><span class="example-result-value">0.10094</span><span class="example-result-value">0.07465</span><span class="example-result-value">0.05973</span><span class="example-result-value">0.05086</span><span class="example-result-value">0.04519</span><span class="example-result-value">0.04239</span></div><p class="example-result-note">Showing 6 of 30 values.</p></dd></div><div><dt>x<span class="example-result-meta">ndarray[float64] · 30</span></dt><dd><div class="example-result-values"><span class="example-result-value">0.00373</span><span class="example-result-value">0.03793</span><span class="example-result-value">0.07213</span><span class="example-result-value">0.10633</span><span class="example-result-value">0.14053</span><span class="example-result-value">0.17473</span></div><p class="example-result-note">Showing 6 of 30 values.</p></dd></div></dl><p class="example-result-note">15 additional fields available on the returned object.</p></li><li><dl class="example-result-fields"><div><dt>kind<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">1d</span></dd></div><div><dt>scale<span class="example-result-meta">bool · scalar</span></dt><dd><span class="example-result-scalar">True</span></dd></div><div><dt>se<span class="example-result-meta">ndarray[float64] · 30</span></dt><dd><div class="example-result-values"><span class="example-result-value">0.0446</span><span class="example-result-value">0.04166</span><span class="example-result-value">0.03872</span><span class="example-result-value">0.03578</span><span class="example-result-value">0.03284</span><span class="example-result-value">0.0299</span></div><p class="example-result-note">Showing 6 of 30 values.</p></dd></div><div><dt>x<span class="example-result-meta">ndarray[float64] · 30</span></dt><dd><div class="example-result-values"><span class="example-result-value">0.00518</span><span class="example-result-value">0.03881</span><span class="example-result-value">0.07244</span><span class="example-result-value">0.10606</span><span class="example-result-value">0.13969</span><span class="example-result-value">0.17332</span></div><p class="example-result-note">Showing 6 of 30 values.</p></dd></div></dl><p class="example-result-note">15 additional fields available on the returned object.</p></li></ol></div></details><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">ylim</span><span class="example-result-meta">tuple · length 2</span></summary><div class="example-result-body"><ol class="example-result-sequence"><li><span class="example-result-scalar">-0.81743</span></li><li><span class="example-result-scalar">0.34582</span></li></ol></div></details><p class="example-result-footnote">Sample values are rounded for display.</p><p class="example-result-note">7 additional output fields are available in the returned result.</p></div>
 
 .. automethod:: nampy.gam.GAM.plot
    :no-index:

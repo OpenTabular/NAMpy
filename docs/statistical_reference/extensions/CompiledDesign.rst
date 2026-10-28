@@ -20,106 +20,11 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/extensions/CompiledDesign.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "evaluation": {
-       "fields": {},
-       "kind": "DesignEvaluation",
-       "omitted_fields": [
-         "matrix",
-         "offset"
-       ]
-     },
-     "matrix": {
-       "kind": "array",
-       "omitted_by_axis": [
-         94,
-         2
-       ],
-       "shape": [
-         96,
-         6
-       ],
-       "values": [
-         [
-           1.0,
-           0.70001,
-           0.3,
-           -0.00175
-         ],
-         [
-           1.0,
-           1.17318,
-           -0.51508,
-           -1.38823
-         ]
-       ]
-     },
-     "omitted_fields": [
-       "terms"
-     ],
-     "penalty": {
-       "kind": "array",
-       "shape": [
-         6,
-         6
-       ],
-       "values": "omitted; see shape contract"
-     },
-     "training_offset": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         0.0252,
-         0.37219,
-         0.03035,
-         0.12289,
-         0.96715,
-         0.65776
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 5 named fields
-   * - result['matrix']
-     - numpy.ndarray[float64]
-     - (96, 6)
-   * - result['penalty']
-     - numpy.ndarray[float64]
-     - (6, 6)
-   * - result['training_offset']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['evaluation']
-     - nampy.gam.design.DesignEvaluation
-     - scalar record
-   * - result['terms']
-     - tuple
-     - length 1
+   <div class="example-result" aria-label="Example result"><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">evaluation</span><span class="example-result-meta">DesignEvaluation · scalar record</span></summary><div class="example-result-body"><dl class="example-result-fields"></dl><p class="example-result-note">2 additional fields available on the returned object.</p></div></details><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">matrix</span><span class="example-result-meta">ndarray[float64] · 96 × 6</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>1</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.70001</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>0.3</span></dd></div><div class="example-result-coordinate"><dt>column 4</dt><dd><span>-0.00175</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>1</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>1.1732</span></dd></div><div class="example-result-coordinate"><dt>column 3</dt><dd><span>-0.51508</span></dd></div><div class="example-result-coordinate"><dt>column 4</dt><dd><span>-1.3882</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 96 rows and 4 of 6 columns.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">penalty</span><span class="example-result-meta">ndarray[float64] · 6 × 6</span></div><div class="example-result-body"><p class="example-result-note">Values omitted; dimensions shown above.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">training_offset</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.0252</span><span class="example-result-value">0.37219</span><span class="example-result-value">0.03035</span><span class="example-result-value">0.12289</span><span class="example-result-value">0.96715</span><span class="example-result-value">0.65776</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p><p class="example-result-note">1 additional output fields are available in the returned result.</p></div>

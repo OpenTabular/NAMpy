@@ -126,7 +126,7 @@
   },
   "api/generated/nampy.plotting.add_density_shading": {
     "preview_version": 2,
-    "sha256": "85a20e3a039c4f613e1bb4886dc26c03909af6c7f126ea22ef9f83b16c8382c7",
+    "sha256": "4005bf4983cdf37c402407c3bbd4885e87f25b6f17f061534c76142230b74c6a",
     "status": "passed"
   },
   "api/generated/nampy.plotting.combine_distributional_effects": {
@@ -136,12 +136,12 @@
   },
   "api/generated/nampy.plotting.plot_distributional_effects": {
     "preview_version": 2,
-    "sha256": "0d30aa3464b95dc1cd0c8c8e8de738d1f5cb5fa780f7b847abb9dde8aaa67fea",
+    "sha256": "e95521c04227f608e46900bd1c2905f52d54cbc91137a37500e3d4ae941fdccb",
     "status": "passed"
   },
   "api/generated/nampy.plotting.prepare_distributional_effects": {
     "preview_version": 2,
-    "sha256": "e43baf59f3eb0e462ac840929af60db32539577aef6031770938443f53c40a28",
+    "sha256": "15bc297c0a4a80ff400bdd1367ce863bf629c5f302978d7b574fd54944be45b2",
     "status": "passed"
   },
   "api/generated/nampy.plotting.prepared_from_contributions": {
@@ -176,527 +176,567 @@
   },
   "api/neural_training": {
     "preview_version": 2,
-    "sha256": "496c8a7e86c5ff7e26e4a5819eca634b522ee51a5b9c5235bba6d625e0d88eb5",
+    "sha256": "c6d25e553f3f62e3b1e189afe5d8e8e4c044b1d375c8590ac5f2e75bf373c1fd",
+    "status": "passed"
+  },
+  "extension_reference/statistical/DaviesAlgorithm": {
+    "preview_version": 2,
+    "sha256": "58783aca958cdc8558ce30ed3ebe1b8e43124f860648ac34db0f714b7ad7268e",
+    "status": "passed"
+  },
+  "extension_reference/statistical/exclude_too_far": {
+    "preview_version": 2,
+    "sha256": "5327325d5a0f2a88e742a935e256f786ba2dad7154b349737fc7309e210cb68e",
+    "status": "passed"
+  },
+  "extension_reference/statistical/liu2": {
+    "preview_version": 2,
+    "sha256": "9a087a98ea1bc9e6965703c01bbd035649ee6095d0775e756abc2a3c77e4d0c2",
+    "status": "passed"
+  },
+  "extension_reference/statistical/n_free_smoothing_params": {
+    "preview_version": 2,
+    "sha256": "222805e0e2c06fe5377c9545ac978ad4da1b7b1ca7ced7af3a3544b8422916da",
+    "status": "passed"
+  },
+  "extension_reference/statistical/optimizer_endpoint_diagnostics": {
+    "preview_version": 2,
+    "sha256": "73f2c0f9946272d954fce21d6475d70fffaab584ef45b42dbaeb561e5a9a36d7",
+    "status": "passed"
+  },
+  "extension_reference/statistical/psum_chisq": {
+    "preview_version": 2,
+    "sha256": "a7fbc70613b01bde5e997a2e2277932ca8b0c96eb65763826801faac1f45eedf",
+    "status": "passed"
+  },
+  "extension_reference/statistical/resolve_smoothing_method": {
+    "preview_version": 2,
+    "sha256": "1e3d7b111e1243cc37b546bd393855a409bd7fd8e33371d63f858ad4c05292dd",
+    "status": "passed"
+  },
+  "extension_reference/statistical/supports_smoothing_method": {
+    "preview_version": 2,
+    "sha256": "7be93a65f6ec0aa0c7dbcac5384d62d9b9c2cb34ad4f9bc9197f4d47dff083ec",
     "status": "passed"
   },
   "neural_reference/ensemble_treenam": {
     "preview_version": 2,
-    "sha256": "2f9a6fd8a623b1a2b08c5997518ea4ba7ad875a601586bd60fc8e894c748871f",
+    "sha256": "e25175a0cd9556b73fb196447387d5852497d6a9db5751133653ed191e537f44",
     "status": "passed"
   },
   "neural_reference/estimators/EnsembleTreeNAMClassifier": {
     "preview_version": 2,
-    "sha256": "3daa8bca8a918aafceffd256990a784d85e74cbe610c2a37301aaab19dd4b597",
+    "sha256": "9b86d5119a605c7ee894a23c9670850fab6a9c5ae38ae4792b258d1735a1135d",
     "status": "passed"
   },
   "neural_reference/estimators/EnsembleTreeNAMLSS": {
     "preview_version": 2,
-    "sha256": "1db2907098ccc7fd5e437655d48eaf62ddbe6f42e03f5923a69823fe8b3d63ed",
+    "sha256": "04572da528dfa97c4882eeeaec4e3ea44206b3e8fdfde79d98e6f06afba040a0",
     "status": "passed"
   },
   "neural_reference/estimators/EnsembleTreeNAMRegressor": {
     "preview_version": 2,
-    "sha256": "03ece8f49e17c0ba9682b8c93e494eff7079360bf95417345ca9fe465c7324a0",
+    "sha256": "2e35addca21060af0e8650fa054b6d3b1ded55dad847ab635a86e8f6c363dfcb",
     "status": "passed"
   },
   "neural_reference/estimators/GPNAMClassifier": {
     "preview_version": 2,
-    "sha256": "2429c7c71760adde3074ea63cadff0b6069c1439473b1eec8d6a53641a19235e",
+    "sha256": "9e6b45e37cea0cdc0caca727edb567b50284d69cde40e905a77d7680bbd01cbe",
     "status": "passed"
   },
   "neural_reference/estimators/GPNAMLSS": {
     "preview_version": 2,
-    "sha256": "d2f2ea23bf6cf21a41bcec1c9205199688def8e9159ce8f380890554b2732ad7",
+    "sha256": "85721ef080c1003ac534f89e14b2284e1a733c4d771d0a95a6b7eb48b9d0d6d3",
     "status": "passed"
   },
   "neural_reference/estimators/GPNAMRegressor": {
     "preview_version": 2,
-    "sha256": "b74a6d80f65d20890772452647b6c7260a3b8c464b657fde70618333f147aa29",
+    "sha256": "a7a4c7bde66d6135934d6067bd29a02ab302d328730ba9e78ad12998ce8ab5da",
     "status": "passed"
   },
   "neural_reference/estimators/IGANNClassifier": {
     "preview_version": 2,
-    "sha256": "09af4e817ec79a43825ad62906d286aadd217884fe139350bea712d46d1c5dd8",
+    "sha256": "3c6e84c0474b87a91c4d632909777e793984929b7a8ebe17aa61d056d73f8614",
     "status": "passed"
   },
   "neural_reference/estimators/IGANNLSS": {
     "preview_version": 2,
-    "sha256": "d21a0e12c3a0c59ef984bbd6b7dd8ace794247a975a237cd2461116f72fa8af0",
+    "sha256": "122f93892acf64afb7511c82c3722fa436a6708fef5f746825c2dc084f8a3330",
     "status": "passed"
   },
   "neural_reference/estimators/IGANNRegressor": {
     "preview_version": 2,
-    "sha256": "24d86c1a3e7574666969d1293b334476d96e955e7cbabe2c74edd6c88daed309",
+    "sha256": "367cf80f31324fcde91445264173a22759399d2f678f03035e265632b2f85576",
     "status": "passed"
   },
   "neural_reference/estimators/LinRegClassifier": {
     "preview_version": 2,
-    "sha256": "0435dd2a00c0bf3f5bb75ec3a23f4a73c5b17b1e1937bd55e5a005e405112b9a",
+    "sha256": "79b7d98785e1788cc2f295cceefa2914d2ea14b23263a744a3f822e7af84437f",
     "status": "passed"
   },
   "neural_reference/estimators/LinRegLSS": {
     "preview_version": 2,
-    "sha256": "fb8c1031301097a941f0c951436b0a99fae717114a0347d05b40b093b4bda9fe",
+    "sha256": "4d439d11a875b9ff5391f5e02a5c954bc2c3e27ef521d08a70994cd0c7a01ad6",
     "status": "passed"
   },
   "neural_reference/estimators/LinRegRegressor": {
     "preview_version": 2,
-    "sha256": "e7cfda9d8bfa831835e17293f62aa3f7ceed10aff0ffe034a59078ef97341a1a",
+    "sha256": "f3b8ea14b887f347bc0ed5f1380f5b17849ba3adc44a1318cb864f4b02fff3d2",
     "status": "passed"
   },
   "neural_reference/estimators/NAMClassifier": {
     "preview_version": 2,
-    "sha256": "864a98f5d0e9f9b5f4b23fbfb0a6416a43127e809828cc977e5a9c9370e3fae1",
+    "sha256": "e1cb5c11a33160bf3e3b8749e166c95c5f8d29ff649f2d6b8f1be5c02a851fb8",
     "status": "passed"
   },
   "neural_reference/estimators/NAMLSS": {
     "preview_version": 2,
-    "sha256": "d59e0e123d7291d69fa8a8543de6b85b6cabdcc48a4398272c380f6cb43d2c47",
+    "sha256": "c88955d61f2d0004a00c31fccc25250cdb11f9adeec65c7f29abcdb5bb6a4ef7",
     "status": "passed"
   },
   "neural_reference/estimators/NAMRegressor": {
     "preview_version": 2,
-    "sha256": "89b00fcd1c87d6b69ef3245344a3b5a90d15da256cb7edba26f6fa59fc507774",
+    "sha256": "b00cc72e02ef4331c4f624ba5b8904d2bd62074079f70f17417d0c0f18b259d3",
     "status": "passed"
   },
   "neural_reference/estimators/NAMformerClassifier": {
     "preview_version": 2,
-    "sha256": "e020d81fb7a85b850e51b330884cc579f5cf7d07e2a1c9cc169cbab33cf877f9",
+    "sha256": "266f1023bd00a316023eaf6ab6a8a06a3c96387872f08f497ed30e71069ed94d",
     "status": "passed"
   },
   "neural_reference/estimators/NAMformerLSS": {
     "preview_version": 2,
-    "sha256": "19be2ff69bd662b47f431fd8f6cac37aa97e3e30a059eb4f7d14695ed7b87a81",
+    "sha256": "b97cddd976ed3a0e1bc3b4b1b6b1d1ac23b1424d45bb7bb9afecb38667f7b23b",
     "status": "passed"
   },
   "neural_reference/estimators/NAMformerRegressor": {
     "preview_version": 2,
-    "sha256": "7b6e0650aed32fac693106c366277552a72cdd40b7e5618d1a3938a554436c0e",
+    "sha256": "923ed07fdeb75a9e03d5849129bf9983b861aa3a8a64df9716456cbe4651dd97",
     "status": "passed"
   },
   "neural_reference/estimators/NATTClassifier": {
     "preview_version": 2,
-    "sha256": "58a47f52606f5b1fe0aefdc965360acde346e132f4aab42f6398852b14efc5a6",
+    "sha256": "38926b8954a21c86fb80d0578f6c60c14ca71eac2c0d0373b7df52227ac87404",
     "status": "passed"
   },
   "neural_reference/estimators/NATTLSS": {
     "preview_version": 2,
-    "sha256": "656ce0f4d1d3c3f7f3d7b08bf6d1f343f4bed80b10474bacc63543d507e3c53a",
+    "sha256": "bad08757d4b3aa179f882dc4193784cedcdaf6d11f2a55c201b73fbc6f2240fc",
     "status": "passed"
   },
   "neural_reference/estimators/NATTRegressor": {
     "preview_version": 2,
-    "sha256": "412ee8216091cd5707864ecbcd5509c2f5a21899a213744f2f4f70be2d9260aa",
+    "sha256": "b2f824d9a0dea99b688ccbd04ffa808836058c5e703be4c7bcfaac70a57b1751",
     "status": "passed"
   },
   "neural_reference/estimators/NBMClassifier": {
     "preview_version": 2,
-    "sha256": "4bff8b0522462d064fa8bfeaea3543e85e43fa264da08473ea48461797585d0a",
+    "sha256": "2144d47c9b0d4c44270bf69c88416bab6670371cea261ed9fed6f194372061c0",
     "status": "passed"
   },
   "neural_reference/estimators/NBMLSS": {
     "preview_version": 2,
-    "sha256": "fea0d01d8a3cda35489cb25452d7d42fead7ebda1bb1f9e787ba766ef58e282d",
+    "sha256": "24bea042f6768a91c3e7fc731d1d278a50235d05a468bc70ea8df292ca8ae659",
     "status": "passed"
   },
   "neural_reference/estimators/NBMRegressor": {
     "preview_version": 2,
-    "sha256": "bc2d030b6878272a5421222053ffab787e4b161c70ef473b765ce58ea9b0b5e2",
+    "sha256": "7832f3d3341def905fb72def38577f01ad8329b372b1b6f80c65a68933bec91c",
     "status": "passed"
   },
   "neural_reference/estimators/NBMSPAMClassifier": {
     "preview_version": 2,
-    "sha256": "99912cadb7bf2c195d9bc068218802f843933dd001c739498f7f9b7847e58608",
+    "sha256": "9089164767bb64a71688581d90f1daedf360a152847e9649a02a01c91eda0db9",
     "status": "passed"
   },
   "neural_reference/estimators/NBMSPAMLSS": {
     "preview_version": 2,
-    "sha256": "b715100bcbce851975fc5351d289e324e5a7f85e44c3169d4b8150f267db72ca",
+    "sha256": "5ee485fd02d1d0b9aa7a762bc2cb9824a2997036d07ef64a59d35b2947617857",
     "status": "passed"
   },
   "neural_reference/estimators/NBMSPAMRegressor": {
     "preview_version": 2,
-    "sha256": "216269c301c93c8d24c72c998a438ece904bbb1d1ca99ae4900049d5cad9fe91",
+    "sha256": "fb5af24ff8d560c21ed9d5c6c63282374b7a1db8d76192fc29672b964fcf0c3d",
     "status": "passed"
   },
   "neural_reference/estimators/NodeGAMClassifier": {
     "preview_version": 2,
-    "sha256": "14fd26b30a12d6eec37e27b792187bcaa7431ec29c8a42f198a1d26436a6c3b6",
+    "sha256": "437674925ba63b2b59e1f76be62a86c09848acfcbd1dcf3915cdb804a0fe1e68",
     "status": "passed"
   },
   "neural_reference/estimators/NodeGAMLSS": {
     "preview_version": 2,
-    "sha256": "ba535cd2197caa183bd5c1806ef67f311a0d035a5170840845023b1e7e6415d7",
+    "sha256": "450a7d72d2c5b9945f107ed414ebedab8a3b63789786fa9a2f76e8c49fefeac4",
     "status": "passed"
   },
   "neural_reference/estimators/NodeGAMRegressor": {
     "preview_version": 2,
-    "sha256": "62780bb74ab84abd2a4ef13edcedaf31b7253ada05b5b48e23443a8dd0ebcda4",
+    "sha256": "4c43fbe75d3f22b9c26b0ad05f898b960cb3394c93fafeb2e3fce41c83fc4a34",
     "status": "passed"
   },
   "neural_reference/estimators/QNAMLSS": {
     "preview_version": 2,
-    "sha256": "807b977b0c15f2442a42c8c7534b8ec49a5d8aa38320ee08c90be9fe0d00a780",
+    "sha256": "9165aa904cec16e16655a93dfcf8eab84498cf1f208b21456fc254c3c2c277ba",
     "status": "passed"
   },
   "neural_reference/estimators/SIANClassifier": {
     "preview_version": 2,
-    "sha256": "999f2b2a7f89a3fae74ae8561e51b07ddcdc50cdd0e926ffa1615acba1e2f650",
+    "sha256": "ad7f1f87282ed4e1ccc783e403d5481a04e06eeb67195a3ded517a74ff52460e",
     "status": "passed"
   },
   "neural_reference/estimators/SIANLSS": {
     "preview_version": 2,
-    "sha256": "0c0c5045ececf16048b5adddae7e1b9b5eb49eda8ee3aafa6c61dbb530e76054",
+    "sha256": "8de38b00ad989c86d0860b2e2e69c8a43f7526628a58e5d3dc8692f0e0dbc77c",
     "status": "passed"
   },
   "neural_reference/estimators/SIANRegressor": {
     "preview_version": 2,
-    "sha256": "23d569c870edfda1d502acb28f4fb6a74bf8cd49360811697ccb6d9000abe2e2",
+    "sha256": "5c45fedeb54c5ad2514b60bdf2655e140fb2dfe8cbeae6dea7cdd1ea7a41e6da",
     "status": "passed"
   },
   "neural_reference/estimators/SNAMClassifier": {
     "preview_version": 2,
-    "sha256": "19f5e4e884178327753fbde825155eda751c976a7808b7cace1761914f07d26f",
+    "sha256": "00a5765f903d8dd150af050d1e16236cf2479fb0a6a60e55bac7000668f670d4",
     "status": "passed"
   },
   "neural_reference/estimators/SNAMLSS": {
     "preview_version": 2,
-    "sha256": "79afd463075a15bcfbeec97494dbce9c38248a01ea3eaa188656612013ebb4d2",
+    "sha256": "deeff56fe247cd7377e1334a02373ddc126ec6b5ed7d8b738dbe5fc77c71c6b0",
     "status": "passed"
   },
   "neural_reference/estimators/SNAMRegressor": {
     "preview_version": 2,
-    "sha256": "9cb5d5c0f58bb7829a193ca77df586fd8fedffe5c855ef81c1020d99530a3801",
+    "sha256": "d6b457237b3e5b93a8a9e82a77d308fe40144c996fa284bf6b722743c16dfda6",
     "status": "passed"
   },
   "neural_reference/estimators/SPAMClassifier": {
     "preview_version": 2,
-    "sha256": "8296213ea73eac1f6cde19735a8cce8d9811da402dacc05a7d2933a34410af83",
+    "sha256": "b50ff3f870c837a5a020f519a2ee00e0e4f0ce780ece26d10f21d38b97dcff57",
     "status": "passed"
   },
   "neural_reference/estimators/SPAMLSS": {
     "preview_version": 2,
-    "sha256": "e2b3a35db432985abea4ed2194ddce68dd1481d368c40ea8eda655047fcf5acb",
+    "sha256": "850bf96280aaf6108667f2965ff80edbd154d667e4dfacf8f6ae5e49bccbfee7",
     "status": "passed"
   },
   "neural_reference/estimators/SPAMRegressor": {
     "preview_version": 2,
-    "sha256": "c16b7f5fecd7822224928bd13995993636c7ba027c6f42940a4f95fe053b2934",
+    "sha256": "5da9946a1cad0a13c271a9ef8be74074c28b719da9d5481b3eb385f695867c88",
     "status": "passed"
   },
   "neural_reference/estimators/SplineNAMRegressor": {
     "preview_version": 2,
-    "sha256": "c28443af178dfcdf5dee6fb6739d475a21f7c5e12cdd2ce5bdab7f88fce0f2bc",
+    "sha256": "d275c402ede5f5b95327a43865bd45e0ea816ac35d1ec707a12d6c1091bf3047",
     "status": "passed"
   },
   "neural_reference/estimators/TreeNAMClassifier": {
     "preview_version": 2,
-    "sha256": "224eb91578fb7abda64c1f785b844311e6fb27421b3e7f13683d381f363c2909",
+    "sha256": "fdf8a8c3eb71f5b7777e6fb9bcf2e38f743fd5841c6b1898ec753bdbfd977858",
     "status": "passed"
   },
   "neural_reference/estimators/TreeNAMLSS": {
     "preview_version": 2,
-    "sha256": "f181bbfe8062f6a6c602c7ffd1f6c0d6e0a08d77e0cc85df5c0c68254db773b5",
+    "sha256": "faac2207d60fff2e7e3e1bf0257ed9c38433f7ebfbc4f50eb620aecd5bc73a24",
     "status": "passed"
   },
   "neural_reference/estimators/TreeNAMRegressor": {
     "preview_version": 2,
-    "sha256": "20672c2d8be715b04c39ff4266125ee10d05449c6812ee6e6d2a9dca64ce564f",
+    "sha256": "b93a012013df583fe0668afd536b248b9db6a83907f2516a313d59d5d5693555",
     "status": "passed"
   },
   "neural_reference/extensions/NeuralClassifier": {
     "preview_version": 2,
-    "sha256": "48c58553b65fa6f84a2ed95cbb4eddf3e707bb54dbd5bac12808bed4dd8b74e2",
+    "sha256": "96aa363e132793c83cb8bf69060dcab96a3a29c73b5dbff0da198d9a7fcdc1ef",
     "status": "passed"
   },
   "neural_reference/extensions/NeuralEnsemble": {
     "preview_version": 2,
-    "sha256": "83849b794463d90f083cfd374c0ce75a86f5e4a580be0621c027e03bf9059542",
+    "sha256": "3569c3f6bfa7a0fba91b3af2e94ccefd3eb4653e598f927632b3fd0478aeb4c3",
     "status": "passed"
   },
   "neural_reference/extensions/NeuralEstimatorFamily": {
     "preview_version": 2,
-    "sha256": "eb1967bd29cf6b04ac34ad9d5848974ff184708d71f022ab04580d712ff9e553",
+    "sha256": "ebbb1b363f8af3eb24e29001ed162bf21f522190a911d730416fdfa7703f2f79",
     "status": "passed"
   },
   "neural_reference/extensions/NeuralLSS": {
     "preview_version": 2,
-    "sha256": "e7a1d0b1915aefd12a3088578d9a51f595911d2fc591b64f3b17bc2e91a5fbff",
+    "sha256": "59735c9b9849b30f775a17733745508d49f98bd0b5e89cf85eb8aecd7983e391",
     "status": "passed"
   },
   "neural_reference/extensions/NeuralRegressor": {
     "preview_version": 2,
-    "sha256": "72707c6cea2d6d5318c8b0368ccc5f432100631bff3f74901ccfebf32a4da982",
+    "sha256": "26fd021dae91ef02cea4c8aa967085e04200b320b28e80c1a519e947e9bd9e66",
     "status": "passed"
   },
   "neural_reference/extensions/estimator_family": {
     "preview_version": 2,
-    "sha256": "0add69451af97371aee2cf336348b03a3a09bae3ff30b44b21c3b90e7134282c",
+    "sha256": "6f73afe42a8d834b5e2eb866746b79edc2e90e68e6e10e2585cdee008a3f0298",
     "status": "passed"
   },
   "neural_reference/families/beta": {
     "preview_version": 2,
-    "sha256": "1f84d42ef822bae3e4cc1422b661723790ce7b8240a2fe08623cfe980e95e64f",
+    "sha256": "c603a4cef4a7c0a4e285f6b51f04f6ec10b62bef4f92d594a31b5926033a522e",
     "status": "passed"
   },
   "neural_reference/families/categorical": {
     "preview_version": 2,
-    "sha256": "82b6aab1977a92c52fdc19ba495de553b4141d51975cd060986cc4c427ec6e48",
+    "sha256": "1c0c120192ffe5abcfdead0b025299a87105fdf108d74bfc3b8e483fdc685620",
     "status": "passed"
   },
   "neural_reference/families/dirichlet": {
     "preview_version": 2,
-    "sha256": "d393e350ce92d91b069069cdc35c1fe3f4c85c25387bb1f94a6b2580a16f94f5",
+    "sha256": "e3368019dd3a2efa3bd793428dc345a774868b9ff970981833a14b3ba009e383",
     "status": "passed"
   },
   "neural_reference/families/gamma": {
     "preview_version": 2,
-    "sha256": "125cf77ce226d47d043191e68c77ba64aee3766979ae86fd128d2f9e83342191",
+    "sha256": "740b95e43fe57567741ea0f9321bfa256a8c6c59fe04fcca402c185acd412893",
     "status": "passed"
   },
   "neural_reference/families/hurdlenegativebinom": {
     "preview_version": 2,
-    "sha256": "4fbdd7afbe5c3d09718c47cd41e9c52a46ce0641e489a76c05f1299ebf63dd05",
+    "sha256": "588f8bb6331cac35672f7503c5305e5363940bfe9cb8f1392ea9e96ab86eb513",
     "status": "passed"
   },
   "neural_reference/families/hurdlepoisson": {
     "preview_version": 2,
-    "sha256": "68218bb1f93f016d23cd98a4411281e91a9a302f755cfc46b17b8ff46f10efd5",
+    "sha256": "0669a649dabebecf29ca268fd1c507fab62b6b237ebdd15d521d546e3c648e92",
     "status": "passed"
   },
   "neural_reference/families/inversegamma": {
     "preview_version": 2,
-    "sha256": "ae96b66d8371d57de4770558f7188d82718e536e6cfa45f4bd40193e59e0241a",
+    "sha256": "1c799b0f58f9c581c54926b89f1a3dd5ad5ad158da0da5c7e7da9361bbb38361",
     "status": "passed"
   },
   "neural_reference/families/loglogistic": {
     "preview_version": 2,
-    "sha256": "3a365ccb2ccc52836c8f10cb35a8276b1bb4fd3daf449d20f467ebf7be73e270",
+    "sha256": "b8bf4f9dfa0a45126e5691b76c0f376963e7e0b96e198e168ded2fc7c95d624c",
     "status": "passed"
   },
   "neural_reference/families/lognormal": {
     "preview_version": 2,
-    "sha256": "c26c7912d804859a8a0389b5851eec2c72fcce66d4e8d526b3759b3598eacfbe",
+    "sha256": "93c2686de39d6a6db0e700854e840b22aaf9e98544f1d4c10aaef62ca4b9d6f0",
     "status": "passed"
   },
   "neural_reference/families/mvnormdiag": {
     "preview_version": 2,
-    "sha256": "2b32ac92b4aae628f3b0a344135c2bbb83c6d34379d6dfa87b494a267718e2ba",
+    "sha256": "3cb9c3acab6ff9aad06ebf7c3e372a9bb08d3d77f419df897863e42404ca3da8",
     "status": "passed"
   },
   "neural_reference/families/negativebinom": {
     "preview_version": 2,
-    "sha256": "6fbe1bc9d8ee8a181d07a797d23a1a9a478fb3a63ce0d212bb7512b55039559e",
+    "sha256": "b0fa92e26f74a6f6ad583394997585cf03b0ff4daf73d1852bdcf1ef6993d2be",
     "status": "passed"
   },
   "neural_reference/families/normal": {
     "preview_version": 2,
-    "sha256": "821db10833e1e1d358a92e12aaf8ed629dfc742e03aecd450d09df1116f6163f",
+    "sha256": "4fa161e1e895d77c0aa0cf89d7da8f7d447f612b48e638e4211d9a5424d296fd",
     "status": "passed"
   },
   "neural_reference/families/ordinal": {
     "preview_version": 2,
-    "sha256": "b506dfd58c87368c41e0d7469e1484cb74c4bebe889ae1f152248f40a0803175",
+    "sha256": "c95403105ab98f7d0df717c3c7cec4dc0b1bfa5c3e7e758523d02244e05eced4",
     "status": "passed"
   },
   "neural_reference/families/poisson": {
     "preview_version": 2,
-    "sha256": "0378c73d2200974072d5eea0366ef6b18b77fe6fee5a02605de52d68ef675191",
+    "sha256": "09d5c88809e331fd8207b05c5a7860e18c8fd75715ff3dddadb5333add09a42c",
     "status": "passed"
   },
   "neural_reference/families/quantile": {
     "preview_version": 2,
-    "sha256": "8377edca6efe5db41412cb991d829fbe6ca6bfb5d23fedb7395326987acf9b36",
+    "sha256": "6231b22b662a4026c62e3f80eaab85cc1f2b5ae05911750ab7b6ba692c583f56",
     "status": "passed"
   },
   "neural_reference/families/robustnormal": {
     "preview_version": 2,
-    "sha256": "115f53634b22d0a971c2446039c6e58d6ad9b1fdc00c0b6bcfee5fc97c15c584",
+    "sha256": "dcb8612e8f1283696553a4d2fec1a913711d121d0b856a6bd4b8e4f8ceacffdd",
     "status": "passed"
   },
   "neural_reference/families/studentt": {
     "preview_version": 2,
-    "sha256": "de91da56ee12ff8f79a9a9909ae459104dbb94f451086464c331ef21cc77e352",
+    "sha256": "25486789fccf032febf3e4d0120762d0bc125b3273a3e9fe20127112dcbc4ab2",
     "status": "passed"
   },
   "neural_reference/families/tweedie": {
     "preview_version": 2,
-    "sha256": "eca57121695cfcf6dc55ea9d7dbeebc04d52a861693f8ba47fc143d21b2797b3",
+    "sha256": "919bc4fe950db61a7b821e5b00d2eaadd41fc685f4e2cc1bdbce3e7a75445197",
     "status": "passed"
   },
   "neural_reference/families/weibull": {
     "preview_version": 2,
-    "sha256": "a62dee4387c64933c4dff478987faf8ba92277771793a3fd64f1bc8f51722e83",
+    "sha256": "6dce281c3e5e630ae401795bd9237827d999943df99651f136c324116a87984f",
     "status": "passed"
   },
   "neural_reference/families/zinb": {
     "preview_version": 2,
-    "sha256": "40c7af3136247db66d67fb17673604bca8f1be763c8345416c6ceb3c451344a5",
+    "sha256": "dcfb76122c226062cf19a59ea20ea549cf1e6fbed2fa465a1c9648a69a9a05af",
     "status": "passed"
   },
   "neural_reference/families/zip": {
     "preview_version": 2,
-    "sha256": "9ea176426b1989acdb71b0da05420cd289469b40b28db71ede6e24d8183a55b2",
+    "sha256": "0ee7daeb099cb2e52d871109ef6c1bbfaf311471c9a1a0e4beca943c33b25910",
     "status": "passed"
   },
   "neural_reference/gpnam": {
     "preview_version": 2,
-    "sha256": "8337afb7fdd684abcc206268879728f5de2d64d58ef4504125ad3e5f2d0e0340",
+    "sha256": "0faf02b3260f0e485f5ce851019f696a3dc210973ab23537471db17d57db38ec",
     "status": "passed"
   },
   "neural_reference/igann": {
     "preview_version": 2,
-    "sha256": "c0a1ad9608b62ab81b3c3809411a6a076c1cb7a964dd881071d462c5f6022572",
+    "sha256": "f0b81ae831637f71ad66c803c969ca3dbd62dfdfb572f6dc97bf4c3fe85d8722",
     "status": "passed"
   },
   "neural_reference/linreg": {
     "preview_version": 2,
-    "sha256": "8459fba8558444ad782a478f24ce7ba2ec803475f72e306fa0ac5ac25b601990",
+    "sha256": "1e09dd97a37a55d42a55f3c4598c79904854543de0a4d2e3d8d4782649477595",
     "status": "passed"
   },
   "neural_reference/methods/basis_metadata": {
     "preview_version": 2,
-    "sha256": "874a4cfdcaaaf9f6c7d4c4953f23e3c79f79980d685cae02f50174c1315124b4",
+    "sha256": "bbb811b790e657b651829de9ad97218aa74b4881d617fe863deeeb3d37c9d106",
     "status": "passed"
   },
   "neural_reference/methods/basis_transform": {
     "preview_version": 2,
-    "sha256": "72f444d71ff8c8c639557ff8a1e2b2c5402536792c58df3483e4013c4faeb3f5",
+    "sha256": "7877586fb400329df2fa8694560e6ed6e422c946c5b70446a162217a6b49e4b6",
     "status": "passed"
   },
   "neural_reference/methods/center_components": {
     "preview_version": 2,
-    "sha256": "4934296e98743680a5f3a7046f4cefc563160c09de3a379372e54e08ab7239c0",
+    "sha256": "3683d68ed8ac08505a67f097cb409c0310d558c42f3dabbf63a3889cfa980559",
     "status": "passed"
   },
   "neural_reference/methods/explain_terms": {
     "preview_version": 2,
-    "sha256": "a27995fcf66eba7cef7a3b26473d231d89f2218fffd503fb551209e048f9d253",
+    "sha256": "da450e183b203170bafe785a741cc34329944c6070d83749bcfc306399c40b9a",
     "status": "passed"
   },
   "neural_reference/methods/get_params": {
     "preview_version": 2,
-    "sha256": "ad07f421d0af4f6193f4840b10ac0971f240ec0905ffee574f7034d267aa2ee2",
+    "sha256": "5b49f716717360e0e5e51b3e394afbd5437aa0b0ffd01145241c4b73745c9d3a",
     "status": "passed"
   },
   "neural_reference/methods/group_norms": {
     "preview_version": 2,
-    "sha256": "93471abe7d225a44db4c31d3fb1639c854872d07ded4f2215833328a7989e213",
+    "sha256": "f4d1f0ef78c1efddc5a8da092a42602d512fb784dbfd71df553814b98108c552",
     "status": "passed"
   },
   "neural_reference/methods/interaction_importance": {
     "preview_version": 2,
-    "sha256": "024e7162d1c9a781d06bb18a80c640d8d73983703c3df48dd699824036f2eeac",
+    "sha256": "1735ffbb8d84a57a85af9c07f6ff97c83578850318b210be6a0a4695885afa2b",
     "status": "passed"
   },
   "neural_reference/methods/load_model": {
     "preview_version": 2,
-    "sha256": "a1190d21c07616f1938c6296d2e403ab0055c366b529ffaade6b2a3e51349c1c",
+    "sha256": "27f4f1da8d71b41edb5faa738baaa83f644aed8a5e6aa598a534b609e3c67a45",
     "status": "passed"
   },
   "neural_reference/methods/local_term_importance": {
     "preview_version": 2,
-    "sha256": "bba9952d6941db12ff271a8d75744017ec7ee63a22f2515b8f97f789c6850d0f",
+    "sha256": "0abac360a95d6f5dd9885b5d8e41cdddf9afd2d4d8e7892b0513bdd0c98bd7f1",
     "status": "passed"
   },
   "neural_reference/methods/model_complexity": {
     "preview_version": 2,
-    "sha256": "462cdb324d3d359d528f708a16b51efa6f89beadd7a48989eadc352ad840cf58",
+    "sha256": "ad550b264a5f7e53b44dc05d8959fbffe1f8e5202fbab171eea57dd338c4a8dd",
     "status": "passed"
   },
   "neural_reference/methods/plot": {
     "preview_version": 2,
-    "sha256": "e4e942b8b6708fbc0f7befe8ce2f4753c37c3e4e415d386c7ad20e7468403331",
+    "sha256": "0ef17efbedd74658c8bd1b0eb53dc4a8ac91c3a7beec9eecd0b75d34e9d8e750",
     "status": "passed"
   },
   "neural_reference/methods/plot_interactions": {
     "preview_version": 2,
-    "sha256": "9c892ad3f911b98b88a233596e75df7f0e099d3c1e23d3eb92f6889d1fac37d7",
+    "sha256": "3591215021e51f5bafb8f736fafcb9135f9edea7f035614e4ff90742948f3fa9",
     "status": "passed"
   },
   "neural_reference/methods/plot_terms": {
     "preview_version": 2,
-    "sha256": "32e3fa17c037616e4f017720383400f53cf94c16430fb953f3f90980cc4b8ec6",
+    "sha256": "aa70dc27cd3e540c06f9b78cb0c1ba45688cc68174bf96a915b288a6c47ee5ab",
     "status": "passed"
   },
   "neural_reference/methods/save_model": {
     "preview_version": 2,
-    "sha256": "107b4d5236ca376720caf26f12f8998f206fa08b6a1152530ac67a83626aa101",
+    "sha256": "cbc78f2b36876d47edeb70d90bef30fd77d5b9ea262db1bd0972af32b8356188",
     "status": "passed"
   },
   "neural_reference/methods/set_params": {
     "preview_version": 2,
-    "sha256": "3855541bf08a53f698fc588392298bf9cb857ef997cd461261e6cf51928ad1d9",
+    "sha256": "882715078def73e8faa6ab48b64c92f8856650b9ba9eafc724f287de6a9af656",
     "status": "passed"
   },
   "neural_reference/methods/term_importance": {
     "preview_version": 2,
-    "sha256": "294d63ee50dc0a9a6322c016554938ba2049bc79631c4e2ac96845f8ca914445",
+    "sha256": "a6e738207dbf5c415ad3f55b293f03a69cadc6e5716d9be9339c49b50c9091ef",
     "status": "passed"
   },
   "neural_reference/methods/training_history": {
     "preview_version": 2,
-    "sha256": "80621ac2a43721a1ca5372666986525314565a96f8615f917f9bb4afd5f65851",
+    "sha256": "f6d44958ffa3ff69d5393f6f7b4235453a0b0a4534f2b91328d4009e58674efd",
     "status": "passed"
   },
   "neural_reference/nam": {
     "preview_version": 2,
-    "sha256": "385d0fdd435e69ec9e8283de061a970d7fd295b74f787e6e61e5f24e4aeea2c5",
+    "sha256": "0cf694153a7faf0864d797b705850a1e4afadc8f7ae9786ee768c926e95d2f3e",
     "status": "passed"
   },
   "neural_reference/namformer": {
     "preview_version": 2,
-    "sha256": "ebc58ea73248f90770da3003b72c052dbd69f94ebb3bbecc94ed177f656d3a1e",
+    "sha256": "9d43daa2f999dd6edd910e5de595c48f036def750ba56b03a82b3ab5f55f16de",
     "status": "passed"
   },
   "neural_reference/natt": {
     "preview_version": 2,
-    "sha256": "fe460cda118989f0c16065f5f76edab9fdfcdac1c331462ef64783b63d9aecf6",
+    "sha256": "66dd58a5b424ae0a136d627abc362df6f1c4f161adb50b1389e83193d850af9e",
     "status": "passed"
   },
   "neural_reference/nbm": {
     "preview_version": 2,
-    "sha256": "da675abc79f16feb7031c346155dacfa75fec7ae6d1b6b1ce6ea7b98197677c5",
+    "sha256": "c2cf9c73b179cff71bf640b4317c8f3cf8c3f984f940d336a163ed4962696213",
     "status": "passed"
   },
   "neural_reference/nbm_spam": {
     "preview_version": 2,
-    "sha256": "abc416c1bda51f6b0cfb533efa4365b0fee73346ca7bb03e9ac30a1bb595bf25",
+    "sha256": "2c8f24f51f9fc1a219aebe56258f3832758afda711074c32e800946ba14189d2",
     "status": "passed"
   },
   "neural_reference/nodegam": {
     "preview_version": 2,
-    "sha256": "53c1317795a71a474e1867ffc58424b39a3cda2c3c9fd61d9433835c1b91647f",
+    "sha256": "19e3df3dbd62d8bc03eaca2f5127270f6ba25b432848146b5dbd5372883d6606",
     "status": "passed"
   },
   "neural_reference/qnam": {
     "preview_version": 2,
-    "sha256": "3e7f0df35239d0cf12b68d08787501c25954f7aa1ef850398f0a10d9435083e0",
+    "sha256": "feab373ce0360870982fd17feb3a23a8271e619b9eec1d875dc3ea411ffe2e3c",
     "status": "passed"
   },
   "neural_reference/sian": {
     "preview_version": 2,
-    "sha256": "abda37b673e1c2195670c5b9381d400f96318620867120bf58905879f1b16c7f",
+    "sha256": "1d258c30362261d32c1e093e3b4fc147688e84ee58d4eb161c764c7d3ddefd95",
     "status": "passed"
   },
   "neural_reference/snam": {
     "preview_version": 2,
-    "sha256": "f7250539180cdda576e8ccdeaa623f8a58a122018873a2028445babbecf9c725",
+    "sha256": "32a92da09d165cd574e5ba7670ebe8ad40a9ea2c44f6594f63c6e38b9e3f824e",
     "status": "passed"
   },
   "neural_reference/spam": {
     "preview_version": 2,
-    "sha256": "c52655cb663a50bc3e234f6fed26b6c94e58027be76285d7b0f9ee82e04965f1",
+    "sha256": "11e86624df0146d196201c81c6dfcbdda1d1703859fb93baaf76fcf3c0747f67",
     "status": "passed"
   },
   "neural_reference/spline_nam": {
     "preview_version": 2,
-    "sha256": "1839b39073c9c82c66ac74df27d898868245c4104ec76bd85613c016a6413369",
+    "sha256": "2fae118e8e861e9d3a1df826b65050b9245da57bdc457e0a84dd03940de253af",
     "status": "passed"
   },
   "neural_reference/treenam": {
     "preview_version": 2,
-    "sha256": "8c9570885b72f3c6b0c18bc6740ad723c95f896a17fbfccc422e818dc3856820",
+    "sha256": "e3ec683d8deaf5d3153df313bb185bb32021e37a89ea3948c41e19ada5a47cf3",
     "status": "passed"
   },
   "statistical_reference/GAM": {
@@ -716,22 +756,22 @@
   },
   "statistical_reference/controls/edge_correct": {
     "preview_version": 2,
-    "sha256": "9d7cba740bd653ef7bcb0c9f8c9660ef7c6cb1113295ba167aefddfe66a4a9d3",
+    "sha256": "df003174c5427f606e997334d2a8f57a319aab1b9fa5323040f33cb6380bc71b",
     "status": "passed"
   },
   "statistical_reference/controls/efs_lspmax": {
     "preview_version": 2,
-    "sha256": "d5d1d35f405541f49eb3fcc2da9edd55723f92341937ced3dcf14036d94921d4",
+    "sha256": "ae91d02ae53720a716c3c2658a57477f0f4266b2ae0b5789aa514c548bfada93",
     "status": "passed"
   },
   "statistical_reference/controls/efs_tol": {
     "preview_version": 2,
-    "sha256": "c2a3e97b1985b655bbc2926d836c9a3c00699957711c828b40fc2d1e9ca28196",
+    "sha256": "1edcab719cd497b2172bb447f277c26ad0b93fd7251364c7ab78c88e73ad5313",
     "status": "passed"
   },
   "statistical_reference/controls/epsilon": {
     "preview_version": 2,
-    "sha256": "542e547fef5cd9e99c79df4e6f7a156a96da11509a909e7e9364182139635d88",
+    "sha256": "ebd8717d5671040794d6e72a60ff25f1f4ecec583b5d9c78f2089791f919395a",
     "status": "passed"
   },
   "statistical_reference/controls/execution": {
@@ -741,107 +781,107 @@
   },
   "statistical_reference/controls/id_links_bases": {
     "preview_version": 2,
-    "sha256": "a29138636252610f94fa4ef73f740249bab7426a5627c137f9bdd9955869459e",
+    "sha256": "3d7c4f5f867e82f1cc60d17cd043fc12603b9cd46bccdf18777fef2d41262efa",
     "status": "passed"
   },
   "statistical_reference/controls/irls_reg": {
     "preview_version": 2,
-    "sha256": "f5a166b348572eb8a8de2bf412a385a82612fb7fcd157b9641459ef82cbeafb9",
+    "sha256": "b707c6a962e33e251b30a36a17df586399765346c6f787e02439100796ad693e",
     "status": "passed"
   },
   "statistical_reference/controls/keep_data": {
     "preview_version": 2,
-    "sha256": "8daa239249ab80da2e54b51d4185d97e1b171604b321e4d6d13651c608b2a380",
+    "sha256": "94510a2367e4d300c44c8162415a7cb2e5f1034b8f977b61bb9218c1c4ec874b",
     "status": "passed"
   },
   "statistical_reference/controls/maxit": {
     "preview_version": 2,
-    "sha256": "65d5574b397471d2a6ad2a090f17f42f543ee327a2d3de2b3adba5dd0070001e",
+    "sha256": "0095ca8642c72ce5bfe04f1021a826b8b138a30c95a441bdaf56145137078963",
     "status": "passed"
   },
   "statistical_reference/controls/mgcv_half": {
     "preview_version": 2,
-    "sha256": "06b445b5a765332b9ff30605c1987663f9b8eae8d98d0941a265aba20ca636db",
+    "sha256": "f899c89ac76815ff0c429a56cbf9c5432b4e40447994fd010d11a15a4851d531",
     "status": "passed"
   },
   "statistical_reference/controls/mgcv_tol": {
     "preview_version": 2,
-    "sha256": "c835eb7461d6133a730ee1933c5bea8225f41f769db0816d7dd1060619dd5b5c",
+    "sha256": "e84041da8673935fa7a478b6e672ed65d0062456ab797cd4a95f5f2e7bd40fb3",
     "status": "passed"
   },
   "statistical_reference/controls/ncv_threads": {
     "preview_version": 2,
-    "sha256": "037fa006152495058e5d0f73926cf65b9390bcd30710b5f006454c98660750ae",
+    "sha256": "41d97680a7551a709a3592788bc37d2f3d2e9209f81234421e4d94954ed40670",
     "status": "passed"
   },
   "statistical_reference/controls/newton": {
     "preview_version": 2,
-    "sha256": "b6632cd589bf631c5967ef0740d32aa8a6623238fb04f642c6c43bdb1c090f2c",
+    "sha256": "538544fc0aa09ae3690d8907bb2639210ecdc063f84b44cfcbc61305beda689c",
     "status": "passed"
   },
   "statistical_reference/controls/nlm": {
     "preview_version": 2,
-    "sha256": "9e08ee0be7bbbb3cce3f68a032015e7b611be1cc0efb3c3afb42cf6d2b870257",
+    "sha256": "0e58e32dce6eb96fdf575e62649981209e24fea6063f9666fac1902fd12506e2",
     "status": "passed"
   },
   "statistical_reference/controls/nthreads": {
     "preview_version": 2,
-    "sha256": "ad7bc26326a5a3f2cde190134948044b42a4515dce336d5ccdf89252f3eff3a2",
+    "sha256": "f6ef05969078c6ff722dc996198a030688e030571601d7aa5847d14a3dce85a1",
     "status": "passed"
   },
   "statistical_reference/controls/optim": {
     "preview_version": 2,
-    "sha256": "a3823aa6dc24d738dc12038b80ed21a3b429b2c7d0c4c5e76eae4ccf43b9c7cd",
+    "sha256": "0dca063f6d5b0614b2fa75a8df8d4879f20119f7acea69005ed5be331682d413",
     "status": "passed"
   },
   "statistical_reference/controls/rank_tol": {
     "preview_version": 2,
-    "sha256": "648d7c789f0c0ecaa22fa205aa6b6558d58f1012c255083fcfa4044d827170bc",
+    "sha256": "5b51417c7bf41f155c1994712303c82873233430cf0379db06dbcb9879373918",
     "status": "passed"
   },
   "statistical_reference/controls/scale_est": {
     "preview_version": 2,
-    "sha256": "da75a24cde74c99ee7d7776f99a9f889c38336918382773694dde451298c2d62",
+    "sha256": "71e8ad90c9f658c46cb8ed6cca89acd570d70fef7ac795008c7437b03849a275",
     "status": "passed"
   },
   "statistical_reference/controls/scale_penalty": {
     "preview_version": 2,
-    "sha256": "a6c4c962552f75cbfda740501dd9c27a0e9154528d4626175cc401533e1ebd83",
+    "sha256": "6f497d93c7566d4c762d13eba48cc985bcbbd92763f6c7054412c30943294998",
     "status": "passed"
   },
   "statistical_reference/controls/scam_b_notexp": {
     "preview_version": 2,
-    "sha256": "7df3574d938754203f9e8a654c057e79e188b2f2f384d882a17e8f40b0fdee54",
+    "sha256": "01150e337acdde76cd03c117739785f559cb53b23f04e3beb1be2f42722df65e",
     "status": "passed"
   },
   "statistical_reference/controls/scam_bfgs": {
     "preview_version": 2,
-    "sha256": "fd681837474607e982359b1818cd0bc5abbf069dd730d42417e715de56dfb26a",
+    "sha256": "5c78b630940370b2e0aa53d01ef2300c923f429692e9167fe5b13283146412f0",
     "status": "passed"
   },
   "statistical_reference/controls/scam_devtol_fit": {
     "preview_version": 2,
-    "sha256": "b24a0bbbe4b4c9324f085823522131a5e238f0cbb5f856c6836d30eb4cfbaa5d",
+    "sha256": "eaa0e887252cebfece0c39a9b24262311a717cf93e3dd2fc711df72cf86fb534",
     "status": "passed"
   },
   "statistical_reference/controls/scam_max_half": {
     "preview_version": 2,
-    "sha256": "cc1a973e407f5739a8f01b9c66db464685993af566bb8cad89f07ff053d0addc",
+    "sha256": "8e26a6e93646f2442c849d8154dbb9ffcf479fa9bca4fd4be4a8a8cbd7ecd029",
     "status": "passed"
   },
   "statistical_reference/controls/scam_print_warn": {
     "preview_version": 2,
-    "sha256": "795d43bd498aab2ca7ad668816a61cb0e338fd8d2a612821fa3075bd64a92bcd",
+    "sha256": "f4a87cc49e15296f075aeeec803c147cd001a35cbfe0896f7db9b010d8036099",
     "status": "passed"
   },
   "statistical_reference/controls/scam_steptol_fit": {
     "preview_version": 2,
-    "sha256": "510b54c13038943704e55173c34ed3b6590dd550129b66fb4524343c1f99664a",
+    "sha256": "027380addb430a8a8f41e25b8537113a1bef534af30f34a9f5a8489a0023aa7f",
     "status": "passed"
   },
   "statistical_reference/controls/scam_threshold_notexp": {
     "preview_version": 2,
-    "sha256": "ff09d7ab14960ed06ab1a51d91482baf0198caa93f2aeb254c12af7d0b65220a",
+    "sha256": "344c0c8a91f78481852a0ed35fe02847fed63cea3bad9fa83769e7604bac0cf9",
     "status": "passed"
   },
   "statistical_reference/controls/shape_fitting": {
@@ -856,12 +896,12 @@
   },
   "statistical_reference/controls/trace": {
     "preview_version": 2,
-    "sha256": "5d6ed050d4c1cbc66c3478bb5679ff528d2ca257c056fe6939671f11b0314902",
+    "sha256": "ca14fd9464595acd2e749ddfcd461117db49cf62590beef31f64820fe1905b8d",
     "status": "passed"
   },
   "statistical_reference/estimators/ExpectileGAM": {
     "preview_version": 2,
-    "sha256": "1464773c471787b63cbb59498346fee57f73eefd6208affdde6290de4eff214c",
+    "sha256": "5cdb0e4836f414025fdba618f546c41f6feb0de7577810fb7893ec8d1235929b",
     "status": "passed"
   },
   "statistical_reference/estimators/GAMClassifier": {
@@ -881,27 +921,27 @@
   },
   "statistical_reference/estimators/QuantileGAM": {
     "preview_version": 2,
-    "sha256": "6ab775438a991de157058f5b102acbe89c96c4297913267f57ec3da311d2e0cd",
+    "sha256": "13e9e4610646bcb7c98556b37605f22d82f5d0d3b3b38fe03f079b1a6e623e22",
     "status": "passed"
   },
   "statistical_reference/estimators/QuantileGAM_smooth": {
     "preview_version": 2,
-    "sha256": "9f31a201024e8bc96027c917bed5f6da24de63aa665ea2ca56e11f096ebc0dfd",
+    "sha256": "760f90975ffd2f806eac877ccf7697bcd67863256bc266dbfc42e367d51c2319",
     "status": "passed"
   },
   "statistical_reference/extensions/CompiledDesign": {
     "preview_version": 2,
-    "sha256": "153bcaef2292a1f65225db711ffedcf1b635aa116ab7863f8745a849ad84308e",
+    "sha256": "dd9d2a0d55b6cf00f40173c9fbcf2c2cff1a6509c3dbb367bdd36f135a5ac45f",
     "status": "passed"
   },
   "statistical_reference/extensions/DesignEvaluation": {
     "preview_version": 2,
-    "sha256": "895be23def86aecbd0cf601bb18dea62868fcb61795086fc26089a4591ae5bcd",
+    "sha256": "9a967d84d8f273d2677169b70fbba7fcb4abab44767a501bb0ea23ecbab52d5d",
     "status": "passed"
   },
   "statistical_reference/extensions/DesignTerm": {
     "preview_version": 2,
-    "sha256": "17354d36b00b5ca3cc1804b196e69b9e881f4038dcb376b5dcaed7ba12bd1c07",
+    "sha256": "00675cb635633c1fe14b1ddd038f0ad98d0616c289521885c66d03312c051fee",
     "status": "passed"
   },
   "statistical_reference/extensions/FunctionalInterval": {
@@ -916,12 +956,12 @@
   },
   "statistical_reference/extensions/coefficient_draws": {
     "preview_version": 2,
-    "sha256": "3e2633202e5ef5679931ce60b7c4904ee50db256cad838e596ac425a3ab38d2f",
+    "sha256": "132c53a346f3af92fe78db281c8fe1267634cf89d5774705e5928f3f7f8dcf69",
     "status": "passed"
   },
   "statistical_reference/extensions/compile_design": {
     "preview_version": 2,
-    "sha256": "1a4f0e4d4a5d19c403603d49159aa6907f228ba3c60f105573b615518da841f5",
+    "sha256": "31705901022f3d0b9aeef25ee0956fef62344909b579ae01919ec8817aee2372",
     "status": "passed"
   },
   "statistical_reference/extensions/cross_basis": {
@@ -931,7 +971,7 @@
   },
   "statistical_reference/extensions/cross_basis_penalty": {
     "preview_version": 2,
-    "sha256": "107b1dae685af654ba0fe3c0b1c0285e0253ddc4385c149fe04b316f05427149",
+    "sha256": "3e55f5ae2cb13b2c53de455d79d4730d8c604ae58532eb6725976a1fd6e82db2",
     "status": "passed"
   },
   "statistical_reference/extensions/cumulative_lag_matrix": {
@@ -941,7 +981,7 @@
   },
   "statistical_reference/extensions/derivative_interval": {
     "preview_version": 2,
-    "sha256": "34c424db51993edef6ffb9032c22fa2c44ce5496245d60c23dbc9bac5e639b80",
+    "sha256": "805140605d3cb873f5728edee674633440782481605e2bb4d3b97bb680f90455",
     "status": "passed"
   },
   "statistical_reference/extensions/exposure_history": {
@@ -961,7 +1001,7 @@
   },
   "statistical_reference/extensions/joint_edf": {
     "preview_version": 2,
-    "sha256": "0c95ca87407dd24e98a7f99fc05f379aeee0643f198953da2e24e452d093123b",
+    "sha256": "6f0741c56053f8c463097a98acf0ee59fc95341453fe2ecb90c2fa1feda61360",
     "status": "passed"
   },
   "statistical_reference/extensions/linear_functional_interval": {
@@ -971,167 +1011,217 @@
   },
   "statistical_reference/extensions/piecewise_exponential_data": {
     "preview_version": 2,
-    "sha256": "81d93fbccd0e8ceffb9517a7a5d48736ae6368a16d4b1f9e4955fe00c460b0dc",
+    "sha256": "52775d0ccb178a3f5d523cc24ef28cf9a11469d08e3f5395e8bb00e5849bdccb",
     "status": "passed"
   },
   "statistical_reference/extensions/survival_from_hazard": {
     "preview_version": 2,
-    "sha256": "ec24a3d599861d0af912e465830171798b55f2e9e020a7ec69779c8ec0caea63",
+    "sha256": "3d047a76382afb0e8c1e64dfe1d32d2277103848ae63c0bf674e78e9f5289012",
     "status": "passed"
   },
   "statistical_reference/families/bcg": {
     "preview_version": 2,
-    "sha256": "ff782110c3c561546a1187fac9e4d25a56cecee4b8ccd1c9fa5ac02fea85a8b5",
+    "sha256": "11b7ff51f475364ebc9dad71f303a6b2454ccc29af6d6772746df8259d850b65",
     "status": "passed"
   },
   "statistical_reference/families/beta_lss": {
     "preview_version": 2,
-    "sha256": "63f0691be61ee4aac02d876f59b2994e61e05c2f69b5b30d662ae16f3e98da1d",
+    "sha256": "1fb42677173d8035d87c5aede5722d41be1666e79f567a179f1eca43ec6f939f",
     "status": "passed"
   },
   "statistical_reference/families/betar": {
     "preview_version": 2,
-    "sha256": "86a629140e1466a1218d3623b308a5efd4ae5e8b36a19be9dd67a620959be39f",
+    "sha256": "920cb82f40e6e8dcc4a44e38eade41233aae289d6865774b8e3041b48cb28086",
     "status": "passed"
   },
   "statistical_reference/families/binomial": {
     "preview_version": 2,
-    "sha256": "3188224d1462eed4b2d492acd514b9c23134e160ac69e0f0005fe7c0c4785300",
+    "sha256": "7ddb80ce4a7b7005d1589c8d4d439fc5d5c4ceb0f3db0367d03176bdcd66ae97",
     "status": "passed"
   },
   "statistical_reference/families/clog": {
     "preview_version": 2,
-    "sha256": "e2b3b7bd81493a04ff12cf08f426cf74d56f715e13e06051cc346a6e2bd61861",
+    "sha256": "5134adc5f1973b7bc2ec7671b05a3ac8e708d2a986a9ac6e5a955bb6aabd3c5d",
     "status": "passed"
   },
   "statistical_reference/families/cnorm": {
     "preview_version": 2,
-    "sha256": "7fd50e0309478c39507eb0a3404ce58e4da89e6c1c515ec1c4867900d8c79f5c",
+    "sha256": "78538f7e63ceb82190d83a882cc80f45bd5568eb7530bd585985ef7510c0511c",
     "status": "passed"
   },
   "statistical_reference/families/cpois": {
     "preview_version": 2,
-    "sha256": "c06ad31c2e110290838fe1548f377f8d5166da5bb481da071a84bc6523c60d6c",
+    "sha256": "cfce0e2336e0ad4dea34ba79a571eb37694f688b9205480da38c5679f3433db3",
     "status": "passed"
   },
   "statistical_reference/families/gamma": {
     "preview_version": 2,
-    "sha256": "13a0f6d7b7fe8178480fe3bfd474cca38493ef4bc1ae865e75a989b54b199044",
+    "sha256": "833e6429f7b140d0a94f6ff2799f6b96882ac92207d61bd0abf2cffccb14e168",
     "status": "passed"
   },
   "statistical_reference/families/gammals": {
     "preview_version": 2,
-    "sha256": "e84a6d6fa67518be8aabaf857a835f683a4eab499891409a5f8aa914a21faa05",
+    "sha256": "bcae4f5c49f3f8a5da47da876366881f1004cff8e1aa50f30aa137095675ab32",
     "status": "passed"
   },
   "statistical_reference/families/gaulss": {
     "preview_version": 2,
-    "sha256": "657980e653c50d2ea652bfad1e402c04382e19b80e2efea5ee847b955fc6220b",
+    "sha256": "b0d939764f864dd126fe645727cd71c8e6a6b3dd07da554c9080eafa4f78d805",
     "status": "passed"
   },
   "statistical_reference/families/gaussian": {
     "preview_version": 2,
-    "sha256": "f838569234be9e1d2c777d2a7b428428472e991f8303b951d9ba552b9db55b89",
+    "sha256": "c03aa73740c40b36ece474eabf098aa1667f84c7e4fab21ea2f74e0ca0c9fd8b",
     "status": "passed"
   },
   "statistical_reference/families/gevlss": {
     "preview_version": 2,
-    "sha256": "b02f89a367f7fe05920abab0eb47adc9791d0545adcf3d9912545b68b705ee7a",
+    "sha256": "f683eed498d1ba17fbd697766f7d68db4ad49289fa9f02ab43b930e30a4f4d2b",
     "status": "passed"
   },
   "statistical_reference/families/gumbls": {
     "preview_version": 2,
-    "sha256": "17b7cbe24638351039b9f5b1ae837a9064aa50cb96088ced3b0811948d7d50ac",
+    "sha256": "f3aa7d808ba639d2023b8a6ee381303c0e3bdd2f1bb111119a1a39b1336d35bd",
     "status": "passed"
   },
   "statistical_reference/families/inverse_gaussian": {
     "preview_version": 2,
-    "sha256": "11bcb76eb595103a69701c091758eacb6e488ec7658fa897304ddd6a8cb997a3",
+    "sha256": "4fa6f26bbae6ace77fea87f6027e4e4ad62f6a551ca6338572754dce3f4cf0c5",
     "status": "passed"
   },
   "statistical_reference/families/multinom": {
     "preview_version": 2,
-    "sha256": "59bb98bc98d5878e971e4f8645643983b2c745369c0c02c99bd3ba56ecb61b91",
+    "sha256": "a93fc45ed024966ca03fbe2bf3772aeb929a796c754f4b27381026e3a4df4ee2",
     "status": "passed"
   },
   "statistical_reference/families/nb": {
     "preview_version": 2,
-    "sha256": "0dcb98926aec287d155386c6ff96bc912768b0d5c4934d15414c98be582d94ef",
+    "sha256": "c4ef1ea0f20c5cf87a1d824c4cae160dfd310e4a2d4bf11812118add1c5c4beb",
     "status": "passed"
   },
   "statistical_reference/families/nb_lss": {
     "preview_version": 2,
-    "sha256": "4fd8ecdf78a761634a5acea477404395f2a8634b3fca26ce7e962af970e44dfe",
+    "sha256": "75ec4d856fa9d8a8949e0cdb94b677500cc8e9f147be6fa9ecaf69f3ffeaea37",
     "status": "passed"
   },
   "statistical_reference/families/negbin": {
     "preview_version": 2,
-    "sha256": "e56e4a01f2daa55541fb9f33f589cf97926020f8951727550f63ae522a621d30",
+    "sha256": "859dbe03aa15996f61882b8d5f0b1d19d515a0c06ff1142b1bee29412b06ed2f",
     "status": "passed"
   },
   "statistical_reference/families/ocat": {
     "preview_version": 2,
-    "sha256": "d30aa308b4341deb03ae9a3f807b03dc2e4eafe992a6795e6d2def3344c25fa3",
+    "sha256": "b3639126c0c08dc4a02c714841fc577e4da9822c06eee4abf7eeb8558ab3fe22",
     "status": "passed"
   },
   "statistical_reference/families/poisson": {
     "preview_version": 2,
-    "sha256": "baaeef9e80b8a1dab5f8341e795432157740ae3847137051cf4a55a7487b3e04",
+    "sha256": "d07fbae73c4fb1a0d575b9193f3c3801d0819a653433c27f4f30289446364332",
     "status": "passed"
   },
   "statistical_reference/families/quasi": {
     "preview_version": 2,
-    "sha256": "95344fe8d7c5972e19abf0caba5e28550302d2fc5a219628022fc08fb632e6ff",
+    "sha256": "e1ae660148d8f1a7a494bdc66b224e3330f84ee8307c79adbf28926b0dd940ed",
     "status": "passed"
   },
   "statistical_reference/families/quasibinomial": {
     "preview_version": 2,
-    "sha256": "4916cebdee203349bff28b140d364086de01b6d75e06f4a02f69e2a570281f9e",
+    "sha256": "32f653da073416bc2d1ef719497ecdc84a389b91159385420d9b4f60c085273b",
     "status": "passed"
   },
   "statistical_reference/families/quasipoisson": {
     "preview_version": 2,
-    "sha256": "e6cbb2e86e04481b20602e6771d4728c7413aff6926548c37d667f6fc66139ef",
+    "sha256": "a521f6943212ed4380ed87c1793a032956613d63b2a59468ae31a30472cf4998",
     "status": "passed"
   },
   "statistical_reference/families/scat": {
     "preview_version": 2,
-    "sha256": "bee66791b0eaf1f3007cbf3004f94e2ba5e21984298bb21a92c1adc6a30f017b",
+    "sha256": "2e2b61c258a0483aee2ffe1b5e33f66a4fa4a8164d240813ea630b62faa325cd",
     "status": "passed"
   },
   "statistical_reference/families/shash": {
     "preview_version": 2,
-    "sha256": "8dacec69a1bbb4be03374cad572b27ece2de062b7c5f3776e315c3949791830e",
+    "sha256": "72739f258d976a0366e8843280f777f8c5a3bca52ff7eac0c9414115e35a5806",
     "status": "passed"
   },
   "statistical_reference/families/student_lss": {
     "preview_version": 2,
-    "sha256": "e6380253e0220dba6d37320b438384c013f09c87fec3414c6fa254ca4c385cec",
+    "sha256": "7c49c9346df2231c0725c4194e3a3228d4e7f7d08931753b0e31c3d8eeab1b2d",
     "status": "passed"
   },
   "statistical_reference/families/tw": {
     "preview_version": 2,
-    "sha256": "5cc70ee358be65a7ef9325583e1b0450be206ddd0bcb64dc4229b137c3f73e52",
+    "sha256": "3d85ef2b6b2d6927c774503022a933cbd6c3ebdd62695ebf9ffe8408d486f93e",
     "status": "passed"
   },
   "statistical_reference/families/twlss": {
     "preview_version": 2,
-    "sha256": "7ca2876623a2cfa7bd427f948f499f933dac09095cc7b823374ca1de06bff4cd",
+    "sha256": "d1fddf5eba6cab2c30a739c1206b1c6097e7ff5383cae2787728a86f505094b7",
     "status": "passed"
   },
   "statistical_reference/families/zip": {
     "preview_version": 2,
-    "sha256": "a2a19466768baa7d9310866ec1244e85b8f56064bafd786d2d1beb73a6969e41",
+    "sha256": "03f4c73d65807774b37d9e1daa7b0eb75f8a3b5a00a3ccc1385a7ce588c283b5",
     "status": "passed"
   },
   "statistical_reference/families/ziplss": {
     "preview_version": 2,
-    "sha256": "5e1b14c44086f6608a5ebbda775210589f3c23d418b2c7bb5d2fd78cf5c4311f",
+    "sha256": "fe073689fd1a73b76e354c87b5cfb31d0f269f8e0ad8c8a77406d222da34c5a5",
     "status": "passed"
   },
   "statistical_reference/internals/covariance_correction": {
     "preview_version": 2,
-    "sha256": "e59c1f87c64e469101669b4e85ec1ca95a0b77ca2d6b3f30a520169af742df1d",
+    "sha256": "f7291ac13fa6e231534a3115a3084134913f74470c905cd4786dc407bda92191",
+    "status": "passed"
+  },
+  "statistical_reference/links/cauchit": {
+    "preview_version": 2,
+    "sha256": "12cba4aff7b764b76b7f64c5f74ad2a1effc3da29566edd42f78baaebc6cb8d2",
+    "status": "passed"
+  },
+  "statistical_reference/links/cloglog": {
+    "preview_version": 2,
+    "sha256": "1e3a823500afc5267419717d87007f5191983532d35feff08787e9b53fd30c76",
+    "status": "passed"
+  },
+  "statistical_reference/links/identity": {
+    "preview_version": 2,
+    "sha256": "867b4b10378bf4ffb6602eeed14b43ee0d9471f01e7ca9db10a29047ea902cff",
+    "status": "passed"
+  },
+  "statistical_reference/links/inverse": {
+    "preview_version": 2,
+    "sha256": "a5c6bfe39d90454a227cf3a6e5e12daca5426ca7c6506fa915ac2ab649d8a7c7",
+    "status": "passed"
+  },
+  "statistical_reference/links/inverse_squared": {
+    "preview_version": 2,
+    "sha256": "b28a5a205644f0b2cef6210804f9c5616619e8853d37e4e24ea0f5cfb154e9fe",
+    "status": "passed"
+  },
+  "statistical_reference/links/log": {
+    "preview_version": 2,
+    "sha256": "3f1ecc53ebeec925eeb4a1d128e9463f634a06b36fdfb37c6d923c8e3fc56771",
+    "status": "passed"
+  },
+  "statistical_reference/links/logit": {
+    "preview_version": 2,
+    "sha256": "05d6c1f42297fa62f9b7e5c43d118ab56b2d7162d90546b590580816870c6873",
+    "status": "passed"
+  },
+  "statistical_reference/links/power": {
+    "preview_version": 2,
+    "sha256": "e6ea37076450e9f6ce3bcab3d0ec32b0587df67002d91d3936615ab13de024b7",
+    "status": "passed"
+  },
+  "statistical_reference/links/probit": {
+    "preview_version": 2,
+    "sha256": "b3b37ed69ca069f3078f76ecc50f8208372b970f7f9a1ae89dfc204cb5a3db7a",
+    "status": "passed"
+  },
+  "statistical_reference/links/sqrt": {
+    "preview_version": 2,
+    "sha256": "8ac0a975a7804380d7a7eeca4eea20a50d0f3c52fd6f66a0d4394066d425d1b8",
     "status": "passed"
   },
   "statistical_reference/methods/aic": {
@@ -1201,7 +1291,7 @@
   },
   "statistical_reference/methods/load_model": {
     "preview_version": 2,
-    "sha256": "5792191548d96fd5966a9d6909621ea8b6322f987786dd0ded6d79eb6ab1f4f1",
+    "sha256": "f48dff665501e6d5ef85cbfb983310490a4002bc95212a68005f98c67c7223ed",
     "status": "passed"
   },
   "statistical_reference/methods/loglik": {
@@ -1231,7 +1321,7 @@
   },
   "statistical_reference/methods/plot_check": {
     "preview_version": 2,
-    "sha256": "ee0c314c3b8109d1da96bb42fbb5ec778ea8f4c763e25468e1d7cb41469bfdb3",
+    "sha256": "6a7eef6c581fd14a9bd67d198b7fdd1c0c07ec3e2c74c87b0855b35f57c40a73",
     "status": "passed"
   },
   "statistical_reference/methods/plot_derivative": {
@@ -1251,7 +1341,7 @@
   },
   "statistical_reference/methods/qq": {
     "preview_version": 2,
-    "sha256": "7459dbadea6e871e401d645ac2e30c0a42fb9fa9977a4c77927375dc8dfd4ff4",
+    "sha256": "d886cd83252f221cf4c5e7ff05690497702537539b62df7110a160928858f10a",
     "status": "passed"
   },
   "statistical_reference/methods/residuals": {
@@ -1261,7 +1351,7 @@
   },
   "statistical_reference/methods/save_model": {
     "preview_version": 2,
-    "sha256": "cc1ddbc8501f64c171fb121dfe1ab13a66c0b292e1a926810c62d7d7349bb219",
+    "sha256": "c1aef8286d57885ed3bb9043997c92a704e92eee5dad7b55fa30f7ff561cfe20",
     "status": "passed"
   },
   "statistical_reference/methods/sp_vcov": {
@@ -1286,417 +1376,417 @@
   },
   "statistical_reference/penalties": {
     "preview_version": 2,
-    "sha256": "1ee6d779bf966dd88b81421a860fe766106f97f0d7b4839c69af10f2586ff56b",
+    "sha256": "55bbb79773f30a1c789fa5bedcf44ae6d5db022559f1257ab760bb6120fefc2b",
     "status": "passed"
   },
   "statistical_reference/selection/bfgs": {
     "preview_version": 2,
-    "sha256": "a75164ebf9be9ad4f5bc5a7a1b111419381a28a01ad17bb36d057e8a6a832958",
+    "sha256": "f648b41e46de7d7dd24aa6dea81098f14de7f4fc5f88cd79b99899ece695b302",
     "status": "passed"
   },
   "statistical_reference/selection/efs": {
     "preview_version": 2,
-    "sha256": "e15e6b59e82e53bdc180dd96d3cdf998220d925f57d523417a82ec4e33f7b2b6",
+    "sha256": "a27767e4efc141fb99d2dd7730928e46e5f13d1b985a3ba45c597e070fe0f51c",
     "status": "passed"
   },
   "statistical_reference/selection/fixed": {
     "preview_version": 2,
-    "sha256": "d7b2a61f91d6de84c648878b8a208b14c2300d4084753a01a0c6129e76cd06a9",
+    "sha256": "112adbec63bbc006f38b708ae265e7f79583693b4160f90841ed173c4018ea57",
     "status": "passed"
   },
   "statistical_reference/selection/gacv": {
     "preview_version": 2,
-    "sha256": "837999677c001b58bfab72ff91f60a5685b1a4cc5f22651312995b20afb55dbd",
+    "sha256": "6d4dfb46232563cc586550c670f53cd7474ee8a0ad525f0d6f1302584d5578c5",
     "status": "passed"
   },
   "statistical_reference/selection/gcv": {
     "preview_version": 2,
-    "sha256": "393ed48468b7762c4b41385a1d640eb926d275c06a36444db9fd38309c5214ed",
+    "sha256": "6f747d051c192c0a809654e9770151e093771ad4dd26de3995865b4f24f3292b",
     "status": "passed"
   },
   "statistical_reference/selection/laml": {
     "preview_version": 2,
-    "sha256": "8fd29d1ca8c8be28f801ad1c4886a5f1b679886ba5648a19333cd2effff90766",
+    "sha256": "e66a738d5328d28caf06196bc822a1c61260705969aad38ec5d78356fb0c6c46",
     "status": "passed"
   },
   "statistical_reference/selection/ml": {
     "preview_version": 2,
-    "sha256": "ce07334965d3e83e967078709925964eb92be9833ec51e2f20b3ba7a4954b0f0",
+    "sha256": "adba75bcb0151edea4ff1ef3c9dc0eaf3e7062aecd067eedb895b8d7ffe12aa8",
     "status": "passed"
   },
   "statistical_reference/selection/ncv": {
     "preview_version": 2,
-    "sha256": "ed586e6e6d5f7f40e4e47820b47076c1535e2c326127e53bc8edb7c295b04cb7",
+    "sha256": "7d56a73ce6269c0e46fe8a9cc0899a6852b18ae15909925e630ea8d24ac6d007",
     "status": "passed"
   },
   "statistical_reference/selection/nlm": {
     "preview_version": 2,
-    "sha256": "fa98cec2b2829b599e216e8f71cb76a9c53eaeb74a3b0930c9d464ea5e32deb0",
+    "sha256": "147ebf1ca650ed0d60b026fc0cfee4e4dd7e42d77cdc84e695cafe2953efc97a",
     "status": "passed"
   },
   "statistical_reference/selection/optim": {
     "preview_version": 2,
-    "sha256": "873b17be690c6d8ecd5d1d2d10a75dcd70609a75b8650446bf8faf6e71a0c5dd",
+    "sha256": "55ee5ec9c7b8f71201b0fbc4ddf62b739b97fe04de166bfe28c7ace5dc353233",
     "status": "passed"
   },
   "statistical_reference/selection/outer_newton": {
     "preview_version": 2,
-    "sha256": "cf6012ee04e89a421ab5cbaea24ea8f6eaff974b05361ab488a573707af025a1",
+    "sha256": "f4a40ed35f2b516a6cd5dce2fb9e27548955ad5fc0045eb887b10ae82b0a588a",
     "status": "passed"
   },
   "statistical_reference/selection/p-ml": {
     "preview_version": 2,
-    "sha256": "e1422742e0e2164ca9c3daa7fddd507c623e342befaa4ce6647c0567841fd63d",
+    "sha256": "8ea06b52fcb9a70f4b9b737b807edb7cac49f9e20ff209dbc2bff42f906b2236",
     "status": "passed"
   },
   "statistical_reference/selection/p-reml": {
     "preview_version": 2,
-    "sha256": "6d498b656c2edb3ec3583927b4128d0273ffbadb1ccd9eefb76a2dda302f4063",
+    "sha256": "17cb85eadee771c302d2b16d97f0200e56ea351209dfa6e664ede32a56daf5fa",
     "status": "passed"
   },
   "statistical_reference/selection/qncv": {
     "preview_version": 2,
-    "sha256": "c8f00bb225d36fe12138a15a894d51e8a7579a50f0bc2c24e4210ef208028543",
+    "sha256": "04dc124f22e5ce5a6bb70cb096cd2ed9c48276975898b5114d247418f7ea7ca2",
     "status": "passed"
   },
   "statistical_reference/selection/reml": {
     "preview_version": 2,
-    "sha256": "e004565c47cdb376ff4523f3e8462d7a813d0bed49a45ba42d79caa1064e5520",
+    "sha256": "8222d52d2cd68ba117f22f1f4b1202ff7da5208f6b7f3dec97710a446f2cbbb5",
     "status": "passed"
   },
   "statistical_reference/selection/ubre": {
     "preview_version": 2,
-    "sha256": "d54b82637682155f18996cf8605a56fd6231903d287b6591853c6e7369514991",
+    "sha256": "f2124f4b74251a1c71e18f7eb653484ed4f3294aab5f856c1cea0031c24f1a1e",
     "status": "passed"
   },
   "statistical_reference/smooths/ad": {
     "preview_version": 2,
-    "sha256": "f3a52eaa6f007936a55ea4e6c96a5cc3b8b3bfc65c9464d6028389d8c1d91fed",
+    "sha256": "cc31d42169140ceb198d05196b70a3585392e86d9acd124ea8c3f47c328492f7",
     "status": "passed"
   },
   "statistical_reference/smooths/bs": {
     "preview_version": 2,
-    "sha256": "0fdd2f9a604bc4aa86808cbc47a0f1f5deaed470da46892e251bfe7ea1f178b6",
+    "sha256": "e5505a61883cf6c749513b8a868e3a8af233e98796015415395c57e929edf6af",
     "status": "passed"
   },
   "statistical_reference/smooths/cc": {
     "preview_version": 2,
-    "sha256": "375773a1b5ef231e14e40d56edfa3c8b33dc0ed9eb063ce859e709506ebac5e5",
+    "sha256": "fbe86a9dea818798c943c0e45e73bea9a491e24da2bfdfc77f34f419ff91c171",
     "status": "passed"
   },
   "statistical_reference/smooths/cp": {
     "preview_version": 2,
-    "sha256": "21bc3f5d6bf74c3272a49a76e702c0a8abcc76e24657bc9ff630ab857775b222",
+    "sha256": "f6e62505b32d56a97aaa5941788b13457d922f9b6f24d0a680c8341337ac75a9",
     "status": "passed"
   },
   "statistical_reference/smooths/cpop": {
     "preview_version": 2,
-    "sha256": "4ce051da57067097c3b518f26df1c85f09644f73b010c878c4d30a66db2fa9cc",
+    "sha256": "952dd3ba1de1bb2bcf3567643eb859f74ee6bdbcd58de7a0ee1efd13c29f65d5",
     "status": "passed"
   },
   "statistical_reference/smooths/cr": {
     "preview_version": 2,
-    "sha256": "f1749d428d2c6f190037dc735a4bed8ce8662ab4a76d32702576276bad04b88e",
+    "sha256": "2e9536cd0962ea549c54bc73961a5c98eadd590686ec1cc936f99abd49df6540",
     "status": "passed"
   },
   "statistical_reference/smooths/cs": {
     "preview_version": 2,
-    "sha256": "b4309a5d3b4d5b423c03e41c02125787352762b7a48c39e8e5d4183beb665299",
+    "sha256": "4156d412fe7561fc0b8d947501c01bfe786b1188782c4ec6f14558081d2b4343",
     "status": "passed"
   },
   "statistical_reference/smooths/cv": {
     "preview_version": 2,
-    "sha256": "2f6e75b7e006723cfbedda24bdced4a291a024f8abddc5b58ccb9d1b0bf953ff",
+    "sha256": "8cd7ef74667175a2ab9f7fab08ea178a58ee9777a2e03e88af8621387c5b7b85",
     "status": "passed"
   },
   "statistical_reference/smooths/cvby": {
     "preview_version": 2,
-    "sha256": "56283575b1bfc1d428f26da4715709c5535237f5f1327c445d21c1214062ce07",
+    "sha256": "0273e3aa2ede70ff96af6f25147b20a87ae81fbcd523a80d03ce4c18877f3b19",
     "status": "passed"
   },
   "statistical_reference/smooths/cx": {
     "preview_version": 2,
-    "sha256": "dcc6b6cb7d44b9ed1a1fe7b97333d3a9e7b5ec924ec5e7ec22fd196b9b02ca80",
+    "sha256": "e7855148d044d96959e3f6ccb8a80d90ff04890f9b44eb23ce1ca018410e9003",
     "status": "passed"
   },
   "statistical_reference/smooths/cxby": {
     "preview_version": 2,
-    "sha256": "3737cf5739715418f8a96b84d3d16a2c9959c1a00443a67c8131e025aa1178cf",
+    "sha256": "658fe1ec0846eaf4a47f05fbea714abfefa614634d023bbc8f3ca3c4c0b9d27e",
     "status": "passed"
   },
   "statistical_reference/smooths/dpo": {
     "preview_version": 2,
-    "sha256": "79048707b97d6b1d347eedd3b742b5f9b4f21dda16ebb54aa91320f3c8d6a8ec",
+    "sha256": "4176e9831dc82ccf1eca0e24fd872f3a8ad20ea7e15515e818ada5c6bc276e8c",
     "status": "passed"
   },
   "statistical_reference/smooths/ds": {
     "preview_version": 2,
-    "sha256": "05195fef34999b97c951ccffbec712e5f28763353cc72c68dc24eb1a20610d3b",
+    "sha256": "94672558fe3f35049614a13323fb131ffcf9933a36332d565e2e60d51b8164aa",
     "status": "passed"
   },
   "statistical_reference/smooths/fs": {
     "preview_version": 2,
-    "sha256": "05db3398d0588b31c2317f07a2946155011ea5e0f22b0c9540601e721b6f87e4",
+    "sha256": "ef349e43ba044fefbf627bc2842e29b2ed26fe54d405043b99216ac77e779649",
     "status": "passed"
   },
   "statistical_reference/smooths/gp": {
     "preview_version": 2,
-    "sha256": "bda270b93c0bac61fd75b6b9ddd445dcc5d77b5d1e08eb3301a194905af68cd1",
+    "sha256": "5ebe617f7415ae9ad59e27b978e997917febbc7e0b1b16b63a8dfde90b37fa0f",
     "status": "passed"
   },
   "statistical_reference/smooths/ipo": {
     "preview_version": 2,
-    "sha256": "8f34774a386300b6a9f0201ee3ae08ff85ac057a3490c898bf2277bcb5311f72",
+    "sha256": "f4f3ddcc426fb3abcce0f2793d237a645f5e3b3358a1913cde515a9aeb675f21",
     "status": "passed"
   },
   "statistical_reference/smooths/lipl": {
     "preview_version": 2,
-    "sha256": "7d0b5e87641045636544607c487f4c2860b57011895f5a25222fd4e9bddc6252",
+    "sha256": "c47e7fae65e87cff9fe537199505b954fe397af3811b08fd5287607b765b2b6e",
     "status": "passed"
   },
   "statistical_reference/smooths/lmpi": {
     "preview_version": 2,
-    "sha256": "98f8dc684b0e75310d6525dc4e09b4dc07b79dc96ddd6e74c90f13155d8a7f12",
+    "sha256": "d2707435a380545a1f257643c7eb6c50522cf17ee65e5c05310f5f32935c15f9",
     "status": "passed"
   },
   "statistical_reference/smooths/mdcv": {
     "preview_version": 2,
-    "sha256": "c5d6a9852e1a7f2035d2a18d574d32c2e765455b5226c8dc795d59a21c480f53",
+    "sha256": "0d6bbcecb15cce5c195342062399b6d77160a99c955eded89810961dbd270853",
     "status": "passed"
   },
   "statistical_reference/smooths/mdcvby": {
     "preview_version": 2,
-    "sha256": "6eb12941e908c7414b1fe227d24683e6f168f16e091764d7da645dc4fc918206",
+    "sha256": "5d92e33501a1f0e06da8b0abf3745855f7d11e13b1114b1c05ba2d4ffc77acc9",
     "status": "passed"
   },
   "statistical_reference/smooths/mdcx": {
     "preview_version": 2,
-    "sha256": "8bb75cdd016350b8f103de22d30300fd5e1363376f6fd97a8e4e70b89179fab0",
+    "sha256": "8265d3e18698bbbfe207898b99912d7eaeb3f3883ed49d1e9563f187c8b575c9",
     "status": "passed"
   },
   "statistical_reference/smooths/mdcxby": {
     "preview_version": 2,
-    "sha256": "601afdc0daaaf1daa4e2b10f85837a2856f4c3cdd7236e4a1081d30de5839704",
+    "sha256": "ed7dd75d84144400d1d460c52059225869f37b6271554f9f9b5472d3cfad1869",
     "status": "passed"
   },
   "statistical_reference/smooths/micv": {
     "preview_version": 2,
-    "sha256": "6e747abd1c07af5c7220b8c433b7f2ec9d8bc36e530bddd8af570d11ba251172",
+    "sha256": "48c91f86cf39f3f068e6c0ff8dc676d2a2060beb821f353cb0cffbd0fa162463",
     "status": "passed"
   },
   "statistical_reference/smooths/micvby": {
     "preview_version": 2,
-    "sha256": "c42b4912effa224afc98ebda13f28a028384b3c9094281159dd98a12ee8dfa31",
+    "sha256": "c299c05ab68a4ceef6173ac339dab6ddbc3e5d4ef834c64b2c2e2ef136026819",
     "status": "passed"
   },
   "statistical_reference/smooths/micx": {
     "preview_version": 2,
-    "sha256": "5e6130693aa2121ef157c76bc497cb81f92713df56acec294706d31ad73b8f5d",
+    "sha256": "23ca70d0d30642eb55659327f0b993e168e589809dd13eab513cbe0561a7503c",
     "status": "passed"
   },
   "statistical_reference/smooths/micxby": {
     "preview_version": 2,
-    "sha256": "8aae84f9177c02afa5036e9509430e73d1e84cfa97e5d1c593bbbca45b2fd656",
+    "sha256": "20c4648e946f2c5c607baaf416f2b0aa240a3a57f15b3a2aee874e470e71b94d",
     "status": "passed"
   },
   "statistical_reference/smooths/mifo": {
     "preview_version": 2,
-    "sha256": "3b02ac9bf3a519c779faa39aca3ca7dda208d4bafe9f1035f64b84bb3b19634d",
+    "sha256": "c9cb660654f503b1a5f9c56ab801bab5282c07911196fd933b00ae29aae073b4",
     "status": "passed"
   },
   "statistical_reference/smooths/miso": {
     "preview_version": 2,
-    "sha256": "b013e0dc113e68573e2b14a8503aa97c6221a01774e4434bb984303db31cf4e1",
+    "sha256": "5262e38a664b52bdaae97251934a71825f3ca518620c6bc966abf929cb83568a",
     "status": "passed"
   },
   "statistical_reference/smooths/mpd": {
     "preview_version": 2,
-    "sha256": "bc1112c1e924d0bc7d874ed2f3d119ab3b615a5e107c71be7d5cb8afaf3f8441",
+    "sha256": "cf6864db8c104203100869b8cc3c94598bd011c43cc5035c52d4f3c7ec980cd2",
     "status": "passed"
   },
   "statistical_reference/smooths/mpdby": {
     "preview_version": 2,
-    "sha256": "bda6cc8fabf40acb2f428f003d332199708a3358f1a855f59a5b1df0ad363dd6",
+    "sha256": "a66c1324113427441dbcde8fdbfc13248069bca7a67283bd6c782a032183a689",
     "status": "passed"
   },
   "statistical_reference/smooths/mpi": {
     "preview_version": 2,
-    "sha256": "4c3f0475f3ab7551d5defb50fbae3ff179db598f1676a72b8212e9f51f8e5b23",
+    "sha256": "ee2d2eee6866c09d2b2fc63dfd80944743158b80baa81a85d20e00880af38200",
     "status": "passed"
   },
   "statistical_reference/smooths/mpiby": {
     "preview_version": 2,
-    "sha256": "33816939202329cfe3905cae146726a13d46ccc3eb87437c59b6573afb298d6c",
+    "sha256": "9b984b4c7a4411bd31f51a2310c6acac45808c5a206c80157e2874e881557a90",
     "status": "passed"
   },
   "statistical_reference/smooths/mrf": {
     "preview_version": 2,
-    "sha256": "0897db3f4a509b4fc7718578b13364e581204041ffe0a34c23ee150c5e823116",
+    "sha256": "c79eeb44d75febcbad029f38d6d6fb8bd6e4675a69b8a15ba73058b1bc7192ff",
     "status": "passed"
   },
   "statistical_reference/smooths/po": {
     "preview_version": 2,
-    "sha256": "6a44f6b576843bfce9f9f60da261c791b8343a0bec38b3ea79a4a4f7478ccc93",
+    "sha256": "f556e5f159131530e100cc21d1df27d50cca4746d78b519c4085d69aa63f22fd",
     "status": "passed"
   },
   "statistical_reference/smooths/ps": {
     "preview_version": 2,
-    "sha256": "3d442ccf155e9705f05a050490538485ba4ceffab17549cfd56047f2812fa223",
+    "sha256": "13e19477a8cd2288815cf84781914478f1c023b2dd8ec0fbb7da0d5acc7921f5",
     "status": "passed"
   },
   "statistical_reference/smooths/re": {
     "preview_version": 2,
-    "sha256": "bb690ed75ab4e499ce87a6663882a607b7b050d1c6c071449afaab2bfcc2f5e5",
+    "sha256": "e327b68a6b97f9f8467309f03bbe04665fa4f8150febc03767291e72ae78a4cf",
     "status": "passed"
   },
   "statistical_reference/smooths/sc": {
     "preview_version": 2,
-    "sha256": "9a296924a70fb3bd68af83ea7ef636810a647168f43f2d892997bf5512a00ae6",
+    "sha256": "d1a58d46bb630e4fc8cb838627553e13415a80b128812247126bf27ed3ac36b9",
     "status": "passed"
   },
   "statistical_reference/smooths/scad": {
     "preview_version": 2,
-    "sha256": "8f45c23917bc8e0fe337205944ca6bd3bf9e043bd989f040b237f6ff7371a3f8",
+    "sha256": "1b363d931de423130717ec814cde422bc9d731cc44cc4af1dda7efd002d46f3e",
     "status": "passed"
   },
   "statistical_reference/smooths/sf": {
     "preview_version": 2,
-    "sha256": "e0c7cc519ee5d7e764c1a336ea487c521e46376b40cb01eeca2835648425c5aa",
+    "sha256": "42d2998d1d5189f86f1a2fd31b2e879878b33f783ab189d7b607740a06f26692",
     "status": "passed"
   },
   "statistical_reference/smooths/so": {
     "preview_version": 2,
-    "sha256": "763b39204148d238e6cf609ee75cf66a5e06b87ed928b3379073eaf62c683804",
+    "sha256": "2b7def6403c8c69dbe4f11ef6c8b303e7b26db01827de141688a90a82735c72c",
     "status": "passed"
   },
   "statistical_reference/smooths/sos": {
     "preview_version": 2,
-    "sha256": "0d339be8fe26e50adf5001ce865bef5511b32be38ffb04c06f4f5aeb2fc84e04",
+    "sha256": "0f8bbefad45a5cd182326b71a4136bf933ab275e2ff8b7282d2daf6cd1177f8e",
     "status": "passed"
   },
   "statistical_reference/smooths/sw": {
     "preview_version": 2,
-    "sha256": "54a5bd0e562147b3dbdac101d8a81adf6cc08e3c9b954cbd4f84ab3b850ece33",
+    "sha256": "13d89f1b6c33ab5621d87ed16d7c0468341e4c1020746c0d9d485d07c38cb2de",
     "status": "passed"
   },
   "statistical_reference/smooths/sz": {
     "preview_version": 2,
-    "sha256": "a932937a40976bc56fbd59b9c6067a2ebf7bed1b4c70ca6b0741bd42066f1058",
+    "sha256": "5ffe2096d1ccafd29a9b008e0f894c80243b721d0985f1610e71555b2c764958",
     "status": "passed"
   },
   "statistical_reference/smooths/t2": {
     "preview_version": 2,
-    "sha256": "d3cfd690bc3f03f9a445f3b7afc5de3b840b1bf7e961cf44ee7b100353c08229",
+    "sha256": "0cd63b7aad4b29314c3ed3e9cf221c1e12aabe45331107dac59a9d029e9501b1",
     "status": "passed"
   },
   "statistical_reference/smooths/te": {
     "preview_version": 2,
-    "sha256": "e97acd467758852b86a27980afe7f69e9f94be40c0b5f880963b6884af79a17f",
+    "sha256": "2d8fb30b2fb0ada3821be65bf8a7f2140fe25c7bca561c45bc5d5146bbf3b91e",
     "status": "passed"
   },
   "statistical_reference/smooths/tecvcv": {
     "preview_version": 2,
-    "sha256": "d65cce61ffc42d745a381b5a80081e748ca8e5a71b4c68c7496d51bd21eaf3d3",
+    "sha256": "8f9efdf62197157726d62be768cc035b343b41b40cefd7f4803a23e5f4c9a6df",
     "status": "passed"
   },
   "statistical_reference/smooths/tecxcv": {
     "preview_version": 2,
-    "sha256": "4da9ee3bbb1aef40fc65135d31bdd2763b5e811551e04ac4af4a8423d55a0fc9",
+    "sha256": "0e8b6c5b10fb08cbce2cbf68e07f7b84e3eb644fa6743838d95ad81f5c2acf35",
     "status": "passed"
   },
   "statistical_reference/smooths/tecxcx": {
     "preview_version": 2,
-    "sha256": "0a7af718f6534cb132c46f149c37f6943a33a56cd81626a06b0d54e484e65963",
+    "sha256": "813831cffdce57855ea48413d0cd73ab13096f33029769257ec623386a825996",
     "status": "passed"
   },
   "statistical_reference/smooths/tedecv": {
     "preview_version": 2,
-    "sha256": "f773f608ce5024827255fd268ad595d07d99dd0283ef0f236aac48f63953c08d",
+    "sha256": "0c5bc2a9f6137275b49dfa47c305ca50f296011cfd76afa89b65233b8232840d",
     "status": "passed"
   },
   "statistical_reference/smooths/tedecx": {
     "preview_version": 2,
-    "sha256": "1007ef93363ecbca318f3d1e17949e6c05a0bf57702db8dde273caee72b2a370",
+    "sha256": "215390ad815cd1022d22fa119bb3d8a706c6094b70247d0d63ab721238a1f2eb",
     "status": "passed"
   },
   "statistical_reference/smooths/tedmd": {
     "preview_version": 2,
-    "sha256": "e42fa34d9f28913b1a6e7c993d54f86fd66b908e3eeae74bf898932dd8600fda",
+    "sha256": "b5daea1a9494f30dbf934ceab819db2a899192c7e683ef9915fc7bb5a03aed46",
     "status": "passed"
   },
   "statistical_reference/smooths/tedmi": {
     "preview_version": 2,
-    "sha256": "e279394087d5679b5bfc41c4d670453456af57e767a5c3e47f554296f4f327a6",
+    "sha256": "c1c4d2cfa0091ad22f7e509ad74e0c95f8b54ee4ca8a907deb66b722eeb72c41",
     "status": "passed"
   },
   "statistical_reference/smooths/temicv": {
     "preview_version": 2,
-    "sha256": "7df46802483e4d37f8b05ed6aa464d24699f7c75271b9fa22e7f954b00ccea05",
+    "sha256": "08313e439d0a0ff2efe8d31dab92b6c812b3a3f4363717a7a64a05b38be5c9ee",
     "status": "passed"
   },
   "statistical_reference/smooths/temicx": {
     "preview_version": 2,
-    "sha256": "e357597eb36282dc1b98567c4eb169e5dfaeff2610d8fcc7e0c27dd80c30ad52",
+    "sha256": "fa0479a7d98f2e44df80607aa0cae82cd43e38d7ca336b5958b02cd927275d1d",
     "status": "passed"
   },
   "statistical_reference/smooths/tescv": {
     "preview_version": 2,
-    "sha256": "03e10e6611ee1c9da13578af3b4cecb0af234b438be49e8eddd8361ac4aa7e9e",
+    "sha256": "ff11b77302c320e2015353f0870ba73257c3df183f48babfeeb0c5b59d4fdc85",
     "status": "passed"
   },
   "statistical_reference/smooths/tescx": {
     "preview_version": 2,
-    "sha256": "5e62e574c27c7718ca870673298a987e097d17fd3fb4539abdda9477ccc1c908",
+    "sha256": "4aea83340ade25dfc437f0092fffe22bedd39761b38ac5957015b34765f22e6d",
     "status": "passed"
   },
   "statistical_reference/smooths/tesmd1": {
     "preview_version": 2,
-    "sha256": "169bd271ced052df5e06298bed7e1aacdb2f2b01c52af6ea0324290dfb225fa6",
+    "sha256": "471f985b54de83923a411a031fac9b480569b905d24f2bf70fac80e74c95e891",
     "status": "passed"
   },
   "statistical_reference/smooths/tesmd2": {
     "preview_version": 2,
-    "sha256": "8ace07fdc709d8cd30401eadef92bb9871c784085c18485b70e87c45727698a8",
+    "sha256": "2cd28d324a5d0750abc661c67df39c732dc30dce3d5167b4c366a45664880d3c",
     "status": "passed"
   },
   "statistical_reference/smooths/tesmi1": {
     "preview_version": 2,
-    "sha256": "a40818d70f1ae8861729499d951494ee49ce28dec4bb5dc89461ff9772826adb",
+    "sha256": "eea18b953a22d5963f1b993c96b673b6c409af68b633d420af465e4178a88a31",
     "status": "passed"
   },
   "statistical_reference/smooths/tesmi2": {
     "preview_version": 2,
-    "sha256": "04a24bd2cd531caf0ddecf49edf740db625d71c4463a04230ac72827cc73f7e2",
+    "sha256": "e83b605211cc875eed64f1258de0b80e4cdd37082a4940720b20e6a06d710625",
     "status": "passed"
   },
   "statistical_reference/smooths/ti": {
     "preview_version": 2,
-    "sha256": "325f77dc5e265c2c664761ff1a0537f01a4d7aed132e68a9cb01ad691129fc9f",
+    "sha256": "c0966ada7db02f21464bfa8ce449edcf07761a3a4d315644c4346455027ef121",
     "status": "passed"
   },
   "statistical_reference/smooths/tismd": {
     "preview_version": 2,
-    "sha256": "7c23daafd8b6687cbb67773d8cafaed3692ea7ad6f67ae109f8b95b70af2e873",
+    "sha256": "045f4ff7b332fe4d9fa65151fc417a5d308aa1be2af112238431622c807ca457",
     "status": "passed"
   },
   "statistical_reference/smooths/tismi": {
     "preview_version": 2,
-    "sha256": "08507806200ad4ca0cfdb5c118b474a03bf995f367e96b5d997748fe8e9a37bd",
+    "sha256": "54d4e84bcbda186c713dd252b4d74c3bf88ad1b1fdd7421e4c6a8d8734a73657",
     "status": "passed"
   },
   "statistical_reference/smooths/tp": {
     "preview_version": 2,
-    "sha256": "b748876a8db6f23c9c64b9531f2cd37ee67979e85f636dd727c017ea905568f9",
+    "sha256": "378e92f40e5029dbc7970b6f37132db4d20d1a7c51b06b8c56b7a6d4ea8d8bf7",
     "status": "passed"
   },
   "statistical_reference/smooths/ts": {
     "preview_version": 2,
-    "sha256": "4e6b2279c6ee33f36e672f792bf755e5a95a04d3b26b946d9f5efe09dcbe9321",
+    "sha256": "1c545256a76da75188a0a196259dff049716f955a62250e2e20979f7a5db62be",
     "status": "passed"
   },
   "statistical_reference/uncertainty": {
     "preview_version": 2,
-    "sha256": "bd174dfbe565d6ed27565aa01dd3f9ef3eefb751cbd7fc143b5d686ad478b82a",
+    "sha256": "cce80b25e65d6e3c3348148bc377f93b1798a042531065d894691b24bab7a350",
     "status": "passed"
   }
 }

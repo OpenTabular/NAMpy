@@ -17,14 +17,22 @@ def test_reference_generation_from_clean_checkout(tmp_path):
 
     extension["generate"](tmp_path)
 
-    page = generated / "nampy.models.LinRegRegressor.rst"
-    assert ".. autoclass:: LinRegRegressor" in page.read_text()
+    assert not generated.exists(), (
+        "The include generator must not recreate legacy pages"
+    )
+    page = tmp_path / "docs/_generated/reference/LinRegRegressor.inc"
     reference = tmp_path / "docs/_generated/reference/LinRegRegressor.inc"
     assert reference.is_file()
-    pages = list(generated.glob("*.rst"))
+    from nampy import models
+
+    pages = [
+        tmp_path / f"docs/_generated/reference/{name}.inc"
+        for name in models.__all__
+        if (tmp_path / f"docs/_generated/reference/{name}.inc").is_file()
+    ]
     assert pages
     for generated_page in pages:
-        name = generated_page.stem.removeprefix("nampy.models.")
+        name = generated_page.stem
         text = (tmp_path / f"docs/_generated/reference/{name}.inc").read_text()
         if name.endswith(("Regressor", "Classifier", "LSS")) and name not in {
             "GAMRegressor",
@@ -33,8 +41,6 @@ def test_reference_generation_from_clean_checkout(tmp_path):
         }:
             assert "Full shared fit contract" in text
         assert "See the shared training contract for this fit control." not in text
-    from nampy import models
-
     for name in [
         "NAMRegressor",
         "NAMClassifier",

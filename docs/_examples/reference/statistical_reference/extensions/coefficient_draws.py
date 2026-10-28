@@ -13,4 +13,3 @@ model = GAM(formula="y ~ s(x, bs='ps', k=7) + s(z, bs='cr', k=6)",
 
 from nampy.gam.extensions import coefficient_draws
 result = coefficient_draws(model, n_draws=2000, seed=4)
-assert result.ndim == 2

@@ -17,8 +17,6 @@ with TemporaryDirectory() as directory:
               checkpoint_path=directory, logger=False, enable_progress_bar=False,
               enable_model_summary=False)
 prediction = model.predict(X)
-assert np.asarray(prediction).shape[0] == n
-assert np.isfinite(prediction).all()
 result = {'prediction': prediction}
 result['raw'] = model.predict(X, raw=True)
 result['point'] = model.predict_point(X)

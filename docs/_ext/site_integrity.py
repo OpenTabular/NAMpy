@@ -1,5 +1,6 @@
 """Stable legacy URLs and visible documentation provenance."""
 
+import json
 import posixpath
 import subprocess
 from pathlib import Path
@@ -32,6 +33,11 @@ REDIRECTS = {
     "tutorials/periodic_effect": "tutorials/first_gam#interpret-the-effects",
     "tutorials/nam_nbm": "notebooks/03_neural_models#Fit-NAM-and-NBM",
 }
+REDIRECTS.update(
+    json.loads(
+        (Path(__file__).parents[1] / "_data/legacy_documentation.json").read_text()
+    )
+)
 
 
 def pages(app):
@@ -66,8 +72,12 @@ def provenance(app):
 
 
 def setup(app):
+    app.connect("builder-inited", disable_search)
+    app.connect("build-finished", remove_unused_utility_pages, priority=100)
     app.connect("html-collect-pages", pages)
     app.connect("html-page-context", navigation_context)
+    app.connect("missing-reference", legacy_reference)
+    app.connect("doctree-resolved", legacy_links)
     app.connect("builder-inited", provenance)
     app.connect("doctree-resolved", local_documentation_links)
     app.connect("doctree-resolved", notebook_image_descriptions)
@@ -76,8 +86,20 @@ def setup(app):
     return {"parallel_read_safe": True, "parallel_write_safe": True}
 
 
+def disable_search(app):
+    if app.builder.format == "html":
+        app.builder.search = False
+
+
+def remove_unused_utility_pages(app, exception):
+    """Clean previous builds when the removed utility pages are no longer emitted."""
+    if exception is None and app.builder.format == "html":
+        for filename in ("genindex.html", "search.html", "searchindex.js"):
+            (Path(app.outdir) / filename).unlink(missing_ok=True)
+
+
 def navigation_context(app, pagename, templatename, context, doctree):
-    """Keep generated symbols on reference pages, outside the global sidebar."""
+    """Show API detail pages with concise labels in their owning section."""
     from docutils import nodes
     from sphinx.environment.adapters.toctree import TocTree
 
@@ -100,14 +122,60 @@ def navigation_context(app, pagename, templatename, context, doctree):
                 "api/generated/"
             ) and not reference.astext().startswith("nampy."):
                 continue
-            parent = reference.parent
-            while parent is not None and not isinstance(parent, nodes.list_item):
-                parent = parent.parent
-            if parent is not None and parent.parent is not None:
-                parent.parent.remove(parent)
+            reference.children[:] = [nodes.Text(reference.astext().rsplit(".", 1)[-1])]
         return app.builder.render_partial(tree)["fragment"]
 
     context["toctree"] = navigation
+
+
+def legacy_reference(app, env, node, contnode):
+    """Resolve historical document and Python references to their current owners."""
+    from sphinx.util.nodes import make_refnode
+
+    source = node.get("refdoc", env.docname)
+    name = node.get("reftarget", "")
+    target = None
+    if node.get("refdomain") == "std" and node.get("reftype") == "doc":
+        old = (
+            name.lstrip("/")
+            if name.startswith("/")
+            else posixpath.normpath(posixpath.join(posixpath.dirname(source), name))
+        )
+        target = REDIRECTS.get(old)
+    elif node.get("refdomain") == "py":
+        for old, destination in REDIRECTS.items():
+            if not old.startswith("api/generated/"):
+                continue
+            symbol = old.removeprefix("api/generated/")
+            if (
+                name == symbol
+                or name == symbol.rsplit(".", 1)[-1]
+                or name.startswith(symbol + ".")
+            ):
+                target = destination
+                break
+    if target:
+        page, _, anchor = target.partition("#")
+        return make_refnode(app.builder, source, page, anchor, contnode)
+
+
+def legacy_links(app, doctree, docname):
+    """Keep internal links on canonical pages while preserving old external URLs."""
+    from docutils import nodes
+
+    for reference in doctree.findall(nodes.reference):
+        uri = reference.get("refuri", "")
+        if not uri or ":" in uri or uri.startswith("#"):
+            continue
+        old = posixpath.normpath(
+            posixpath.join(posixpath.dirname(docname), uri.split("#", 1)[0])
+        ).removesuffix(".html")
+        if old not in REDIRECTS:
+            continue
+        page, separator, anchor = REDIRECTS[old].partition("#")
+        reference["refuri"] = app.builder.get_relative_uri(docname, page) + (
+            "#" + anchor if separator else ""
+        )
 
 
 def notebook_image_descriptions(app, doctree, docname):
@@ -155,13 +223,17 @@ def version_local_images(app, exception):
             parts = urlsplit(html.unescape(match["url"]))
             if parts.scheme or parts.netloc:
                 return match[0]
+            if posixpath.splitext(unquote(parts.path))[1].lower() not in {
+                ".png",
+                ".svg",
+                ".jpg",
+                ".jpeg",
+                ".webp",
+                ".gif",
+            }:
+                return match[0]
             target = (page.parent / unquote(parts.path)).resolve()
-            if (
-                not target.is_relative_to(root)
-                or not target.is_file()
-                or target.suffix.lower()
-                not in {".png", ".svg", ".jpg", ".jpeg", ".webp", ".gif"}
-            ):
+            if not target.is_relative_to(root) or not target.is_file():
                 return match[0]
             if target not in checksums:
                 checksums[target] = f"{zlib.crc32(target.read_bytes()):08x}"

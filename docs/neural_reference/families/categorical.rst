@@ -3,13 +3,13 @@
 categorical
 ===========
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** P(Y=j)=p_j, j=0,...,C-1; sum(p)=1.
-* **Natural domains:** class probabilities p_j>=0, normalized across C classes
-* **Conditional mean:** Probability vector p; a numeric class-label mean has no invariant categorical interpretation
-* **Conditional variance:** Covariance of one-hot Y: diag(p)-p p^T
+   \Pr(Y=j)=p_j,\quad j\in\{0,\ldots,C-1\}
+
+* **Natural domains:** :math:`p_j\geq0,\quad\sum_{j=0}^{C-1}p_j=1`
+* **Conditional mean:** For the one-hot vector :math:`Z`, :math:`\mathbb E[Z\mid x]=p`; numeric label means depend on the encoding.
+* **Conditional variance:** :math:`\operatorname{Cov}(Z\mid x)=\operatorname{diag}(p)-pp^{\mathsf T}` for one-hot :math:`Z`.
 
 References: `PyTorch probability distributions <https://docs.pytorch.org/docs/stable/distributions.html>`_. NAMpy defines its family transforms and point outputs below.
 
@@ -153,96 +153,11 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/neural_reference/families/categorical.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. rubric:: parameters
+Example result
+~~~~~~~~~~~~~~
 
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
+.. raw:: html
 
-   * - class_0
-     - class_1
-     - class_2
-   * - 0.3333300054073334
-     - 0.3333300054073334
-     - 0.3333300054073334
-   * - 0.3333300054073334
-     - 0.3333300054073334
-     - 0.3333300054073334
-
-Full shape: ``[8, 3]``; omitted by axis: ``[6, 0]``.
-
-.. rubric:: raw
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - class_0
-     - class_1
-     - class_2
-   * - 0.0
-     - 0.0
-     - 0.0
-   * - 0.0
-     - 0.0
-     - 0.0
-
-Full shape: ``[8, 3]``; omitted by axis: ``[6, 0]``.
-
-.. code-block:: text
-
-   {
-     "loss": 1.0986123085021973,
-     "point": {
-       "kind": "array",
-       "omitted_by_axis": [
-         2
-       ],
-       "shape": [
-         8
-       ],
-       "values": [
-         0,
-         0,
-         0,
-         0,
-         0,
-         0
-       ]
-     }
-   }
-
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 4 named fields
-   * - result['raw']
-     - torch.Tensor[torch.float32]
-     - (8, 3)
-   * - result['parameters']
-     - torch.Tensor[torch.float32]
-     - (8, 3)
-   * - result['loss']
-     - torch.Tensor[torch.float32]
-     - ()
-   * - result['point']
-     - torch.Tensor[torch.int64]
-     - (8,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">loss</span><span class="example-result-meta">Tensor[float32] · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">1.0986</span></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">parameters</span><span class="example-result-meta">Tensor[float32] · 8 × 3</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>class_0</dt><dd><span>0.33333</span></dd></div><div class="example-result-coordinate"><dt>class_1</dt><dd><span>0.33333</span></dd></div><div class="example-result-coordinate"><dt>class_2</dt><dd><span>0.33333</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>class_0</dt><dd><span>0.33333</span></dd></div><div class="example-result-coordinate"><dt>class_1</dt><dd><span>0.33333</span></dd></div><div class="example-result-coordinate"><dt>class_2</dt><dd><span>0.33333</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 8 rows.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">point</span><span class="example-result-meta">Tensor[int64] · 8</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0</span><span class="example-result-value">0</span><span class="example-result-value">0</span><span class="example-result-value">0</span><span class="example-result-value">0</span><span class="example-result-value">0</span></div><p class="example-result-note">Showing 6 of 8 values.</p></div></section><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">raw</span><span class="example-result-meta">Tensor[float32] · 8 × 3</span></summary><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>class_0</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>class_1</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>class_2</dt><dd><span>0</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>class_0</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>class_1</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>class_2</dt><dd><span>0</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 8 rows.</p></div></details><p class="example-result-footnote">Sample values are rounded for display.</p></div>

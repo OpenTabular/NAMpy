@@ -20,66 +20,11 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/extensions/joint_edf.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "edf": {
-       "kind": "array",
-       "omitted_by_axis": [
-         0
-       ],
-       "shape": [
-         2
-       ],
-       "values": [
-         0.94821,
-         0.34749
-       ]
-     },
-     "edf1": {
-       "kind": "array",
-       "omitted_by_axis": [
-         0
-       ],
-       "shape": [
-         2
-       ],
-       "values": [
-         0.9946,
-         0.57151
-       ]
-     },
-     "total": 1.2957017089590885
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 3 named fields
-   * - result['edf']
-     - numpy.ndarray[float64]
-     - (2,)
-   * - result['total']
-     - builtins.float
-     - ()
-   * - result['edf1']
-     - numpy.ndarray[float64]
-     - (2,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">edf</span><span class="example-result-meta">ndarray[float64] · 2</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.94821</span><span class="example-result-value">0.34749</span></div></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">edf1</span><span class="example-result-meta">ndarray[float64] · 2</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.9946</span><span class="example-result-value">0.57151</span></div></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">total</span><span class="example-result-meta">float · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">1.2957</span></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>

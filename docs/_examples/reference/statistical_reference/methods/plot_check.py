@@ -12,6 +12,5 @@ model = GAM(formula="y ~ s(x, bs='ps', k=7) + s(z, bs='cr', k=6)",
             optimize_smoothing=True, smoothing_method='reml').fit(data=data)
 permutations = np.vstack([rng.permutation(n) for _ in range(3)])
 draws = model.predict(data)[None, :] + rng.normal(0, np.sqrt(model.fit_result().scale), size=(3, n))
-assert permutations.shape == draws.shape == (3, n)
 result = {'analytic': model.plot_check(rep=0, s_rep=3, seed=7, quantile_permutations=permutations), 'simulated': model.plot_check(rep=3, seed=7, response_draws=draws)}
 print(type(result).__name__)

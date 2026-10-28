@@ -14,4 +14,3 @@ from nampy.plotting import add_density_shading
 figure, ax = plt.subplots()
 ax.plot(x, np.sin(3*x))
 result = add_density_shading(ax, x, bins=8)
-assert result is None

@@ -3,13 +3,13 @@
 poisson
 =======
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** P(Y=y)=exp(-lambda) lambda^y/y!, y=0,1,... .
-* **Natural domains:** lambda>0
-* **Conditional mean:** lambda
-* **Conditional variance:** lambda
+   \Pr(Y=y)=e^{-\lambda}\lambda^y/y!,\quad y\in\{0,1,\ldots\}
+
+* **Natural domains:** :math:`\lambda>0`
+* **Conditional mean:** :math:`\mathbb E[Y\mid x]=\lambda`
+* **Conditional variance:** :math:`\operatorname{Var}(Y\mid x)=\lambda`
 
 References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
 
@@ -134,73 +134,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/poisson.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "link_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         1.14208,
-         1.41966,
-         1.33704,
-         0.73792,
-         0.82029,
-         1.41132
-       ]
-     },
-     "response_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         3.13327,
-         4.13571,
-         3.80777,
-         2.09158,
-         2.27117,
-         4.10136
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['response_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['link_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">link_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">1.1421</span><span class="example-result-value">1.4197</span><span class="example-result-value">1.337</span><span class="example-result-value">0.73792</span><span class="example-result-value">0.82029</span><span class="example-result-value">1.4113</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">response_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">3.1333</span><span class="example-result-value">4.1357</span><span class="example-result-value">3.8078</span><span class="example-result-value">2.0916</span><span class="example-result-value">2.2712</span><span class="example-result-value">4.1014</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 .. autoclass:: nampy.gam.families.poisson.PoissonLogFamily
    :no-index:

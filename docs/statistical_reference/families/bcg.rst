@@ -3,17 +3,19 @@
 bcg
 ===
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** Z=h_lambda(Y) is Gaussian: h_lambda(y)=(y^lambda-1)/lambda for lambda!=0, and log(y) at lambda=0. The uncensored response density kernel is NormalPDF((h_lambda(y)-mu)/sigma)*y^(lambda-1)/sigma; censoring uses the transformed bounds in Gaussian CDF differences.
-* **Natural domains:** Y>0; transformed location mu in R; sigma>0; Box-Cox lambda in R. Inverse h_lambda requires 1+lambda Z>0.
-* **Conditional mean:** E[Z]=mu at unit prior weight. Response E[Y]=E[h_lambda^(-1)(Z)]; for lambda=0 this is exp(mu+sigma^2/2).
-* **Conditional variance:** Var(Z)=sigma^2 at unit prior weight. Response Var(Y)=E[h_lambda^(-1)(Z)^2]-E[h_lambda^(-1)(Z)]^2; for lambda=0 this is (exp(sigma^2)-1)exp(2mu+sigma^2).
+   h_\lambda(y)=\begin{cases}(y^\lambda-1)/\lambda&\lambda\ne0,\\\log y&\lambda=0,\end{cases}\quad Z=h_\lambda(Y)
+
+* **Natural domains:** :math:`Y>0,\ \mu,\lambda\in\mathbb R,\ \sigma>0`; inverse transformation requires :math:`1+\lambda Z>0`.
+* **Conditional mean:** :math:`\mathbb E[Z\mid x]=\mu,\quad\mathbb E[Y\mid x]=\mathbb E[h_\lambda^{-1}(Z)\mid x]`; at :math:`\lambda=0`, :math:`\mathbb E[Y\mid x]=e^{\mu+\sigma^2/2}`.
+* **Conditional variance:** :math:`\operatorname{Var}(Z\mid x)=\sigma^2`; response variance is :math:`\mathbb E[h_\lambda^{-1}(Z)^2\mid x]-\mathbb E[h_\lambda^{-1}(Z)\mid x]^2`. At :math:`\lambda=0`: :math:`(e^{\sigma^2}-1)e^{2\mu+\sigma^2}`. These formulas use unit prior weight.
+
+uncensored Gaussian transformation kernel :math:`\varphi\!\left(\frac{h_\lambda(y)-\mu}{\sigma}\right)\frac{y^{\lambda-1}}{\sigma}`
 
 Targets include censoring bounds rather than treating bounds as ordinary observations. The worked example and parameterization notes below define the exact two-column encoding and one-sided sentinel convention.
 
-Box-Cox response moments require an inverse-transform calculation on its valid domain and need not exist for all negative-lambda tails. NAMpy preserves the upstream transformed-response likelihood and returns the transformed Gaussian location; it does not return an inverse-transform response mean. Prior weight w rescales transformed variance to sigma^2/w.
+Box-Cox response moments require an inverse-transform calculation on its valid domain and need not exist for all negative-shape tails. NAMpy preserves the upstream transformed-response likelihood and returns the transformed Gaussian location; it does not return an inverse-transform response mean. Prior weight :math:`w` rescales transformed variance to :math:`\sigma^2/w`.
 
 References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
 
@@ -148,73 +150,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/bcg.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "link_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         0.40306,
-         0.50681,
-         0.49,
-         0.33433,
-         0.33903,
-         0.50853
-       ]
-     },
-     "response_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         0.40306,
-         0.50681,
-         0.49,
-         0.33433,
-         0.33903,
-         0.50853
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['response_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['link_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">link_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.40306</span><span class="example-result-value">0.50681</span><span class="example-result-value">0.49</span><span class="example-result-value">0.33433</span><span class="example-result-value">0.33903</span><span class="example-result-value">0.50853</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">response_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.40306</span><span class="example-result-value">0.50681</span><span class="example-result-value">0.49</span><span class="example-result-value">0.33433</span><span class="example-result-value">0.33903</span><span class="example-result-value">0.50853</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 Parameterization and interpretation
 -----------------------------------

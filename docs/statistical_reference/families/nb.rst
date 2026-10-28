@@ -3,13 +3,13 @@
 nb
 ==
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** P(Y=y)=Gamma(y+r)/(Gamma(r)y!) (r/(r+mu))^r (mu/(r+mu))^y.
-* **Natural domains:** mu>0; total count r>0
-* **Conditional mean:** mu
-* **Conditional variance:** mu+mu^2/r
+   \Pr(Y=y)=\frac{\Gamma(y+r)}{\Gamma(r)y!}\left(\frac{r}{r+\mu}\right)^r\left(\frac{\mu}{r+\mu}\right)^y,\quad y\in\{0,1,\ldots\}
+
+* **Natural domains:** :math:`\mu>0,\quad r>0`
+* **Conditional mean:** :math:`\mathbb E[Y\mid x]=\mu`
+* **Conditional variance:** :math:`\operatorname{Var}(Y\mid x)=\mu+\mu^2/r`
 
 References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
 
@@ -146,73 +146,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/nb.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "link_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         0.50579,
-         0.95111,
-         0.80734,
-         -0.44402,
-         -0.14597,
-         0.93928
-       ]
-     },
-     "response_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         1.6583,
-         2.58858,
-         2.24193,
-         0.64145,
-         0.86418,
-         2.55815
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['response_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['link_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">link_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.50579</span><span class="example-result-value">0.95111</span><span class="example-result-value">0.80734</span><span class="example-result-value">-0.44402</span><span class="example-result-value">-0.14597</span><span class="example-result-value">0.93928</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">response_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">1.6583</span><span class="example-result-value">2.5886</span><span class="example-result-value">2.2419</span><span class="example-result-value">0.64145</span><span class="example-result-value">0.86418</span><span class="example-result-value">2.5581</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 .. autoclass:: nampy.gam.families.negbin.NegativeBinomialLogFamily
    :no-index:

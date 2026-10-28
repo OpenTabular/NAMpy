@@ -10,3 +10,4 @@ Low-level modules for implementing architectures, objectives, data pipelines and
 
    Architecture modules </api/basemodels>
    Training and extension modules </api/neural>
+   Distribution metrics </api/utils>

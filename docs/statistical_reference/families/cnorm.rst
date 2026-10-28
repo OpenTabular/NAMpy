@@ -3,13 +3,15 @@
 cnorm
 =====
 
-Theory and interpretation
--------------------------
+.. math::
 
-* **Distribution / loss:** Latent CDF F(y)=Phi((y-mu)/sigma), y in R. Censoring contributions follow the documented exact/interval/one-sided encoding.
-* **Natural domains:** mu in R; sigma>0
-* **Conditional mean:** mu
-* **Conditional variance:** sigma^2
+   F(y)=\Phi((y-\mu)/\sigma)
+
+* **Natural domains:** :math:`\mu\in\mathbb R,\quad\sigma>0`
+* **Conditional mean:** :math:`\mathbb E[Y\mid x]=\mu` for the latent response.
+* **Conditional variance:** :math:`\operatorname{Var}(Y\mid x)=\sigma^2` for the latent response.
+
+The formula describes the latent law. Censoring contributes interval or one-sided probabilities.
 
 Targets include censoring bounds rather than treating bounds as ordinary observations. The worked example and parameterization notes below define the exact two-column encoding and one-sided sentinel convention.
 
@@ -142,73 +144,14 @@ This example includes all imports and input data; no variables from another page
 .. literalinclude:: /_examples/reference/statistical_reference/families/cnorm.py
    :language: python
 
-Observed result preview
-~~~~~~~~~~~~~~~~~~~~~~~
 
-Samples preserve array axes and scalar values; numeric array samples are rounded to five decimal places. Preview metadata marks every omitted row, column, item or field; it is not part of the API return.
 
-.. code-block:: text
+Example result
+~~~~~~~~~~~~~~
 
-   {
-     "link_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         2.59423,
-         2.99212,
-         2.88796,
-         2.22004,
-         2.27318,
-         2.98446
-       ]
-     },
-     "response_prediction": {
-       "kind": "array",
-       "omitted_by_axis": [
-         90
-       ],
-       "shape": [
-         96
-       ],
-       "values": [
-         2.59423,
-         2.99212,
-         2.88796,
-         2.22004,
-         2.27318,
-         2.98446
-       ]
-     }
-   }
+.. raw:: html
 
-Example output types and shapes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These are the concrete shapes for the example above; symbolic dimensions in the return contract describe other input sizes. An empty shape ``()`` denotes a scalar.
-
-The shape table summarizes direct output fields; the complete example is downloadable above.
-
-.. list-table::
-   :header-rows: 1
-   :class: api-reference-table
-
-   * - Output field
-     - Python type / dtype
-     - Example shape
-   * - result
-     - dict
-     - 2 named fields
-   * - result['response_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
-   * - result['link_prediction']
-     - numpy.ndarray[float64]
-     - (96,)
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">link_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">2.5942</span><span class="example-result-value">2.9921</span><span class="example-result-value">2.888</span><span class="example-result-value">2.22</span><span class="example-result-value">2.2732</span><span class="example-result-value">2.9845</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">response_prediction</span><span class="example-result-meta">ndarray[float64] · 96</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">2.5942</span><span class="example-result-value">2.9921</span><span class="example-result-value">2.888</span><span class="example-result-value">2.22</span><span class="example-result-value">2.2732</span><span class="example-result-value">2.9845</span></div><p class="example-result-note">Showing 6 of 96 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 Parameterization and interpretation
 -----------------------------------
