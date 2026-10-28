@@ -16,10 +16,6 @@ Ordinary one-dimensional smooths
      - Name
      - Inputs
      - Main distinction
-   * - :doc:`ad <ad>`
-     - Adaptive spline
-     - One or two covariates
-     - Adaptive spline with multiple penalties whose weights allow roughness to vary over the covariate domain. Supports one or two covariates.
    * - :doc:`bs <bs>`
      - Derivative-penalized B-spline
      - One covariate
@@ -40,6 +36,22 @@ Ordinary one-dimensional smooths
      - Unconstrained SC B-spline
      - One covariate
      - B-spline constructor branch corresponding to mgcv sc. This constructor does not itself impose shape inequalities; use the SCAM bases for constrained fitting.
+
+Adaptive smooths
+----------------
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Code
+     - Name
+     - Inputs
+     - Main distinction
+   * - :doc:`ad <ad>`
+     - Adaptive spline
+     - One or two covariates
+     - Adaptive spline with multiple penalties whose weights allow roughness to vary over the covariate domain. Supports one or two covariates.
    * - :doc:`scad <scad>`
      - Adaptive SC B-spline
      - One or two covariates

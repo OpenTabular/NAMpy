@@ -309,6 +309,7 @@ def organize_reference(root):
         key: []
         for key in [
             "Ordinary one-dimensional smooths",
+            "Adaptive smooths",
             "Cyclic smooths",
             "Multivariate, spatial and spherical smooths",
             "Group effects and structured penalties",
@@ -321,6 +322,8 @@ def organize_reference(root):
         group = (
             "Tensor products"
             if name in {"te", "ti", "t2"}
+            else "Adaptive smooths"
+            if name in {"ad", "scad"}
             else "Cyclic smooths"
             if name in {"cc", "cp"}
             else "Group effects and structured penalties"

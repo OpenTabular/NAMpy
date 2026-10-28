@@ -37,17 +37,7 @@ def parameterization_notes(name, backend):
             + ".\n\n"
         )
     if backend == "statistical" and name == "student_lss":
-        special += (
-            "The fixed ``df`` option is "
-            + math(r"\nu")
-            + ". Broader mathematical note: a Student-t law is defined for "
-            + math(r"\nu>0")
-            + ", but NAMpy restricts student_lss to finite "
-            + math(r"\nu>2")
-            + " to ensure finite response variance. It fits no degrees-of-freedom predictor. The gamlss.dist TF mapping is "
-            + math(r"\nu_{\mathrm{TF}}=\nu")
-            + ", with the same location and t scale.\n\n"
-        )
+        special += "The gamlss.dist TF mapping uses the same location, t scale and degrees of freedom. Shared tail and likelihood theory is on :doc:`/statistical_reference/families/theory`.\n\n"
     if backend == "statistical" and name == "beta_lss":
         special += (
             "Alternative shape parameters are "
@@ -153,7 +143,8 @@ def mathematical_contract(name, backend):
     else:
         text += "References: `PyTorch probability distributions <https://docs.pytorch.org/docs/stable/distributions.html>`_. NAMpy defines its family transforms and point outputs below.\n\n"
 
-    text += family_theory(name, backend, include_heading=False)
+    if not (backend == "statistical" and name == "student_lss"):
+        text += family_theory(name, backend, include_heading=False)
     if backend == "neural":
         if name == "categorical":
             text += "The low-level categorical loss also accepts one-hot/probability targets of shape ``(n,C)`` (or ``(n,1,C)``), reducing them by argmax rather than fitting a soft-label cross-entropy objective. Scalar labels may have shape ``(n,1)``.\n\n"

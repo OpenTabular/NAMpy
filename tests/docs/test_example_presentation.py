@@ -132,3 +132,44 @@ def test_covariance_values_remain_omitted():
     )
     assert "12 × 12" in soup.get_text()
     assert "Values omitted" in soup.get_text()
+
+
+@pytest.mark.parametrize(
+    "page, width, names",
+    [
+        ("statistical_reference/families/student_lss", 2, ["mu", "sigma"]),
+        (
+            "neural_reference/families/mvnormdiag",
+            6,
+            ["loc_0", "loc_1", "loc_2", "scale_0", "scale_1", "scale_2"],
+        ),
+        ("neural_reference/families/ordinal", 3, ["p0", "p1", "p2"]),
+    ],
+)
+def test_family_preview_columns_match_parameter_contract(tmp_path, page, width, names):
+    import json
+
+    from reference_examples import example_rst
+
+    directory = tmp_path / "_examples/reference"
+    directory.mkdir(parents=True)
+    (directory / "output_previews.json").write_text(
+        json.dumps(
+            {
+                page: {
+                    "parameters": {
+                        "kind": "array",
+                        "shape": [8, width],
+                        "values": [[0.5] * width],
+                        "omitted_by_axis": [7, 0],
+                    },
+                }
+            }
+        )
+    )
+    (directory / "output_schemas.json").write_text("{}")
+    source = example_rst(tmp_path, page, "result = None")
+    soup = BeautifulSoup(source.split(".. raw:: html\n\n", 1)[1], "html.parser")
+    assert [
+        node.get_text() for node in soup.select(".example-result-coordinate dt")
+    ] == names

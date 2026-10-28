@@ -470,5 +470,57 @@ def example_rst(root, page, code):
         previews = json.loads(preview_path.read_text())
         schemas = json.loads(schema_path.read_text())
         if page in previews:
-            result += result_rst(previews[page], schemas.get(page, []))
+            preview = previews[page]
+            if "/families/" in page and isinstance(preview, dict):
+                from copy import deepcopy
+
+                preview = deepcopy(preview)
+                name = page.rsplit("/", 1)[-1]
+                if page.startswith("statistical_reference/"):
+                    from nampy.gam.families.registry import make_gam_family
+
+                    family = make_gam_family(
+                        {
+                            "name": name,
+                            **(
+                                {"R": 3}
+                                if name == "ocat"
+                                else {"theta": 2.0}
+                                if name == "negbin"
+                                else {}
+                            ),
+                        }
+                    )
+                    columns = getattr(
+                        family, "distribution_parameter_names", None
+                    ) or getattr(family, "parameter_names", ())
+                else:
+                    import numpy as np
+
+                    from nampy.neural.distributions.registry import FAMILY_REGISTRY
+
+                    # Match the standalone example's inferred target width.
+                    family, _ = FAMILY_REGISTRY[name].instantiate(
+                        np.array([[0.2, 0.3, 0.5], [0.3, 0.3, 0.4]])
+                        if name == "dirichlet"
+                        else np.zeros((8, 3))
+                        if name == "mvnormdiag"
+                        else np.array([0, 1, 2])
+                        if name in {"categorical", "ordinal"}
+                        else np.zeros(8)
+                    )
+                    columns = (
+                        [f"p{i}" for i in range(family.num_classes)]
+                        if name == "ordinal"
+                        else family.param_names
+                    )
+                for key in ("parameters", "natural", "natural_parameters"):
+                    value = preview.get(key)
+                    if (
+                        isinstance(value, dict)
+                        and len(value.get("shape", [])) == 2
+                        and value["shape"][1] == len(columns)
+                    ):
+                        value["columns"] = list(columns)
+            result += result_rst(preview, schemas.get(page, []))
     return result

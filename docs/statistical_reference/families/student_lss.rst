@@ -13,29 +13,9 @@ student_lss
 
 :math:`Y=\mu+\sigma T_\nu,\quad T_\nu\sim t_\nu`
 
-The fixed ``df`` option is :math:`\nu`. Broader mathematical note: a Student-t law is defined for :math:`\nu>0`, but NAMpy restricts student_lss to finite :math:`\nu>2` to ensure finite response variance. It fits no degrees-of-freedom predictor. The gamlss.dist TF mapping is :math:`\nu_{\mathrm{TF}}=\nu`, with the same location and t scale.
+The gamlss.dist TF mapping uses the same location, t scale and degrees of freedom. Shared tail and likelihood theory is on :doc:`/statistical_reference/families/theory`.
 
 Distribution reference: `gamlss.dist::TF <https://github.com/cran/gamlss.dist/blob/master/man/TF.Rd>`_. Fitting uses NAMpy's joint penalized engine, not gamlss RS backfitting. See :doc:`/development/neighbor_parity` for the tested mapping and numerical comparisons.
-
-A Student-t location-scale model replaces Gaussian quadratic tail
-growth with a logarithmic residual term. It can accommodate occasional
-large residuals while retaining a smooth location predictor.
-
-.. math::
-
-   -\ell=\log\sigma+\frac{\nu+1}{2}\log\left(1+\frac{(y-\mu)^2}{\nu\sigma^2}\right)+c(\nu).
-
-Degrees of freedom nu control tail thickness; the Gaussian limit
-is nu tending to infinity. Sigma is a t scale, with response variance
-sigma**2*nu/(nu-2) when nu>2. Finite-variance student_lss fixes nu>2;
-scat and the neural Student-t interface have their own documented
-estimation/domain rules. Robustness to residual outliers does not
-automatically protect against influential covariate configurations.
-
-See :doc:`/statistical_reference/families/theory` for likelihoods,
-links, weights and distributional predictors. The mathematical law
-does not imply support for every fitting or smoothing-selection route;
-the contracts below define the implemented combinations.
 
 Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
 
@@ -71,4 +51,4 @@ Example result
 
 .. raw:: html
 
-   <div class="example-result" aria-label="Example result"><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">components</span><span class="example-result-meta">AdditivePrediction · scalar record</span></summary><div class="example-result-body"><dl class="example-result-fields"><div><dt>backend<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">gam</span></dd></div></dl><p class="example-result-note">6 additional fields available on the returned object.</p></div></details><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">parameters</span><span class="example-result-meta">ndarray[float64] · 120 × 2</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>-0.31439</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.54697</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>column 1</dt><dd><span>-0.3008</span></dd></div><div class="example-result-coordinate"><dt>column 2</dt><dd><span>0.54842</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 120 rows.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">point</span><span class="example-result-meta">ndarray[float64] · 120</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">-0.31439</span><span class="example-result-value">-0.3008</span><span class="example-result-value">-0.28722</span><span class="example-result-value">-0.27363</span><span class="example-result-value">-0.26004</span><span class="example-result-value">-0.24646</span></div><p class="example-result-note">Showing 6 of 120 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
+   <div class="example-result" aria-label="Example result"><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">components</span><span class="example-result-meta">AdditivePrediction · scalar record</span></summary><div class="example-result-body"><dl class="example-result-fields"><div><dt>backend<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">gam</span></dd></div></dl><p class="example-result-note">6 additional fields available on the returned object.</p></div></details><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">parameters</span><span class="example-result-meta">ndarray[float64] · 120 × 2</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>mu</dt><dd><span>-0.31439</span></dd></div><div class="example-result-coordinate"><dt>sigma</dt><dd><span>0.54697</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>mu</dt><dd><span>-0.3008</span></dd></div><div class="example-result-coordinate"><dt>sigma</dt><dd><span>0.54842</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 120 rows.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">point</span><span class="example-result-meta">ndarray[float64] · 120</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">-0.31439</span><span class="example-result-value">-0.3008</span><span class="example-result-value">-0.28722</span><span class="example-result-value">-0.27363</span><span class="example-result-value">-0.26004</span><span class="example-result-value">-0.24646</span></div><p class="example-result-note">Showing 6 of 120 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
