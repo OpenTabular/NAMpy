@@ -5,9 +5,9 @@
     "mgcv": "1.9-4"
   },
   "generator": "tests/families/test_cpois_family_contracts.py",
-  "generator_sha256": "e01a42d3385bd453ad8ee6a37992f45e46e3342963ce16cc87f3c8936a2fbe22",
+  "generator_sha256": "bb9098292049c11375555995edf6899336e8a6479fbe08e56d9365a92f73a674",
   "generator_files_sha256": {
-    "tests/families/test_cpois_family_contracts.py": "e01a42d3385bd453ad8ee6a37992f45e46e3342963ce16cc87f3c8936a2fbe22",
+    "tests/families/test_cpois_family_contracts.py": "bb9098292049c11375555995edf6899336e8a6479fbe08e56d9365a92f73a674",
     "tests/families/test_cnorm_family_contracts.py": "18c75ad59b17b57598aa170cf8fe8441b874ee047730b5c37dbd841cc713cfa8"
   },
   "source": "mgcv R/efam.r::cpois, dppois; R4.6 nmath::dpois_raw, ppois, pgamma, bd0, stirlerr",
@@ -48,5 +48,8 @@
     "ee699b40885434bd196883bd701a3fe991c012cf5260e5206765e2cfe60a08b7.json.gz": "87a740c316963b4659e027fb17bc235f57852ee3411f2939af806d9d99e441de",
     "f89210f11fa42b86f263c5189cf73858a19d20923658d519e365e3d74ea0bbaa.json.gz": "6199c4b09d3eb53f06b514dad08d6d252181ef0e4a3cb8e44524403b2046aa7f",
     "f9e046b66aad16d642aca9a22427df6b25a540756cc488d7eda8b6a53e546245.json.gz": "4893bea9ff3429e47e630d7f620e9a3425ac80c2706026bdb24e6804a94092a7"
-  }
+  },
+  "historical_generator_sha256": "e01a42d3385bd453ad8ee6a37992f45e46e3342963ce16cc87f3c8936a2fbe22",
+  "derivative_precision_policy": "All original mgcv captures remain unchanged. Ordinary-event derivative parity keeps its existing tolerances. Concentrated events rarer than machine epsilon use stable conditional-count cumulants and stricter independent 100-digit checks instead of copying cancellation errors from the binary64 upstream likelihood-ratio expression.",
+  "high_precision_reference_namespace": "cpois_tail_high_precision"
 }

@@ -17,6 +17,8 @@ Targets include censoring bounds rather than treating bounds as ordinary observa
 
 For a closed integer interval :math:`[l,u]`, its probability is :math:`F(u)-F(l-1)`; continuous endpoint formulas must not be applied to integer intervals without the discrete correction.
 
+Concentrated rare events with probability below machine epsilon use conditional-count cumulants for stable deviance derivatives with respect to the mean. These derivatives are checked against a 100-digit Poisson calculation: the upstream double-precision likelihood-ratio expressions can lose several digits through cancellation in extreme tails. Ordinary events retain the source expressions.
+
 References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.
 
 Censoring describes partial knowledge of a latent response.

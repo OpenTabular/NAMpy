@@ -71,7 +71,24 @@ def test_cpois_all_kernel_fields_match_source(link, band):
             actual = family.Dd(y, mu, family.getTheta(), w, level)
             assert actual.keys() == expected["value"].keys()
             for name, value in actual.items():
-                np.testing.assert_allclose(value, _numeric(expected["value"][name]), rtol=2e-9, atol=2e-9, equal_nan=True, err_msg=name)
+                source_value = np.asarray(_numeric(expected["value"][name]))
+                ordinary = np.ones(value.shape, dtype=bool)
+                if band == "tails":
+                    from tests.families.test_cpois_tail_derivative_precision import (
+                        high_precision_reference,
+                    )
+
+                    # The source subtracts O(1e13) terms for these rare events;
+                    # its fourth derivatives already miss the true value by
+                    # several units. Preserve that capture as source evidence,
+                    # and require stronger accuracy against an independent law.
+                    rare = np.array([1, 2, 3])
+                    column = {"Dmu": 0, "Dmu2": 1, "EDmu2": 1, "Dmu3": 2, "Dmu4": 3}[name]
+                    truth = high_precision_reference()[:3, column]
+                    np.testing.assert_allclose(value[rare], truth, rtol=2e-12, atol=2e-12, err_msg=name)
+                    assert np.all(np.abs(value[rare] - truth) <= np.abs(source_value[rare] - truth) + 4 * np.abs(np.spacing(truth)))
+                    ordinary[rare] = False
+                np.testing.assert_allclose(value[ordinary], source_value[ordinary], rtol=2e-9, atol=2e-9, equal_nan=True, err_msg=name)
         for name, value in {"dev": family.deviance_obs(y, mu, w), "aic": family.aic(y, mu, weights=w)}.items():
             np.testing.assert_allclose(value, _numeric(ref[name]["value"]), rtol=2e-10, atol=2e-10, equal_nan=True, err_msg=name)
         for name, value in family.ls(y, w).items():

@@ -5,6 +5,7 @@ from scipy.special import gammaln
 
 from ._censored_location import CensoredLocationFamily, unpack_censored
 from ._cpois_helpers import dppois, log_dpois, log_ppois
+from ._cpois_tail import tail_deviance_derivatives
 from ._function_maps import LINK_REGISTRY
 from ._scalar_math import cube, exp, fourth
 from .family_base import ExtendedFamily
@@ -106,24 +107,38 @@ class CensoredPoissonFamily(CensoredLocationFamily):
         return float(np.sum(self.deviance_obs(y, mu, weights)))
 
     def Dd(self, y, mu, theta=None, wt=None, level=0):
+        """Mean derivatives, retaining precision for concentrated rare events.
+
+        Below machine-epsilon event probability, conditional count cumulants
+        avoid cancellation between the source's huge likelihood-ratio powers.
+        Ordinary events retain the source expression and ignored-weight policy.
+        """
         del theta, wt
         values, bounds, exact, interval = self._masks(y)
         mu = np.broadcast_to(np.asarray(mu, float), values.shape)
+        log_probability = self.weighted_loglik_obs(y, mu)
         ratios = []
         for order in range(1, 3 + int(level)):
             ratio = np.zeros_like(values)
             with np.errstate(all="ignore"):
-                ratio[exact] = exp(log_dpois(values[exact] - order, mu[exact]) - log_dpois(values[exact], mu[exact]))
+                ratio[exact] = exp(log_dpois(values[exact] - order, mu[exact]) - log_probability[exact])
                 lo, hi = np.minimum(values[interval], bounds[interval]), np.maximum(values[interval], bounds[interval])
-                ratio[interval] = exp(dppois(lo - order, hi - order, mu[interval]) - dppois(lo, hi, mu[interval]))
+                ratio[interval] = exp(dppois(lo - order, hi - order, mu[interval]) - log_probability[interval])
                 for lower, mask in ((True, np.isneginf(bounds)), (False, np.isposinf(bounds))):
-                    ratio[mask] = exp(log_ppois(values[mask] - order, mu[mask], lower) - log_ppois(values[mask], mu[mask], lower))
+                    ratio[mask] = exp(log_ppois(values[mask] - order, mu[mask], lower) - log_probability[mask])
             ratios.append(ratio)
         f1, f2 = ratios[:2]
         result = {"Dmu": -2 * (f1 - 1), "Dmu2": -2 * (f2 - f1**2)}
-        result["EDmu2"] = result["Dmu2"].copy()
         if level > 0:
             result["Dmu3"] = -2 * (ratios[2] - 3 * f1 * f2 + 2 * cube(f1))
         if level > 1:
             result["Dmu4"] = -2 * (ratios[3] - 4 * ratios[2] * f1 + 12 * f1**2 * f2 - 3 * f2**2 - 6 * fourth(f1))
+        rare = np.isfinite(log_probability) & (log_probability < np.log(np.finfo(float).eps))
+        for index in np.flatnonzero(rare):
+            stable = tail_deviance_derivatives(float(values[index]), float(bounds[index]), float(mu[index]))
+            if stable is not None:
+                for name, derivative in zip(("Dmu", "Dmu2", "Dmu3", "Dmu4"), stable, strict=True):
+                    if name in result:
+                        result[name][index] = derivative
+        result["EDmu2"] = result["Dmu2"].copy()
         return result

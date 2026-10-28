@@ -371,7 +371,12 @@ natural parameters, additive components and persistence. These references
 establish the tested routes, not every family/smooth/optimizer composition.
 
 ``cpois`` uses discrete intervals ``lo < Y <= hi`` and supports identity, log
-and square-root links. ``bcg`` supports fixed and estimated Box--Cox and
+and square-root links. Concentrated rare-event derivatives use conditional-count
+cumulants and independent 100-digit checks, avoiding cancellation artifacts in
+the upstream double-precision tail expressions. Ordinary-event source parity
+checks retain their original tolerances.
+
+``bcg`` supports fixed and estimated Box--Cox and
 Gaussian scale parameters, including the source vector EFS update. Upstream's
 positive two-parameter fixed BCG constructor stores an invalid three-entry
 working state and fails during fitting. NAMpy rejects that state explicitly;

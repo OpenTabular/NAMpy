@@ -148,6 +148,7 @@ jobs:
       run: >-
         pytest
         tests/families/test_cpois_family_contracts.py
+        tests/families/test_cpois_tail_derivative_precision.py
         tests/families/test_mgcv_cpois_workflows.py
         tests/families/test_bcg_family_contracts.py
         tests/families/test_mgcv_bcg_workflows.py

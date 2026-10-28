@@ -27,6 +27,7 @@ def parameterization_notes(name, backend):
             + math("F(u)-F(l-1)")
             + "; continuous endpoint formulas must not be applied to integer intervals without the discrete correction.\n\n"
         )
+        special += "Concentrated rare events with probability below machine epsilon use conditional-count cumulants for stable deviance derivatives with respect to the mean. These derivatives are checked against a 100-digit Poisson calculation: the upstream double-precision likelihood-ratio expressions can lose several digits through cancellation in extreme tails. Ordinary events retain the source expressions.\n\n"
     if name == "bcg":
         special += (
             "Box-Cox response moments require an inverse-transform calculation on its valid domain and need not exist for all negative-shape tails. NAMpy preserves the upstream transformed-response likelihood and returns the transformed Gaussian location; it does not return an inverse-transform response mean. Prior weight "
