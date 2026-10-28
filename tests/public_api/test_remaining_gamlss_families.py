@@ -212,8 +212,17 @@ def test_registered_general_family_persistence_roundtrip(fitted_family, tmp_path
     restored = GAMLSS.load_model(path)
     assert restored.predictor_names_ == model.predictor_names_
     assert restored.parameter_names_ == model.parameter_names_
+    np.testing.assert_array_equal(
+        restored.gam_.fit_result().coef_full, model.gam_.fit_result().coef_full
+    )
+    np.testing.assert_array_equal(restored.gam_.vcov(), model.gam_.vcov())
+    # Pickle preserves fitted arrays exactly, but recomputing predictions can
+    # change the final few bits through BLAS memory-layout/alignment choices.
     for method in ("predict", "predict_link", "predict_point", "standard_errors"):
-        np.testing.assert_array_equal(getattr(restored, method)(frame), getattr(model, method)(frame))
+        np.testing.assert_allclose(
+            getattr(restored, method)(frame), getattr(model, method)(frame),
+            atol=1e-14, rtol=1e-14, err_msg=f"{name} restored {method}",
+        )
     restored.predict_components(frame).validate_additive_reconstruction()
 
 
@@ -278,7 +287,10 @@ def test_multinom_baseline_components_and_full_coefficient_delta_covariance(K, t
     np.testing.assert_array_equal(model.predict_point(new), np.argmax(probability, axis=1))
     path = model.save_model(tmp_path / f"multinom-{K}.nampy")
     restored = GAMLSS.load_model(path)
-    np.testing.assert_array_equal(restored.standard_errors(new), model.standard_errors(new))
+    np.testing.assert_allclose(
+        restored.standard_errors(new), model.standard_errors(new),
+        atol=1e-14, rtol=1e-14,
+    )
 
 
 def test_single_predictor_general_multinom_is_not_a_regression_family():
