@@ -32,13 +32,20 @@ def data(K):
 
 
 @pytest.mark.parametrize('K,selected', [(1, False), (2, False), (3, False), (2, True)])
+@pytest.mark.usefixtures("general_penalty_orientation")
 def test_multinom_fits_predicts_and_persists_against_mgcv(K, selected):
     payload = dict(K=K, selected=selected, **data(K))
-    ref = reference(payload, SOURCE)
+    source = SOURCE
+    if selected:
+        payload['initial_sp'] = [100.0] * K
+        # Match explicit source controls instead of a platform-dependent
+        # initial.spg start on this nearly unpenalized/null-space boundary.
+        source = SOURCE.replace("method='REML',sp=sp)", "method='REML',sp=sp,in.out=list(sp=unlist(a$initial_sp),scale=1))")
+    ref = reference(payload, source)
     frame = pd.DataFrame(data(K))
     formula = ['y ~ s(x,k=6,bs="cr")'] + ['~ s(x,k=6,bs="cr")'] * (K-1)
     model = GAM(formula=formula, family=MultinomFamily(K), smoothing_method='REML',
-                optimize_smoothing=selected, smoothing_params=None if selected else [0.7]*K)
+                optimize_smoothing=selected, smoothing_params=payload['initial_sp'] if selected else [0.7]*K)
     model.fit(data=frame)
     np.testing.assert_allclose(model.fit_result().edf_total, np.sum(ref['edf']), atol=4e-6, rtol=4e-6)
     for field, actual in [('coef',model.fit_result().coef_full), ('Vp',model.vcov())] :

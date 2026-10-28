@@ -3,5 +3,10 @@
   "input_generation": "nampy_notes/debug/generate_multinom_inputs.py; frozen exact doubles, seed 261026",
   "capture_namespace": "mgcv_multinom_family",
   "generator": "tests/families/test_mgcv_multinom_workflows.py",
-  "generator_sha256": "f4cd8b200446ad14cfd6787e1b6526932ab0cf4ae8d3468710a299e9c21e509c"
+  "generator_sha256": "390acca4afab6eb23e689766e7f1c247dfeb691a2c4c6dd13cb2dd294419d569",
+  "historical_generator_sha256": "f4cd8b200446ad14cfd6787e1b6526932ab0cf4ae8d3468710a299e9c21e509c",
+  "selected_fit_initial_sp": [
+    100.0,
+    100.0
+  ]
 }

@@ -31,7 +31,7 @@ if(p$mode=="kernel") {
  pen.reg<-mgcv:::pen.reg;eval(f$initialize);out<-list(start=start)
 } else {
  d<-as.data.frame(p$data)
- b<-gam(list(y~s(x,bs="cr",k=5)+offset(o1),~s(z,bs="cr",k=4)+offset(o2)),data=d,family=f,method="REML",sp=if(p$fixed) c(.4,.7) else NULL)
+ b<-gam(list(y~s(x,bs="cr",k=5)+offset(o1),~s(z,bs="cr",k=4)+offset(o2)),data=d,family=f,method="REML",sp=if(p$fixed) c(.4,.7) else NULL,in.out=if(is.null(p$initial_sp)) NULL else list(sp=unlist(p$initial_sp),scale=1))
  pr<-predict(b,type="response",se.fit=TRUE)
  out<-list(coef=coef(b),sp=b$sp,Vp=b$Vp,edf=b$edf,score=b$gcv.ubre,fit=b$fitted.values,pred=pr$fit,se=pr$se.fit,eta=predict(b,type="link"),l=b$family$ll(b$y,model.matrix(b),coef(b),b$prior.weights,b$family,offset=b$offset)$l,residuals=lapply(c("deviance","pearson","response"),function(t) residuals(b,type=t)))
 }
@@ -74,10 +74,15 @@ def test_gumbls_derivatives_through_four_against_source(link, monkeypatch):
 
 @pytest.mark.parametrize("link", ["identity", "log"])
 @pytest.mark.parametrize("fixed", [True, False])
+@pytest.mark.usefixtures("general_penalty_orientation")
 def test_gumbls_fit_and_prediction_against_source(link, fixed):
     p = {"mode": "fit", "data": inputs()["data"], "link": ["identity", link], "b": -3.0, "fixed": fixed}
+    if not fixed:
+        # initial.spg combines a reparameterized design with original penalties;
+        # its implicit start depends on arbitrary eigenvector orientations.
+        p["initial_sp"] = [100.0, 100.0]
     expected = reference(p)
-    model = GAM(formula=["y~s(x,bs='cr',k=5)+offset(o1)", "~s(z,bs='cr',k=4)+offset(o2)"], family=GumblsFamily(p["link"], b=p["b"]), optimize_smoothing=not fixed, smoothing_params=[.4, .7] if fixed else None, smoothing_method="reml").fit(data=pd.DataFrame(p["data"]))
+    model = GAM(formula=["y~s(x,bs='cr',k=5)+offset(o1)", "~s(z,bs='cr',k=4)+offset(o2)"], family=GumblsFamily(p["link"], b=p["b"]), optimize_smoothing=not fixed, smoothing_params=[.4, .7] if fixed else p["initial_sp"], smoothing_method="reml").fit(data=pd.DataFrame(p["data"]))
     for key, actual in (("coef", model.fit_result().coef_full), ("Vp", model.vcov()), ("eta", model.predict(type="link")), ("pred", model.predict()), ("se", model.predict(return_se=True)[1])):
         np.testing.assert_allclose(actual, expected[key], rtol=3e-5, atol=3e-6, err_msg=key)
     from nampy.gam.model_state import _fitted_mu

@@ -48,3 +48,14 @@ def test_source_cube_preserves_r_pow_branch_boundaries():
         11 * 11 * 11, math.pow(12.1, 3), np.inf, np.inf, np.nan,
     ]
     np.testing.assert_array_equal(_scalar_math.cube(values), expected)
+
+
+def test_source_fourth_preserves_r_pow_branch_boundaries():
+    values = [-np.inf, -1e200, -12.1, -11, -0.3, -0.0, 0, 0.3, 11, 12.1,
+              1000.9999999990005, 1e200, np.inf, np.nan]
+    expected = [np.inf, np.inf, math.pow(-12.1, 4), (-11) * (-11) * (-11) * (-11),
+                (-0.3) * (-0.3) * (-0.3) * (-0.3), 0, 0,
+                0.3 * 0.3 * 0.3 * 0.3, 11 * 11 * 11 * 11,
+                math.pow(12.1, 4), math.pow(1000.9999999990005, 4),
+                np.inf, np.inf, np.nan]
+    np.testing.assert_array_equal(_scalar_math.fourth(values), expected)

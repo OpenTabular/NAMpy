@@ -61,3 +61,18 @@ def cube(values):
             return math.copysign(np.inf, value)
 
     return _apply(evaluate, values)
+
+
+def fourth(values):
+    """R_pow's ordered small-base product and scalar pow for exponent four."""
+    def evaluate(value):
+        if value == 0:
+            return 0.0
+        if -11 <= value <= 11:
+            return value * value * value * value
+        try:
+            return math.pow(value, 4)
+        except OverflowError:
+            return np.inf
+
+    return _apply(evaluate, values)

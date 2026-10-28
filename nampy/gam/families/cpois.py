@@ -6,7 +6,7 @@ from scipy.special import gammaln
 from ._censored_location import CensoredLocationFamily, unpack_censored
 from ._cpois_helpers import dppois, log_dpois, log_ppois
 from ._function_maps import LINK_REGISTRY
-from ._scalar_math import cube, exp
+from ._scalar_math import cube, exp, fourth
 from .family_base import ExtendedFamily
 
 
@@ -125,5 +125,5 @@ class CensoredPoissonFamily(CensoredLocationFamily):
         if level > 0:
             result["Dmu3"] = -2 * (ratios[2] - 3 * f1 * f2 + 2 * cube(f1))
         if level > 1:
-            result["Dmu4"] = -2 * (ratios[3] - 4 * ratios[2] * f1 + 12 * f1**2 * f2 - 3 * f2**2 - 6 * f1**4)
+            result["Dmu4"] = -2 * (ratios[3] - 4 * ratios[2] * f1 + 12 * f1**2 * f2 - 3 * f2**2 - 6 * fourth(f1))
         return result

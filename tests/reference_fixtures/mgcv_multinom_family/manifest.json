@@ -3,10 +3,11 @@
   "source": "R/gamlss.r::multinom, gamlss.etamu, gamlss.gH, pen.reg",
   "generators": {
     "tests/families/test_multinom_family_contracts.py": "e8fb18edfe6483674ca3d2f8a4c0c17303a5af7611edceab9648fe70e44f051b",
-    "tests/families/test_mgcv_multinom_workflows.py": "f4cd8b200446ad14cfd6787e1b6526932ab0cf4ae8d3468710a299e9c21e509c"
+    "tests/families/test_mgcv_multinom_workflows.py": "390acca4afab6eb23e689766e7f1c247dfeb691a2c4c6dd13cb2dd294419d569"
   },
-  "capture_count": 8,
+  "capture_count": 9,
   "captures": {
+    "2b4fb54afbbe11f86550dd4d3cfda1b9f07fa21ddcabfc35d6b4e93ea1d1a58f.json.gz": "93f789a99296cd1ec34ec94fb8d14c6fcddcf6171d3b0f8666f0e40a4e5ea331",
     "2c495e594e9834cacfeab087550bb529f4c455ba96ba61a38d5d3228182e446e.json.gz": "87a4f3a4ef5850a8339e3467b62f2e66cc7ab4d9bc0bc93816998cfded0efcf3",
     "3bc56cb57465bd7fa94c0b91aaba73ee04fe60351b415d132f3843f12ed4c229.json.gz": "a1e65bf591d754523d480acf0f9ba33b1856a5c57f306d11901a0190fa09240b",
     "508b336dbba453a3d64f76350629e2e6d18ca620ecc2fe688d309710b36ae68f.json.gz": "35090dc48b3cf8334928aa32726de5c977559ac184f5364cbcf3d328dfba6027",
@@ -17,5 +18,20 @@
     "edb42536a8824882911e588f3f1e9ef677e6e3e40e8548898ba0eb75eef6dbe5.json.gz": "d9cd072c1ca9f78fc83c1f435a6f15fa0e7c2c08f7bc28819d943d08996d08aa"
   },
   "scope": "K=1..4 likelihood, all packed analytic derivatives through fourth order, source probability SE, initializer and residuals; fixed-SP K=1..3 and selected REML K=2 actual-R fits.",
-  "validation": "Ordinary tests consume committed captures without R. No tolerance widening or numerical derivative fallback."
+  "validation": "Ordinary tests consume committed captures without R. No tolerance widening or numerical derivative fallback.",
+  "historical_workflow_generator_sha256": "f4cd8b200446ad14cfd6787e1b6526932ab0cf4ae8d3468710a299e9c21e509c",
+  "common_start": {
+    "initial_sp": [
+      100.0,
+      100.0
+    ],
+    "source_control": "gam(..., in.out=list(sp=c(100,100), scale=1))",
+    "python_control": "GAM(..., smoothing_params=[100.0,100.0], optimize_smoothing=True)",
+    "reason": "Upstream initial.spg uses the Sl.initial.repara design with original penalty coordinates; automatic starts depend on arbitrary eigenvector signs. Common explicit starts permit finite optimizer endpoint parity without widening any tolerance.",
+    "orientation_checks": "Default eigensolver, a consistent penalty eigenvector sign flip, and LAPACK divide-and-conquer eigensolver.",
+    "historical_captures": "All original captures are retained unchanged. Selected-fit tests consume additional captures with explicitly matched initial smoothing parameters.",
+    "captures": [
+      "2b4fb54afbbe11f86550dd4d3cfda1b9f07fa21ddcabfc35d6b4e93ea1d1a58f.json.gz"
+    ]
+  }
 }
