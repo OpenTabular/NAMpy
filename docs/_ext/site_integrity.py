@@ -82,8 +82,65 @@ def setup(app):
     app.connect("doctree-resolved", local_documentation_links)
     app.connect("doctree-resolved", notebook_image_descriptions)
     app.connect("doctree-resolved", training_anchor_alias)
+    app.connect("doctree-resolved", paginate_notebook_outputs)
     app.connect("build-finished", version_local_images)
     return {"parallel_read_safe": True, "parallel_write_safe": True}
+
+
+def paginate_notebook_outputs(app, doctree, docname):
+    """Keep large notebook text outputs within TeX's framed-box limits."""
+    if app.builder.format != "latex":
+        return
+    from docutils import nodes
+
+    blocks = list(doctree.findall(nodes.literal_block))
+    # nbsphinx stores text/plain outputs as raw HTML, LaTeX and text siblings.
+    # Use its original text sibling so Sphinx escapes each new block correctly.
+    blocks += [
+        block
+        for block in doctree.findall(nodes.raw)
+        if block.get("format") == "latex"
+        and block.astext().startswith(r"\begin{sphinxVerbatim}")
+    ]
+    for block in blocks:
+        parent = block.parent
+        while parent is not None and "nboutput" not in parent.get("classes", []):
+            parent = parent.parent
+        text = block.astext()
+        if isinstance(block, nodes.raw):
+            text_node = next(
+                (
+                    n for n in block.parent.children
+                    if isinstance(n, nodes.raw) and n.get("format") == "text"
+                ),
+                None,
+            )
+            if text_node is None:
+                continue
+            text = text_node.astext()
+        if parent is None or (len(text) <= 4000 and len(text.splitlines()) <= 40):
+            continue
+        parts = []
+        while text:
+            # Prefer complete lines, but also bound single very wide table rows.
+            end = min(len(text), 4000)
+            lines = text[:end].splitlines(keepends=True)
+            if len(lines) > 40:
+                end = sum(len(line) for line in lines[:40])
+            elif end < len(text):
+                end = text.rfind("\n", 0, end) + 1 or end
+            chunk, text = text[:end], text[end:]
+            part = (
+                nodes.literal_block(language="none")
+                if isinstance(block, nodes.raw) else block.deepcopy()
+            )
+            part.children = []
+            part += nodes.Text(chunk)
+            part.rawsource = chunk
+            if parts:
+                part["ids"], part["names"] = [], []
+            parts.append(part)
+        block.replace_self(parts)
 
 
 def disable_search(app):

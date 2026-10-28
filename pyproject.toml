@@ -83,6 +83,7 @@ docs = [
     "myst-parser>=2.0.0",
     "nbsphinx>=0.9.0",
     "sphinx-design>=0.6.0",
+    "sphinxcontrib-svg2pdfconverter[CairoSVG]>=2.0,<3",
     "ipykernel",
     "nbclient>=0.10.0",
     "nbformat>=5.10.0",

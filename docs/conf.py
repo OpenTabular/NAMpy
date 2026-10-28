@@ -44,6 +44,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinx.ext.mathjax",
+    "sphinxcontrib.cairosvgconverter",
     "myst_parser",  # For Markdown support
     "tutorial_downloads",
     "nbsphinx",  # Render checked-in notebook sources (via nbconvert/Pandoc)
@@ -165,6 +166,10 @@ html_show_copyright = True
 htmlhelp_basename = "NAMpydoc"
 
 # -- Options for LaTeX output ------------------------------------------------
+
+# Unicode notebook output and the full reference manual exceed pdfLaTeX's
+# character coverage and fixed memory budget. LuaLaTeX supports both.
+latex_engine = "lualatex"
 
 latex_elements = {
     "papersize": "letterpaper",

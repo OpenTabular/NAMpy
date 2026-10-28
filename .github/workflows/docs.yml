@@ -69,7 +69,10 @@ jobs:
           sudo docker image prune --all --force
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y pandoc
+        run: >-
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends
+          pandoc libcairo2 latexmk texlive-luatex texlive-latex-extra
+          texlive-fonts-recommended fonts-freefont-otf xindy
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -114,10 +117,10 @@ jobs:
       - name: Build Sphinx documentation
         run: python -m sphinx -E -a -b html docs docs/_build/html -W --keep-going
 
-      - name: Check EPUB and PDF source builds
+      - name: Build EPUB and compile PDF
         run: |
           python -m sphinx -b epub -d docs/_build/ebook-doctrees docs docs/_build/epub -W --keep-going
-          python -m sphinx -b latex -d docs/_build/ebook-doctrees docs docs/_build/latex -W --keep-going
+          python -m sphinx -M latexpdf docs docs/_build/pdf -d docs/_build/ebook-doctrees -W --keep-going
 
       - name: Check published visual content and source provenance
         run: python -m pytest -q tests/docs/test_learning_assets.py tests/docs/test_tutorial_downloads.py
