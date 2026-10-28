@@ -11,18 +11,9 @@ build:
   apt_packages:
     - pandoc
     - libcairo2
-    - texlive-luatex
-    - fonts-freefont-otf
-    - xindy
   jobs:
     post_create_environment:
       - pip install --upgrade pip setuptools wheel
-    build:
-      pdf:
-        # Keep converted figures and TeX intermediates out of the upload folder.
-        - python -m sphinx -M latexpdf docs docs/_build/rtd-pdf -D language=en
-        - mkdir -p "$READTHEDOCS_OUTPUT/pdf"
-        - cp docs/_build/rtd-pdf/latex/NAMpy.pdf "$READTHEDOCS_OUTPUT/pdf/nampy.pdf"
 
 # Python configuration
 python:
@@ -37,7 +28,6 @@ sphinx:
   configuration: docs/conf.py
   fail_on_warning: true
 
-# Build formats
+# Compile the full PDF in GitHub Actions to stay within the RTD time limit.
 formats:
-  - pdf
   - epub

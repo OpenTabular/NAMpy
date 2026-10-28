@@ -26,6 +26,8 @@ Quick installation
 
 For Python compatibility, installation checks, and GPU setup, see the :doc:`FAQ <faq>`.
 
+For offline reading, :doc:`download the PDF or EPUB manual <downloads>`.
+
 Additive models
 ---------------
 
@@ -167,6 +169,7 @@ look up a specific method.
    Tutorials <tutorials/index>
    Model guide <models/index>
    faq
+   Download documentation <downloads>
 
 .. toctree::
    :caption: How-to Guides
