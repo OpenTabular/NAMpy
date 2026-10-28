@@ -9,7 +9,8 @@ import numpy as np
 from ..contracts import AdditivePrediction, AdditiveTermMetadata
 from ..gam.families.gamlss import GamlssFamily, gammals, gaulss
 from ..gam.families.registry import make_gam_family
-from .gam import _GAMAdapterBase
+from ..gam.predict.distributional import distributional_standard_errors
+from ._gam import _GAMAdapterBase
 
 _FAMILY_ALIASES = {
     "normal": gaulss,
@@ -245,38 +246,11 @@ class GAMLSS(_GAMAdapterBase):
         self._check_fitted()
         if not newdata_guaranteed:
             self._validate_X(X)
-        eta, eta_se = self.gam_.predict(
-            X,
-            return_se=True,
-            type="link",
-            offset=offset,
-            block_size=block_size,
-            newdata_guaranteed=newdata_guaranteed,
-            na_action=na_action,
-            unconditional=unconditional,
+        return distributional_standard_errors(
+            self.gam_, X, cov=self.covariance, offset=offset,
+            block_size=block_size, newdata_guaranteed=newdata_guaranteed,
+            na_action=na_action, unconditional=unconditional,
         )
-        jacobian = self.gam_.family.distribution_parameter_jacobian(eta)
-        if np.asarray(jacobian).ndim == 3:
-            # Coupled natural parameters (multinom probabilities) require the
-            # cross-predictor covariance, not independent marginal eta SEs.
-            from ..gam.model_state import _predictor_full_indices
-            from ..gam.predict.general import _general_family_covariance_for_prediction
-            from ..gam.predict.predictions import select_prediction_covariance_matrix
-
-            P = np.asarray(self.gam_.predict(
-                X, type="lpmatrix", offset=offset, block_size=block_size,
-                newdata_guaranteed=newdata_guaranteed, na_action=na_action,
-            ), dtype=float)
-            covariance = select_prediction_covariance_matrix(
-                self.gam_, cov=self.covariance, unconditional=unconditional
-            )
-            covariance = _general_family_covariance_for_prediction(self.gam_, covariance)
-            gradient = np.zeros((P.shape[0], jacobian.shape[1], P.shape[1]))
-            for k, indices in enumerate(_predictor_full_indices(self.gam_)):
-                gradient[:, :, indices] += jacobian[:, :, k, None] * P[:, None, indices]
-            variance = np.einsum("npi,ij,npj->np", gradient, covariance, gradient)
-            return np.sqrt(np.maximum(variance, 0))
-        return np.abs(jacobian) * np.asarray(eta_se, dtype=np.float64)
 
     def score(self, X, y, sample_weight=None):
         """Return weighted mean log likelihood (higher is better)."""

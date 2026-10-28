@@ -8,12 +8,6 @@ import pytest
 import torch
 from sklearn.exceptions import NotFittedError
 
-from nampy.models._base import (
-    RecentStateAveraging,
-    StepEarlyStopping,
-    average_state_dicts,
-    build_callbacks,
-)
 from nampy.models.linreg import LinRegClassifier, LinRegRegressor
 from nampy.models.nam import NAMLSS
 from nampy.models.nodegam import NodeGAMRegressor
@@ -21,6 +15,12 @@ from nampy.models.treenam import TreeNAMRegressor
 from nampy.neural.objectives import (
     RegressionObjective,
     classification_objective,
+)
+from nampy.neural.training import (
+    RecentStateAveraging,
+    StepEarlyStopping,
+    average_state_dicts,
+    build_callbacks,
 )
 
 
@@ -116,7 +116,7 @@ def test_fit_uses_constructor_optimizer_configuration(monkeypatch):
         captured.append(kwargs)
 
     monkeypatch.setattr(
-        "nampy.models._base.NeuralEstimatorBase._run_training", fake_run_training
+        "nampy.models._neural.run_training", fake_run_training
     )
 
     estimator.fit(X, y)
@@ -193,7 +193,7 @@ def test_fit_forwards_generic_step_and_checkpoint_controls(monkeypatch):
         captured.update(kwargs)
 
     monkeypatch.setattr(
-        "nampy.models._base.NeuralEstimatorBase._run_training", fake_run_training
+        "nampy.models._neural.run_training", fake_run_training
     )
     estimator.fit(
         X,
@@ -233,7 +233,7 @@ def test_fit_combines_class_and_sample_weights_and_forwards_balancing(monkeypatc
         captured.update(kwargs)
 
     monkeypatch.setattr(
-        "nampy.models._base.NeuralEstimatorBase._run_training", fake_run_training
+        "nampy.models._neural.run_training", fake_run_training
     )
     estimator.fit(
         X,
@@ -259,7 +259,7 @@ def test_lss_fit_forwards_weights_to_distribution_objective(monkeypatch):
         captured.update(kwargs)
 
     monkeypatch.setattr(
-        "nampy.models._base.NeuralEstimatorBase._run_training", fake_run_training
+        "nampy.models._neural.run_training", fake_run_training
     )
     weights = np.linspace(1.0, 2.0, len(y))
     estimator.fit(X, y, sample_weight=weights)
@@ -305,7 +305,7 @@ def test_warm_start_forwards_current_model_state(monkeypatch):
         captured.update(kwargs)
 
     monkeypatch.setattr(
-        "nampy.models._base.NeuralEstimatorBase._run_training", fake_run_training
+        "nampy.models._neural.run_training", fake_run_training
     )
     estimator.fit(X, y, warm_start=True)
 

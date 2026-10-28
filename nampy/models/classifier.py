@@ -9,7 +9,8 @@ from sklearn.utils import ClassifierTags
 
 from ..contracts import AdditivePrediction
 from ..neural.objectives import classification_objective
-from ._base import NeuralEstimatorBase, TrainingPlan
+from ..neural.training import TrainingPlan
+from ._neural import NeuralEstimatorBase
 
 
 class NeuralClassifier(NeuralEstimatorBase):

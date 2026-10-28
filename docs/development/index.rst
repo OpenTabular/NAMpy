@@ -29,6 +29,7 @@ Each report states its inputs, acceptance conditions and remaining limits.
    Neural task and distribution checks <notebooks/04_distributional_models>
    Optimizer route checks <optimizer_matrix>
    Statistical extension numerical comparisons <neighbor_parity>
+   mgcv coverage audit <mgcv_coverage_audit>
 
 See :doc:`/architecture` for versioned upstream fixtures, independent
 reference calculations and the scope of numerical agreement.

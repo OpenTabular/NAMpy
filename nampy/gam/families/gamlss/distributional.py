@@ -124,6 +124,12 @@ class _DistributionalFamily(GamlssFamily):
         )
         return parameters, np.abs(self.distribution_parameter_jacobian(eta)) * se_eta
 
+    def _reported_deviance(self, y, fitted, *, loglik, weights=None):
+        # These extensions have no saturated-model/deviance-residual contract.
+        # Retain the joint engine's likelihood objective in its numeric record.
+        del y, fitted, weights
+        return float(-2.0 * loglik)
+
     def null_deviance(self, y, fitted, prior_weights):
         # A family-specific null optimization is needed; avoid silently using
         # a Gaussian null or a saturated log-density convention.

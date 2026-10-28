@@ -200,7 +200,9 @@ def test_lss_predict_point_uses_family_conditional_point(monkeypatch):
     estimator = NAMLSS()
     estimator.family_ = NormalDistribution()
     raw = torch.tensor([[1.5, -0.2], [-0.4, 0.7]], dtype=torch.float32)
-    monkeypatch.setattr(estimator, "_predict", lambda X, batch_size=None: {"output": raw})
+    monkeypatch.setattr(
+        estimator, "_predict", lambda X, batch_size=None: {"output": raw}
+    )
 
     np.testing.assert_allclose(estimator.predict_point([[0.0], [1.0]]), [1.5, -0.4])
 
@@ -278,3 +280,24 @@ def test_fitted_neural_estimator_persistence_round_trip(tmp_path):
     np.testing.assert_allclose(restored.predict_proba(data), expected)
     with pytest.raises(TypeError, match="not LinRegRegressor"):
         LinRegRegressor.load_model(model_path)
+
+
+@pytest.mark.parametrize(
+    "estimator_class",
+    [models.NeuralRegressor, models.NeuralClassifier, models.NeuralLSS],
+)
+def test_generic_neural_estimators_clone_constructor_declarations(estimator_class):
+    estimator = estimator_class(
+        model=architectures.NAM, config=configs.DefaultNAMConfig, dropout=0.23
+    )
+    estimator.set_params(preprocessor__n_bins=13)
+    rebuilt = clone(estimator)
+    assert type(rebuilt) is estimator_class
+    assert rebuilt.base_model is architectures.NAM
+    assert rebuilt._config_class is configs.DefaultNAMConfig
+    assert rebuilt.config.dropout == pytest.approx(0.23)
+    assert rebuilt.get_params(deep=False)["n_bins"] == 13
+    rebuilt.set_params(
+        model=architectures.NAM, config=configs.DefaultNAMConfig, dropout=0.31
+    )
+    assert rebuilt.get_params(deep=False)["dropout"] == pytest.approx(0.31)

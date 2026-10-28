@@ -14,6 +14,8 @@ from .components.transformer import CustomTransformerEncoderLayer
 class NAMformer(BaseModel):
     """Transformer architecture with marginal heads and a global contribution."""
 
+    global_term_names = ("global_transformer",)
+
     def __init__(
         self,
         cat_feature_info,

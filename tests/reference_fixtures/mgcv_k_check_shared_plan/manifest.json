@@ -1,0 +1,388 @@
+{
+  "schema_version": 1,
+  "policy": "Normal tests read committed reference outputs only; no upstream execution. Comparisons use observable invariants, not basis columns, eigenvectors, coefficients or coefficient-coordinate covariance.",
+  "upstream_packages": {
+    "mgcv": "1.9.4"
+  },
+  "history_and_scope": "tests/parity/seven_stage_coverage.json",
+  "source_sha256": {
+    "tests/parity/probes/mgcv_registered_pipeline.R": "7444a11734b72d78bec127087f5e1d9a4aacf1b07f50f12520b904d06ebae21b",
+    "tests/parity/_registered_pipeline_reference.py": "d209d2be0894a6833c41df92b8410d7e6930adc63e6941fbe48c0087929be399",
+    "tests/parity/_seven_stage_cases.py": "0e4d7dd2ab2d60f866e0c7b00d082a8d81274d461f27ec4e9b057c7c8c651d45",
+    "tests/parity/_pipeline_invariants.py": "8d16b32f450f9ce0eb022ce0b63bee42da5eef085927a5ed3b36cd3b4a34e3c5",
+    "tests/parity/test_registered_smooth_seven_stage_pipeline.py": "ded3cf8efc2e8b700a22a8d7b2f3f0e52e7401edf226c2138d40c969c580da7c",
+    "tests/parity/test_recent_family_seven_stage_pipeline.py": "f031b807d7a3d9785e21397f667364660e9b17a8221bda6a784508de2e6ce9e9",
+    "tests/parity/seven_stage_coverage.json": "35b9e6737fbe1ab7e669df852eb8da6a822d2ee41e43680b959e1ba527bbc433",
+    "tests/reference_fixtures/registered_seven_stage/smooth_responses.json": "39162a58323beb2f23f2d1ffa7547bc7422bdeef59401c7dc713d685eac78a52",
+    "tests/diagnostics/test_mgcv_k_check_shared_plan.py": "f577ece48dc1a2a4e2227072395f502cdceb896eb1763c952e0daeda40614793",
+    "tests/parity/probes/mgcv_shared_plan_k_check.R": "576f5ea7567d4b42561a05c2efaefaf79321e3f9e57eb5c76f334396a266306c",
+    "tests/parity/test_mgcv_smooth_family_crossings.py": "c15bdbc6ba5a9e6559a484aa841ea2d8ac20e2df04c6c5eecdeed787b2691665"
+  },
+  "capture_count": 42,
+  "captures": {
+    "2aaa4a4ec232bfd3aa1ca227482569740dd8d50dedf1fa2f098891eb69142045.json.gz": {
+      "case": "t2-binomial-56",
+      "engine": "mgcv",
+      "sha256": "70a3fa66670b6bdde6e18bdd0697e88ea14bce63c5e3b3021bc99d2dcdc23cf2",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "310b16296923f0f446759c23067f58c68c56f8b93c2e16c4b908b2cbdff58119.json.gz": {
+      "case": "gp-gamma-56",
+      "engine": "mgcv",
+      "sha256": "3d7534dc9161894e6100f3c3b69b69c98a0362c0e67c57d7bd42947c544fd544",
+      "source_warnings": "Fitting terminated with step failure - check results carefully",
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "370e22727e59570347c6ef3a9aa5fdc10c385bfcaa439afac627e0ad8a8ba74e.json.gz": {
+      "case": "cr-poisson-56",
+      "engine": "mgcv",
+      "sha256": "7af956f0525852854e27396a3a91461b1c1a11e9c4b873981accec520d7e002f",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "38f8ec4122825e82884c9919f763c24dce74a18897128bb04b4bb986a4f32e50.json.gz": {
+      "case": "fs-binomial-56",
+      "engine": "mgcv",
+      "sha256": "2b37763f87c66e111b278d8f8b6abd01bf2d054e40c673b482390fb79a6564ec",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "417068a668dfc12ab719426a30e9f0abb1f4a5c703f9706edc90b55eec91a002.json.gz": {
+      "case": "re-binomial-56",
+      "engine": "mgcv",
+      "sha256": "43c630e7c73d8e257053946c3b744077e17e4c3aab6f2263980ef81b4b64b839",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "489d63ca261902f4ad5148277cbbadaf7b35e8057df6057019636e8322a6cdd9.json.gz": {
+      "case": "t2-poisson-56",
+      "engine": "mgcv",
+      "sha256": "05f1cdc4d925d3c4c90c2ce4a601b9b412896d031b7c473d5eaca2bbbda349cf",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "48ea30e192abe171fec93f021d66ab01425cd60def4fc38d37bc7b1b16c01a22.json.gz": {
+      "case": "re-poisson-5000",
+      "engine": "mgcv",
+      "sha256": "07795f383ba7ccbee694cf21bb92a848fab1c29f5c405f48f6032c98a684c9b9",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "4b7fde29c98e36851f5c8cc1ccb6c983df571efb706a5e7691b53f1e1860b874.json.gz": {
+      "case": "mrf-gamma-56",
+      "engine": "mgcv",
+      "sha256": "001b71e0cbb74fd1d803dd4f687b758bf47a29148dbfb893b72b06d4bb7ed9e3",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "4b9f05b53ac70d681f1baaf17030da22b949917303c8a5ea30b50be9fb1c75f2.json.gz": {
+      "case": "re-gamma-5000",
+      "engine": "mgcv",
+      "sha256": "fba6b8bbe54b0c5339069081fc593b9394ae9b674258e2181c59d0fff46a0da6",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "4e7e6b22bedebd63481ca067ec30769ae7234408873282bb6cac83e1d9f4dae5.json.gz": {
+      "case": "sos-poisson-56",
+      "engine": "mgcv",
+      "sha256": "c4aaa24e799247c099e4536ed30ab968c330e9774dbf93d92d582590c9d5c109",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "523aed5664f1c762c48a8df6f2c7f0d8af788a4f3eb9ba3d13b8f4724e21ab73.json.gz": {
+      "case": "sos-binomial-56",
+      "engine": "mgcv",
+      "sha256": "b991444399857770280b6e508b8ebc9ccaf679ddf328e767448870dc1194aa9f",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "60d83d9975dc4afad63cb4f41824f2ae98f0f8c2b7930ab85c05bf9e2867466f.json.gz": {
+      "case": "fs-poisson-5000",
+      "engine": "mgcv",
+      "sha256": "06d242b588f6e2890aa5c0c834f270374b016953635b611ba8b01b2ce3f03c0d",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "71f2fdb2a6b5405a9f8f664a750249a17b36adb2de3590d3348c7994cd5fe9a4.json.gz": {
+      "case": "t2-gamma-5000",
+      "engine": "mgcv",
+      "sha256": "dfb0e5a9d8325273701371f87f8e9c93122ca7952125eda2b22a617c7b37919d",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "73d1d3df1e22078b73d54e766529a53ea3ef323f0c5251197bdb85569530bc7a.json.gz": {
+      "case": "gp-poisson-5000",
+      "engine": "mgcv",
+      "sha256": "a6c8057361516312cfe46066cc8614fec676288cbc20011eefc3227f4efd5e1f",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "746cd0f47243f92c7ef8b638267bf4106cbee3d9cc04dfd61811d5c50c44d914.json.gz": {
+      "case": "mrf-poisson-56",
+      "engine": "mgcv",
+      "sha256": "5f5141278845b81e1adeeef2b64674c13bb5e8753c3a9a06124cc4170bcd877e",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "7b67cd0507418baf533bdf6870b508522050fe90cc0bbc084e6e6a8fd1bb821f.json.gz": {
+      "case": "mrf-binomial-5000",
+      "engine": "mgcv",
+      "sha256": "f793adbe73db41019e9641b6a28557d128a725deeca45b18376e1ffca832a96a",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "7f7f6167c97290d3a3ac31209ad3b1713d026d48ce38f5a7e16eb112b1d15587.json.gz": {
+      "case": "re-poisson-56",
+      "engine": "mgcv",
+      "sha256": "4f05559253590ad0aa6fb68b29c588792958896f810c5e2ad45abe0ed01fb1a3",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "871a2e76edf412e968d5942b201ffb210907b7dd53e9564f8dcdd2ebd34884de.json.gz": {
+      "case": "fs-poisson-56",
+      "engine": "mgcv",
+      "sha256": "a87a65006b5440c75d72ba1f1416e60cd80d8d7c83dbe5547e019c6effdf1668",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "8e3e3eb3572ec1070d44d0330277d921b29c498788eb15754f05521e320f13dc.json.gz": {
+      "case": "fs-gamma-56",
+      "engine": "mgcv",
+      "sha256": "75a3b412ba815293fedcf0701517f4a99129370a379a71615d73cc428e2cbd9f",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "942a4ebd5d8635bf79b1e4d321a5165a2ea34d62bf0dcdd9d2e0748a06bf0641.json.gz": {
+      "case": "cr-poisson-5000",
+      "engine": "mgcv",
+      "sha256": "9c315516400951e35209389b66ae6a1f9b8ff5e7487ccdc89c14606a6582b250",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "964ea6ff96ffe2807fa940f433deaad2dc2607aa2545a731e55045a0d1aaf392.json.gz": {
+      "case": "fs-gamma-5000",
+      "engine": "mgcv",
+      "sha256": "3eeacbfaf2c5d2e8e01b1bd9bd2ae6c5b607ec8d02b89ea029814ec522f3ed63",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "984af39a9e8e97e186db148cdc3811836c491850740283958e6fbe97753e3e2a.json.gz": {
+      "case": "fs-binomial-5000",
+      "engine": "mgcv",
+      "sha256": "b8849607af122640129252abe3399311c483cc4dd120208688c949b95c339d73",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "9aeee8df08d0ea176b29f2ecb818858e06f0157f744d67e659e164caaa65e10a.json.gz": {
+      "case": "cr-gamma-56",
+      "engine": "mgcv",
+      "sha256": "d0f0f79c82d7fe16eabcefd4696fa5d0035e5bffac449eb7a85cb189070f80cd",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "a22a717f20259c18d9e133d9b531ee6f8ae8b352d99d1c1ca84c9ff2bf89bbce.json.gz": {
+      "case": "sos-gamma-5000",
+      "engine": "mgcv",
+      "sha256": "e88ba156c4eb7a816678c2fc297cfdeea3b7c13536cf6b924254ce18c80dd881",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "a3e9e765447002a9ff85c384913025384cf35780e4658fed0e2ff94dc77999fd.json.gz": {
+      "case": "re-gamma-56",
+      "engine": "mgcv",
+      "sha256": "c1adc8bb11e62edb3a64945ae05ecff445f0bb751a73150518580c74a8485319",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "a911649c5209ac2d4a51518333c44cb573717f13c1a29369b0b2378ada4c34e5.json.gz": {
+      "case": "mrf-gamma-5000",
+      "engine": "mgcv",
+      "sha256": "3e577b38cfbc9d35641788eb74d8790f2b71979f63cdf2c45f8e893ab9f94993",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "aae579f08992e977b76f0e1094e65872e9317b8d4f81e81c2a75d79685fc607b.json.gz": {
+      "case": "mrf-poisson-5000",
+      "engine": "mgcv",
+      "sha256": "c0cfc7472c88c5130d9788ee3d52ff180fb8fec582f0212db3c511a0b9f633b2",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "ad0c8c0ff38b7b28611e3efc58891522cc2d2b305f2ac1649814300ccfe4d12d.json.gz": {
+      "case": "gp-poisson-56",
+      "engine": "mgcv",
+      "sha256": "1b10379ad6c6b2b1b6f65faae9a125312f965b5a8daf030b01c053a707f99f80",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "ad7a50abf15a72df79a2bf278f854d123e74d1c68ec11428e13443bc092f0965.json.gz": {
+      "case": "cr-binomial-5000",
+      "engine": "mgcv",
+      "sha256": "0663f399fcab92fce774be50958fc0de7287d86bf3bfe6ec7b153151169eaf3f",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "b7764ace2a03221de59a160aa6eb0a2ec20e44fb3caa46ded2b5d24df70a07f9.json.gz": {
+      "case": "mrf-binomial-56",
+      "engine": "mgcv",
+      "sha256": "c620e4514076e8ef1e4f985a11cc1a40aeb7cf76f258697eb6108aad4e653b58",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "c76215b5d4f67566a3ccabd80816307902d7bc1c3b2a5a95b82d561078312efd.json.gz": {
+      "case": "t2-binomial-5000",
+      "engine": "mgcv",
+      "sha256": "45c89e1deeaf9d2c703e1c05b58f1cf2ed3563dc059cf20eedb984839ef75561",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "cae79a324f6519056cd8157e469ca28241edeebfa5dc35ab52bdb6a91acc5fb4.json.gz": {
+      "case": "cr-binomial-56",
+      "engine": "mgcv",
+      "sha256": "51efda194b691911f8d62b6c8c41526b5b1cd337613c4e7f1f5a0d5326578067",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "cd4432a352c9c1ba1c2745e26d9ca13557a8fda44e240adbb7aebad6768c2ecb.json.gz": {
+      "case": "gp-binomial-56",
+      "engine": "mgcv",
+      "sha256": "7e7637c115e755c0a1f199008514d7b039f6319d2d1e9a10ae1503d1bcb0ba55",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "d29fe12eaecdf1edd4c010ef94c2024a765295f896a674ac4b3869666bc9e3e5.json.gz": {
+      "case": "cr-gamma-5000",
+      "engine": "mgcv",
+      "sha256": "53191c0f6244721a5fbc044b26cc602089051479aa047ec34603e3b22ee31c4d",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "d4d68aa613b055c294554a0cfd27fb794e8334c13bc0adced7e8942a91e36cac.json.gz": {
+      "case": "t2-poisson-5000",
+      "engine": "mgcv",
+      "sha256": "9ee3b77a36c194c4eb1fd338e71523898b99e9c4a72818e3e2254b345bcd459d",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "d917d66f03b8fbd73c817f87af8d3fdfdd33351d18ce34dc4f2c62379a3ede8f.json.gz": {
+      "case": "sos-poisson-5000",
+      "engine": "mgcv",
+      "sha256": "50d4268f8970eab1853e9bfffc5d4379dadb539fc60bb49b8171caea8069d27b",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "e87ebdc82fa0cae5a211dbb87d49f0dfbb849661d74ba17cdc11c01402196c62.json.gz": {
+      "case": "t2-gamma-56",
+      "engine": "mgcv",
+      "sha256": "10d267e088b97e760544df6521f546f58f06bea49316b5fec86188598264bf30",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "f3b370c4ce398b67053e13d601941918faca38344a321332528261c4ca291af4.json.gz": {
+      "case": "gp-gamma-5000",
+      "engine": "mgcv",
+      "sha256": "2f735798657a15250bbe64dc7a6359922cba484f3ad8a1561db339a1dd8a0a33",
+      "source_warnings": "Fitting terminated with step failure - check results carefully",
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "f71b181af10b42db561f7a55e320b3b48ef667eeab1340346accf7444414760b.json.gz": {
+      "case": "sos-binomial-5000",
+      "engine": "mgcv",
+      "sha256": "47b8e0f4e61d91766cdba1ad0f91927a7ae179fd75c7348a1a16e8ba74884d31",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "f74560500e4b6223405780d43a123e2309645a53a03ea18c3f87ecbb8d5f5b2e.json.gz": {
+      "case": "gp-binomial-5000",
+      "engine": "mgcv",
+      "sha256": "eb46b7e97cb187726b8aa9d769a335fc2cd2e09896c1f2c5d331365829f71cc1",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "f8de6c4424df3cde78f5e5deaf4288cb949e6e8c53e7cdfe7dce97fb022866d4.json.gz": {
+      "case": "sos-gamma-56",
+      "engine": "mgcv",
+      "sha256": "c0c2c3d18a2ea39ed0e95504e8f8c19a949aaee46e1a3321cd13ef54489e5fcb",
+      "source_warnings": [],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    },
+    "facb1cf7bca3e2eb6e97689992f897c815397076860f404130fad9763c7c8969.json.gz": {
+      "case": "re-binomial-5000",
+      "engine": "mgcv",
+      "sha256": "cb884f948e9c6a8838515582c8660e75d7d8a8790930c1819a2f349ddc81110b",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": "Shared rows and permutations replace only sample(); the upstream k.check body and numerical calculations are unchanged."
+    }
+  }
+}

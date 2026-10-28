@@ -255,7 +255,7 @@ def main():
     # Optional plotting through your package API
     # ------------------------------------------------------------------
     try:
-        fig = model.plot(X_val, y_val)
+        fig = model.plot_terms(X_val)
         if fig is not None:
             out = os.path.join(
                 os.path.dirname(os.path.abspath(__file__)),

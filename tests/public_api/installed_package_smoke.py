@@ -21,6 +21,10 @@ from nampy.neural.configs import DefaultSNAMConfig
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 EXPECTED_GAM_EXPORTS = [
     "GAM",
+    "CompiledDesign",
+    "DesignEvaluation",
+    "DesignTerm",
+    "compile_design",
     "fit_model_core",
     "solve_fit",
     "FitCoreSolution",
@@ -43,6 +47,7 @@ def main() -> None:
     assert not extras.intersection({"gam", "neural", "all", "igann-sparse"})
     assert version("abess")  # Sparse IGANN is part of the standard installation.
     assert gam.__all__ == EXPECTED_GAM_EXPORTS
+    assert all(hasattr(gam, name) for name in EXPECTED_GAM_EXPORTS)
     assert gam.GAM.__module__.startswith("nampy.gam.")
     assert not hasattr(nampy, "GAM")
 

@@ -63,7 +63,7 @@ Example result
 
    <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">activation</span><span class="example-result-meta">type · class object</span></div><div class="example-result-body"><span class="example-result-scalar">type</span></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">adaptive_width</span><span class="example-result-meta">bool · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">False</span></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">batch_norm</span><span class="example-result-meta">bool · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">False</span></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">dropout</span><span class="example-result-meta">float · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">0.1</span></div></section><p class="example-result-footnote">Sample values are rounded for display.</p><p class="example-result-note">37 additional output fields are available in the returned result.</p></div>
 
-.. automethod:: nampy.models._base.NeuralEstimatorBase.get_params
+.. automethod:: nampy.models._neural.NeuralEstimatorBase.get_params
    :no-index:
 
 :doc:`Model-specific prediction signatures <../architectures/index>` · :doc:`Shared output records </api/contracts>`

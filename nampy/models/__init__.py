@@ -5,10 +5,12 @@ from __future__ import annotations
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
-from ._statistical_registry import ESTIMATORS as _STATISTICAL_ESTIMATORS
-
 _EXPORT_MODULES = {
-    **{name: spec.module for name, spec in _STATISTICAL_ESTIMATORS.items()},
+    "GAMRegressor": ".gam",
+    "GAMClassifier": ".gam",
+    "GAMLSS": ".gamlss",
+    "ExpectileGAM": ".expectile",
+    "QuantileGAM": ".quantile",
     "NAMClassifier": ".nam",
     "NAMLSS": ".nam",
     "NAMRegressor": ".nam",
@@ -63,7 +65,6 @@ _EXPORT_MODULES = {
 
 if TYPE_CHECKING:
     from ._registered import NeuralEstimatorFamily, estimator_family
-    from .asymmetric_gam import ExpectileGAM, QuantileGAM
     from .classifier import NeuralClassifier
     from .ensemble import NeuralEnsemble
     from .ensemble_treenam import (
@@ -71,6 +72,7 @@ if TYPE_CHECKING:
         EnsembleTreeNAMLSS,
         EnsembleTreeNAMRegressor,
     )
+    from .expectile import ExpectileGAM
     from .gam import GAMClassifier, GAMRegressor
     from .gamlss import GAMLSS
     from .gpnam import GPNAMLSS, GPNAMClassifier, GPNAMRegressor
@@ -84,6 +86,7 @@ if TYPE_CHECKING:
     from .nbm_spam import NBMSPAMLSS, NBMSPAMClassifier, NBMSPAMRegressor
     from .nodegam import NodeGAMClassifier, NodeGAMLSS, NodeGAMRegressor
     from .qnam import QNAMLSS
+    from .quantile import QuantileGAM
     from .regressor import NeuralRegressor
     from .sian import SIANLSS, SIANClassifier, SIANRegressor
     from .snam import SNAMLSS, SNAMClassifier, SNAMRegressor

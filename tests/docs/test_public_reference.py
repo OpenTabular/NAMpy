@@ -85,7 +85,7 @@ def test_reference_generation_from_clean_checkout(tmp_path):
 
 
 def test_fit_parameter_descriptions_match_the_training_contract():
-    from nampy.models._base import NeuralEstimatorBase
+    from nampy.models._neural import NeuralEstimatorBase
 
     extension = runpy.run_path(
         str(Path(__file__).resolve().parents[2] / "docs/_ext/public_reference.py")
@@ -132,7 +132,7 @@ def test_schedulers_match_implementation_and_training_guide():
     import inspect
     import textwrap
 
-    from nampy.models._base import NeuralEstimatorBase
+    from nampy.models._neural import NeuralEstimatorBase
     from nampy.neural.task import TaskModule
 
     code = ast.parse(textwrap.dedent(inspect.getsource(TaskModule.__init__)))
@@ -209,7 +209,7 @@ def test_training_contract_keeps_both_viewcode_anchor_spellings():
     module = runpy.run_path(
         str(Path(__file__).resolve().parents[2] / "docs/_ext/site_integrity.py")
     )
-    canonical = "nampy.models._base.NeuralEstimatorBase.fit"
+    canonical = "nampy.models._neural.NeuralEstimatorBase.fit"
     alias = "nampy.models.NeuralEstimatorBase.fit"
     tree = nodes.container()
     signature = addnodes.desc_signature(ids=[canonical])

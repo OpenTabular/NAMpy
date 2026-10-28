@@ -10,7 +10,7 @@ Signature
 
 .. code-block:: python
 
-   estimator.plot_interactions(self, X)
+   estimator.plot_interactions(self, X, *, num_bins=30, slice_bins=3, max_slices=9, pages=0, figsize=None)
 
 Parameters
 ----------
@@ -26,7 +26,27 @@ Parameters
    * - ``X``
      - ``pandas.DataFrame | numpy.ndarray, shape (n, d)``
      - Required
-     - Input data for generating predictions.
+     - Prediction/training feature matrix with n rows and the same d columns, names and preprocessing schema used by the fitted estimator.
+   * - ``num_bins``
+     - ``int``
+     - ``30``
+     - Number of equally spaced heatmap edges along each displayed feature; at least three.
+   * - ``slice_bins``
+     - ``int``
+     - ``3``
+     - Quantile bins used to condition each additional numeric interaction feature.
+   * - ``max_slices``
+     - ``int``
+     - ``9``
+     - Maximum number of populated higher-order slices to render.
+   * - ``pages``
+     - ``int``
+     - ``0``
+     - Panel pagination: zero uses the renderer default; positive values select the requested panel-page layout.
+   * - ``figsize``
+     - ``tuple[float, float] | None``
+     - ``None``
+     - Optional Matplotlib (width, height) in inches.
 
 Returns
 -------
@@ -38,8 +58,8 @@ Returns
    * - Type
      - Shape
      - Meaning
-   * - None
-     - no array
+   * - list[matplotlib.figure.Figure]
+     - one figure per requested page
      - Draws pairwise heatmaps or higher-order observed slices for fitted named interactions.
 
 
@@ -63,7 +83,7 @@ Example result
 
    <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">result</span><span class="example-result-meta">NoneType · not applicable</span></div><div class="example-result-body"><span class="example-result-scalar">None</span></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
-.. automethod:: nampy.models._base.NeuralEstimatorBase.plot_interactions
+.. automethod:: nampy.models._neural.NeuralEstimatorBase.plot_interactions
    :no-index:
 
 :doc:`Model-specific prediction signatures <../architectures/index>` · :doc:`Shared output records </api/contracts>`

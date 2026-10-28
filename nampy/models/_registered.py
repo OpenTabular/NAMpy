@@ -62,12 +62,9 @@ class RegisteredNeuralLSS(NeuralLSS):
         distributional_kwargs = kwargs.pop("distributional_kwargs", None)
         if distributional_kwargs is None:
             distributional_kwargs = dict(spec.distributional_defaults) or None
-        elif spec.fixed_family == "quantile":
-            if distributional_kwargs.get("enforce_monotonic", False):
-                raise ValueError(
-                    "QNAMLSS applies monotonicity in the model; set "
-                    "enforce_monotonic=False on the distribution family."
-                )
+        validate_parameters = getattr(spec.module, "validate_distributional_kwargs", None)
+        if validate_parameters is not None:
+            validate_parameters(distributional_kwargs)
         self.architecture_name = spec.name
         kwargs = _with_architecture_defaults(
             spec, kwargs, objective="distributional"
@@ -95,11 +92,17 @@ def registered_estimator_class(
     objective: str,
     module_name: str,
     doc: str | None = None,
+    mixin: type | None = None,
 ):
-    """Build a stable module-level estimator class from one architecture spec."""
+    """Build a stable module-level estimator class from one architecture spec.
+
+    Parameters
+    ----------
+    mixin : type or None
+        Optional estimator-layer methods composed before the task adapter.
+    """
     spec = get_architecture(architecture)
     spec.require(objective)
-    mixin = spec.estimator_mixin
     bases = (_BASES[objective],) if mixin is None else (mixin, _BASES[objective])
     return type(
         class_name,
@@ -122,8 +125,16 @@ class NeuralEstimatorFamily:
     lss: type | None = None
 
 
-def estimator_family(architecture: str, *, module_name: str) -> NeuralEstimatorFamily:
-    """Generate every estimator surface supported by an architecture spec."""
+def estimator_family(
+    architecture: str, *, module_name: str, mixin: type | None = None
+) -> NeuralEstimatorFamily:
+    """Generate every estimator surface supported by an architecture spec.
+
+    Parameters
+    ----------
+    mixin : type or None
+        Optional estimator-layer methods shared by the generated task adapters.
+    """
     spec = get_architecture(architecture)
     generated = {}
     names = {
@@ -138,6 +149,7 @@ def estimator_family(architecture: str, *, module_name: str) -> NeuralEstimatorF
                 architecture=spec.name,
                 objective=objective,
                 module_name=module_name,
+                mixin=mixin,
             )
     return NeuralEstimatorFamily(**generated)
 

@@ -10,7 +10,7 @@ Signature
 
 .. code-block:: python
 
-   estimator.load_model(path: 'str | Path') -> 'EstimatorT'
+   estimator.load_model(path)
 
 Parameters
 ----------
@@ -63,7 +63,7 @@ Example result
 
    <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">result</span><span class="example-result-meta">NAMRegressor · scalar object</span></div><div class="example-result-body"><span class="example-result-scalar">NAMRegressor</span></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
-.. automethod:: nampy.models._base.NeuralEstimatorBase.load_model
+.. automethod:: nampy.models._neural.NeuralEstimatorBase.load_model
    :no-index:
 
 :doc:`Model-specific prediction signatures <../architectures/index>` · :doc:`Shared output records </api/contracts>`

@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from pretab.preprocessor import Preprocessor
 
-from nampy.models._base import NeuralEstimatorBase
+from nampy.models._neural import NeuralEstimatorBase
 from nampy.models.nam import NAMLSS, NAMRegressor
 from nampy.models.nbm import NBMRegressor
 from nampy.neural.architectures.components.nam import ExU, NAMFeatureNN

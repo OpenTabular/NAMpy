@@ -230,6 +230,14 @@ class GamlssFamily(GeneralFamily):
     ) -> np.ndarray:
         raise NotImplementedError
 
+    def _reported_deviance(self, y, fitted, *, loglik, weights=None):
+        """mgcv reports the sum of squared family-owned deviance residuals."""
+        try:
+            residuals = self.residuals(y, fitted, rtype="deviance", weights=weights)
+        except NotImplementedError:
+            return float(-2.0 * loglik)
+        return float(np.sum(np.asarray(residuals, dtype=np.float64) ** 2))
+
     def residuals(
         self,
         y: np.ndarray,

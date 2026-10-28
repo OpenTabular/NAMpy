@@ -141,7 +141,7 @@ PARAMETER_MEANINGS = {
 def constructor_parameter_group(name, architecture):
     from pretab.preprocessor import Preprocessor
 
-    from nampy.models._base import NeuralEstimatorBase
+    from nampy.models._neural import NeuralEstimatorBase
 
     if architecture == "spline_nam" and name == "n_knots":
         return "Architecture"

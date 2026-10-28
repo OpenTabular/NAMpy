@@ -79,7 +79,7 @@ Example result
 
    <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">result</span><span class="example-result-meta">DataFrame · 16 × 7</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>term</dt><dd><span>x</span></dd></div><div class="example-result-coordinate"><dt>term_type</dt><dd><span>main</span></dd></div><div class="example-result-coordinate"><dt>output</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>value</dt><dd><span>-0.8755</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>term</dt><dd><span>x</span></dd></div><div class="example-result-coordinate"><dt>term_type</dt><dd><span>main</span></dd></div><div class="example-result-coordinate"><dt>output</dt><dd><span>0</span></dd></div><div class="example-result-coordinate"><dt>value</dt><dd><span>-0.625</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 16 rows and 4 of 7 columns.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
-.. automethod:: nampy.models._base.NeuralEstimatorBase.explain_terms
+.. automethod:: nampy.models._neural.NeuralEstimatorBase.explain_terms
    :no-index:
 
 :doc:`Model-specific prediction signatures <../architectures/index>` · :doc:`Shared output records </api/contracts>`

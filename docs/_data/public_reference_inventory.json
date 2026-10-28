@@ -10307,7 +10307,7 @@
     "kind": "extension",
     "symbol": "estimator_family",
     "public_import": "nampy.models.estimator_family",
-    "signature": "(architecture: 'str', *, module_name: 'str') -> 'NeuralEstimatorFamily'",
+    "signature": "(architecture: 'str', *, module_name: 'str', mixin: 'type | None' = None) -> 'NeuralEstimatorFamily'",
     "parameters": [
       {
         "name": "architecture",
@@ -10316,6 +10316,10 @@
       {
         "name": "module_name",
         "default": "inspect._empty"
+      },
+      {
+        "name": "mixin",
+        "default": "None"
       }
     ],
     "page": "neural_reference/extensions/estimator_family",
@@ -11956,7 +11960,7 @@
   {
     "kind": "neural_method",
     "symbol": "basis_metadata",
-    "public_import": "nampy.models._base.basis_metadata",
+    "public_import": "nampy.models._neural.basis_metadata",
     "signature": "(self) -> 'dict'",
     "parameters": [],
     "page": "neural_reference/methods/basis_metadata",
@@ -11971,7 +11975,7 @@
   {
     "kind": "neural_method",
     "symbol": "basis_transform",
-    "public_import": "nampy.models._base.basis_transform",
+    "public_import": "nampy.models._neural.basis_transform",
     "signature": "(self, X, *, batch_size: 'int | None' = None)",
     "parameters": [
       {
@@ -11995,7 +11999,7 @@
   {
     "kind": "neural_method",
     "symbol": "center_components",
-    "public_import": "nampy.models._base.center_components",
+    "public_import": "nampy.models._neural.center_components",
     "signature": "(self, X, *, reference_X=None, reference_weight=None)",
     "parameters": [
       {
@@ -12023,7 +12027,7 @@
   {
     "kind": "neural_method",
     "symbol": "explain_terms",
-    "public_import": "nampy.models._base.explain_terms",
+    "public_import": "nampy.models._neural.explain_terms",
     "signature": "(self, X, *, max_bins: 'int' = 64, center: 'bool' = False, reference_X=None, reference_weight=None)",
     "parameters": [
       {
@@ -12059,7 +12063,7 @@
   {
     "kind": "neural_method",
     "symbol": "get_params",
-    "public_import": "nampy.models._base.get_params",
+    "public_import": "nampy.models._neural.get_params",
     "signature": "(self, deep=True)",
     "parameters": [
       {
@@ -12079,7 +12083,7 @@
   {
     "kind": "neural_method",
     "symbol": "group_norms",
-    "public_import": "nampy.models._base.group_norms",
+    "public_import": "nampy.models._neural.group_norms",
     "signature": "(self) -> 'dict[str, float]'",
     "parameters": [],
     "page": "neural_reference/methods/group_norms",
@@ -12094,7 +12098,7 @@
   {
     "kind": "neural_method",
     "symbol": "interaction_importance",
-    "public_import": "nampy.models._base.interaction_importance",
+    "public_import": "nampy.models._neural.interaction_importance",
     "signature": "(self, X, *, center: 'bool' = False, reference_X=None, reference_weight=None)",
     "parameters": [
       {
@@ -12126,8 +12130,8 @@
   {
     "kind": "neural_method",
     "symbol": "load_model",
-    "public_import": "nampy.models._base.load_model",
-    "signature": "(path: 'str | Path') -> 'EstimatorT'",
+    "public_import": "nampy.models._neural.load_model",
+    "signature": "(path)",
     "parameters": [
       {
         "name": "path",
@@ -12146,7 +12150,7 @@
   {
     "kind": "neural_method",
     "symbol": "local_term_importance",
-    "public_import": "nampy.models._base.local_term_importance",
+    "public_import": "nampy.models._neural.local_term_importance",
     "signature": "(self, X, *, target: 'int' = 0, top_k: 'int' = 10, batch_size: 'int | None' = None)",
     "parameters": [
       {
@@ -12178,7 +12182,7 @@
   {
     "kind": "neural_method",
     "symbol": "model_complexity",
-    "public_import": "nampy.models._base.model_complexity",
+    "public_import": "nampy.models._neural.model_complexity",
     "signature": "(self) -> 'dict[str, int]'",
     "parameters": [],
     "page": "neural_reference/methods/model_complexity",
@@ -12192,45 +12196,33 @@
   },
   {
     "kind": "neural_method",
-    "symbol": "plot",
-    "public_import": "nampy.models._base.plot",
-    "signature": "(self, X, y_true, feature_name=None, plot_interactions=False)",
-    "parameters": [
-      {
-        "name": "X",
-        "default": "inspect._empty"
-      },
-      {
-        "name": "y_true",
-        "default": "inspect._empty"
-      },
-      {
-        "name": "feature_name",
-        "default": "None"
-      },
-      {
-        "name": "plot_interactions",
-        "default": "False"
-      }
-    ],
-    "page": "neural_reference/methods/plot",
-    "example": "neural_reference/methods/plot",
-    "input_contract": "neural_reference/methods/plot",
-    "return_schema": "_examples/reference/output_schemas.json#neural_reference/methods/plot",
-    "restrictions": "neural_reference/methods/plot",
-    "tests": [
-      "tests/docs/test_feature_reference.py"
-    ]
-  },
-  {
-    "kind": "neural_method",
     "symbol": "plot_interactions",
-    "public_import": "nampy.models._base.plot_interactions",
-    "signature": "(self, X)",
+    "public_import": "nampy.models._neural.plot_interactions",
+    "signature": "(self, X, *, num_bins=30, slice_bins=3, max_slices=9, pages=0, figsize=None)",
     "parameters": [
       {
         "name": "X",
         "default": "inspect._empty"
+      },
+      {
+        "name": "num_bins",
+        "default": "30"
+      },
+      {
+        "name": "slice_bins",
+        "default": "3"
+      },
+      {
+        "name": "max_slices",
+        "default": "9"
+      },
+      {
+        "name": "pages",
+        "default": "0"
+      },
+      {
+        "name": "figsize",
+        "default": "None"
       }
     ],
     "page": "neural_reference/methods/plot_interactions",
@@ -12245,7 +12237,7 @@
   {
     "kind": "neural_method",
     "symbol": "plot_terms",
-    "public_import": "nampy.models._base.plot_terms",
+    "public_import": "nampy.models._neural.plot_terms",
     "signature": "(self, X, *, center=False, reference_X=None, reference_weight=None, rug=None, density=True, density_bins=30, density_color='#D73027', pages=0, figsize=None)",
     "parameters": [
       {
@@ -12301,8 +12293,8 @@
   {
     "kind": "neural_method",
     "symbol": "save_model",
-    "public_import": "nampy.models._base.save_model",
-    "signature": "(self, path: 'str | Path') -> 'Path'",
+    "public_import": "nampy.models._neural.save_model",
+    "signature": "(self, path)",
     "parameters": [
       {
         "name": "path",
@@ -12321,7 +12313,7 @@
   {
     "kind": "neural_method",
     "symbol": "set_params",
-    "public_import": "nampy.models._base.set_params",
+    "public_import": "nampy.models._neural.set_params",
     "signature": "(self, **parameters)",
     "parameters": [
       {
@@ -12341,7 +12333,7 @@
   {
     "kind": "neural_method",
     "symbol": "term_importance",
-    "public_import": "nampy.models._base.term_importance",
+    "public_import": "nampy.models._neural.term_importance",
     "signature": "(self, X, *, center: 'bool' = False, reference_X=None, reference_weight=None)",
     "parameters": [
       {
@@ -12373,7 +12365,7 @@
   {
     "kind": "neural_method",
     "symbol": "training_history",
-    "public_import": "nampy.models._base.training_history",
+    "public_import": "nampy.models._neural.training_history",
     "signature": "(self) -> 'dict'",
     "parameters": [],
     "page": "neural_reference/methods/training_history",
@@ -13465,6 +13457,50 @@
     "input_contract": "api/generated/nampy.plotting.prepared_from_contributions",
     "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.plotting.prepared_from_contributions",
     "restrictions": "api/generated/nampy.plotting.prepared_from_contributions",
+    "tests": [
+      "tests/docs/test_feature_reference.py"
+    ]
+  },
+  {
+    "kind": "shared",
+    "symbol": "prepared_from_interactions",
+    "public_import": "nampy.plotting.interactions.prepared_from_interactions",
+    "signature": "(frame, terms, *, term_features=None, series_labels: list[str] | tuple[str, ...] | None = None, num_bins=30, slice_bins=3, max_slices=9)",
+    "parameters": [
+      {
+        "name": "frame",
+        "default": "inspect._empty"
+      },
+      {
+        "name": "terms",
+        "default": "inspect._empty"
+      },
+      {
+        "name": "term_features",
+        "default": "None"
+      },
+      {
+        "name": "series_labels",
+        "default": "None"
+      },
+      {
+        "name": "num_bins",
+        "default": "30"
+      },
+      {
+        "name": "slice_bins",
+        "default": "3"
+      },
+      {
+        "name": "max_slices",
+        "default": "9"
+      }
+    ],
+    "page": "api/generated/nampy.plotting.prepared_from_interactions",
+    "example": "api/generated/nampy.plotting.prepared_from_interactions",
+    "input_contract": "api/generated/nampy.plotting.prepared_from_interactions",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.plotting.prepared_from_interactions",
+    "restrictions": "api/generated/nampy.plotting.prepared_from_interactions",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]

@@ -165,11 +165,14 @@ def test_train_only_offsets_do_not_leak_and_formula_offsets_add():
 
 
 @pytest.mark.parametrize("cls", [ExpectileGAM, QuantileGAM])
-def test_loss_model_pickle_and_cross_validation(cls):
+def test_loss_model_pickle_and_cross_validation(cls, tmp_path):
     frame = data()
     model = cls(formula="y~s(x,k=5)").fit(frame)
     rebuilt = pickle.loads(pickle.dumps(model))
     assert_allclose(model.predict(frame), rebuilt.predict(frame))
+    saved = model.save_model(tmp_path / (cls.__name__ + ".nampy"))
+    restored = cls.load_model(saved)
+    assert_allclose(model.predict(frame), restored.predict(frame))
     cv = GridSearchCV(
         cls(formula="y~s(x,k=5)"), {"smoothing_params": [[0.1], [1.0]]}, cv=2
     )

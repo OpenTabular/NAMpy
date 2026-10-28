@@ -71,7 +71,7 @@ Example result
 
    <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">result</span><span class="example-result-meta">AdditivePrediction · scalar record</span></div><div class="example-result-body"><dl class="example-result-fields"><div><dt>backend<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">neural</span></dd></div><div><dt>intercept<span class="example-result-meta">float · scalar</span></dt><dd><span class="example-result-scalar">0.1188</span></dd></div></dl><p class="example-result-note">5 additional fields available on the returned object.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p><p class="example-result-note">5 additional output fields are available in the returned result.</p></div>
 
-.. automethod:: nampy.models._base.NeuralEstimatorBase.center_components
+.. automethod:: nampy.models._neural.NeuralEstimatorBase.center_components
    :no-index:
 
 :doc:`Model-specific prediction signatures <../architectures/index>` · :doc:`Shared output records </api/contracts>`

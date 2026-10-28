@@ -61,6 +61,13 @@ class SIAN(BaseModel):
     estimator_fitted_attributes = ("term_names_", "execution_mode_")
     extra_reserved_feature_names = ("residual",)
 
+    @staticmethod
+    def prepare_training_config(config, **training_data):
+        """Resolve interaction discovery before constructing the final network."""
+        from ..interaction_selection.sian import prepare_sian_config
+
+        return prepare_sian_config(config, **training_data)
+
     def __init__(
         self,
         cat_feature_info,

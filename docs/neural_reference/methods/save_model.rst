@@ -10,7 +10,7 @@ Signature
 
 .. code-block:: python
 
-   estimator.save_model(self, path: 'str | Path') -> 'Path'
+   estimator.save_model(self, path)
 
 Parameters
 ----------
@@ -63,7 +63,7 @@ Example result
 
    <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">result</span><span class="example-result-meta">PosixPath · scalar object</span></div><div class="example-result-body"><span class="example-result-scalar">PosixPath</span></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
-.. automethod:: nampy.models._base.NeuralEstimatorBase.save_model
+.. automethod:: nampy.models._neural.NeuralEstimatorBase.save_model
    :no-index:
 
 :doc:`Model-specific prediction signatures <../architectures/index>` · :doc:`Shared output records </api/contracts>`

@@ -52,7 +52,7 @@ Example result
 
    <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">total_parameters</span><span class="example-result-meta">int · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">275</span></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">trainable_parameters</span><span class="example-result-meta">int · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">275</span></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
-.. automethod:: nampy.models._base.NeuralEstimatorBase.model_complexity
+.. automethod:: nampy.models._neural.NeuralEstimatorBase.model_complexity
    :no-index:
 
 :doc:`Model-specific prediction signatures <../architectures/index>` · :doc:`Shared output records </api/contracts>`

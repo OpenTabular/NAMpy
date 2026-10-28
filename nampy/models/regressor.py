@@ -7,7 +7,8 @@ from sklearn.utils import RegressorTags
 
 from ..contracts import AdditivePrediction
 from ..neural.objectives import RegressionObjective
-from ._base import NeuralEstimatorBase, TrainingPlan
+from ..neural.training import TrainingPlan
+from ._neural import NeuralEstimatorBase
 
 
 class NeuralRegressor(NeuralEstimatorBase):

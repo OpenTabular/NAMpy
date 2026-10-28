@@ -30,6 +30,15 @@ class QNAM(BaseModel):
     Therefore, the summed final output is also nondecreasing across quantiles.
     """
 
+    @staticmethod
+    def validate_distributional_kwargs(parameters):
+        """The architecture already enforces ordered quantiles."""
+        if parameters.get("enforce_monotonic", False):
+            raise ValueError(
+                "QNAMLSS applies monotonicity in the model; set "
+                "enforce_monotonic=False on the distribution family."
+            )
+
     def __init__(
         self,
         cat_feature_info,

@@ -655,7 +655,7 @@ def organize_reference(root):
             continue
         page = "statistical_reference/methods/" + name
         record("GAM." + name, obj, page, page, "method")
-    from nampy.models._base import NeuralEstimatorBase
+    from nampy.models._neural import NeuralEstimatorBase
 
     for name in METHODS:
         page = "neural_reference/methods/" + name

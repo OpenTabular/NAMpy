@@ -45,7 +45,7 @@ jobs:
 
     - name: Run tests from static upstream fixtures
       run: |
-        pytest tests/ --cov=nampy --cov-report=xml --cov-report=term-missing
+        pytest tests/ --cov=nampy --cov-branch --cov-report=xml --cov-report=term-missing
 
     - name: Upload coverage to Codecov
       if: matrix.python-version == '3.11'
@@ -210,6 +210,16 @@ jobs:
         tests/parity/test_parametric_map_vcomp.py
         tests/docs/test_parametric_penalty_map_example.py
         tests/parity/test_gam_seven_stage_pipeline_contracts.py::test_parametric_log_sp_maps_cover_seven_stage_pipeline
+        -q
+
+    - name: Run portable seven-stage observable invariants
+      run: >-
+        pytest
+        tests/parity/test_registered_smooth_seven_stage_pipeline.py
+        tests/parity/test_recent_family_seven_stage_pipeline.py
+        tests/parity/test_mgcv_smooth_family_crossings.py
+        tests/diagnostics/test_mgcv_k_check_shared_plan.py
+        tests/extensions/test_distributional.py
         -q
 
     - name: Run portable spline-constructor slices

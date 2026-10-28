@@ -1327,6 +1327,9 @@ def solve_general_family_fit(model, y, smoothing_params, weights=None):
         else 0.0
     )
     deviance = float(-2.0 * float(fit["l"]))
+    report_deviance = getattr(model.family, "_reported_deviance", None)
+    if callable(report_deviance):
+        deviance = float(report_deviance(y, mu, loglik=float(fit["l"]), weights=weights))
 
     return FitCoreSolution.from_dict(
         {

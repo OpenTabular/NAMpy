@@ -67,7 +67,77 @@ For smoothing selection, use ``sklearn.model_selection.GridSearchCV`` with ``par
 Methods
 -------
 
-Methods other than fit require a fitted estimator and raise NotFittedError beforehand. New-data arrays are supported only by formula-free models; formula models require DataFrames. Inputs must be finite and match the fitted feature schema.
+Prediction, scoring, plotting and design evaluation require a fitted estimator and raise NotFittedError beforehand. Persistence can also save and restore an unfitted configuration. New-data arrays are supported only by formula-free models; formula models require DataFrames. Inputs must be finite and match the fitted feature schema.
+
+.. _quantilegam-save-model:
+
+save_model
+~~~~~~~~~~
+
+.. code-block:: python
+
+   model.save_model(path)
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Parameter
+     - Type / shape
+     - Default
+     - Meaning
+   * - ``path``
+     - str | pathlib.Path
+     - Required
+     - NAMpy estimator artifact path. Load only trusted pickle artifacts.
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Output
+     - Type
+     - Shape
+     - Meaning
+   * - path
+     - pathlib.Path
+     - scalar path
+     - Written estimator artifact containing the fitted design and loss solution.
+
+.. _quantilegam-load-model:
+
+load_model
+~~~~~~~~~~
+
+.. code-block:: python
+
+   model.load_model(path)
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Parameter
+     - Type / shape
+     - Default
+     - Meaning
+   * - ``path``
+     - str | pathlib.Path
+     - Required
+     - NAMpy estimator artifact path. Load only trusted pickle artifacts.
+
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Output
+     - Type
+     - Shape
+     - Meaning
+   * - estimator
+     - ExpectileGAM | QuantileGAM
+     - scalar estimator
+     - Restored estimator of the requested class; incompatible formats and classes raise errors.
 
 .. _quantilegam-fit:
 
@@ -278,14 +348,14 @@ lpmatrix
      - (n,p)
      - Full coefficient design including an intercept when fitted. ``matrix @ coef_`` excludes known offsets; add the evaluated new-data offset to reconstruct predict.
 
-.. _quantilegam-plot:
+.. _quantilegam-plot-terms:
 
-plot
-~~~~
+plot_terms
+~~~~~~~~~~
 
 .. code-block:: python
 
-   model.plot(X, *, term_features=None, rug=False, figsize=None)
+   model.plot_terms(X, *, term_features=None, rug=False, figsize=None)
 
 .. list-table::
    :header-rows: 1

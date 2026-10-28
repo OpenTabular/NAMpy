@@ -3039,6 +3039,118 @@
       "()"
     ]
   ],
+  "api/generated/nampy.plotting.prepared_from_interactions": [
+    [
+      "result",
+      "dict",
+      "7 named fields"
+    ],
+    [
+      "result['pd']",
+      "list",
+      "length 1"
+    ],
+    [
+      "result['pd'][0]",
+      "dict",
+      "13 named fields"
+    ],
+    [
+      "result['pd'][0]['kind']",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result['pd'][0]['plot_me']",
+      "builtins.bool",
+      "()"
+    ],
+    [
+      "result['pd'][0]['scheme']",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result['pd'][0]['n2']",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result['pd'][0]['fit']",
+      "numpy.ndarray[float64]",
+      "(9,)"
+    ],
+    [
+      "result['pd'][0]['x']",
+      "numpy.ndarray[float64]",
+      "(3,)"
+    ],
+    [
+      "result['pd'][0]['y']",
+      "numpy.ndarray[float64]",
+      "(3,)"
+    ],
+    [
+      "result['pd'][0]['xlab']",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result['pd'][0]['ylab']",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result['pd'][0]['main']",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result['pd'][0]['contours']",
+      "builtins.bool",
+      "()"
+    ],
+    [
+      "result['pd'][0]['colorbar']",
+      "builtins.bool",
+      "()"
+    ],
+    [
+      "result['pd'][0]['cmap']",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result['ylim']",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result['partial_resids']",
+      "builtins.bool",
+      "()"
+    ],
+    [
+      "result['shift']",
+      "builtins.float",
+      "()"
+    ],
+    [
+      "result['trans']",
+      "builtins.function",
+      "scalar object"
+    ],
+    [
+      "result['select']",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result['rug_default']",
+      "builtins.bool",
+      "()"
+    ]
+  ],
   "api/generated/nampy.plotting.render_distributional_effects": [
     [
       "result",
@@ -8820,13 +8932,6 @@
       "result['trainable_parameters']",
       "builtins.int",
       "()"
-    ]
-  ],
-  "neural_reference/methods/plot": [
-    [
-      "result",
-      "builtins.NoneType",
-      "not applicable"
     ]
   ],
   "neural_reference/methods/plot_interactions": [

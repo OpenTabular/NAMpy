@@ -14,7 +14,7 @@ data = pd.DataFrame({{'x': x, 'y': np.sin(3*x) + rng.normal(0, .25, len(x))}})
 model = {name}(formula='y ~ s(x, k=6)', level=.8, smoothing_params=[.1]{extra}).fit(data)
 prediction = model.predict(data)
 components = model.predict_components(data)
-figures = model.plot(data)
+figures = model.plot_terms(data)
 assert prediction.shape == (60,)
 assert model.fit_result_.converged
 result = {{'prediction': prediction, 'components': components, 'fit': model.fit_result_}}
@@ -172,14 +172,13 @@ def generate(root):
     """Generate public pages and their downloadable scripts."""
     import inspect
 
-    from feature_reference import heading, tree, write
+    from feature_reference import heading, statistical_estimator_exports, tree, write
     from public_reference import table
 
     from nampy import models
     from nampy.gam.design import __all__ as design_symbols
     from nampy.gam.extensions import __all__ as extension_symbols
     from nampy.gam.families.registry import GENERAL_FAMILIES
-    from nampy.models._statistical_registry import ESTIMATORS
 
     root = Path(root)
     if set(FUNCTIONS) != set(extension_symbols) | set(design_symbols):
@@ -193,8 +192,8 @@ def generate(root):
     }
     if set(families) != set(FAMILY_RESPONSES):
         raise ValueError("Every extension family needs an authored example response.")
-    for name, spec in ESTIMATORS.items():
-        if spec.group != "asymmetric":
+    for name, module in statistical_estimator_exports().items():
+        if module not in {".expectile", ".quantile"}:
             continue
         signature = inspect.signature(getattr(models, name))
         defaults = {

@@ -1,0 +1,688 @@
+{
+  "schema_version": 1,
+  "policy": "Normal tests read committed reference outputs only; no upstream execution. Comparisons use observable invariants, not basis columns, eigenvectors, coefficients or coefficient-coordinate covariance.",
+  "upstream_packages": {
+    "mgcv": "1.9.4",
+    "scam": "1.2.22"
+  },
+  "history_and_scope": "tests/parity/seven_stage_coverage.json",
+  "source_sha256": {
+    "tests/parity/probes/mgcv_registered_pipeline.R": "7444a11734b72d78bec127087f5e1d9a4aacf1b07f50f12520b904d06ebae21b",
+    "tests/parity/_registered_pipeline_reference.py": "d209d2be0894a6833c41df92b8410d7e6930adc63e6941fbe48c0087929be399",
+    "tests/parity/_seven_stage_cases.py": "0e4d7dd2ab2d60f866e0c7b00d082a8d81274d461f27ec4e9b057c7c8c651d45",
+    "tests/parity/_pipeline_invariants.py": "8d16b32f450f9ce0eb022ce0b63bee42da5eef085927a5ed3b36cd3b4a34e3c5",
+    "tests/parity/test_registered_smooth_seven_stage_pipeline.py": "ded3cf8efc2e8b700a22a8d7b2f3f0e52e7401edf226c2138d40c969c580da7c",
+    "tests/parity/test_recent_family_seven_stage_pipeline.py": "f031b807d7a3d9785e21397f667364660e9b17a8221bda6a784508de2e6ce9e9",
+    "tests/parity/seven_stage_coverage.json": "35b9e6737fbe1ab7e669df852eb8da6a822d2ee41e43680b959e1ba527bbc433",
+    "tests/reference_fixtures/registered_seven_stage/smooth_responses.json": "39162a58323beb2f23f2d1ffa7547bc7422bdeef59401c7dc713d685eac78a52"
+  },
+  "capture_count": 94,
+  "captures": {
+    "04f3503b92b48ea569c3fcdaf8084a11f86a58f33752a9f8ba001c403a8a2a36.json.gz": {
+      "case": "bs",
+      "engine": "mgcv",
+      "sha256": "a59cf835c6d72342f3c7a8072dbc740cc794f6b68e7b51694e48129033e99494",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "06f2c5119a7a1150da902717aae88fb7c10f12f9e173665510dcd6af976fc94a.json.gz": {
+      "case": "mdcxby",
+      "engine": "scam",
+      "sha256": "74f82eb243ef03afe49bb9cb88a01c83ae3a5fb297c5c49eadeabc3c6689f28f",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "0a02aad4be757bbb4851611b7fc2b010d5c8da9d84895702ab09cc14a595b8a2.json.gz": {
+      "case": "t2",
+      "engine": "mgcv",
+      "sha256": "2768775ba5e986c39624ba6c7c2749ec4bb65b2de7e6ffd257cd166948288460",
+      "source_warnings": [],
+      "upstream_notes": "Source Vc is in fit coordinates; G$P maps it into prediction coordinates before evaluating the invariant kernel."
+    },
+    "0aac9d879da5117167c8161ec2acb599add69c36d0147a38fd521f2088f30a20.json.gz": {
+      "case": "tesmd2",
+      "engine": "scam",
+      "sha256": "482105a654ee8d793379cd87741169acbec6a3ddce6c283dc31868ef14b85e6d",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "0b5332b54f6e58472af7d18b0b5d05c5050a149d3a05a771a21b88d8cfa1efc2.json.gz": {
+      "case": "tedmd",
+      "engine": "scam",
+      "sha256": "4bba0b8ebb628bda65acd4e7082e58d807fabe941d901c141c5c70b3ce6c7925",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "0ecb2949c6809112ba40b4321381c41a2b659e3871dded12641a23ffaa1d0b7e.json.gz": {
+      "case": "tedecx",
+      "engine": "scam",
+      "sha256": "51467f73ba9394a554ad0b70c5719fc9c31aab651ea67583203d0b19cf24cf51",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "0f13a827f0798c78fcad450d450ef4be9b066a42acec0c36a9f6592ff0d77887.json.gz": {
+      "case": "ad",
+      "engine": "mgcv",
+      "sha256": "7ac04be2f703a64716960c4a03fb819a2a30c13cbb114454452b7f5dccfad403",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "1518d665860c8c6d50cbfc145d74823de0a3bce01c8786fe2696ebfcd2c88468.json.gz": {
+      "case": "inverse_gaussian",
+      "engine": "mgcv",
+      "sha256": "1b8d38ae26189d554b02de65753a74adbe8805193631b41c95cf33089fcfa0f2",
+      "source_warnings": "Fitting terminated with step failure - check results carefully",
+      "upstream_notes": null
+    },
+    "163f7474c0ecbc157ac14e09193871134aa887f24792759088890e8dedd7c634.json.gz": {
+      "case": "scad__2d",
+      "engine": "mgcv",
+      "sha256": "b2dd43b0064ccf69ce59bc37cf498542f218eff15705ab7188204dc4c0b6be20",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "1a40ebf936ad5a9c42149b36b45e9642f444ab123bf89fac95291e09cd66e7ad.json.gz": {
+      "case": "cpop",
+      "engine": "scam",
+      "sha256": "168751695521275d98aec93532bdcf6eab77ec8b936ff64f4ebced375ea31872",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "2020a10fac9528167ef309a89a072f490f17bdedfc306ead09433cf6e6b23144.json.gz": {
+      "case": "mdcvby",
+      "engine": "scam",
+      "sha256": "de4e0490dd977cd8c3d9bb80c563d369703ae8e103486335745c5583dd9ba4a0",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "20857ea85eba604bbe4b1d305316ddbeb40d7679e078da9779ec111c090631fc.json.gz": {
+      "case": "clog",
+      "engine": "mgcv",
+      "sha256": "02b0449cc7dbc4df1903397020dd15502e66375b96b245eca81f917e07a8edba",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "21b8b50afa2b7e942facac2d7ed4313e6de50728feb303d56ae2170d8640a53b.json.gz": {
+      "case": "tw",
+      "engine": "mgcv",
+      "sha256": "16b3dfe42de900e65d337f718dd4d405ec927780d668a484b9cff956b88f4f95",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "29168e27aedafaf57826600c6d05cd4da7663c2330f59e046a4c8f7fc0e811e6.json.gz": {
+      "case": "ti",
+      "engine": "mgcv",
+      "sha256": "cc7281acd02446383f9c1752f8298c5d201beaa615a09bbc96093df3a6eaec29",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "2bceb603ea81e9b1c620a1c7c82adcdf692efa3c6b52340394451e24c55f66d1.json.gz": {
+      "case": "ipo",
+      "engine": "scam",
+      "sha256": "5d04f23278c5daced8e66fb7279c6546ad3c4685ebabbfee713f6bdf02f60d62",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "2c79c93b5eed82a05aadaf93dd966731d882fb88dc3e4d3672df7e2b2cf74636.json.gz": {
+      "case": "so",
+      "engine": "mgcv",
+      "sha256": "d43eaa67e8c02960ab0bdeef248dd709cb3958ba1c381b47b37be2e935929e26",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "2df3384c4c83b80e965db2cbc27d9739b20fe946669a8a4cf193679fb00dbee9.json.gz": {
+      "case": "tecxcx",
+      "engine": "scam",
+      "sha256": "e90c224551c3e9dd43039b119d71b5591d3976baf03775120abe3161af5c788f",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "30f9114f6af2afe808223c5843fcb1a2614a7946a187c540344750a11aebccf3.json.gz": {
+      "case": "temicx",
+      "engine": "scam",
+      "sha256": "654b3018321a474d3f4aec8f35f9db9a2a65c81f27f05fe08c99237c4d9e2a67",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "334a3dcbf5d7b4707dcb20253ab86f78cadc936ce688a832da491178047176b4.json.gz": {
+      "case": "cp",
+      "engine": "mgcv",
+      "sha256": "dc281e62bbaf881ee7d3a237e3f0aeeb3b017e8fbb047d0b73f0ff3c94f602cd",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "381e292c29c9e195c2d32a67dafc59bd4b043b78f1fed734c869fb6303f9b1ea.json.gz": {
+      "case": "mrf",
+      "engine": "mgcv",
+      "sha256": "965b1e13e7633835432f16ff2b838cbe9c60b7ae74b2cf1acd04cbaeb23ec9cf",
+      "source_warnings": "Fitting terminated with step failure - check results carefully",
+      "upstream_notes": null
+    },
+    "3d371f9985dfb60d284b10b6c1473161637f07acea96e90a0592b467329d1fdb.json.gz": {
+      "case": "micvby",
+      "engine": "scam",
+      "sha256": "ffa279602be790926e4cdf4a0d25aa1e4b62e1e8ca50d927ef0b7834060ae793",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "3e7ec0b6f1de3106d6979d5651198f7146f8906520a35d659adb9b027f1ca5af.json.gz": {
+      "case": "tesmi1",
+      "engine": "scam",
+      "sha256": "dce348bb6b38b235a5c6007729496f26c275b07b08567877afef3fb532fc8ded",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "3f1a68e924be8d9b39d699710fd8c4eae0a8f0c09c41b92a4734c1730846a713.json.gz": {
+      "case": "betar",
+      "engine": "mgcv",
+      "sha256": "28ece19d27f5576eeb1fb3cb2754892faedd1c5bc4e571a150a292e8e0a97fc5",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "42e8bbfb064b01a2c83fb2e50ac9859862cf11b4805626ddb38e6a4c627686bf.json.gz": {
+      "case": "quasibinomial",
+      "engine": "mgcv",
+      "sha256": "233f1c59972f1c9250aa8cdd45f9dc087ac959b4cd06ff5e10f80c2a2bc8bae8",
+      "source_warnings": "Fitting terminated with step failure - check results carefully",
+      "upstream_notes": null
+    },
+    "430dd4e62df05c90b9b6b295ff6c01c09463263854eb3bbfaed392bdd928cbd2.json.gz": {
+      "case": "tesmd1",
+      "engine": "scam",
+      "sha256": "97b96fb91d66acac4b20954bec893c0bf5ac04bfe0ce345cf2d980571efa8ee3",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "442fbba736733b0b5932a177be91a7a2f3418bb68fb27a0c3745128d2cda9f68.json.gz": {
+      "case": "tedecv",
+      "engine": "scam",
+      "sha256": "f5825201c0978483a061aaf757a88162685cd3fb317ed7b3b5d2ffc8d6fe65fe",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "454d94709843fd69da9078849bf78a0ac69a9b86d77676cd1722a0a6d0045623.json.gz": {
+      "case": "mdcv",
+      "engine": "scam",
+      "sha256": "dc8d1e198a10a95fdc63dd722f3a8d8321a18ff011cd13497a3856a64fe46401",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "4cda1be1d3d08efff4dc0ee9b77f31a78a9770c6faaeaa4fb7cd2760f9575349.json.gz": {
+      "case": "cvby",
+      "engine": "scam",
+      "sha256": "37b8351607d45631cddf42a0b3111759893cf74539e03513c0e119a6e82b95f0",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "4fbd09254ac30a41bb1f8ba78875aabf2d053340ada55389d38ddb38dc556375.json.gz": {
+      "case": "lmpi",
+      "engine": "scam",
+      "sha256": "970260f4f34262cbcc0da4e946266f644ed262b1331d29fd1926f666fe2be97a",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "5131d6a12f7c617ca8f6cda37a5b8ba885c3958a7ce3eeb82d9ddee22f5f0c4d.json.gz": {
+      "case": "ocat",
+      "engine": "mgcv",
+      "sha256": "f7d3dac75a2983732d096b4291fe1d2fa547420b329c2d6e19fb12d0aa1fa12c",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "53529f8d6571e3686d40ff66dea863eae30d1f373f4794ffc6add74338b895d4.json.gz": {
+      "case": "mpd",
+      "engine": "scam",
+      "sha256": "83957e23b5211e72666168ffe05798832ac8912aa02b0a6223671a37e6d8eae2",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "553b697b409a5db06e454e58c1e8d040ff6c916694a9f1df6c56985e4949f646.json.gz": {
+      "case": "sc",
+      "engine": "mgcv",
+      "sha256": "1ec2f7ad971cccab0a65abb0e58d2b47c9ad9e836b8870009b0110476f99a460",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "554e85f657ff9de8ebde5dfe996ca002b67181a697b3bb31c2458417a39e0e0a.json.gz": {
+      "case": "po",
+      "engine": "scam",
+      "sha256": "5b4a5a18c3647bc8a0cd34948813a2e2111af7e76ba3d0b7cdb7586951d00472",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "584ed0d00b4c76f08de9e961d9f676a58c9d5dd4bdad1f15dae6cbff76815e13.json.gz": {
+      "case": "tescx",
+      "engine": "scam",
+      "sha256": "7aaffa6b905f33aaa191fc258d4103049d1f9e53562359efd792543c04061f8a",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "5b303095498d278b9d407d6e3e14c65dd46293c84747b77110a6809d23b632a6.json.gz": {
+      "case": "gammals",
+      "engine": "mgcv",
+      "sha256": "4c05d9f61434ee66a61dcd14473b58d8d3e7aa8c1fea0fd6347546bf5e8ebf54",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "602e9112bac3b09ad28fdeeee7c09ff42811842877c0e2e11b4be4a46e21e1cb.json.gz": {
+      "case": "scat",
+      "engine": "mgcv",
+      "sha256": "16ee91d8bea708841316dd4f3a831416cbf14e5f7c6494a179283c93bc9279d6",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "635dea89860ad5a1e3eac34ecc1e3ef84b35221c7917450861efa19c0cfc7c02.json.gz": {
+      "case": "tp",
+      "engine": "mgcv",
+      "sha256": "bd0ffb3fa3ca83c359809bc671c2d19c3655d564322f50922ca9fb240ae4473b",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "66295dacb696dc7b998276c67fe1a0bec3cee59343282fb775ed02170b0d9b12.json.gz": {
+      "case": "sf",
+      "engine": "mgcv",
+      "sha256": "16f1765a706a124d1d641f8826a088479b0a0a914e07cae0a753aba217b4d946",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "66805b0d9bc46743761c739a924bf5d0c66980566e125c795561f5e530acbea0.json.gz": {
+      "case": "nb",
+      "engine": "mgcv",
+      "sha256": "9c3fe33205cfe879d30df0a037b97eb4b36e4618535fa3224858473a481ff0ef",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "6a7f4dc77bd00624095b6298f59a948dfc003d1b06b293ee99dd040035bd4f7f.json.gz": {
+      "case": "cv",
+      "engine": "scam",
+      "sha256": "4dc852ffae5e82981453aaa2f4179fb8c97b5d0af17b5e2d83e42b153b312cd6",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "6b86719ccb68f57d23e2bb0692cf1cb1e0745b140ac06ddf20e598b1009f3e8f.json.gz": {
+      "case": "shash",
+      "engine": "mgcv",
+      "sha256": "b200133b271bd1e4b25928839da23502af45e0171c27755a131c89b008dc3213",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "702ea8828a1bfda3485dd555d9cd1f9f971ca859f5d01f5029702a01aee57cdc.json.gz": {
+      "case": "cs",
+      "engine": "mgcv",
+      "sha256": "7356c40bb10ba9c04f345be435b24971d4c35ee8ab52c8d10cd813f0d06d24b2",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "70a90a39425c375e9e0f66b40c0cfc9c71c1634b4e45f1e367707f82981afaa2.json.gz": {
+      "case": "tesmi2",
+      "engine": "scam",
+      "sha256": "73858a868b2e5e6336f414baa3475bf70f91b832324357b6c4e9bd61e57c14a1",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "71d7679817e9ab10efaec69d9a38cd2868a1690eea2373799022e70681eaa23e.json.gz": {
+      "case": "cx",
+      "engine": "scam",
+      "sha256": "a049eab1ef302b1fd3bab9fdbc3da55407ba8d6bcb369807c9d697d66589f35a",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "76899f5892200d38ec672319242e077f67e9009daff954f0ff152ed38d8d99ed.json.gz": {
+      "case": "miso",
+      "engine": "scam",
+      "sha256": "4d3121e45624e904031620b311f9fe5fc60e30b37381b24db38771f4a65ec491",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "78df5b1658a7c2bdc81eef8fab39fc6d85746877ecdc8a95aa4b4d41cc41fdab.json.gz": {
+      "case": "mifo",
+      "engine": "scam",
+      "sha256": "30207c34a57598e0cf831209084f76deb8bf5c7b0c06417f623daf072d3ac54f",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "7ab464c254a30664953b5a3520dcf8b8a6c1f2becb42b425dfa761f1aadc3be8.json.gz": {
+      "case": "mpdby",
+      "engine": "scam",
+      "sha256": "cdaabea32f07eb819ccf1c35fc79bd50f75909e6498c451b1d56b69f70c6a785",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "7fbb9699631a89f6977084f8f8a3d0611e98763d5941854f09a41def60f74518.json.gz": {
+      "case": "re",
+      "engine": "mgcv",
+      "sha256": "8bef6771f30866c9f248a879162d665e160788b0ce1186c4e8b0ded47109d40b",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "7fe9b9f75945ce0260c32db46528688537df8ddee1b8324fdf542ccc286beca7.json.gz": {
+      "case": "sw",
+      "engine": "mgcv",
+      "sha256": "c7819e9916a9acda39b150934e57aa99dad7ece1f6825243e0f2e8da14a5bb31",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "85913aeed1192f60fb87d83b4dde8fb55656261f43cc48f631adf289cb428d09.json.gz": {
+      "case": "sz",
+      "engine": "mgcv",
+      "sha256": "f066c9882bb025b6149cd389b3e18acf0e36fbb0d90a77fbb628d6e0f1a91250",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "87c767c09f8c9990ca91254906cb40cb2aee03aab2d517d59050fcab5fce2f7e.json.gz": {
+      "case": "poisson",
+      "engine": "mgcv",
+      "sha256": "0ed56ebf5a60cfc0f3634bb22215fe8f4e151e3afa458da7cfecba3d174cf294",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "8beb973c0d7ca37c53b6da3235bbfbd3669d1a5cb8fa66388f84b9dd4b2154b0.json.gz": {
+      "case": "tescv",
+      "engine": "scam",
+      "sha256": "c5477dc03cad68197bea8d88e648f295581b990929861c788f47df02c6270bc7",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "8c005045c0b8d102b15614d4d88456fced97e360862b8bd8fe267000c321b33c.json.gz": {
+      "case": "gaulss",
+      "engine": "mgcv",
+      "sha256": "242b700caa24e2c4bd30c0c54a680d94287c7d2ae6bb32115e6aa21de8b1fa05",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "980dc297ec5f1624d0fcb62affa08c4074e06aed2fe3401ec2bfb9d47619a70a.json.gz": {
+      "case": "cxby",
+      "engine": "scam",
+      "sha256": "48d7854494aad05a9a0699300e7734a2b76c53b5adde8f1bf8a10ebf1609c8ed",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "9a49137aab1d3c8a0996b911595fc20ca3e3ad9b0db1e489fee0a3bb2c5c69b7.json.gz": {
+      "case": "cc",
+      "engine": "mgcv",
+      "sha256": "68e0fdfe67cabd2ed6ccd2d1c56488c49e24730f7f42ea3a6703c99fd2982edc",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "9b39c76d8aa9e3e81ecfab65ebc70e78a7fa224d3a9195588bfb9b5d3b2ab97c.json.gz": {
+      "case": "quasi",
+      "engine": "mgcv",
+      "sha256": "1fcd35fd05902cf4664876b276a4d0207012b5af03c60948391cb074c3b7f00f",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "9b5543ee6297794477f7aa07eeb0419f81110045e1115b85360f7ff7a2fb6a98.json.gz": {
+      "case": "scad",
+      "engine": "mgcv",
+      "sha256": "7b66405908e6479405c067f9f6eb15a1e3b8c781394cf046bbb2056431258ab1",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "9c44cf3a745499e9cd82a8a3b95b37b8982f21797031766535dee410dae37cad.json.gz": {
+      "case": "gp",
+      "engine": "mgcv",
+      "sha256": "cd97768a3a4399d0de0ac701bb1a264be53d6b58cee41a8f0795fbf094f40e3b",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "a15d5badd04552db28cab1d08c462a3807a97a8c00f8ce0bb9a3c03d99accf9e.json.gz": {
+      "case": "ziplss",
+      "engine": "mgcv",
+      "sha256": "01933b950b1e11817799f97ea50b5ebaabb334f2d4c282069482b7db167b20f0",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "a29889bdfc9ae1ead3dbb0ea63c7ab55c94e1188472f2cb0f64aea64af84cb90.json.gz": {
+      "case": "zip",
+      "engine": "mgcv",
+      "sha256": "6cab39fea3e893ac32a229cd5b00364f8f608dd58e378505f806d6b0c7454ef2",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "a6c942c15d1eaa11a037b60d3070c6972f6daafee41e9d793a5f180051a72e56.json.gz": {
+      "case": "temicv",
+      "engine": "scam",
+      "sha256": "6261e0124136b39ee2d61d7a46196d4dfff26cd148b4a0552c04a538a0c92743",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "a7747c1cdfef3c54c0a971823437a8eaf0ca7a3ae437cd310ac65f114f531850.json.gz": {
+      "case": "micv",
+      "engine": "scam",
+      "sha256": "1b69779804b5ada7dcc865cc7c9e7c1ee2b1cab5550b9761991492be5be9f4bb",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "a82f3010b2d0df795c82ccc73b1116eff1957de5dbcfcb66a7cfdcdcf5829ee0.json.gz": {
+      "case": "ts",
+      "engine": "mgcv",
+      "sha256": "cbdf36826b860deab55b950cd45ba38112b68cb53a17f2e82faaa9018496782a",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "ae215b82790b381f0a787d495612d3b676ddd95d701079eb63b21f094dedec9a.json.gz": {
+      "case": "ps",
+      "engine": "mgcv",
+      "sha256": "edcb8a8281dff4b0144ac05ea921a9eef4949470aa85d4f40267be6a004f9114",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "ae795e96bc92d590e5dd9d5e5a0b6d210fd7dc9e8c5db8522caa84494239e657.json.gz": {
+      "case": "cnorm",
+      "engine": "mgcv",
+      "sha256": "0696cd08f182709996bbd2f64d48186fdb1116d19c13851e86f091dbad5be25d",
+      "source_warnings": [
+        "number of items to replace is not a multiple of replacement length",
+        "number of items to replace is not a multiple of replacement length"
+      ],
+      "upstream_notes": null
+    },
+    "af4f9a963f0b9ff018b4d6de03056e75a81b61e6e769c02cc85a8cf47476b571.json.gz": {
+      "case": "ad__2d",
+      "engine": "mgcv",
+      "sha256": "8f51ab2decaa221152ee327e81e5cf046f59e4a430b9ad08d13daae2d0c92021",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "b5ce1e9b0470539d17d98d9fe446f538c4bbaf5ed6dc979a240c3aadcf5b9d3b.json.gz": {
+      "case": "tismd",
+      "engine": "scam",
+      "sha256": "4d2a6c109d97136555e73646dc56db38da710e95a51bc3a89c77f4e33f7f8d07",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "b7f7b60d13cfd78318a20df0fab94755f80d28032d7199bcc28efbe8856b34fb.json.gz": {
+      "case": "te",
+      "engine": "mgcv",
+      "sha256": "01c0724c8ba4eb0c29511b9c54be05488315b79906ea6686400e8b40984132fc",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "bc76b84c70e902140d7811c534427a721482b20a8695237e7b04720c80d5a23f.json.gz": {
+      "case": "fs",
+      "engine": "mgcv",
+      "sha256": "ca0c2c9d5fd45786d06656e6ae523c5240bd0eed232a58f003d89278d60e394c",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "bd01080bb0092a1a63c033a41af0afd57ef3f5a8231d5e293dc51e0e87aab455.json.gz": {
+      "case": "tedmi",
+      "engine": "scam",
+      "sha256": "2277ca6a047e06d44736b359aa6380c31ccddd17929bc71ed5ccfce92f3fad7e",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "c1ad082fe84d38ccc8c14c16a1f9b7182ca401dbcc4b2a377fb4412482cee287.json.gz": {
+      "case": "dpo",
+      "engine": "scam",
+      "sha256": "7687ac56514b73f2783afc125479b6a2bd7ef8c49092c4d1f3c4ca0c8a8562f1",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "c971cf0a9e631282d709127021b41434074bca2cb71d5354f4c71d57e5aca968.json.gz": {
+      "case": "tismi",
+      "engine": "scam",
+      "sha256": "08b556b00c7ece1515dc586cf607cfbbf7ff74fb3bb053a9c977507888a377c4",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "caadb3f5ccdaf1d190d5cd3ec286306e4f141ca04065efa1ae462248893ed831.json.gz": {
+      "case": "micx",
+      "engine": "scam",
+      "sha256": "92b24cff72ffc201141c719ef2f16bc27ed847681cc36592a4f5a66cc17d9d11",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "cab7aad052b8e25967e16fe28e0fae1c0dae1f7c8f569fbd5a54fff424fcbb0b.json.gz": {
+      "case": "gaussian",
+      "engine": "mgcv",
+      "sha256": "6f60cb7c9c6b7123c0e1f11f81654c80652da973aa330328e8287523f8d432be",
+      "source_warnings": "Fitting terminated with step failure - check results carefully",
+      "upstream_notes": null
+    },
+    "d18b568cdac642eee905fbd758cc849437ee33261cdf0b6e8aa950b061e526af.json.gz": {
+      "case": "micxby",
+      "engine": "scam",
+      "sha256": "d28b4ca0f70702c4e1e7ddc2d33911c0472484c556554ddb3692936729f37428",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "db29261f9e4223c3d3faaeb1c48e11b7fae35c49fe356ff0e3fe0578780afb2a.json.gz": {
+      "case": "cr",
+      "engine": "mgcv",
+      "sha256": "a2973dce5571cb86702c45539d9c3063a3e63d0cbdd64d8ec0c208fa7b00ca41",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "dc7578cffcde7c89d828096f5423dc1d8b0e7059bef7767a761a35b753ba97ac.json.gz": {
+      "case": "negbin",
+      "engine": "mgcv",
+      "sha256": "cb07de5cef04b71185201e8572aa20dd668423e0f0d9a96a761fb3eb6d10bea3",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "dd2bccf6a3c20337cae31be9f2a2cb36740820908e2e8912b518fb174acb4945.json.gz": {
+      "case": "cpois",
+      "engine": "mgcv",
+      "sha256": "0c4aa46fdc9401f17bd88ae871ecceb5d28dd1c3af0ef80e1926c7c174a59947",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "de96843611f280d4ce989c273c1dcbd4f02e0e1f20f8dae9407be25fd1b84c40.json.gz": {
+      "case": "mpiby",
+      "engine": "scam",
+      "sha256": "f0e0e3228870cac25d504f35ae9a863f1b40c40503d1784b9b50d80ce4d99e2f",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "df85bb9bbadad5496881c3ff7e0e0c6240f88dd56df76d2ea3479dc3e01437a9.json.gz": {
+      "case": "gevlss",
+      "engine": "mgcv",
+      "sha256": "552d50fbd6210277e228c8f86a7cab3187df11a817359506b4ccfb2b03e9cb69",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "dfbc992375bc7ffc881373e296869ca3386715b3c5cd93544552b3d1cd741baf.json.gz": {
+      "case": "gamma",
+      "engine": "mgcv",
+      "sha256": "277548009e0dcb3ea76238129d0bd7dc04e0675374b6cfce9a4debe5c5ef3356",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "e118399365e49e99e66750b342e00702dec4965d07d4a92bf7fbc7aed6a7df84.json.gz": {
+      "case": "lipl",
+      "engine": "scam",
+      "sha256": "9f63cd5d1586aee60308906357fca2f1ac41002dac4e8aea8147a1df8bcd7e2b",
+      "source_warnings": [],
+      "upstream_notes": "Native predict.scam SE has a dimension error; constructor and fitted covariance evaluate the identified prediction kernel."
+    },
+    "e51f7b229ea072ba7e99d4445c59f07dd859516538eddfb2cfab16e98aeb74a5.json.gz": {
+      "case": "ds",
+      "engine": "mgcv",
+      "sha256": "0b54370eb2b71b7b20debaa08b0a2784268d5c0908a1e0e469d576159a10d048",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "e77c82dacbdf27a48d883e85fffbeb88e1b7f500fae94dfd80b41dd5c42bd352.json.gz": {
+      "case": "gumbls",
+      "engine": "mgcv",
+      "sha256": "2700c83e32e158c7172124aa46ad1a177c998b65fdab38d08ea7853b7ed52092",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "e7897fd3dc0392bf8382ed7ce2ac1319471a04a08fa336c5b22cecf6b9527e74.json.gz": {
+      "case": "binomial",
+      "engine": "mgcv",
+      "sha256": "dd515fac3bcc1ba63650e5bc75b5602e1eb225255baab2aca69daa4a0538d27a",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    },
+    "e7c16776d0bcc43f4b33594b6d77f7efae215607bf9e26148828665e23abc754.json.gz": {
+      "case": "tecxcv",
+      "engine": "scam",
+      "sha256": "ce3ca120461b4fc89fcdf60cf40fe78fbc6e370362728233de4a899915101c9f",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "e8f4165813969fd7106f0bf8875ea72641b7a8190f215b91724d657ac7eec310.json.gz": {
+      "case": "mpi",
+      "engine": "scam",
+      "sha256": "723c4e6846e598cf4727d2911135de6c2e63f352c237812f8cf8be2fa003e3e9",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "edb26fd33d98fc6f918ca59e3e0b09885a255b944c3d4ef017279e6e025bfac3.json.gz": {
+      "case": "twlss",
+      "engine": "mgcv",
+      "sha256": "22e4d13619af1d703f4d92ad6b531ebe3e297e2556c82807d547a95758f79960",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "f04acc0f553a35ea3f63e3c9dc268728bf649595f02a1c09686a82b0d1aeef54.json.gz": {
+      "case": "quasipoisson",
+      "engine": "mgcv",
+      "sha256": "616f5b0a0a8695e0c815cc2e35768b3c7f64d4489af91b2ef8b8f96525e63f3b",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "f2487ae5520aa1c5766b1c57848a6616da1047ced315ed4a8caf6b51c113bf24.json.gz": {
+      "case": "multinom",
+      "engine": "mgcv",
+      "sha256": "4f3fab74d457587d69bce21d2ff4d4a6a3e1543f1f17780c0b821a3a57c0b738",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "f49823050d13748b2b4462cea7b8dd5a06b67ca78333cf0d9d4b3970f92cf746.json.gz": {
+      "case": "bcg",
+      "engine": "mgcv",
+      "sha256": "313646c7784acdd00b0848e2c297b6c86ee735442d9f5a52a418bc3c6c26365a",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "f5cb626b939bab78d0ae51f3b51de0b3bf82e0ab41160204e4244615b3df2a61.json.gz": {
+      "case": "mdcx",
+      "engine": "scam",
+      "sha256": "0756531e3882ae3ec53eba0e6681d5702f94de85ee91dfb6a666a94e7817d7f6",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "fb45c909969de12f2907e9806632352869e4018ff4d75d06bd6988e442330f69.json.gz": {
+      "case": "sos",
+      "engine": "mgcv",
+      "sha256": "2d8de076ba772719301f45094473995bd719da8764531b2414beac6957f246d4",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "fbfa6964e8ab285e82544eefb0381ca0eca75ecb7ef9898716ec5a4c83206bdc.json.gz": {
+      "case": "tecvcv",
+      "engine": "scam",
+      "sha256": "4e365f226bb03bdb2c864501249a92849959acf8eabf142ea7191634dfc2001b",
+      "source_warnings": [],
+      "upstream_notes": null
+    }
+  }
+}

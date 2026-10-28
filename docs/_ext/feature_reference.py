@@ -1206,13 +1206,22 @@ def generate_controls_selection(root):
     )
 
 
-def generate_estimators(root):
-    from nampy.models._statistical_registry import ESTIMATORS
+def statistical_estimator_exports():
+    """Discover statistical estimators from the existing lazy export mapping."""
+    from nampy.models import _EXPORT_MODULES
 
-    entries = []
-    for name, spec in ESTIMATORS.items():
-        entries.append(name)
-        if spec.group != "likelihood":
+    return {
+        name: module
+        for name, module in _EXPORT_MODULES.items()
+        if module in {".gam", ".gamlss", ".expectile", ".quantile"}
+    }
+
+
+def generate_estimators(root):
+    entries = statistical_estimator_exports()
+
+    for name, module in entries.items():
+        if module in {".expectile", ".quantile"}:
             continue
         write(
             root,
@@ -1243,10 +1252,12 @@ def reference_targets():
     from nampy.gam.design import __all__ as design_symbols
     from nampy.gam.extensions import __all__ as extension_symbols
     from nampy.gam.families.registry import GENERAL_FAMILIES
-    from nampy.models._statistical_registry import ESTIMATORS
     from nampy.neural.registry import architectures
 
-    targets = {name: f"statistical_reference/estimators/{name}" for name in ESTIMATORS}
+    targets = {
+        name: f"statistical_reference/estimators/{name}"
+        for name in statistical_estimator_exports()
+    }
     targets["GAM"] = "statistical_reference/GAM"
     targets.update(
         {
@@ -1592,7 +1603,7 @@ def generate_core_contract(root):
 
     from reference_schema import method_parameter_rows
 
-    from nampy.models._base import NeuralEstimatorBase
+    from nampy.models._neural import NeuralEstimatorBase
 
     write(
         root,

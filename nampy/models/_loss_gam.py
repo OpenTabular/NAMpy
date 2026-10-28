@@ -11,6 +11,9 @@ from sklearn.utils.validation import check_is_fitted
 from nampy.contracts import AdditivePrediction, AdditiveTermMetadata
 from nampy.gam.design import compile_design, observation_weights, response_vector
 
+from ._data import feature_frame
+from ._persistence import load_estimator, save_estimator
+
 
 class _LossGAMBase(RegressorMixin, BaseEstimator, ABC):
     """Shared compiled-design lifecycle for fixed-penalty loss estimators."""
@@ -133,7 +136,7 @@ class _LossGAMBase(RegressorMixin, BaseEstimator, ABC):
             term_metadata=metadata,
         )
 
-    def plot(self, X, *, term_features=None, rug=False, figsize=None):
+    def plot_terms(self, X, *, term_features=None, rug=False, figsize=None):
         """Plot observed one-dimensional term contributions without intervals.
 
         ``X`` is a DataFrame (n,d); ``term_features`` is an optional mapping
@@ -147,6 +150,7 @@ class _LossGAMBase(RegressorMixin, BaseEstimator, ABC):
         from nampy.plotting import prepared_from_contributions, render_term_plots
 
         components = self.predict_components(X)
+        X = feature_frame(X, self.design_.feature_names)
         mapping = {
             name: info.features[0]
             for name, info in components.term_metadata.items()
@@ -168,3 +172,12 @@ class _LossGAMBase(RegressorMixin, BaseEstimator, ABC):
         target = response_vector(y, size=len(prediction))
         weights = observation_weights(sample_weight, len(prediction))
         return -float(np.average(self._loss(target - prediction), weights=weights))
+
+    def save_model(self, path):
+        """Save this estimator to a trusted NAMpy pickle artifact."""
+        return save_estimator(self, path)
+
+    @classmethod
+    def load_model(cls, path):
+        """Load a trusted NAMpy artifact of this estimator class."""
+        return load_estimator(path, cls)

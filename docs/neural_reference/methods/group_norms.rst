@@ -54,7 +54,7 @@ Example result
 
    <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">x</span><span class="example-result-meta">float · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">2.6964</span></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">z</span><span class="example-result-meta">float · scalar</span></div><div class="example-result-body"><span class="example-result-scalar">2.8024</span></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
-.. automethod:: nampy.models._base.NeuralEstimatorBase.group_norms
+.. automethod:: nampy.models._neural.NeuralEstimatorBase.group_norms
    :no-index:
 
 :doc:`Model-specific prediction signatures <../architectures/index>` · :doc:`Shared output records </api/contracts>`

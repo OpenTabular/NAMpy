@@ -14,6 +14,7 @@ Term effects
    :nosignatures:
 
    prepared_from_contributions
+   prepared_from_interactions
    render_term_plots
    add_density_shading
 

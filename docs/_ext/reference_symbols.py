@@ -26,6 +26,7 @@ SYMBOLS = {
         "plot_distributional_effects",
         "prepare_distributional_effects",
         "prepared_from_contributions",
+        "prepared_from_interactions",
         "render_distributional_effects",
         "render_term_plots",
         "render_model_check",
@@ -67,6 +68,10 @@ MEANINGS = {
     "effects": "Prepared DistributionalEffects object; combine_distributional_effects takes a nonempty sequence of compatible objects and stacks member curve columns.",
     "estimator": "Fitted neural distributional estimator providing centered predict_components and its neural family point/spread hooks. Statistical GAMLSS does not currently implement this complete renderer protocol.",
     "kwargs": "Additional preparation/rendering keyword arguments. The combined plotting entry point separates the supported preparation options from renderer options.",
+    "num_bins": "Number of equally spaced heatmap edges per displayed interaction feature; at least three.",
+    "slice_bins": "Quantile bins used to condition additional numeric interaction features.",
+    "max_slices": "Maximum number of populated higher-order slices retained.",
+    "series_labels": "Optional labels for contribution output columns.",
     "frame": "DataFrame containing source features, with n rows matching the contributions.",
     "ylab_format": "Format string for a term axis label, interpolating the term name through {name}.",
     "term_features": "Optional mapping from contribution label to its source-feature tuple; used when labels alone do not identify the source columns.",
@@ -210,6 +215,9 @@ assert result is None
             neural_estimator_example("NAMLSS")
             + f"from nampy.plotting import {name}\nresult = {name}(model, X)\nprint(type(result).__name__)\n"
         )
+    if name == "prepared_from_interactions":
+        return (CONTRACT_SETUP
+                + "from nampy.plotting import prepared_from_interactions\nX['z'] = np.cos(np.arange(n))\nterms = {'x:z': (X.x * X.z).to_numpy()}\nresult = prepared_from_interactions(X, terms, num_bins=4)\nprint(type(result).__name__)\n")
     if name in {"prepared_from_contributions", "render_term_plots"}:
         code = (
             CONTRACT_SETUP
@@ -254,7 +262,7 @@ def return_description(module, name):
         return "``None``. Adds density-band artists to the supplied Matplotlib Axes in place; it creates no prediction array."
     if name in {"combine_distributional_effects", "prepare_distributional_effects"}:
         return "``DistributionalEffects``. Per-feature point/spread arrays use one row per feature observation and one curve column per represented member. The feature-value arrays preserve the corresponding row order."
-    if name == "prepared_from_contributions":
+    if name in {"prepared_from_contributions", "prepared_from_interactions"}:
         return "``dict[str, object]`` with ``pd`` (list of term plotting payloads), transformation/shift/selection settings and rendering defaults. Each effect and raw-value array has one entry per corresponding feature observation."
     return "``list[matplotlib.figure.Figure]``, one figure per requested page/panel arrangement. Renderers consume prepared values and do not refit a model; conditional-SD envelopes and coefficient-SE bands retain their separate meanings."
 

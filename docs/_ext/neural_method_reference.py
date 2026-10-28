@@ -36,16 +36,10 @@ METHODS = {
         "one figure per requested page",
         "Numeric single-column term curves; interaction effects use plot_interactions.",
     ),
-    "plot": (
-        "NAMRegressor",
-        "None",
-        "no array",
-        "Legacy plotting side effect with target scatter/density display; use plot_terms for returned figures.",
-    ),
     "plot_interactions": (
         "NAMRegressor",
-        "None",
-        "no array",
+        "list[matplotlib.figure.Figure]",
+        "one figure per requested page",
         "Draws pairwise heatmaps or higher-order observed slices for fitted named interactions.",
     ),
     "basis_transform": (
@@ -114,7 +108,9 @@ PARAMETERS = {
     "top_k": "Positive maximum number of polynomial terms retained per observation.",
     "deep": "Whether to include supported nested constructor parameters.",
     "parameters": "Constructor-option keyword updates drawn from get_params(); unknown names are rejected.",
-    "plot_interactions": "Whether the legacy plot call should also draw fitted interactions.",
+    "num_bins": "Number of equally spaced heatmap edges along each displayed feature; at least three.",
+    "slice_bins": "Quantile bins used to condition each additional numeric interaction feature.",
+    "max_slices": "Maximum number of populated higher-order slices to render.",
 }
 
 
@@ -139,7 +135,7 @@ def supported_architectures(method):
 def generate(root):
     from feature_reference import heading, signature, table, tree, write
 
-    from nampy.models._base import NeuralEstimatorBase
+    from nampy.models._neural import NeuralEstimatorBase
 
     for name, (cls, kind, shape, meaning) in METHODS.items():
         method = getattr(NeuralEstimatorBase, name)
@@ -174,7 +170,6 @@ def generate(root):
             "term_importance": "model.term_importance(X)",
             "interaction_importance": "model.interaction_importance(X)",
             "plot_terms": "model.plot_terms(X, pages=1)",
-            "plot": "model.plot(X, y)",
             "plot_interactions": "model.plot_interactions(X)",
             "basis_transform": "model.basis_transform(X)",
             "basis_metadata": "model.basis_metadata()",
@@ -196,7 +191,7 @@ def generate(root):
             code += "result = " + calls[name] + "\n"
         code += "print(type(result).__name__)\n"
         text += example_rst(root, f"neural_reference/methods/{name}", code)
-        text += f".. automethod:: nampy.models._base.NeuralEstimatorBase.{name}\n   :no-index:\n\n"
+        text += f".. automethod:: nampy.models._neural.NeuralEstimatorBase.{name}\n   :no-index:\n\n"
         text += ":doc:`Model-specific prediction signatures <../architectures/index>` · :doc:`Shared output records </api/contracts>`\n"
         write(root, f"neural_reference/methods/{name}.rst", text)
     write(

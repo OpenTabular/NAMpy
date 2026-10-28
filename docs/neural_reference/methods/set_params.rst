@@ -63,7 +63,7 @@ Example result
 
    <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">result</span><span class="example-result-meta">NAMRegressor · scalar object</span></div><div class="example-result-body"><span class="example-result-scalar">NAMRegressor</span></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
-.. automethod:: nampy.models._base.NeuralEstimatorBase.set_params
+.. automethod:: nampy.models._neural.NeuralEstimatorBase.set_params
    :no-index:
 
 :doc:`Model-specific prediction signatures <../architectures/index>` · :doc:`Shared output records </api/contracts>`

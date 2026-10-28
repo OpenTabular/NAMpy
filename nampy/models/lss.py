@@ -10,7 +10,8 @@ from ..neural.distributions.registry import (
     resolve_family,
 )
 from ..neural.objectives import DistributionObjective
-from ._base import NeuralEstimatorBase, TrainingPlan, _training_tensor
+from ..neural.training import TrainingPlan, _training_tensor
+from ._neural import NeuralEstimatorBase
 
 
 class NeuralLSS(NeuralEstimatorBase):

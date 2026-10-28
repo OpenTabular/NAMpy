@@ -149,6 +149,11 @@
     "sha256": "5dd44e0dbdc5219da368de6f19e1e3f13e380b7b9b085f57fa812fc5c0e9e200",
     "status": "passed"
   },
+  "api/generated/nampy.plotting.prepared_from_interactions": {
+    "preview_version": 2,
+    "sha256": "57e02a34e03a30219eb4c01ec3b45c96d2f1a64ac1c8accea5a4068a967540ee",
+    "status": "passed"
+  },
   "api/generated/nampy.plotting.render_distributional_effects": {
     "preview_version": 2,
     "sha256": "4495d9ebbb76a64bf02dc107590e10eec602757eaf342c9f2bd1570ab014623e",
@@ -644,11 +649,6 @@
     "sha256": "ad550b264a5f7e53b44dc05d8959fbffe1f8e5202fbab171eea57dd338c4a8dd",
     "status": "passed"
   },
-  "neural_reference/methods/plot": {
-    "preview_version": 2,
-    "sha256": "0ef17efbedd74658c8bd1b0eb53dc4a8ac91c3a7beec9eecd0b75d34e9d8e750",
-    "status": "passed"
-  },
   "neural_reference/methods/plot_interactions": {
     "preview_version": 2,
     "sha256": "3591215021e51f5bafb8f736fafcb9135f9edea7f035614e4ff90742948f3fa9",
@@ -901,7 +901,7 @@
   },
   "statistical_reference/estimators/ExpectileGAM": {
     "preview_version": 2,
-    "sha256": "5cdb0e4836f414025fdba618f546c41f6feb0de7577810fb7893ec8d1235929b",
+    "sha256": "41994267da8be734394e2cacc364471e5b2816f765f330b4ef863b3a53347def",
     "status": "passed"
   },
   "statistical_reference/estimators/GAMClassifier": {
@@ -921,12 +921,12 @@
   },
   "statistical_reference/estimators/QuantileGAM": {
     "preview_version": 2,
-    "sha256": "13e9e4610646bcb7c98556b37605f22d82f5d0d3b3b38fe03f079b1a6e623e22",
+    "sha256": "f7b3a695adcbc6860bb8a545fd89ada67a3df6dad3dfff964c8376b79df1e056",
     "status": "passed"
   },
   "statistical_reference/estimators/QuantileGAM_smooth": {
     "preview_version": 2,
-    "sha256": "760f90975ffd2f806eac877ccf7697bcd67863256bc266dbfc42e367d51c2319",
+    "sha256": "8128b6178a53fc6fdea04e24a59f4ebbbfc81666b66149da3c680df88ac92d82",
     "status": "passed"
   },
   "statistical_reference/extensions/CompiledDesign": {

@@ -291,14 +291,17 @@ def render_term_plots(
                 axes_flat[slot] = ax3
             elif scheme in {2, 3}:
                 cmap = "gray" if scheme == 3 else "YlOrRd"
-                ax.imshow(
+                image = ax.imshow(
                     Z,
                     origin="lower",
                     aspect="auto",
                     extent=(P["x"][0], P["x"][-1], P["y"][0], P["y"][-1]),
-                    cmap=cmap,
+                    cmap=P.get("cmap", cmap),
                 )
-                ax.contour(P["x"], P["y"], Z, colors="tab:blue")
+                if P.get("contours", True):
+                    ax.contour(P["x"], P["y"], Z, colors="tab:blue")
+                if P.get("colorbar", False):
+                    fig.colorbar(image, ax=ax, label="Contribution")
                 if rug:
                     ax.plot(P["raw"]["x"], P["raw"]["y"], ".", ms=2, color="black")
                 ax.set_xlabel(P["xlab"])

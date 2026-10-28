@@ -141,7 +141,7 @@ def main():
     print("  (Correlation ≈ 1 means the model recovered the effect shape.)")
 
     # Save plot next to this script
-    fig = model.plot(X_val, y_val)
+    fig = model.plot_terms(X_val)
     if fig is not None:
         out = os.path.join(
             os.path.dirname(os.path.abspath(__file__)), "example_nam_plot.png"

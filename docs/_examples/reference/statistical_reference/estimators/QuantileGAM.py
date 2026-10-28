@@ -10,7 +10,7 @@ data = pd.DataFrame({'x': x, 'y': np.sin(3*x) + rng.normal(0, .25, len(x))})
 model = QuantileGAM(formula='y ~ s(x, k=6)', level=.8, smoothing_params=[.1]).fit(data)
 prediction = model.predict(data)
 components = model.predict_components(data)
-figures = model.plot(data)
+figures = model.plot_terms(data)
 result = {'prediction': prediction, 'components': components, 'fit': model.fit_result_}
 score = model.score(data, data.y)
 design = model.lpmatrix(data)

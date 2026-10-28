@@ -214,6 +214,17 @@ def object_aic(model) -> float | None:
         if family_y is None:
             family_y = y
         raw_aic = float(model.family.aic(family_y, mu, weights=weights))
+    elif family_name == "tw":
+        # gam.fit4 passes scale * sum(weights) to tw$aic, whose dev argument
+        # encodes dispersion and whose return includes its scale-parameter cost.
+        dispersion_scale = _ordinary_aic_dispersion_scale(model, y, fit_result)
+        if dispersion_scale is None:
+            return None
+        raw_aic = float(
+            model.family.aic(
+                y, mu, weights=weights, dev=dispersion_scale * np.sum(weights)
+            )
+        )
     elif family_name == "binomial":
         # stats::binomial()$aic owns the m <- wt reinterpretation of
         # non-unit prior weights as binomial denominators.

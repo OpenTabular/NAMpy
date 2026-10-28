@@ -69,7 +69,7 @@ Example result
 
    <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">result</span><span class="example-result-meta">ndarray[float32] · 64 × 32</span></div><div class="example-result-body"><p class="example-result-note">Values omitted; dimensions shown above.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
-.. automethod:: nampy.models._base.NeuralEstimatorBase.basis_transform
+.. automethod:: nampy.models._neural.NeuralEstimatorBase.basis_transform
    :no-index:
 
 :doc:`Model-specific prediction signatures <../architectures/index>` · :doc:`Shared output records </api/contracts>`

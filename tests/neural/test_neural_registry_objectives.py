@@ -37,7 +37,7 @@ def test_builtin_architectures_are_registered_once_with_explicit_capabilities():
         "scaling_strategy": "minmax",
     }
     assert get_architecture("sian").supports("interaction_selection")
-    assert get_architecture("sian").estimator_mixin is not None
+    assert callable(get_architecture("sian").module.prepare_training_config)
     assert not get_architecture("linreg").supports("interactions")
     assert get_architecture("gpnam").supports("interactions")
     assert get_architecture("gpnam").supports("fixed_linear_design")

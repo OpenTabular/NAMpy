@@ -28,7 +28,6 @@ class NeuralArchitecture:
     objective_defaults: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     preprocessor_defaults: Mapping[str, Any] = field(default_factory=dict)
     input_requirements: Mapping[str, Any] = field(default_factory=dict)
-    estimator_mixin_path: str | None = None
 
     def __post_init__(self) -> None:
         name = self.name.strip().lower()
@@ -90,13 +89,6 @@ class NeuralArchitecture:
     def config(self):
         """Load and return the architecture configuration dataclass."""
         return _load_symbol(self.config_path)
-
-    @property
-    def estimator_mixin(self):
-        """Optional sklearn-estimator lifecycle mixin for staged architectures."""
-        if self.estimator_mixin_path is None:
-            return None
-        return _load_symbol(self.estimator_mixin_path)
 
     def supports(self, capability: str) -> bool:
         return capability in self.capabilities
@@ -304,7 +296,6 @@ def _register_builtins() -> None:
             }
         elif name == "sian":
             kwargs = {
-                "estimator_mixin_path": "nampy.models.sian:_SIANSelectionMixin",
                 "preprocessor_defaults": {
                     "numerical_preprocessing": "standardization",
                     "categorical_preprocessing": "one-hot",

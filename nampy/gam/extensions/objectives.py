@@ -24,6 +24,16 @@ class LossFit:
     optimality: float
 
 
+def _expectile_loss(residual, level):
+    """Per-observation asymmetric squared loss used for estimator scoring."""
+    return np.where(residual >= 0, level, 1 - level) * residual**2
+
+
+def _pinball_loss(residual, level):
+    """Exact quantile scoring loss, including when training uses smooth ELF."""
+    return np.maximum(level * residual, (level - 1) * residual)
+
+
 def _inputs(design, response, penalty, weights, level):
     X = np.asarray(design, dtype=float)
     y = np.asarray(response, dtype=float)

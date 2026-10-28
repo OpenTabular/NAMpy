@@ -256,7 +256,7 @@ def training_anchor_alias(app, doctree, docname):
         return
     from sphinx import addnodes
 
-    canonical = "nampy.models._base.NeuralEstimatorBase.fit"
+    canonical = "nampy.models._neural.NeuralEstimatorBase.fit"
     alias = "nampy.models.NeuralEstimatorBase.fit"
     for signature in doctree.findall(addnodes.desc_signature):
         if canonical in signature["ids"] and alias not in signature["ids"]:

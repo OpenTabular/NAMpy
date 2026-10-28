@@ -1017,6 +1017,34 @@
         "generator_sha256": "d8cbd862802a8c93b491e423475895b8299a18d725c4cf680b6b8bae1c04087f",
         "scope": "One dbinom Bernoulli density capture at exact/tiny probabilities and four actual fixed-SP gam fits with rare success/failure counts, weighted grouped responses and 1e9/1e12 trials. Compare response probabilities, effective degrees of freedom, likelihood, AIC, BIC and pickle persistence. Source fit endpoints have rare success probabilities near 1e-12 or rare failure probabilities near 1e-10; no parity assertion for unobserved extreme endpoints."
       }
+    },
+    "registered_seven_stage": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "registered_seven_stage",
+      "fixture_files": 94,
+      "generator": "tests/parity/probes/mgcv_registered_pipeline.R",
+      "scope": "Registry-wide seven-stage observable invariant captures: all 65 smooth codes, two multivariate adaptive variants and 27 canonical mgcv family cases; three additional joint families use independent SciPy references. Compare projectors, fitted functions, full prediction kernels, EDF totals, likelihood criteria and residuals; no external coefficient-coordinate comparisons. The probe restores the documented local Newton-sign mutation to CRAN 1.9-4 in-process and maps source Vc into prediction coordinates where needed.",
+      "manifest": "tests/reference_fixtures/registered_seven_stage/manifest.json",
+      "package_versions": {
+        "mgcv": "1.9-4",
+        "scam": "1.2-22"
+      }
+    },
+    "mgcv_smooth_family_crossings": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_smooth_family_crossings",
+      "fixture_files": 72,
+      "generator": "tests/parity/test_mgcv_smooth_family_crossings.py",
+      "scope": "Every regular mgcv smooth crossed with binomial, Poisson and Gamma responses at fixed smoothing, with seven-stage checks and strict observable EDF/likelihood/uncertainty/residual invariants. The common probe restores upstream Newton behavior in-process.",
+      "manifest": "tests/reference_fixtures/mgcv_smooth_family_crossings/manifest.json"
+    },
+    "mgcv_k_check_shared_plan": {
+      "package_version": "1.9-4",
+      "fixture_namespace": "mgcv_k_check_shared_plan",
+      "fixture_files": 42,
+      "generator": "tests/diagnostics/test_mgcv_k_check_shared_plan.py",
+      "scope": "Seven smooth structures crossed with three non-Gaussian families and two subsampling policies. Python and the actual R k.check body share selected rows and 37 permutations; only sample() is supplied to R. Tight full-table comparison includes permutation probabilities, tensor rescaling and undefined categorical diagnostics. The common probe restores upstream Newton behavior in-process.",
+      "manifest": "tests/reference_fixtures/mgcv_k_check_shared_plan/manifest.json"
     }
   }
 }

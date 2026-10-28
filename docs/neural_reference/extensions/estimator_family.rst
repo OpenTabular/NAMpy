@@ -10,7 +10,7 @@ Signature
 
 .. code-block:: python
 
-   estimator_family(architecture: 'str', *, module_name: 'str') -> 'NeuralEstimatorFamily'
+   estimator_family(architecture: 'str', *, module_name: 'str', mixin: 'type | None' = None) -> 'NeuralEstimatorFamily'
 
 Parameters
 ----------
@@ -33,6 +33,10 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``str``
      - Required
      - Module name assigned to generated estimator classes for public imports and serialization.
+   * - ``mixin``
+     - ``type | None``
+     - ``None``
+     - Optional estimator-layer methods shared by the generated task adapters.
 
 Returns and fitted outputs
 --------------------------

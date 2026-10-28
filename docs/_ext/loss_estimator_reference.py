@@ -3,6 +3,10 @@
 import inspect
 
 INPUTS = {
+    "path": (
+        "str | pathlib.Path",
+        "NAMpy estimator artifact path. Load only trusted pickle artifacts.",
+    ),
     "X": (
         "pandas.DataFrame | array-like (n,d) | None",
         "Training/new rows. Formula mode requires a DataFrame containing source features and formula-offset columns; formula-free models also accept numeric arrays in fitted column order.",
@@ -34,6 +38,14 @@ INPUTS = {
     ),
 }
 RETURNS = {
+    "save_model": (
+        "path", "pathlib.Path", "scalar path",
+        "Written estimator artifact containing the fitted design and loss solution.",
+    ),
+    "load_model": (
+        "estimator", "ExpectileGAM | QuantileGAM", "scalar estimator",
+        "Restored estimator of the requested class; incompatible formats and classes raise errors.",
+    ),
     "fit": (
         "self",
         "estimator instance",
@@ -64,7 +76,7 @@ RETURNS = {
         "(n,p)",
         "Full coefficient design including an intercept when fitted. ``matrix @ coef_`` excludes known offsets; add the evaluated new-data offset to reconstruct predict.",
     ),
-    "plot": (
+    "plot_terms": (
         "figures",
         "list[matplotlib.figure.Figure]",
         "one per rendered page",
@@ -78,7 +90,7 @@ def method_contracts(cls):
     from public_reference import literal
 
     text = heading("Methods", "-")
-    text += "Methods other than fit require a fitted estimator and raise NotFittedError beforehand. New-data arrays are supported only by formula-free models; formula models require DataFrames. Inputs must be finite and match the fitted feature schema.\n\n"
+    text += "Prediction, scoring, plotting and design evaluation require a fitted estimator and raise NotFittedError beforehand. Persistence can also save and restore an unfitted configuration. New-data arrays are supported only by formula-free models; formula models require DataFrames. Inputs must be finite and match the fitted feature schema.\n\n"
     for name, output in RETURNS.items():
         method = getattr(cls, name)
         anchor = cls.__name__.lower() + "-" + name.replace("_", "-")

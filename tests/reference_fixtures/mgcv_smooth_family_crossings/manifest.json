@@ -1,0 +1,646 @@
+{
+  "schema_version": 1,
+  "policy": "Normal tests read committed reference outputs only; no upstream execution. Comparisons use observable invariants, not basis columns, eigenvectors, coefficients or coefficient-coordinate covariance.",
+  "upstream_packages": {
+    "mgcv": "1.9.4"
+  },
+  "history_and_scope": "tests/parity/seven_stage_coverage.json",
+  "source_sha256": {
+    "tests/parity/probes/mgcv_registered_pipeline.R": "7444a11734b72d78bec127087f5e1d9a4aacf1b07f50f12520b904d06ebae21b",
+    "tests/parity/_registered_pipeline_reference.py": "d209d2be0894a6833c41df92b8410d7e6930adc63e6941fbe48c0087929be399",
+    "tests/parity/_seven_stage_cases.py": "0e4d7dd2ab2d60f866e0c7b00d082a8d81274d461f27ec4e9b057c7c8c651d45",
+    "tests/parity/_pipeline_invariants.py": "8d16b32f450f9ce0eb022ce0b63bee42da5eef085927a5ed3b36cd3b4a34e3c5",
+    "tests/parity/test_registered_smooth_seven_stage_pipeline.py": "ded3cf8efc2e8b700a22a8d7b2f3f0e52e7401edf226c2138d40c969c580da7c",
+    "tests/parity/test_recent_family_seven_stage_pipeline.py": "f031b807d7a3d9785e21397f667364660e9b17a8221bda6a784508de2e6ce9e9",
+    "tests/parity/seven_stage_coverage.json": "35b9e6737fbe1ab7e669df852eb8da6a822d2ee41e43680b959e1ba527bbc433",
+    "tests/reference_fixtures/registered_seven_stage/smooth_responses.json": "39162a58323beb2f23f2d1ffa7547bc7422bdeef59401c7dc713d685eac78a52",
+    "tests/parity/test_mgcv_smooth_family_crossings.py": "c15bdbc6ba5a9e6559a484aa841ea2d8ac20e2df04c6c5eecdeed787b2691665"
+  },
+  "capture_count": 72,
+  "captures": {
+    "04ea9c37d2b66f84b550f449b1b84723b9ef952f94f9d6f88b981ad4e7d8eafe.json.gz": {
+      "case": "te-gamma",
+      "engine": "mgcv",
+      "sha256": "b6874093120427f0007ab0fabbc4a7191568593d5d42d7db4075aed07d271cd7",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "07dcb473ad91e91a214797d73c2dab61f0af70f527fece49cdaa1c2cc7a3d914.json.gz": {
+      "case": "fs-poisson",
+      "engine": "mgcv",
+      "sha256": "12fe00693a9e2b096c33edfab740670f4968c9ba79a90fa9dcc64cf9893b0ba0",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "0d59ec01abb097f4f44b3a606f69ff932c5dbcad0138eb84b2b7b6841780ee59.json.gz": {
+      "case": "t2-gamma",
+      "engine": "mgcv",
+      "sha256": "9c4964a7252ef2525cec108bb6f57c1f904d4c36e1104870d1a295151c026b46",
+      "source_warnings": [],
+      "upstream_notes": "Source Vc is in fit coordinates; G$P maps it into prediction coordinates before evaluating the invariant kernel."
+    },
+    "15baad05f36235d7836a9bc694af6b7f637034101495f0f1c13fb286565cdd83.json.gz": {
+      "case": "sc-gamma",
+      "engine": "mgcv",
+      "sha256": "ccdc0a3d4b8991c1ced8d8d061108d9837b9fd8efdda28114499892dc9e0d5b1",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "1cb6c4781e8184a8f8d55bdcd95864d6ce151757ae7f370ef92eb2a48003c5e4.json.gz": {
+      "case": "cs-binomial",
+      "engine": "mgcv",
+      "sha256": "2e08b0ef2325ae154f1b127a29b2465175f04a035d75b54d495439c9b3aa7bd8",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    },
+    "1cc11916cb20245b924f590eea567bdfac64347bb9053105c7edba210a7d68ad.json.gz": {
+      "case": "ds-gamma",
+      "engine": "mgcv",
+      "sha256": "25208c31337a79470ca5512bcba79032547481ce0c9a8afbe716d635e420bb6c",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "239345c086ef5751ff5682f25386a137242437ff9dbc61d264f802a998c57ec6.json.gz": {
+      "case": "t2-binomial",
+      "engine": "mgcv",
+      "sha256": "e34a0f89cf781f7cc61686bcbc796a7255e33ca93c8c7fd798bf4401f2c7a113",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    },
+    "28de42eb3124894df69572528db12a09dd62c852a7b873a34a24b7c88a59b588.json.gz": {
+      "case": "ds-poisson",
+      "engine": "mgcv",
+      "sha256": "10909d9f61107cfeaa240434fe8bc546425f3206ddbb2f1ad645130df7e200ae",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "2c3a61adaa38b99d63bc63824f50a44aec4a1c3079697e3afecdc373e82c31e2.json.gz": {
+      "case": "ad-binomial",
+      "engine": "mgcv",
+      "sha256": "9675d02d59c9f84c58992386ac3a71631ee3dd6c29628feb92a940e7026088c7",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    },
+    "2ca06540a8c60d834b735f29cf7191923d07642757662887547d54b7bc1ef58c.json.gz": {
+      "case": "cp-poisson",
+      "engine": "mgcv",
+      "sha256": "b03824ca7e14e5c92272659862ab8b6b8ac91f1866a855c25b2a4de2d931be69",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "2ff65f4945f59913c16bc991fc011921d3eb92cfc89edd9a3051eb780c1c7264.json.gz": {
+      "case": "ts-poisson",
+      "engine": "mgcv",
+      "sha256": "9dcf83d17c631732c013c9ab54a50b7333a07a8ea477627bcfb75316e71836e2",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "3262b6e6e9728a8b9c2e06a1dfa7e7356ec60eb0b448b004582c0149018833a9.json.gz": {
+      "case": "bs-poisson",
+      "engine": "mgcv",
+      "sha256": "83d279f93be7eb51a01eeea10a78823718bc7f350caeaec90b81ecc47a9d1f6e",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "3a449adcf1c2e3443c62a06ae6d32f5fe4bd0c664a802487e2112ac499c6e642.json.gz": {
+      "case": "ts-binomial",
+      "engine": "mgcv",
+      "sha256": "dc7fbaffa56e333ee9d3660f6eb6e49e0798b30d75f8fadfa6489d6589999774",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    },
+    "3badc04b945398d96641bc3b5c85a7a5aa9404c3669ce836ed35313ebe82248d.json.gz": {
+      "case": "scad-binomial",
+      "engine": "mgcv",
+      "sha256": "991276e001da9db4ce19fa960e243c628838a7574942f783bfd5083fe804c87a",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    },
+    "3e290624deac1ecdb35aa1557feb83ec7a033350d231a84a806964db15735f71.json.gz": {
+      "case": "sf-gamma",
+      "engine": "mgcv",
+      "sha256": "ea50441b94316c6314f1db1dd32f737669747718a7e8bbf246332a624b83ca22",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "42bb41dce58e9f68334c6603b0770a043a92d3b28cbc5413b6cbfb0dd8025823.json.gz": {
+      "case": "cc-binomial",
+      "engine": "mgcv",
+      "sha256": "0ac0bb5600c657b5171f3917042c87a4e00c0b244688fe3607595b1541302665",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    },
+    "45b96f1ce7bf1862e7fb3c82883c65373492d6d5977af9e3fb704295ffab83be.json.gz": {
+      "case": "sw-poisson",
+      "engine": "mgcv",
+      "sha256": "eb2c689db0e28d27ce4438544b1aa0e92a6ec3f7cdd32eea14b6e95ebf719e27",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "4ec9f3e146dfc48a99f95271908a799e30d4e962d6840e0bcbc4af1f2859c3ab.json.gz": {
+      "case": "sf-binomial",
+      "engine": "mgcv",
+      "sha256": "a8d6f75c37beff08a8765005d7ef3a6131a25d4ab664bee257e8119ace6944ff",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    },
+    "4f66e8f50169757c3aaaeb10788f7e45cd28424eb380af437aa1ea68e129b74c.json.gz": {
+      "case": "ti-poisson",
+      "engine": "mgcv",
+      "sha256": "18fc09f9758b097e80826f162bbaa4f4d693a8b241f4d1e7b38257c49ba3ad1d",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "5a10f9aa7a630b1b39e0d1f53f1678d44803f4602344d701dba6497ecf31437d.json.gz": {
+      "case": "cs-poisson",
+      "engine": "mgcv",
+      "sha256": "5b2c1896ab6c1795dcd60a177313936215f5ea870ba176ee112778ca02781a17",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "5b5084ad9e9c019290cb28e39ebc6edab2e9cc43221a62b052f6b27f26ef3ce3.json.gz": {
+      "case": "sc-binomial",
+      "engine": "mgcv",
+      "sha256": "c11fe5077b2056a1a43b7b034abaffb1fa703aa389609f385492a33766741aeb",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    },
+    "5d583c3834914aadf713472b8a6de9cfdd1bcac4771b419dddab54a1634bd79c.json.gz": {
+      "case": "bs-binomial",
+      "engine": "mgcv",
+      "sha256": "08cd89260a775ecc312e556912083be6bd464b1b78c443daa5f51b4d7a5435b2",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    },
+    "5fad98e00a883b34a47261abcf2ff96651d732e0b1e5c58fab80fa897d07f3e9.json.gz": {
+      "case": "te-binomial",
+      "engine": "mgcv",
+      "sha256": "d25e8b495da30c25ea4e1c0c58c30ed61eae272fe3c3b2bb1bb7ed29e434e50b",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    },
+    "626d71d16471b1ca66bf3539f97085a74b35b6679f726fd6a2e34d4b2dd0f3ad.json.gz": {
+      "case": "t2-poisson",
+      "engine": "mgcv",
+      "sha256": "5ec7f75e356418e78e7dd594cfc116bf0681dc09ad6ed537bfa9057a62da762a",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "63320fef6a6216c5ba7af7133e16c24ea4fcd5eafffee72472b6dcc3ceb76ad1.json.gz": {
+      "case": "ps-poisson",
+      "engine": "mgcv",
+      "sha256": "894beede834469b6651644aca06f5aad97eaf2369914e374472e787de7464f37",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "6547c4de384a231a433d8da471f0cd21f30f9e118820d16b872761367ea0dbe5.json.gz": {
+      "case": "gp-binomial",
+      "engine": "mgcv",
+      "sha256": "b33506bf02e49b52f838df97e2d086b238275155f414af5e1d3a477498ac13e3",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    },
+    "65d606ef0289b02bc279f20eae4ceba52f72d2f22b31a4a719b7d0892e95e563.json.gz": {
+      "case": "mrf-poisson",
+      "engine": "mgcv",
+      "sha256": "b48815b13a5b4a8c432fffe03b6a60185addbab06f1419e5d1476011feb39739",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "7049cc7edc13f1eea06587b800e096aa0c4f0106030f52fe458395242c9869fd.json.gz": {
+      "case": "fs-gamma",
+      "engine": "mgcv",
+      "sha256": "a37f50c025cb6a46e9eb03e27dbdf06eef255ae0ba61eb3173864a299082134f",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "716988318256a85881a3f56bf0b33997386d9f2650ad007636039d8ca35c2628.json.gz": {
+      "case": "cc-gamma",
+      "engine": "mgcv",
+      "sha256": "d99088763b6f9d94d0fc39b6ef209de800fba702274e282ed3759983d3249d86",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "725527fe70021f9045b93855bed90dbfecf1efedfd18c18beb5218ea1343f521.json.gz": {
+      "case": "sos-poisson",
+      "engine": "mgcv",
+      "sha256": "7cd3ce552c8097634f386da6df66a04e44d65d0758e2242ff7781f7cdb60c2e7",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "74a8ebedb791adfd0c95cdb3def34daa051344198633c4fb42f0fc5d56e8cf7f.json.gz": {
+      "case": "mrf-binomial",
+      "engine": "mgcv",
+      "sha256": "e9c51c50fe5729a23ef69ef6a2dca2e0162bf19addcaa503c77e8ba3d42feca9",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    },
+    "7eb6155cf55d7464051e2b01e8d20103bdf31110261e513ca0f3e594b4a76afc.json.gz": {
+      "case": "ti-binomial",
+      "engine": "mgcv",
+      "sha256": "d85693ae09d3061e53d3d139c4296fe75942e5f03410933d3e1bdb631869a614",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    },
+    "7f5b3ff5a48f8400f65668fc186c29083f007aef87113332206b8e325ab05a79.json.gz": {
+      "case": "re-poisson",
+      "engine": "mgcv",
+      "sha256": "009cdddf44da8539a1bcfb828a5e804989d71a35f6e9699b179b83dcdb933bba",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "84d868a8f4c8cfea459247fceda36ec1fd6aa1b6d0df757ad86931175c0ca299.json.gz": {
+      "case": "tp-binomial",
+      "engine": "mgcv",
+      "sha256": "99202331a8ec4aac7251e8518e2d91fcc817210415e351f2243bb9264928ba01",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    },
+    "8cc8f8ffc72c94b45476046b99a68e537b527fa3b3d612f204fff0eb69a4cfca.json.gz": {
+      "case": "ts-gamma",
+      "engine": "mgcv",
+      "sha256": "e01fcf08dd89ef8cb5182c7281700e8d907934c08d71bd1c0e99a32eeaac38ab",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "92be1dd161ac256e2899569feab08b5fb7354428aeeb16957d3cacdf649358d1.json.gz": {
+      "case": "sz-binomial",
+      "engine": "mgcv",
+      "sha256": "85a4eb5e90602d74c3dd57209760d125177d520d750d2ac5d87d41659b2d47f5",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    },
+    "932f88825a56003064176496a9a8c757cb39052ae31e39d58c04346f64c11eaf.json.gz": {
+      "case": "sf-poisson",
+      "engine": "mgcv",
+      "sha256": "856fa9c0fcb182a0f6003fc953d1ebab524dc4b7f06bf049d9729c22e876189b",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "9a2f5b1ca5dd377a967eb654efaad0b3f0ec30f3e23f9977d55b27d26ac89d67.json.gz": {
+      "case": "ps-binomial",
+      "engine": "mgcv",
+      "sha256": "51d4a0cc04cb6376767d3b95decea1a1c809abf8e32210ec987b9e4898ef8cd2",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    },
+    "9d5fb5243785211d16b9a89f5ecf7ef4a25a349144ca9a3f30bca95cc8ce416e.json.gz": {
+      "case": "sw-binomial",
+      "engine": "mgcv",
+      "sha256": "59317e10f05d50d4ad11d0d24680d3a42eae24f76a17fd8ceadaeee9218ef35c",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    },
+    "9ef4760fe2f56b0650e3e289c56aaeaf3a2ce67c340cab3a3f11bdf020a07282.json.gz": {
+      "case": "te-poisson",
+      "engine": "mgcv",
+      "sha256": "9d289eece73439a9465df8f514239274f32859371d7bcf99c465df2ef27e1aad",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "a12f64b33b7c95c15fe18f68cacc4760f9cd7aa52d71a4bf2e8d6c1fd36db8f6.json.gz": {
+      "case": "sos-gamma",
+      "engine": "mgcv",
+      "sha256": "a2b2eeacea174614ff96dd1e1302231da0f5c647fb9a5cd1bc0e83c901353924",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "a414626ba24aa0eff8826de4551d3b91c8090d44b9f4d318fd7393388e712dc5.json.gz": {
+      "case": "sz-gamma",
+      "engine": "mgcv",
+      "sha256": "278812f3bb6693507ef39e5ba13443d937d1d620281f3155a5c05a970000a28c",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "a463b9e96acbd047d7f1951323130b86d01fb0a95145ea2869a33de8f6743b45.json.gz": {
+      "case": "ad-gamma",
+      "engine": "mgcv",
+      "sha256": "fbd380e548e7393d7cad6383af934d7213fd208f837bfd1e90ca38ca7483233c",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "a5136d2871239f0d02aba43fbbcbb7189cfbf8b12ce89264716c916c72e84f52.json.gz": {
+      "case": "sos-binomial",
+      "engine": "mgcv",
+      "sha256": "4ab326f2c130ed36e3c5d1d0d08e0d37ffe4fe18c0443b5f65c38e7f3593e033",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    },
+    "a67a500bdc196ce6c6212e6884a54dc6522ed28a8585043d121710b588bc9398.json.gz": {
+      "case": "re-binomial",
+      "engine": "mgcv",
+      "sha256": "c7ac69f4e4a6597fddc6e2981b2f25d8c618656d75371f162a287cf7a1920bb9",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    },
+    "a7d5ac3bc6709e80dc018c92c02a03effb229ad13e4895d82c799da5edb376bd.json.gz": {
+      "case": "tp-poisson",
+      "engine": "mgcv",
+      "sha256": "f1f2705a7078be65393e6ef345a0f334afe726abf60e3931803b317083aac848",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "aa67c5cab188af79dcb76cb008a72831ce2d34238f1e3802c5289ffb15e2f85e.json.gz": {
+      "case": "cp-binomial",
+      "engine": "mgcv",
+      "sha256": "5155b7501bb318f2241edb596350e943f0f1fa0cc98af01d779ea10f936f6775",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    },
+    "aac6ddb1bf6dc0f07b799a0a1a0873ae259c18987a8805e750720e716f33cb98.json.gz": {
+      "case": "sc-poisson",
+      "engine": "mgcv",
+      "sha256": "5c8c2ebb0aeeab066330b398cb6ba6164e3ff9727418f190e05288e5afa985d5",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "ae738ea8970b190e0938cf4d8c1f4947721b30de90ca25213b0319330e854276.json.gz": {
+      "case": "bs-gamma",
+      "engine": "mgcv",
+      "sha256": "7fd2ab4d35fede837a574c9c62478e1eb375dcc1d2475622fafaf41930ee0010",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "af43f1b67c0d59043518d2871c26ad811fa07d89cdb9cf4a7ea9ac87c3ba3927.json.gz": {
+      "case": "ps-gamma",
+      "engine": "mgcv",
+      "sha256": "2a41b1ae0976d1dc6dfaddc556d074931577bb6a207e0239b4f6f300868b0f92",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "b1381fafc3255c26c10670916f0f17fe2f7b4ebc84eae93577802d85d8ce2cda.json.gz": {
+      "case": "cr-gamma",
+      "engine": "mgcv",
+      "sha256": "2f2139ad0456b5c89599591efc7333ed926d7db82ac51a634005550e2f761228",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "b442f72fe9ff3db90758c056062aa7c7104b094508671fa527de1d5fa0078e2a.json.gz": {
+      "case": "scad-gamma",
+      "engine": "mgcv",
+      "sha256": "93501ca744532f1ffe1e2ba890ec9a67f7703607314536555692657aa0776a8f",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "bdb07b3a8d3ec333b5e04420f5707785655dec7a04b0f18fcd94af97c1ca97bc.json.gz": {
+      "case": "sw-gamma",
+      "engine": "mgcv",
+      "sha256": "a0bd888b24998bf4663cf3b7fb17d0de5f7aa618d2f6f365d5351132cf692882",
+      "source_warnings": "Fitting terminated with step failure - check results carefully",
+      "upstream_notes": null
+    },
+    "bf2ab4cf0d4bdf743bb78cbb5d06d98e826a9cdd728f4b9bec4e468eee10eeb8.json.gz": {
+      "case": "cr-binomial",
+      "engine": "mgcv",
+      "sha256": "11859a1eb7b8a25604f9dd3cd3f8b1a56db35c5df96d8aa2933c43f838a4a80b",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    },
+    "c7cf8b5862bb46c83337b1c1b6fed66c119dbcb9ea2d782a775f4f75c15ccb82.json.gz": {
+      "case": "so-binomial",
+      "engine": "mgcv",
+      "sha256": "4af74e1fea31d10cc04a5eeb5d5e94093d551813d81248e04747573d2f6dbc13",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    },
+    "c9d948b181e79f4fcefa3e8599515805a11fe22dda4ca7c03f091e7d76f254ca.json.gz": {
+      "case": "cp-gamma",
+      "engine": "mgcv",
+      "sha256": "c8579142185d4135a01f70bb9b89d069beb8a8eb847b12f26bcdcbaf0443ae2e",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "d7b7f9928c65aa17bd320d2e4aa8a249e7eb4f211b830ba50d58d4a3827536e9.json.gz": {
+      "case": "cr-poisson",
+      "engine": "mgcv",
+      "sha256": "b3a61fb0938c8eb774cc736c986f531b96c3ee2958ebdd89cf18b423b0969994",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "da9bd56e38dafdf35cefa35593a158a68858dbf7c4453f6c096403a93d07fb80.json.gz": {
+      "case": "sz-poisson",
+      "engine": "mgcv",
+      "sha256": "8baa6da2c4307fc3000a336867d8f7bec20a2327ef6af3890b2803f768efc43e",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "df763eb122328545af7fa830222c4ac4b216997dad17913116435e0caaa59ab1.json.gz": {
+      "case": "ti-gamma",
+      "engine": "mgcv",
+      "sha256": "423e7826424428bc6f77bea2898f9e1734f672db7fe1a464ee4677e47c1d425b",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "e0b72dab1d783ca6692add443870235f7304e38ea03d73431354498cfc7f2f9c.json.gz": {
+      "case": "gp-poisson",
+      "engine": "mgcv",
+      "sha256": "bcab8ae329ddc77f4c2f440c225aad72e315a520d5ec20c8085111d9fcfbc070",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "e162d8ec3bdf151efcfc76c48ba3ec606b31a85817336edefbb32d8489f14fc8.json.gz": {
+      "case": "mrf-gamma",
+      "engine": "mgcv",
+      "sha256": "b742f0610465090375fe651fac1e364d73db46a6d97b5d164b36ce67f66223f0",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "e1c4b283e853f6b63ba48be82624fb242f80b71b498aa66662856f0e6165d9ad.json.gz": {
+      "case": "ds-binomial",
+      "engine": "mgcv",
+      "sha256": "6efcd721be229f8a2717231260796bee3bae01bd4d8bdc5f9a383b6bc8251979",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    },
+    "e76017431927595c71b1c0634166bd55ed6cda34518f176a8152bd118a78e85a.json.gz": {
+      "case": "ad-poisson",
+      "engine": "mgcv",
+      "sha256": "9f3b0782cc9507b36e3da040056593abb15eafe79515fd728e992c9d343142e6",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "e7b59bda5bc1515e29350f5756a94899e6bc0fd9325e493763bbe44c727a7ebf.json.gz": {
+      "case": "so-poisson",
+      "engine": "mgcv",
+      "sha256": "69c180e3232e113d5f2383d1801206d1f35a2e28e72cd9ce8c619c2a7a07595a",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "ea7abb16aa3c5d8798a1e19df1cfb9a105d0a9113b4a867d1f2413be8feb32d3.json.gz": {
+      "case": "cs-gamma",
+      "engine": "mgcv",
+      "sha256": "45d7a9cc43462cae56bdaf3dbcfb7efd73ad9d8e8befdd2b791842b182fb087f",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "eb6a3cf8c5c7ed8d5054dd759acbeebf554cf12f648b5761224e412b5ff80af9.json.gz": {
+      "case": "gp-gamma",
+      "engine": "mgcv",
+      "sha256": "14bc3f7115308864b7f56a496d28de77afffc4d12ab2bbbcdd7ec9bc6e77efae",
+      "source_warnings": "Fitting terminated with step failure - check results carefully",
+      "upstream_notes": null
+    },
+    "f0335a5d5911ddb248e603439f2fe992e112f4babcc0c89487ffa2bd309f1c46.json.gz": {
+      "case": "so-gamma",
+      "engine": "mgcv",
+      "sha256": "b036a6b4c54353f34ff5970aa981b8d814d135ed2fab5d8110184a54c7a05d34",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "f14dac243bc486911aec2e0d7fa51d8100cf0653f38e02ab36f65b08210598ef.json.gz": {
+      "case": "scad-poisson",
+      "engine": "mgcv",
+      "sha256": "fa59ddfe1b0f1e1ce4b540c6016223fabd4f7b70b3677b562c8f0fd529125089",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "f22154d4aca6541a93b7bd3942558676309d9c3adb576d853381d57f0893b4d2.json.gz": {
+      "case": "cc-poisson",
+      "engine": "mgcv",
+      "sha256": "299aa30e048dd9eab3da67b1a20241a075e1ff78f935addd609bb90a06f0d226",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "f2d13eb19b4d25966d04e844fc27c0585eb04b1d43338da3731a7db8e59ff523.json.gz": {
+      "case": "re-gamma",
+      "engine": "mgcv",
+      "sha256": "31f2f7226b5960f7f7eab69195edcd8bb9c31f3aa9b2f88427d05dc4fd29c97e",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "f3abd52d1439ba8f145d7ebd826cc5dc35cbb988142a852ef94d23ac021aab10.json.gz": {
+      "case": "tp-gamma",
+      "engine": "mgcv",
+      "sha256": "2979e782f1a5952c33c4bc037cf3f9a2bb58d014c49bceb723623f628b74da60",
+      "source_warnings": [],
+      "upstream_notes": null
+    },
+    "fae9d97dc642a51f159bf7b20360593714a4d10b0bf291a7dd794a36eac4ac10.json.gz": {
+      "case": "fs-binomial",
+      "engine": "mgcv",
+      "sha256": "8c5b5e06dacb981c3c98e5a63192bbbccf85f6f0c16952644063f31a62337096",
+      "source_warnings": [
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!",
+        "non-integer #successes in a binomial glm!"
+      ],
+      "upstream_notes": null
+    }
+  }
+}

@@ -9,7 +9,7 @@ The distributional objective follows the NAMLSS framework of Thielmann et al.
 
 .. include:: /_generated/reference/neural_fit_contract.inc
 
-.. automethod:: nampy.models._base.NeuralEstimatorBase.fit
+.. automethod:: nampy.models._neural.NeuralEstimatorBase.fit
 
 References
 ----------

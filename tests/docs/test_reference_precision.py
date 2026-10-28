@@ -153,7 +153,7 @@ def test_multinomial_contract_and_adapter_inventory_are_symbolic():
 @pytest.mark.parametrize("name", ["ExpectileGAM", "QuantileGAM"])
 def test_loss_estimator_method_contracts_are_present_and_route_specific(name):
     text = (ROOT / f"docs/statistical_reference/estimators/{name}.rst").read_text()
-    for method in ["fit", "predict", "score", "predict_components", "plot", "lpmatrix"]:
+    for method in ["fit", "predict", "score", "predict_components", "plot_terms", "lpmatrix"]:
         assert f"model.{method}(" in text
     assert "-sum(w*loss)/sum(w)" in text
     assert "fit_result_" in text and "NotFittedError" in text

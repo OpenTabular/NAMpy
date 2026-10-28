@@ -13,7 +13,6 @@ Prediction/probability and distribution-parameter signatures are documented on e
    term_importance
    interaction_importance
    plot_terms
-   plot
    plot_interactions
    basis_transform
    basis_metadata

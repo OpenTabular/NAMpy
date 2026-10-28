@@ -68,7 +68,7 @@ def test_sian_explicit_interactions_bypass_reference_selection():
         "a": torch.tensor([[0.0], [1.0]]),
         "b": torch.tensor([[1.0], [0.0]]),
     }
-    resolved = estimator._prepare_architecture_config(
+    resolved, attributes = estimator.base_model.prepare_training_config(
         estimator.config,
         train_num_features=features,
         train_cat_features={},
@@ -79,8 +79,8 @@ def test_sian_explicit_interactions_bypass_reference_selection():
         objective=type("Objective", (), {"kind": "regression"})(),
     )
     assert resolved is estimator.config
-    assert estimator.selected_interactions_ == (("a", "b"),)
-    assert estimator.interaction_reference_model_ is None
+    assert attributes["selected_interactions_"] == (("a", "b"),)
+    assert attributes["interaction_reference_model_"] is None
     assert SIANClassifier().architecture_name == "sian"
     assert SIANLSS().architecture_name == "sian"
 

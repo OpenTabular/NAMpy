@@ -204,6 +204,10 @@ def solve_transformed_general_family_fit(
         and np.asarray(setup.predictor_full_slices[0]).size
         else 0.0
     )
+    deviance = float(-2.0 * state["l"])
+    report_deviance = getattr(model.family, "_reported_deviance", None)
+    if callable(report_deviance):
+        deviance = float(report_deviance(y, mu, loglik=float(state["l"]), weights=weights))
     sign, logdet = np.linalg.slogdet(penalized_hessian)
     return FitCoreSolution.from_dict(
         {
@@ -218,7 +222,7 @@ def solve_transformed_general_family_fit(
             "eta": eta,
             "mu": mu,
             "rss": None,
-            "deviance": float(-2.0 * state["l"]),
+            "deviance": deviance,
             "edf": float(np.trace(influence)),
             "trace_H": float(np.trace(influence)),
             "scale": 1.0,

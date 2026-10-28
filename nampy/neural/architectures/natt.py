@@ -53,6 +53,7 @@ class NATT(BaseModel):
         self.weight_decay = self.hparams.get("weight_decay", config.weight_decay)
         self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
         self.cat_feature_info = cat_feature_info
+        self.contextual_feature_names = tuple(cat_feature_info)
         self.num_feature_info = num_feature_info
         self._validate_features(num_feature_info, cat_feature_info)
         self.num_classes = num_classes

@@ -463,6 +463,40 @@
     },
     "ylim": null
   },
+  "api/generated/nampy.plotting.prepared_from_interactions": {
+    "omitted_fields": [
+      "trans",
+      "select",
+      "rug_default"
+    ],
+    "partial_resids": false,
+    "pd": {
+      "items": [
+        {
+          "kind": "2d",
+          "n2": 3,
+          "omitted_fields": [
+            "fit",
+            "x",
+            "y",
+            "xlab",
+            "ylab",
+            "main",
+            "contours",
+            "colorbar",
+            "cmap"
+          ],
+          "plot_me": true,
+          "scheme": 2
+        }
+      ],
+      "kind": "list",
+      "length": 1,
+      "omitted": 0
+    },
+    "shift": 0.0,
+    "ylim": null
+  },
   "api/generated/nampy.plotting.render_distributional_effects": {
     "items": [
       "Figure"

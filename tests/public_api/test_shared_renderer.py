@@ -14,6 +14,27 @@ import pytest
 from nampy.plotting import render_term_plots
 
 
+@pytest.mark.parametrize("name", ["GAMRegressor", "ExpectileGAM", "QuantileGAM"])
+@pytest.mark.parametrize("named", [True, False])
+def test_statistical_adapters_share_contribution_plotting(name, named):
+    from nampy import models
+
+    X = np.linspace(-1, 1, 30)[:, None]
+    y = 0.3 + np.sin(X[:, 0])
+    if named:
+        X = pd.DataFrame(X, columns=["x"])
+    options = {"optimize_smoothing": False} if name == "GAMRegressor" else {}
+    estimator = getattr(models, name)(k=5, smoothing_params=[0.3], **options).fit(X, y)
+    figures = estimator.plot_terms(X)
+    try:
+        assert figures and figures[0].axes[0].lines
+        components = estimator.predict_components(X)
+        expected = np.asarray(next(iter(components.terms.values()))).ravel()
+        np.testing.assert_allclose(figures[0].axes[0].lines[0].get_ydata(), expected)
+    finally:
+        plt.close("all")
+
+
 def _prepared_1d(n_terms=2, n=50, with_ci=False):
     rng = np.random.default_rng(0)
     pd_list = []

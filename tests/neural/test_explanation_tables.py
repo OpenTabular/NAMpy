@@ -9,7 +9,7 @@ from nampy.explanations import (
     explain_additive_prediction,
     term_importance_table,
 )
-from nampy.models._plotting import plot_interaction_effects
+from nampy.plotting import prepared_from_interactions, render_term_plots
 
 
 def _prediction():
@@ -27,9 +27,7 @@ def _prediction():
 
 
 def test_explanation_table_has_counts_values_and_importance():
-    X = pd.DataFrame(
-        {"x": [-1.0, -0.5, 0.5, 1.0], "z": [0.0, 0.0, 1.0, 1.0]}
-    )
+    X = pd.DataFrame({"x": [-1.0, -0.5, 0.5, 1.0], "z": [0.0, 0.0, 1.0, 1.0]})
     table = explain_additive_prediction(X, _prediction(), max_bins=2)
 
     assert set(table["term"]) == {"x", "x:z"}
@@ -41,9 +39,7 @@ def test_explanation_table_has_counts_values_and_importance():
 
 def test_term_importance_is_mean_absolute_link_contribution():
     table = term_importance_table(_prediction()).set_index("term")
-    assert table.loc["x", "importance"] == np.mean(
-        np.abs(_prediction().terms["x"])
-    )
+    assert table.loc["x", "importance"] == np.mean(np.abs(_prediction().terms["x"]))
     assert table.loc["x:z", "term_type"] == "interaction"
 
 
@@ -77,15 +73,36 @@ def test_higher_order_interaction_plot_uses_conditioned_slices(monkeypatch):
     )
     contribution = (X["x"] * X["z"] * X["w"]).to_numpy()[:, None]
     monkeypatch.setattr(plt, "show", lambda: None)
-    plot_interaction_effects(
-        "x:z:w",
-        contribution,
-        X_train_scaled=X,
+    prepared = prepared_from_interactions(
+        X,
+        {"x:z:w": contribution},
         num_bins=4,
         slice_bins=3,
     )
-    assert plt.get_fignums()
+    assert len(prepared["pd"]) == 3
+    assert all("w=" in panel["main"] for panel in prepared["pd"])
+    figures = render_term_plots(prepared)
+    assert figures
     plt.close("all")
+
+
+def test_interaction_preparation_is_independent_of_dataframe_row_labels():
+    X = pd.DataFrame(
+        {
+            "x": np.tile(np.linspace(-1, 1, 6), 3),
+            "z": np.tile([0.0, 1.0], 9),
+            "w": np.repeat([0.0, 1.0, 2.0], 6),
+        }
+    )
+    values = (X.x * X.z * X.w).to_numpy()
+    terms = {"x:z:w": values}
+    expected = prepared_from_interactions(X, terms, num_bins=4)
+    relabeled = X.set_axis(np.arange(100, 118))
+    actual = prepared_from_interactions(relabeled, terms, num_bins=4)
+    assert len(actual["pd"]) == len(expected["pd"])
+    for left, right in zip(actual["pd"], expected["pd"], strict=True):
+        assert left["main"] == right["main"]
+        np.testing.assert_allclose(left["fit"], right["fit"], equal_nan=True)
 
 
 def test_centered_prediction_has_zero_mean_terms_and_preserves_reconstruction():

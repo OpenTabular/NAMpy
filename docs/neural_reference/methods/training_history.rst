@@ -54,7 +54,7 @@ Example result
 
    <div class="example-result" aria-label="Example result"><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">train_loss</span><span class="example-result-meta">tuple · length 2</span></summary><div class="example-result-body"><ol class="example-result-sequence"><li><span class="example-result-scalar">0.21495</span></li><li><span class="example-result-scalar">0.16607</span></li></ol></div></details><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">val_loss</span><span class="example-result-meta">tuple · length 2</span></summary><div class="example-result-body"><ol class="example-result-sequence"><li><span class="example-result-scalar">0.35848</span></li><li><span class="example-result-scalar">0.27949</span></li></ol></div></details><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
-.. automethod:: nampy.models._base.NeuralEstimatorBase.training_history
+.. automethod:: nampy.models._neural.NeuralEstimatorBase.training_history
    :no-index:
 
 :doc:`Model-specific prediction signatures <../architectures/index>` · :doc:`Shared output records </api/contracts>`
