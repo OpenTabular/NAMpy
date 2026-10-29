@@ -10,9 +10,9 @@ import pytest
 from numpy.testing import assert_allclose
 
 from nampy import GAMLSS
-from nampy.gam.inference.functionals import joint_edf
 from nampy.gam.families.gamlss._taylor import Taylor
 from nampy.gam.families.registry import make_gam_family
+from nampy.gam.inference.functionals import joint_edf
 from nampy.gam.model_state import _coef_full, _compiled_model, _fit_result
 
 

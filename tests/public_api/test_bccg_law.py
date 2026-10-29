@@ -8,8 +8,8 @@ import pytest
 from numpy.testing import assert_allclose, assert_array_equal
 from scipy import integrate, stats
 
-from nampy.distributions import BCCGLaw, DistributionPrediction, LogNormalLaw
 from nampy.diagnostics import prepare_centiles
+from nampy.distributions import BCCGLaw, DistributionPrediction, LogNormalLaw
 
 
 def _distribution(mu=1.0, sigma=0.4, nu=1.0):

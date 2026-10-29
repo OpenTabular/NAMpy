@@ -15,14 +15,9 @@ Run:
     python examples/example_ensemble_treenam.py
 """
 
-from dataclasses import replace
-from nampy.neural.configs.ensemble_treenam_config import DefaultEnsembleTreeNAMConfig
-from nampy.neural.configs.treenam_config import DefaultTreeNAMConfig
-from nampy.neural.configuration import GradientTrainingConfig
-from nampy.neural.configuration import PreprocessingConfig
-
 import os
 import tempfile
+from dataclasses import replace
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -31,6 +26,9 @@ from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 
 from nampy.models import EnsembleTreeNAMRegressor, TreeNAMRegressor
+from nampy.neural.configs.ensemble_treenam_config import DefaultEnsembleTreeNAMConfig
+from nampy.neural.configs.treenam_config import DefaultTreeNAMConfig
+from nampy.neural.configuration import GradientTrainingConfig, PreprocessingConfig
 
 
 def main():

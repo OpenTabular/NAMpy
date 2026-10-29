@@ -1,10 +1,6 @@
 """Generate the light and dark NAM feature-effect plots used on the homepage."""
 
 from dataclasses import replace
-from nampy.neural.configs.nam_config import DefaultNAMConfig
-from nampy.neural.configuration import GradientTrainingConfig
-from nampy.neural.configuration import PreprocessingConfig
-
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -13,6 +9,8 @@ import numpy as np
 import pandas as pd
 
 from nampy.models import NAMRegressor
+from nampy.neural.configs.nam_config import DefaultNAMConfig
+from nampy.neural.configuration import GradientTrainingConfig, PreprocessingConfig
 
 
 def _style_figure(fig, *, dark: bool) -> None:

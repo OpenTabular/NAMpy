@@ -5,9 +5,6 @@ neural budget demonstrates completion semantics, not adequate convergence.
 The comparison holdout is never used for training or early stopping.
 """
 
-from nampy.neural.configuration import ObjectiveConfig, GradientTrainingConfig
-from nampy.neural.configuration import PreprocessingConfig
-
 import argparse
 from tempfile import TemporaryDirectory
 
@@ -16,6 +13,11 @@ import pandas as pd
 
 from nampy import GAMLSS
 from nampy.distributions import DistributionCandidate, compare_distributions
+from nampy.neural.configuration import (
+    GradientTrainingConfig,
+    ObjectiveConfig,
+    PreprocessingConfig,
+)
 
 
 def main():

@@ -13,13 +13,9 @@ Run:
     python examples/example_gpnam.py
 """
 
-from dataclasses import replace
-from nampy.neural.configs.gpnam_config import DefaultGPNAMConfig
-from nampy.neural.configuration import FixedDesignTrainingConfig
-from nampy.neural.configuration import PreprocessingConfig
-
 import os
 import tempfile
+from dataclasses import replace
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -28,6 +24,8 @@ from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 
 from nampy.models import GPNAMRegressor
+from nampy.neural.configs.gpnam_config import DefaultGPNAMConfig
+from nampy.neural.configuration import FixedDesignTrainingConfig, PreprocessingConfig
 
 
 def main():
@@ -88,7 +86,7 @@ def main():
     # ------------------------------------------------------------------
     model = GPNAMRegressor(architecture_config=DefaultGPNAMConfig(kernel_width=0.8, rff_num_feat=128, numerical_method='standardization', categorical_method='one_hot'), preprocessing=PreprocessingConfig(cat_cutoff=0.0))
 
-    with tempfile.TemporaryDirectory() as ckpt_dir:
+    with tempfile.TemporaryDirectory():
         model.set_params(training=replace(model.training or FixedDesignTrainingConfig(), batch_size=64, val_size=0.2)).fit(X_train, y_train, X_val=X_val, y_val=y_val)
 
     preds = np.asarray(model.predict(X_val)).reshape(-1)

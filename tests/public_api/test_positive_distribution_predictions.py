@@ -12,7 +12,9 @@ from nampy.gam.families.gamlss.positive import (
     LogNormalLocationScale,
     WeibullLocationShape,
 )
-from nampy.gam.predict.distribution_adapter import distribution_prediction as gam_distribution
+from nampy.gam.predict.distribution_adapter import (
+    distribution_prediction as gam_distribution,
+)
 
 
 def test_lognormal_log_transform_jacobian_and_tail_operations():

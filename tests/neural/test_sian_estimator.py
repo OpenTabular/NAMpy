@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from nampy.neural.configs.sian_config import DefaultSIANConfig
-from nampy.neural.configuration import GradientTrainingConfig
-from nampy.neural.configuration import ObjectiveConfig
 
 import numpy as np
 import pandas as pd
 import torch
 
 from nampy.models import SIANLSS, SIANClassifier, SIANRegressor
+from nampy.neural.configs.sian_config import DefaultSIANConfig
+from nampy.neural.configuration import GradientTrainingConfig, ObjectiveConfig
 
 
 def test_sian_estimator_discovers_terms_then_uses_shared_training_engine(tmp_path):

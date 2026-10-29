@@ -3,9 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from nampy.neural.configuration import GradientTrainingConfig
-from nampy.neural.configuration import ObjectiveConfig
-from nampy.neural.configuration import PreprocessingConfig
 
 import numpy as np
 import pandas as pd
@@ -16,6 +13,11 @@ from nampy.contracts import (
     FeatureSchema,
 )
 from nampy.models.linreg import LinRegClassifier, LinRegLSS, LinRegRegressor
+from nampy.neural.configuration import (
+    GradientTrainingConfig,
+    ObjectiveConfig,
+    PreprocessingConfig,
+)
 
 
 def _regression_data(n=60, seed=0):

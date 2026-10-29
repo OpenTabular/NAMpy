@@ -1,11 +1,6 @@
 """Generate the distributional feature-effect plot shown in the README."""
 
 from dataclasses import replace
-from nampy.neural.configs.nam_config import DefaultNAMConfig
-from nampy.neural.configuration import GradientTrainingConfig
-from nampy.neural.configuration import ObjectiveConfig
-from nampy.neural.configuration import PreprocessingConfig
-
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -14,6 +9,12 @@ import numpy as np
 import pandas as pd
 
 from nampy.models import NAMLSS
+from nampy.neural.configs.nam_config import DefaultNAMConfig
+from nampy.neural.configuration import (
+    GradientTrainingConfig,
+    ObjectiveConfig,
+    PreprocessingConfig,
+)
 
 
 def main() -> None:

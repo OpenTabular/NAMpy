@@ -1,12 +1,6 @@
 from __future__ import annotations
 
-from nampy.neural.configuration import GradientTrainingConfig
-
 from dataclasses import replace
-from nampy.neural.configs.nam_config import DefaultNAMConfig
-from nampy.neural.configuration import GradientTrainingConfig
-from nampy.neural.configuration import ObjectiveConfig
-from nampy.neural.configuration import PreprocessingConfig
 
 import numpy as np
 import pandas as pd
@@ -16,7 +10,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from pretab.preprocessor import Preprocessor
 
-from nampy.models._neural import NeuralEstimatorBase
 from nampy.models.nam import NAMLSS, NAMRegressor
 from nampy.models.nbm import NBMRegressor
 from nampy.neural.architectures.components.nam import ExU, NAMFeatureNN
@@ -32,6 +25,11 @@ from nampy.neural.architectures.nam import NAM
 from nampy.neural.architectures.nodegam import NodeGAM
 from nampy.neural.configs.nam_config import DefaultNAMConfig
 from nampy.neural.configs.nodegam_config import DefaultNodeGAMConfig
+from nampy.neural.configuration import (
+    GradientTrainingConfig,
+    ObjectiveConfig,
+    PreprocessingConfig,
+)
 from nampy.neural.objectives.quantile import Quantile
 from nampy.neural.task import TaskModule
 

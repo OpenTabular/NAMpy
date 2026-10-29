@@ -1,14 +1,7 @@
 """Regression coverage for user-visible decomposition and extension contracts."""
 
-from dataclasses import replace
-from nampy.neural.configuration import ObjectiveConfig
-from nampy.neural.configs.namformer_config import DefaultNAMformerConfig
-from nampy.neural.configs.nam_config import DefaultNAMConfig
-from nampy.neural.configs.snam_config import DefaultSNAMConfig
-from nampy.neural.configuration import GradientTrainingConfig
-from nampy.neural.configuration import PreprocessingConfig
-
 import re
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -17,9 +10,21 @@ import pytest
 import torch
 
 from nampy.contracts import AdditivePrediction, AdditiveTermMetadata
-from nampy.inspection.contributions import center_additive_prediction, explain_additive_prediction, term_importance_table
+from nampy.inspection.contributions import (
+    center_additive_prediction,
+    explain_additive_prediction,
+    term_importance_table,
+)
 from nampy.models import GAMLSS
 from nampy.neural.architectures.namformer import NAMformer
+from nampy.neural.configs.nam_config import DefaultNAMConfig
+from nampy.neural.configs.namformer_config import DefaultNAMformerConfig
+from nampy.neural.configs.snam_config import DefaultSNAMConfig
+from nampy.neural.configuration import (
+    GradientTrainingConfig,
+    ObjectiveConfig,
+    PreprocessingConfig,
+)
 
 
 @pytest.mark.parametrize("outputs", [1, 3])

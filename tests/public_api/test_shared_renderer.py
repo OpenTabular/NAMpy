@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from nampy.neural.configuration import GradientTrainingConfig
-from nampy.neural.configuration import PreprocessingConfig
 
 import matplotlib
+
+from nampy.neural.configuration import GradientTrainingConfig, PreprocessingConfig
 
 matplotlib.use("Agg")
 

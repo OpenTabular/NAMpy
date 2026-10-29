@@ -5,13 +5,9 @@ full training, evaluation, and a feature-importance plot.
 Run: python examples/example_nam.py
 """
 
-from dataclasses import replace
-from nampy.neural.configs.nam_config import DefaultNAMConfig
-from nampy.neural.configuration import GradientTrainingConfig
-from nampy.neural.configuration import PreprocessingConfig
-
 import os
 import tempfile
+from dataclasses import replace
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -20,6 +16,8 @@ from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 
 from nampy.models import NAMRegressor
+from nampy.neural.configs.nam_config import DefaultNAMConfig
+from nampy.neural.configuration import GradientTrainingConfig, PreprocessingConfig
 
 
 def main():

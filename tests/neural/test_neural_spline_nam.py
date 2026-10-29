@@ -1,9 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from nampy.neural.configs.spline_nam_config import DefaultSplineNAMConfig
-from nampy.neural.configuration import GradientTrainingConfig
-from nampy.neural.configuration import PreprocessingConfig
 
 import numpy as np
 import pandas as pd
@@ -14,6 +11,7 @@ from nampy.models.spline_nam import SplineNAMRegressor
 from nampy.neural.architectures.components.splines import CubicSplineLayer
 from nampy.neural.architectures.spline_nam import SplineNAM
 from nampy.neural.configs.spline_nam_config import DefaultSplineNAMConfig
+from nampy.neural.configuration import GradientTrainingConfig
 
 
 def test_cubic_spline_basis_handles_both_boundary_knots():

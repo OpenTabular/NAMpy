@@ -16,7 +16,7 @@ def prediction(kind, mu=1.0, sigma=0.4, nu=1.0, tau=5.0):
         law,
         {
             k: np.atleast_1d(v)
-            for k, v in dict(mu=mu, sigma=sigma, nu=nu, tau=tau).items()
+            for k, v in {"mu": mu, "sigma": sigma, "nu": nu, "tau": tau}.items()
         },
     )
 

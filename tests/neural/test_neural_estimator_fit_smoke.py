@@ -1,10 +1,6 @@
 from __future__ import annotations
-from nampy.neural.configuration import ObjectiveConfig, PreprocessingConfig
 
-from dataclasses import replace
-from nampy.neural.configuration import GradientTrainingConfig
-
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 import pandas as pd
@@ -36,6 +32,10 @@ from nampy.models.snam import SNAMLSS, SNAMClassifier, SNAMRegressor
 from nampy.models.spam import SPAMLSS, SPAMClassifier, SPAMRegressor
 from nampy.models.spline_nam import SplineNAMRegressor
 from nampy.models.treenam import TreeNAMClassifier, TreeNAMLSS, TreeNAMRegressor
+from nampy.neural.configuration import (
+    GradientTrainingConfig,
+    PreprocessingConfig,
+)
 
 
 @dataclass(frozen=True)
@@ -253,7 +253,8 @@ def test_public_neural_estimator_fits_and_predicts(case, tmp_path):
     classification_target = np.resize(np.arange(case.n_classes), x.size)
 
     from dataclasses import replace
-    from nampy.neural.configuration import ObjectiveConfig, PreprocessingConfig
+
+    from nampy.neural.configuration import PreprocessingConfig
     prototype = case.estimator_class()
     estimator = case.estimator_class(
         architecture_config=replace(prototype.architecture_config, **case.model_kwargs),

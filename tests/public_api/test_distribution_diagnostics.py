@@ -11,9 +11,14 @@ import pytest
 from numpy.testing import assert_allclose, assert_array_equal
 from scipy.stats import norm
 
-from nampy.distributions.contracts import DistributionSpec
+from nampy.diagnostics import (
+    centile_calibration,
+    prepare_centiles,
+    prepare_worm_plot,
+    quantile_residuals,
+)
 from nampy.distributions import DistributionPrediction, NegativeBinomialLaw, NormalLaw
-from nampy.diagnostics import centile_calibration, prepare_centiles, prepare_worm_plot, quantile_residuals
+from nampy.distributions.contracts import DistributionSpec
 from nampy.plotting import plot_centiles, plot_worm, render_centiles, render_worm_plot
 
 

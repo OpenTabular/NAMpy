@@ -10,10 +10,10 @@ from numpy.testing import assert_allclose
 from scipy import sparse
 from scipy.stats import poisson
 
-from nampy.gam.losses.objectives import fit_quantile
-from nampy.gam.fit.solvers.quantile_qp import quantile_problem
 from nampy.gam.families.gamlss._taylor import Taylor
 from nampy.gam.families.registry import make_gam_family
+from nampy.gam.fit.solvers.quantile_qp import quantile_problem
+from nampy.gam.losses.objectives import fit_quantile
 
 
 def test_nb_boundaries_match_high_precision_and_accurate_r_cases():

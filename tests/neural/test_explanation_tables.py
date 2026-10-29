@@ -4,7 +4,11 @@ import pandas as pd
 import pytest
 
 from nampy.contracts import AdditivePrediction
-from nampy.inspection.contributions import center_additive_prediction, explain_additive_prediction, term_importance_table
+from nampy.inspection.contributions import (
+    center_additive_prediction,
+    explain_additive_prediction,
+    term_importance_table,
+)
 from nampy.plotting import prepared_from_interactions, render_term_plots
 
 

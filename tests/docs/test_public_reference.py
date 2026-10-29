@@ -91,6 +91,7 @@ def test_reference_generation_from_clean_checkout(tmp_path):
 
 def test_fit_parameter_descriptions_match_the_training_contract():
     import inspect
+
     from nampy.models._neural import NeuralEstimatorBase
     from nampy.neural.configuration import GradientTrainingConfig
     assert set(inspect.signature(NeuralEstimatorBase.fit).parameters) == {

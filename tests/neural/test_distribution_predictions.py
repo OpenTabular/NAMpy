@@ -13,16 +13,24 @@ from nampy.gam.families.gamlss.distributional import (
     NegativeBinomialLocationDispersion,
     StudentLocationScale,
 )
-from nampy.gam.predict.distribution_adapter import distribution_prediction as gam_prediction
+from nampy.gam.predict.distribution_adapter import (
+    distribution_prediction as gam_prediction,
+)
 from nampy.models import LinRegLSS
 from nampy.neural.configuration import (
     GradientTrainingConfig,
     ObjectiveConfig,
     PreprocessingConfig,
 )
-from nampy.neural.families import BetaDistribution, GammaDistribution, NegativeBinomialDistribution, NormalDistribution, StudentTDistribution
-from nampy.neural.objectives.quantile import Quantile
+from nampy.neural.families import (
+    BetaDistribution,
+    GammaDistribution,
+    NegativeBinomialDistribution,
+    NormalDistribution,
+    StudentTDistribution,
+)
 from nampy.neural.families.distribution_adapter import distribution_prediction
+from nampy.neural.objectives.quantile import Quantile
 
 
 @pytest.mark.parametrize(

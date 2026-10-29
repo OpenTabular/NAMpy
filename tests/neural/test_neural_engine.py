@@ -3,9 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from nampy.neural.configs.nodegam_config import DefaultNodeGAMConfig
-from nampy.neural.configuration import GradientTrainingConfig
-from nampy.neural.configuration import PreprocessingConfig
 
 import numpy as np
 import pandas as pd
@@ -16,7 +13,8 @@ from sklearn.exceptions import NotFittedError
 from nampy.models.linreg import LinRegClassifier, LinRegRegressor
 from nampy.models.nam import NAMLSS
 from nampy.models.nodegam import NodeGAMRegressor
-from nampy.models.treenam import TreeNAMRegressor
+from nampy.neural.configs.nodegam_config import DefaultNodeGAMConfig
+from nampy.neural.configuration import GradientTrainingConfig, PreprocessingConfig
 from nampy.neural.objectives import (
     RegressionObjective,
     classification_objective,

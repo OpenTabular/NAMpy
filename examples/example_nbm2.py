@@ -11,13 +11,9 @@ Run:
     python examples/example_nbm_onehot.py
 """
 
-from dataclasses import replace
-from nampy.neural.configs.nbm_config import DefaultNBMConfig
-from nampy.neural.configuration import GradientTrainingConfig
-from nampy.neural.configuration import PreprocessingConfig
-
 import os
 import tempfile
+from dataclasses import replace
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -26,6 +22,8 @@ from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 
 from nampy.models import NBMRegressor
+from nampy.neural.configs.nbm_config import DefaultNBMConfig
+from nampy.neural.configuration import GradientTrainingConfig, PreprocessingConfig
 
 
 def main():

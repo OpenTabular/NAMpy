@@ -8,8 +8,14 @@ import pytest
 from numpy.testing import assert_allclose, assert_array_equal
 from scipy import integrate, special, stats
 
-from nampy.distributions import AtomMixtureLaw, BCCGLaw, BCPELaw, BCTLaw, DistributionPrediction
 from nampy.diagnostics import prepare_centiles, prepare_worm_plot
+from nampy.distributions import (
+    AtomMixtureLaw,
+    BCCGLaw,
+    BCPELaw,
+    BCTLaw,
+    DistributionPrediction,
+)
 
 FIXTURES = Path(__file__).parents[1] / "reference_fixtures" / "boxcox_tail"
 

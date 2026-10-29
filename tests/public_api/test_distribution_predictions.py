@@ -8,8 +8,8 @@ import pytest
 from numpy.testing import assert_allclose, assert_array_equal
 from scipy.integrate import quad
 
-from nampy.distributions.contracts import DistributionSpec
 from nampy.distributions import DistributionPrediction, GammaLaw, NormalLaw
+from nampy.distributions.contracts import DistributionSpec
 
 
 def test_normal_probability_identities_shapes_and_tail_operations():

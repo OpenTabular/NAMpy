@@ -8,7 +8,12 @@ import pytest
 import torch
 from numpy.testing import assert_allclose
 
-from nampy.neural.families import BCCGDistribution, BetaBinomialDistribution, InflatedBetaDistribution, ZeroAdjustedGammaDistribution
+from nampy.neural.families import (
+    BCCGDistribution,
+    BetaBinomialDistribution,
+    InflatedBetaDistribution,
+    ZeroAdjustedGammaDistribution,
+)
 from nampy.neural.families.distribution_adapter import distribution_prediction
 
 

@@ -14,14 +14,9 @@ Run:
     python examples/example_qnam.py
 """
 
-from dataclasses import replace
-from nampy.neural.configs.qnam_config import DefaultQNAMConfig
-from nampy.neural.configuration import GradientTrainingConfig
-from nampy.neural.configuration import ObjectiveConfig
-from nampy.neural.configuration import PreprocessingConfig
-
 import os
 import tempfile
+from dataclasses import replace
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -30,6 +25,12 @@ import torch
 from sklearn.model_selection import train_test_split
 
 from nampy.models import QNAMLSS
+from nampy.neural.configs.qnam_config import DefaultQNAMConfig
+from nampy.neural.configuration import (
+    GradientTrainingConfig,
+    ObjectiveConfig,
+    PreprocessingConfig,
+)
 
 
 def main():

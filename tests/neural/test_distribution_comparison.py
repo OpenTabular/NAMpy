@@ -1,8 +1,4 @@
-from nampy.neural.configuration import GradientTrainingConfig
 """Real neural training completion and shared cross-backend held-out scoring."""
-
-from nampy.neural.configuration import ObjectiveConfig
-from nampy.neural.configuration import PreprocessingConfig
 
 import numpy as np
 import pandas as pd
@@ -13,6 +9,11 @@ from sklearn.base import clone
 from nampy import GAMLSS
 from nampy.distributions import DistributionCandidate, compare_distributions
 from nampy.models import LinRegLSS
+from nampy.neural.configuration import (
+    GradientTrainingConfig,
+    ObjectiveConfig,
+    PreprocessingConfig,
+)
 
 
 def _data():

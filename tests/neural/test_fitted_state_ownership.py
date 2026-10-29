@@ -6,10 +6,16 @@ import pandas as pd
 import pytest
 from sklearn.base import clone
 
-from nampy import (FixedDesignTrainingConfig, GradientTrainingConfig, IGANNTrainingConfig,
-                   NativeTrainingConfig, ObjectiveConfig, PreprocessingConfig)
+from nampy import (
+    FixedDesignTrainingConfig,
+    GradientTrainingConfig,
+    IGANNTrainingConfig,
+    NativeTrainingConfig,
+    ObjectiveConfig,
+    PreprocessingConfig,
+)
 from nampy.models.gpnam import GPNAMRegressor
-from nampy.models.igann import IGANNClassifier, IGANNLSS
+from nampy.models.igann import IGANNLSS, IGANNClassifier
 from nampy.models.linreg import LinRegLSS, LinRegRegressor
 from nampy.neural.configs.gpnam_config import DefaultGPNAMConfig
 from nampy.neural.fitted import NeuralPredictionModule
@@ -96,7 +102,8 @@ def test_nested_training_updates_select_the_default_fixed_or_native_record():
 def test_artifact_excludes_execution_objects_without_mutating_configuration(tmp_path):
     X, y = _data()
     estimator = LinRegRegressor(training=_gradient(tmp_path)).fit(X, y)
-    callback = lambda: None
+    def callback():
+        return None
     options = {**estimator.training.trainer_kwargs, "callbacks": [callback]}
     estimator.training = replace(estimator.training, trainer_kwargs=options)
     restored = LinRegRegressor.load_model(estimator.save_model(tmp_path / "callbacks.nampy"))

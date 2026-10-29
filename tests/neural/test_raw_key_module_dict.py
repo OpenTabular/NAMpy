@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
-from nampy.neural.configs.qnam_config import DefaultQNAMConfig
-from nampy.neural.configuration import GradientTrainingConfig
-from nampy.neural.configuration import PreprocessingConfig
-
 import pickle
+from dataclasses import replace
 
 import numpy as np
 import pandas as pd
@@ -19,6 +15,8 @@ from nampy.neural.architectures.components.interactions import (
     create_interaction_networks,
 )
 from nampy.neural.architectures.components.module_dict import RawKeyModuleDict
+from nampy.neural.configs.qnam_config import DefaultQNAMConfig
+from nampy.neural.configuration import GradientTrainingConfig, PreprocessingConfig
 
 
 def _linear_map(names: list[str]) -> RawKeyModuleDict:

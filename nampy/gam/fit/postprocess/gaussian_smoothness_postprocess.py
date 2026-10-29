@@ -210,7 +210,6 @@ def gaussian_smoothness_postprocess(
 
     sol = solve_gaussian_given_smoothing(model, y, sp)
 
-    X = np.asarray(sol.fit_state.X, dtype=np.float64)
     beta = np.asarray(sol.fit_result.coef_full, dtype=np.float64).ravel()
     mu = np.asarray(sol.fit_result.mu, dtype=np.float64).ravel()
     A = np.asarray(sol.fit_state.A, dtype=np.float64)

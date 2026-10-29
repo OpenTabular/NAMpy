@@ -8,8 +8,16 @@ import pytest
 from numpy.testing import assert_allclose
 from scipy import integrate, stats
 
-from nampy.distributions import AtomMixtureLaw, BetaLaw, DistributionPrediction, GammaLaw, NegativeBinomialLaw, NormalLaw, StudentTLaw
 from nampy.diagnostics import prepare_centiles
+from nampy.distributions import (
+    AtomMixtureLaw,
+    BetaLaw,
+    DistributionPrediction,
+    GammaLaw,
+    NegativeBinomialLaw,
+    NormalLaw,
+    StudentTLaw,
+)
 
 
 def test_interior_and_exterior_atoms_normalization_jumps_and_quantile_inversion():

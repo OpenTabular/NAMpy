@@ -1,12 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import replace
-from nampy.neural.configs.igann_config import DefaultIGANNConfig
-from nampy.neural.configuration import GradientTrainingConfig
-from nampy.neural.configuration import IGANNTrainingConfig
-from nampy.neural.configuration import ObjectiveConfig
-
 import importlib.util
+from dataclasses import replace
 
 import numpy as np
 import pandas as pd
@@ -17,6 +12,11 @@ from sklearn.linear_model import Lasso
 from nampy.models.igann import IGANNLSS, IGANNClassifier, IGANNRegressor
 from nampy.neural.architectures.igann import IGANN
 from nampy.neural.configs.igann_config import DefaultIGANNConfig
+from nampy.neural.configuration import (
+    GradientTrainingConfig,
+    IGANNTrainingConfig,
+    ObjectiveConfig,
+)
 from nampy.neural.objectives import BinaryObjective, RegressionObjective
 
 

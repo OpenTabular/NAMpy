@@ -7,8 +7,8 @@ Run from the repository root with:
 import numpy as np
 from numpy.testing import assert_allclose
 
-from nampy.distributions import BCCGLaw, DistributionPrediction
 from nampy.diagnostics import prepare_centiles
+from nampy.distributions import BCCGLaw, DistributionPrediction
 
 
 def main():

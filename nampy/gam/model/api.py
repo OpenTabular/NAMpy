@@ -1,7 +1,6 @@
 """User-facing mgcv-aligned GAM model."""
 
 from numbers import Integral
-from pathlib import Path
 
 import numpy as np
 import pandas as pd

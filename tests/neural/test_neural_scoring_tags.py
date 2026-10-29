@@ -8,9 +8,6 @@ sklearn upgrade that changes the tags API fails loudly.
 from __future__ import annotations
 
 from dataclasses import replace
-from nampy.neural.configuration import GradientTrainingConfig
-from nampy.neural.configuration import ObjectiveConfig
-from nampy.neural.configuration import PreprocessingConfig
 
 import numpy as np
 import pandas as pd
@@ -21,6 +18,11 @@ from sklearn.model_selection import cross_val_score
 from sklearn.utils import get_tags
 
 from nampy.models.linreg import LinRegClassifier, LinRegLSS, LinRegRegressor
+from nampy.neural.configuration import (
+    GradientTrainingConfig,
+    ObjectiveConfig,
+    PreprocessingConfig,
+)
 
 
 def _regression_data(n=80, seed=0):

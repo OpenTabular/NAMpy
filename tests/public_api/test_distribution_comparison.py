@@ -9,7 +9,6 @@ from numpy.testing import assert_allclose, assert_array_equal
 from scipy import stats
 from sklearn.base import BaseEstimator
 
-from nampy.distributions.contracts import DistributionFitStatus, DistributionSpec
 from nampy.distributions import (
     AtomMixtureLaw,
     DistributionCandidate,
@@ -19,6 +18,7 @@ from nampy.distributions import (
     NormalLaw,
     compare_distributions,
 )
+from nampy.distributions.contracts import DistributionFitStatus, DistributionSpec
 
 
 class _LogOnly:

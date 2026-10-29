@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
-from nampy.neural.configuration import GradientTrainingConfig
-from nampy.neural.configuration import ObjectiveConfig
-from nampy.neural.configuration import PreprocessingConfig
-
 from types import SimpleNamespace
 
 import matplotlib
+
+from nampy.neural.configuration import (
+    GradientTrainingConfig,
+    ObjectiveConfig,
+    PreprocessingConfig,
+)
 
 matplotlib.use("Agg")
 
@@ -20,8 +21,12 @@ import pytest
 import torch
 
 from nampy.contracts import AdditivePrediction
+from nampy.inspection.effects import (
+    DistributionalEffects,
+    combine_distributional_effects,
+    prepare_distributional_effects,
+)
 from nampy.neural.families import NormalDistribution, StudentTDistribution
-from nampy.inspection.effects import DistributionalEffects, combine_distributional_effects, prepare_distributional_effects
 from nampy.plotting import (
     plot_distributional_effects,
     render_distributional_effects,

@@ -19,7 +19,7 @@ subtract the REML null-space dimension, while REML uses the
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from typing import Any
 
 import numpy as np
 

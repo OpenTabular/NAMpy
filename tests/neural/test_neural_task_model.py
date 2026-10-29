@@ -1,12 +1,6 @@
 from __future__ import annotations
 
-from nampy.neural.configuration import GradientTrainingConfig
-from nampy.neural.objectives import RegressionObjective
-
 from dataclasses import replace
-from nampy.neural.configuration import GradientTrainingConfig
-from nampy.neural.configuration import PreprocessingConfig
-
 from types import SimpleNamespace
 
 import numpy as np
@@ -16,8 +10,9 @@ import torch
 import torch.nn as nn
 
 from nampy.models.linreg import LinRegRegressor
+from nampy.neural.configuration import GradientTrainingConfig, PreprocessingConfig
 from nampy.neural.families import NormalDistribution
-from nampy.neural.objectives import DistributionObjective
+from nampy.neural.objectives import DistributionObjective, RegressionObjective
 from nampy.neural.task import TaskModule
 
 

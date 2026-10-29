@@ -9,6 +9,7 @@ from scipy.optimize import OptimizeResult
 
 from nampy.gam import GAM
 from nampy.gam.compiler.factory import instantiate_term
+from nampy.gam.correlation import IdentityObservationTransform
 from nampy.gam.families import BinomialLogitFamily, GaussianIdentityFamily
 from nampy.gam.fit.penalized_system import (
     build_full_design,
@@ -60,7 +61,6 @@ from nampy.gam.model_state import (
     _n_coef,
     _penalty_blocks_seq,
 )
-from nampy.gam.correlation import IdentityObservationTransform
 from nampy.gam.results import FitResult, GAMResult
 from nampy.gam.specs.build import build_formula_model
 from nampy.gam.splines.univariate.tp import construct_tprs_basis

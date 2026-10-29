@@ -1,11 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from nampy.neural.configs.nam_config import DefaultNAMConfig
-from nampy.neural.configs.spline_nam_config import DefaultSplineNAMConfig
-from nampy.neural.configuration import GradientTrainingConfig
-from nampy.neural.configuration import ObjectiveConfig
-from nampy.neural.configuration import PreprocessingConfig
 
 import numpy as np
 import pandas as pd
@@ -45,6 +40,13 @@ from nampy.models.spam import SPAMLSS, SPAMClassifier, SPAMRegressor
 from nampy.models.spline_nam import SplineNAMRegressor
 from nampy.models.treenam import TreeNAMClassifier, TreeNAMLSS, TreeNAMRegressor
 from nampy.neural import architectures, configs
+from nampy.neural.configs.nam_config import DefaultNAMConfig
+from nampy.neural.configs.spline_nam_config import DefaultSplineNAMConfig
+from nampy.neural.configuration import (
+    GradientTrainingConfig,
+    ObjectiveConfig,
+    PreprocessingConfig,
+)
 from nampy.neural.families import NormalDistribution
 
 ALL_NEURAL_ESTIMATORS = (
