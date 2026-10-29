@@ -12,7 +12,7 @@
     "tests/parity/_pipeline_invariants.py": "8d16b32f450f9ce0eb022ce0b63bee42da5eef085927a5ed3b36cd3b4a34e3c5",
     "tests/parity/test_registered_smooth_seven_stage_pipeline.py": "ded3cf8efc2e8b700a22a8d7b2f3f0e52e7401edf226c2138d40c969c580da7c",
     "tests/parity/test_recent_family_seven_stage_pipeline.py": "fb58eab72e2018507cc10c14637d2a8a2e485c9b473665077029ebdda93c71d1",
-    "tests/parity/seven_stage_coverage.json": "65ea215329c82494f08184510b6c0a5f86b3954d7fc5b0b98c74082d3c149c42",
+    "tests/parity/seven_stage_coverage.json": "59e164a7e1d6d60650afa813a338007c513fe450e67c78586fd1898cdc312abc",
     "tests/reference_fixtures/registered_seven_stage/smooth_responses.json": "39162a58323beb2f23f2d1ffa7547bc7422bdeef59401c7dc713d685eac78a52",
     "tests/parity/test_mgcv_smooth_family_crossings.py": "59be72c8fe55ef4f684b72c82988e828f945fb6c2c31c24727131ecbbb98f677"
   },
