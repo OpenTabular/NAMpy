@@ -19,9 +19,10 @@ for(j in 1:nrow(source)) for(k in 1:5) {
 query <- expand.grid(survival_time=1:5,x=c(-.5,0,.8))
 results <- list()
 for(route in c("fixed","reml")) {
-  fit <- gam(event~s(survival_time,k=4)+x+ti(survival_time,x,k=c(4,4)),
+  # Full endpoint basis keeps fixed-SP comparisons independent of Lanczos phase.
+  fit <- gam(event~s(survival_time,k=5)+x+ti(survival_time,x,k=c(4,4)),
     data=ped,family=poisson(),weights=weight,offset=offset,
-    sp=if(route=="fixed") c(.4,.3,.2) else NULL,method="REML",control=gam.control(epsilon=1e-10))
+    sp=if(route=="fixed") c(.4,.3,.2) else NULL,method="REML",control=gam.control(epsilon=1e-12,newton=list(conv.tol=1e-10)))
   link <- as.numeric(predict(fit,newdata=query,type="link"))
   results[[length(results)+1]] <- data.frame(route,link,sp1=fit$sp[1],sp2=fit$sp[2],sp3=fit$sp[3],loglik=as.numeric(logLik(fit)))
 }

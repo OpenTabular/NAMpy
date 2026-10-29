@@ -204,6 +204,25 @@ def test_boundary_log_tails_against_high_precision_latent_interval(law, nu, y):
     assert_allclose(actual, expected, atol=3e-12, rtol=3e-14)
 
 
+def test_bct_median_quantile_handles_student_inverse_roundoff(monkeypatch):
+    inverse = stats.t.isf
+
+    def rounded_inverse(probability, df):
+        return np.where(
+            np.asarray(probability) == 0.5,
+            -np.finfo(float).eps,
+            inverse(probability, df),
+        )
+
+    monkeypatch.setattr(stats.t, "isf", rounded_inverse)
+    dist = distribution(BCTLaw, mu=1.2, sigma=0.6, nu=0, tau=5)
+    probability = np.array([0.25, 0.5, 0.75])
+    quantiles = dist.quantile(probability)[0]
+    assert quantiles[1] == 1.2
+    repeated = distribution(BCTLaw, mu=np.full(3, 1.2), sigma=0.6, nu=0, tau=5)
+    assert_allclose(repeated.cdf(quantiles), probability, atol=2e-14)
+
+
 def test_bct_preserves_student_density_above_upstream_gaussian_switch():
     frame = pd.read_csv(FIXTURES / "bct_density_switch.csv").iloc[0]
     assert frame.log_prob == frame.gaussian_log_prob

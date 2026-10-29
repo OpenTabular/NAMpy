@@ -95,11 +95,16 @@ def test_ple_predictions_survive_batching_checkpoints_and_persistence(tmp_path):
         )
     ).fit(X, y)
     expected = estimator.predict(X)
-    np.testing.assert_array_equal(estimator.predict(X, batch_size=3), expected)
+    # BLAS may accumulate float32 products differently for different batch sizes.
+    # The preceding transform test checks the PLE coordinates exactly.
+    np.testing.assert_allclose(estimator.predict(X, batch_size=3), expected, rtol=1e-6, atol=1e-7)
     permutation = np.random.default_rng(7).permutation(len(X))
-    np.testing.assert_array_equal(
+    np.testing.assert_allclose(
         estimator.predict(X.iloc[permutation], batch_size=3)[np.argsort(permutation)],
         expected,
+        rtol=1e-6, atol=1e-7,
     )
     restored = LinRegRegressor.load_model(estimator.save_model(tmp_path / "ple.nampy"))
-    np.testing.assert_array_equal(restored.predict(X, batch_size=3), expected)
+    np.testing.assert_array_equal(
+        restored.predict(X, batch_size=3), estimator.predict(X, batch_size=3)
+    )

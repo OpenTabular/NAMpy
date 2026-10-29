@@ -23,12 +23,15 @@ def test_temporal_tensor_effects_match_mgcv_with_exposure_entry_weights_and_offs
     model = SurvivalGAM(
         cuts=np.arange(6),
         baseline="smooth",
-        k=4,
+        # Full basis on the five interval endpoints gives a portable fixed-SP
+        # comparison; tensor marginals retain their explicit k=4 construction.
+        k=5,
         formula="~x",
         temporal_formula="~ti(survival_time,x,k=c(4,4))",
         optimize_smoothing=route == "reml",
         smoothing_params=[0.4, 0.3, 0.2] if route == "fixed" else None,
-        irls_tol=1e-10,
+        irls_tol=1e-12,
+        control={"epsilon": 1e-12, "newton": {"conv.tol": 1e-10}},
     ).fit(X, y, sample_weight=source.weight.to_numpy(), offset=source.offset.to_numpy())
     query = pd.DataFrame({"x": [-0.5, 0, 0.8]})
     eta = model.predict_link(query, offset=np.zeros(3))

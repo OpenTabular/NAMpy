@@ -151,7 +151,7 @@ def test_fit_forwards_generic_step_and_checkpoint_controls(monkeypatch):
     X, y = _make_regression_frame()
     estimator = LinRegRegressor(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
     captured = {}
-    monkeypatch.setattr("nampy.neural.training.engine.fit_gradient", lambda *args: None)
+    monkeypatch.setattr("nampy.neural.training.engine.fit_gradient", lambda *args, **kwargs: None)
 
     def fake_run_training(estimator, X, y, plan, **kwargs):
         from nampy.neural.training.engine import run_training
@@ -181,7 +181,7 @@ def test_fit_combines_class_and_sample_weights_and_forwards_balancing(monkeypatc
     y = np.array(["common", "common", "common", "common", "rare", "rare"])
     estimator = LinRegClassifier(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
     captured = {}
-    monkeypatch.setattr("nampy.neural.training.engine.fit_gradient", lambda *args: None)
+    monkeypatch.setattr("nampy.neural.training.engine.fit_gradient", lambda *args, **kwargs: None)
 
     def fake_run_training(estimator, X, y, plan, **kwargs):
         from nampy.neural.training.engine import run_training
@@ -203,7 +203,7 @@ def test_lss_fit_forwards_weights_to_distribution_objective(monkeypatch):
     X, y = _make_regression_frame(n=12)
     estimator = NAMLSS(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
     captured = {}
-    monkeypatch.setattr("nampy.neural.training.engine.fit_gradient", lambda *args: None)
+    monkeypatch.setattr("nampy.neural.training.engine.fit_gradient", lambda *args, **kwargs: None)
 
     def fake_run_training(estimator, X, y, plan, **kwargs):
         from nampy.neural.training.engine import run_training

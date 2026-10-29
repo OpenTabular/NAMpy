@@ -1120,12 +1120,12 @@
     },
     "survival_temporal": {
       "generator": "tests/reference_fixtures/generate_survival_temporal.R",
-      "generator_sha256": "d039c45d5982835699b5899125def24efd8d54d48245e88ca93a79b4b27d1da8",
+      "generator_sha256": "03135f1a70427b9dfac6f6251d45f8386512de3820afc5cb756e99dbcf30f0c2",
       "engine": "mgcv 1.9-4",
-      "scope": "Fixed/REML weighted delayed-entry and offset PEM temporal ti(survival_time,x) fitted endpoints.",
+      "scope": "Fixed/REML weighted delayed-entry and offset PEM temporal ti(survival_time,x) endpoints, full k=5 baseline on five endpoints and matched tight inner/outer convergence.",
       "files": {
         "survival_temporal_input.csv": "b6e8e32deaf98d3cf825f4150c5bb2d1c300ab6aa8bd97433dc42980a775f0f0",
-        "survival_temporal.csv": "0a24542706cbc0a19a4a9a2e6a4616cd2100ca69ece5b9de420caa4d6b90a61e"
+        "survival_temporal.csv": "36038800614e293ce092717f8d5bab5ee773ecd33f4a0d0d12c8d85a9f94732e"
       }
     },
     "cox_smoothing": {
@@ -1215,6 +1215,15 @@
       "files": {
         "normal_observations_input.csv": "927ee54cc89200d00f134121ee0cc7f0d298b4568b1ddfcd391427790fbde42c",
         "normal_observations.csv": "7a02263fa3d1a1ce6059f5ca4275bdc7e2263e35f43ccdf3d1af68eeea51227a"
+      }
+    },
+    "survival_smooth_baseline": {
+      "generator": "tests/reference_fixtures/generate_survival_smooth_baseline.R",
+      "generator_sha256": "12876ebafe058931cbc31768aa264a40d9b2264a5c24b37e228823e05371fb88",
+      "engine": "mgcv 1.9-4",
+      "scope": "Fixed/REML weighted delayed-entry and offset PEM with full k=5 baseline on five endpoints and matched tight inner/outer convergence.",
+      "files": {
+        "survival_smooth_baseline.csv": "422dbeeb0cf4caa05ebce40d380476e06dc074950af255288ce278ecb4aaa954"
       }
     }
   }

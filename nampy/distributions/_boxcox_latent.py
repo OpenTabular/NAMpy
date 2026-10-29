@@ -209,6 +209,9 @@ class StudentLatent(_SymmetricLatent):
             over="ignore", under="ignore", divide="ignore", invalid="ignore"
         ):
             quantile = stats.t.isf(np.exp(log_p), tau)
+            # The symmetric median is exactly zero. Some SciPy versions return
+            # a tiny negative value, whose logarithm would invalidate the batch.
+            quantile = np.where(log_p == _LOG_HALF, 0.0, quantile)
             result = np.array(np.log(quantile), copy=True)
         actual = self.logsf_abs(result, tau)
         unresolved = (

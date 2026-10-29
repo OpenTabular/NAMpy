@@ -116,6 +116,8 @@ _POSITIVE = np.array([0.2, 0.7, 1.3, 2.0], dtype=np.float32)
 _COUNT = np.array([0.0, 1.0, 2.0, 3.0], dtype=np.float32)
 _REAL = np.array([-1.0, 0.0, 0.5, 2.0], dtype=np.float32)
 _FAMILY_CASES = {
+    "bct": (_POSITIVE, {}),
+    "bcpe": (_POSITIVE, {}),
     "bccg": (_POSITIVE, {}),
     "beinf": (np.array([0.0, 0.3, 0.6, 1.0], dtype=np.float32), {}),
     "betabinomial": (_COUNT, {"trials": 8}),
@@ -129,6 +131,14 @@ _FAMILY_CASES = {
             ],
             dtype=np.float64,
         ),
+        {},
+    ),
+    "lognormal_observation": (
+        np.array([[0.2, 0.2, 0], [0.3, 0.3, -1], [1.3, 1.3, 1], [1, 2, 2]]),
+        {},
+    ),
+    "weibull_observation": (
+        np.array([[0.2, 0.2, 0], [0.3, 0.3, -1], [1.3, 1.3, 1], [1, 2, 2]]),
         {},
     ),
     "zaga": (np.array([0.0, 0.7, 1.3, 2.0], dtype=np.float32), {}),
@@ -180,6 +190,10 @@ def test_every_distribution_exposes_unreduced_per_row_loss(family_name):
     predictions = torch.zeros(
         (len(target), family.param_count), dtype=torch.float32, requires_grad=True
     )
+    if family_name in {"bct", "bcpe"}:
+        # nu=0 is a regular gradient point only above the tail-shape boundary.
+        with torch.no_grad():
+            predictions[:, 3] = np.log(2.0)
     target_tensor = torch.as_tensor(target)
 
     values = family.compute_loss(predictions, target_tensor, reduction="none")

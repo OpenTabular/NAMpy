@@ -26,11 +26,26 @@ def subjects():
 
 
 @pytest.mark.parametrize("route", ["fixed", "reml"])
-def test_smooth_baseline_matches_independent_mgcv_prediction_and_smoothing(route):
+@pytest.mark.parametrize("eigen_roundoff", [0.0, 1e-14, -1e-14])
+def test_smooth_baseline_matches_independent_mgcv_prediction_and_smoothing(route, eigen_roundoff, monkeypatch):
+    if eigen_roundoff:
+        original = np.linalg.eigh
+
+        def perturbed(matrix):
+            values, vectors = original(matrix)
+            rotation = np.eye(len(values))
+            for i in range(len(values) - 1):
+                rotation[i, i + 1] = eigen_roundoff
+                rotation[i + 1, i] = -eigen_roundoff
+            return values, vectors @ rotation
+
+        monkeypatch.setattr(np.linalg, "eigh", perturbed)
     X, y, weight, offset = subjects()
-    model = SurvivalGAM(cuts=np.arange(6), baseline="smooth", k=4, formula="~x",
+    # All five unique endpoints define the basis, without a truncated eigenbasis
+    # whose coordinate-dependent penalty scaling changes under roundoff.
+    model = SurvivalGAM(cuts=np.arange(6), baseline="smooth", k=5, formula="~x",
         optimize_smoothing=route == "reml", smoothing_params=[.4] if route == "fixed" else None,
-        irls_tol=1e-10).fit(X, y, sample_weight=weight, offset=offset)
+        irls_tol=1e-12, control={"epsilon": 1e-12, "newton": {"conv.tol": 1e-10}}).fit(X, y, sample_weight=weight, offset=offset)
     reference = pd.read_csv(Path(__file__).parents[1]/"reference_fixtures"/"survival_smooth_baseline.csv")
     reference = reference[reference.route == route]
     query = pd.DataFrame({"x": [-.5, 0, .8]})

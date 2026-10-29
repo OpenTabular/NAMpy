@@ -23,10 +23,11 @@ pred$survival_time <- pred$interval
 pred$x <- c(-.5,0,.8)[pred$subject+1]
 values <- list()
 for(route in c("fixed","reml")) {
-  fit <- if(route=="fixed") gam(event~s(survival_time,k=4)+x,data=ped,
-    weights=weight,offset=offset,family=poisson(),sp=.4,method="REML",control=gam.control(epsilon=1e-10)) else
-    gam(event~s(survival_time,k=4)+x,data=ped,weights=weight,offset=offset,
-    family=poisson(),method="REML",control=gam.control(epsilon=1e-10))
+  # All five distinct endpoints: no roundoff-dependent truncated eigenbasis.
+  fit <- if(route=="fixed") gam(event~s(survival_time,k=5)+x,data=ped,
+    weights=weight,offset=offset,family=poisson(),sp=.4,method="REML",control=gam.control(epsilon=1e-12,newton=list(conv.tol=1e-10))) else
+    gam(event~s(survival_time,k=5)+x,data=ped,weights=weight,offset=offset,
+    family=poisson(),method="REML",control=gam.control(epsilon=1e-12,newton=list(conv.tol=1e-10)))
   eta <- predict(fit,newdata=pred,type="link") # known user offsets explicitly zero
   rate <- matrix(exp(eta),3,5,byrow=TRUE)
   for(i in 1:3) for(j in 1:5) values[[length(values)+1]] <- data.frame(
