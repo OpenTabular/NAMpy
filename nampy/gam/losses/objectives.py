@@ -2,6 +2,17 @@
 
 Penalties use ``0.5 * beta.T @ S @ beta``; observation losses are sums,
 never means. No likelihood or Gaussian uncertainty is attached to these fits.
+
+References
+----------
+- Koenker, R., and Bassett, G., Jr. (1978). Regression Quantiles.
+  https://doi.org/10.2307/1913643
+- Newey, W. K., and Powell, J. L. (1987). Asymmetric Least Squares Estimation and
+  Testing.
+  https://doi.org/10.2307/1911031
+- Fasiolo, M., Wood, S. N., Zaffran, M., Nedellec, R., and Goude, Y. (2021). Fast
+  Calibrated Additive Quantile Regression.
+  https://doi.org/10.1080/01621459.2020.1725521
 """
 
 from dataclasses import dataclass

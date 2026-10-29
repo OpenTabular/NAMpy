@@ -1,4 +1,11 @@
-"""Sparse Interaction Additive Network architecture."""
+"""Sparse Interaction Additive Network architecture.
+
+References
+----------
+- Enouen, J., and Liu, Y. (2023). Sparse Interaction Additive Networks via Feature
+  Interaction Detection and Sparse Selection.
+  https://arxiv.org/abs/2209.09326
+"""
 
 from __future__ import annotations
 

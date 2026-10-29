@@ -4,6 +4,15 @@ A full-cohort projection residualizes each learned neural representation against
 all structured columns, including the intercept. New-data prediction uses the
 saved training projection, never a query-cohort QR decomposition. This is a
 neural objective route with fixed spline penalties, not joint REML training.
+
+References
+----------
+- Rügamer, D., Kolb, C., and Klein, N. (2024). Semi-Structured Distributional
+  Regression.
+  https://doi.org/10.1080/00031305.2022.2164054
+
+The local fixed-penalty, full-cohort projection route defines the implemented subset of
+the broader framework.
 """
 
 import re

@@ -4,6 +4,15 @@ Torch owns the response density and predictor gradients. The support
 normalizer uses checked vector SciPy quadrature on CPU; its analytical first
 derivatives are returned on the input device. Higher autograd derivatives
 are deliberately unsupported. Prediction reuses the shared probability laws.
+
+References
+----------
+- Rigby, R. A., and Stasinopoulos, D. M. (2004). Smooth centile curves for skew and
+  kurtotic data modelled using the Box-Cox power exponential distribution.
+  https://doi.org/10.1002/sim.1861
+- Rigby, R. A., and Stasinopoulos, D. M. (2006). Using the Box-Cox t distribution in
+  GAMLSS to model skewness and kurtosis.
+  https://doi.org/10.1191/1471082X06st122oa
 """
 
 import numpy as np

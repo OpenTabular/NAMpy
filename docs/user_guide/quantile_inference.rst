@@ -74,3 +74,11 @@ Quantiles may cross; no joint or noncrossing inference is claimed. Intervals
 condition on the selected smoothing parameters. Weighted calibration,
 covariate-dependent loss scales, bootstrap calibration and simultaneous
 quantile-function bands remain unsupported.
+
+References
+----------
+
+The quantile-loss foundation is [Koenker1978]_. The implemented qgam-style ELF,
+bandwidth and calibrated loss-scale routes are based on [FasioloQuantile2021]_
+and the software paper [FasioloQgam2021]_. See :doc:`/references` for full paper
+links. The versioned qgam source notes above identify the numerical port target.

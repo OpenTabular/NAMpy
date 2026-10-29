@@ -1,4 +1,14 @@
-"""Persisted marginal bases and explicit history layout for distributed lags."""
+"""Persisted marginal bases and explicit history layout for distributed lags.
+
+References
+----------
+- Gasparrini, A., Armstrong, B., and Kenward, M. G. (2010). Distributed lag non-linear
+  models.
+  https://doi.org/10.1002/sim.3940
+
+The local history ordering, weighting and basis layout define NAMpy’s supported
+distributed-lag construction.
+"""
 
 from numbers import Integral
 

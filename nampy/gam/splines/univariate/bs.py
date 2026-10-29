@@ -1,4 +1,10 @@
-"""Derivative-penalized B-spline primitives for ``mgcv``'s ``bs='bs'``."""
+"""Derivative-penalized B-spline primitives for ``mgcv``'s ``bs='bs'``.
+
+References
+----------
+- Wood, S. N. (2017). Generalized Additive Models: An Introduction with R.
+  https://doi.org/10.1201/9781315370279
+"""
 
 from __future__ import annotations
 

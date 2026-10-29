@@ -1,3 +1,12 @@
+"""Neural Additive Model forward architecture.
+
+References
+----------
+- Agarwal, R., et al. (2021). Neural Additive Models: Interpretable Machine Learning
+  with Neural Nets.
+  https://arxiv.org/abs/2004.13912
+"""
+
 import torch
 import torch.nn as nn
 

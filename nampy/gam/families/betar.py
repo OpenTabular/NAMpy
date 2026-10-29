@@ -1,4 +1,11 @@
-"""Beta-regression extended family, ported from ``mgcv::betar``."""
+"""Beta-regression extended family, ported from ``mgcv::betar``.
+
+References
+----------
+- Ferrari, S. L. P., and Cribari-Neto, F. (2004). Beta Regression for Modelling Rates
+  and Proportions.
+  https://doi.org/10.1080/0266476042000214501
+"""
 
 import numpy as np
 from scipy.special import digamma, gammaln, polygamma

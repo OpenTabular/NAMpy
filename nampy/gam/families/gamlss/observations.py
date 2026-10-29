@@ -3,6 +3,14 @@
 Normal/lognormal kernels follow gamlss.dist/R/logNO.R; Weibull follows
 R/WEI.R. Censoring contributes interval probability and truncation its
 normalizing probability. These are NAMpy observation extensions, not cnorm.
+
+References
+----------
+- Lawless, J. F. (2003). Statistical Models and Methods for Lifetime Data.
+  https://doi.org/10.1002/9781118033005
+- Rigby, R. A., and Stasinopoulos, D. M. (2005). Generalized additive models for
+  location, scale and shape.
+  https://doi.org/10.1111/j.1467-9876.2005.00510.x
 """
 
 from collections.abc import Callable

@@ -1,3 +1,12 @@
+"""B-spline design matrices and difference-penalty primitives.
+
+References
+----------
+- Eilers, P. H. C., and Marx, B. D. (1996). Flexible smoothing with B-splines and
+  penalties.
+  https://doi.org/10.1214/ss/1038425655
+"""
+
 import warnings
 from dataclasses import dataclass
 

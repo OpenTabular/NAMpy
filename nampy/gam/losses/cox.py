@@ -5,6 +5,13 @@ risk set, then subtracts d*log(sum(exp(eta))). coxpp baseline increments use
 that same d/risk_sum. There is no Efron/exact-tie substitution or Poisson
 approximation here. This owner provides only coefficient derivatives through
 order two; smoothing-parameter derivative/inference routes are not implied.
+
+References
+----------
+- Cox, D. R. (1972). Regression Models and Life-Tables.
+  https://doi.org/10.1111/j.2517-6161.1972.tb00899.x
+- Breslow, N. (1974). Covariance Analysis of Censored Survival Data.
+  https://www.jstor.org/stable/2529620
 """
 
 import numpy as np

@@ -3,6 +3,22 @@
 IPCW uses an explicitly supplied training censoring estimate. It never fits
 censoring on evaluation outcomes. Marginal censoring independence is assumed;
 conditional censoring models, IPCW with entry, and Uno concordance are unsupported.
+
+References
+----------
+- Kaplan, E. L., and Meier, P. (1958). Nonparametric Estimation from Incomplete
+  Observations.
+  https://doi.org/10.2307/2281868
+- Aalen, O. (1978). Nonparametric Inference for a Family of Counting Processes.
+  https://doi.org/10.1214/aos/1176344247
+- Gerds, T. A., and Schumacher, M. (2006). Consistent estimation of the expected Brier
+  score in general survival models with right-censored event times.
+  https://doi.org/10.1002/bimj.200610301
+- Harrell, F. E., Jr., et al. (1982). Evaluating the Yield of Medical Tests.
+  https://doi.org/10.1001/jama.1982.03320430047030
+
+The implemented IPCW estimator assumes marginal censoring independence; the cited
+general conditional-censoring extensions do not expand that support.
 """
 
 from dataclasses import dataclass

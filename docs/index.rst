@@ -207,6 +207,7 @@ look up a specific method.
    Predictions and explanations <api/contracts>
    Plotting <api/plotting>
    Extension APIs <extension_reference/index>
+   Research references <references>
    Compatibility and limitations <compatibility>
 
 .. toctree::

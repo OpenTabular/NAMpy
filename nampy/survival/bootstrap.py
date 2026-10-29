@@ -3,6 +3,11 @@
 No trainer or fitted estimator is retained in a bootstrap result. The source
 estimator is never refitted. Neural routes own training configuration; shared
 code owns row resampling, failure policy and interval calculations.
+
+References
+----------
+- Efron, B. (1979). Bootstrap Methods: Another Look at the Jackknife.
+  https://doi.org/10.1214/aos/1176344552
 """
 
 from dataclasses import dataclass, replace

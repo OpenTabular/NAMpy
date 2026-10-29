@@ -1,4 +1,11 @@
-"""Scalable Polynomial Additive Model (SPAM)."""
+"""Scalable Polynomial Additive Model (SPAM).
+
+References
+----------
+- Dubey, A., Radenovic, F., and Mahajan, D. (2022). Scalable Interpretability via
+  Polynomials.
+  https://arxiv.org/abs/2205.14108
+"""
 
 from __future__ import annotations
 

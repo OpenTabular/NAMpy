@@ -1,4 +1,16 @@
-"""User-facing mgcv-aligned GAM model."""
+"""User-facing mgcv-aligned GAM model.
+
+References
+----------
+- Hastie, T., and Tibshirani, R. (1986). Generalized Additive Models.
+  https://doi.org/10.1214/ss/1177013604
+- Wood, S. N. (2011). Fast stable restricted maximum likelihood and marginal likelihood
+  estimation of semiparametric generalized linear models.
+  https://doi.org/10.1111/j.1467-9868.2010.00749.x
+- Wood, S. N., Pya, N., and Säfken, B. (2016). Smoothing Parameter and Model Selection
+  for General Smooth Models.
+  https://doi.org/10.1080/01621459.2016.1180986
+"""
 
 from numbers import Integral
 

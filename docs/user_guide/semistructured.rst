@@ -75,3 +75,11 @@ Validation covers weighted orthogonality, actual encoder updates, additive
 reconstruction, new-cohort/batch invariance, persistence, sklearn cloning,
 failed refits and explicit unsupported routes. See
 :doc:`/neural_reference/semistructured` for parameter defaults.
+
+References
+----------
+
+The structured/deep decomposition and orthogonalization principle are described
+by [Ruegamer2024]_. NAMpy implements the fixed-penalty, full-cohort projection
+route documented above. The paper's broader model/data-modality framework does
+not expand those capabilities. See :doc:`/references` for the publication link.

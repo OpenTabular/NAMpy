@@ -3,6 +3,14 @@
 Quantile residuals follow GAMLSS's continuous/jump CDF construction. Worm
 plots use detrended normal QQ points and pointwise reference envelopes, as in
 gamlss/R/wp.R. These are separate from mgcv residual dispatch and inference.
+
+References
+----------
+- Dunn, P. K., and Smyth, G. K. (1996). Randomized Quantile Residuals.
+  https://doi.org/10.1080/10618600.1996.10474708
+- van Buuren, S., and Fredriks, M. (2001). Worm plot: a simple diagnostic device for
+  modelling growth reference curves.
+  https://doi.org/10.1002/sim.746
 """
 
 from __future__ import annotations

@@ -181,6 +181,15 @@ Implementation notes
 
 Two-predictor hurdle Poisson family, mgcv R/gamlss.r::ziplss.
 
+References
+----------
+- Lambert, D. (1992). Zero-Inflated Poisson Regression, With an Application to Defects
+  in Manufacturing.
+  https://doi.org/10.1080/00401706.1992.10485228
+- Wood, S. N., Pya, N., and Säfken, B. (2016). Smoothing Parameter and Model Selection
+  for General Smooth Models.
+  https://doi.org/10.1080/01621459.2016.1180986
+
 .. autoclass:: nampy.gam.families.gamlss.ziplss.ZiplssFamily
    :no-index:
    :members: distribution_parameters_from_eta, distribution_parameter_jacobian

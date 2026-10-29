@@ -3,6 +3,11 @@
 The cutoff route follows Candès, Lei and Ren, Conformalized Survival Analysis,
 Algorithm 1, with score min(q_alpha(X),cutoff)-min(T,cutoff). Censoring times
 must be observed for *all* records; ordinary event indicators cannot supply them.
+
+References
+----------
+- Candès, E. J., Lei, L., and Ren, Z. (2023). Conformalized Survival Analysis.
+  https://arxiv.org/abs/2103.09763
 """
 
 from dataclasses import dataclass

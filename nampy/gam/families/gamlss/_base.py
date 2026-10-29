@@ -1,3 +1,15 @@
+"""Shared statistical GAMLSS family parameterization and likelihood contracts.
+
+References
+----------
+- Rigby, R. A., and Stasinopoulos, D. M. (2005). Generalized additive models for
+  location, scale and shape.
+  https://doi.org/10.1111/j.1467-9876.2005.00510.x
+- Wood, S. N., Pya, N., and Säfken, B. (2016). Smoothing Parameter and Model Selection
+  for General Smooth Models.
+  https://doi.org/10.1080/01621459.2016.1180986
+"""
+
 from __future__ import annotations
 
 from typing import Any

@@ -1,4 +1,16 @@
-"""Statistical survival composition without changes to the Poisson fitter."""
+"""Statistical survival composition without changes to the Poisson fitter.
+
+References
+----------
+- Laird, N., and Olivier, D. (1981). Covariance Analysis of Censored Survival Data Using
+  Log-Linear Analysis Techniques.
+  https://doi.org/10.1080/01621459.1981.10477634
+- Cox, D. R. (1972). Regression Models and Life-Tables.
+  https://doi.org/10.1111/j.2517-6161.1972.tb00899.x
+
+Piecewise-exponential, parametric and partial-likelihood routes retain the separate
+estimands documented by NAMpy.
+"""
 
 import re
 from collections.abc import Mapping

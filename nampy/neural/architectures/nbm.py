@@ -4,6 +4,12 @@ The dense and sparse execution paths mirror ``ConceptNBMNary`` and
 ``ConceptNBMNarySparse`` from the NBM-SPAM reference repository. NAMpy's
 additional basis-network controls remain ordinary configuration options; the
 defaults match the released dense NBM definition.
+
+References
+----------
+- Radenovic, F., Dubey, A., and Mahajan, D. (2022). Neural Basis Models for
+  Interpretability.
+  https://arxiv.org/abs/2205.14120
 """
 
 from __future__ import annotations

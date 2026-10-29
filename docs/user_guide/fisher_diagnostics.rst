@@ -170,3 +170,7 @@ and diagonal-estimator comparisons follow their `Trade-Offs of Diagonal Fisher
 Information Matrix Estimators <https://arxiv.org/abs/2402.05379>`_ (NeurIPS 2024).
 These papers' regularity assumptions are not automatic guarantees for every
 NAMpy architecture, observation process or family.
+
+Full publication citations are [Soen2021]_ and [Soen2024]_ in
+:doc:`/references`. Source-level paper links are kept with the shared Fisher
+contracts and both numerical backends.

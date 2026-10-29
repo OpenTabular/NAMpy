@@ -2,6 +2,11 @@
 
 Known offsets remain in held-out predictors and deleted Hessians retain signed
 Newton weights, including the cases where upstream RNcv downdates differ.
+
+References
+----------
+- Wood, S. N. (2024). On Neighbourhood Cross Validation.
+  https://arxiv.org/abs/2404.16490
 """
 
 from __future__ import annotations

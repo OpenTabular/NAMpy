@@ -1,3 +1,12 @@
+"""Transformer predictors with identifiable marginal-effect heads.
+
+References
+----------
+- Thielmann, A., Reuter, A., and Säfken, B. (2025). Beyond Black-Box Predictions:
+  Identifying Marginal Feature Effects in Tabular Transformer Networks.
+  https://arxiv.org/abs/2504.08712
+"""
+
 import torch
 import torch.nn as nn
 

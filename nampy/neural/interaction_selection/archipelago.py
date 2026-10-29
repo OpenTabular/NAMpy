@@ -1,4 +1,14 @@
-"""Archipelago finite-difference interaction scores."""
+"""Archipelago finite-difference interaction scores.
+
+References
+----------
+- Tsang, M., Rambhatla, S., and Liu, Y. (2020). How does this interaction affect me?
+  Interpretable attribution for feature interactions.
+  https://arxiv.org/abs/2006.10965
+- Enouen, J., and Liu, Y. (2023). Sparse Interaction Additive Networks via Feature
+  Interaction Detection and Sparse Selection.
+  https://arxiv.org/abs/2209.09326
+"""
 
 from __future__ import annotations
 

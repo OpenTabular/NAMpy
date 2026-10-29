@@ -1,4 +1,11 @@
-"""Canonical mgcv-style EFS outer smoothing optimizer."""
+"""Canonical mgcv-style EFS outer smoothing optimizer.
+
+References
+----------
+- Wood, S. N., and Fasiolo, M. (2017). A generalized Fellner-Schall method for smoothing
+  parameter optimization with application to Tweedie location, scale and shape models.
+  https://doi.org/10.1111/biom.12666
+"""
 
 from __future__ import annotations
 

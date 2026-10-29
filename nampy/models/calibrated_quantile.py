@@ -1,4 +1,14 @@
-"""Calibrated Gibbs inference for additive quantile functions."""
+"""Calibrated Gibbs inference for additive quantile functions.
+
+References
+----------
+- Fasiolo, M., Wood, S. N., Zaffran, M., Nedellec, R., and Goude, Y. (2021). Fast
+  Calibrated Additive Quantile Regression.
+  https://doi.org/10.1080/01621459.2020.1725521
+- Fasiolo, M., Wood, S. N., Zaffran, M., Nedellec, R., and Goude, Y. (2021). qgam:
+  Bayesian Nonparametric Quantile Regression Modeling in R.
+  https://doi.org/10.18637/jss.v100.i09
+"""
 
 from dataclasses import replace
 

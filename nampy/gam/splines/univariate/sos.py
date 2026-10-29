@@ -1,4 +1,10 @@
-"""Low-rank spherical splines matching mgcv ``bs='sos'``."""
+"""Low-rank spherical splines matching mgcv ``bs='sos'``.
+
+References
+----------
+- Wahba, G. (1981). Spline Interpolation and Smoothing on the Sphere.
+  https://doi.org/10.1137/0902002
+"""
 
 from __future__ import annotations
 

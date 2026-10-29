@@ -1,4 +1,12 @@
-"""Shared survival predictions and exact piecewise hazard integration."""
+"""Shared survival predictions and exact piecewise hazard integration.
+
+References
+----------
+- Royston, P., and Parmar, M. K. B. (2013). Restricted mean survival time: an
+  alternative to the hazard ratio for the design and analysis of randomized trials with
+  a time-to-event outcome.
+  https://doi.org/10.1186/1471-2288-13-152
+"""
 
 from dataclasses import dataclass
 

@@ -1,4 +1,11 @@
-"""Tensor-product penalty helpers owned by the penalty layer."""
+"""Tensor-product penalty helpers owned by the penalty layer.
+
+References
+----------
+- Wood, S. N. (2006). Low-Rank Scale-Invariant Tensor Product Smooths for Generalized
+  Additive Mixed Models.
+  https://doi.org/10.1111/j.1541-0420.2006.00574.x
+"""
 
 from __future__ import annotations
 

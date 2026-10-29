@@ -1,4 +1,10 @@
-"""Duchon regression-spline primitives for ``mgcv``'s ``bs='ds'``."""
+"""Duchon regression-spline primitives for ``mgcv``'s ``bs='ds'``.
+
+References
+----------
+- Duchon, J. (1977). Splines minimizing rotation-invariant semi-norms in Sobolev spaces.
+  https://doi.org/10.1007/BFb0086566
+"""
 
 from __future__ import annotations
 

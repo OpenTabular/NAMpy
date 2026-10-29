@@ -1,3 +1,11 @@
+"""Thin-plate regression spline construction.
+
+References
+----------
+- Wood, S. N. (2003). Thin plate regression splines.
+  https://doi.org/10.1111/1467-9868.00374
+"""
+
 import math
 import warnings
 from dataclasses import dataclass

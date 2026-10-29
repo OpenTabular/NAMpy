@@ -2,6 +2,18 @@
 
 Numerical likelihoods and parameter derivatives remain backend-owned. These
 records describe mean information, not fitted-parameter confidence intervals.
+
+References
+----------
+- Soen, A., and Sun, K. (2021). On the Variance of the Fisher Information for Deep
+  Learning.
+  https://proceedings.neurips.cc/paper_files/paper/2021/hash/2d290e496d16c9dcaa9b4ded5cac10cc-Abstract.html
+- Soen, A., and Sun, K. (2024). Trade-Offs of Diagonal Fisher Information Matrix
+  Estimators.
+  https://proceedings.neurips.cc/paper_files/paper/2024/hash/0b43289db08ed60edc6451cb2132e203-Abstract-Conference.html
+
+NAMpy reports mean information per reference row; backend eligibility and held-fixed
+quantities are explicit implementation policies.
 """
 
 from dataclasses import dataclass

@@ -889,3 +889,17 @@ and ``prediction_context={'strata': query_strata}``; these aligned labels travel
 with sampled rows. Shared bootstrap survival/RMST intervals and finite-grid bands
 include this refitting uncertainty. Unsupported or failed replicates are never
 replaced or silently omitted. Continuous hazard density remains unavailable.
+
+References
+----------
+
+Cox partial likelihood and Breslow baseline/tie handling are grounded in
+[Cox1972]_ and [Breslow1974]_. The piecewise-exponential/Poisson representation
+is described by [Laird1981]_; censored and truncated likelihood conventions
+are covered by [Lawless2003]_. [Katzman2018]_ supplies neural Cox background,
+while NAMpy retains its own registered architectures and supported cohort rules.
+
+Descriptive curves, evaluation and restricted means refer to [Kaplan1958]_,
+[Aalen1978]_, [Gerds2006]_, [Harrell1982]_ and [Royston2013]_. Subject resampling
+uses the bootstrap principle of [Efron1979]_. The cutoff conformal route refers
+to [Candes2023]_. Full citations and paper links are in :doc:`/references`.

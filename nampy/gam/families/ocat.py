@@ -1,4 +1,13 @@
-"""Ordered-categorical extended family, ported from ``mgcv::ocat``."""
+"""Ordered-categorical extended family, ported from ``mgcv::ocat``.
+
+References
+----------
+- McCullagh, P. (1980). Regression Models for Ordinal Data.
+  https://doi.org/10.1111/j.2517-6161.1980.tb01109.x
+
+This reference concerns the ordinal cumulative-link branch; categorical softmax is a
+separate response map.
+"""
 
 from __future__ import annotations
 

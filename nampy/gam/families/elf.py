@@ -2,6 +2,15 @@
 
 Bandwidth and loss scale are calibration inputs. No new response probability
 API, ordinary-GAM family alias or alternative fitting engine is registered.
+
+References
+----------
+- Fasiolo, M., Wood, S. N., Zaffran, M., Nedellec, R., and Goude, Y. (2021). Fast
+  Calibrated Additive Quantile Regression.
+  https://doi.org/10.1080/01621459.2020.1725521
+- Fasiolo, M., Wood, S. N., Zaffran, M., Nedellec, R., and Goude, Y. (2021). qgam:
+  Bayesian Nonparametric Quantile Regression Modeling in R.
+  https://doi.org/10.18637/jss.v100.i09
 """
 
 import numpy as np

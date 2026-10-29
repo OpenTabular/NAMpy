@@ -1,3 +1,14 @@
+"""NAMpy spline-NAM composition with cubic-spline feature functions.
+
+References
+----------
+- Agarwal, R., et al. (2021). Neural Additive Models: Interpretable Machine Learning
+  with Neural Nets.
+  https://arxiv.org/abs/2004.13912
+- Wood, S. N. (2017). Generalized Additive Models: An Introduction with R.
+  https://doi.org/10.1201/9781315370279
+"""
+
 import torch
 import torch.nn as nn
 

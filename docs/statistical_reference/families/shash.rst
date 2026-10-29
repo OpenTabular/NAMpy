@@ -208,6 +208,14 @@ Implementation notes
 
 Sinh-arcsinh location/scale/shape family, mgcv R/gamlss.r::shash.
 
+References
+----------
+- Jones, M. C., and Pewsey, A. (2009). Sinh-arcsinh distributions.
+  https://doi.org/10.1093/biomet/asp053
+- Wood, S. N., Pya, N., and Säfken, B. (2016). Smoothing Parameter and Model Selection
+  for General Smooth Models.
+  https://doi.org/10.1080/01621459.2016.1180986
+
 .. autoclass:: nampy.gam.families.gamlss.shash.ShashFamily
    :no-index:
    :members: distribution_parameters_from_eta, distribution_parameter_jacobian

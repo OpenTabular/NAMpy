@@ -1,4 +1,14 @@
-"""Tweedie location/scale/shape family, mgcv R/gamlss.r::twlss."""
+"""Tweedie location/scale/shape family, mgcv R/gamlss.r::twlss.
+
+References
+----------
+- Dunn, P. K., and Smyth, G. K. (2005). Series evaluation of Tweedie exponential
+  dispersion model densities.
+  https://doi.org/10.1007/s11222-005-4070-y
+- Wood, S. N., and Fasiolo, M. (2017). A generalized Fellner-Schall method for smoothing
+  parameter optimization with application to Tweedie location, scale and shape models.
+  https://doi.org/10.1111/biom.12666
+"""
 
 import numpy as np
 

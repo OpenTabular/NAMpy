@@ -1,4 +1,14 @@
-"""BCT and BCPE probability laws, independent of both fitting backends."""
+"""BCT and BCPE probability laws, independent of both fitting backends.
+
+References
+----------
+- Rigby, R. A., and Stasinopoulos, D. M. (2004). Smooth centile curves for skew and
+  kurtotic data modelled using the Box-Cox power exponential distribution.
+  https://doi.org/10.1002/sim.1861
+- Rigby, R. A., and Stasinopoulos, D. M. (2006). Using the Box-Cox t distribution in
+  GAMLSS to model skewness and kurtosis.
+  https://doi.org/10.1191/1471082X06st122oa
+"""
 
 from dataclasses import dataclass
 

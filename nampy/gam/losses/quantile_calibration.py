@@ -4,6 +4,15 @@ Reference: qgam 2.0.1 .llkGrads, .biasedCov, .sandwichLoss and
 .invert_psdef_matrix. These are quantile-function Gibbs posterior calculations,
 not likelihood coverage or conformal prediction. Automatic bandwidth/smoothing,
 bootstrap calibration and covariate-dependent loss scales are separate routes.
+
+References
+----------
+- Fasiolo, M., Wood, S. N., Zaffran, M., Nedellec, R., and Goude, Y. (2021). Fast
+  Calibrated Additive Quantile Regression.
+  https://doi.org/10.1080/01621459.2020.1725521
+- Fasiolo, M., Wood, S. N., Zaffran, M., Nedellec, R., and Goude, Y. (2021). qgam:
+  Bayesian Nonparametric Quantile Regression Modeling in R.
+  https://doi.org/10.18637/jss.v100.i09
 """
 
 from dataclasses import dataclass

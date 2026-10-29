@@ -1,3 +1,14 @@
+"""NAMpy quantile-NAM composition using pinball-loss objectives.
+
+References
+----------
+- Agarwal, R., et al. (2021). Neural Additive Models: Interpretable Machine Learning
+  with Neural Nets.
+  https://arxiv.org/abs/2004.13912
+- Koenker, R., and Bassett, G., Jr. (1978). Regression Quantiles.
+  https://doi.org/10.2307/1913643
+"""
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

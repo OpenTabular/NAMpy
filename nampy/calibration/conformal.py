@@ -4,6 +4,15 @@ Romano, Patterson and Candès (2019), equations 4--6. The calibration data
 must be exchangeable with prediction observations, independently of model
 fitting/tuning. Scores are never interpolated, clipped or silently dropped. Optional density
 ratios implement covariate-shift calibration, not likelihood case weights.
+
+References
+----------
+- Lei, J., G’Sell, M., Rinaldo, A., Tibshirani, R. J., and Wasserman, L. (2018).
+  Distribution-Free Predictive Inference for Regression.
+  https://doi.org/10.1080/01621459.2017.1307116
+- Romano, Y., Patterson, E., and Candès, E. J. (2019). Conformalized Quantile
+  Regression.
+  https://arxiv.org/abs/1905.03222
 """
 
 from dataclasses import dataclass

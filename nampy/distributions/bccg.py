@@ -3,6 +3,15 @@
 The density and parameterization follow gamlss.dist/R/BCCG.R d/p/qBCCG.
 Log-scale evaluation, normal interval masses and quantile inversion preserve
 that law where the source's direct powers/CDF subtraction lose precision.
+
+References
+----------
+- Cole, T. J., and Green, P. J. (1992). Smoothing reference centile curves: the LMS
+  method and penalized likelihood.
+  https://doi.org/10.1002/sim.4780111005
+- Rigby, R. A., and Stasinopoulos, D. M. (2005). Generalized additive models for
+  location, scale and shape.
+  https://doi.org/10.1111/j.1467-9876.2005.00510.x
 """
 
 from dataclasses import dataclass

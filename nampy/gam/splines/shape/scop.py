@@ -2,6 +2,11 @@
 
 This module owns raw constructor state only.  It does not perform SCAM's
 nonlinear coefficient optimization; that belongs to the fitting backend.
+
+References
+----------
+- Pya, N., and Wood, S. N. (2015). Shape constrained additive models.
+  https://doi.org/10.1007/s11222-013-9448-7
 """
 
 from __future__ import annotations

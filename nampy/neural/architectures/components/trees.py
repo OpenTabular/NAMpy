@@ -1,3 +1,15 @@
+"""Differentiable soft-tree gates and balance regularization.
+
+References
+----------
+- Frosst, N., and Hinton, G. (2017). Distilling a Neural Network Into a Soft Decision
+  Tree.
+  https://arxiv.org/abs/1711.09784
+
+The component is trained by the owning NAMpy objective; the cited teacher-distillation
+workflow is separate.
+"""
+
 import torch
 import torch.nn as nn
 

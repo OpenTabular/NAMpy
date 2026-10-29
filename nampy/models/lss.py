@@ -1,3 +1,16 @@
+"""Shared neural distributional estimator orchestration.
+
+References
+----------
+- Thielmann, A. F., Kruse, R.-M., Kneib, T., and Säfken, B. (2024). Neural Additive
+  Models for Location Scale and Shape: A Framework for Interpretable Neural Regression
+  Beyond the Mean.
+  https://proceedings.mlr.press/v238/frederik-thielmann24a.html
+- Rigby, R. A., and Stasinopoulos, D. M. (2005). Generalized additive models for
+  location, scale and shape.
+  https://doi.org/10.1111/j.1467-9876.2005.00510.x
+"""
+
 # lss.py
 from copy import deepcopy
 from typing import Literal

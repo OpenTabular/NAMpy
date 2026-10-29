@@ -1,4 +1,13 @@
-"""Four-predictor inflated beta with an interior-baseline probability simplex."""
+"""Four-predictor inflated beta with an interior-baseline probability simplex.
+
+References
+----------
+- Ospina, R., and Ferrari, S. L. P. (2010). Inflated beta distributions.
+  https://doi.org/10.1007/s00362-008-0125-4
+- Rigby, R. A., and Stasinopoulos, D. M. (2005). Generalized additive models for
+  location, scale and shape.
+  https://doi.org/10.1111/j.1467-9876.2005.00510.x
+"""
 
 import numpy as np
 from scipy.special import expit, logit, softmax

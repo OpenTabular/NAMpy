@@ -1,4 +1,11 @@
-"""Interpretable Generalized Additive Neural Networks (IGANN)."""
+"""Interpretable Generalized Additive Neural Networks (IGANN).
+
+References
+----------
+- Kraus, M., Tschernutter, D., Weinzierl, S., and Zschech, P. (2024). Interpretable
+  generalized additive neural networks.
+  https://doi.org/10.1016/j.ejor.2023.06.032
+"""
 
 from __future__ import annotations
 

@@ -623,6 +623,13 @@ for compatible family and fitting combinations.
 References
 ----------
 
+The methodological references include [Rigby2005]_ and [Wood2016]_, with
+[Cole1992]_, [Rigby2004]_ and [Rigby2006]_ for BCCG/LMS, BCPE and BCT.
+The corresponding neural LSS framework is [ThielmannLSS2024]_. See
+:doc:`/references` for links to these papers and the additional response-family
+references, including censored/truncated observation likelihoods.
+
+
 Rigby and Stasinopoulos (2005), `Generalized additive models for location,
 scale and shape <https://doi.org/10.1111/j.1467-9876.2005.00510.x>`_. Journal
 of the Royal Statistical Society: Series C 54:507–554.

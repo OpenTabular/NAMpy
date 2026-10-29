@@ -1,4 +1,17 @@
-"""Combined Neural Basis Model and SPAM architecture."""
+"""Combined Neural Basis Model and SPAM architecture.
+
+References
+----------
+- Radenovic, F., Dubey, A., and Mahajan, D. (2022). Neural Basis Models for
+  Interpretability.
+  https://arxiv.org/abs/2205.14120
+- Dubey, A., Radenovic, F., and Mahajan, D. (2022). Scalable Interpretability via
+  Polynomials.
+  https://arxiv.org/abs/2205.14108
+
+NAMpy combines the two referenced model components; this is not a separate published
+architecture.
+"""
 
 from __future__ import annotations
 

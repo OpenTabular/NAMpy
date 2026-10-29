@@ -1,3 +1,15 @@
+"""NODE-GAM additive-tree architecture and its distributional use.
+
+References
+----------
+- Chang, C.-H., Caruana, R., and Goldenberg, A. (2022). NODE-GAM: Neural Generalized
+  Additive Model for Interpretable Deep Learning.
+  https://arxiv.org/abs/2106.01613
+- De, A., Thielmann, A., and Säfken, B. (2024). NODE-GAMLSS: Interpretable Uncertainty
+  Modelling via Deep Distributional Regression.
+  https://openreview.net/forum?id=sWvTLlRkzy
+"""
+
 import torch
 import torch.nn as nn
 

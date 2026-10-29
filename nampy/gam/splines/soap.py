@@ -2,6 +2,11 @@
 
 The signed grid indices, boundary traversal order and knot RHS indexing are
 intentional: changing them changes the upstream finite-difference basis.
+
+References
+----------
+- Wood, S. N., Bravington, M. V., and Hedley, S. L. (2008). Soap film smoothing.
+  https://doi.org/10.1111/j.1467-9868.2008.00665.x
 """
 
 import warnings

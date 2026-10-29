@@ -1,4 +1,17 @@
-"""Joint coefficient simulation and finite-grid simultaneous inference."""
+"""Joint coefficient simulation and finite-grid simultaneous inference.
+
+References
+----------
+- Marra, G., and Wood, S. N. (2012). Coverage Properties of Confidence Intervals for
+  Generalized Additive Model Components.
+  https://doi.org/10.1111/j.1467-9469.2011.00760.x
+- Wood, S. N., Pya, N., and Säfken, B. (2016). Smoothing Parameter and Model Selection
+  for General Smooth Models.
+  https://doi.org/10.1080/01621459.2016.1180986
+
+Finite-grid simulation and its supported uncertainty conventions are documented by the
+local public contracts.
+"""
 
 from dataclasses import dataclass
 

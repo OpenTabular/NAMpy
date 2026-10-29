@@ -4,6 +4,15 @@ Density and initialization: gamlss.dist 6.1-12, R/BCT.R::dBCT and
 R/BCPE.R::dBCPE. Observed derivatives differentiate the normalized density,
 not GAMLSS's working curvature. CDF parameter derivatives are integrals of
 analytic density derivatives, with a checked adaptive quadrature error.
+
+References
+----------
+- Rigby, R. A., and Stasinopoulos, D. M. (2004). Smooth centile curves for skew and
+  kurtotic data modelled using the Box-Cox power exponential distribution.
+  https://doi.org/10.1002/sim.1861
+- Rigby, R. A., and Stasinopoulos, D. M. (2006). Using the Box-Cox t distribution in
+  GAMLSS to model skewness and kurtosis.
+  https://doi.org/10.1191/1471082X06st122oa
 """
 
 import numpy as np

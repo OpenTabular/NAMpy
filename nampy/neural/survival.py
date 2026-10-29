@@ -1,4 +1,21 @@
-"""Differentiable interval-hazard likelihood with subject-level reduction."""
+"""Differentiable interval-hazard likelihood with subject-level reduction.
+
+References
+----------
+- Cox, D. R. (1972). Regression Models and Life-Tables.
+  https://doi.org/10.1111/j.2517-6161.1972.tb00899.x
+- Breslow, N. (1974). Covariance Analysis of Censored Survival Data.
+  https://www.jstor.org/stable/2529620
+- Laird, N., and Olivier, D. (1981). Covariance Analysis of Censored Survival Data Using
+  Log-Linear Analysis Techniques.
+  https://doi.org/10.1080/01621459.1981.10477634
+- Katzman, J. L., et al. (2018). DeepSurv: personalized treatment recommender system
+  using a Cox proportional hazards deep neural network.
+  https://doi.org/10.1186/s12874-018-0482-1
+
+DeepSurv is neural Cox background; NAMpy uses its registered architectures and the
+locally declared cohort, censoring and tie restrictions.
+"""
 
 import numpy as np
 import torch

@@ -1,4 +1,14 @@
-"""Exposure histories and distributed-lag cross-basis construction."""
+"""Exposure histories and distributed-lag cross-basis construction.
+
+References
+----------
+- Gasparrini, A., Armstrong, B., and Kenward, M. G. (2010). Distributed lag non-linear
+  models.
+  https://doi.org/10.1002/sim.3940
+
+The local history ordering, weighting and basis layout define NAMpy’s supported
+distributed-lag construction.
+"""
 
 import numpy as np
 import pandas as pd

@@ -1,4 +1,13 @@
-"""Separate fixed-stratum and whole-group exchangeability calibration targets."""
+"""Separate fixed-stratum and whole-group exchangeability calibration targets.
+
+References
+----------
+- Vovk, V. (2012). Conditional Validity of Inductive Conformal Predictors.
+  https://proceedings.mlr.press/v25/vovk12.html
+
+Only the explicitly implemented stratum and cluster calibration routes are claimed;
+general conditional coverage is not implied.
+"""
 
 from dataclasses import dataclass
 

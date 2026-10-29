@@ -1,4 +1,16 @@
-"""Finite atoms mixed with a scalar continuous law, independent of fitting."""
+"""Finite atoms mixed with a scalar continuous law, independent of fitting.
+
+References
+----------
+- Ospina, R., and Ferrari, S. L. P. (2010). Inflated beta distributions.
+  https://doi.org/10.1007/s00362-008-0125-4
+- Lambert, D. (1992). Zero-Inflated Poisson Regression, With an Application to Defects
+  in Manufacturing.
+  https://doi.org/10.1080/00401706.1992.10485228
+
+The generic mixture operations also support NAMpy compositions beyond these motivating
+beta and count models.
+"""
 
 from dataclasses import dataclass
 

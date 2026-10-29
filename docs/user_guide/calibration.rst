@@ -310,3 +310,12 @@ Runnable extension example
 
 .. literalinclude:: ../../examples/example_calibration_extensions.py
    :language: python
+
+References
+----------
+
+Split-conformal regression and CQR follow [Lei2018]_ and [Romano2019]_.
+Density-ratio weighting is based on [Tibshirani2019]_; group-conditional
+constructions are discussed by [Vovk2012]_. The implemented survival cutoff
+procedure follows [Candes2023]_. See :doc:`/references` for paper links and the
+separate methodological scope of each route.

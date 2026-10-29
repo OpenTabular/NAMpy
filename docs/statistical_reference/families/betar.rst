@@ -158,6 +158,12 @@ Implementation notes
 
 Beta-regression extended family, ported from ``mgcv::betar``.
 
+References
+----------
+- Ferrari, S. L. P., and Cribari-Neto, F. (2004). Beta Regression for Modelling Rates
+  and Proportions.
+  https://doi.org/10.1080/0266476042000214501
+
 .. autoclass:: nampy.gam.families.betar.BetaRegressionFamily
    :no-index:
    :members: distribution_parameters_from_eta, distribution_parameter_jacobian

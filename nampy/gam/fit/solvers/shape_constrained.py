@@ -3,6 +3,11 @@
 The design acts on prediction coefficients ``beta.t`` while the roughness
 penalty acts on unconstrained optimization coefficients ``beta``.  Selected
 coordinates are linked by exp or SCAM's softplus ``notExp`` map.
+
+References
+----------
+- Pya, N., and Wood, S. N. (2015). Shape constrained additive models.
+  https://doi.org/10.1007/s11222-013-9448-7
 """
 
 from __future__ import annotations

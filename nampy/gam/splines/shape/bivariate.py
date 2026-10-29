@@ -3,6 +3,11 @@
 The constructors in ``scam/R/bivar.smooth.const.R`` use row tensor products
 of equally-spaced P-spline marginals, followed by basis-specific cumulative
 coefficient maps. This module owns those identified constructor coordinates.
+
+References
+----------
+- Pya, N., and Wood, S. N. (2015). Shape constrained additive models.
+  https://doi.org/10.1007/s11222-013-9448-7
 """
 
 from __future__ import annotations

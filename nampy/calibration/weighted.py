@@ -1,4 +1,11 @@
-"""Covariate-shift weighted conformal quantiles, including the test atom at infinity."""
+"""Covariate-shift weighted conformal quantiles, including the test atom at infinity.
+
+References
+----------
+- Tibshirani, R. J., Barber, R. F., Candès, E. J., and Ramdas, A. (2019). Conformal
+  Prediction Under Covariate Shift.
+  https://arxiv.org/abs/1904.06019
+"""
 
 from math import ceil
 

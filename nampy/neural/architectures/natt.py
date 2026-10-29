@@ -1,3 +1,12 @@
+"""Neural Additive Tabular Transformer forward architecture.
+
+References
+----------
+- Thielmann, A. F., Reuter, A., Kneib, T., Rügamer, D., and Säfken, B. (2024).
+  Interpretable Additive Tabular Transformer Networks.
+  https://openreview.net/forum?id=TdJ7lpzAkD
+"""
+
 import torch
 import torch.nn as nn
 

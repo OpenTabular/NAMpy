@@ -177,6 +177,12 @@ The series summation mirrors the C `tweedious` routine term-for-term,
 including the buffer-index bookkeeping that determines the scaling maximum
 and the sweep boundaries, so summation order matches upstream.
 
+References
+----------
+- Dunn, P. K., and Smyth, G. K. (2005). Series evaluation of Tweedie exponential
+  dispersion model densities.
+  https://doi.org/10.1007/s11222-005-4070-y
+
 .. autoclass:: nampy.gam.families.tweedie.TweedieTwFamily
    :no-index:
    :members: distribution_parameters_from_eta, distribution_parameter_jacobian

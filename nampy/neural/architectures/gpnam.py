@@ -1,4 +1,10 @@
-"""Gaussian-process neural additive models with fixed RFF bases."""
+"""Gaussian-process neural additive models with fixed RFF bases.
+
+References
+----------
+- Zhang, W., Barr, B., and Paisley, J. (2024). Gaussian Process Neural Additive Models.
+  https://arxiv.org/abs/2402.12518
+"""
 
 from __future__ import annotations
 

@@ -145,6 +145,10 @@ The :doc:`neural architecture comparison <../notebooks/03_neural_models>` compar
 References
 ----------
 
+See :doc:`/references` for the complete method bibliography, including
+statistical inference, neural architectures, GAMLSS, Fisher diagnostics,
+survival, calibration and their implementation scope.
+
 1. Hastie and Tibshirani (1986). `Generalized Additive Models
    <https://doi.org/10.1214/ss/1177013604>`_.
 2. Wood (2011). `Fast stable restricted maximum likelihood and marginal

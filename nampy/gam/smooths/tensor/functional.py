@@ -1,4 +1,13 @@
-"""Paired matrix arguments for tensor-product linear functionals."""
+"""Paired matrix arguments for tensor-product linear functionals.
+
+References
+----------
+- Wood, S. N. (2006). Low-Rank Scale-Invariant Tensor Product Smooths for Generalized
+  Additive Mixed Models.
+  https://doi.org/10.1111/j.1541-0420.2006.00574.x
+- Wood, S. N. (2017). Generalized Additive Models: An Introduction with R.
+  https://doi.org/10.1201/9781315370279
+"""
 
 import numpy as np
 

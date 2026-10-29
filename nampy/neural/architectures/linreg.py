@@ -1,3 +1,11 @@
+"""Linear additive baseline for registered NAMpy tasks.
+
+References
+----------
+- Hastie, T., and Tibshirani, R. (1986). Generalized Additive Models.
+  https://doi.org/10.1214/ss/1177013604
+"""
+
 import torch
 import torch.nn as nn
 

@@ -1,3 +1,12 @@
+"""Group-sparse neural additive architecture.
+
+References
+----------
+- Xu, S., Bu, Z., Chaudhari, P., and Barnett, I. J. (2022). Sparse Neural Additive
+  Model: Interpretable Deep Learning with Feature Selection via Group Sparsity.
+  https://arxiv.org/abs/2202.12482
+"""
+
 import torch
 
 from ..configs.snam_config import DefaultSNAMConfig
