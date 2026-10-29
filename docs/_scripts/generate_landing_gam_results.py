@@ -145,7 +145,7 @@ for index, block in enumerate(blocks[:3]):
         fig, axes = plt.subplots(1, 2, figsize=(9, 3.5))
         axes[0].scatter(x, data.y, s=8, alpha=0.3, color="gray")
         for group, color in [("a", "#237f75"), ("b", "#c17c30")]:
-            values = np.asarray(model.predict(pd.DataFrame({"x": x, "group": group})))
+            values = np.asarray(model.predict_parameters(pd.DataFrame({"x": x, "group": group})))
             axes[0].plot(x, values[:, 0], color=color, label=f"Group {group}")
         axes[0].set(xlabel="x", ylabel="mu", title="Conditional mean")
         axes[0].legend(frameon=False)

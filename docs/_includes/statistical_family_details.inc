@@ -487,8 +487,8 @@ Additional general families
 The following constructors are exported from ``nampy.gam.families`` and
 ``nampy.gam.families.gamlss``. ``GAM`` accepts their names, option dictionaries
 or instances; ``GAMLSS`` exposes natural distribution parameters through
-``predict`` and raw additive predictors through ``predict_link`` or
-``predict(raw=True)``. Source ``GAM.predict(type="response")`` parameterizations
+``predict_parameters``, point summaries through ``predict``, and raw additive
+predictors through ``predict_link``. Source ``GAM.predict(type="response")`` parameterizations
 are described below. Natural-parameter standard errors from
 ``GAMLSS.standard_errors(type="response")`` apply the analytic parameter
 Jacobian, including cross-predictor covariance for multinomial probabilities.

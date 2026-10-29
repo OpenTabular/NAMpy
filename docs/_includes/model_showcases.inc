@@ -108,9 +108,9 @@ Fit separate predictors for the conditional mean and standard deviation:
        },
    ).fit(data_dist)
 
-   parameters = model.predict(data_dist)       # columns: mu, sigma
-   point_prediction = model.predict_point(data_dist)
-   raw_predictors = model.predict(data_dist, raw=True)
+   parameters = model.predict_parameters(data_dist)  # columns: mu, sigma
+   point_prediction = model.predict(data_dist)
+   raw_predictors = model.predict_link(data_dist)
 
 .. showcase-gamlss-end
 
@@ -121,7 +121,7 @@ Fit separate predictors for the conditional mean and standard deviation:
    :class: homepage-demo scientific-figure
 
 The displayed natural columns are ``mu`` (conditional mean) and ``sigma``
-(conditional standard deviation). ``raw=True`` returns the predictors before
+(conditional standard deviation). ``predict_link`` returns the predictors before
 the family transforms; its scale predictor is not the natural ``sigma``.
 The scale formula has no group term, so its group curves coincide.
 

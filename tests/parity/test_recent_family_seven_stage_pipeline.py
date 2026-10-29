@@ -349,7 +349,7 @@ def test_stage_7_family_outputs_domains_and_persistence(family_pipeline, tmp_pat
         if case.name == "ocat":
             np.testing.assert_allclose(response.sum(axis=1), 1, atol=1e-12)
     if case.name in JOINT_FAMILIES:
-        params = case.estimator.predict(case.newdata)
+        params = case.estimator.predict_parameters(case.newdata)
         assert (params[:, 1] > 0).all()
         if case.name == "beta_lss":
             assert ((params[:, 0] > 0) & (params[:, 0] < 1)).all()

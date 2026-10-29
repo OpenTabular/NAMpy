@@ -17,6 +17,26 @@ from nampy.contracts import AdditivePrediction, AdditiveTermMetadata
 ROOT = Path(__file__).resolve().parents[2]
 
 
+@pytest.mark.parametrize("filename", ["model_showcases.inc", "gaulss_reference.inc"])
+def test_distributional_include_prediction_contracts(filename):
+    source = (ROOT / "docs/_includes" / filename).read_text()
+    if filename == "model_showcases.inc":
+        source = source.split("Neural Additive Model (NAM)", 1)[0]
+    blocks = re.findall(
+        r"^\.\. code-block:: python\n\n((?:(?:   [^\n]*)?\n)+)", source, re.M
+    )
+    namespace = {}
+    for block in blocks:
+        exec(compile(textwrap.dedent(block), filename, "exec"), namespace)
+    parameters = namespace["parameters"]
+    link = namespace.get("raw_predictors", namespace.get("raw"))
+    point = namespace.get("point_prediction", namespace.get("mean"))
+    assert parameters.shape == link.shape == (len(point), 2)
+    assert point.shape == (len(parameters),)
+    np.testing.assert_allclose(point, parameters[:, 0])
+    np.testing.assert_allclose(parameters[:, 1], 0.01 + np.exp(link[:, 1]))
+
+
 @pytest.mark.parametrize(
     "filename, marker",
     [

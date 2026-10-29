@@ -21,9 +21,9 @@ transformation derivatives. With the default mean link they are ``1`` and
 ``exp(eta[:, 1])``. Full uncertainty propagation also needs coefficient
 cross-covariance between the two predictors.
 
-``GAMLSS.predict`` returns natural ``(mu, sigma)`` columns;
-``GAMLSS.predict(raw=True)`` returns the two link predictors.
-``GAMLSS.predict_point`` returns ``mu``. Source-style ``GAM`` response predictions
+``GAMLSS.predict_parameters`` returns natural ``(mu, sigma)`` columns;
+``GAMLSS.predict_link`` returns the two link predictors.
+``GAMLSS.predict`` returns ``mu``. Source-style ``GAM`` response predictions
 retain the family's ``(mu, tau)`` convention, so use the chosen interface's
 contract rather than assuming the second column is always standard deviation.
 
@@ -43,9 +43,9 @@ Example
        family='gaulss',
        formula={'mu': 'y ~ s(x, k=8)', 'sigma': '~ s(x, k=6)'},
    ).fit(X, y)
-   parameters = model.predict(X)   # (120, 2): mu, sigma
-   raw = model.predict(X, raw=True)
-   mean = model.predict_point(X)   # (120,)
+   parameters = model.predict_parameters(X)   # (120, 2): mu, sigma
+   raw = model.predict_link(X)
+   mean = model.predict(X)   # (120,)
 
 The family uses a joint general-family solve rather than ordinary single-mean
 PIRLS. ML/REML support does not imply all combinations with coefficient

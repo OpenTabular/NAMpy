@@ -20,7 +20,9 @@ from nampy.models import NAMLSS, GAMRegressor, NAMRegressor, NBMRegressor  # noq
 from nampy.neural.configs.nam_config import DefaultNAMConfig  # noqa: E402
 from nampy.neural.configs.nbm_config import DefaultNBMConfig  # noqa: E402
 from nampy.neural.configuration import (  # noqa: E402
-    GradientTrainingConfig, ObjectiveConfig, PreprocessingConfig,
+    GradientTrainingConfig,
+    ObjectiveConfig,
+    PreprocessingConfig,
 )
 
 PINK = "#b4234d"
@@ -114,7 +116,7 @@ def generate_first_gam_plot() -> None:
     figure = rendered["figures"][0]
     _save(figure, "first_gam_effects.png")
 
-    fitted = model.predict_parameters(train)
+    fitted = model.predict(train)
     residual = model.gam_.residuals(type="deviance")
     figure, axis = plt.subplots(figsize=(7.2, 4.2))
     axis.scatter(fitted, residual, s=15, color="#6b7280", alpha=0.5)
@@ -570,7 +572,7 @@ def generate_tensor_constructor_comparison() -> None:
     grid_x, grid_z = np.meshgrid(axis_values, axis_values)
     grid = pd.DataFrame({"x": grid_x.ravel(), "z": grid_z.ravel()})
     fitted = {
-        label: model.predict_parameters(grid, type='response').reshape(grid_x.shape)
+        label: model.predict(grid, type='response').reshape(grid_x.shape)
         for label, model in models.items()
     }
     color_limit = max(float(np.max(np.abs(values))) for values in fitted.values())

@@ -267,7 +267,10 @@ def test_remaining_stage_7_source_prediction_public_components_and_persistence(f
     estimator.fit(case.data)
     components=estimator.predict_components(case.newdata)
     components.validate_additive_reconstruction()
-    np.testing.assert_allclose(estimator.predict_link(case.newdata),case.model.predict(case.newdata,type='link'),atol=atol,rtol=rtol)
+    expected_link=case.model.predict(case.newdata,type='link')
+    if not general:
+        expected_link=expected_link[:,None]
+    np.testing.assert_allclose(estimator.predict_link(case.newdata),expected_link,atol=atol,rtol=rtol)
     path=estimator.save_model(tmp_path/f'{case.name}.nampy')
     restored=adapter_type.load_model(path)
     np.testing.assert_array_equal(restored.predict(case.newdata),estimator.predict(case.newdata))
