@@ -384,7 +384,8 @@ the documented ``putTheta`` workaround supplies the source two-entry state.
 Estimated BCG EFS requires at least one free smoothing parameter.
 
 General-family predictions retain mgcv's family-specific response conventions;
-``GAMLSS.predict`` returns natural distribution parameters instead. Multinomial
+``GAMLSS.predict`` returns the family point summary;
+``GAMLSS.predict_parameters`` returns natural distribution parameters. Multinomial
 models have ``K`` predictors and ``K+1`` probability columns, including baseline
 class zero. Natural-parameter standard errors use the full coefficient
 covariance and transformation Jacobian. This public convention differs from

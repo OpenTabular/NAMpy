@@ -78,7 +78,7 @@ def test_sian_lss_is_generated_from_the_same_architecture(tmp_path):
     estimator = SIANLSS(architecture_config=DefaultSIANConfig(interactions=(('x', 'z'),), layer_sizes=[5], l1_regularization=0.0), objective=ObjectiveConfig(family='normal'))
     estimator.set_params(training=replace(estimator.training or GradientTrainingConfig(optimizer="adagrad", lr=0.005, weight_decay=0.0), max_epochs=1, batch_size=16, checkpoint_path=tmp_path, trainer_kwargs={'logger': False, 'enable_progress_bar': False, 'enable_model_summary': False, 'num_sanity_val_steps': 0})).fit(X, y)
     assert estimator.model.model.num_classes == estimator.family_.param_count
-    assert estimator.predict(X.iloc[:4]).shape == (4, estimator.family_.param_count)
+    assert estimator.predict_parameters(X.iloc[:4]).shape == (4, estimator.family_.param_count)
 
 
 def test_sian_classifier_uses_discovery_and_shared_binary_objective(tmp_path):

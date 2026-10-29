@@ -65,9 +65,12 @@ class CalibratedQuantileGAM(_LossGAMBase):
     def _fit_calibrated(
         self, X, y, *, data, sample_weight, offset, bandwidth_reference=None
     ):
+        from .._offsets import predictor_offset
         from ..gam.design import compile_design
         from ..gam.losses.quantile_calibration import fit_calibrated_quantile_auto
 
+        if offset is not None:
+            offset = predictor_offset(offset, len(data if X is None else X), 1)
         design = compile_design(
             X,
             y,
@@ -87,6 +90,7 @@ class CalibratedQuantileGAM(_LossGAMBase):
                 "Calibrated quantile inference currently requires unweighted observations."
             )
         frame = data if X is None else X
+        self.predictor_names_ = ("predictor",)
         self.bandwidth_ = self.bandwidth
         if self.bandwidth is None:
             from ..gam.losses.quantile_bandwidth import estimate_quantile_bandwidth

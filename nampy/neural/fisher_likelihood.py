@@ -45,6 +45,18 @@ _FAMILIES = {
 }
 
 
+def declared_fisher_family(family_type, estimator, *, robustness=None):
+    """Class-level eligibility shared by discovery and likelihood validation."""
+    kind = "normal" if family_type is RobustNormalDistribution and robustness is None else _FAMILIES.get(family_type)
+    if kind is None:
+        raise NotImplementedError("This family does not declare a normalized Fisher likelihood.")
+    if estimator == "exact" and kind in {"negativebinomial", "studentt"}:
+        raise NotImplementedError(
+            f"Exact Fisher information is unavailable for {kind}; use a sampled estimator."
+        )
+    return kind
+
+
 @dataclass(frozen=True)
 class FisherLikelihood:
     """One declared response experiment, independent of fitting machinery."""
@@ -67,17 +79,10 @@ class FisherLikelihood:
             return cls("multiclass")
         if type(objective) is DistributionObjective:
             family = objective.family
-            kind = _FAMILIES.get(type(family))
-            if type(family) is RobustNormalDistribution and family.rob is None:
-                kind = "normal"
+            kind = declared_fisher_family(
+                type(family), config.estimator, robustness=getattr(family, "rob", None),
+            )
             if kind is not None:
-                if config.estimator == "exact" and kind in {
-                    "negativebinomial",
-                    "studentt",
-                }:
-                    raise NotImplementedError(
-                        f"Exact Fisher information is unavailable for {kind}; use a sampled estimator."
-                    )
                 if config.estimator == "negative_hessian" and any(
                     callable(value)
                     for name, value in vars(family).items()

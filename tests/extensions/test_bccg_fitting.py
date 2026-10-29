@@ -8,6 +8,7 @@ from scipy import special, stats
 from scipy.optimize import minimize
 
 from nampy import GAMLSS
+from nampy.diagnostics import quantile_residuals
 from nampy.gam.families.registry import make_gam_family
 from nampy.gam.model_state import _fit_result
 
@@ -74,7 +75,7 @@ def test_unpenalized_endpoint_matches_independent_normalized_likelihood_optimum(
             np.full(len(x), reference.x[3]),
         ]
     )
-    assert_allclose(model.predict(frame, raw=True), eta, atol=2e-5, rtol=0)
+    assert_allclose(model.predict_link(frame), eta, atol=2e-5, rtol=0)
     assert_allclose(model.score(frame, y), -reference.fun / len(y), atol=2e-10)
     assert_allclose(
         model.predict_distribution(frame).log_prob(y), _log_density(y, eta), atol=2e-5
@@ -114,10 +115,10 @@ def test_saved_r_unpenalized_endpoints(case):
     model = _model().fit(frame, sample_weight=frame.w.to_numpy())
     assert _fit_result(model.gam_).converged, (
         _fit_result(model.gam_).failure_reason,
-        np.max(np.abs(model.predict(frame) - frame[["mu", "sigma", "nu"]].to_numpy())),
+        np.max(np.abs(model.predict_parameters(frame) - frame[["mu", "sigma", "nu"]].to_numpy())),
     )
     assert_allclose(
-        model.predict(frame), frame[["mu", "sigma", "nu"]], atol=2e-5, rtol=0
+        model.predict_parameters(frame), frame[["mu", "sigma", "nu"]], atol=2e-5, rtol=0
     )
     assert_allclose(
         model.predict_distribution(frame).log_prob(frame.y), frame.log_prob, atol=2e-5
@@ -155,7 +156,7 @@ def test_three_predictor_fixed_smoothing_endpoint_and_full_covariance(tmp_path):
     x, y = frame.x.to_numpy(), frame.y.to_numpy()
     weights = np.resize([1.0, 0.0, 2.0, 0.5, 3.0], len(frame))
     offsets = [0.05 * x, -0.03 * x, 0.1 * x]
-    model = _smooth_model().fit(frame, sample_weight=weights, offset=offsets)
+    model = _smooth_model().fit(frame, sample_weight=weights, offset=np.column_stack(offsets))
     result = _fit_result(model.gam_)
     assert result.converged
     assert_allclose(model.gam_.smoothing_params, [0.3, 0.5, 0.7])
@@ -185,7 +186,7 @@ def test_three_predictor_fixed_smoothing_endpoint_and_full_covariance(tmp_path):
     assert_allclose(oracle.fun, objective(beta), atol=2e-9)
     assert_allclose(
         predictors(oracle.x),
-        model.predict(frame, raw=True, offset=offsets),
+        model.predict_link(frame, offset=np.column_stack(offsets)),
         atol=2e-5,
         rtol=0,
     )
@@ -208,24 +209,24 @@ def test_three_predictor_fixed_smoothing_endpoint_and_full_covariance(tmp_path):
             beta,
         )
         errors.append(np.sqrt(np.diag(derivative @ covariance @ derivative.T)))
-    assert_allclose(model.standard_errors(frame, offset=offsets)[:3], errors, atol=2e-8)
-    components = model.predict_components(frame, offset=offsets)
+    assert_allclose(model.standard_errors(frame, offset=np.column_stack(offsets))[:3], errors, atol=2e-8)
+    components = model.predict_components(frame, offset=np.column_stack(offsets))
     components.validate_additive_reconstruction()
     assert components.link.shape == (len(frame), 3)
-    distribution = model.predict_distribution(frame, offset=offsets)
-    assert_allclose(model.predict_point(frame, offset=offsets), distribution.mean())
+    distribution = model.predict_distribution(frame, offset=np.column_stack(offsets))
+    assert_allclose(model.predict_point(frame, offset=np.column_stack(offsets)), distribution.mean())
     assert distribution.sample(3, random_state=3).shape == (3, len(frame))
-    assert np.isfinite(distribution.quantile_residuals(y).residuals).all()
+    assert np.isfinite(quantile_residuals(distribution, y).residuals).all()
     assert clone(model).get_params() == model.get_params()
     restored = GAMLSS.load_model(model.save_model(tmp_path / "bccg.pkl"))
     assert_allclose(
-        restored.predict_distribution(frame, offset=offsets).quantile([0.1, 0.5, 0.9]),
+        restored.predict_distribution(frame, offset=np.column_stack(offsets)).quantile([0.1, 0.5, 0.9]),
         distribution.quantile([0.1, 0.5, 0.9]),
     )
     missing = frame.copy()
     missing.loc[4, "x"] = np.nan
-    assert np.isnan(model.predict_distribution(missing, offset=offsets).cdf(1)[4])
-    assert np.isnan(model.standard_errors(missing, offset=offsets)[4]).all()
+    assert np.isnan(model.predict_distribution(missing, offset=np.column_stack(offsets)).cdf(1)[4])
+    assert np.isnan(model.standard_errors(missing, offset=np.column_stack(offsets))[4]).all()
 
 
 def test_frequency_weights_and_offsets_match_duplicated_fixed_smoothing_fit():
@@ -252,15 +253,15 @@ def test_frequency_weights_and_offsets_match_duplicated_fixed_smoothing_fit():
             smoothing_params=[0.3, 0.5, 0.7],
         )
 
-    model = make_model().fit(frame, sample_weight=weights, offset=offsets)
+    model = make_model().fit(frame, sample_weight=weights, offset=np.column_stack(offsets))
     index = np.repeat(np.arange(len(frame)), weights)
     repeated = make_model().fit(
-        frame.iloc[index].reset_index(drop=True), offset=[o[index] for o in offsets]
+        frame.iloc[index].reset_index(drop=True), offset=np.column_stack(offsets)[index]
     )
     assert _fit_result(model.gam_).converged and _fit_result(repeated.gam_).converged
     assert_allclose(
-        model.predict(frame, offset=offsets),
-        repeated.predict(frame, offset=offsets),
+        model.predict(frame, offset=np.column_stack(offsets)),
+        repeated.predict(frame, offset=np.column_stack(offsets)),
         atol=3e-6,
         rtol=0,
     )
@@ -333,7 +334,7 @@ def test_overly_tight_stopping_rule_remains_honest_about_nonconvergence():
     else:
         assert status.eligible
     assert_allclose(
-        model.predict(frame), frame[["mu", "sigma", "nu"]], atol=2e-5, rtol=0
+        model.predict_parameters(frame), frame[["mu", "sigma", "nu"]], atol=2e-5, rtol=0
     )
 
 
@@ -349,7 +350,7 @@ def test_zero_power_endpoint_and_response_unit_equivariance():
             family="bccg_lss", formula=formula, optimize_smoothing=False
         ).fit(scaled)
         assert _fit_result(model.gam_).converged
-        models.append((factor, model, model.predict(scaled)))
+        models.append((factor, model, model.predict_parameters(scaled)))
     reference = models[0][2]
     assert abs(reference[0, 2]) < 2e-5
     for factor, model, parameters in models:

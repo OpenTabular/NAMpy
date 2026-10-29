@@ -400,7 +400,7 @@ x = np.linspace(-1,1,n)
 data = pd.DataFrame({{'x': x, 'y': {response}}})
 model = GAMLSS(family={name!r}, formula={formulas},
                {fit_options}).fit(data{context})
-parameters = model.predict(data)
+parameters = model.predict_parameters(data)
 point = model.predict_point(data{context})
 assert parameters.shape == (n,{len(natural_names)})
 result = {{'parameters': parameters, 'point': point, 'components': model.predict_components(data)}}
@@ -436,7 +436,7 @@ result = {{'parameters': parameters, 'point': point, 'components': model.predict
             else f"Use family={{'name': {name!r}, 'lower': L, 'upper': U}} for fixed truncation and supply ObservationTarget to fit. Defaults leave both tails untruncated.\n\n" if name.endswith("_observation_lss") else f"Pass ``GAMLSS(family={name!r})``; this family has no constructor options.\n\n"
         )
         point_summary = "conditional median" if name in {"lognormal_observation_lss", "weibull_observation_lss"} else "conditional mean"
-        text += f"``predict(X)`` returns natural parameters as a float ``(n,{len(natural_names)})`` array, ``predict(X, raw=True)`` returns link predictors ``(n,{len(names)})``, ``predict_point(X)`` returns the {point_summary} ``(n,)``, and ``predict_components(X)`` returns an AdditivePrediction whose link and each term are ``(n,{len(names)})``. ``X`` is a DataFrame or numeric ``(n,d)`` array, consistent with formula mode.\n\n"
+        text += f"``predict_parameters(X)`` returns natural parameters as a float ``(n,{len(natural_names)})`` array, ``predict_link(X)`` returns link predictors ``(n,{len(names)})``, ``predict_point(X)`` returns the {point_summary} ``(n,)``, and ``predict_components(X)`` returns an AdditivePrediction whose link and each term are ``(n,{len(names)})``. ``X`` is a DataFrame or numeric ``(n,d)`` array, consistent with formula mode.\n\n"
         derivative_order = {2: 'two', 3: 'three', 4: 'four'}[spec.factory.max_derivative_order]
         text += f"Likelihood derivatives through order {derivative_order} are analytic, including mixed derivatives. Fixed smoothing is tested; automatic smoothing requires an enabled runtime capability and route-specific evidence. Residual availability follows the observation contract; ordinary response/Pearson residuals are unavailable for censored targets. Deviance residuals and null deviance are not defined by this implementation; use explicit response/Pearson diagnostics or shared distribution quantile residuals rather than the default deviance-residual plotting workflow.\n\n"
         text += example_rst(root, page, code)

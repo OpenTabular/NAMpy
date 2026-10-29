@@ -137,7 +137,7 @@ never carried over to test rows. Batch size and supported distribution context
 arguments remain owned by the model's prediction method.
 
 ``calibrated.save_model(path)`` and ``ConformalPredictor.load_model(path)`` use
-NAMpy's trusted-file artifact format (currently version 6). They store fitted snapshots and
+NAMpy's trusted-file artifact format (currently version 7). They store fitted snapshots and
 scores, not calibration features/targets, trainers, callbacks or optimizer
 execution state. Backend artifact owners handle fitted-state exclusions. Previous artifacts are rejected before payload loading; there is no legacy
 reader or artifact migration route.
@@ -295,7 +295,7 @@ quantile lies beyond that support; no tail extrapolation is introduced. Results
 carry ``future_survival_time_conformal`` uncertainty and explicit conservative,
 known-selection or estimated-selection coverage labels. Source observations and
 selected subject IDs remain auditable; calibration stores scores and IDs, not
-raw target/covariate data. Survival wrappers support the same version-6 trusted
+raw target/covariate data. Survival wrappers support the same version-7 trusted
 persistence and isolated-fit lifecycle as scalar wrappers.
 
 These operations do not calibrate an entire survival curve or confidence band.

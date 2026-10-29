@@ -10,7 +10,7 @@ Signature
 
 .. code-block:: python
 
-   GAM.fisher_information(self, X=None, *, offset=None, context=None, config=None, return_diagonal=True)
+   GAM.fisher_information(self, X=None, *, offset=None, context=None, config=None, return_diagonal=True, batch_size=None)
 
 Parameters
 ----------
@@ -45,6 +45,10 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``bool``
      - ``True``
      - Retain aligned per-parameter information and sampling-error arrays when True; group summaries remain available when False.
+   * - ``batch_size``
+     - ``int | None``
+     - ``None``
+     - Positive prediction minibatch size; None uses the estimator/data-module default. It changes memory use, not the output dimensions.
 
 Returns
 -------

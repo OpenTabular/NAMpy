@@ -33,6 +33,11 @@ class ParameterizedObjective(torch.nn.Module):
         return "family_point"
     target_dtype = torch.float32
 
+    @property
+    def natural_parameter_names(self):
+        """Names of columns returned by the response-parameter transform."""
+        return tuple(self.param_names)
+
     def __init__(self, name: str, param_names: Sequence[str], eps: float = 1e-6):
         super().__init__()
         self._name = name

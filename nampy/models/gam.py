@@ -56,29 +56,29 @@ class GAMRegressor(_GAMAdapterBase):
 
     def predict(
         self,
-        X=None,
+        X,
         offset=None,
         *,
-        block_size=None,
+        batch_size=None,
         newdata_guaranteed=False,
         na_action="pass",
     ):
         """Response-scale prediction."""
         self._check_fitted()
-        if not newdata_guaranteed:
+        if X is None or not newdata_guaranteed:
             self._validate_X(X)
         return self.gam_.predict(
             X,
             type="response",
-            offset=offset,
-            block_size=block_size,
+            offset=self._backend_offset(X, offset, allow_missing=True),
+            block_size=batch_size,
             newdata_guaranteed=newdata_guaranteed,
             na_action=na_action,
         )
 
-    def score(self, X, y, sample_weight=None):
+    def score(self, X, y, sample_weight=None, *, offset=None):
         """Return the coefficient of determination R^2 of the prediction."""
-        return float(r2_score(y, self.predict(X), sample_weight=sample_weight))
+        return float(r2_score(y, self.predict(X, offset=offset), sample_weight=sample_weight))
 
     def evaluate(self, X, y_true, metrics=None):
         """Evaluate with a ``{name: metric_fn}`` dict (default: MSE)."""
@@ -194,23 +194,23 @@ class GAMClassifier(_GAMAdapterBase):
 
     def predict_proba(
         self,
-        X=None,
+        X,
         offset=None,
         *,
-        block_size=None,
+        batch_size=None,
         newdata_guaranteed=False,
         na_action="pass",
     ):
         """Class probabilities; columns follow ``self.classes_``."""
         self._check_fitted()
-        if not newdata_guaranteed:
+        if X is None or not newdata_guaranteed:
             self._validate_X(X)
         p1 = np.asarray(
             self.gam_.predict(
                 X,
                 type="response",
-                offset=offset,
-                block_size=block_size,
+                offset=self._backend_offset(X, offset, allow_missing=True),
+                block_size=batch_size,
                 newdata_guaranteed=newdata_guaranteed,
                 na_action=na_action,
             ),
@@ -220,10 +220,10 @@ class GAMClassifier(_GAMAdapterBase):
 
     def predict(
         self,
-        X=None,
+        X,
         offset=None,
         *,
-        block_size=None,
+        batch_size=None,
         newdata_guaranteed=False,
         na_action="pass",
     ):
@@ -231,7 +231,7 @@ class GAMClassifier(_GAMAdapterBase):
         p1 = self.predict_proba(
             X,
             offset=offset,
-            block_size=block_size,
+            batch_size=batch_size,
             newdata_guaranteed=newdata_guaranteed,
             na_action=na_action,
         )[:, 1]
@@ -249,7 +249,7 @@ class GAMClassifier(_GAMAdapterBase):
         X=None,
         offset=None,
         *,
-        block_size=None,
+        batch_size=None,
         newdata_guaranteed=False,
         na_action="pass",
     ):
@@ -257,11 +257,11 @@ class GAMClassifier(_GAMAdapterBase):
         return self.predict_link(
             X,
             offset=offset,
-            block_size=block_size,
+            batch_size=batch_size,
             newdata_guaranteed=newdata_guaranteed,
             na_action=na_action,
-        )
+        )[:, 0]
 
-    def score(self, X, y, sample_weight=None):
+    def score(self, X, y, sample_weight=None, *, offset=None):
         """Return the mean accuracy on the given test data and labels."""
-        return float(accuracy_score(y, self.predict(X), sample_weight=sample_weight))
+        return float(accuracy_score(y, self.predict(X, offset=offset), sample_weight=sample_weight))

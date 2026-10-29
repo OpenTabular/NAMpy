@@ -3,26 +3,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from .._data import _as_2d_array
 from ..contracts import FeatureSchema
-
-
-def _as_2d_array(X) -> np.ndarray:
-    array = np.asarray(X)
-    if array.ndim != 2:
-        raise ValueError(
-            "X must be a two-dimensional table with shape "
-            f"(n_samples, n_features); received shape {array.shape}."
-        )
-    return array
-
-
-def feature_frame(X, feature_names):
-    """Retain named rows or label a validated positional feature matrix."""
-    return (
-        X
-        if isinstance(X, pd.DataFrame)
-        else pd.DataFrame(_as_2d_array(X), columns=list(feature_names))
-    )
 
 
 def _stringify_columns(frame: pd.DataFrame) -> pd.DataFrame:

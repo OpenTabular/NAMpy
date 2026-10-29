@@ -29,7 +29,7 @@ def test_classifier_preserves_missing_predictions(classes, missing_in):
 
     probabilities = model.predict_proba(newdata, offset=offset)
     assert np.isnan(probabilities[3]).all()
-    prediction = model.predict(newdata, offset=offset, block_size=2)
+    prediction = model.predict(newdata, offset=offset, batch_size=2)
     assert pd.isna(prediction[3])
     retained = [0, 1, 2, 4, 5, 6]
     np.testing.assert_array_equal(prediction[retained], baseline[retained])

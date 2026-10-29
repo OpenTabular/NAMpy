@@ -7,6 +7,7 @@ import torch
 from numpy.testing import assert_allclose, assert_array_equal
 from sklearn.exceptions import NotFittedError
 
+from nampy.diagnostics import quantile_residuals
 from nampy.gam.families.gamlss import gammals, gaulss
 from nampy.gam.families.gamlss.distributional import (
     BetaLocationPrecision,
@@ -85,11 +86,11 @@ def test_fitted_neural_estimator_transforms_once_and_honors_batching(family, tmp
     }[family]
     estimator = LinRegLSS(objective=ObjectiveConfig(family=family), preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'), training=GradientTrainingConfig(max_epochs=1, patience=1, random_state=7, checkpoint_path=str(tmp_path), trainer_kwargs={'logger': False, 'enable_progress_bar': False, 'enable_model_summary': False, 'num_sanity_val_steps': 0})).fit(X, y)
     subset = X.iloc[[11, 2, 24]]
-    before = estimator.predict(subset, batch_size=2)
+    before = estimator.predict_parameters(subset, batch_size=2)
     prediction = estimator.predict_distribution(subset, batch_size=2)
     point = prediction.parameters["loc"] if family == "studentt" else prediction.mean()
     assert_allclose(point, estimator.predict_point(subset, batch_size=2), rtol=2e-7)
-    assert_array_equal(estimator.predict(subset, batch_size=2), before)
+    assert_array_equal(estimator.predict_parameters(subset, batch_size=2), before)
     assert_allclose(
         prediction.log_prob(y[[11, 2, 24]]).mean(),
         estimator.score(subset, y[[11, 2, 24]]),
@@ -97,7 +98,7 @@ def test_fitted_neural_estimator_transforms_once_and_honors_batching(family, tmp
     )
     assert prediction.quantile([0.1, 0.9]).shape == (3, 2)
     assert np.isfinite(
-        prediction.quantile_residuals(y[[11, 2, 24]], random_state=7).residuals
+        quantile_residuals(prediction, y[[11, 2, 24]], random_state=7).residuals
     ).all()
 
 

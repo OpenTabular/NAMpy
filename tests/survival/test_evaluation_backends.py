@@ -10,12 +10,12 @@ from nampy import (
     SurvivalGAM,
     SurvivalObjectiveConfig,
 )
+from nampy.diagnostics import survival_residuals
 from nampy.survival import (
     CensoringDistribution,
     SurvivalTarget,
     brier_score,
     concordance_index,
-    survival_residuals,
 )
 from tests.survival.test_censored_fitting import sample
 

@@ -11,11 +11,22 @@ combine a registered architecture with an objective and delegate training to
 references. They are not runtime dependencies or additional NAMpy backends.
 
 The public task packages are ``distributions`` (probability queries),
-``diagnostics`` (residuals and centiles), ``inspection`` (effects and importance),
+``diagnostics`` (residuals, centiles, effects, importance and Fisher information),
 ``plotting`` (rendering), ``calibration`` and ``survival``. Shared distribution
 contracts live with probability laws; generic feature/additive contracts remain
 in ``nampy.contracts``. See :doc:`user_guide/api_and_families` for canonical
 imports and the generated backend support table.
+
+``models/comparison.py`` owns candidate fitting and held-out ranking.
+Probability laws have no fitting or diagnostics dependency; residuals consume
+probability predictions through ``nampy.diagnostics``. Neutral table adaptation
+and offset validation live in ``_data.py`` and ``_offsets.py``. Statistical
+prediction covariance calculations remain in ``gam/inference``.
+
+``model.capabilities()`` composes existing family and architecture declarations
+with fitted-state validators. It reports supported, conditional or unsupported
+operations without evaluating predictions or differentiating the fitted model.
+See :doc:`user_guide/model_workflow` for the shared task contracts.
 
 Training families are named by their owner: ``gam/families`` supplies statistical
 likelihood derivatives and ``neural/families`` supplies Torch losses. Their
@@ -343,7 +354,7 @@ differ: BEINF has four predictors and five natural parameters, while multinomial
 models have K predictors and K+1 probabilities. No reference column is inserted
 into an additive decomposition.
 
-``nampy.inspection`` owns numerical preparation of distributional effects.
+``nampy.diagnostics`` owns numerical preparation of distributional effects.
 Backend adapters evaluate hypothetical predictor arrays through
 ``summarize_predictors``. Renderers consume prepared numerical data and do not
 inspect neural objectives or import Torch. Conditional distribution spread and

@@ -296,7 +296,7 @@ def test_public_neural_estimator_fits_and_predicts(case, tmp_path):
         assert np.isfinite(probabilities).all()
         np.testing.assert_allclose(probabilities.sum(axis=1), 1.0, atol=1e-6)
     else:
-        predictions = estimator.predict(data, raw=True) if case.task in {"lss", "quantile"} else estimator.predict(data)
+        predictions = estimator.predict_link(data) if case.task in {"lss", "quantile"} else estimator.predict(data)
         expected_width = 3 if case.task == "quantile" else (2 if case.task == "lss" else None)
         expected_shape = (len(data), expected_width) if expected_width else (len(data),)
         assert predictions.shape == expected_shape

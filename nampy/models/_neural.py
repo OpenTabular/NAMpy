@@ -25,6 +25,12 @@ from ._data import prepare_predict_features
 class NeuralEstimatorBase(BaseEstimator):
     """Base class for shared NAMpy sklearn estimator behavior."""
 
+    def capabilities(self):
+        """Return immutable operation declarations refined by fitted state."""
+        from ..neural.capabilities import estimator_capabilities
+
+        return estimator_capabilities(self)
+
     def fit(
         self,
         X,
@@ -83,6 +89,9 @@ class NeuralEstimatorBase(BaseEstimator):
 
     def _record_model_metadata(self) -> None:
         """Expose backend-independent complexity and fitted architecture state."""
+        self.predictor_names_ = tuple(
+            f"predictor[{i}]" for i in range(self.model.objective.output_dim)
+        )
         parameters = tuple(self.model.parameters())
         self.n_parameters_total_ = int(
             sum(parameter.numel() for parameter in parameters)
@@ -116,6 +125,10 @@ class NeuralEstimatorBase(BaseEstimator):
         result["output"] = add_predictor_offset(result["output"], offset)
         return result
 
+    def predict_link(self, X, *, batch_size=None, offset=None):
+        """Return additive raw predictors with explicit row and predictor axes."""
+        return self._predict(X, batch_size=batch_size, offset=offset)["output"].cpu().numpy()
+
     def basis_transform(self, X, *, batch_size: int | None = None):
         """Return an optional architecture's fixed design matrix."""
         from ..neural.prediction import basis_transform
@@ -135,7 +148,7 @@ class NeuralEstimatorBase(BaseEstimator):
         offsets. Diagnostics evaluate the deterministic fitted model and retain
         neither reference observations nor training execution state.
         """
-        from ..inspection.fisher import FisherDiagnostics, normalize_fisher_diagnostics
+        from ..diagnostics.fisher import FisherDiagnostics, normalize_fisher_diagnostics
         from ..neural.fisher import estimate_fisher_information
         from ..neural.offsets import predictor_offset
 
@@ -256,7 +269,7 @@ class NeuralEstimatorBase(BaseEstimator):
     ):
 
         from ..contracts import AdditiveTermMetadata
-        from ..inspection.contributions import (
+        from ..diagnostics.contributions import (
             _term_features,
             center_additive_prediction,
         )
@@ -385,7 +398,7 @@ class NeuralEstimatorBase(BaseEstimator):
         reference_weight=None,
     ):
         """Return a binned, backend-neutral additive-term explanation table."""
-        from ..inspection.contributions import explain_additive_prediction
+        from ..diagnostics.contributions import explain_additive_prediction
 
         return explain_additive_prediction(
             X,
@@ -407,7 +420,7 @@ class NeuralEstimatorBase(BaseEstimator):
         reference_weight=None,
     ):
         """Return mean absolute link-scale contribution by additive term."""
-        from ..inspection.contributions import term_importance_table
+        from ..diagnostics.contributions import term_importance_table
 
         return term_importance_table(
             self.predict_components(
@@ -459,7 +472,7 @@ class NeuralEstimatorBase(BaseEstimator):
         preprocessing=None,
         fisher_diagnostics=False,
     ):
-        from ..inspection.fisher import normalize_fisher_diagnostics
+        from ..diagnostics.fisher import normalize_fisher_diagnostics
 
         normalize_fisher_diagnostics(fisher_diagnostics)
         self.fisher_diagnostics = fisher_diagnostics
@@ -573,7 +586,7 @@ class NeuralEstimatorBase(BaseEstimator):
             if isinstance(record, PreprocessingConfig):
                 params[group] = PreprocessingConfig(**(record.parameters | updates))
             elif group == "fisher_diagnostics" and isinstance(record, bool):
-                from ..inspection.fisher import FisherDiagnostics
+                from ..diagnostics.fisher import FisherDiagnostics
 
                 params[group] = FisherDiagnostics(**updates)
             elif record is None and group == "training":

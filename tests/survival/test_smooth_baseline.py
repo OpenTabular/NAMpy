@@ -9,12 +9,12 @@ from numpy.testing import assert_allclose, assert_array_equal
 from sklearn.base import clone
 
 from nampy import SurvivalGAM
+from nampy.diagnostics import prepare_survival_effects
 from nampy.survival import (
     SurvivalTarget,
     bootstrap_survival,
     prepare_survival_curve_interval,
     prepare_survival_effect_interval,
-    prepare_survival_effects,
 )
 
 

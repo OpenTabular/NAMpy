@@ -125,29 +125,49 @@ class NeuralEnsemble(BaseEstimator):
             raise NotFittedError("Call fit before using NeuralEnsemble.")
         return members
 
-    def predict_proba(self, X):
+    def capabilities(self):
+        """Expose component prediction support without inventing ensemble Fisher."""
+        from types import MappingProxyType
+
+        from ..contracts import CapabilityStatus
+
+        source = self.estimators_[0] if getattr(self, "estimators_", ()) else self.estimator
+        result = dict(source.capabilities())
+        for name in result:
+            if name.startswith("fisher.") or name == "uncertainty.coefficients":
+                result[name] = CapabilityStatus("unsupported", "Ensemble parameter inference has no declared joint model.")
+        return MappingProxyType(result)
+
+    def predict_link(self, X, *, offset=None, batch_size=None):
+        """Average member additive predictors in their common output coordinates."""
+        return np.mean([
+            member.predict_link(X, offset=offset, batch_size=batch_size)
+            for member in self._members()
+        ], axis=0)
+
+    def predict_proba(self, X, *, offset=None, batch_size=None):
         if self._estimator_type != "classifier":
             raise AttributeError("predict_proba is only available for classifiers.")
         probabilities = np.stack(
-            [member.predict_proba(X) for member in self._members()], axis=0
+            [member.predict_proba(X, offset=offset, batch_size=batch_size) for member in self._members()], axis=0
         )
         return probabilities.mean(axis=0)
 
-    def predict(self, X):
+    def predict(self, X, *, offset=None, batch_size=None):
         if self._estimator_type == "classifier":
-            probabilities = self.predict_proba(X)
+            probabilities = self.predict_proba(X, offset=offset, batch_size=batch_size)
             return self.classes_[np.argmax(probabilities, axis=1)]
         predictions = np.stack(
-            [member.predict(X) for member in self._members()], axis=0
+            [member.predict(X, offset=offset, batch_size=batch_size) for member in self._members()], axis=0
         )
         return predictions.mean(axis=0)
 
-    def score(self, X, y, sample_weight=None):
+    def score(self, X, y, sample_weight=None, *, offset=None, batch_size=None):
         if self._estimator_type == "classifier":
             return float(
-                accuracy_score(y, self.predict(X), sample_weight=sample_weight)
+                accuracy_score(y, self.predict(X, offset=offset, batch_size=batch_size), sample_weight=sample_weight)
             )
-        return float(r2_score(y, self.predict(X), sample_weight=sample_weight))
+        return float(r2_score(y, self.predict(X, offset=offset, batch_size=batch_size), sample_weight=sample_weight))
 
     @staticmethod
     def _aggregate_components(components):
@@ -231,6 +251,8 @@ class NeuralEnsemble(BaseEstimator):
         X,
         *,
         center: bool = False,
+        offset=None,
+        batch_size=None,
         reference_X=None,
         reference_weight=None,
     ) -> EnsembleAdditivePrediction:
@@ -239,6 +261,8 @@ class NeuralEnsemble(BaseEstimator):
             member.predict_components(
                 X,
                 center=center,
+                offset=offset,
+                batch_size=batch_size,
                 reference_X=reference_X,
                 reference_weight=reference_weight,
             )
@@ -251,6 +275,8 @@ class NeuralEnsemble(BaseEstimator):
         X,
         *,
         center: bool = False,
+        offset=None,
+        batch_size=None,
         reference_X=None,
         reference_weight=None,
     ) -> AdditivePrediction:
@@ -258,6 +284,8 @@ class NeuralEnsemble(BaseEstimator):
         return self.predict_component_uncertainty(
             X,
             center=center,
+            offset=offset,
+            batch_size=batch_size,
             reference_X=reference_X,
             reference_weight=reference_weight,
         ).mean

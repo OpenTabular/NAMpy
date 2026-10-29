@@ -13,6 +13,7 @@ from scipy.optimize._numdiff import approx_derivative
 from sklearn.base import clone
 
 from nampy import GAMLSS
+from nampy.diagnostics import quantile_residuals
 from nampy.gam.families.gamlss._taylor import Taylor
 from nampy.gam.families.registry import make_gam_family
 from nampy.gam.fit.capabilities import coerce_general_family_smoothing_method
@@ -60,7 +61,7 @@ def test_probability_and_unpenalized_fit_match_recorded_r_gamlss(name):
     frame = _data(name)
     model = _model(name, optimize_smoothing=False).fit(frame)
     assert _fit_result(model.gam_).converged
-    assert_allclose(model.predict(frame), frame[["first", "second"]], atol=2e-5, rtol=0)
+    assert_allclose(model.predict_parameters(frame), frame[["first", "second"]], atol=2e-5, rtol=0)
     assert_allclose(
         model.predict_distribution(frame).log_prob(frame.y),
         frame.log_density,
@@ -68,7 +69,7 @@ def test_probability_and_unpenalized_fit_match_recorded_r_gamlss(name):
         rtol=0,
     )
     assert np.isfinite(
-        model.predict_distribution(frame).quantile_residuals(frame.y).residuals
+        quantile_residuals(model.predict_distribution(frame), frame.y).residuals
     ).all()
 
 
@@ -115,8 +116,8 @@ def test_lognormal_weighted_mle_and_response_jacobian():
     )[0]
     loc = X @ beta
     scale = np.sqrt(np.average((log_y - loc) ** 2, weights=weights))
-    assert_allclose(model.predict(frame)[:, 0], loc, atol=2e-7)
-    assert_allclose(model.predict(frame)[:, 1], scale, atol=2e-7)
+    assert_allclose(model.predict_parameters(frame)[:, 0], loc, atol=2e-7)
+    assert_allclose(model.predict_parameters(frame)[:, 1], scale, atol=2e-7)
     density = (
         -0.5 * np.log(2 * np.pi)
         - np.log(scale)
@@ -147,7 +148,7 @@ def test_weibull_intercept_mle_matches_independent_profile_root():
     shape = brentq(profile, 0.01, 100.0)
     scale = np.exp(np.log(np.mean(np.exp(shape * log_y))) / shape)
     assert_allclose(
-        model.predict(frame), np.tile([scale, shape], (len(frame), 1)), atol=2e-6
+        model.predict_parameters(frame), np.tile([scale, shape], (len(frame), 1)), atol=2e-6
     )
 
 
@@ -158,30 +159,28 @@ def test_fixed_penalty_weights_offsets_persistence_and_prediction_uncertainty(
     frame = _data(name)
     weights = np.tile([1, 2, 3], len(frame) // 3)
     offsets = [np.linspace(-0.1, 0.1, len(frame)), np.linspace(0.05, -0.05, len(frame))]
-    model = _model(
-        name, smooth=True, optimize_smoothing=False, smoothing_params=[0.3, 0.7]
-    ).fit(frame, sample_weight=weights, offset=offsets)
+    model = _model(name, smooth=True, optimize_smoothing=False, smoothing_params=[0.3, 0.7]).fit(frame, sample_weight=weights, offset=np.column_stack(offsets))
     repeated = _model(
         name, smooth=True, optimize_smoothing=False, smoothing_params=[0.3, 0.7]
     ).fit(
         frame.loc[frame.index.repeat(weights)].reset_index(drop=True),
-        offset=[np.repeat(o, weights) for o in offsets],
+        offset=np.column_stack([np.repeat(o, weights) for o in offsets]),
     )
     assert_allclose(
-        model.predict(frame, offset=offsets),
-        repeated.predict(frame, offset=offsets),
+        model.predict_parameters(frame, offset=np.column_stack(offsets)),
+        repeated.predict_parameters(frame, offset=np.column_stack(offsets)),
         atol=2e-6,
     )
-    components = model.predict_components(frame, offset=offsets)
+    components = model.predict_components(frame, offset=np.column_stack(offsets))
     components.validate_additive_reconstruction()
     assert np.isfinite(model.standard_errors(frame)).all()
     native, native_se = model.gam_.predict(frame, return_se=True)
-    assert_allclose(native, model.predict(frame))
+    assert_allclose(native, model.predict_parameters(frame))
     assert_allclose(native_se, model.standard_errors(frame), atol=1e-13)
     distribution = model.predict_distribution(frame)
     assert_allclose(model.predict_point(frame), distribution.mean(), rtol=1e-12)
     assert_allclose(
-        model.gam_.family.variance_from_parameters(model.predict(frame)),
+        model.gam_.family.variance_from_parameters(model.predict_parameters(frame)),
         distribution.variance(),
         rtol=1e-12,
     )

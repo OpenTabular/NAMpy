@@ -57,7 +57,7 @@ def test_twlss_persistence_preserves_exact_state_and_linear_prediction(
         restored.gam_.lpmatrix(data), model.gam_.lpmatrix(data)
     )
     np.testing.assert_array_equal(
-        restored.predict(data, raw=True), model.predict(data, raw=True)
+        restored.predict_link(data), model.predict_link(data)
     )
     assert restored.gam_.family.a == model.gam_.family.a
     assert restored.gam_.family.b == model.gam_.family.b

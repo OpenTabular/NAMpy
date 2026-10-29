@@ -21,26 +21,29 @@ class _SeededAdditiveRegressor(BaseEstimator):
         self.intercept_ = float(self.random_state)
         return self
 
-    def predict(self, X):
+    def predict(self, X, *, offset=None, batch_size=None):
         values = np.asarray(X)[:, 0]
-        return values + self.intercept_
+        return values + self.intercept_ + (0. if offset is None else np.asarray(offset).reshape(-1))
 
     def predict_components(
         self,
         X,
         *,
         center=False,
+        offset=None,
+        batch_size=None,
         reference_X=None,
         reference_weight=None,
     ):
         del center, reference_X, reference_weight
         values = np.asarray(X)[:, 0]
-        prediction = self.predict(X)
+        prediction = self.predict(X, offset=offset, batch_size=batch_size)
         return AdditivePrediction(
             link=prediction,
             terms={"x": values},
             intercept=self.intercept_,
             backend="neural",
+            offset=offset,
         )
 
 
@@ -55,7 +58,7 @@ class _RecordingRegressor(BaseEstimator):
         self.random_state_ = random_state
         return self
 
-    def predict(self, X):
+    def predict(self, X, *, offset=None, batch_size=None):
         return np.zeros(len(X))
 
 
@@ -70,6 +73,9 @@ def test_independent_ensemble_averages_components_and_reports_uncertainty():
     ).fit(X, y)
 
     np.testing.assert_allclose(ensemble.predict(X), X[:, 0] + 11.0)
+    np.testing.assert_allclose(ensemble.predict(X, offset=np.ones(len(X)), batch_size=2), X[:, 0] + 12.0)
+    shifted = ensemble.predict_components(X, offset=np.ones(len(X)), batch_size=2)
+    shifted.validate_additive_reconstruction()
     uncertainty = ensemble.predict_component_uncertainty(X)
     uncertainty.mean.validate_additive_reconstruction()
     assert uncertainty.n_estimators == 3

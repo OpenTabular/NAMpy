@@ -6,6 +6,11 @@ from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
 _EXPORT_MODULES = {
+    "DistributionCandidate": ".comparison",
+    "DistributionComparison": ".comparison",
+    "DistributionComparisonRow": ".comparison",
+    "compare_distributions": ".comparison",
+
     "SurvivalGAM": ".survival",
     "CoxGAM": ".cox",
     "CalibratedQuantileGAM": ".calibrated_quantile",

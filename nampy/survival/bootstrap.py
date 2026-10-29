@@ -11,8 +11,8 @@ from tempfile import TemporaryDirectory
 
 import numpy as np
 
+from ..diagnostics.survival import SurvivalEffects, prepare_survival_effects
 from .contracts import SurvivalTarget, _readonly, validate_weights
-from .interpretation import SurvivalEffects, prepare_survival_effects
 from .prediction import SurvivalPrediction
 from .uncertainty import (
     SurvivalCurveInterval,

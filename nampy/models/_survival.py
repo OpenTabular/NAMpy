@@ -261,7 +261,7 @@ class NeuralSurvival(NeuralEstimatorBase):
 
     def distribution_fit_status(self):
         """Training completion is distinct from statistical optimizer convergence."""
-        from ..distributions.contracts import DistributionFitStatus
+        from ..contracts import DistributionFitStatus
 
         self._require_neural_fit()
         return DistributionFitStatus("neural", "completed",
@@ -404,7 +404,7 @@ class NeuralSurvival(NeuralEstimatorBase):
         reference_weight=None,
         batch_size=None,
     ):
-        from ..inspection.contributions import center_additive_prediction
+        from ..diagnostics.contributions import center_additive_prediction
 
         self._require_neural_fit()
         validate_covariates(X)

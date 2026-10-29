@@ -67,31 +67,6 @@ class DistributionSpec:
             object.__setattr__(self, "atom_locations", atoms)
 
 
-@dataclass(frozen=True)
-class DistributionFitStatus:
-    """Backend-owned eligibility evidence, separate from probability support.
-
-    Statistical convergence and completed neural training are distinct states.
-    Unknown, failed and nonconverged fits are not eligible for family ranking.
-    """
-
-    backend: str
-    state: Literal["converged", "completed", "nonconverged", "failed", "unknown"]
-    message: str = ""
-
-    def __post_init__(self):
-        if not self.backend or self.state not in {
-            "converged",
-            "completed",
-            "nonconverged",
-            "failed",
-            "unknown",
-        }:
-            raise ValueError("Invalid distribution fit status.")
-
-    @property
-    def eligible(self) -> bool:
-        return self.state in {"converged", "completed"}
 
 
 class DistributionLaw(Protocol):

@@ -15,7 +15,7 @@ def test_shared_artifact_preserves_estimator_type(cls, tmp_path):
     restored = cls.load_model(path)
     assert type(restored) is cls
     with path.open("rb") as handle:
-        assert handle.readline() == b"NAMPY-ESTIMATOR 6\n"
+        assert handle.readline() == b"NAMPY-ESTIMATOR 7\n"
         envelope = json.loads(handle.readline())
     assert envelope["format"] == "nampy-estimator"
     assert envelope["estimator_class"] == cls.__name__
@@ -41,7 +41,7 @@ def test_shared_artifact_rejects_unsupported_envelopes(payload, cls, tmp_path):
         cls.load_model(path)
 
 
-@pytest.mark.parametrize("version", [1, 2, 3, 4, 5])
+@pytest.mark.parametrize("version", [1, 2, 3, 4, 5, 6])
 def test_previous_readable_artifact_headers_are_rejected_before_payload(version, tmp_path):
     path = tmp_path / "previous.nampy"
     path.write_bytes(f"NAMPY-ESTIMATOR {version}\n".encode() + b"this payload must never be unpickled")

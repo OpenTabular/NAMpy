@@ -22,7 +22,7 @@ from tests.survival.test_censored_fitting import sample
 
 def test_centering_keeps_original_neural_precision_with_double_offsets():
     from nampy.contracts import AdditivePrediction
-    from nampy.inspection.contributions import center_additive_prediction
+    from nampy.diagnostics.contributions import center_additive_prediction
 
     a = np.array([[.11, -.17], [.21, .31]], dtype=np.float32)
     b = np.array([[.35, .09], [-.2, .12]], dtype=np.float32)

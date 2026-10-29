@@ -5,10 +5,10 @@ from __future__ import annotations
 import numpy as np
 from sklearn.base import BaseEstimator
 
+from .._data import feature_frame
 from ..contracts import AdditivePrediction, AdditiveTermMetadata, FeatureSchema
 from ..gam import GAM
 from ..persistence import load_estimator, save_estimator
-from ._data import feature_frame
 
 _GAM_CONSTRUCTOR_PARAMS = (
     "k",
@@ -40,6 +40,12 @@ _GAM_CONSTRUCTOR_PARAMS = (
 
 class _GAMAdapterBase(BaseEstimator):
     """Shared plumbing for the GAM adapters. Not part of the public API."""
+
+    def capabilities(self):
+        """Discover declared statistical operations without evaluating rows."""
+        from ..gam.capabilities import estimator_capabilities
+
+        return estimator_capabilities(self, task=getattr(self, "_prediction_kind", "regression"))
 
     def __init__(
         self,
@@ -95,7 +101,7 @@ class _GAMAdapterBase(BaseEstimator):
         self.nei = nei
         self.coefficient_optimizer = coefficient_optimizer
         self.optim_method = optim_method
-        from ..inspection.fisher import normalize_fisher_diagnostics
+        from ..diagnostics.fisher import normalize_fisher_diagnostics
 
         normalize_fisher_diagnostics(fisher_diagnostics)
         self.fisher_diagnostics = fisher_diagnostics
@@ -123,6 +129,8 @@ class _GAMAdapterBase(BaseEstimator):
     def _fit_gam(self, X, y, *, data=None, sample_weight=None, offset=None, context=None):
         gam = self._build_gam()
         self._validate_family_role(gam.family)
+        frame = data if data is not None else X
+        offset = self._backend_offset(frame, offset, gam=gam)
         if self.formula is not None:
             frame = data if data is not None else X
             schema = None
@@ -136,6 +144,7 @@ class _GAMAdapterBase(BaseEstimator):
             gam.fit(X, y, sample_weight=sample_weight, offset=offset, context=context)
 
         self.gam_ = gam
+        self.predictor_names_ = tuple(getattr(gam.family, "parameter_names", ()) or ("predictor",))
         self.schema_ = schema
         for name in ("fisher_config_", "fisher_history_", "fisher_information_"):
             setattr(self, name, getattr(gam, name))
@@ -149,6 +158,26 @@ class _GAMAdapterBase(BaseEstimator):
             )
         return self
 
+    def _backend_offset(self, X, offset, *, gam=None, allow_missing=False):
+        """Translate the shared row/predictor axes at the backend boundary."""
+        from .._offsets import predictor_offset
+        from ..gam.model_state import _predictor_full_indices
+
+        if X is None:
+            raise ValueError("Explicit input rows are required.")
+        gam = self.gam_ if gam is None else gam
+        count = (
+            len(_predictor_full_indices(gam))
+            if getattr(gam, "_fitted", False)
+            else int(getattr(gam.family, "n_linear_predictors", 1))
+        )
+        values = predictor_offset(offset, len(X), count, allow_missing=allow_missing)
+        if values is None:
+            return None
+        if getattr(gam.family, "family_class", "") == "general":
+            return list(values.T)
+        return values[:, 0]
+
     def _check_fitted(self):
         if getattr(self, "gam_", None) is None:
             raise ValueError(
@@ -156,17 +185,26 @@ class _GAMAdapterBase(BaseEstimator):
                 "Call 'fit' before using this method."
             )
 
-    def fisher_information(self, X=None, *, offset=None, context=None, config=None,
-                           return_diagonal=True):
+    def fisher_information(self, X, *, offset=None, context=None, config=None,
+                           batch_size=None):
         """Evaluate mean likelihood information on explicit reference rows."""
         self._check_fitted()
         self._validate_X(X)
-        return self.gam_.fisher_information(X, offset=offset, context=context,
-            config=config, return_diagonal=return_diagonal)
+        from ..diagnostics.fisher import FisherDiagnostics, normalize_fisher_diagnostics
+        resolved = config if config is not None else normalize_fisher_diagnostics(self.fisher_diagnostics) or FisherDiagnostics()
+        if not isinstance(resolved, FisherDiagnostics):
+            raise TypeError("config must be FisherDiagnostics or None.")
+        return self.gam_.fisher_information(
+            X, offset=self._backend_offset(X, offset), context=context,
+            config=resolved, return_diagonal=resolved.record_diagonal != "never",
+            batch_size=batch_size,
+        )
 
     def _validate_X(self, X):
+        if X is None:
+            raise ValueError("Explicit input rows are required.")
         schema = getattr(self, "schema_", None)
-        if X is not None and schema is not None:
+        if schema is not None:
             schema.validate(X if hasattr(X, "columns") else np.asarray(X))
         return X
 
@@ -176,43 +214,44 @@ class _GAMAdapterBase(BaseEstimator):
 
     def predict_link(
         self,
-        X=None,
+        X,
         offset=None,
         *,
-        block_size=None,
+        batch_size=None,
         newdata_guaranteed=False,
         na_action="pass",
     ):
         """Linear-predictor (link-scale) prediction."""
         self._check_fitted()
-        if not newdata_guaranteed:
+        if X is None or not newdata_guaranteed:
             self._validate_X(X)
-        return self.gam_.predict(
+        values = np.asarray(self.gam_.predict(
             X,
             type="link",
-            offset=offset,
-            block_size=block_size,
+            offset=self._backend_offset(X, offset, allow_missing=True),
+            block_size=batch_size,
             newdata_guaranteed=newdata_guaranteed,
             na_action=na_action,
-        )
+        ))
+        return values[:, None] if values.ndim == 1 else values
 
     def predict_components(
         self,
-        X=None,
+        X,
         offset=None,
         *,
-        block_size=None,
+        batch_size=None,
         newdata_guaranteed=False,
         na_action="pass",
     ) -> AdditivePrediction:
         """Per-term link-scale contributions as a backend-neutral result."""
         self._check_fitted()
-        if not newdata_guaranteed:
+        if X is None or not newdata_guaranteed:
             self._validate_X(X)
         vals = self.gam_.predict_terms(
             X,
-            offset=offset,
-            block_size=block_size,
+            offset=self._backend_offset(X, offset, allow_missing=True),
+            block_size=batch_size,
             newdata_guaranteed=newdata_guaranteed,
             na_action=na_action,
         )
@@ -259,7 +298,7 @@ class _GAMAdapterBase(BaseEstimator):
 
     def explain_terms(self, X=None, *, max_bins: int = 64, offset=None):
         """Return a binned additive-term table shared with neural estimators."""
-        from ..inspection.contributions import explain_additive_prediction
+        from ..diagnostics.contributions import explain_additive_prediction
 
         if X is None:
             raise ValueError("X is required to construct an explanation table.")
@@ -269,7 +308,7 @@ class _GAMAdapterBase(BaseEstimator):
 
     def term_importance(self, X=None, *, offset=None):
         """Return mean absolute link-scale contribution by additive term."""
-        from ..inspection.contributions import term_importance_table
+        from ..diagnostics.contributions import term_importance_table
 
         return term_importance_table(self.predict_components(X, offset=offset))
 
@@ -296,21 +335,21 @@ class _GAMAdapterBase(BaseEstimator):
         type="response",
         offset=None,
         *,
-        block_size=None,
+        batch_size=None,
         newdata_guaranteed=False,
         na_action="pass",
         unconditional=False,
     ):
         """Pointwise prediction standard errors."""
         self._check_fitted()
-        if not newdata_guaranteed:
+        if X is None or not newdata_guaranteed:
             self._validate_X(X)
         _, se = self.gam_.predict(
             X,
             return_se=True,
             type=type,
-            offset=offset,
-            block_size=block_size,
+            offset=self._backend_offset(X, offset, allow_missing=True),
+            block_size=batch_size,
             newdata_guaranteed=newdata_guaranteed,
             na_action=na_action,
             unconditional=unconditional,
@@ -321,17 +360,17 @@ class _GAMAdapterBase(BaseEstimator):
         self,
         X,
         *,
-        block_size=None,
+        batch_size=None,
         newdata_guaranteed=False,
         na_action="pass",
     ):
         """Linear-predictor matrix for new data."""
         self._check_fitted()
-        if not newdata_guaranteed:
+        if X is None or not newdata_guaranteed:
             self._validate_X(X)
         return self.gam_.lpmatrix(
             X,
-            block_size=block_size,
+            block_size=batch_size,
             newdata_guaranteed=newdata_guaranteed,
             na_action=na_action,
         )

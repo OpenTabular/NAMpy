@@ -3,6 +3,10 @@ Predict with an Offset
 
 An offset is a known contribution to the linear predictor with coefficient fixed at one. It must be included consistently during fitting and prediction.
 
+For both task-facing engines, use an offset array of shape ``(n, K)`` for
+``K`` additive predictors. A vector is also accepted when ``K=1``.
+GAMLSS offsets follow predictor order, rather than natural-parameter width.
+
 Compare two supplied exposures
 ------------------------------
 

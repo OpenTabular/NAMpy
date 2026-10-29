@@ -372,7 +372,7 @@ def estimator_text(cls, spec, objective):
     elif objective == "classification":
         shape = "``predict`` returns class labels; ``predict_proba`` returns ``(n_samples, n_classes)`` probabilities in ``classes_`` order. Component extraction describes all actual logits; probabilities are queried separately. ``score`` returns mean classification accuracy (higher is better), with optional sample weights."
     else:
-        shape = "``predict`` returns natural distribution parameters; ``predict(raw=True)`` returns additive predictors. For fixed scalar families, natural columns follow ``family_.param_names``. Categorical and ordinal outputs instead have one probability per class; multivariate families depend on configured dimension, and quantiles have one column per requested level. Raw width follows ``family_.param_count``. ``predict_point`` returns the family-defined point prediction. ``score`` returns negative mean family loss (higher is better); evaluation loss is lower-is-better."
+        shape = "``predict`` returns the family-defined point prediction; ``predict_parameters`` returns natural distribution parameters and ``predict_link`` returns additive predictors. Quantile-loss families instead return the explicitly fitted quantile vector and do not provide a full probability law or natural parameter matrix. For fixed scalar families, natural columns follow ``parameter_names_``. Categorical and ordinal outputs instead have one probability per class; multivariate families depend on configured dimension, and quantiles have one column per requested level. Raw width follows ``family_.param_count``. ``predict_point`` returns the family-defined point prediction. ``score`` returns negative mean family loss (higher is better); evaluation loss is lower-is-better."
     if spec.name == "nodegam":
         lines.append(
             "NODE-GAM contributions require an interpretable selector state. The short runnable example explicitly completes annealing (anneal_steps=1) in a single-layer unary model. Validate additive reconstruction before interpreting contributions from partially trained or more complex selector configurations.\n"
@@ -391,6 +391,9 @@ def estimator_text(cls, spec, objective):
         "Methods\n~~~~~~~\n",
     ]
     methods = [
+        "capabilities",
+        "predict_link",
+        "fisher_information",
         "predict",
         "score",
         "evaluate",
@@ -405,6 +408,7 @@ def estimator_text(cls, spec, objective):
         methods += ["predict_proba"]
     if objective == "distributional":
         methods += [
+            "predict_parameters",
             "predict_point",
             "predict_quantiles",
             "predict_distribution",
@@ -416,6 +420,7 @@ def estimator_text(cls, spec, objective):
     shared = {
         "predict": "/api/contracts",
         "predict_proba": "/api/contracts",
+        "predict_parameters": "/api/contracts",
         "predict_point": "/api/contracts",
         "predict_quantiles": "/user_guide/calibration",
         "predict_distribution": "/user_guide/gamlss",
@@ -582,7 +587,7 @@ def statistical_text(cls):
     )
     text += "Predictions and explanations\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n"
     if name == "GAMLSS":
-        text += "``predict`` returns natural parameters in ``parameter_names_`` order; ``predict(raw=True)`` returns the raw parameter predictors. ``predict_point`` returns the family-defined point prediction (mean, median or most probable class). Component arrays have shape ``(n_samples, n_parameters)`` and identify their parameter in structured metadata.\n\n"
+        text += "``predict`` returns the family-defined point prediction. ``predict_parameters`` returns natural parameters in ``parameter_names_`` order; ``predict_link`` returns additive predictors in ``predictor_names_`` order. ``predict_point`` returns the family-defined point prediction (mean, median or most probable class). Component arrays have shape ``(n_samples, n_parameters)`` and identify their parameter in structured metadata.\n\n"
     elif name == "GAMClassifier":
         text += "Binary classification: ``predict`` returns labels and ``predict_proba`` returns ``(n_samples, 2)`` probabilities in ``classes_`` order. Components are contributions to the link predictor rather than additive probability changes.\n\n"
     else:
@@ -600,6 +605,11 @@ def statistical_text(cls):
     text += "``gam_`` is the fitted statistical model. ``schema_`` records the validated input structure when the adapter can record a schema. Call explanation methods on the wrapper and use ``gam_`` for the complete statistical inference and diagnostic surface.\n\nMethods\n~~~~~~~\n\n"
     for method in [
         "fit",
+        "capabilities",
+        "predict_link",
+        "predict_parameters",
+        "predict_quantiles",
+        "fisher_information",
         "predict",
         "predict_proba",
         "predict_point",

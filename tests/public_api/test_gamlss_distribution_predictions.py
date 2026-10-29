@@ -8,6 +8,7 @@ import pytest
 from numpy.testing import assert_allclose, assert_array_equal
 
 from nampy import GAMLSS
+from nampy.diagnostics import quantile_residuals
 from nampy.gam.families.gamlss import GaulssFamily, GumblsFamily, gammals, gaulss
 from nampy.gam.predict.distribution_adapter import distribution_prediction
 
@@ -40,15 +41,15 @@ def test_fitted_distribution_preserves_predictions_offsets_and_score(family):
     ).fit(frame)
     subset = frame.iloc[[21, 3, 55]].copy()
     offset = [np.array([0.1, -0.2, 0.3]), np.array([-0.1, 0.1, 0.2])]
-    before = model.predict(subset, offset=offset)
+    before = model.predict_parameters(subset, offset=np.column_stack(offset))
     raw_before = model.gam_.predict(subset, type="response", offset=offset)
-    prediction = model.predict_distribution(subset, offset=offset, block_size=2)
+    prediction = model.predict_distribution(subset, offset=np.column_stack(offset), batch_size=2)
     assert_allclose(prediction.mean(), before[:, 0])
     expected_variance = before[:, 1] ** 2
     if family == "gamma":
         expected_variance *= before[:, 0] ** 2
     assert_allclose(prediction.variance(), expected_variance)
-    assert_array_equal(model.predict(subset, offset=offset), before)
+    assert_array_equal(model.predict_parameters(subset, offset=np.column_stack(offset)), before)
     assert_array_equal(
         model.gam_.predict(subset, type="response", offset=offset), raw_before
     )
@@ -57,7 +58,7 @@ def test_fitted_distribution_preserves_predictions_offsets_and_score(family):
         model.gam_.family.logpdf_from_parameters(subset.y, before),
         rtol=1e-12,
     )
-    training = model.predict_distribution()
+    training = model.predict_distribution(frame)
     assert training.n_rows == len(frame)
     assert_allclose(
         training.log_prob(frame.y).mean(), model.score(frame, frame.y), atol=1e-12
@@ -92,12 +93,12 @@ def test_student_adapter_preserves_existing_statistical_residual_dispatch():
         formula={"mu": "y ~ x", "sigma": "~ 1"},
         optimize_smoothing=False,
     ).fit(frame)
-    before = model.predict(frame)
+    before = model.predict_parameters(frame)
     score = model.score(frame, frame.y)
     distribution = model.predict_distribution(frame)
     assert_allclose(distribution.log_prob(frame.y).mean(), score)
-    assert np.isfinite(distribution.quantile_residuals(frame.y).residuals).all()
+    assert np.isfinite(quantile_residuals(distribution, frame.y).residuals).all()
     with pytest.raises(ValueError, match="Supported residual types"):
         model.gam_.residuals(type="quantile")
-    assert_array_equal(model.predict(frame), before)
+    assert_array_equal(model.predict_parameters(frame), before)
     assert model.score(frame, frame.y) == score

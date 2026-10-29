@@ -33,9 +33,7 @@ def test_outer_reml_gradient_hessian_with_three_penalties_and_offsets(weighted):
     weights = np.resize([1.0, 0.0, 2.0, 0.5, 3.0], len(frame)) if weighted else None
     x = frame.x.to_numpy()
     offsets = [0.04 * np.sin(x), -0.03 * x, 0.08 * x]
-    model = _model(
-        optimize_smoothing=False, smoothing_params=[0.3, 0.5, 0.7], irls_tol=1e-10
-    ).fit(frame, sample_weight=weights, offset=offsets)
+    model = _model(optimize_smoothing=False, smoothing_params=[0.3, 0.5, 0.7], irls_tol=1e-10).fit(frame, sample_weight=weights, offset=np.column_stack(offsets))
     gam = model.gam_
     rho = np.log(gam.smoothing_params)
 
@@ -144,7 +142,7 @@ def test_automatic_endpoint_matches_independent_derivative_free_reml_profile(
     value = criterion_value(model.gam_, model.gam_.y_, rho, method="reml")
     assert_allclose(value, optimum.fun, atol=2e-5, rtol=0)
     assert_allclose(rho, [optimum.x], atol=5e-3, rtol=0)
-    assert_allclose(model.predict(frame), reference.predict(frame), atol=2e-4, rtol=0)
+    assert_allclose(model.predict_parameters(frame), reference.predict_parameters(frame), atol=2e-4, rtol=0)
     assert (
         np.max(
             np.abs(criterion_gradient(model.gam_, model.gam_.y_, rho, method="reml"))

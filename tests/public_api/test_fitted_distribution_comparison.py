@@ -8,9 +8,9 @@ import pandas as pd
 from numpy.testing import assert_allclose
 
 from nampy import GAMLSS
-from nampy.distributions import DistributionCandidate, compare_distributions
 from nampy.gam.diagnostics.fit_status import distribution_fit_status
 from nampy.gam.model_state import _fit_result
+from nampy.models import DistributionCandidate, compare_distributions
 
 
 def _data():
@@ -106,7 +106,7 @@ def test_trial_context_and_prediction_offsets_remain_explicit_and_not_fit_weight
         fit_kwargs={"context": {"trials": trials}},
         predict_kwargs={
             "context": {"trials": valid_trials},
-            "offset": [np.zeros(len(V)), np.zeros(len(V))],
+            "offset": np.zeros((len(V), 2)),
         },
     )
     missing_context = DistributionCandidate(
@@ -124,7 +124,7 @@ def test_trial_context_and_prediction_offsets_remain_explicit_and_not_fit_weight
     assert result.results[1].status == "evaluation_error"
     assert "context" in result.results[1].failure_reason
     direct = result.models["valid"].predict_distribution(
-        V, context={"trials": valid_trials}, offset=[np.zeros(len(V)), np.zeros(len(V))]
+        V, context={"trials": valid_trials}, offset=np.zeros((len(V), 2))
     )
     assert_allclose(result.results[0].mean_log_prob, direct.log_prob(z).mean())
 

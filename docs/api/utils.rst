@@ -35,12 +35,12 @@ Metrics
 
 .. code-block:: python
 
-
    from nampy.neural.configuration import ObjectiveConfig
    from nampy.models import NAMLSS
 
    model = NAMLSS(objective=ObjectiveConfig(family='studentt')).fit(X_train, y_train)
-   parameters = model.predict(X_test)
+   parameters = model.predict_parameters(X_test)
    point_prediction = model.predict_point(X_test)
+
 
 Distributional plots are documented in :doc:`plotting`.

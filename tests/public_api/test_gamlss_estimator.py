@@ -63,16 +63,17 @@ def test_array_mode_matches_raw_gam_link_predictions():
     ).fit(X, y)
 
     assert estimator.parameter_names_ == ("mu", "sigma")
-    assert_array_equal(estimator.predict(raw=True), raw.predict(type="link"))
-    assert_array_equal(estimator.predict(X, raw=True), raw.predict(X, type="link"))
+    with pytest.raises(TypeError):
+        estimator.predict_link()
+    assert_array_equal(estimator.predict_link(X), raw.predict(X, type="link"))
 
 
-def test_normal_predict_returns_natural_parameters_and_density_score():
+def test_predict_parameters_returns_natural_parameters_and_density_score():
     X, y = _normal_data()
     estimator = _fixed_normal().fit(X, y)
 
     eta = estimator.predict_link(X)
-    parameters = estimator.predict(X)
+    parameters = estimator.predict_parameters(X)
     expected_mu = estimator.gam_.family.linfo[0].linkinv(eta[:, 0])
     expected_tau = estimator.gam_.family.linfo[1].linkinv(eta[:, 1])
     expected = np.column_stack([expected_mu, 1.0 / expected_tau])
@@ -131,7 +132,7 @@ def test_named_formula_mapping_is_parameter_ordered():
     ).fit(data=data)
 
     assert_array_equal(estimator.predict_link(data), raw.predict(data, type="link"))
-    assert estimator.predict(data).shape == (len(data), 2)
+    assert estimator.predict_parameters(data).shape == (len(data), 2)
 
 
 def test_components_are_zero_padded_and_reconstruct_every_predictor():
@@ -183,10 +184,10 @@ def test_formula_validation_is_early_and_actionable(formula, message):
 
 def test_offsets_require_one_explicit_entry_per_parameter():
     X, y = _normal_data(n=40)
-    with pytest.raises(ValueError, match="one entry per"):
+    with pytest.raises(ValueError, match="shape"):
         _fixed_normal().fit(X, y, offset=np.zeros(len(X)))
-    with pytest.raises(ValueError, match="expects 2 offsets"):
-        _fixed_normal().fit(X, y, offset=[np.zeros(len(X))])
+    with pytest.raises(ValueError, match="shape"):
+        _fixed_normal().fit(X, y, offset=np.column_stack([np.zeros(len(X))]))
 
 
 def test_persistence_round_trip(tmp_path):
@@ -196,7 +197,7 @@ def test_persistence_round_trip(tmp_path):
     restored = GAMLSS.load_model(path)
 
     assert restored.parameter_names_ == ("mu", "sigma")
-    assert_array_equal(restored.predict(X), estimator.predict(X))
+    assert_array_equal(restored.predict_parameters(X), estimator.predict_parameters(X))
 
 
 def test_shared_formula_component_is_exposed_for_each_target_parameter():

@@ -39,7 +39,7 @@ Types, defaults and output shapes
 
 Pass ``GAMLSS(family='bcpe_lss')``; this family has no constructor options.
 
-``predict(X)`` returns natural parameters as a float ``(n,4)`` array, ``predict(X, raw=True)`` returns link predictors ``(n,4)``, ``predict_point(X)`` returns the conditional mean ``(n,)``, and ``predict_components(X)`` returns an AdditivePrediction whose link and each term are ``(n,4)``. ``X`` is a DataFrame or numeric ``(n,d)`` array, consistent with formula mode.
+``predict_parameters(X)`` returns natural parameters as a float ``(n,4)`` array, ``predict_link(X)`` returns link predictors ``(n,4)``, ``predict_point(X)`` returns the conditional mean ``(n,)``, and ``predict_components(X)`` returns an AdditivePrediction whose link and each term are ``(n,4)``. ``X`` is a DataFrame or numeric ``(n,d)`` array, consistent with formula mode.
 
 Likelihood derivatives through order two are analytic, including mixed derivatives. Fixed smoothing is tested; automatic smoothing requires an enabled runtime capability and route-specific evidence. Residual availability follows the observation contract; ordinary response/Pearson residuals are unavailable for censored targets. Deviance residuals and null deviance are not defined by this implementation; use explicit response/Pearson diagnostics or shared distribution quantile residuals rather than the default deviance-residual plotting workflow.
 

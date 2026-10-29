@@ -10,6 +10,7 @@ import pytest
 from numpy.testing import assert_allclose
 
 from nampy import GAMLSS
+from nampy.diagnostics import quantile_residuals
 from nampy.gam.families.gamlss._taylor import Taylor
 from nampy.gam.families.registry import make_gam_family
 from nampy.gam.inference.functionals import joint_edf
@@ -39,7 +40,7 @@ def test_natural_parameters_density_and_mle_match_r_gamlss_dist(reference, name)
         family=name, formula={"mu": "y~x", second: "~x"}, optimize_smoothing=False
     ).fit(frame)
     assert_allclose(_coef_full(model.gam_), expected["coefficients"], atol=2e-5, rtol=0)
-    params = model.predict(frame)
+    params = model.predict_parameters(frame)
     assert params.shape == (len(y), 2)
     assert_allclose(
         family.logpdf_from_parameters(y, params),
@@ -52,7 +53,7 @@ def test_natural_parameters_density_and_mle_match_r_gamlss_dist(reference, name)
         distribution.log_prob(y), expected["log_density"], atol=1e-5, rtol=0
     )
     assert np.isfinite(
-        distribution.quantile_residuals(y, random_state=7).residuals
+        quantile_residuals(distribution, y, random_state=7).residuals
     ).all()
     components = model.predict_components(frame)
     assert components.link.shape == (len(y), 2)
@@ -61,7 +62,7 @@ def test_natural_parameters_density_and_mle_match_r_gamlss_dist(reference, name)
     assert fit.converged
     assert fit.edf == pytest.approx(4, abs=1e-8)
     assert_allclose(
-        family.distribution_parameters_from_eta(model.predict(frame, raw=True)), params
+        family.distribution_parameters_from_eta(model.predict_link(frame)), params
     )
 
 
@@ -161,7 +162,7 @@ def test_penalized_joint_edf_covariance_reml_and_serialization(
     assert_allclose(np.sum(fit.edf_by_term) + 2, fit.edf, atol=1e-8)
     path = model.save_model(tmp_path / (name + ".pkl"))
     restored = GAMLSS.load_model(path)
-    assert_allclose(restored.predict(frame), model.predict(frame))
+    assert_allclose(restored.predict_parameters(frame), model.predict_parameters(frame))
     # Exercise derivatives through the outer REML criterion, not just fitting.
     from nampy.gam.fit.selection.criteria import (
         criterion_gradient,
@@ -220,7 +221,7 @@ def test_frequency_weights_equal_duplicating_rows(reference, name):
         frame.loc[frame.index.repeat(weights)].reset_index(drop=True)
     )
     assert_allclose(
-        weighted.predict(frame), repeated.predict(frame), atol=2e-6, rtol=1e-6
+        weighted.predict_parameters(frame), repeated.predict_parameters(frame), atol=2e-6, rtol=1e-6
     )
 
 
@@ -233,5 +234,5 @@ def test_automatic_reml_fitting_route(reference, name):
         frame
     )
     assert _fit_result(model.gam_).converged
-    assert np.all(np.isfinite(model.predict(frame)))
+    assert np.all(np.isfinite(model.predict_parameters(frame)))
     assert np.all(np.asarray(model.gam_.smoothing_params) > 0)

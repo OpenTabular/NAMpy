@@ -7,7 +7,7 @@ from typing import Mapping, Sequence
 
 import numpy as np
 
-from ..inspection import effects as effect_preparation
+from ..diagnostics import effects as effect_preparation
 
 
 def add_density_shading(

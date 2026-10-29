@@ -173,8 +173,8 @@ def test_scalar_distributional_composition_offsets_and_shared_predictions(family
         offset=offset[:60],
         offset_val=offset[60:],
     )
-    raw = model.predict(X, raw=True)
-    shifted = model.predict(X, raw=True, offset=offset)
+    raw = model.predict_link(X)
+    shifted = model.predict_link(X, offset=offset)
     assert_allclose(shifted, raw + offset, atol=1e-12)
     components = model.predict_components(
         X,

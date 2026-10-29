@@ -127,5 +127,5 @@ def test_gumbls_public_components_persistence(tmp_path):
     path = tmp_path / "gumbls.pkl"
     model.save_model(path)
     restored = GAMLSS.load_model(path)
-    np.testing.assert_array_equal(restored.predict(data), model.predict(data))
+    np.testing.assert_array_equal(restored.predict_parameters(data), model.predict_parameters(data))
     np.testing.assert_array_equal(restored.predict_point(data), model.predict_point(data))

@@ -14,6 +14,7 @@ from scipy.special import expit
 from sklearn.base import clone
 
 from nampy import GAMLSS
+from nampy.diagnostics import quantile_residuals
 from nampy.distributions import BetaBinomialLaw, DistributionPrediction
 from nampy.gam.families.gamlss._taylor import Taylor
 from nampy.gam.families.gamlss.betabinomial import BetaBinomialLocationPrecision
@@ -58,7 +59,7 @@ def test_saved_r_bb_probabilities_and_unpenalized_fit():
     frame = pd.read_csv(root / "fit.csv")
     model = _model().fit(frame, context={"trials": frame.trials})
     assert _fit_result(model.gam_).converged
-    assert_allclose(model.predict(frame), frame[["mu", "kappa"]], atol=3e-5, rtol=0)
+    assert_allclose(model.predict_parameters(frame), frame[["mu", "kappa"]], atol=3e-5, rtol=0)
     assert_allclose(
         model.predict_distribution(frame, context={"trials": frame.trials}).log_prob(
             frame.y
@@ -88,7 +89,7 @@ def test_fixed_smooth_weights_match_repeated_observations():
         context={"trials": trials[repeated]},
     )
     assert _fit_result(model.gam_).converged
-    assert_allclose(model.predict(frame), expanded.predict(frame), atol=3e-6)
+    assert_allclose(model.predict_parameters(frame), expanded.predict_parameters(frame), atol=3e-6)
     model.predict_components(frame).validate_additive_reconstruction()
     assert np.isfinite(model.standard_errors(frame)).all()
 
@@ -128,7 +129,7 @@ def test_sampling_quantiles_and_shared_discrete_diagnostics():
         assert np.all(dist.cdf_left(q) < p)
         assert np.all(dist.cdf(q) >= p)
     y = np.array([0, 15])
-    residual = dist.quantile_residuals(y, uniforms=np.array([0.25, 0.75]))
+    residual = quantile_residuals(dist, y, uniforms=np.array([0.25, 0.75]))
     assert np.isfinite(residual.residuals).all()
     assert_allclose(
         residual.residuals,
@@ -186,9 +187,7 @@ def test_public_fit_matches_independent_weighted_mle_offsets_and_persistence(tmp
     frame, trials = _data()
     weight = np.tile([1.0, 2.0, 0.0], 50)
     offset = [0.12 * np.sin(frame.x.to_numpy()), np.full(len(frame), 0.08)]
-    model = _model().fit(
-        frame, sample_weight=weight, offset=offset, context={"trials": trials}
-    )
+    model = _model().fit(frame, sample_weight=weight, offset=np.column_stack(offset), context={'trials': trials})
     assert _fit_result(model.gam_).converged
     design = np.column_stack([np.ones(len(frame)), frame.x])
 
@@ -203,14 +202,12 @@ def test_public_fit_matches_independent_weighted_mle_offsets_and_persistence(tmp
     oracle = minimize(
         objective, [-0.2, 0.7, 1.0], method="BFGS", options={"gtol": 1e-6}
     )
-    prediction = model.predict(frame, offset=offset)
+    prediction = model.predict_parameters(frame, offset=np.column_stack(offset))
     assert_allclose(
         prediction[:, 0], expit(design @ oracle.x[:2] + offset[0]), atol=2e-6
     )
     assert_allclose(prediction[:, 1], np.exp(oracle.x[2] + offset[1]), atol=2e-5)
-    distribution = model.predict_distribution(
-        frame, offset=offset, context={"trials": trials}
-    )
+    distribution = model.predict_distribution(frame, offset=np.column_stack(offset), context={'trials': trials})
     assert_allclose(
         distribution.log_prob(frame.y),
         stats.betabinom.logpmf(
@@ -222,18 +219,19 @@ def test_public_fit_matches_independent_weighted_mle_offsets_and_persistence(tmp
         atol=1e-12,
     )
     assert_allclose(
-        model.predict_point(frame, offset=offset, context={"trials": trials}),
+        model.predict_point(frame, offset=np.column_stack(offset), context={'trials': trials}),
         trials * prediction[:, 0],
     )
-    assert np.isfinite(model.standard_errors(frame, offset=offset)).all()
-    components = model.predict_components(frame, offset=offset)
-    assert_allclose(components.link, model.predict_link(frame, offset=offset))
+    assert np.isfinite(model.standard_errors(frame, offset=np.column_stack(offset))).all()
+    components = model.predict_components(frame, offset=np.column_stack(offset))
+    assert_allclose(components.link, model.predict_link(frame, offset=np.column_stack(offset)))
     assert clone(model).family == "betabinomial_lss"
     path = tmp_path / "bb.pkl"
     model.save_model(path)
     loaded = GAMLSS.load_model(path)
     assert_allclose(
-        loaded.predict_distribution().mean(), model.predict_distribution().mean()
+        loaded.predict_distribution(frame, offset=np.column_stack(offset), context={"trials": trials}).mean(),
+        model.predict_distribution(frame, offset=np.column_stack(offset), context={"trials": trials}).mean()
     )
     assert not model.gam_.family.fit_context(len(frame))["trials"].flags.writeable
 
@@ -246,20 +244,20 @@ def test_weight_duplication_context_isolation_and_refit():
     expanded = _model().fit(
         frame.iloc[index].reset_index(drop=True), context={"trials": trials[index]}
     )
-    assert_allclose(fitted.predict(frame), expanded.predict(frame), atol=2e-7)
+    assert_allclose(fitted.predict_parameters(frame), expanded.predict_parameters(frame), atol=2e-7)
     expected = trials.copy()
     trials[:] += 1
-    assert_allclose(fitted.predict_distribution().context["trials"], expected)
+    assert_allclose(fitted.gam_.family.fit_context(len(frame))["trials"], expected)
     # New fit owns fresh context, even when the number of rows is unchanged.
     fitted.fit(frame, context={"trials": trials})
-    assert_allclose(fitted.predict_distribution().context["trials"], trials)
+    assert_allclose(fitted.gam_.family.fit_context(len(frame))["trials"], trials)
     assert_allclose(
-        fitted.score(None, frame.y),
-        np.mean(fitted.predict_distribution().log_prob(frame.y)),
+        fitted.score(frame, frame.y, context={"trials": trials}),
+        np.mean(fitted.predict_distribution(frame, context={"trials": trials}).log_prob(frame.y)),
     )
     assert_allclose(
-        fitted.evaluate(None, frame.y)["Negative Log-Likelihood"],
-        -fitted.score(None, frame.y),
+        fitted.evaluate(frame, frame.y, context={"trials": trials})["Negative Log-Likelihood"],
+        -fitted.score(frame, frame.y, context={"trials": trials}),
     )
 
 
@@ -275,14 +273,14 @@ def test_held_out_rows_require_new_context_even_with_same_length():
     new_trials = trials[::-1].copy()
     assert_allclose(
         model.predict_point(frame, context={"trials": new_trials}),
-        new_trials * model.predict(frame)[:, 0],
+        new_trials * model.predict_parameters(frame)[:, 0],
     )
     missing = frame.copy()
     missing.loc[3, "x"] = np.nan
     dist = model.predict_distribution(missing, context={"trials": new_trials})
     assert np.isnan(dist.mean()[3])
     assert_allclose(
-        np.delete(dist.mean(), 3), np.delete(new_trials * model.predict(frame)[:, 0], 3)
+        np.delete(dist.mean(), 3), np.delete(new_trials * model.predict_parameters(frame)[:, 0], 3)
     )
     with pytest.raises(NotImplementedError, match="row alignment"):
         model.predict_distribution(frame, context={"trials": trials}, na_action="omit")
@@ -316,11 +314,11 @@ def test_context_is_fit_state_and_failed_native_refit_is_transactional():
         optimize_smoothing=False,
     ).fit(frame, context={"trials": trials})
     assert not hasattr(family, "_fit_context")
-    before = model.predict(frame)
+    before = model.predict_parameters(frame)
     with pytest.raises(ValueError, match="unidentified"):
         model.gam_.fit(data=frame, context={"trials": np.ones(len(frame))})
-    assert_allclose(model.predict(frame), before)
-    assert_allclose(model.predict_distribution().context["trials"], trials)
+    assert_allclose(model.predict_parameters(frame), before)
+    assert_allclose(model.gam_.family.fit_context(len(frame))["trials"], trials)
 
 
 @pytest.mark.parametrize(
@@ -385,13 +383,7 @@ def test_outer_reml_derivatives_with_trial_context_and_offsets(weighted):
     frame, trials = _data()
     weights = np.tile([0.0, 1.0, 2.0], 50) if weighted else None
     offsets = [0.1 * np.sin(frame.x.to_numpy()), np.linspace(-0.1, 0.1, len(frame))]
-    model = GAMLSS(
-        family="betabinomial_lss",
-        formula={"mu": 'y ~ s(x,bs="cr",k=5)', "kappa": '~ s(x,bs="cr",k=4)'},
-        optimize_smoothing=False,
-        smoothing_params=[0.3, 0.7],
-        irls_tol=1e-11,
-    ).fit(frame, sample_weight=weights, offset=offsets, context={"trials": trials})
+    model = GAMLSS(family='betabinomial_lss', formula={'mu': 'y ~ s(x,bs="cr",k=5)', 'kappa': '~ s(x,bs="cr",k=4)'}, optimize_smoothing=False, smoothing_params=[0.3, 0.7], irls_tol=1e-11).fit(frame, sample_weight=weights, offset=np.column_stack(offsets), context={'trials': trials})
     gam = model.gam_
     rho = np.log(gam.smoothing_params)
 

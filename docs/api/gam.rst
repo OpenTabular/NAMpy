@@ -94,8 +94,9 @@ or class label:
        family="normal",
        formula={"mu": "y ~ s(x)", "sigma": "~ s(z)"},
    ).fit(data)
-   parameters = estimator.predict(data)  # columns follow parameter_names_
+   parameters = estimator.predict_parameters(data)  # columns follow parameter_names_
    point = estimator.predict_point(data)
+
 
 Fit core
 --------

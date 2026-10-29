@@ -4350,6 +4350,162 @@
   },
   {
     "kind": "extension",
+    "symbol": "DistributionCandidate",
+    "public_import": "nampy.models.DistributionCandidate",
+    "signature": "(estimator: 'Any', fit_kwargs: 'Mapping[str, Any]' = <factory>, predict_kwargs: 'Mapping[str, Any]' = <factory>, status_reader: 'Callable[[Any], DistributionFitStatus] | None' = None) -> None",
+    "parameters": [
+      {
+        "name": "estimator",
+        "default": "required"
+      },
+      {
+        "name": "fit_kwargs",
+        "default": "<factory>"
+      },
+      {
+        "name": "predict_kwargs",
+        "default": "<factory>"
+      },
+      {
+        "name": "status_reader",
+        "default": "None"
+      }
+    ],
+    "page": "user_guide/gamlss",
+    "example": "user_guide/gamlss",
+    "input_contract": "user_guide/gamlss",
+    "return_schema": "_examples/reference/output_schemas.json#user_guide/gamlss",
+    "restrictions": "user_guide/gamlss",
+    "tests": [
+      "tests/docs/test_feature_reference.py"
+    ]
+  },
+  {
+    "kind": "extension",
+    "symbol": "DistributionComparison",
+    "public_import": "nampy.models.DistributionComparison",
+    "signature": "(results: 'tuple[DistributionComparisonRow, ...]', response_units: 'str | None' = None) -> None",
+    "parameters": [
+      {
+        "name": "results",
+        "default": "required"
+      },
+      {
+        "name": "response_units",
+        "default": "None"
+      }
+    ],
+    "page": "user_guide/gamlss",
+    "example": "user_guide/gamlss",
+    "input_contract": "user_guide/gamlss",
+    "return_schema": "_examples/reference/output_schemas.json#user_guide/gamlss",
+    "restrictions": "user_guide/gamlss",
+    "tests": [
+      "tests/docs/test_feature_reference.py"
+    ]
+  },
+  {
+    "kind": "extension",
+    "symbol": "DistributionComparisonRow",
+    "public_import": "nampy.models.DistributionComparisonRow",
+    "signature": "(name: 'str', fit_status: 'DistributionFitStatus', status: 'str', eligible: 'bool', rank: 'int | None', mean_log_prob: 'float | None', n_validation: 'int', n_scored: 'int', n_zero_probability: 'int', validation_weight_sum: 'float', effective_n: 'float', fit_seconds: 'float', evaluation_seconds: 'float', warnings: 'tuple[str, ...]' = (), failure_stage: 'str | None' = None, failure_reason: 'str | None' = None, measure: 'tuple[str, tuple[float, ...]] | None' = None, calibration: 'CentileCalibration | None' = None, calibration_error: 'str | None' = None, log_prob: 'np.ndarray | None' = None, estimator: 'Any' = None) -> None",
+    "parameters": [
+      {
+        "name": "name",
+        "default": "required"
+      },
+      {
+        "name": "fit_status",
+        "default": "required"
+      },
+      {
+        "name": "status",
+        "default": "required"
+      },
+      {
+        "name": "eligible",
+        "default": "required"
+      },
+      {
+        "name": "rank",
+        "default": "required"
+      },
+      {
+        "name": "mean_log_prob",
+        "default": "required"
+      },
+      {
+        "name": "n_validation",
+        "default": "required"
+      },
+      {
+        "name": "n_scored",
+        "default": "required"
+      },
+      {
+        "name": "n_zero_probability",
+        "default": "required"
+      },
+      {
+        "name": "validation_weight_sum",
+        "default": "required"
+      },
+      {
+        "name": "effective_n",
+        "default": "required"
+      },
+      {
+        "name": "fit_seconds",
+        "default": "required"
+      },
+      {
+        "name": "evaluation_seconds",
+        "default": "required"
+      },
+      {
+        "name": "warnings",
+        "default": "()"
+      },
+      {
+        "name": "failure_stage",
+        "default": "None"
+      },
+      {
+        "name": "failure_reason",
+        "default": "None"
+      },
+      {
+        "name": "measure",
+        "default": "None"
+      },
+      {
+        "name": "calibration",
+        "default": "None"
+      },
+      {
+        "name": "calibration_error",
+        "default": "None"
+      },
+      {
+        "name": "log_prob",
+        "default": "None"
+      },
+      {
+        "name": "estimator",
+        "default": "None"
+      }
+    ],
+    "page": "user_guide/gamlss",
+    "example": "user_guide/gamlss",
+    "input_contract": "user_guide/gamlss",
+    "return_schema": "_examples/reference/output_schemas.json#user_guide/gamlss",
+    "restrictions": "user_guide/gamlss",
+    "tests": [
+      "tests/docs/test_feature_reference.py"
+    ]
+  },
+  {
+    "kind": "extension",
     "symbol": "NeuralClassifier",
     "public_import": "nampy.models.NeuralClassifier",
     "signature": "(model, config_class, *, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
@@ -4550,6 +4706,58 @@
   },
   {
     "kind": "extension",
+    "symbol": "compare_distributions",
+    "public_import": "nampy.models.compare_distributions",
+    "signature": "(candidates: 'Mapping[str, Any]', X_train, y_train, X_valid, y_valid, *, sample_weight=None, validation_weight=None, calibration_probs=(0.05, 0.5, 0.95), response_units: 'str | None' = None) -> 'DistributionComparison'",
+    "parameters": [
+      {
+        "name": "candidates",
+        "default": "required"
+      },
+      {
+        "name": "X_train",
+        "default": "required"
+      },
+      {
+        "name": "y_train",
+        "default": "required"
+      },
+      {
+        "name": "X_valid",
+        "default": "required"
+      },
+      {
+        "name": "y_valid",
+        "default": "required"
+      },
+      {
+        "name": "sample_weight",
+        "default": "None"
+      },
+      {
+        "name": "validation_weight",
+        "default": "None"
+      },
+      {
+        "name": "calibration_probs",
+        "default": "(0.05, 0.5, 0.95)"
+      },
+      {
+        "name": "response_units",
+        "default": "None"
+      }
+    ],
+    "page": "user_guide/gamlss",
+    "example": "user_guide/gamlss",
+    "input_contract": "user_guide/gamlss",
+    "return_schema": "_examples/reference/output_schemas.json#user_guide/gamlss",
+    "restrictions": "user_guide/gamlss",
+    "tests": [
+      "tests/docs/test_feature_reference.py"
+    ]
+  },
+  {
+    "kind": "extension",
     "symbol": "estimator_family",
     "public_import": "nampy.models.estimator_family",
     "signature": "(architecture: 'str', *, module_name: 'str', mixin: 'type | None' = None) -> 'NeuralEstimatorFamily'",
@@ -4720,7 +4928,7 @@
     "kind": "method",
     "symbol": "GAM.fisher_information",
     "public_import": "nampy.gam.model.api.fisher_information",
-    "signature": "(self, X=None, *, offset=None, context=None, config=None, return_diagonal=True)",
+    "signature": "(self, X=None, *, offset=None, context=None, config=None, return_diagonal=True, batch_size=None)",
     "parameters": [
       {
         "name": "X",
@@ -4741,6 +4949,10 @@
       {
         "name": "return_diagonal",
         "default": "True"
+      },
+      {
+        "name": "batch_size",
+        "default": "None"
       }
     ],
     "page": "statistical_reference/methods/fisher_information",
@@ -6446,6 +6658,21 @@
   },
   {
     "kind": "neural_method",
+    "symbol": "capabilities",
+    "public_import": "nampy.models._neural.capabilities",
+    "signature": "(self)",
+    "parameters": [],
+    "page": "neural_reference/methods/capabilities",
+    "example": "neural_reference/methods/capabilities",
+    "input_contract": "neural_reference/methods/capabilities",
+    "return_schema": "_examples/reference/output_schemas.json#neural_reference/methods/capabilities",
+    "restrictions": "neural_reference/methods/capabilities",
+    "tests": [
+      "tests/docs/test_feature_reference.py"
+    ]
+  },
+  {
+    "kind": "neural_method",
     "symbol": "center_components",
     "public_import": "nampy.models._neural.center_components",
     "signature": "(self, X, *, reference_X=None, reference_weight=None)",
@@ -6776,6 +7003,34 @@
   },
   {
     "kind": "neural_method",
+    "symbol": "predict_link",
+    "public_import": "nampy.models._neural.predict_link",
+    "signature": "(self, X, *, batch_size=None, offset=None)",
+    "parameters": [
+      {
+        "name": "X",
+        "default": "required"
+      },
+      {
+        "name": "batch_size",
+        "default": "None"
+      },
+      {
+        "name": "offset",
+        "default": "None"
+      }
+    ],
+    "page": "neural_reference/methods/predict_link",
+    "example": "neural_reference/methods/predict_link",
+    "input_contract": "neural_reference/methods/predict_link",
+    "return_schema": "_examples/reference/output_schemas.json#neural_reference/methods/predict_link",
+    "restrictions": "neural_reference/methods/predict_link",
+    "tests": [
+      "tests/docs/test_feature_reference.py"
+    ]
+  },
+  {
+    "kind": "neural_method",
     "symbol": "save_model",
     "public_import": "nampy.models._neural.save_model",
     "signature": "(self, path)",
@@ -6935,8 +7190,64 @@
   },
   {
     "kind": "shared",
+    "symbol": "CapabilityStatus",
+    "public_import": "nampy.contracts.CapabilityStatus",
+    "signature": "(state: \"Literal['supported', 'conditional', 'unsupported']\", reason: 'str' = '', conditions: 'tuple[str, ...]' = ()) -> None",
+    "parameters": [
+      {
+        "name": "state",
+        "default": "required"
+      },
+      {
+        "name": "reason",
+        "default": "''"
+      },
+      {
+        "name": "conditions",
+        "default": "()"
+      }
+    ],
+    "page": "api/generated/nampy.contracts.CapabilityStatus",
+    "example": "api/generated/nampy.contracts.CapabilityStatus",
+    "input_contract": "api/generated/nampy.contracts.CapabilityStatus",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.contracts.CapabilityStatus",
+    "restrictions": "api/generated/nampy.contracts.CapabilityStatus",
+    "tests": [
+      "tests/docs/test_feature_reference.py"
+    ]
+  },
+  {
+    "kind": "shared",
+    "symbol": "DistributionFitStatus",
+    "public_import": "nampy.contracts.DistributionFitStatus",
+    "signature": "(backend: 'str', state: \"Literal['converged', 'completed', 'nonconverged', 'failed', 'unknown']\", message: 'str' = '') -> None",
+    "parameters": [
+      {
+        "name": "backend",
+        "default": "required"
+      },
+      {
+        "name": "state",
+        "default": "required"
+      },
+      {
+        "name": "message",
+        "default": "''"
+      }
+    ],
+    "page": "api/generated/nampy.contracts.DistributionFitStatus",
+    "example": "api/generated/nampy.contracts.DistributionFitStatus",
+    "input_contract": "api/generated/nampy.contracts.DistributionFitStatus",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.contracts.DistributionFitStatus",
+    "restrictions": "api/generated/nampy.contracts.DistributionFitStatus",
+    "tests": [
+      "tests/docs/test_feature_reference.py"
+    ]
+  },
+  {
+    "kind": "shared",
     "symbol": "DistributionalEffects",
-    "public_import": "nampy.inspection.DistributionalEffects",
+    "public_import": "nampy.diagnostics.DistributionalEffects",
     "signature": "(feature_values: 'Mapping[str, np.ndarray]', point_effects: 'Mapping[str, np.ndarray]', conditional_sd: 'Mapping[str, np.ndarray]', point_summary: 'str' = 'family_point') -> None",
     "parameters": [
       {
@@ -6956,11 +7267,11 @@
         "default": "'family_point'"
       }
     ],
-    "page": "api/generated/nampy.inspection.DistributionalEffects",
-    "example": "api/generated/nampy.inspection.DistributionalEffects",
-    "input_contract": "api/generated/nampy.inspection.DistributionalEffects",
-    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.inspection.DistributionalEffects",
-    "restrictions": "api/generated/nampy.inspection.DistributionalEffects",
+    "page": "api/generated/nampy.diagnostics.DistributionalEffects",
+    "example": "api/generated/nampy.diagnostics.DistributionalEffects",
+    "input_contract": "api/generated/nampy.diagnostics.DistributionalEffects",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.diagnostics.DistributionalEffects",
+    "restrictions": "api/generated/nampy.diagnostics.DistributionalEffects",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -7140,7 +7451,7 @@
   {
     "kind": "shared",
     "symbol": "FisherDiagnostics",
-    "public_import": "nampy.inspection.FisherDiagnostics",
+    "public_import": "nampy.diagnostics.FisherDiagnostics",
     "signature": "(estimator: str = 'exact', every_n_epochs: int | None = None, n_inputs: int = 64, n_draws: int = 8, split: str = 'validation', include_initial: bool = True, include_final: bool = True, record_diagonal: str = 'final', group_by: str = 'term', random_state: int | None = None, regression_scale: float | None = None, input_sampling: str = 'fixed', population_size: int | None = None) -> None",
     "parameters": [
       {
@@ -7196,11 +7507,11 @@
         "default": "None"
       }
     ],
-    "page": "api/generated/nampy.inspection.FisherDiagnostics",
-    "example": "api/generated/nampy.inspection.FisherDiagnostics",
-    "input_contract": "api/generated/nampy.inspection.FisherDiagnostics",
-    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.inspection.FisherDiagnostics",
-    "restrictions": "api/generated/nampy.inspection.FisherDiagnostics",
+    "page": "api/generated/nampy.diagnostics.FisherDiagnostics",
+    "example": "api/generated/nampy.diagnostics.FisherDiagnostics",
+    "input_contract": "api/generated/nampy.diagnostics.FisherDiagnostics",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.diagnostics.FisherDiagnostics",
+    "restrictions": "api/generated/nampy.diagnostics.FisherDiagnostics",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -7208,7 +7519,7 @@
   {
     "kind": "shared",
     "symbol": "FisherGroupSummary",
-    "public_import": "nampy.inspection.FisherGroupSummary",
+    "public_import": "nampy.diagnostics.FisherGroupSummary",
     "signature": "(name: str, n_parameters: int, trace: float, mean_diagonal: float, output_sampling_variance: float | None, estimator_variance: float | None, conditional_standard_error: float | None, input_estimator_variance: float | None = None, total_estimator_variance: float | None = None, total_standard_error: float | None = None) -> None",
     "parameters": [
       {
@@ -7252,11 +7563,11 @@
         "default": "None"
       }
     ],
-    "page": "api/generated/nampy.inspection.FisherGroupSummary",
-    "example": "api/generated/nampy.inspection.FisherGroupSummary",
-    "input_contract": "api/generated/nampy.inspection.FisherGroupSummary",
-    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.inspection.FisherGroupSummary",
-    "restrictions": "api/generated/nampy.inspection.FisherGroupSummary",
+    "page": "api/generated/nampy.diagnostics.FisherGroupSummary",
+    "example": "api/generated/nampy.diagnostics.FisherGroupSummary",
+    "input_contract": "api/generated/nampy.diagnostics.FisherGroupSummary",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.diagnostics.FisherGroupSummary",
+    "restrictions": "api/generated/nampy.diagnostics.FisherGroupSummary",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -7264,8 +7575,8 @@
   {
     "kind": "shared",
     "symbol": "FisherInformationResult",
-    "public_import": "nampy.inspection.FisherInformationResult",
-    "signature": "(estimator: str, diagonal: numpy.ndarray | None, output_sampling_variance: numpy.ndarray | None, estimator_variance: numpy.ndarray | None, conditional_standard_error: numpy.ndarray | None, parameter_names: tuple[str, ...], parameter_shapes: tuple[tuple[int, ...], ...], parameter_slices: tuple[tuple[int, int], ...], groups: tuple[nampy.inspection.fisher.FisherGroupSummary, ...], n_parameters: int, n_inputs: int, n_draws: int | None, target_source: str, conditioned_on_inputs: bool, split: str | None, grouping: str | None = None, normalization: str = 'mean', backend: str = 'unknown', held_fixed: tuple[str, ...] = (), input_sampling: str = 'fixed', input_estimator_variance: numpy.ndarray | None = None, total_estimator_variance: numpy.ndarray | None = None, total_standard_error: numpy.ndarray | None = None) -> None",
+    "public_import": "nampy.diagnostics.FisherInformationResult",
+    "signature": "(estimator: str, diagonal: numpy.ndarray | None, output_sampling_variance: numpy.ndarray | None, estimator_variance: numpy.ndarray | None, conditional_standard_error: numpy.ndarray | None, parameter_names: tuple[str, ...], parameter_shapes: tuple[tuple[int, ...], ...], parameter_slices: tuple[tuple[int, int], ...], groups: tuple[nampy.diagnostics.fisher.FisherGroupSummary, ...], n_parameters: int, n_inputs: int, n_draws: int | None, target_source: str, conditioned_on_inputs: bool, split: str | None, grouping: str | None = None, normalization: str = 'mean', backend: str = 'unknown', held_fixed: tuple[str, ...] = (), input_sampling: str = 'fixed', input_estimator_variance: numpy.ndarray | None = None, total_estimator_variance: numpy.ndarray | None = None, total_standard_error: numpy.ndarray | None = None) -> None",
     "parameters": [
       {
         "name": "estimator",
@@ -7360,11 +7671,11 @@
         "default": "None"
       }
     ],
-    "page": "api/generated/nampy.inspection.FisherInformationResult",
-    "example": "api/generated/nampy.inspection.FisherInformationResult",
-    "input_contract": "api/generated/nampy.inspection.FisherInformationResult",
-    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.inspection.FisherInformationResult",
-    "restrictions": "api/generated/nampy.inspection.FisherInformationResult",
+    "page": "api/generated/nampy.diagnostics.FisherInformationResult",
+    "example": "api/generated/nampy.diagnostics.FisherInformationResult",
+    "input_contract": "api/generated/nampy.diagnostics.FisherInformationResult",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.diagnostics.FisherInformationResult",
+    "restrictions": "api/generated/nampy.diagnostics.FisherInformationResult",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -7372,8 +7683,8 @@
   {
     "kind": "shared",
     "symbol": "FisherSnapshot",
-    "public_import": "nampy.inspection.FisherSnapshot",
-    "signature": "(stage: str, epoch: int | None, optimizer_step: int, groups: tuple[nampy.inspection.fisher.FisherGroupSummary, ...], diagonal: numpy.ndarray | None = None) -> None",
+    "public_import": "nampy.diagnostics.FisherSnapshot",
+    "signature": "(stage: str, epoch: int | None, optimizer_step: int, groups: tuple[nampy.diagnostics.fisher.FisherGroupSummary, ...], diagonal: numpy.ndarray | None = None) -> None",
     "parameters": [
       {
         "name": "stage",
@@ -7396,11 +7707,11 @@
         "default": "None"
       }
     ],
-    "page": "api/generated/nampy.inspection.FisherSnapshot",
-    "example": "api/generated/nampy.inspection.FisherSnapshot",
-    "input_contract": "api/generated/nampy.inspection.FisherSnapshot",
-    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.inspection.FisherSnapshot",
-    "restrictions": "api/generated/nampy.inspection.FisherSnapshot",
+    "page": "api/generated/nampy.diagnostics.FisherSnapshot",
+    "example": "api/generated/nampy.diagnostics.FisherSnapshot",
+    "input_contract": "api/generated/nampy.diagnostics.FisherSnapshot",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.diagnostics.FisherSnapshot",
+    "restrictions": "api/generated/nampy.diagnostics.FisherSnapshot",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -7976,7 +8287,7 @@
   {
     "kind": "shared",
     "symbol": "center_additive_prediction",
-    "public_import": "nampy.inspection.center_additive_prediction",
+    "public_import": "nampy.diagnostics.center_additive_prediction",
     "signature": "(prediction: 'AdditivePrediction', *, reference: 'AdditivePrediction | None' = None, sample_weight=None) -> 'AdditivePrediction'",
     "parameters": [
       {
@@ -7992,11 +8303,11 @@
         "default": "None"
       }
     ],
-    "page": "api/generated/nampy.inspection.center_additive_prediction",
-    "example": "api/generated/nampy.inspection.center_additive_prediction",
-    "input_contract": "api/generated/nampy.inspection.center_additive_prediction",
-    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.inspection.center_additive_prediction",
-    "restrictions": "api/generated/nampy.inspection.center_additive_prediction",
+    "page": "api/generated/nampy.diagnostics.center_additive_prediction",
+    "example": "api/generated/nampy.diagnostics.center_additive_prediction",
+    "input_contract": "api/generated/nampy.diagnostics.center_additive_prediction",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.diagnostics.center_additive_prediction",
+    "restrictions": "api/generated/nampy.diagnostics.center_additive_prediction",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -8004,7 +8315,7 @@
   {
     "kind": "shared",
     "symbol": "combine_distributional_effects",
-    "public_import": "nampy.inspection.combine_distributional_effects",
+    "public_import": "nampy.diagnostics.combine_distributional_effects",
     "signature": "(effects: 'Sequence[DistributionalEffects]') -> 'DistributionalEffects'",
     "parameters": [
       {
@@ -8012,11 +8323,11 @@
         "default": "required"
       }
     ],
-    "page": "api/generated/nampy.inspection.combine_distributional_effects",
-    "example": "api/generated/nampy.inspection.combine_distributional_effects",
-    "input_contract": "api/generated/nampy.inspection.combine_distributional_effects",
-    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.inspection.combine_distributional_effects",
-    "restrictions": "api/generated/nampy.inspection.combine_distributional_effects",
+    "page": "api/generated/nampy.diagnostics.combine_distributional_effects",
+    "example": "api/generated/nampy.diagnostics.combine_distributional_effects",
+    "input_contract": "api/generated/nampy.diagnostics.combine_distributional_effects",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.diagnostics.combine_distributional_effects",
+    "restrictions": "api/generated/nampy.diagnostics.combine_distributional_effects",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -8024,7 +8335,7 @@
   {
     "kind": "shared",
     "symbol": "explain_additive_prediction",
-    "public_import": "nampy.inspection.explain_additive_prediction",
+    "public_import": "nampy.diagnostics.explain_additive_prediction",
     "signature": "(X, prediction: 'AdditivePrediction', *, max_bins: 'int' = 64) -> 'pd.DataFrame'",
     "parameters": [
       {
@@ -8040,11 +8351,11 @@
         "default": "64"
       }
     ],
-    "page": "api/generated/nampy.inspection.explain_additive_prediction",
-    "example": "api/generated/nampy.inspection.explain_additive_prediction",
-    "input_contract": "api/generated/nampy.inspection.explain_additive_prediction",
-    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.inspection.explain_additive_prediction",
-    "restrictions": "api/generated/nampy.inspection.explain_additive_prediction",
+    "page": "api/generated/nampy.diagnostics.explain_additive_prediction",
+    "example": "api/generated/nampy.diagnostics.explain_additive_prediction",
+    "input_contract": "api/generated/nampy.diagnostics.explain_additive_prediction",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.diagnostics.explain_additive_prediction",
+    "restrictions": "api/generated/nampy.diagnostics.explain_additive_prediction",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -8184,7 +8495,7 @@
   {
     "kind": "shared",
     "symbol": "prepare_distributional_effects",
-    "public_import": "nampy.inspection.prepare_distributional_effects",
+    "public_import": "nampy.diagnostics.prepare_distributional_effects",
     "signature": "(estimator, X, *, reference_X=None, reference_weight=None, response_scale: 'float' = 1.0, feature_names: 'Sequence[str] | None' = None) -> 'DistributionalEffects'",
     "parameters": [
       {
@@ -8212,11 +8523,11 @@
         "default": "None"
       }
     ],
-    "page": "api/generated/nampy.inspection.prepare_distributional_effects",
-    "example": "api/generated/nampy.inspection.prepare_distributional_effects",
-    "input_contract": "api/generated/nampy.inspection.prepare_distributional_effects",
-    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.inspection.prepare_distributional_effects",
-    "restrictions": "api/generated/nampy.inspection.prepare_distributional_effects",
+    "page": "api/generated/nampy.diagnostics.prepare_distributional_effects",
+    "example": "api/generated/nampy.diagnostics.prepare_distributional_effects",
+    "input_contract": "api/generated/nampy.diagnostics.prepare_distributional_effects",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.diagnostics.prepare_distributional_effects",
+    "restrictions": "api/generated/nampy.diagnostics.prepare_distributional_effects",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -8588,7 +8899,7 @@
   {
     "kind": "shared",
     "symbol": "term_importance_table",
-    "public_import": "nampy.inspection.term_importance_table",
+    "public_import": "nampy.diagnostics.term_importance_table",
     "signature": "(prediction: 'AdditivePrediction') -> 'pd.DataFrame'",
     "parameters": [
       {
@@ -8596,11 +8907,11 @@
         "default": "required"
       }
     ],
-    "page": "api/generated/nampy.inspection.term_importance_table",
-    "example": "api/generated/nampy.inspection.term_importance_table",
-    "input_contract": "api/generated/nampy.inspection.term_importance_table",
-    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.inspection.term_importance_table",
-    "restrictions": "api/generated/nampy.inspection.term_importance_table",
+    "page": "api/generated/nampy.diagnostics.term_importance_table",
+    "example": "api/generated/nampy.diagnostics.term_importance_table",
+    "input_contract": "api/generated/nampy.diagnostics.term_importance_table",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.diagnostics.term_importance_table",
+    "restrictions": "api/generated/nampy.diagnostics.term_importance_table",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]

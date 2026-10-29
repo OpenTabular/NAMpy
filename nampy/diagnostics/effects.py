@@ -8,6 +8,8 @@ from typing import Mapping, Sequence
 import numpy as np
 import pandas as pd
 
+from .._data import frame_for_estimator
+
 
 def _as_curve_matrix(values, *, n_rows: int, name: str) -> np.ndarray:
     array = np.asarray(values, dtype=np.float64)
@@ -167,17 +169,6 @@ def _binned_effects(x, point, spread, *, bins: int):
     )
 
 
-def _frame_for_estimator(estimator, X) -> pd.DataFrame:
-    if isinstance(X, pd.DataFrame):
-        return X.reset_index(drop=True)
-    values = np.asarray(X)
-    if values.ndim != 2:
-        raise ValueError("X must be a two-dimensional DataFrame or array.")
-    schema = getattr(estimator, "schema_", None)
-    names = getattr(schema, "feature_names", None)
-    if names is None or len(names) != values.shape[1]:
-        names = tuple(f"x{index}" for index in range(values.shape[1]))
-    return pd.DataFrame(values, columns=names)
 
 
 def prepare_distributional_effects(
@@ -202,7 +193,7 @@ def prepare_distributional_effects(
     if not np.isfinite(scale) or scale <= 0:
         raise ValueError("response_scale must be finite and positive.")
 
-    frame = _frame_for_estimator(estimator, X)
+    frame = frame_for_estimator(estimator, X)
     from .contributions import center_additive_prediction
 
     components = center_additive_prediction(

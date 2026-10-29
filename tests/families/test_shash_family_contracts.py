@@ -202,11 +202,11 @@ def test_shash_public_components_and_persistence(tmp_path):
                    family=ShashFamily(), smoothing_params=[.7, .9], optimize_smoothing=False).fit(data)
     model.predict_components(data).validate_additive_reconstruction()
     assert model.parameter_names_ == ("mu", "sigma", "epsilon", "delta")
-    np.testing.assert_allclose(model.predict_point(data), model.gam_.family.point_prediction_from_parameters(model.predict(data)))
+    np.testing.assert_allclose(model.predict_point(data), model.gam_.family.point_prediction_from_parameters(model.predict_parameters(data)))
     assert np.isfinite(model.score(data, data["y"].to_numpy()))
     path = model.save_model(tmp_path / "shash.nampy")
     restored = GAMLSS.load_model(path)
-    np.testing.assert_array_equal(restored.predict(data), model.predict(data))
+    np.testing.assert_array_equal(restored.predict_parameters(data), model.predict_parameters(data))
 
 
 @pytest.mark.parametrize("kwargs", [{"link": ("log", "logeb", "identity", "identity")},

@@ -10,6 +10,6 @@ x = np.linspace(-1,1,n)
 data = pd.DataFrame({'x': x, 'y': rng.beta(3,6,n)})
 model = GAMLSS(family='beta_lss', formula={'mu':'y ~ s(x,k=5)','phi':'~x'},
                optimize_smoothing=False, smoothing_params=[.2]).fit(data)
-parameters = model.predict(data)
+parameters = model.predict_parameters(data)
 point = model.predict_point(data)
 result = {'parameters': parameters, 'point': point, 'components': model.predict_components(data)}

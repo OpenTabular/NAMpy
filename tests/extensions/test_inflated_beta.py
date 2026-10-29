@@ -55,9 +55,7 @@ def test_independent_weighted_mle_with_four_offsets_and_normalized_likelihood():
         np.linspace(-0.1, 0.1, len(frame)),
         np.linspace(0.1, -0.05, len(frame)),
     ]
-    model = _model(optimize_smoothing=False).fit(
-        frame, sample_weight=weights, offset=offsets
-    )
+    model = _model(optimize_smoothing=False).fit(frame, sample_weight=weights, offset=np.column_stack(offsets))
     assert _fit_result(model.gam_).converged
     design = np.column_stack([np.ones(len(frame)), frame.x])
     y = frame.y.to_numpy()
@@ -103,18 +101,18 @@ def test_independent_weighted_mle_with_four_offsets_and_normalized_likelihood():
             ),
         ]
     )
-    parameters = model.predict(frame, offset=offsets)
+    parameters = model.predict_parameters(frame, offset=np.column_stack(offsets))
     assert_allclose(parameters, expected, atol=2e-5, rtol=0)
-    dist = model.predict_distribution(frame, offset=offsets)
+    dist = model.predict_distribution(frame, offset=np.column_stack(offsets))
     assert_allclose(-np.sum(weights * dist.log_prob(frame.y)), oracle.fun, atol=2e-8)
     assert_allclose(dist.mean(), parameters[:, 3] + parameters[:, 4] * parameters[:, 0])
-    assert_allclose(model.predict_point(frame, offset=offsets), dist.mean(), atol=1e-14)
+    assert_allclose(model.predict_point(frame, offset=np.column_stack(offsets)), dist.mean(), atol=1e-14)
     assert_allclose(
         model.gam_.family.variance_from_parameters(parameters),
         dist.variance(),
         atol=2e-15,
     )
-    assert model.predict(raw=True).shape == (len(frame), 4)
+    assert model.predict_link(frame).shape == (len(frame), 4)
     assert model.predictor_names_ == ("mu", "phi", "pi0", "pi1")
     assert model.parameter_names_ == ("mu", "phi", "pi0", "pi1", "pi_interior")
 
@@ -251,11 +249,11 @@ def test_fixed_smoothing_duplicate_weights_components_persistence_and_missing_ro
     model = _model(**kwargs).fit(frame, sample_weight=weights)
     index = np.repeat(np.arange(len(frame)), weights)
     repeated = _model(**kwargs).fit(frame.iloc[index].reset_index(drop=True))
-    assert_allclose(model.predict(frame), repeated.predict(frame), atol=3e-6)
+    assert_allclose(model.predict_parameters(frame), repeated.predict_parameters(frame), atol=3e-6)
     components = model.predict_components(frame)
     components.validate_additive_reconstruction()
     assert components.link.shape == (len(frame), 4)
-    assert model.predict(frame).shape == (len(frame), 5)
+    assert model.predict_parameters(frame).shape == (len(frame), 5)
     assert_allclose(components.link, model.predict_link(frame))
     assert components.predictor_names == model.predictor_names_
     assert all(value.shape == (len(frame), 4) for value in components.terms.values())
@@ -283,7 +281,7 @@ def test_fixed_smoothing_duplicate_weights_components_persistence_and_missing_ro
     assert clone(model).family == "beinf_lss"
     path = tmp_path / "beinf.pkl"
     model.save_model(path)
-    assert_allclose(GAMLSS.load_model(path).predict(frame), model.predict(frame))
+    assert_allclose(GAMLSS.load_model(path).predict_parameters(frame), model.predict_parameters(frame))
     missing = frame.copy()
     missing.loc[3, "x"] = np.nan
     assert np.isnan(model.predict_distribution(missing).mean()[3])
@@ -347,7 +345,7 @@ def test_saved_r_beinf_probabilities_unpenalized_fit_and_variance_discrepancy():
     model = _model(optimize_smoothing=False).fit(frame)
     assert _fit_result(model.gam_).converged
     assert_allclose(
-        model.predict(frame),
+        model.predict_parameters(frame),
         frame[["mu", "phi", "pi0", "pi1", "pi_interior"]],
         atol=3e-5,
         rtol=0,
@@ -378,9 +376,7 @@ def test_outer_reml_four_penalty_gradient_hessian_with_offsets(weighted):
         np.linspace(-0.1, 0.1, len(frame)),
         np.linspace(0.05, -0.05, len(frame)),
     ]
-    model = _all_smooth_model(
-        optimize_smoothing=False, smoothing_params=[0.3, 0.5, 0.7, 0.9], irls_tol=1e-10
-    ).fit(frame, sample_weight=weights, offset=offsets)
+    model = _all_smooth_model(optimize_smoothing=False, smoothing_params=[0.3, 0.5, 0.7, 0.9], irls_tol=1e-10).fit(frame, sample_weight=weights, offset=np.column_stack(offsets))
     gam = model.gam_
     rho = np.log(gam.smoothing_params)
     gradient = criterion_gradient(gam, gam.y_, rho, method="reml")
@@ -413,7 +409,7 @@ def test_automatic_reml_with_all_four_predictors_smoothed(optimizer):
     assert np.all(np.asarray(model.gam_.smoothing_params) > 0)
     assert np.isfinite(model.score(frame, frame.y))
     assert model.standard_errors(frame).shape == (len(frame), 5)
-    assert_allclose(model.predict(frame)[:, 2:].sum(axis=1), 1, atol=3e-16)
+    assert_allclose(model.predict_parameters(frame)[:, 2:].sum(axis=1), 1, atol=3e-16)
 
 
 def test_unsupported_routes_links_and_invalid_simplex_are_explicit():

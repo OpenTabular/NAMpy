@@ -9,12 +9,14 @@ from reference_schema import METHOD_PARAMETER_MEANINGS, parameter_type
 
 SYMBOLS = {
     "nampy.contracts": [
+        "CapabilityStatus",
+        "DistributionFitStatus",
         "FeatureSchema",
         "AdditiveTermMetadata",
         "AdditivePrediction",
         "EnsembleAdditivePrediction",
     ],
-    "nampy.inspection": [
+    "nampy.diagnostics": [
         "FisherDiagnostics", "FisherInformationResult", "FisherGroupSummary", "FisherSnapshot",
         "center_additive_prediction", "explain_additive_prediction", "term_importance_table",
         "DistributionalEffects", "combine_distributional_effects", "prepare_distributional_effects",
@@ -39,7 +41,7 @@ FISHER_MEANINGS = {
     "split": "Fit-time neural probe split: train or validation. Results identify the evaluated split when known.",
     "include_initial": "Record the initial neural gradient-model state when diagnostics are enabled.",
     "include_final": "Record the selected final fitted state when diagnostics are enabled.",
-    "record_diagonal": "Fit-time per-coordinate retention: never, final, or all. Group summaries are always retained.",
+    "record_diagonal": "Per-coordinate retention: never, final, or all. Public postfit queries retain the diagonal for final/all; group summaries are always retained.",
     "group_by": "Requested disjoint grouping: term, layer, or tensor. Backend-supported grouping is recorded on results.",
     "random_state": "Private conditional-sampling/probe seed; None uses an independent generator.",
     "regression_scale": "Positive conditional standard deviation required to declare the raw neural regression Gaussian likelihood; statistical models use fitted family dispersion.",
@@ -71,6 +73,10 @@ FISHER_MEANINGS = {
     "optimizer_step": "Completed optimizer-step count when the snapshot was recorded; zero for statistical final snapshots.",
 }
 MEANINGS = {
+    "state": "Declared support or fit-status state; conditional support lists the remaining conditions.",
+    "reason": "Human-readable explanation from the owning validator.",
+    "conditions": "Immutable condition names required by this operation.",
+    "message": "Backend-owned fit completion or failure explanation.",
     "feature_names": "Ordered source column names. FeatureSchema records d names; distributional rendering uses a subset of the fitted feature keys.",
     "dtypes": "One dtype name per feature, length d, in the same order as feature_names.",
     "features": "Source features on which a term depends; empty tuple means no declared source feature.",
@@ -182,7 +188,7 @@ TYPES = {
 CONTRACT_SETUP = """import numpy as np
 import pandas as pd
 from nampy.contracts import AdditivePrediction, AdditiveTermMetadata, EnsembleAdditivePrediction, FeatureSchema
-from nampy.inspection import center_additive_prediction, explain_additive_prediction, term_importance_table
+from nampy.diagnostics import center_additive_prediction, explain_additive_prediction, term_importance_table
 
 n = 12
 X = pd.DataFrame({'x': np.linspace(0, 1, n)})
@@ -194,7 +200,7 @@ prediction = AdditivePrediction(link=link,
 prediction.validate_additive_reconstruction()
 """
 DIST_SETUP = """import numpy as np
-from nampy.inspection import DistributionalEffects
+from nampy.diagnostics import DistributionalEffects
 
 n = 24
 x = np.linspace(0, 1, n)
@@ -205,6 +211,10 @@ effects = DistributionalEffects(feature_values={'x': x},
 
 
 def example(module, name):
+    if name == "CapabilityStatus":
+        return "from nampy import GAMRegressor\nresult = GAMRegressor().capabilities()['predict_link']\nprint(result)\n"
+    if name == "DistributionFitStatus":
+        return "from nampy import GAMLSS\nresult = GAMLSS().distribution_fit_status()\nprint(result)\n"
     if name in {"FisherDiagnostics", "FisherInformationResult", "FisherGroupSummary", "FisherSnapshot"}:
         code = "from nampy import FisherDiagnostics\nconfig = FisherDiagnostics(n_inputs=12, random_state=7)\n"
         if name == "FisherDiagnostics":
@@ -295,6 +305,8 @@ assert result is None
 
 
 def return_description(module, name):
+    if name in {"CapabilityStatus", "DistributionFitStatus"}:
+        return f"``{name}`` immutable record. Support and fit eligibility are separate: a supported prediction operation does not imply convergence or calibrated uncertainty."
     if name in {"FisherDiagnostics", "FisherInformationResult", "FisherGroupSummary", "FisherSnapshot"}:
         return f"``{name}`` immutable shared record. Information uses mean-per-input normalization and excludes penalties. Sampling uncertainty describes numerical information estimation, not fitted-parameter confidence intervals. See :doc:`/user_guide/fisher_diagnostics`."
     if name in {
@@ -352,7 +364,7 @@ def generate(root):
                     docs["n_inputs"] = "Number of reference-input rows actually evaluated; public postfit methods use every supplied row."
             items = list(inspect.signature(obj).parameters.items())
             if module == "nampy.plotting" and name == "plot_distributional_effects":
-                from nampy.inspection import prepare_distributional_effects
+                from nampy.diagnostics import prepare_distributional_effects
                 from nampy.plotting import render_distributional_effects
 
                 items = [

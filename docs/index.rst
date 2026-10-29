@@ -176,6 +176,7 @@ look up a specific method.
    :maxdepth: 2
    :hidden:
 
+   Fit, predict and diagnose <user_guide/model_workflow>
    Prepare feature data <user_guide/preprocessing>
    Train and tune neural models <user_guide/training>
    Build a GAM formula <user_guide/formula_visual_reference>

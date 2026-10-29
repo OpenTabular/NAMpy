@@ -10,12 +10,14 @@ predictions. Explanation functions operate on that shared representation.
    :toctree: generated/
    :nosignatures:
 
+   CapabilityStatus
+   DistributionFitStatus
    FeatureSchema
    AdditivePrediction
    AdditiveTermMetadata
    EnsembleAdditivePrediction
 
-.. currentmodule:: nampy.inspection
+.. currentmodule:: nampy.diagnostics
 
 .. autosummary::
    :toctree: generated/
@@ -83,7 +85,7 @@ assumed common mixed reference measure.
 evidence. Statistical convergence, completed neural training and unknown status
 are distinct. Probability support alone does not make a fit eligible to rank.
 
-``nampy.distributions.compare_distributions`` fits named estimator templates on
+``nampy.models.compare_distributions`` fits named estimator templates on
 explicit training data and scores identical held-out observations through
 ``DistributionPrediction.log_prob``. ``DistributionCandidate`` holds per-model
 fit/prediction arguments and optional external status readers. Results retain

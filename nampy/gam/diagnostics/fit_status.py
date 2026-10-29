@@ -1,6 +1,6 @@
 """Report existing statistical convergence without changing optimizer behavior."""
 
-from ...distributions.contracts import DistributionFitStatus
+from ...contracts import DistributionFitStatus
 from ..model_state import _fit_result
 
 

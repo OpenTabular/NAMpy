@@ -133,7 +133,7 @@ def test_public_fixed_smoothing_fit_matches_independent_optimum(family):
         optimize_smoothing=False,
     ).fit(frame)
     assert _fit_result(model.gam_).converged
-    eta = model.predict(frame, raw=True)
+    eta = model.predict_link(frame)
     initial = [eta[:, 0].mean(), (eta[-1, 0] - eta[0, 0]) / 2, *eta[0, 1:]]
 
     def objective(b):
@@ -152,6 +152,6 @@ def test_public_fixed_smoothing_fit_matches_independent_optimum(family):
     assert_allclose(objective(initial), reference.fun, atol=2e-7, rtol=0)
     assert_allclose(
         model.predict_distribution(frame).log_prob(y),
-        family().logpdf_from_parameters(y, model.predict(frame)),
+        family().logpdf_from_parameters(y, model.predict_parameters(frame)),
         atol=2e-12,
     )

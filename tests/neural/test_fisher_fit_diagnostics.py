@@ -16,7 +16,7 @@ from nampy import (
     LinRegLSS,
     LinRegRegressor,
 )
-from nampy.inspection.fisher import FisherDiagnostics
+from nampy.diagnostics.fisher import FisherDiagnostics
 from nampy.neural.configs.gpnam_config import DefaultGPNAMConfig
 from nampy.neural.configs.igann_config import DefaultIGANNConfig
 from nampy.neural.configuration import (

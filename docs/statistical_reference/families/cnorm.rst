@@ -130,7 +130,7 @@ Outputs and fitting support
      - (n,)
      - Family response mean/location in its documented response/link convention.
 
-The constructor returns a family object, not predictions. ``GAM.fit`` returns the fitted model. For a single-predictor family, ``GAM.predict(type='response')`` normally returns a response-scale array, while ``type='link'`` returns the additive predictor. Multi-predictor families have family-specific response transformations. ``GAMLSS.predict`` exposes natural distribution parameters; ``predict(raw=True)`` exposes link predictors. These interfaces can have different column meanings.
+The constructor returns a family object, not predictions. ``GAM.fit`` returns the fitted model. For a single-predictor family, ``GAM.predict(type='response')`` normally returns a response-scale array, while ``type='link'`` returns the additive predictor. Multi-predictor families have family-specific response transformations. ``GAMLSS.predict`` returns the family point summary; ``predict_parameters`` exposes natural parameters and ``predict_link`` exposes additive predictors. These interfaces can have different column meanings.
 
 
 

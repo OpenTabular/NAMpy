@@ -47,9 +47,10 @@ density; their spacing and empirical coverage describe different properties.
 Public parameter contract
 -------------------------
 
-``GAMLSS.predict`` always returns natural distribution parameters. Columns
-follow ``parameter_names_``. ``predict(raw=True)`` and ``predict_link`` return
-the additive linear predictors instead.
+``GAMLSS.predict`` returns the family-defined point prediction.
+``predict_parameters`` returns natural distribution parameters with columns
+in ``parameter_names_`` order. ``predict_link`` returns additive predictors
+with columns in ``predictor_names_`` order. See :doc:`model_workflow`.
 
 .. list-table:: Built-in families
    :header-rows: 1
@@ -229,7 +230,7 @@ precision. The count mean is ``trials*mu``; its variance is
 
 Supply trial context again for every explicit prediction dataset, including a
 dataset with the same row count as training. Only omitted ``X`` reuses fitted
-context. ``predict`` and ``standard_errors`` return the two natural parameters
+context. ``predict_parameters`` and ``standard_errors`` return the two natural parameters
 and their errors, independently of new trials. ``predict_point``, ``score`` and
 ``evaluate`` accept the same ``context`` argument. Context predictions support
 ``na_action="pass"``; omission is rejected because its row mapping is not yet
@@ -277,7 +278,8 @@ The whole-response mean is ``(1-pi0)*mu``, and the variance is
    distribution = model.predict_distribution(new_data)
    zero_probabilities = distribution.cdf(0)
    expected_outcomes = distribution.mean()
-   residuals = distribution.quantile_residuals(new_y, random_state=7)
+   from nampy.diagnostics import quantile_residuals
+   residuals = quantile_residuals(distribution, new_y, random_state=7)
 
 Fixed smoothing and automatic general-family REML with ``outer_newton``,
 ``bfgs`` and ``efs`` are validated. Existing method coercion to REML is retained;
@@ -340,11 +342,12 @@ shapes are ``mu*phi`` and ``(1-mu)*phi``. The R BEINF mapping is
            "pi0": "~ s(x, k=5)", "pi1": "~ x",
        },
    ).fit(data)
-   parameters = model.predict(new_data)                 # (n, 5)
+   parameters = model.predict_parameters(new_data)                 # (n, 5)
    raw_predictors = model.predict_link(new_data)        # (n, 4)
    parameter_errors = model.standard_errors(new_data)   # (n, 5)
    distribution = model.predict_distribution(new_data)
    expected_proportion = distribution.mean()
+
 
 Raw columns are ``logit(mu)``, ``log(phi)``, ``log(pi0/pi_interior)`` and
 ``log(pi1/pi_interior)``. The last two are category log ratios to a shared
@@ -488,7 +491,8 @@ their left-limit CDF operations, without assuming every jump lies on an integer.
    from nampy.plotting import render_worm_plot
 
    distribution = model.predict_distribution(X_test)
-   residuals = distribution.quantile_residuals(y_test, random_state=7)
+   from nampy.diagnostics import quantile_residuals
+   residuals = quantile_residuals(distribution, y_test, random_state=7)
    worm_data = prepare_worm_plot(residuals, x=X_test["age"], n_bins=4)
    figure = render_worm_plot(worm_data)
 
@@ -587,10 +591,11 @@ to parameter order and requires secondary formulas to be one-sided:
        smoothing_method="reml",
    ).fit(data)
 
-   parameters = model.predict(data)
+   parameters = model.predict_parameters(data)
    standard_errors = model.standard_errors(data)
    components = model.predict_components(data)
    components.validate_additive_reconstruction()
+
 
 An ordered formula list remains supported for compatibility. Without a
 formula, each distribution parameter receives its own independently compiled
@@ -638,7 +643,7 @@ are cloned rather than fitted in place.
 .. code-block:: python
 
    from nampy import GAMLSS
-   from nampy.distributions import DistributionCandidate, compare_distributions
+   from nampy.models import DistributionCandidate, compare_distributions
 
    candidates = {
        "lognormal": GAMLSS(
@@ -728,7 +733,7 @@ convergence. Interrupted or zero-step training is ineligible. Legacy artifacts
 and training routes without completion metadata remain ``unknown`` until an
 appropriate status adapter is supplied. External estimators can provide
 ``distribution_fit_status()`` or a candidate ``status_reader`` returning
-``nampy.distributions.DistributionFitStatus``. Returning from ``fit`` alone is not
+``nampy.contracts.DistributionFitStatus``. Returning from ``fit`` alone is not
 sufficient eligibility evidence.
 
 Continuous log densities, discrete log masses and mixed log probabilities
@@ -775,7 +780,8 @@ the same backend-neutral container and diagnostics as the other scalar laws::
     )
     centiles = prepare_centiles(prediction, x=[0., 1., 2.])
     log_density = prediction.log_prob([.8, 2., 3.5])
-    residuals = prediction.quantile_residuals([.8, 2., 3.5])
+    from nampy.diagnostics import quantile_residuals
+    residuals = quantile_residuals(prediction, [.8, 2., 3.5])
 
 The parameters require finite ``mu > 0``, ``sigma > 0`` and finite real ``nu``.
 For positive responses, define
@@ -921,7 +927,8 @@ The fitting adapters use the same natural parameters as these laws::
     prediction = DistributionPrediction(BCTLaw(), parameters)
     centiles = prediction.quantile([.05, .5, .95])
     draws = prediction.sample(500, random_state=7)
-    residuals = prediction.quantile_residuals([.8, 2., 3.5])
+    from nampy.diagnostics import quantile_residuals
+    residuals = quantile_residuals(prediction, [.8, 2., 3.5])
 
 Both laws require finite positive ``mu, sigma, tau`` and finite real ``nu``.
 They share ``z = expm1(nu * log(y / mu)) / (nu * sigma)`` and its exact
@@ -1063,3 +1070,8 @@ Both support fixed smoothing and analytic Newton/BFGS REML. These positive
 families return the conditional median from ``predict_point``; truncated moments
 and SD summaries remain unavailable. Their prediction laws condition on
 truncation bounds, independently of the training censoring intervals.
+
+Runnable held-out comparison
+----------------------------
+
+.. include:: /_generated/reference/comparison.inc

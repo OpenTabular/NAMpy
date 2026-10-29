@@ -116,12 +116,12 @@ def test_lss_persistence_round_trip_includes_distribution_transforms(tmp_path):
     X, y = _regression_data(n=50)
     estimator = LinRegLSS(objective=ObjectiveConfig(family='normal'), preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
     estimator.set_params(training=replace(estimator.training or GradientTrainingConfig(), max_epochs=2, patience=1, checkpoint_path=str(tmp_path))).fit(X, y)
-    expected = estimator.predict(X.iloc[:8])
+    expected = estimator.predict_parameters(X.iloc[:8])
 
     path = estimator.save_model(tmp_path / "normal-lss.nampy")
     restored = LinRegLSS.load_model(path)
 
-    np.testing.assert_allclose(restored.predict(X.iloc[:8]), expected, rtol=0, atol=0)
+    np.testing.assert_allclose(restored.predict_parameters(X.iloc[:8]), expected, rtol=0, atol=0)
 
 
 def test_ordinal_lss_predict_detaches_learned_cutpoints(tmp_path):
@@ -130,7 +130,7 @@ def test_ordinal_lss_predict_detaches_learned_cutpoints(tmp_path):
     estimator = LinRegLSS(objective=ObjectiveConfig(family='ordinal'), preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
     estimator.set_params(training=replace(estimator.training or GradientTrainingConfig(), max_epochs=2, patience=1, checkpoint_path=str(tmp_path))).fit(X, y)
 
-    probabilities = estimator.predict(X)
+    probabilities = estimator.predict_parameters(X)
     assert isinstance(probabilities, np.ndarray)
     assert probabilities.shape == (len(X), 3)
     np.testing.assert_allclose(probabilities.sum(axis=1), 1.0, atol=1e-5)

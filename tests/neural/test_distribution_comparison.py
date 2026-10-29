@@ -7,8 +7,7 @@ from numpy.testing import assert_allclose
 from sklearn.base import clone
 
 from nampy import GAMLSS
-from nampy.distributions import DistributionCandidate, compare_distributions
-from nampy.models import LinRegLSS
+from nampy.models import DistributionCandidate, LinRegLSS, compare_distributions
 from nampy.neural.configuration import (
     GradientTrainingConfig,
     ObjectiveConfig,

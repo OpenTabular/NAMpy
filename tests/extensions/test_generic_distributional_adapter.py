@@ -133,12 +133,12 @@ def test_multidimensional_fixed_fit_initialization_offsets_and_components(family
     }
     offsets = [np.full(len(y), 0.05 * (j + 1)) for j in range(family.nlp)]
     model = GAMLSS(family=family, formula=formula, optimize_smoothing=False).fit(
-        frame, offset=offsets
+        frame, offset=np.column_stack(offsets)
     )
     from nampy.gam.model_state import _fit_result
 
     assert _fit_result(model.gam_).converged
-    assert model.predict(frame).shape == (500, family.nlp)
+    assert model.predict_parameters(frame).shape == (500, family.nlp)
     assert np.isfinite(model.standard_errors(frame)).all()
     model.predict_components(frame).validate_additive_reconstruction()
 

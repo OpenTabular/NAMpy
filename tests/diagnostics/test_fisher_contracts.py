@@ -5,7 +5,7 @@ import pytest
 from numpy.testing import assert_allclose
 
 from nampy import FisherDiagnostics
-from nampy.inspection.fisher import aggregate_fisher, normalize_fisher_diagnostics
+from nampy.diagnostics.fisher import aggregate_fisher, normalize_fisher_diagnostics
 
 
 def summarize(

@@ -5,7 +5,7 @@ from dataclasses import replace
 import lightning as pl
 import numpy as np
 
-from ...inspection.fisher import FisherSnapshot, normalize_fisher_diagnostics
+from ...diagnostics.fisher import FisherSnapshot, normalize_fisher_diagnostics
 from ..configuration import GradientTrainingConfig
 from ..fisher import estimate_fisher_information, validate_fisher_model
 from ..offsets import predictor_offset

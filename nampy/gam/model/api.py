@@ -267,7 +267,7 @@ class GAM:
         if self.coefficient_optimizer not in {"newton", "bfgs"}:
             raise ValueError("coefficient_optimizer must be 'newton' or 'bfgs'.")
         self.optim_method = self.hparams.get("optim_method", None)
-        from ...inspection.fisher import normalize_fisher_diagnostics
+        from ...diagnostics.fisher import normalize_fisher_diagnostics
 
         self.fisher_diagnostics = self.hparams.get("fisher_diagnostics", False)
         normalize_fisher_diagnostics(self.fisher_diagnostics)
@@ -470,7 +470,7 @@ class GAM:
         that declare it (e.g. {'trials': trials} for betabinomial_lss). It is
         separate from prior weights. Existing mgcv families reject context.
         """
-        from ...inspection.fisher import FisherSnapshot, normalize_fisher_diagnostics
+        from ...diagnostics.fisher import FisherSnapshot, normalize_fisher_diagnostics
 
         config = normalize_fisher_diagnostics(self.fisher_diagnostics)
         if config is not None:
@@ -510,9 +510,12 @@ class GAM:
         return self
 
     def fisher_information(self, X=None, *, offset=None, context=None, config=None,
-                           return_diagonal=True):
+                           return_diagonal=True, batch_size=None):
         """Mean likelihood Fisher information in fitted coefficient coordinates."""
-        from ...inspection.fisher import FisherDiagnostics, normalize_fisher_diagnostics
+        from ...diagnostics.fisher import (
+            FisherDiagnostics,
+            normalize_fisher_diagnostics,
+        )
         from ..fisher import statistical_fisher_information
 
         resolved = config
@@ -521,7 +524,7 @@ class GAM:
         if not isinstance(resolved, FisherDiagnostics):
             raise TypeError("config must be FisherDiagnostics or None.")
         return statistical_fisher_information(self, X, config=resolved, offset=offset,
-            context=context, return_diagonal=return_diagonal)
+            context=context, return_diagonal=return_diagonal, batch_size=batch_size)
 
     def _fit_in_place(
         self,

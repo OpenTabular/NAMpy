@@ -123,7 +123,7 @@ def test_fitted_statistical_endpoint_matches_independent_scipy_and_persists(tmp_
         return -terms.sum()
 
     expected = minimize(objective, [0.2, np.log(0.7)], method="BFGS", tol=1e-8)
-    assert_allclose(model.predict(X, raw=True)[0], expected.x, rtol=2e-6, atol=2e-6)
+    assert_allclose(model.predict_link(X)[0], expected.x, rtol=2e-6, atol=2e-6)
     prediction = model.predict_distribution(X)
     assert_allclose(
         -observation_log_prob(prediction, target).sum(), expected.fun, atol=1e-8
@@ -206,7 +206,7 @@ def test_fitted_normal_observation_endpoint_matches_independent_r_capture():
         optimize_smoothing=False,
         irls_tol=1e-10,
     ).fit(X, target)
-    prediction = model.predict(X, raw=True)
+    prediction = model.predict_link(X)
     assert_allclose(
         prediction[:, 0],
         expected.intercept + expected.slope * X.x.to_numpy(),

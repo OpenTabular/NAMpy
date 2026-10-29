@@ -46,6 +46,12 @@ class SurvivalGAM(BaseEstimator):
     for static fixed-smoothing Cox models. Other censoring modes, separate ML/GCV criteria and censored EFS are unsupported.
     """
 
+    def capabilities(self):
+        """Describe supported survival operations and their conditions."""
+        from ..gam.capabilities import estimator_capabilities
+
+        return estimator_capabilities(self, task="survival")
+
     _estimator_type = "survival"
 
     def __init__(
@@ -186,6 +192,7 @@ class SurvivalGAM(BaseEstimator):
             offset=np.log(design.exposure[expanded_rows, interval])
             + known_offset[expanded_rows],
         )
+        self.predictor_names_ = tuple(f"log_hazard[{i}]" for i in range(len(design.cuts) - 1))
         self.gam_ = self.poisson_.gam_
         fitted = self.gam_.fit_result()
         if fitted.core.converged is False or fitted.core.failed_step:
@@ -281,9 +288,10 @@ class SurvivalGAM(BaseEstimator):
         self.parametric_.fit(
             data,
             sample_weight=weights,
-            offset=list(offsets.T),
+            offset=offsets,
             context={"event": y.event, "entry": y.entry},
         )
+        self.predictor_names_ = tuple(self.parametric_.predictor_names_)
         self.gam_ = self.parametric_.gam_
         fitted = self.gam_.fit_result()
         if (
@@ -315,10 +323,9 @@ class SurvivalGAM(BaseEstimator):
     def _offset(offset, n):
         if offset is None:
             return np.zeros(n)
-        values = np.asarray(offset, dtype=float)
-        if values.shape != (n,) or not np.isfinite(values).all():
-            raise ValueError("offset must be a finite subject vector.")
-        return values
+        from .._offsets import predictor_offset
+
+        return predictor_offset(offset, n, 1)[:, 0]
 
     def _prediction_data(self, X, offset):
         if not hasattr(self, "poisson_"):
@@ -351,7 +358,7 @@ class SurvivalGAM(BaseEstimator):
                     "Prediction requires explicit new-subject parameter offsets."
                 )
             return self.parametric_.predict_link(
-                frame, offset=list(parameter_offsets(offset, len(frame)).T)
+                frame, offset=parameter_offsets(offset, len(frame))
             )
         frame, known, rows, _ = self._prediction_data(X, offset)
         eta = self.poisson_.predict_link(frame, offset=known)
@@ -410,42 +417,29 @@ class SurvivalGAM(BaseEstimator):
         return SurvivalPrediction(np.exp(eta), self.cuts_, backend="gam")
 
     def _survival_coefficient_design(self, X, offset):
-        """Subject/predictor design in the existing joint sampler coordinates."""
-        from ..gam.fit.capabilities import has_transformed_coefficients
+        """Adapt input rows to the statistical joint sampler."""
+        from ..gam.inference.survival import coefficient_design
 
         mean = self.predict_link(X, offset=offset)
-        beta = self.gam_.gam_result_.fit_core_solution.fit_result.coef_full
-        compiled = self.gam_.gam_result_.require_compiled_model()
-        mapping = compiled.fit_to_prediction_parameterization_map
-        if (has_transformed_coefficients(self.gam_)
-                or (mapping is not None and not np.array_equal(mapping, np.eye(len(beta))))):
-            raise NotImplementedError(
-                "Survival coefficient simulation for transformed or wider prediction coordinates is unsupported.")
-        if self.likelihood_ == "piecewise_exponential":
+        piecewise = self.likelihood_ == "piecewise_exponential"
+        if piecewise:
             frame, _, _, _ = self._prediction_data(X, offset)
-            matrix = np.asarray(self.poisson_.lpmatrix(frame))
-            design = matrix.reshape(len(mean), len(self.cuts_)-1, matrix.shape[1])
+            matrix = self.poisson_.lpmatrix(frame)
         else:
             frame = prepare_predict_features(self, X)
-            matrix = np.asarray(self.parametric_.lpmatrix(frame))
-            indices = compiled.predictor_full_indices
-            design = np.zeros((len(mean), 2, matrix.shape[1]))
-            for k, columns in enumerate(indices):
-                design[:, k, columns] = matrix[:, columns]
-        if design.shape[-1] != len(beta) or not np.isfinite(design).all():
-            raise NotImplementedError("Survival coefficient simulation requires aligned finite prediction coordinates.")
+            matrix = self.parametric_.lpmatrix(frame)
+        design, beta = coefficient_design(
+            self.gam_, matrix, n_rows=len(mean), n_predictors=mean.shape[1], piecewise=piecewise
+        )
         return mean, design, beta
 
     def _survival_coefficient_draws(self, *, covariance, n_draws, seed, standard_draws):
-        from ..gam.inference.functionals import coefficient_draws
+        from ..gam.inference.survival import survival_coefficient_draws
 
-        if covariance not in {"bayes", "unconditional"}:
-            raise NotImplementedError("Survival simulation supports bayes or unconditional covariance only.")
-        draws = coefficient_draws(self.gam_, n_draws=n_draws, seed=seed,
-                                   covariance=covariance, standard_draws=standard_draws)
-        if len(draws) < 2:
-            raise ValueError("Survival intervals require at least two coefficient draws.")
-        return draws
+        return survival_coefficient_draws(
+            self.gam_, covariance=covariance, n_draws=n_draws, seed=seed,
+            standard_draws=standard_draws,
+        )
 
     def sample_survival_predictions(
         self, X, *, offset=None, n_draws=1000, covariance="bayes", seed=None,
@@ -510,11 +504,11 @@ class SurvivalGAM(BaseEstimator):
         Reference centering is recomputed in every joint draw on fixed reference
         rows/weights. It does not resample the reference population or refit.
         """
-        from ..inspection.contributions import (
+        from ..diagnostics.contributions import (
             _weighted_term_mean,
             center_additive_prediction,
         )
-        from ..survival.interpretation import _subject_components
+        from ..diagnostics.survival import _subject_components
         from ..survival.uncertainty import SurvivalEffectSamples
 
         mean, design, beta = self._survival_coefficient_design(X, offset)
@@ -561,7 +555,7 @@ class SurvivalGAM(BaseEstimator):
             )  # Validate schema, domain and required offsets.
             frame = prepare_predict_features(self, X)
             return self.parametric_.predict_components(
-                frame, offset=list(parameter_offsets(offset, len(frame)).T)
+                frame, offset=parameter_offsets(offset, len(frame))
             )
         frame, known, rows, interval = self._prediction_data(X, offset)
         prediction = self.poisson_.predict_components(frame, offset=known)

@@ -1,7 +1,7 @@
 """Parameter-diagonal neural Fisher information without dense parameter matrices.
 
 Likelihood algebra lives in fisher_likelihood; common normalization and sampling
-uncertainty aggregation live in inspection.fisher. This module owns only Torch
+uncertainty aggregation live in diagnostics.fisher. This module owns only Torch
 execution, parameter grouping and bounded preprocessing.
 """
 
@@ -15,7 +15,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from ..inspection.fisher import aggregate_fisher
+from ..diagnostics.fisher import aggregate_fisher
 from .fisher_likelihood import FisherLikelihood
 from .offsets import predictor_offset
 from .prediction import _prediction_batches
@@ -345,11 +345,12 @@ def estimate_fisher_information(
                             cat_features={k: v[row : row + 1] for k, v in cat.items()},
                         )
                         raw = result["output"]
-                        raw = raw + torch.as_tensor(
-                            offsets[start + row : start + row + 1],
-                            device=raw.device,
-                            dtype=raw.dtype,
-                        )
+                        if offsets is not None:
+                            raw = raw + torch.as_tensor(
+                                offsets[start + row : start + row + 1],
+                                device=raw.device,
+                                dtype=raw.dtype,
+                            )
                         if not torch.isfinite(raw).all():
                             raise FloatingPointError(
                                 "Fisher raw predictors must be finite."

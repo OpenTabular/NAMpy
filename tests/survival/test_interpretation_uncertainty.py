@@ -12,11 +12,11 @@ from nampy import (
     SurvivalGAM,
     SurvivalObjectiveConfig,
 )
+from nampy.diagnostics import prepare_survival_effects
 from nampy.survival import (
     SurvivalPrediction,
     combine_survival_predictions,
     prepare_survival_curve_interval,
-    prepare_survival_effects,
 )
 from tests.survival.test_censored_fitting import sample
 from tests.survival.test_censored_smoothing import formulas, smooth_sample

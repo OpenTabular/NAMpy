@@ -159,7 +159,7 @@ def test_igann_lss_uses_generic_distribution_objective():
 
     prediction = model.predict_components(X.iloc[:5])
     assert prediction.link.shape == (5, 2)
-    assert model.predict(X.iloc[:5]).shape == (5, 2)
+    assert model.predict_parameters(X.iloc[:5]).shape == (5, 2)
     assert model.native_training_info_ is None
     assert model.n_estimators_ == 2
 

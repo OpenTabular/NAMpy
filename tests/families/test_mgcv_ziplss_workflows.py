@@ -132,5 +132,5 @@ def test_ziplss_public_components_persistence(tmp_path):
     path = tmp_path / "ziplss.pkl"
     model.save_model(path)
     restored = GAMLSS.load_model(path)
-    np.testing.assert_array_equal(restored.predict(data), model.predict(data))
+    np.testing.assert_array_equal(restored.predict_parameters(data), model.predict_parameters(data))
     np.testing.assert_array_equal(restored.predict_point(data), model.predict_point(data))

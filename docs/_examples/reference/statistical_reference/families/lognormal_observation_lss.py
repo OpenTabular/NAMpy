@@ -16,6 +16,6 @@ target = ObservationTarget(
     np.where(data.y>1.8, np.inf, np.maximum(data.y, 0.7)))
 model = GAMLSS(family={'name': 'lognormal_observation_lss', 'lower': 0.2, 'upper': 3.0}, formula={'loc': '~x', 'scale': '~1'},
                optimize_smoothing=False).fit(data[['x']], target)
-parameters = model.predict(data)
+parameters = model.predict_parameters(data)
 point = model.predict_point(data)
 result = {'parameters': parameters, 'point': point, 'components': model.predict_components(data)}

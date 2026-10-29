@@ -18,7 +18,7 @@ with TemporaryDirectory() as directory:
     model.fit(X, y)
 prediction = model.predict(X)
 result = {'prediction': prediction}
-result['raw'] = model.predict(X, raw=True)
+result['raw'] = model.predict_link(X)
 result['point'] = model.predict_point(X)
 components = model.predict_components(X)
 components.validate_additive_reconstruction(rtol=1e-4, atol=1e-5)

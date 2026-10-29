@@ -269,7 +269,7 @@ def prediction_outputs():
            for i, label in enumerate(classifier.classes_)}})
     response = rng.normal(np.sin(3 * X.x), .3 + .2 * (X.x + 1))
     distribution = GAMLSS(family="normal", k=6, basis="cr").fit(X, response)
-    parameters = distribution.predict(X.iloc[:3])
+    parameters = distribution.predict_parameters(X.iloc[:3])
     parameter_table = pd.DataFrame(parameters, columns=distribution.parameter_names_)
     parameter_table["Point prediction"] = distribution.predict_point(X.iloc[:3])
     np.testing.assert_allclose(parameter_table["mu"], parameter_table["Point prediction"])

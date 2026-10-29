@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 import matplotlib
 
+from nampy.diagnostics import quantile_residuals
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,7 +17,6 @@ from nampy.diagnostics import (
     centile_calibration,
     prepare_centiles,
     prepare_worm_plot,
-    quantile_residuals,
 )
 from nampy.distributions import DistributionPrediction, NegativeBinomialLaw, NormalLaw
 from nampy.distributions.contracts import DistributionSpec
@@ -34,9 +35,7 @@ def test_continuous_residuals_recover_standardization_without_rng_consumption():
         NormalLaw(), {"loc": np.arange(5.0), "scale": np.arange(1.0, 6.0)}
     )
     rng = np.random.default_rng(4)
-    result = distribution.quantile_residuals(
-        np.arange(5.0) + np.arange(1.0, 6.0) * y, random_state=rng
-    )
+    result = quantile_residuals(distribution, np.arange(5.0) + np.arange(1.0, 6.0) * y, random_state=rng)
     assert_allclose(result.residuals, y, atol=1e-13)
     assert not result.randomized.any()
     assert not result.clipped.any()
@@ -54,8 +53,8 @@ def test_discrete_randomization_uses_cdf_jump_not_plain_cdf():
     assert_allclose(result.residuals, norm.ppf([0.1, 0.7]))
     assert result.randomized.all()
     assert_array_equal(
-        distribution.quantile_residuals([0.0, 1.0], random_state=11).pit,
-        distribution.quantile_residuals([0.0, 1.0], random_state=11).pit,
+        quantile_residuals(distribution, [0.0, 1.0], random_state=11).pit,
+        quantile_residuals(distribution, [0.0, 1.0], random_state=11).pit,
     )
 
 
@@ -66,7 +65,7 @@ def test_discrete_observation_support_is_distinct_from_cdf_threshold_queries(y):
     )
     assert np.isfinite(distribution.cdf(y)).all()
     with pytest.raises(ValueError, match="response support"):
-        distribution.quantile_residuals(y)
+        quantile_residuals(distribution, y)
     with pytest.raises(ValueError, match="response support"):
         centile_calibration(distribution, y)
 
@@ -97,18 +96,16 @@ class _MixedLaw:
 
 def test_external_mixed_distribution_randomizes_only_its_noninteger_atom():
     distribution = DistributionPrediction(_MixedLaw(), {"p": [0.3, 0.3, 0.3]})
-    result = distribution.quantile_residuals(
-        [2.5, 3.5, np.nan], uniforms=[0.4, 0.9, 0.8]
-    )
+    result = quantile_residuals(distribution, [2.5, 3.5, np.nan], uniforms=[0.4, 0.9, 0.8])
     assert_allclose(result.pit, [0.12, 0.3 + 0.7 * (1 - np.exp(-1)), np.nan])
     assert_array_equal(result.randomized, [True, False, False])
 
 
 def test_residual_endpoint_policy_reports_clipping_and_missing_rows():
     distribution = _normal(3)
-    result = distribution.quantile_residuals([-40.0, 40.0, np.nan])
+    result = quantile_residuals(distribution, [-40.0, 40.0, np.nan])
     assert_array_equal(result.residuals, [-np.inf, np.inf, np.nan])
-    clipped = distribution.quantile_residuals([-40.0, 40.0, np.nan], clip=1e-6)
+    clipped = quantile_residuals(distribution, [-40.0, 40.0, np.nan], clip=1e-06)
     assert_array_equal(clipped.clipped, [True, True, False])
     assert_allclose(clipped.residuals[:2], norm.ppf([1e-6, 1 - 1e-6]))
     assert_array_equal(clipped.cdf_upper, result.cdf_upper)
@@ -130,7 +127,7 @@ def test_residual_endpoint_policy_reports_clipping_and_missing_rows():
 )
 def test_bad_residual_requests_fail(kwargs):
     with pytest.raises(ValueError):
-        _normal(2).quantile_residuals([0.0, 1.0], **kwargs)
+        quantile_residuals(_normal(2), [0.0, 1.0], **kwargs)
 
 
 def test_worm_plot_recovers_cubic_and_preserves_original_row_indices():
@@ -228,7 +225,7 @@ def test_invalid_centile_levels_are_rejected(probs):
 
 
 def test_shared_renderers_use_prepared_data_and_label_reference_envelopes():
-    residuals = _normal(8).quantile_residuals(np.linspace(-1.0, 1.0, 8))
+    residuals = quantile_residuals(_normal(8), np.linspace(-1.0, 1.0, 8))
     worm = prepare_worm_plot(residuals, groups=["a"] * 4 + ["b"] * 4)
     centiles = prepare_centiles(_normal(8), np.arange(8.0))
     figures = [

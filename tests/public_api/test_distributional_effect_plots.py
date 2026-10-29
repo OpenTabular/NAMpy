@@ -21,7 +21,7 @@ import pytest
 import torch
 
 from nampy.contracts import AdditivePrediction
-from nampy.inspection.effects import (
+from nampy.diagnostics.effects import (
     DistributionalEffects,
     combine_distributional_effects,
     prepare_distributional_effects,

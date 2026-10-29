@@ -92,7 +92,6 @@ Predict a response distribution
 
 .. code-block:: python
 
-
    from dataclasses import replace
    from nampy.neural.configuration import GradientTrainingConfig
    from nampy.neural.configuration import ObjectiveConfig
@@ -109,7 +108,7 @@ Predict a response distribution
 
    model = NAMLSS(objective=ObjectiveConfig(family='normal'), preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
    model.set_params(training=replace(model.training or GradientTrainingConfig(), max_epochs=20, batch_size=64, random_state=7)).fit(X_train, y_train)
-   distribution_parameters = model.predict(X_test)
+   distribution_parameters = model.predict_parameters(X_test)
    distribution_preview = pd.DataFrame(distribution_parameters[:3],
                                         columns=["mean", "scale"])
    figures = model.plot_distributional_effects(
@@ -117,6 +116,7 @@ Predict a response distribution
        reference_X=X_train,
        feature_names=["feature_0"],
    )
+
 
 .. include:: /_generated/howto_recipe_distribution.inc
 

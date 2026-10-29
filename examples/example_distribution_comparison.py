@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 
 from nampy import GAMLSS
-from nampy.distributions import DistributionCandidate, compare_distributions
+from nampy.models import DistributionCandidate, compare_distributions
 from nampy.neural.configuration import (
     GradientTrainingConfig,
     ObjectiveConfig,

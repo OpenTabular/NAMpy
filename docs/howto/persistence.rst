@@ -5,7 +5,7 @@ Save the fitted estimator together with any preprocessing performed outside it. 
 
 Neural estimators and statistical adapters (``GAMRegressor``,
 ``GAMClassifier``, and ``GAMLSS``) expose a versioned persistence interface.
-The current trusted-file header is version 6. Earlier headers are rejected before
+The current trusted-file header is version 7. Earlier headers are rejected before
 unpickling; no migration readers are provided. Fitted prediction state includes
 stable preprocessing and optional Fisher diagnostic records.
 For an already fitted ``NAMRegressor``:
@@ -71,4 +71,4 @@ new fit or coverage level; source-model refits cannot alter the stored snapshot.
 See :doc:`../user_guide/calibration` for prediction context, offset handling and
 unsupported calibration routes.
 
-Calibrated predictors use this same version-6 format. Files must still be trusted.
+Calibrated predictors use this same version-7 format. Files must still be trusted.

@@ -717,8 +717,8 @@ def organize_reference(root):
         inventory[-1]["tests"] = ["tests/docs/test_statistical_helper_reference.py"]
     # Public symbol pages document the package export, not an implementation owner.
     for entry in inventory:
-        if entry["page"].startswith("api/generated/nampy.inspection."):
-            entry["public_import"] = "nampy.inspection." + entry["symbol"]
+        if entry["page"].startswith("api/generated/nampy.diagnostics."):
+            entry["public_import"] = "nampy.diagnostics." + entry["symbol"]
     inventory.sort(key=lambda entry: (entry["kind"], entry["symbol"]))
     write(
         root,

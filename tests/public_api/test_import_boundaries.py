@@ -9,7 +9,7 @@ import pytest
 
 
 @pytest.mark.parametrize("module", [
-    "nampy.distributions", "nampy.diagnostics", "nampy.inspection", "nampy.plotting",
+    "nampy.distributions", "nampy.diagnostics", "nampy.survival", "nampy.plotting",
 ])
 def test_shared_task_packages_import_independently_without_neural_runtime(module):
     code = f"""
@@ -20,6 +20,10 @@ for name in package.__all__:
     getattr(package, name)
 assert 'torch' not in sys.modules
 assert 'lightning' not in sys.modules
+if {module!r} == 'nampy.distributions':
+    assert 'nampy.diagnostics' not in sys.modules
+    assert 'nampy.models.comparison' not in sys.modules
+    assert not hasattr(package.DistributionPrediction, 'quantile_residuals')
 """
     completed = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
     assert completed.returncode == 0, completed.stderr
@@ -31,9 +35,9 @@ import sys
 
 from nampy.gam import GAM
 from nampy import CalibratedQuantileGAM, CoxGAM, GAMLSS, GAMRegressor, ExpectileGAM, QuantileGAM
-from nampy import distributions, calibration, diagnostics, inspection
+from nampy import distributions, calibration, diagnostics
 assert callable(diagnostics.quantile_residuals)
-assert callable(inspection.prepare_distributional_effects)
+assert callable(diagnostics.prepare_distributional_effects)
 from nampy.calibration import calibrate_conformal
 assert calibration.calibrate_conformal is calibrate_conformal
 assert calibrate_conformal([0., 1., 2.], [0., 0., 0.], level=.5).correction == 1
@@ -74,6 +78,12 @@ def test_removed_owners_and_forwarding_apis_are_unavailable():
 from importlib import import_module
 
 for name in (
+    "nampy.inspection",
+    "nampy.features",
+    "nampy.feature",
+    "nampy.distributions.comparison",
+    "nampy.survival.interpretation",
+    "nampy.survival.diagnostics",
     "nampy.gam.extensions",
     "nampy.models._persistence",
     "nampy.neural.families.distributions",
@@ -102,10 +112,16 @@ from nampy import plotting
 from nampy import contracts, distributions
 from nampy.neural import families
 
-for name in ("DistributionSpec", "DistributionLaw", "DistributionFitStatus"):
+for name in ("DistributionSpec", "DistributionLaw"):
     assert not hasattr(contracts, name)
     assert hasattr(distributions, name)
+assert hasattr(contracts, "DistributionFitStatus")
+assert not hasattr(distributions, "DistributionFitStatus")
+assert not hasattr(distributions, "compare_distributions")
 assert not hasattr(distributions, "quantile_residuals")
+from nampy import survival
+for name in ("SurvivalEffects", "prepare_survival_effects", "SurvivalResiduals", "survival_residuals"):
+    assert not hasattr(survival, name)
 assert not hasattr(families, "Quantile")
 
 assert not hasattr(objectives, "objective_from_legacy")

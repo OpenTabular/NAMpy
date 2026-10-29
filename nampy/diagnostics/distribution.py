@@ -345,7 +345,7 @@ class CentileCurves:
     response_kind: str = "continuous"
 
 
-def _centile_probabilities(probs):
+def centile_probabilities(probs):
     probabilities = np.atleast_1d(np.asarray(probs, dtype=float))
     if (
         probabilities.ndim != 1
@@ -371,7 +371,7 @@ def prepare_centiles(
     increasing and inside (0,1), avoiding infinite endpoint curves.
     """
     x = _vector(x, distribution.n_rows, "x")
-    probabilities = _centile_probabilities(probs)
+    probabilities = centile_probabilities(probs)
     quantiles = distribution.quantile(probabilities)
     indices = np.flatnonzero(np.isfinite(x))
     indices = indices[np.argsort(x[indices], kind="stable")]
@@ -411,7 +411,7 @@ def centile_calibration(
     """
     y = _vector(y, distribution.n_rows, "y")
     _check_discrete_observations(distribution, y)
-    probabilities = _centile_probabilities(probs)
+    probabilities = centile_probabilities(probs)
     quantiles = distribution.quantile(probabilities)
     observed, expected, counts = [], [], []
     for j in range(len(probabilities)):

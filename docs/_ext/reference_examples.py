@@ -396,7 +396,7 @@ np.testing.assert_allclose(probability.sum(axis=1), 1, atol=1e-5)
 result['probabilities'] = probability
 """
     elif task == "distributional":
-        code += "result['raw'] = model.predict(X, raw=True)\nresult['point'] = model.predict_point(X)\n"
+        code += "result['raw'] = model.predict_link(X)\nresult['point'] = model.predict_point(X)\n"
     if spec is None or spec.supports("additive_components"):
         code += "components = model.predict_components(X)\ncomponents.validate_additive_reconstruction(rtol=1e-4, atol=1e-5)\nresult['components'] = components\n"
     code += "print({key: type(value).__name__ for key, value in result.items()})\n"
@@ -429,7 +429,7 @@ print({key: type(value).__name__ for key,value in result.items()})
         return survival_estimator_example(name)
     code = BASE + "from nampy.models import " + name + "\n"
     if name == "GAMLSS":
-        code += "model = GAMLSS(family='gaulss', optimize_smoothing=False, k=6).fit(data[['x', 'z']], data.y)\nresult = {'natural_parameters': model.predict(data[['x', 'z']]), 'raw': model.predict(data[['x', 'z']], raw=True), 'point': model.predict_point(data[['x', 'z']])}\n"
+        code += "model = GAMLSS(family='gaulss', optimize_smoothing=False, k=6).fit(data[['x', 'z']], data.y)\nresult = {'natural_parameters': model.predict_parameters(data[['x', 'z']]), 'raw': model.predict_link(data[['x', 'z']]), 'point': model.predict_point(data[['x', 'z']])}\n"
     else:
         if name == "GAMClassifier":
             code += "data['y'] = (np.arange(n) % 2).astype(int)\n"
@@ -445,11 +445,12 @@ def survival_estimator_example(name):
 import pandas as pd
 from nampy.models import {name}
 from nampy.survival import (SurvivalTarget, CensoringDistribution, brier_score,
-                            concordance_index, survival_curve, survival_residuals,
-                            prepare_survival_effects, prepare_survival_curve_interval,
+                            concordance_index, survival_curve,
+                            prepare_survival_curve_interval,
                             prepare_survival_effect_interval, combine_survival_predictions,
                             prepare_survival_hazard_interval, prepare_survival_rmst_interval,
                             bootstrap_survival)
+from nampy.diagnostics import survival_residuals, prepare_survival_effects
 
 X = pd.DataFrame({{'x': np.linspace(-1., 1., 30)}})
 target = SurvivalTarget(

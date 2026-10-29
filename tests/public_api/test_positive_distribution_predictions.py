@@ -7,6 +7,7 @@ from scipy.integrate import quad
 from scipy.stats import norm
 
 from nampy import GAMLSS
+from nampy.diagnostics import quantile_residuals
 from nampy.distributions import DistributionPrediction, LogNormalLaw, WeibullLaw
 from nampy.gam.families.gamlss.positive import (
     LogNormalLocationScale,
@@ -35,7 +36,7 @@ def test_lognormal_log_transform_jacobian_and_tail_operations():
     assert_array_equal(distribution.quantile(0), [[0.0], [0.0]])
     assert np.isposinf(distribution.quantile(1)).all()
     assert_allclose(
-        distribution.quantile_residuals(y).residuals, (np.log(y) - loc) / scale
+        quantile_residuals(distribution, y).residuals, (np.log(y) - loc) / scale
     )
     # A large log-location must not overflow CDF/log-density through exp(loc).
     extreme = DistributionPrediction(LogNormalLaw(), {"loc": [800.0], "scale": [0.3]})

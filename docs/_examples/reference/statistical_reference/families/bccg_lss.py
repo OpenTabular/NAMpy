@@ -11,6 +11,6 @@ x = np.linspace(-1,1,n)
 data = pd.DataFrame({'x': x, 'y': DistributionPrediction(BCCGLaw(), {'mu': np.exp(.2+.3*x), 'sigma': np.full(n,.25), 'nu': np.ones(n)}).sample(1, random_state=rng)[0]})
 model = GAMLSS(family='bccg_lss', formula={'mu': 'y ~ s(x,k=5)', 'sigma': '~1', 'nu': '~1'},
                smoothing_optimizer='outer_newton').fit(data)
-parameters = model.predict(data)
+parameters = model.predict_parameters(data)
 point = model.predict_point(data)
 result = {'parameters': parameters, 'point': point, 'components': model.predict_components(data)}

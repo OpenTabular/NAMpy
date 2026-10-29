@@ -7,6 +7,7 @@ from numpy.testing import assert_allclose
 from scipy import integrate
 
 from nampy import GAMLSS
+from nampy.diagnostics.fisher import FisherDiagnostics
 from nampy.gam import GAM
 from nampy.gam.families.binomial import (
     BinomialCloglogFamily,
@@ -31,7 +32,6 @@ from nampy.gam.fisher import (
     statistical_fisher_information,
     validate_fisher_family,
 )
-from nampy.inspection.fisher import FisherDiagnostics
 
 
 def config(**kw):
@@ -309,6 +309,6 @@ def test_correlated_sequence_and_sparse_design_guards(monkeypatch):
     plain = GAM(k=4, optimize_smoothing=False).fit(X, y)
     expected = statistical_fisher_information(plain, X, config=config())
     matrix = plain.lpmatrix(X)
-    monkeypatch.setattr(plain, "lpmatrix", lambda X: sparse.csr_matrix(matrix))
+    monkeypatch.setattr(plain, "lpmatrix", lambda X, *, block_size=None: sparse.csr_matrix(matrix))
     got = statistical_fisher_information(plain, X, config=config())
     assert_allclose(got.diagonal, expected.diagonal)

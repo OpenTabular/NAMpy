@@ -81,7 +81,7 @@ def test_native_cox_automatic_smoothing_and_exact_outer_derivatives():
         rtol=2e-5,
     )
     assert_allclose(
-        model.predict_link(X), gam.predict(X, type="link").ravel(), atol=1e-10
+        model.predict_link(X)[:, 0], gam.predict(X, type="link").ravel(), atol=1e-10
     )
     assert np.isfinite(
         model.predict_distribution(X.iloc[:2]).survival([0, 0.1, 0.3])

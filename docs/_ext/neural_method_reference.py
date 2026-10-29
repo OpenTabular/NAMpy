@@ -6,6 +6,14 @@ from reference_examples import example_rst, neural_estimator_example
 from reference_schema import method_parameter_rows
 
 METHODS = {
+    "capabilities": (
+        "NAMRegressor", "Mapping[str, CapabilityStatus]", "immutable operation mapping",
+        "Declared operation support and fitted-state conditions, derived from family and architecture validators without fitting or differentiation.",
+    ),
+    "predict_link": (
+        "NAMRegressor", "numpy.ndarray", "(n, K)",
+        "Additive predictors in ``predictor_names_`` order, including aligned known offsets.",
+    ),
     "fisher_information": (
         "NAMRegressor",
         "FisherInformationResult",
@@ -178,6 +186,8 @@ def generate(root):
         if name in {"plot_interactions", "interaction_importance"}:
             code = code.replace("interactions=[]", "interactions=[('x', 'z')]")
         calls = {
+            "capabilities": "model.capabilities()",
+            "predict_link": "model.predict_link(X)",
             "fisher_information": "model.fisher_information(X.iloc[:4], config=FisherDiagnostics(regression_scale=1.0))",
             "center_components": "model.center_components(X)",
             "explain_terms": "model.explain_terms(X, max_bins=8)",

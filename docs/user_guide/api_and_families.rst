@@ -17,7 +17,7 @@ remain under ``nampy.gam`` and ``nampy.neural``.
    * - Check residuals, prepare worms or centiles
      - ``nampy.diagnostics``
    * - Inspect contributions, effects and importance
-     - ``nampy.inspection``
+     - ``nampy.diagnostics``
    * - Render prepared results
      - ``nampy.plotting``
    * - Calibrate future-observation intervals
@@ -29,8 +29,10 @@ Understand model predictions
 ----------------------------
 
 ``predict`` follows the estimator's task: regression values, classification
-labels, or natural distribution parameters for GAMLSS/LSS. For distributional
-models, ``predict_point`` returns the documented family-specific point summary.
+labels, or the family point summary for GAMLSS/LSS. For distributional
+models, ``predict_parameters`` returns natural parameter columns and
+``predict_link`` returns additive predictors. ``predict_point`` explicitly
+requests the documented family-specific point summary. See :doc:`model_workflow`.
 ``predict_distribution`` returns a shared ``DistributionPrediction`` with explicit
 probability operations. ``predict_components`` describes additive raw/link
 predictors, intercepts and offsets, separately from natural parameters.

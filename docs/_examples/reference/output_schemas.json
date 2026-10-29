@@ -98,6 +98,55 @@
       "()"
     ]
   ],
+  "api/generated/nampy.contracts.CapabilityStatus": [
+    [
+      "result",
+      "nampy.contracts.CapabilityStatus",
+      "scalar record"
+    ],
+    [
+      "result.state",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.reason",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.conditions",
+      "tuple",
+      "length 1"
+    ],
+    [
+      "result.conditions[0]",
+      "builtins.str",
+      "()"
+    ]
+  ],
+  "api/generated/nampy.contracts.DistributionFitStatus": [
+    [
+      "result",
+      "nampy.contracts.DistributionFitStatus",
+      "scalar record"
+    ],
+    [
+      "result.backend",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.state",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.message",
+      "builtins.str",
+      "()"
+    ]
+  ],
   "api/generated/nampy.contracts.EnsembleAdditivePrediction": [
     [
       "result",
@@ -210,6 +259,826 @@
       "result.dtypes[0]",
       "builtins.str",
       "()"
+    ]
+  ],
+  "api/generated/nampy.diagnostics.DistributionalEffects": [
+    [
+      "result",
+      "nampy.diagnostics.effects.DistributionalEffects",
+      "scalar record"
+    ],
+    [
+      "result.feature_values",
+      "dict",
+      "1 named fields"
+    ],
+    [
+      "result.feature_values['x']",
+      "numpy.ndarray[float64]",
+      "(24,)"
+    ],
+    [
+      "result.point_effects",
+      "dict",
+      "1 named fields"
+    ],
+    [
+      "result.point_effects['x']",
+      "numpy.ndarray[float64]",
+      "(24, 1)"
+    ],
+    [
+      "result.conditional_sd",
+      "dict",
+      "1 named fields"
+    ],
+    [
+      "result.conditional_sd['x']",
+      "numpy.ndarray[float64]",
+      "(24, 1)"
+    ],
+    [
+      "result.point_summary",
+      "builtins.str",
+      "()"
+    ]
+  ],
+  "api/generated/nampy.diagnostics.FisherDiagnostics": [
+    [
+      "result",
+      "nampy.diagnostics.fisher.FisherDiagnostics",
+      "scalar record"
+    ],
+    [
+      "result.estimator",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.every_n_epochs",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.n_inputs",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.n_draws",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.split",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.include_initial",
+      "builtins.bool",
+      "()"
+    ],
+    [
+      "result.include_final",
+      "builtins.bool",
+      "()"
+    ],
+    [
+      "result.record_diagonal",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.group_by",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.random_state",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.regression_scale",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.input_sampling",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.population_size",
+      "builtins.NoneType",
+      "not applicable"
+    ]
+  ],
+  "api/generated/nampy.diagnostics.FisherGroupSummary": [
+    [
+      "result",
+      "nampy.diagnostics.fisher.FisherGroupSummary",
+      "scalar record"
+    ],
+    [
+      "result.name",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.n_parameters",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.trace",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.mean_diagonal",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.output_sampling_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.conditional_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.input_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.total_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.total_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ]
+  ],
+  "api/generated/nampy.diagnostics.FisherInformationResult": [
+    [
+      "result",
+      "nampy.diagnostics.fisher.FisherInformationResult",
+      "scalar record"
+    ],
+    [
+      "result.estimator",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.diagonal",
+      "numpy.ndarray[float64]",
+      "(5,)"
+    ],
+    [
+      "result.output_sampling_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.conditional_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.parameter_names",
+      "tuple",
+      "length 1"
+    ],
+    [
+      "result.parameter_names[0]",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.parameter_shapes",
+      "tuple",
+      "length 1"
+    ],
+    [
+      "result.parameter_shapes[0]",
+      "tuple",
+      "length 1"
+    ],
+    [
+      "result.parameter_shapes[0][0]",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.parameter_slices",
+      "tuple",
+      "length 1"
+    ],
+    [
+      "result.parameter_slices[0]",
+      "tuple",
+      "length 2"
+    ],
+    [
+      "result.parameter_slices[0][0]",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.parameter_slices[0][1]",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.groups",
+      "tuple",
+      "length 2"
+    ],
+    [
+      "result.groups[0]",
+      "nampy.diagnostics.fisher.FisherGroupSummary",
+      "scalar record"
+    ],
+    [
+      "result.groups[0].name",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.groups[0].n_parameters",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.groups[0].trace",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[0].mean_diagonal",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[0].output_sampling_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].conditional_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].input_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].total_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].total_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1]",
+      "nampy.diagnostics.fisher.FisherGroupSummary",
+      "scalar record"
+    ],
+    [
+      "result.groups[1].name",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.groups[1].n_parameters",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.groups[1].trace",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[1].mean_diagonal",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[1].output_sampling_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].conditional_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].input_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].total_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].total_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.n_parameters",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.n_inputs",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.n_draws",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.target_source",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.conditioned_on_inputs",
+      "builtins.bool",
+      "()"
+    ],
+    [
+      "result.split",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.grouping",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.normalization",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.backend",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.held_fixed",
+      "tuple",
+      "length 1"
+    ],
+    [
+      "result.held_fixed[0]",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.input_sampling",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.input_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.total_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.total_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ]
+  ],
+  "api/generated/nampy.diagnostics.FisherSnapshot": [
+    [
+      "result",
+      "nampy.diagnostics.fisher.FisherSnapshot",
+      "scalar record"
+    ],
+    [
+      "result.stage",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.epoch",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.optimizer_step",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.groups",
+      "tuple",
+      "length 2"
+    ],
+    [
+      "result.groups[0]",
+      "nampy.diagnostics.fisher.FisherGroupSummary",
+      "scalar record"
+    ],
+    [
+      "result.groups[0].name",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.groups[0].n_parameters",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.groups[0].trace",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[0].mean_diagonal",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[0].output_sampling_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].conditional_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].input_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].total_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].total_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1]",
+      "nampy.diagnostics.fisher.FisherGroupSummary",
+      "scalar record"
+    ],
+    [
+      "result.groups[1].name",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.groups[1].n_parameters",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.groups[1].trace",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[1].mean_diagonal",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[1].output_sampling_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].conditional_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].input_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].total_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].total_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.diagonal",
+      "numpy.ndarray[float64]",
+      "(5,)"
+    ]
+  ],
+  "api/generated/nampy.diagnostics.center_additive_prediction": [
+    [
+      "result",
+      "nampy.contracts.AdditivePrediction",
+      "scalar record"
+    ],
+    [
+      "result.link",
+      "numpy.ndarray[float64]",
+      "(12, 1)"
+    ],
+    [
+      "result.terms",
+      "dict",
+      "1 named fields"
+    ],
+    [
+      "result.terms['x']",
+      "numpy.ndarray[float64]",
+      "(12, 1)"
+    ],
+    [
+      "result.intercept",
+      "numpy.ndarray[float64]",
+      "(1,)"
+    ],
+    [
+      "result.backend",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.offset",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.term_metadata",
+      "dict",
+      "1 named fields"
+    ],
+    [
+      "result.term_metadata['x']",
+      "nampy.contracts.AdditiveTermMetadata",
+      "scalar record"
+    ],
+    [
+      "result.term_metadata['x'].features",
+      "tuple",
+      "length 1"
+    ],
+    [
+      "result.term_metadata['x'].parameter",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.term_metadata['x'].kind",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.predictor_names",
+      "tuple",
+      "length 1"
+    ],
+    [
+      "result.predictor_names[0]",
+      "builtins.str",
+      "()"
+    ]
+  ],
+  "api/generated/nampy.diagnostics.combine_distributional_effects": [
+    [
+      "result",
+      "nampy.diagnostics.effects.DistributionalEffects",
+      "scalar record"
+    ],
+    [
+      "result.feature_values",
+      "dict",
+      "1 named fields"
+    ],
+    [
+      "result.feature_values['x']",
+      "numpy.ndarray[float64]",
+      "(24,)"
+    ],
+    [
+      "result.point_effects",
+      "dict",
+      "1 named fields"
+    ],
+    [
+      "result.point_effects['x']",
+      "numpy.ndarray[float64]",
+      "(24, 2)"
+    ],
+    [
+      "result.conditional_sd",
+      "dict",
+      "1 named fields"
+    ],
+    [
+      "result.conditional_sd['x']",
+      "numpy.ndarray[float64]",
+      "(24, 2)"
+    ],
+    [
+      "result.point_summary",
+      "builtins.str",
+      "()"
+    ]
+  ],
+  "api/generated/nampy.diagnostics.explain_additive_prediction": [
+    [
+      "result",
+      "pandas.DataFrame",
+      "(6, 7)"
+    ],
+    [
+      "result['term']",
+      "str",
+      "(6,)"
+    ],
+    [
+      "result['term_type']",
+      "str",
+      "(6,)"
+    ],
+    [
+      "result['output']",
+      "int64",
+      "(6,)"
+    ],
+    [
+      "result['value']",
+      "category",
+      "(6,)"
+    ],
+    [
+      "result['contribution']",
+      "float64",
+      "(6,)"
+    ],
+    [
+      "result['count']",
+      "int64",
+      "(6,)"
+    ],
+    [
+      "result['importance']",
+      "float64",
+      "(6,)"
+    ]
+  ],
+  "api/generated/nampy.diagnostics.prepare_distributional_effects": [
+    [
+      "result",
+      "nampy.diagnostics.effects.DistributionalEffects",
+      "scalar record"
+    ],
+    [
+      "result.feature_values",
+      "dict",
+      "2 named fields"
+    ],
+    [
+      "result.feature_values['x']",
+      "numpy.ndarray[float64]",
+      "(64,)"
+    ],
+    [
+      "result.feature_values['z']",
+      "numpy.ndarray[float64]",
+      "(64,)"
+    ],
+    [
+      "result.point_effects",
+      "dict",
+      "2 named fields"
+    ],
+    [
+      "result.point_effects['x']",
+      "numpy.ndarray[float64]",
+      "(64, 1)"
+    ],
+    [
+      "result.point_effects['z']",
+      "numpy.ndarray[float64]",
+      "(64, 1)"
+    ],
+    [
+      "result.conditional_sd",
+      "dict",
+      "2 named fields"
+    ],
+    [
+      "result.conditional_sd['x']",
+      "numpy.ndarray[float64]",
+      "(64, 1)"
+    ],
+    [
+      "result.conditional_sd['z']",
+      "numpy.ndarray[float64]",
+      "(64, 1)"
+    ],
+    [
+      "result.point_summary",
+      "builtins.str",
+      "()"
+    ]
+  ],
+  "api/generated/nampy.diagnostics.term_importance_table": [
+    [
+      "result",
+      "pandas.DataFrame",
+      "(1, 4)"
+    ],
+    [
+      "result['term']",
+      "str",
+      "(1,)"
+    ],
+    [
+      "result['term_type']",
+      "str",
+      "(1,)"
+    ],
+    [
+      "result['output']",
+      "int64",
+      "(1,)"
+    ],
+    [
+      "result['importance']",
+      "float64",
+      "(1,)"
     ]
   ],
   "api/generated/nampy.gam.formula.ExtractedParametricTerm": [
@@ -2636,826 +3505,6 @@
       "()"
     ]
   ],
-  "api/generated/nampy.inspection.DistributionalEffects": [
-    [
-      "result",
-      "nampy.inspection.effects.DistributionalEffects",
-      "scalar record"
-    ],
-    [
-      "result.feature_values",
-      "dict",
-      "1 named fields"
-    ],
-    [
-      "result.feature_values['x']",
-      "numpy.ndarray[float64]",
-      "(24,)"
-    ],
-    [
-      "result.point_effects",
-      "dict",
-      "1 named fields"
-    ],
-    [
-      "result.point_effects['x']",
-      "numpy.ndarray[float64]",
-      "(24, 1)"
-    ],
-    [
-      "result.conditional_sd",
-      "dict",
-      "1 named fields"
-    ],
-    [
-      "result.conditional_sd['x']",
-      "numpy.ndarray[float64]",
-      "(24, 1)"
-    ],
-    [
-      "result.point_summary",
-      "builtins.str",
-      "()"
-    ]
-  ],
-  "api/generated/nampy.inspection.FisherDiagnostics": [
-    [
-      "result",
-      "nampy.inspection.fisher.FisherDiagnostics",
-      "scalar record"
-    ],
-    [
-      "result.estimator",
-      "builtins.str",
-      "()"
-    ],
-    [
-      "result.every_n_epochs",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.n_inputs",
-      "builtins.int",
-      "()"
-    ],
-    [
-      "result.n_draws",
-      "builtins.int",
-      "()"
-    ],
-    [
-      "result.split",
-      "builtins.str",
-      "()"
-    ],
-    [
-      "result.include_initial",
-      "builtins.bool",
-      "()"
-    ],
-    [
-      "result.include_final",
-      "builtins.bool",
-      "()"
-    ],
-    [
-      "result.record_diagonal",
-      "builtins.str",
-      "()"
-    ],
-    [
-      "result.group_by",
-      "builtins.str",
-      "()"
-    ],
-    [
-      "result.random_state",
-      "builtins.int",
-      "()"
-    ],
-    [
-      "result.regression_scale",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.input_sampling",
-      "builtins.str",
-      "()"
-    ],
-    [
-      "result.population_size",
-      "builtins.NoneType",
-      "not applicable"
-    ]
-  ],
-  "api/generated/nampy.inspection.FisherGroupSummary": [
-    [
-      "result",
-      "nampy.inspection.fisher.FisherGroupSummary",
-      "scalar record"
-    ],
-    [
-      "result.name",
-      "builtins.str",
-      "()"
-    ],
-    [
-      "result.n_parameters",
-      "builtins.int",
-      "()"
-    ],
-    [
-      "result.trace",
-      "numpy.float64",
-      "()"
-    ],
-    [
-      "result.mean_diagonal",
-      "numpy.float64",
-      "()"
-    ],
-    [
-      "result.output_sampling_variance",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.estimator_variance",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.conditional_standard_error",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.input_estimator_variance",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.total_estimator_variance",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.total_standard_error",
-      "builtins.NoneType",
-      "not applicable"
-    ]
-  ],
-  "api/generated/nampy.inspection.FisherInformationResult": [
-    [
-      "result",
-      "nampy.inspection.fisher.FisherInformationResult",
-      "scalar record"
-    ],
-    [
-      "result.estimator",
-      "builtins.str",
-      "()"
-    ],
-    [
-      "result.diagonal",
-      "numpy.ndarray[float64]",
-      "(5,)"
-    ],
-    [
-      "result.output_sampling_variance",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.estimator_variance",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.conditional_standard_error",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.parameter_names",
-      "tuple",
-      "length 1"
-    ],
-    [
-      "result.parameter_names[0]",
-      "builtins.str",
-      "()"
-    ],
-    [
-      "result.parameter_shapes",
-      "tuple",
-      "length 1"
-    ],
-    [
-      "result.parameter_shapes[0]",
-      "tuple",
-      "length 1"
-    ],
-    [
-      "result.parameter_shapes[0][0]",
-      "builtins.int",
-      "()"
-    ],
-    [
-      "result.parameter_slices",
-      "tuple",
-      "length 1"
-    ],
-    [
-      "result.parameter_slices[0]",
-      "tuple",
-      "length 2"
-    ],
-    [
-      "result.parameter_slices[0][0]",
-      "builtins.int",
-      "()"
-    ],
-    [
-      "result.parameter_slices[0][1]",
-      "builtins.int",
-      "()"
-    ],
-    [
-      "result.groups",
-      "tuple",
-      "length 2"
-    ],
-    [
-      "result.groups[0]",
-      "nampy.inspection.fisher.FisherGroupSummary",
-      "scalar record"
-    ],
-    [
-      "result.groups[0].name",
-      "builtins.str",
-      "()"
-    ],
-    [
-      "result.groups[0].n_parameters",
-      "builtins.int",
-      "()"
-    ],
-    [
-      "result.groups[0].trace",
-      "numpy.float64",
-      "()"
-    ],
-    [
-      "result.groups[0].mean_diagonal",
-      "numpy.float64",
-      "()"
-    ],
-    [
-      "result.groups[0].output_sampling_variance",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.groups[0].estimator_variance",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.groups[0].conditional_standard_error",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.groups[0].input_estimator_variance",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.groups[0].total_estimator_variance",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.groups[0].total_standard_error",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.groups[1]",
-      "nampy.inspection.fisher.FisherGroupSummary",
-      "scalar record"
-    ],
-    [
-      "result.groups[1].name",
-      "builtins.str",
-      "()"
-    ],
-    [
-      "result.groups[1].n_parameters",
-      "builtins.int",
-      "()"
-    ],
-    [
-      "result.groups[1].trace",
-      "numpy.float64",
-      "()"
-    ],
-    [
-      "result.groups[1].mean_diagonal",
-      "numpy.float64",
-      "()"
-    ],
-    [
-      "result.groups[1].output_sampling_variance",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.groups[1].estimator_variance",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.groups[1].conditional_standard_error",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.groups[1].input_estimator_variance",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.groups[1].total_estimator_variance",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.groups[1].total_standard_error",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.n_parameters",
-      "builtins.int",
-      "()"
-    ],
-    [
-      "result.n_inputs",
-      "builtins.int",
-      "()"
-    ],
-    [
-      "result.n_draws",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.target_source",
-      "builtins.str",
-      "()"
-    ],
-    [
-      "result.conditioned_on_inputs",
-      "builtins.bool",
-      "()"
-    ],
-    [
-      "result.split",
-      "builtins.str",
-      "()"
-    ],
-    [
-      "result.grouping",
-      "builtins.str",
-      "()"
-    ],
-    [
-      "result.normalization",
-      "builtins.str",
-      "()"
-    ],
-    [
-      "result.backend",
-      "builtins.str",
-      "()"
-    ],
-    [
-      "result.held_fixed",
-      "tuple",
-      "length 1"
-    ],
-    [
-      "result.held_fixed[0]",
-      "builtins.str",
-      "()"
-    ],
-    [
-      "result.input_sampling",
-      "builtins.str",
-      "()"
-    ],
-    [
-      "result.input_estimator_variance",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.total_estimator_variance",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.total_standard_error",
-      "builtins.NoneType",
-      "not applicable"
-    ]
-  ],
-  "api/generated/nampy.inspection.FisherSnapshot": [
-    [
-      "result",
-      "nampy.inspection.fisher.FisherSnapshot",
-      "scalar record"
-    ],
-    [
-      "result.stage",
-      "builtins.str",
-      "()"
-    ],
-    [
-      "result.epoch",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.optimizer_step",
-      "builtins.int",
-      "()"
-    ],
-    [
-      "result.groups",
-      "tuple",
-      "length 2"
-    ],
-    [
-      "result.groups[0]",
-      "nampy.inspection.fisher.FisherGroupSummary",
-      "scalar record"
-    ],
-    [
-      "result.groups[0].name",
-      "builtins.str",
-      "()"
-    ],
-    [
-      "result.groups[0].n_parameters",
-      "builtins.int",
-      "()"
-    ],
-    [
-      "result.groups[0].trace",
-      "numpy.float64",
-      "()"
-    ],
-    [
-      "result.groups[0].mean_diagonal",
-      "numpy.float64",
-      "()"
-    ],
-    [
-      "result.groups[0].output_sampling_variance",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.groups[0].estimator_variance",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.groups[0].conditional_standard_error",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.groups[0].input_estimator_variance",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.groups[0].total_estimator_variance",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.groups[0].total_standard_error",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.groups[1]",
-      "nampy.inspection.fisher.FisherGroupSummary",
-      "scalar record"
-    ],
-    [
-      "result.groups[1].name",
-      "builtins.str",
-      "()"
-    ],
-    [
-      "result.groups[1].n_parameters",
-      "builtins.int",
-      "()"
-    ],
-    [
-      "result.groups[1].trace",
-      "numpy.float64",
-      "()"
-    ],
-    [
-      "result.groups[1].mean_diagonal",
-      "numpy.float64",
-      "()"
-    ],
-    [
-      "result.groups[1].output_sampling_variance",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.groups[1].estimator_variance",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.groups[1].conditional_standard_error",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.groups[1].input_estimator_variance",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.groups[1].total_estimator_variance",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.groups[1].total_standard_error",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.diagonal",
-      "numpy.ndarray[float64]",
-      "(5,)"
-    ]
-  ],
-  "api/generated/nampy.inspection.center_additive_prediction": [
-    [
-      "result",
-      "nampy.contracts.AdditivePrediction",
-      "scalar record"
-    ],
-    [
-      "result.link",
-      "numpy.ndarray[float64]",
-      "(12, 1)"
-    ],
-    [
-      "result.terms",
-      "dict",
-      "1 named fields"
-    ],
-    [
-      "result.terms['x']",
-      "numpy.ndarray[float64]",
-      "(12, 1)"
-    ],
-    [
-      "result.intercept",
-      "numpy.ndarray[float64]",
-      "(1,)"
-    ],
-    [
-      "result.backend",
-      "builtins.str",
-      "()"
-    ],
-    [
-      "result.offset",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.term_metadata",
-      "dict",
-      "1 named fields"
-    ],
-    [
-      "result.term_metadata['x']",
-      "nampy.contracts.AdditiveTermMetadata",
-      "scalar record"
-    ],
-    [
-      "result.term_metadata['x'].features",
-      "tuple",
-      "length 1"
-    ],
-    [
-      "result.term_metadata['x'].parameter",
-      "builtins.NoneType",
-      "not applicable"
-    ],
-    [
-      "result.term_metadata['x'].kind",
-      "builtins.str",
-      "()"
-    ],
-    [
-      "result.predictor_names",
-      "tuple",
-      "length 1"
-    ],
-    [
-      "result.predictor_names[0]",
-      "builtins.str",
-      "()"
-    ]
-  ],
-  "api/generated/nampy.inspection.combine_distributional_effects": [
-    [
-      "result",
-      "nampy.inspection.effects.DistributionalEffects",
-      "scalar record"
-    ],
-    [
-      "result.feature_values",
-      "dict",
-      "1 named fields"
-    ],
-    [
-      "result.feature_values['x']",
-      "numpy.ndarray[float64]",
-      "(24,)"
-    ],
-    [
-      "result.point_effects",
-      "dict",
-      "1 named fields"
-    ],
-    [
-      "result.point_effects['x']",
-      "numpy.ndarray[float64]",
-      "(24, 2)"
-    ],
-    [
-      "result.conditional_sd",
-      "dict",
-      "1 named fields"
-    ],
-    [
-      "result.conditional_sd['x']",
-      "numpy.ndarray[float64]",
-      "(24, 2)"
-    ],
-    [
-      "result.point_summary",
-      "builtins.str",
-      "()"
-    ]
-  ],
-  "api/generated/nampy.inspection.explain_additive_prediction": [
-    [
-      "result",
-      "pandas.DataFrame",
-      "(6, 7)"
-    ],
-    [
-      "result['term']",
-      "str",
-      "(6,)"
-    ],
-    [
-      "result['term_type']",
-      "str",
-      "(6,)"
-    ],
-    [
-      "result['output']",
-      "int64",
-      "(6,)"
-    ],
-    [
-      "result['value']",
-      "category",
-      "(6,)"
-    ],
-    [
-      "result['contribution']",
-      "float64",
-      "(6,)"
-    ],
-    [
-      "result['count']",
-      "int64",
-      "(6,)"
-    ],
-    [
-      "result['importance']",
-      "float64",
-      "(6,)"
-    ]
-  ],
-  "api/generated/nampy.inspection.prepare_distributional_effects": [
-    [
-      "result",
-      "nampy.inspection.effects.DistributionalEffects",
-      "scalar record"
-    ],
-    [
-      "result.feature_values",
-      "dict",
-      "2 named fields"
-    ],
-    [
-      "result.feature_values['x']",
-      "numpy.ndarray[float64]",
-      "(64,)"
-    ],
-    [
-      "result.feature_values['z']",
-      "numpy.ndarray[float64]",
-      "(64,)"
-    ],
-    [
-      "result.point_effects",
-      "dict",
-      "2 named fields"
-    ],
-    [
-      "result.point_effects['x']",
-      "numpy.ndarray[float64]",
-      "(64, 1)"
-    ],
-    [
-      "result.point_effects['z']",
-      "numpy.ndarray[float64]",
-      "(64, 1)"
-    ],
-    [
-      "result.conditional_sd",
-      "dict",
-      "2 named fields"
-    ],
-    [
-      "result.conditional_sd['x']",
-      "numpy.ndarray[float64]",
-      "(64, 1)"
-    ],
-    [
-      "result.conditional_sd['z']",
-      "numpy.ndarray[float64]",
-      "(64, 1)"
-    ],
-    [
-      "result.point_summary",
-      "builtins.str",
-      "()"
-    ]
-  ],
-  "api/generated/nampy.inspection.term_importance_table": [
-    [
-      "result",
-      "pandas.DataFrame",
-      "(1, 4)"
-    ],
-    [
-      "result['term']",
-      "str",
-      "(1,)"
-    ],
-    [
-      "result['term_type']",
-      "str",
-      "(1,)"
-    ],
-    [
-      "result['output']",
-      "int64",
-      "(1,)"
-    ],
-    [
-      "result['importance']",
-      "float64",
-      "(1,)"
-    ]
-  ],
   "api/generated/nampy.plotting.add_density_shading": [
     [
       "result",
@@ -4220,7 +4269,7 @@
     [
       "result['prediction']",
       "numpy.ndarray[float32]",
-      "(64, 2)"
+      "(64,)"
     ],
     [
       "result['raw']",
@@ -4471,7 +4520,7 @@
     [
       "result['prediction']",
       "numpy.ndarray[float32]",
-      "(64, 2)"
+      "(64,)"
     ],
     [
       "result['raw']",
@@ -4722,7 +4771,7 @@
     [
       "result['prediction']",
       "numpy.ndarray[float32]",
-      "(64, 2)"
+      "(64,)"
     ],
     [
       "result['raw']",
@@ -4973,7 +5022,7 @@
     [
       "result['prediction']",
       "numpy.ndarray[float32]",
-      "(64, 2)"
+      "(64,)"
     ],
     [
       "result['raw']",
@@ -5221,7 +5270,7 @@
     ],
     [
       "result['residuals']",
-      "nampy.survival.diagnostics.SurvivalResiduals",
+      "nampy.diagnostics.survival.SurvivalResiduals",
       "scalar record"
     ],
     [
@@ -5331,7 +5380,7 @@
     ],
     [
       "result['effects']",
-      "nampy.survival.interpretation.SurvivalEffects",
+      "nampy.diagnostics.survival.SurvivalEffects",
       "scalar record"
     ],
     [
@@ -5636,7 +5685,7 @@
     ],
     [
       "result['bootstrap_effects'].effects",
-      "nampy.survival.interpretation.SurvivalEffects",
+      "nampy.diagnostics.survival.SurvivalEffects",
       "scalar record"
     ],
     [
@@ -5726,7 +5775,7 @@
     ],
     [
       "result['weibull']['residuals']",
-      "nampy.survival.diagnostics.SurvivalResiduals",
+      "nampy.diagnostics.survival.SurvivalResiduals",
       "scalar record"
     ],
     [
@@ -5761,7 +5810,7 @@
     ],
     [
       "result['weibull']['effects']",
-      "nampy.survival.interpretation.SurvivalEffects",
+      "nampy.diagnostics.survival.SurvivalEffects",
       "scalar record"
     ],
     [
@@ -5846,7 +5895,7 @@
     ],
     [
       "result['lognormal']['residuals']",
-      "nampy.survival.diagnostics.SurvivalResiduals",
+      "nampy.diagnostics.survival.SurvivalResiduals",
       "scalar record"
     ],
     [
@@ -5881,7 +5930,7 @@
     ],
     [
       "result['lognormal']['effects']",
-      "nampy.survival.interpretation.SurvivalEffects",
+      "nampy.diagnostics.survival.SurvivalEffects",
       "scalar record"
     ],
     [
@@ -6021,7 +6070,7 @@
     [
       "result['prediction']",
       "numpy.ndarray[float32]",
-      "(64, 2)"
+      "(64,)"
     ],
     [
       "result['raw']",
@@ -6269,7 +6318,7 @@
     ],
     [
       "result['residuals']",
-      "nampy.survival.diagnostics.SurvivalResiduals",
+      "nampy.diagnostics.survival.SurvivalResiduals",
       "scalar record"
     ],
     [
@@ -6379,7 +6428,7 @@
     ],
     [
       "result['effects']",
-      "nampy.survival.interpretation.SurvivalEffects",
+      "nampy.diagnostics.survival.SurvivalEffects",
       "scalar record"
     ],
     [
@@ -6684,7 +6733,7 @@
     ],
     [
       "result['bootstrap_effects'].effects",
-      "nampy.survival.interpretation.SurvivalEffects",
+      "nampy.diagnostics.survival.SurvivalEffects",
       "scalar record"
     ],
     [
@@ -6774,7 +6823,7 @@
     ],
     [
       "result['weibull']['residuals']",
-      "nampy.survival.diagnostics.SurvivalResiduals",
+      "nampy.diagnostics.survival.SurvivalResiduals",
       "scalar record"
     ],
     [
@@ -6809,7 +6858,7 @@
     ],
     [
       "result['weibull']['effects']",
-      "nampy.survival.interpretation.SurvivalEffects",
+      "nampy.diagnostics.survival.SurvivalEffects",
       "scalar record"
     ],
     [
@@ -6894,7 +6943,7 @@
     ],
     [
       "result['lognormal']['residuals']",
-      "nampy.survival.diagnostics.SurvivalResiduals",
+      "nampy.diagnostics.survival.SurvivalResiduals",
       "scalar record"
     ],
     [
@@ -6929,7 +6978,7 @@
     ],
     [
       "result['lognormal']['effects']",
-      "nampy.survival.interpretation.SurvivalEffects",
+      "nampy.diagnostics.survival.SurvivalEffects",
       "scalar record"
     ],
     [
@@ -7079,7 +7128,7 @@
     [
       "result['prediction']",
       "numpy.ndarray[float32]",
-      "(64, 2)"
+      "(64,)"
     ],
     [
       "result['raw']",
@@ -7350,7 +7399,7 @@
     [
       "result['prediction']",
       "numpy.ndarray[float32]",
-      "(64, 2)"
+      "(64,)"
     ],
     [
       "result['raw']",
@@ -7601,7 +7650,7 @@
     [
       "result['prediction']",
       "numpy.ndarray[float32]",
-      "(64, 2)"
+      "(64,)"
     ],
     [
       "result['raw']",
@@ -7862,7 +7911,7 @@
     [
       "result['prediction']",
       "numpy.ndarray[float32]",
-      "(64, 2)"
+      "(64,)"
     ],
     [
       "result['raw']",
@@ -8133,7 +8182,7 @@
     [
       "result['prediction']",
       "numpy.ndarray[float32]",
-      "(64, 2)"
+      "(64,)"
     ],
     [
       "result['raw']",
@@ -8481,7 +8530,7 @@
     [
       "result['prediction']",
       "numpy.ndarray[float32]",
-      "(64, 2)"
+      "(64,)"
     ],
     [
       "result['raw']",
@@ -8732,7 +8781,7 @@
     [
       "result['prediction']",
       "numpy.ndarray[float32]",
-      "(64, 2)"
+      "(64,)"
     ],
     [
       "result['raw']",
@@ -8993,7 +9042,7 @@
     [
       "result['prediction']",
       "numpy.ndarray[float32]",
-      "(64, 2)"
+      "(64,)"
     ],
     [
       "result['raw']",
@@ -9274,7 +9323,7 @@
     [
       "result['prediction']",
       "numpy.ndarray[float64]",
-      "(64, 2)"
+      "(64,)"
     ],
     [
       "result['raw']",
@@ -9622,7 +9671,7 @@
     [
       "result['prediction']",
       "numpy.ndarray[float32]",
-      "(64, 2)"
+      "(64,)"
     ],
     [
       "result['raw']",
@@ -10052,7 +10101,7 @@
     [
       "result['prediction']",
       "numpy.ndarray[float32]",
-      "(64, 2)"
+      "(64,)"
     ],
     [
       "result['raw']",
@@ -11339,6 +11388,13 @@
       "(64, 32)"
     ]
   ],
+  "neural_reference/methods/capabilities": [
+    [
+      "result",
+      "builtins.mappingproxy",
+      "scalar object"
+    ]
+  ],
   "neural_reference/methods/center_components": [
     [
       "result",
@@ -11481,7 +11537,7 @@
   "neural_reference/methods/fisher_information": [
     [
       "result",
-      "nampy.inspection.fisher.FisherInformationResult",
+      "nampy.diagnostics.fisher.FisherInformationResult",
       "scalar record"
     ],
     [
@@ -11626,7 +11682,7 @@
     ],
     [
       "result.groups[0]",
-      "nampy.inspection.fisher.FisherGroupSummary",
+      "nampy.diagnostics.fisher.FisherGroupSummary",
       "scalar record"
     ],
     [
@@ -11681,7 +11737,7 @@
     ],
     [
       "result.groups[1]",
-      "nampy.inspection.fisher.FisherGroupSummary",
+      "nampy.diagnostics.fisher.FisherGroupSummary",
       "scalar record"
     ],
     [
@@ -11736,7 +11792,7 @@
     ],
     [
       "result.groups[2]",
-      "nampy.inspection.fisher.FisherGroupSummary",
+      "nampy.diagnostics.fisher.FisherGroupSummary",
       "scalar record"
     ],
     [
@@ -12524,6 +12580,13 @@
       "result[0]",
       "matplotlib.figure.Figure",
       "scalar object"
+    ]
+  ],
+  "neural_reference/methods/predict_link": [
+    [
+      "result",
+      "numpy.ndarray[float32]",
+      "(64, 1)"
     ]
   ],
   "neural_reference/methods/save_model": [
@@ -14898,7 +14961,7 @@
     ],
     [
       "result['residuals']",
-      "nampy.survival.diagnostics.SurvivalResiduals",
+      "nampy.diagnostics.survival.SurvivalResiduals",
       "scalar record"
     ],
     [
@@ -15008,7 +15071,7 @@
     ],
     [
       "result['effects']",
-      "nampy.survival.interpretation.SurvivalEffects",
+      "nampy.diagnostics.survival.SurvivalEffects",
       "scalar record"
     ],
     [
@@ -15223,7 +15286,7 @@
     ],
     [
       "result['effect_intervals'].effects",
-      "nampy.survival.interpretation.SurvivalEffects",
+      "nampy.diagnostics.survival.SurvivalEffects",
       "scalar record"
     ],
     [
@@ -15583,7 +15646,7 @@
     ],
     [
       "result['bootstrap_effects'].effects",
-      "nampy.survival.interpretation.SurvivalEffects",
+      "nampy.diagnostics.survival.SurvivalEffects",
       "scalar record"
     ],
     [
@@ -15673,7 +15736,7 @@
     ],
     [
       "result['weibull']['residuals']",
-      "nampy.survival.diagnostics.SurvivalResiduals",
+      "nampy.diagnostics.survival.SurvivalResiduals",
       "scalar record"
     ],
     [
@@ -15708,7 +15771,7 @@
     ],
     [
       "result['weibull']['effects']",
-      "nampy.survival.interpretation.SurvivalEffects",
+      "nampy.diagnostics.survival.SurvivalEffects",
       "scalar record"
     ],
     [
@@ -15913,7 +15976,7 @@
     ],
     [
       "result['weibull']['effect_intervals'].effects",
-      "nampy.survival.interpretation.SurvivalEffects",
+      "nampy.diagnostics.survival.SurvivalEffects",
       "scalar record"
     ],
     [
@@ -16118,7 +16181,7 @@
     ],
     [
       "result['lognormal']['residuals']",
-      "nampy.survival.diagnostics.SurvivalResiduals",
+      "nampy.diagnostics.survival.SurvivalResiduals",
       "scalar record"
     ],
     [
@@ -16153,7 +16216,7 @@
     ],
     [
       "result['lognormal']['effects']",
-      "nampy.survival.interpretation.SurvivalEffects",
+      "nampy.diagnostics.survival.SurvivalEffects",
       "scalar record"
     ],
     [
@@ -16358,7 +16421,7 @@
     ],
     [
       "result['lognormal']['effect_intervals'].effects",
-      "nampy.survival.interpretation.SurvivalEffects",
+      "nampy.diagnostics.survival.SurvivalEffects",
       "scalar record"
     ],
     [
@@ -19616,7 +19679,7 @@
   "statistical_reference/methods/fisher_information": [
     [
       "result",
-      "nampy.inspection.fisher.FisherInformationResult",
+      "nampy.diagnostics.fisher.FisherInformationResult",
       "scalar record"
     ],
     [
@@ -19696,7 +19759,7 @@
     ],
     [
       "result.groups[0]",
-      "nampy.inspection.fisher.FisherGroupSummary",
+      "nampy.diagnostics.fisher.FisherGroupSummary",
       "scalar record"
     ],
     [
@@ -19751,7 +19814,7 @@
     ],
     [
       "result.groups[1]",
-      "nampy.inspection.fisher.FisherGroupSummary",
+      "nampy.diagnostics.fisher.FisherGroupSummary",
       "scalar record"
     ],
     [
@@ -19806,7 +19869,7 @@
     ],
     [
       "result.groups[2]",
-      "nampy.inspection.fisher.FisherGroupSummary",
+      "nampy.diagnostics.fisher.FisherGroupSummary",
       "scalar record"
     ],
     [
@@ -21727,12 +21790,12 @@
       "(96,)"
     ],
     [
-      "result['1b990d88d736']",
+      "result['2d72741fc834']",
       "numpy.ndarray[float64]",
       "(96,)"
     ],
     [
-      "result['dcf63a14c249']",
+      "result['eba5bc504eaf']",
       "numpy.ndarray[float64]",
       "(96,)"
     ],
@@ -24090,6 +24153,243 @@
       "result['coefficient_covariance']",
       "numpy.ndarray[float64]",
       "(8, 8)"
+    ]
+  ],
+  "user_guide/gamlss": [
+    [
+      "result",
+      "nampy.models.comparison.DistributionComparison",
+      "scalar record"
+    ],
+    [
+      "result.results",
+      "tuple",
+      "length 2"
+    ],
+    [
+      "result.results[0]",
+      "nampy.models.comparison.DistributionComparisonRow",
+      "scalar record"
+    ],
+    [
+      "result.results[0].name",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.results[0].fit_status",
+      "nampy.contracts.DistributionFitStatus",
+      "scalar record"
+    ],
+    [
+      "result.results[0].status",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.results[0].eligible",
+      "builtins.bool",
+      "()"
+    ],
+    [
+      "result.results[0].rank",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.results[0].mean_log_prob",
+      "builtins.float",
+      "()"
+    ],
+    [
+      "result.results[0].n_validation",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.results[0].n_scored",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.results[0].n_zero_probability",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.results[0].validation_weight_sum",
+      "builtins.float",
+      "()"
+    ],
+    [
+      "result.results[0].effective_n",
+      "builtins.float",
+      "()"
+    ],
+    [
+      "result.results[0].fit_seconds",
+      "builtins.float",
+      "()"
+    ],
+    [
+      "result.results[0].evaluation_seconds",
+      "builtins.float",
+      "()"
+    ],
+    [
+      "result.results[0].warnings",
+      "tuple",
+      "length 0"
+    ],
+    [
+      "result.results[0].failure_stage",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.results[0].failure_reason",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.results[0].measure",
+      "tuple",
+      "length 2"
+    ],
+    [
+      "result.results[0].calibration",
+      "nampy.diagnostics.distribution.CentileCalibration",
+      "scalar record"
+    ],
+    [
+      "result.results[0].calibration_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.results[0].log_prob",
+      "numpy.ndarray[float64]",
+      "(30,)"
+    ],
+    [
+      "result.results[0].estimator",
+      "nampy.models.gamlss.GAMLSS",
+      "scalar object"
+    ],
+    [
+      "result.results[1]",
+      "nampy.models.comparison.DistributionComparisonRow",
+      "scalar record"
+    ],
+    [
+      "result.results[1].name",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.results[1].fit_status",
+      "nampy.contracts.DistributionFitStatus",
+      "scalar record"
+    ],
+    [
+      "result.results[1].status",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.results[1].eligible",
+      "builtins.bool",
+      "()"
+    ],
+    [
+      "result.results[1].rank",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.results[1].mean_log_prob",
+      "builtins.float",
+      "()"
+    ],
+    [
+      "result.results[1].n_validation",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.results[1].n_scored",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.results[1].n_zero_probability",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.results[1].validation_weight_sum",
+      "builtins.float",
+      "()"
+    ],
+    [
+      "result.results[1].effective_n",
+      "builtins.float",
+      "()"
+    ],
+    [
+      "result.results[1].fit_seconds",
+      "builtins.float",
+      "()"
+    ],
+    [
+      "result.results[1].evaluation_seconds",
+      "builtins.float",
+      "()"
+    ],
+    [
+      "result.results[1].warnings",
+      "tuple",
+      "length 0"
+    ],
+    [
+      "result.results[1].failure_stage",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.results[1].failure_reason",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.results[1].measure",
+      "tuple",
+      "length 2"
+    ],
+    [
+      "result.results[1].calibration",
+      "nampy.diagnostics.distribution.CentileCalibration",
+      "scalar record"
+    ],
+    [
+      "result.results[1].calibration_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.results[1].log_prob",
+      "numpy.ndarray[float64]",
+      "(30,)"
+    ],
+    [
+      "result.results[1].estimator",
+      "nampy.models.gamlss.GAMLSS",
+      "scalar object"
+    ],
+    [
+      "result.response_units",
+      "builtins.NoneType",
+      "not applicable"
     ]
   ]
 }

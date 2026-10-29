@@ -7,7 +7,7 @@ Run from the repository root with:
 import numpy as np
 from numpy.testing import assert_allclose
 
-from nampy.diagnostics import prepare_centiles
+from nampy.diagnostics import prepare_centiles, quantile_residuals
 from nampy.distributions import BCCGLaw, DistributionPrediction
 
 
@@ -22,7 +22,7 @@ def main():
     centiles = prepare_centiles(distribution, x)
     median = centiles.quantiles[:, 1]
     assert_allclose(distribution.cdf(median), 0.5, atol=2e-14)
-    assert_allclose(distribution.quantile_residuals(median).residuals, 0, atol=2e-14)
+    assert_allclose(quantile_residuals(distribution, median).residuals, 0, atol=2e-14)
     print("x, mu, 5th centile, median, 95th centile")
     print(np.column_stack([x, parameters["mu"], centiles.quantiles]))
     print("mu is not generally the exact median or response mean.")

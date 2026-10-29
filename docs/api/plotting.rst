@@ -45,7 +45,7 @@ Diagnostic and surface renderers
 Numerical preparation
 ---------------------
 
-.. currentmodule:: nampy.inspection
+.. currentmodule:: nampy.diagnostics
 
 .. autosummary::
    :toctree: generated/

@@ -8,7 +8,7 @@ import pytest
 from numpy.testing import assert_allclose, assert_array_equal
 from scipy import integrate, stats
 
-from nampy.diagnostics import prepare_centiles
+from nampy.diagnostics import prepare_centiles, quantile_residuals
 from nampy.distributions import BCCGLaw, DistributionPrediction, LogNormalLaw
 
 
@@ -212,7 +212,7 @@ def test_sampling_rowwise_shapes_reproducibility_and_shared_diagnostics():
     assert_allclose(np.mean(draws <= median, axis=0), 0.5, atol=0.025)
     probabilities = np.array([0.2, 0.5, 0.8])
     y = np.array([dist.quantile(p)[j, 0] for j, p in enumerate(probabilities)])
-    residual = dist.quantile_residuals(y)
+    residual = quantile_residuals(dist, y)
     assert_allclose(residual.residuals, stats.norm.ppf(probabilities), atol=2e-12)
     assert not residual.randomized.any()
     assert_allclose(

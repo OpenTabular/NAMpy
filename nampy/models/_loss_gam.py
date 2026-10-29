@@ -11,12 +11,19 @@ from sklearn.utils.validation import check_is_fitted
 from nampy.contracts import AdditivePrediction, AdditiveTermMetadata
 from nampy.gam.design import compile_design, observation_weights, response_vector
 
+from .._data import feature_frame
+from .._offsets import predictor_offset
 from ..persistence import load_estimator, save_estimator
-from ._data import feature_frame
 
 
 class _LossGAMBase(RegressorMixin, BaseEstimator, ABC):
     """Shared compiled-design lifecycle for fixed-penalty loss estimators."""
+
+    def capabilities(self):
+        """Loss fitting does not declare a full response sampling law."""
+        from ..gam.capabilities import estimator_capabilities
+
+        return estimator_capabilities(self, task="quantile")
 
     def __init__(
         self,
@@ -58,6 +65,8 @@ class _LossGAMBase(RegressorMixin, BaseEstimator, ABC):
         supported. Rows with missing or infinite values are rejected.
         Nonconvergence issues a ConvergenceWarning and is recorded explicitly.
         """
+        if offset is not None:
+            offset = predictor_offset(offset, len(data if X is None else X), 1)
         design = compile_design(
             X,
             y,
@@ -84,6 +93,7 @@ class _LossGAMBase(RegressorMixin, BaseEstimator, ABC):
                 ConvergenceWarning,
                 stacklevel=2,
             )
+        self.predictor_names_ = ("predictor",)
         self.design_ = design
         self.coef_ = solution.coefficients.copy()
         self.penalty_ = design.penalty
@@ -105,13 +115,17 @@ class _LossGAMBase(RegressorMixin, BaseEstimator, ABC):
         not reused for new data, following the GAM prediction convention.
         """
         check_is_fitted(self, "coef_")
-        evaluation = self.design_.evaluate(X, offset=offset)
+        evaluation = self.design_.evaluate(X, offset=predictor_offset(offset, len(X), 1))
         return evaluation.matrix @ self.coef_ + evaluation.offset
+
+    def predict_link(self, X, *, offset=None):
+        """Return the fitted loss predictor with explicit row/output axes."""
+        return self.predict(X, offset=offset)[:, None]
 
     def predict_components(self, X, *, offset=None):
         """Return predictor decomposition with (n,1) link and term arrays."""
         check_is_fitted(self, "coef_")
-        evaluation = self.design_.evaluate(X, offset=offset)
+        evaluation = self.design_.evaluate(X, offset=predictor_offset(offset, len(X), 1))
         B = evaluation.matrix
         terms = {}
         metadata = {}
@@ -161,13 +175,13 @@ class _LossGAMBase(RegressorMixin, BaseEstimator, ABC):
         )
         return render_term_plots(prepared, rug=rug, figsize=figsize)
 
-    def score(self, X, y, sample_weight=None):
+    def score(self, X, y, sample_weight=None, *, offset=None):
         """Negative mean model loss; y is (n,) or (n,1), weights optional (n,).
 
         Targets are normalized before subtraction; mismatched lengths and
         multi-output targets are rejected. Larger scores indicate better fit.
         """
-        prediction = self.predict(X)
+        prediction = self.predict(X, offset=offset)
         target = response_vector(y, size=len(prediction))
         weights = observation_weights(sample_weight, len(prediction))
         return -float(np.average(self._loss(target - prediction), weights=weights))

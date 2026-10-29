@@ -14,7 +14,8 @@ from nampy import (
     SurvivalGAM,
     SurvivalObjectiveConfig,
 )
-from nampy.survival import SurvivalTarget, bootstrap_survival, prepare_survival_effects
+from nampy.diagnostics import prepare_survival_effects
+from nampy.survival import SurvivalTarget, bootstrap_survival
 from tests.survival.test_subject_bootstrap import neural_data
 
 

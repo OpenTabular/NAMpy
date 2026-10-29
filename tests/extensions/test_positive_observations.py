@@ -90,7 +90,7 @@ def test_positive_observation_fit_matches_independent_r(family, tmp_path):
         optimize_smoothing=False,
         irls_tol=1e-10,
     ).fit(X, target)
-    raw = model.predict(X, raw=True)
+    raw = model.predict_link(X)
     assert_allclose(
         raw[:, 0],
         expected.intercept + expected.slope * X.x.to_numpy(),

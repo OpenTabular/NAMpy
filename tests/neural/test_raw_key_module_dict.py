@@ -89,10 +89,10 @@ def test_qnamlss_reserved_and_dotted_columns_fit_predict_and_reload(tmp_path):
     estimator = QNAMLSS(architecture_config=DefaultQNAMConfig(layer_sizes=[4], dropout=0.0), preprocessing=PreprocessingConfig(numerical_preprocessing='minmax'))
     estimator.set_params(training=replace(estimator.training or GradientTrainingConfig(), max_epochs=1, batch_size=20, shuffle=False, checkpoint_path=tmp_path / 'checkpoints', trainer_kwargs={'logger': False, 'enable_progress_bar': False, 'enable_model_summary': False, 'num_sanity_val_steps': 0, 'fast_dev_run': True})).fit(data, target)
 
-    expected = estimator.predict(data, raw=True)
+    expected = estimator.predict_link(data)
     artifact = estimator.save_model(tmp_path / "qnam-safe-columns.nampy")
     restored = QNAMLSS.load_model(artifact)
-    actual = restored.predict(data, raw=True)
+    actual = restored.predict_link(data)
 
     assert expected.shape == (len(data), 3)
     assert np.isfinite(expected).all()

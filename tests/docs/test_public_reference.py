@@ -58,7 +58,7 @@ def test_reference_generation_from_clean_checkout(tmp_path):
     classifier = (tmp_path / "docs/_generated/reference/NAMClassifier.inc").read_text()
     assert "Component extraction describes all actual logits" in classifier
     lss = (tmp_path / "docs/_generated/reference/NAMLSS.inc").read_text()
-    assert "family_.param_names" in lss
+    assert "parameter_names_" in lss
     assert "predict_distribution" in lss
     assert "Normal, Gamma, Student-t, beta, negative-binomial, lognormal and Weibull" in lss
     statistical_lss = (tmp_path / "docs/_generated/reference/GAMLSS.inc").read_text()

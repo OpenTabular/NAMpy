@@ -4,6 +4,6 @@
 
 .. autofunction:: {{ objname }}
 
-{% if module in ["nampy.inspection", "nampy.plotting", "nampy.gam.formula", "nampy.gam.results"] %}
+{% if module in ["nampy.diagnostics", "nampy.plotting", "nampy.gam.formula", "nampy.gam.results"] %}
 .. include:: /_generated/reference/symbols/{{ module }}.{{ objname }}.inc
 {% endif %}

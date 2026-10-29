@@ -5,8 +5,7 @@ import pandas as pd
 from sklearn.base import BaseEstimator
 from sklearn.exceptions import NotFittedError
 
-from ..contracts import AdditivePrediction, AdditiveTermMetadata
-from ..distributions.contracts import DistributionFitStatus
+from ..contracts import AdditivePrediction, AdditiveTermMetadata, DistributionFitStatus
 from ..gam.design import compile_design
 from ..gam.fit.solvers.cox import fit_cox
 from ..gam.losses.cox import (
@@ -30,6 +29,12 @@ class CoxGAM(BaseEstimator):
     subject bootstrap re-estimates both and supports RMST intervals.
     ``score`` is per-subject partial likelihood, not a full event-time density.
     """
+
+    def capabilities(self):
+        """Describe Cox operations while preserving partial-likelihood scope."""
+        from ..gam.capabilities import estimator_capabilities
+
+        return estimator_capabilities(self, task="cox")
 
     _estimator_type = "survival"
 
@@ -85,6 +90,10 @@ class CoxGAM(BaseEstimator):
         return self
 
     def _fit(self, X, y, *, strata=None, offset=None):
+        from .._offsets import predictor_offset
+
+        values = predictor_offset(offset, len(X), 1)
+        offset = None if values is None else values[:, 0]
         validate_covariates(X)
         if len(X) != len(y):
             raise ValueError("Cox covariates and targets must align.")
@@ -195,6 +204,7 @@ class CoxGAM(BaseEstimator):
         self.strata_ = levels
         self.baseline_ = baseline
         self.baseline_uncertainty_ = baseline_uncertainty
+        self.predictor_names_ = ("log_relative_hazard",)
         self.offset_required_ = offset is not None
         self.partial_log_likelihood_ = solution.partial_log_likelihood
         self.n_subjects_ = len(y)
@@ -209,11 +219,14 @@ class CoxGAM(BaseEstimator):
         validate_covariates(X)
         if not len(X):
             raise ValueError("Cox prediction requires nonempty rows.")
-        return self.design_.evaluate(X, offset=offset)
+        from .._offsets import predictor_offset
+
+        values = predictor_offset(offset, len(X), 1)
+        return self.design_.evaluate(X, offset=None if values is None else values[:, 0])
 
     def predict_link(self, X, *, offset=None):
         evaluation = self._evaluation(X, offset)
-        return evaluation.matrix[:, self.free_indices_] @ self.coef_ + evaluation.offset
+        return (evaluation.matrix[:, self.free_indices_] @ self.coef_ + evaluation.offset)[:, None]
 
     def predict_components(self, X, *, offset=None):
         evaluation = self._evaluation(X, offset)
@@ -239,7 +252,7 @@ class CoxGAM(BaseEstimator):
         )
 
     def predict_distribution(self, X, *, strata=None, offset=None):
-        eta = self.predict_link(X, offset=offset)
+        eta = self.predict_link(X, offset=offset)[:, 0]
         if strata is None:
             if len(self.strata_) != 1:
                 raise ValueError("Stratified Cox prediction requires explicit strata.")
@@ -287,28 +300,18 @@ class CoxGAM(BaseEstimator):
         prediction = self.predict_distribution(X, strata=strata, offset=offset)
         grid = prediction._times(times)
         matrix = self._evaluation(X, offset).matrix[:, self.free_indices_]
-        eta = self.predict_link(X, offset=offset)
+        eta = self.predict_link(X, offset=offset)[:, 0]
         labels = (
             np.repeat(self.strata_[0], len(matrix))
             if strata is None
             else np.asarray(strata)
         )
-        lookup = {label: i for i, label in enumerate(self.strata_)}
-        survival = prediction.survival(grid)
-        se = np.empty_like(survival)
-        for row, label in enumerate(labels):
-            code = lookup[label]
-            t, q, a = self.baseline_uncertainty_[code]
-            index = np.searchsorted(t, grid, side="right") - 1
-            h = self.baseline_[code][1][index]
-            v = a[index] - h[:, None] * matrix[row]
-            variance = q[index] + np.einsum("tp,pq,tq->t", v, self.covariance_, v)
-            if np.any(variance < 0) or not np.isfinite(variance).all():
-                raise FloatingPointError(
-                    "Cox baseline/coefficient prediction variance is invalid."
-                )
-            se[row] = np.exp(eta[row]) * survival[row] * np.sqrt(variance)
-        return se
+        from ..gam.inference.cox import prediction_standard_error
+
+        return prediction_standard_error(
+            matrix, eta, prediction.survival(grid), grid, labels, self.strata_,
+            self.baseline_, self.baseline_uncertainty_, self.covariance_,
+        )
 
     def predict_interval(self, X, *, times, strata=None, offset=None, level=0.95):
         """Approximate pointwise Wald survival limits, including baseline error."""

@@ -8,7 +8,7 @@ import pytest
 from numpy.testing import assert_allclose
 from scipy import integrate, stats
 
-from nampy.diagnostics import prepare_centiles
+from nampy.diagnostics import prepare_centiles, quantile_residuals
 from nampy.distributions import (
     AtomMixtureLaw,
     BetaLaw,
@@ -119,7 +119,7 @@ def test_mixed_residuals_and_centiles_require_no_family_specific_dispatch():
         {"shape": [2.0, 3.0, 4.0], "rate": [1.0, 2.0, 3.0], "pi0": [0.2, 0.3, 0.4]},
     )
     y = [0.0, 1.0, 0.0]
-    residual = dist.quantile_residuals(y, uniforms=[0.25, 0.5, 0.75])
+    residual = quantile_residuals(dist, y, uniforms=[0.25, 0.5, 0.75])
     pit = dist.cdf_left(y) + np.array([0.25, 0.5, 0.75]) * (
         dist.cdf(y) - dist.cdf_left(y)
     )

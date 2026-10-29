@@ -23,6 +23,25 @@
       "parameter"
     ]
   },
+  "api/generated/nampy.contracts.CapabilityStatus": {
+    "fields": {
+      "reason": "",
+      "state": "conditional"
+    },
+    "kind": "CapabilityStatus",
+    "omitted_fields": [
+      "conditions"
+    ]
+  },
+  "api/generated/nampy.contracts.DistributionFitStatus": {
+    "fields": {
+      "backend": "gam",
+      "message": "No successful fitted statistical result is available.",
+      "state": "unknown"
+    },
+    "kind": "DistributionFitStatus",
+    "omitted_fields": []
+  },
   "api/generated/nampy.contracts.EnsembleAdditivePrediction": {
     "fields": {
       "intercept_std": 0.0,
@@ -41,6 +60,188 @@
     "omitted_fields": [
       "feature_names",
       "dtypes"
+    ]
+  },
+  "api/generated/nampy.diagnostics.DistributionalEffects": {
+    "fields": {
+      "point_summary": "family_point"
+    },
+    "kind": "DistributionalEffects",
+    "omitted_fields": [
+      "feature_values",
+      "point_effects",
+      "conditional_sd"
+    ]
+  },
+  "api/generated/nampy.diagnostics.FisherDiagnostics": {
+    "fields": {
+      "estimator": "exact",
+      "n_draws": 8,
+      "n_inputs": 12,
+      "split": "validation"
+    },
+    "kind": "FisherDiagnostics",
+    "omitted_fields": [
+      "every_n_epochs",
+      "include_initial",
+      "include_final",
+      "record_diagonal",
+      "group_by",
+      "random_state",
+      "regression_scale",
+      "input_sampling",
+      "population_size"
+    ]
+  },
+  "api/generated/nampy.diagnostics.FisherGroupSummary": {
+    "fields": {
+      "mean_diagonal": 137.0585893472948,
+      "n_parameters": 1,
+      "name": "__global__",
+      "trace": 137.0585893472948
+    },
+    "kind": "FisherGroupSummary",
+    "omitted_fields": [
+      "output_sampling_variance",
+      "estimator_variance",
+      "conditional_standard_error",
+      "input_estimator_variance",
+      "total_estimator_variance",
+      "total_standard_error"
+    ]
+  },
+  "api/generated/nampy.diagnostics.FisherInformationResult": {
+    "fields": {
+      "estimator": "exact",
+      "n_inputs": 12,
+      "n_parameters": 5,
+      "target_source": "analytic"
+    },
+    "kind": "FisherInformationResult",
+    "omitted_fields": [
+      "diagonal",
+      "output_sampling_variance",
+      "estimator_variance",
+      "conditional_standard_error",
+      "parameter_names",
+      "parameter_shapes",
+      "parameter_slices",
+      "groups",
+      "n_draws",
+      "conditioned_on_inputs",
+      "split",
+      "grouping",
+      "normalization",
+      "backend",
+      "held_fixed",
+      "input_sampling",
+      "input_estimator_variance",
+      "total_estimator_variance",
+      "total_standard_error"
+    ]
+  },
+  "api/generated/nampy.diagnostics.FisherSnapshot": {
+    "fields": {
+      "optimizer_step": 0,
+      "stage": "final"
+    },
+    "kind": "FisherSnapshot",
+    "omitted_fields": [
+      "epoch",
+      "groups",
+      "diagonal"
+    ]
+  },
+  "api/generated/nampy.diagnostics.center_additive_prediction": {
+    "fields": {
+      "backend": "gam"
+    },
+    "kind": "AdditivePrediction",
+    "omitted_fields": [
+      "link",
+      "terms",
+      "intercept",
+      "offset",
+      "term_metadata",
+      "predictor_names"
+    ]
+  },
+  "api/generated/nampy.diagnostics.combine_distributional_effects": {
+    "fields": {
+      "point_summary": "family_point"
+    },
+    "kind": "DistributionalEffects",
+    "omitted_fields": [
+      "feature_values",
+      "point_effects",
+      "conditional_sd"
+    ]
+  },
+  "api/generated/nampy.diagnostics.explain_additive_prediction": {
+    "columns": [
+      "term",
+      "term_type",
+      "output",
+      "value"
+    ],
+    "kind": "table",
+    "omitted_by_axis": [
+      4,
+      3
+    ],
+    "shape": [
+      6,
+      7
+    ],
+    "values": [
+      [
+        "x",
+        "main",
+        0,
+        0.083
+      ],
+      [
+        "x",
+        "main",
+        0,
+        0.25
+      ]
+    ]
+  },
+  "api/generated/nampy.diagnostics.prepare_distributional_effects": {
+    "fields": {
+      "point_summary": "mean"
+    },
+    "kind": "DistributionalEffects",
+    "omitted_fields": [
+      "feature_values",
+      "point_effects",
+      "conditional_sd"
+    ]
+  },
+  "api/generated/nampy.diagnostics.term_importance_table": {
+    "columns": [
+      "term",
+      "term_type",
+      "output",
+      "importance"
+    ],
+    "kind": "table",
+    "omitted_by_axis": [
+      0,
+      0
+    ],
+    "shape": [
+      1,
+      4
+    ],
+    "values": [
+      [
+        "x",
+        "main",
+        0,
+        0.6101596574919926
+      ]
     ]
   },
   "api/generated/nampy.gam.formula.ExtractedParametricTerm": {
@@ -286,188 +487,6 @@
       "deleted_columns",
       "kept_columns",
       "metadata"
-    ]
-  },
-  "api/generated/nampy.inspection.DistributionalEffects": {
-    "fields": {
-      "point_summary": "family_point"
-    },
-    "kind": "DistributionalEffects",
-    "omitted_fields": [
-      "feature_values",
-      "point_effects",
-      "conditional_sd"
-    ]
-  },
-  "api/generated/nampy.inspection.FisherDiagnostics": {
-    "fields": {
-      "estimator": "exact",
-      "n_draws": 8,
-      "n_inputs": 12,
-      "split": "validation"
-    },
-    "kind": "FisherDiagnostics",
-    "omitted_fields": [
-      "every_n_epochs",
-      "include_initial",
-      "include_final",
-      "record_diagonal",
-      "group_by",
-      "random_state",
-      "regression_scale",
-      "input_sampling",
-      "population_size"
-    ]
-  },
-  "api/generated/nampy.inspection.FisherGroupSummary": {
-    "fields": {
-      "mean_diagonal": 137.0585893472948,
-      "n_parameters": 1,
-      "name": "__global__",
-      "trace": 137.0585893472948
-    },
-    "kind": "FisherGroupSummary",
-    "omitted_fields": [
-      "output_sampling_variance",
-      "estimator_variance",
-      "conditional_standard_error",
-      "input_estimator_variance",
-      "total_estimator_variance",
-      "total_standard_error"
-    ]
-  },
-  "api/generated/nampy.inspection.FisherInformationResult": {
-    "fields": {
-      "estimator": "exact",
-      "n_inputs": 12,
-      "n_parameters": 5,
-      "target_source": "analytic"
-    },
-    "kind": "FisherInformationResult",
-    "omitted_fields": [
-      "diagonal",
-      "output_sampling_variance",
-      "estimator_variance",
-      "conditional_standard_error",
-      "parameter_names",
-      "parameter_shapes",
-      "parameter_slices",
-      "groups",
-      "n_draws",
-      "conditioned_on_inputs",
-      "split",
-      "grouping",
-      "normalization",
-      "backend",
-      "held_fixed",
-      "input_sampling",
-      "input_estimator_variance",
-      "total_estimator_variance",
-      "total_standard_error"
-    ]
-  },
-  "api/generated/nampy.inspection.FisherSnapshot": {
-    "fields": {
-      "optimizer_step": 0,
-      "stage": "final"
-    },
-    "kind": "FisherSnapshot",
-    "omitted_fields": [
-      "epoch",
-      "groups",
-      "diagonal"
-    ]
-  },
-  "api/generated/nampy.inspection.center_additive_prediction": {
-    "fields": {
-      "backend": "gam"
-    },
-    "kind": "AdditivePrediction",
-    "omitted_fields": [
-      "link",
-      "terms",
-      "intercept",
-      "offset",
-      "term_metadata",
-      "predictor_names"
-    ]
-  },
-  "api/generated/nampy.inspection.combine_distributional_effects": {
-    "fields": {
-      "point_summary": "family_point"
-    },
-    "kind": "DistributionalEffects",
-    "omitted_fields": [
-      "feature_values",
-      "point_effects",
-      "conditional_sd"
-    ]
-  },
-  "api/generated/nampy.inspection.explain_additive_prediction": {
-    "columns": [
-      "term",
-      "term_type",
-      "output",
-      "value"
-    ],
-    "kind": "table",
-    "omitted_by_axis": [
-      4,
-      3
-    ],
-    "shape": [
-      6,
-      7
-    ],
-    "values": [
-      [
-        "x",
-        "main",
-        0,
-        0.083
-      ],
-      [
-        "x",
-        "main",
-        0,
-        0.25
-      ]
-    ]
-  },
-  "api/generated/nampy.inspection.prepare_distributional_effects": {
-    "fields": {
-      "point_summary": "mean"
-    },
-    "kind": "DistributionalEffects",
-    "omitted_fields": [
-      "feature_values",
-      "point_effects",
-      "conditional_sd"
-    ]
-  },
-  "api/generated/nampy.inspection.term_importance_table": {
-    "columns": [
-      "term",
-      "term_type",
-      "output",
-      "importance"
-    ],
-    "kind": "table",
-    "omitted_by_axis": [
-      0,
-      0
-    ],
-    "shape": [
-      1,
-      4
-    ],
-    "values": [
-      [
-        "x",
-        "main",
-        0,
-        0.6101596574919926
-      ]
     ]
   },
   "api/generated/nampy.plotting.add_density_shading": null,
@@ -953,22 +972,18 @@
     "prediction": {
       "kind": "array",
       "omitted_by_axis": [
-        62,
-        0
+        58
       ],
       "shape": [
-        64,
-        2
+        64
       ],
       "values": [
-        [
-          0.0832500010728836,
-          0.7309600114822388
-        ],
-        [
-          0.023900000378489494,
-          0.74822998046875
-        ]
+        0.0832500010728836,
+        0.023900000378489494,
+        0.0751200020313263,
+        0.11522000283002853,
+        0.07686000317335129,
+        0.026590000838041306
       ]
     },
     "raw": {
@@ -1115,22 +1130,18 @@
     "prediction": {
       "kind": "array",
       "omitted_by_axis": [
-        62,
-        0
+        58
       ],
       "shape": [
-        64,
-        2
+        64
       ],
       "values": [
-        [
-          0.018039999529719353,
-          0.6910200119018555
-        ],
-        [
-          -0.021400000900030136,
-          0.6974499821662903
-        ]
+        0.018039999529719353,
+        -0.021400000900030136,
+        0.02914999984204769,
+        -0.02201000042259693,
+        -0.04149999842047691,
+        -0.05593999847769737
       ]
     },
     "raw": {
@@ -1277,22 +1288,18 @@
     "prediction": {
       "kind": "array",
       "omitted_by_axis": [
-        62,
-        0
+        58
       ],
       "shape": [
-        64,
-        2
+        64
       ],
       "values": [
-        [
-          -0.9591400027275085,
-          0.5422099828720093
-        ],
-        [
-          -0.9432700276374817,
-          0.6144099831581116
-        ]
+        -0.9591400027275085,
+        -0.9432700276374817,
+        -0.9040799736976624,
+        -0.8403400182723999,
+        -0.8119999766349792,
+        -0.8135200142860413
       ]
     },
     "raw": {
@@ -1439,22 +1446,18 @@
     "prediction": {
       "kind": "array",
       "omitted_by_axis": [
-        62,
-        0
+        58
       ],
       "shape": [
-        64,
-        2
+        64
       ],
       "values": [
-        [
-          0.3664900064468384,
-          0.451090008020401
-        ],
-        [
-          0.22762000560760498,
-          0.5437399744987488
-        ]
+        0.3664900064468384,
+        0.22762000560760498,
+        0.18870000541210175,
+        0.32864001393318176,
+        0.26080000400543213,
+        0.10335999727249146
       ]
     },
     "raw": {
@@ -1698,22 +1701,18 @@
     "prediction": {
       "kind": "array",
       "omitted_by_axis": [
-        62,
-        0
+        58
       ],
       "shape": [
-        64,
-        2
+        64
       ],
       "values": [
-        [
-          -0.5577499866485596,
-          0.44477999210357666
-        ],
-        [
-          -0.6039699912071228,
-          0.43740999698638916
-        ]
+        -0.5577499866485596,
+        -0.6039699912071228,
+        -0.5872600078582764,
+        -0.6056200265884399,
+        -0.5911999940872192,
+        -0.6004999876022339
       ]
     },
     "raw": {
@@ -1957,22 +1956,18 @@
     "prediction": {
       "kind": "array",
       "omitted_by_axis": [
-        62,
-        0
+        58
       ],
       "shape": [
-        64,
-        2
+        64
       ],
       "values": [
-        [
-          -0.564740002155304,
-          0.7757899761199951
-        ],
-        [
-          -0.34700000286102295,
-          0.9112100005149841
-        ]
+        -0.564740002155304,
+        -0.34700000286102295,
+        -0.3590399920940399,
+        -0.9998599886894226,
+        -1.0104600191116333,
+        -0.39447999000549316
       ]
     },
     "raw": {
@@ -2119,22 +2114,18 @@
     "prediction": {
       "kind": "array",
       "omitted_by_axis": [
-        62,
-        0
+        58
       ],
       "shape": [
-        64,
-        2
+        64
       ],
       "values": [
-        [
-          0.38245999813079834,
-          0.7671499848365784
-        ],
-        [
-          0.3172999918460846,
-          0.7746800184249878
-        ]
+        0.38245999813079834,
+        0.3172999918460846,
+        0.2943800091743469,
+        0.2613300085067749,
+        0.13336999714374542,
+        0.20521999895572662
       ]
     },
     "raw": {
@@ -2281,22 +2272,18 @@
     "prediction": {
       "kind": "array",
       "omitted_by_axis": [
-        62,
-        0
+        58
       ],
       "shape": [
-        64,
-        2
+        64
       ],
       "values": [
-        [
-          -0.416020005941391,
-          0.7074000239372253
-        ],
-        [
-          -0.4176500141620636,
-          0.7075899839401245
-        ]
+        -0.416020005941391,
+        -0.4176500141620636,
+        -0.4144200086593628,
+        -0.42212000489234924,
+        -0.42030999064445496,
+        -0.417059987783432
       ]
     },
     "raw": {
@@ -2443,22 +2430,18 @@
     "prediction": {
       "kind": "array",
       "omitted_by_axis": [
-        62,
-        0
+        58
       ],
       "shape": [
-        64,
-        2
+        64
       ],
       "values": [
-        [
-          0.49685001373291016,
-          0.5522300004959106
-        ],
-        [
-          0.49557000398635864,
-          0.5523099899291992
-        ]
+        0.49685001373291016,
+        0.49557000398635864,
+        0.4966599941253662,
+        0.4948500096797943,
+        0.4945499897003174,
+        0.4943999946117401
       ]
     },
     "raw": {
@@ -2605,22 +2588,18 @@
     "prediction": {
       "kind": "array",
       "omitted_by_axis": [
-        62,
-        0
+        58
       ],
       "shape": [
-        64,
-        2
+        64
       ],
       "values": [
-        [
-          -0.18601000308990479,
-          1.528749942779541
-        ],
-        [
-          -0.30177998542785645,
-          1.4041600227355957
-        ]
+        -0.18601000308990479,
+        -0.30177998542785645,
+        -0.37185999751091003,
+        -0.18601000308990479,
+        -0.18601000308990479,
+        -0.30177998542785645
       ]
     },
     "raw": {
@@ -2846,22 +2825,18 @@
     "prediction": {
       "kind": "array",
       "omitted_by_axis": [
-        62,
-        0
+        58
       ],
       "shape": [
-        64,
-        2
+        64
       ],
       "values": [
-        [
-          0.02043999917805195,
-          0.5735800266265869
-        ],
-        [
-          -0.07573000341653824,
-          0.5893099904060364
-        ]
+        0.02043999917805195,
+        -0.07573000341653824,
+        -0.02824999950826168,
+        0.024140000343322754,
+        0.03415999934077263,
+        -0.06142999976873398
       ]
     },
     "raw": {
@@ -3008,22 +2983,18 @@
     "prediction": {
       "kind": "array",
       "omitted_by_axis": [
-        62,
-        0
+        58
       ],
       "shape": [
-        64,
-        2
+        64
       ],
       "values": [
-        [
-          0.11189000308513641,
-          0.8120200037956238
-        ],
-        [
-          0.15119999647140503,
-          0.849120020866394
-        ]
+        0.11189000308513641,
+        0.15119999647140503,
+        0.10492999851703644,
+        0.11433999985456467,
+        0.08970999717712402,
+        0.13911999762058258
       ]
     },
     "raw": {
@@ -3170,22 +3141,18 @@
     "prediction": {
       "kind": "array",
       "omitted_by_axis": [
-        62,
-        0
+        58
       ],
       "shape": [
-        64,
-        2
+        64
       ],
       "values": [
-        [
-          -0.05341999977827072,
-          0.7598900198936462
-        ],
-        [
-          -0.035659998655319214,
-          0.7616400122642517
-        ]
+        -0.05341999977827072,
+        -0.035659998655319214,
+        -0.03971000015735626,
+        -0.10796000063419342,
+        -0.08595000207424164,
+        -0.02443999983370304
       ]
     },
     "raw": {
@@ -3332,22 +3299,18 @@
     "prediction": {
       "kind": "array",
       "omitted_by_axis": [
-        62,
-        0
+        58
       ],
       "shape": [
-        64,
-        2
+        64
       ],
       "values": [
-        [
-          0.57851,
-          3.11602
-        ],
-        [
-          0.51068,
-          3.38775
-        ]
+        0.57851,
+        0.51068,
+        0.37235,
+        -0.32904,
+        -0.35854,
+        -0.01726
       ]
     },
     "raw": {
@@ -3527,22 +3490,18 @@
     "prediction": {
       "kind": "array",
       "omitted_by_axis": [
-        62,
-        0
+        58
       ],
       "shape": [
-        64,
-        2
+        64
       ],
       "values": [
-        [
-          -0.022269999608397484,
-          0.7541999816894531
-        ],
-        [
-          -0.10175000131130219,
-          0.7725499868392944
-        ]
+        -0.022269999608397484,
+        -0.10175000131130219,
+        -0.024450000375509262,
+        0.09260000288486481,
+        -0.0025599999353289604,
+        -0.12533999979496002
       ]
     },
     "raw": {
@@ -3744,22 +3703,18 @@
     "prediction": {
       "kind": "array",
       "omitted_by_axis": [
-        62,
-        0
+        58
       ],
       "shape": [
-        64,
-        2
+        64
       ],
       "values": [
-        [
-          0.11189000308513641,
-          0.8120200037956238
-        ],
-        [
-          0.15119999647140503,
-          0.849120020866394
-        ]
+        0.11189000308513641,
+        0.15119999647140503,
+        0.10492999851703644,
+        0.11433999985456467,
+        0.08970999717712402,
+        0.13911999762058258
       ]
     },
     "raw": {
@@ -6188,6 +6143,7 @@
     ],
     "values": "omitted; see shape contract"
   },
+  "neural_reference/methods/capabilities": "mappingproxy",
   "neural_reference/methods/center_components": {
     "fields": {
       "backend": "neural"
@@ -6441,6 +6397,25 @@
     "kind": "list",
     "length": 1,
     "omitted": 0
+  },
+  "neural_reference/methods/predict_link": {
+    "kind": "array",
+    "omitted_by_axis": [
+      62,
+      0
+    ],
+    "shape": [
+      64,
+      1
+    ],
+    "values": [
+      [
+        0.08444999903440475
+      ],
+      [
+        0.09307999908924103
+      ]
+    ]
   },
   "neural_reference/methods/save_model": "PosixPath",
   "neural_reference/methods/set_params": "NAMRegressor",
@@ -12300,7 +12275,7 @@
     }
   },
   "statistical_reference/methods/predict_terms": {
-    "1b990d88d736": {
+    "2d72741fc834": {
       "kind": "array",
       "omitted_by_axis": [
         90
@@ -12317,7 +12292,7 @@
         -0.13891
       ]
     },
-    "dcf63a14c249": {
+    "eba5bc504eaf": {
       "kind": "array",
       "omitted_by_axis": [
         90
@@ -16067,5 +16042,13 @@
         0.02977
       ]
     }
+  },
+  "user_guide/gamlss": {
+    "fields": {},
+    "kind": "DistributionComparison",
+    "omitted_fields": [
+      "results",
+      "response_units"
+    ]
   }
 }

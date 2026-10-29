@@ -9,6 +9,8 @@ from pathlib import Path
 
 import matplotlib
 
+from nampy.diagnostics import quantile_residuals
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
@@ -35,7 +37,7 @@ def main(output_dir):
         smoothing_params=[0.5],
     ).fit(training)
     distribution = model.predict_distribution(validation)
-    residuals = distribution.quantile_residuals(validation.y, random_state=7)
+    residuals = quantile_residuals(distribution, validation.y, random_state=7)
     worm = prepare_worm_plot(residuals, x=validation.x, n_bins=4)
     worm_figure = render_worm_plot(worm)
     worm_figure.savefig(output_dir / "worm.png", dpi=150)

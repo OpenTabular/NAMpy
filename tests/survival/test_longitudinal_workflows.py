@@ -14,6 +14,7 @@ from nampy import (
     SurvivalGAM,
     SurvivalObjectiveConfig,
 )
+from nampy.diagnostics import survival_residuals
 from nampy.survival import (
     CensoringDistribution,
     LongitudinalSurvivalTarget,
@@ -24,7 +25,6 @@ from nampy.survival import (
     concordance_index,
     predict_trajectory,
     survival_curve,
-    survival_residuals,
 )
 
 

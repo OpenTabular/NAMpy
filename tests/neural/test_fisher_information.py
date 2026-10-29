@@ -8,7 +8,7 @@ import pytest
 import torch
 from numpy.testing import assert_allclose
 
-from nampy.inspection.fisher import FisherDiagnostics
+from nampy.diagnostics.fisher import FisherDiagnostics
 from nampy.neural.families.continuous import (
     BetaDistribution,
     GammaDistribution,

@@ -10,7 +10,7 @@ import pytest
 import torch
 
 from nampy.contracts import AdditivePrediction, AdditiveTermMetadata
-from nampy.inspection.contributions import (
+from nampy.diagnostics.contributions import (
     center_additive_prediction,
     explain_additive_prediction,
     term_importance_table,

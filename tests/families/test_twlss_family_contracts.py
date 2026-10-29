@@ -160,13 +160,13 @@ def test_twlss_public_components_and_persistence(tmp_path):
                    family=TwlssFamily(), smoothing_params=[.7, .9], optimize_smoothing=False).fit(data)
     model.predict_components(data).validate_additive_reconstruction()
     assert model.parameter_names_ == ("mu", "p", "phi")
-    parameters = model.predict(data)
+    parameters = model.predict_parameters(data)
     np.testing.assert_array_equal(model.predict_point(data), parameters[:, 0])
     assert np.all((parameters[:, 1] >= 1.01) & (parameters[:, 1] <= 1.99))
     assert np.isfinite(model.score(data, data["y"].to_numpy()))
     path = model.save_model(tmp_path / "twlss.nampy")
     restored = GAMLSS.load_model(path)
-    np.testing.assert_array_equal(restored.predict(data), parameters)
+    np.testing.assert_array_equal(restored.predict_parameters(data), parameters)
 
 
 @pytest.mark.parametrize("kwargs", [{"link": ("inverse", "identity", "identity")},

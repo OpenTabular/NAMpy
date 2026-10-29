@@ -12,7 +12,7 @@ import numpy as np
 from scipy import sparse
 from scipy.special import polygamma
 
-from ..inspection.fisher import aggregate_fisher
+from ..diagnostics.fisher import aggregate_fisher
 from .data import combine_offsets
 from .families import binomial, gamma, gaussian, poisson
 from .families.gamlss.distributional import (
@@ -109,7 +109,7 @@ def _take(value, indices):
     return value.iloc[indices] if hasattr(value, "iloc") else np.asarray(value)[indices]
 
 
-def _reference(model, X, offset, config, *, probe=False):
+def _reference(model, X, offset, config, *, probe=False, batch_size=None):
     """Select before building prediction designs; preserve training offsets."""
     if offset is None and getattr(model, "_fisher_offset_required_", False):
         raise ValueError(
@@ -142,14 +142,14 @@ def _reference(model, X, offset, config, *, probe=False):
             raise NotImplementedError(
                 "Correlated Fisher requires the entire fitted sequence, exact information and fixed inputs."
             )
-        design = transform.apply(np.asarray(model.lpmatrix(None), dtype=float))
-        eta = np.asarray(model.predict(None, type="link", offset=offset), dtype=float)
+        design = transform.apply(np.asarray(model.lpmatrix(None, block_size=batch_size), dtype=float))
+        eta = np.asarray(model.predict(None, type="link", offset=offset, block_size=batch_size), dtype=float)
         return design, eta.reshape(count, -1), indices, count
     if X is None:
         # Link output is only n-by-predictors, not n-by-coefficients. Asking
         # predict(None) preserves formula/default offset semantics exactly.
         eta = np.asarray(
-            model.predict(None, type="link", offset=offset), dtype=float
+            model.predict(None, type="link", offset=offset, block_size=batch_size), dtype=float
         ).reshape(count, -1)[indices]
         source = model.vis_training_data_
         reference = (
@@ -157,12 +157,12 @@ def _reference(model, X, offset, config, *, probe=False):
             if hasattr(source, "iloc")
             else np.asarray(source)[indices]
         )
-        design = model.lpmatrix(reference)
+        design = model.lpmatrix(reference, block_size=batch_size)
     else:
         reference = X.iloc[indices] if hasattr(X, "iloc") else np.asarray(X)[indices]
-        design = model.lpmatrix(reference)
+        design = model.lpmatrix(reference, block_size=batch_size)
         eta = np.asarray(
-            model.predict(reference, type="link", offset=_take(offset, indices)),
+            model.predict(reference, type="link", offset=_take(offset, indices), block_size=batch_size),
             dtype=float,
         ).reshape(selected, -1)
     design = (
@@ -317,13 +317,14 @@ def statistical_fisher_information(
     context=None,
     return_diagonal=True,
     probe=False,
+    batch_size=None,
 ):
     """Mean likelihood information in public GAM coefficient coordinates."""
     if not getattr(model, "_fitted", False):
         raise RuntimeError("Model is not fitted.")
     family = model.family
     validate_fisher_family(family, config)
-    design, eta, indices, available = _reference(model, X, offset, config, probe=probe)
+    design, eta, indices, available = _reference(model, X, offset, config, probe=probe, batch_size=batch_size)
     if (
         probe
         and config.input_sampling == "without_replacement"

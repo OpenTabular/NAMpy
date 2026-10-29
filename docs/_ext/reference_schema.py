@@ -669,11 +669,17 @@ def estimator_returns(task):
             (
                 "predict",
                 "numpy.ndarray[float]",
-                "(n, q)",
-                "Natural family parameters, except class/vector/quantile-specific widths documented on each family page.",
+                "(n,) or (n, response_dimensions); quantile loss: (n,q)",
+                "Family-defined point prediction; quantile-loss models return the explicitly fitted quantile vector.",
             ),
             (
-                "predict(raw=True)",
+                "predict_parameters",
+                "numpy.ndarray[float]",
+                "(n, q)",
+                "Natural family parameters in ``parameter_names_`` order; unavailable for quantile-loss families.",
+            ),
+            (
+                "predict_link",
                 "numpy.ndarray[float]",
                 "(n, q_raw)",
                 "Network/link predictors in the fitted family raw parameter order.",
@@ -688,11 +694,11 @@ def estimator_returns(task):
                 "predict_distribution",
                 "nampy.distributions.DistributionPrediction",
                 "one scalar conditional distribution per prediction row",
-                "Normal, Gamma, Student-t, beta, negative-binomial, lognormal and Weibull: NumPy probability, quantile, sampling, moment and shared quantile-residual operations. Statistical beta-binomial requires explicit trial context; zaga_lss adds exact zeros to Gamma outcomes and beinf_lss adds zero/one atoms to beta proportions. Statistical bccg_lss supplies BCCG predictions with fixed or automatic joint REML and explicit divergent-moment semantics. Neural beta-binomial, ZAGA, BEINF and BCCG fitting are unsupported. Other families and clamped neural NB regimes raise NotImplementedError. Draws condition on fitted parameters.",
+                "Normal, Gamma, Student-t, beta, negative-binomial, lognormal and Weibull: NumPy probability, quantile, sampling, moment and shared quantile-residual operations. Statistical beta-binomial requires explicit trial context; zaga_lss adds exact zeros to Gamma outcomes and beinf_lss adds zero/one atoms to beta proportions. Statistical bccg_lss supplies BCCG predictions with fixed or automatic joint REML and explicit divergent-moment semantics. Consult model.capabilities() for the configured family and fitted-state restrictions. Unsupported operations and clamped neural NB regimes raise NotImplementedError. Draws condition on fitted parameters.",
             ),
             (
                 "distribution_fit_status",
-                "nampy.distributions.DistributionFitStatus",
+                "nampy.contracts.DistributionFitStatus",
                 "scalar record",
                 "Backend-owned eligibility evidence: statistical convergence, completed neural training, failure or unknown status. Completed training is not statistical convergence.",
             ),
@@ -702,6 +708,7 @@ def estimator_returns(task):
 
 PARAMETER_TYPES.update(
     {
+        "probabilities": "array-like, shape (q,) or scalar",
         "expr": "str",
         "formula_or_lhs": "str",
         "parsed": "ParsedGAMFormula",
@@ -727,6 +734,7 @@ PARAMETER_TYPES.update(
     }
 )
 METHOD_PARAMETER_MEANINGS = {
+    "probabilities": "Requested response quantile probabilities in [0,1]; output columns follow supplied order.",
     "config": "Optional FisherDiagnostics configuration; None uses the estimator's configured diagnostics or shared defaults. Public postfit evaluation uses every supplied input row; n_inputs limits fit-time probes.",
     "return_diagonal": "Retain aligned per-parameter information and sampling-error arrays when True; group summaries remain available when False.",
     "X": "Prediction/training feature matrix with n rows and the same d columns, names and preprocessing schema used by the fitted estimator.",
@@ -751,8 +759,8 @@ METHOD_PARAMETER_MEANINGS = {
     "feature_name": "Optional single feature whose distributional effect should be displayed.",
     "feature_names": "Optional collection of features to display; None uses supported fitted features.",
     "plot_kwargs": "Additional documented plotting arguments forwarded to the distributional renderer.",
-    "offset": "Known additive predictor offset, scalar or one value per row; supported distributional families accept per-predictor offsets.",
-    "context": "Explicit observation context separate from weights: betabinomial_lss requires {'trials': trials}. Supply again for explicit prediction rows; omitted X reuses fit context. Context-dependent predictions currently require na_action='pass'.",
+    "offset": "Known additive predictor offsets with shape (n,K); a vector is accepted only for K=1. No scalar or predictor broadcasting.",
+    "context": "Explicit observation context separate from weights: betabinomial_lss requires {'trials': trials}. Supply again for explicit prediction rows. Context-dependent predictions currently require na_action='pass'.",
     "block_size": "Positive statistical prediction row-block size; None uses the engine default.",
     "newdata_guaranteed": "Request the optimized validated prediction path for complete explicit new data; omitted columns are allowed only for excluded terms covered by the contract.",
     "na_action": "Missing-row policy: pass restores missing rows as NaN, omit/exclude retain complete rows, fail raises an error.",

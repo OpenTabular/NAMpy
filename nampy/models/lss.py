@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from ..distributions.contracts import DistributionFitStatus
+from ..contracts import DistributionFitStatus
 from ..neural.families.registry import family_name_for_instance, resolve_family
 from ..neural.objectives import DistributionObjective
 from ..neural.prediction import split_output_components
@@ -17,6 +17,8 @@ from ._neural import NeuralEstimatorBase
 
 class NeuralLSS(NeuralEstimatorBase):
     """Shared estimator interface for neural distributional models."""
+
+    _prediction_kind = "distributional"
 
     def __init__(
         self,
@@ -64,6 +66,12 @@ class NeuralLSS(NeuralEstimatorBase):
         ).instantiate(y, deepcopy(self.objective.distributional_kwargs))
 
     def _finish_fit(self):
+        from ..neural.objectives.quantile import Quantile
+
+        self.predictor_names_ = tuple(self.family_.param_names)
+        self.parameter_names_ = (
+            None if isinstance(self.family_, Quantile) else self.family_.natural_parameter_names
+        )
         completion = self.training_completion_
         if completion is None:
             native = getattr(self, "native_training_info_", None) or {}
@@ -107,7 +115,7 @@ class NeuralLSS(NeuralEstimatorBase):
 
         Returns
         -------
-        nampy.distributions.DistributionFitStatus
+        nampy.contracts.DistributionFitStatus
             Completed training is distinct from statistical convergence.
             Unfitted estimators and training routes without completion metadata
             remain unknown, and are excluded from automatic ranking.
@@ -138,21 +146,27 @@ class NeuralLSS(NeuralEstimatorBase):
         plan = TrainingPlan(objective=DistributionObjective(self.family_))
         return y, y_val, plan
 
-    def predict(self, X, raw=False, *, batch_size=None, offset=None):
-        predictions = self._predict(X, batch_size=batch_size, offset=offset)["output"]
+    def predict(self, X, *, batch_size=None, offset=None):
+        """Return the family-defined point prediction or fitted quantile vector."""
+        from ..neural.objectives.quantile import Quantile
 
-        if not raw:
-            # Some distribution transforms depend on learned family parameters
-            # (for example ordinal cutpoints), so their result can require a
-            # gradient even though the backbone prediction path is in eval mode.
-            assert self.model is not None
+        self._require_neural_fit()
+        if isinstance(self.family_, Quantile):
+            raw = self._predict(X, batch_size=batch_size, offset=offset)["output"]
             with torch.no_grad():
-                transformed = self.model.objective.transform(predictions)
-            return transformed.cpu().numpy()
+                return self.family_(raw).cpu().numpy()
+        return self.predict_point(X, batch_size=batch_size, offset=offset)
 
-        # Convert predictions to NumPy array and return
-        else:
-            return predictions.cpu().numpy()
+    def predict_parameters(self, X, *, batch_size=None, offset=None):
+        """Return natural parameters; quantile objectives have no such matrix."""
+        from ..neural.objectives.quantile import Quantile
+
+        self._require_neural_fit()
+        if isinstance(self.family_, Quantile):
+            raise NotImplementedError("Quantile objectives expose predict_quantiles, not distribution parameters.")
+        predictions = self._predict(X, batch_size=batch_size, offset=offset)["output"]
+        with torch.no_grad():
+            return self.model.objective.transform(predictions).cpu().numpy()
 
     def predict_distribution(self, X, *, batch_size=None, offset=None):
         """Return conditional distributions for supported scalar neural LSS.
@@ -176,7 +190,7 @@ class NeuralLSS(NeuralEstimatorBase):
         """
         from ..neural.families.distribution_adapter import distribution_prediction
 
-        parameters = self.predict(X, batch_size=batch_size, offset=offset)
+        parameters = self.predict_parameters(X, batch_size=batch_size, offset=offset)
         return distribution_prediction(self.family_, parameters)
 
     def predict_quantiles(self, X, probabilities, *, batch_size=None, offset=None):
@@ -197,8 +211,8 @@ class NeuralLSS(NeuralEstimatorBase):
             or np.any((probs < 0) | (probs > 1))
         ):
             raise ValueError("probabilities must be a finite vector in [0,1].")
-        parameters = self.predict(X, batch_size=batch_size, offset=offset)
         if isinstance(self.family_, Quantile):
+            parameters = self.predict(X, batch_size=batch_size, offset=offset)
             fitted = np.asarray(self.family_.quantiles)
             indices = []
             for probability in probs:
@@ -213,6 +227,7 @@ class NeuralLSS(NeuralEstimatorBase):
                     )
                 indices.append(int(match[0]))
             return parameters[:, indices]
+        parameters = self.predict_parameters(X, batch_size=batch_size, offset=offset)
         return distribution_prediction(self.family_, parameters).quantile(probs)
 
     def predict_point(self, X, *, batch_size=None, offset=None):

@@ -30,7 +30,7 @@ Parameters
    * - ``offset``
      - ``float | array-like, shape (n,) or (n, q) | None``
      - ``None``
-     - Known additive predictor offset, scalar or one value per row; supported distributional families accept per-predictor offsets.
+     - Known additive predictor offsets with shape (n,K); a vector is accepted only for K=1. No scalar or predictor broadcasting.
    * - ``context``
      - ``Mapping[str, array-like, shape (n,)] | None``
      - ``None``

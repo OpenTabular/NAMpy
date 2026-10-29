@@ -50,7 +50,7 @@ def test_parametric_natural_parameters_match_mgcv_and_r_gamlss(
     ).fit(data)
 
     rows = reference["row"].to_numpy(dtype=int) - 1
-    parameters = estimator.predict(data)[rows]
+    parameters = estimator.predict_parameters(data)[rows]
     mgcv_parameters = reference[["mgcv_mu", "mgcv_sigma"]].to_numpy()
     gamlss_parameters = reference[["gamlss_mu", "gamlss_sigma"]].to_numpy()
 

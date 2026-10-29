@@ -57,7 +57,7 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
 Returns and fitted outputs
 --------------------------
 
-Construction returns an unfitted estimator and fit returns self. NeuralRegressor.predict returns response predictions; NeuralClassifier.predict returns labels and predict_proba returns class probabilities. NeuralLSS.predict returns transformed distribution parameters and predict(raw=True) returns the network predictors. Additive components describe the link scale under the architecture's declared dependence contract.
+Construction returns an unfitted estimator and fit returns self. NeuralRegressor.predict returns response predictions; NeuralClassifier.predict returns labels and predict_proba returns class probabilities. NeuralLSS.predict returns the family point summary, predict_parameters returns natural parameters and predict_link returns additive predictors. Quantile-loss models return fitted quantiles. Additive components describe the link scale under the architecture's declared dependence contract.
 
 :doc:`Custom architecture contract </user_guide/custom_models>` · :doc:`All training arguments </api/neural_training>` · :doc:`Neural distributions <../families/index>`
 

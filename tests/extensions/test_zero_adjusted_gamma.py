@@ -14,6 +14,7 @@ from scipy.special import expit
 from sklearn.base import clone
 
 from nampy import GAMLSS
+from nampy.diagnostics import quantile_residuals
 from nampy.gam.families.gamlss._taylor import Taylor
 from nampy.gam.families.gamlss.semicontinuous import ZeroAdjustedGamma
 from nampy.gam.model_state import _fit_result
@@ -45,9 +46,7 @@ def test_unpenalized_fit_matches_independent_normalized_mle():
         np.full(len(frame), 0.05),
         np.linspace(-0.1, 0.1, len(frame)),
     ]
-    model = _model(optimize_smoothing=False).fit(
-        frame, sample_weight=weights, offset=offsets
-    )
+    model = _model(optimize_smoothing=False).fit(frame, sample_weight=weights, offset=np.column_stack(offsets))
     assert _fit_result(model.gam_).converged
     design = np.column_stack([np.ones(len(frame)), frame.x])
     positive = frame.y.to_numpy() > 0
@@ -69,7 +68,7 @@ def test_unpenalized_fit_matches_independent_normalized_mle():
         method="BFGS",
         options={"gtol": 1e-6},
     )
-    parameters = model.predict(frame, offset=offsets)
+    parameters = model.predict_parameters(frame, offset=np.column_stack(offsets))
     assert_allclose(
         parameters[:, 0], np.exp(design @ oracle.x[:2] + offsets[0]), atol=3e-6
     )
@@ -77,9 +76,9 @@ def test_unpenalized_fit_matches_independent_normalized_mle():
     assert_allclose(
         parameters[:, 2], expit(design @ oracle.x[3:] + offsets[2]), atol=3e-6
     )
-    distribution = model.predict_distribution(frame, offset=offsets)
+    distribution = model.predict_distribution(frame, offset=np.column_stack(offsets))
     assert_allclose(
-        model.predict_point(frame, offset=offsets), distribution.mean(), atol=1e-12
+        model.predict_point(frame, offset=np.column_stack(offsets)), distribution.mean(), atol=1e-12
     )
     assert_allclose(distribution.mean(), (1 - parameters[:, 2]) * parameters[:, 0])
     assert_allclose(
@@ -89,7 +88,7 @@ def test_unpenalized_fit_matches_independent_normalized_mle():
         * (parameters[:, 1] ** 2 + parameters[:, 2]),
     )
     assert np.isfinite(
-        distribution.quantile_residuals(frame.y, random_state=1).residuals
+        quantile_residuals(distribution, frame.y, random_state=1).residuals
     ).all()
 
 
@@ -109,7 +108,7 @@ def test_fixed_smoothing_weight_duplication_uncertainty_and_persistence(tmp_path
         smoothing_params=[0.3, 0.7],
         irls_tol=1e-11,
     ).fit(frame.iloc[index].reset_index(drop=True))
-    assert_allclose(model.predict(frame), repeated.predict(frame), atol=3e-6)
+    assert_allclose(model.predict_parameters(frame), repeated.predict_parameters(frame), atol=3e-6)
     components = model.predict_components(frame)
     components.validate_additive_reconstruction()
     assert components.link.shape == (len(frame), 3)
@@ -235,7 +234,7 @@ def test_saved_r_zaga_semantics_and_unpenalized_fit():
     model = _model(optimize_smoothing=False).fit(frame)
     assert _fit_result(model.gam_).converged
     assert_allclose(
-        model.predict(frame), frame[["mu", "sigma", "pi0"]], atol=3e-5, rtol=0
+        model.predict_parameters(frame), frame[["mu", "sigma", "pi0"]], atol=3e-5, rtol=0
     )
 
 
@@ -254,12 +253,7 @@ def test_outer_reml_gradient_hessian_with_offsets(weighted):
         np.full(len(frame), 0.05),
         np.linspace(-0.1, 0.1, len(frame)),
     ]
-    model = _model(
-        smooth=True,
-        optimize_smoothing=False,
-        smoothing_params=[0.3, 0.7],
-        irls_tol=1e-9,
-    ).fit(frame, sample_weight=weights, offset=offsets)
+    model = _model(smooth=True, optimize_smoothing=False, smoothing_params=[0.3, 0.7], irls_tol=1e-09).fit(frame, sample_weight=weights, offset=np.column_stack(offsets))
     gam = model.gam_
     rho = np.log(gam.smoothing_params)
     gradient = criterion_gradient(gam, gam.y_, rho, method="reml")

@@ -96,7 +96,7 @@ def test_lss_predict_components_multicolumn(tmp_path):
     assert components.backend == "neural"
     # One column per distribution parameter, on both scales.
     assert components.link.shape == (len(X), 2)
-    assert estimator.predict(X).shape == (len(X), 2)
+    assert estimator.predict_parameters(X).shape == (len(X), 2)
     for value in components.terms.values():
         assert np.asarray(value).shape[0] == len(X)
     # Additivity holds on the raw (link) scale.

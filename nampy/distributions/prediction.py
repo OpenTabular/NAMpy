@@ -214,15 +214,3 @@ class DistributionPrediction:
     def variance(self) -> np.ndarray:
         """Return conditional variances, where declared by the law."""
         return self._evaluate("variance")
-
-    def quantile_residuals(self, y, *, random_state=None, uniforms=None, clip=None):
-        """Return shared QuantileResiduals with audited CDF bounds and PIT flags.
-
-        This is independent of mgcv's residual dispatch. See
-        :func:`nampy.diagnostics.quantile_residuals` for RNG/clipping policies.
-        """
-        from ..diagnostics.distribution import quantile_residuals
-
-        return quantile_residuals(
-            self, y, random_state=random_state, uniforms=uniforms, clip=clip
-        )

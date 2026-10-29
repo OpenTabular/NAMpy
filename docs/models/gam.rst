@@ -131,7 +131,8 @@ For distributional regression, provide one formula per parameter:
        family="normal",
        formula={"mu": "y ~ s(x)", "sigma": "~ s(z)"},
    ).fit(df)
-   parameters = model.predict(df)
+   parameters = model.predict_parameters(df)
+
 
 Interpretation and limits
 -------------------------

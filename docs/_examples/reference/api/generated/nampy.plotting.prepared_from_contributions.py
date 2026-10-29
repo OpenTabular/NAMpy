@@ -3,7 +3,7 @@
 import numpy as np
 import pandas as pd
 from nampy.contracts import AdditivePrediction, AdditiveTermMetadata, EnsembleAdditivePrediction, FeatureSchema
-from nampy.inspection import center_additive_prediction, explain_additive_prediction, term_importance_table
+from nampy.diagnostics import center_additive_prediction, explain_additive_prediction, term_importance_table
 
 n = 12
 X = pd.DataFrame({'x': np.linspace(0, 1, n)})

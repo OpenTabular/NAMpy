@@ -231,12 +231,14 @@ Functions in ``nampy.survival`` consume the same ``SurvivalPrediction`` and
 
 .. code-block:: python
 
-   from nampy.survival import survival_residuals, survival_curve
+   from nampy.diagnostics import survival_residuals
+   from nampy.survival import survival_curve
 
    prediction = model.predict_distribution(X_test)
    residuals = survival_residuals(prediction, y_test)
    observed = survival_curve(y_test, sample_weight=test_weights)
    remaining_lifetime = prediction.rmst(3, conditional_on=y_test.entry)
+
 
 ``cox_snell`` is the integrated hazard from entry to exit. It remains right
 censored when ``residuals.event`` is false. ``martingale`` is event minus this
@@ -297,8 +299,8 @@ can depend on censoring. Its tie convention follows
 .. automodule:: nampy.survival.evaluation
    :members:
 
-.. automodule:: nampy.survival.diagnostics
-   :members:
+.. automodule:: nampy.diagnostics.survival
+   :members: SurvivalResiduals, survival_residuals
 
 Survival effects and curve uncertainty
 --------------------------------------
@@ -310,12 +312,13 @@ objects.
 
 .. code-block:: python
 
-   from nampy.survival import prepare_survival_effects
+   from nampy.diagnostics import prepare_survival_effects
 
    effects = prepare_survival_effects(
        model, X_test, times=[0, .5, 1, 2], reference_X=X_reference,
        reference_weight=reference_weights, conditional_on=.2,
    )
+
 
 For each selected term, its reference mean is moved to the predictor intercept;
 the reference predictor plus that centered term is then transformed to survival.
@@ -502,8 +505,9 @@ intervals (including hazard/RMST), simultaneous calibration from replicated fits
 and continuous-time bands remain unsupported. Existing ``mgcv`` fitting,
 prediction and covariance behavior is unchanged.
 
-.. automodule:: nampy.survival.interpretation
-   :members:
+.. automodule:: nampy.diagnostics.survival
+   :no-index:
+   :members: SurvivalEffects, prepare_survival_effects
 
 .. automodule:: nampy.survival.uncertainty
    :members:
@@ -793,7 +797,7 @@ Alternative ties, delayed-entry or longitudinal Cox,
 case weights, analytic simultaneous/conditional Cox intervals and Cox effect
 intervals remain unsupported. The
 existing probability comparison helpers do not treat partial likelihood as a
-full density. Save/load retains the version-6 trusted fitted-state contract.
+full density. Save/load retains the version-7 trusted fitted-state contract.
 
 Neural Cox training
 -------------------

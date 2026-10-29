@@ -211,3 +211,47 @@ class EnsembleAdditivePrediction:
         for name, values in self.term_std.items():
             if np.asarray(values).shape != np.asarray(self.mean.terms[name]).shape:
                 raise ValueError(f"term_std for {name!r} has an incompatible shape.")
+
+
+@dataclass(frozen=True)
+class DistributionFitStatus:
+    """Backend-owned eligibility evidence, separate from probability support.
+
+    Statistical convergence and completed neural training are distinct states.
+    Unknown, failed and nonconverged fits are not eligible for family ranking.
+    """
+
+    backend: str
+    state: Literal["converged", "completed", "nonconverged", "failed", "unknown"]
+    message: str = ""
+
+    def __post_init__(self):
+        if not self.backend or self.state not in {
+            "converged",
+            "completed",
+            "nonconverged",
+            "failed",
+            "unknown",
+        }:
+            raise ValueError("Invalid distribution fit status.")
+
+    @property
+    def eligible(self) -> bool:
+        return self.state in {"converged", "completed"}
+
+
+@dataclass(frozen=True, slots=True)
+class CapabilityStatus:
+    """Declared operation support and explicit conditions, without running it."""
+
+    state: Literal["supported", "conditional", "unsupported"]
+    reason: str = ""
+    conditions: tuple[str, ...] = ()
+
+    def __post_init__(self):
+        if self.state not in {"supported", "conditional", "unsupported"}:
+            raise ValueError("Unknown capability state.")
+        conditions = tuple(self.conditions)
+        if any(not isinstance(value, str) or not value for value in conditions):
+            raise ValueError("Capability conditions must be nonempty strings.")
+        object.__setattr__(self, "conditions", conditions)

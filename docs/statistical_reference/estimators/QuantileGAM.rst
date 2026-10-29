@@ -236,7 +236,7 @@ score
 
 .. code-block:: python
 
-   model.score(X, y, sample_weight=None)
+   model.score(X, y, sample_weight=None, *, offset=None)
 
 .. list-table::
    :header-rows: 1
@@ -258,6 +258,10 @@ score
      - array-like (n,) | None
      - ``None``
      - Finite nonnegative weights with positive sum; None means ones. fit additionally accepts a formula-data column name; score accepts an array, not a column name.
+   * - ``offset``
+     - array-like (n,) | None
+     - ``None``
+     - Known additive offset, default zeros, added to evaluated formula/smooth-owned offsets. Separate fit-time offsets are not reused by predict on new data.
 
 .. list-table::
    :header-rows: 1

@@ -100,7 +100,7 @@ def test_fitted_gamlss_neural_objectives_persist_and_reconstruct(family, tmp_pat
     components = model.predict_components(X)
     raw_width = 4 if family == "beinf" else 2 if family == "betabinomial" else 3
     assert components.link.shape == (80, raw_width)
-    natural = model.predict(X)
+    natural = model.predict_parameters(X)
     assert natural.shape == (80, 5 if family == "beinf" else raw_width)
     assert np.isfinite(model.predict_distribution(X).log_prob(y)).all()
     assert np.isfinite(model.score(X, y))

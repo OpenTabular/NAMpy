@@ -126,7 +126,7 @@ def test_public_family_specs_and_named_formula_order_match_instances(fitted_fami
     # results differently by a few float64 ulps across allocations/platforms.
     roundoff = 32 * np.finfo(np.float64).eps
     np.testing.assert_allclose(
-        model.predict(frame), baseline.predict(frame), atol=roundoff, rtol=roundoff
+        model.predict_parameters(frame), baseline.predict_parameters(frame), atol=roundoff, rtol=roundoff
     )
     np.testing.assert_allclose(
         model.predict_link(frame), baseline.predict_link(frame),
@@ -172,9 +172,9 @@ def test_natural_parameters_points_scores_and_component_shapes(fitted_family):
     eta = model.predict_link(frame)
     family = model.gam_.family
     assert eta.shape == (len(frame), family.nlp)
-    np.testing.assert_array_equal(model.predict(frame, raw=True), eta)
+    np.testing.assert_array_equal(model.predict_link(frame), eta)
     params, point, density = _independent_distribution(name, eta, frame.y.to_numpy(), family)
-    np.testing.assert_allclose(model.predict(frame), params, atol=2e-12, rtol=2e-12)
+    np.testing.assert_allclose(model.predict_parameters(frame), params, atol=2e-12, rtol=2e-12)
     np.testing.assert_allclose(model.predict_point(frame), point, atol=2e-12, rtol=2e-12)
     assert model.score(frame, frame.y) == pytest.approx(np.mean(density), abs=2e-12, rel=2e-12)
     weights = np.linspace(.5, 2, len(frame))
@@ -232,7 +232,7 @@ def test_multinom_baseline_components_and_full_coefficient_delta_covariance(K, t
 
     model, frame = _fit("multinom", {"name": "multinom", "K": K}, named=True, K=K)
     new = frame.iloc[[0, 17, 39, 61, 89, len(frame) - 1]]
-    eta, probability = model.predict_link(new), model.predict(new)
+    eta, probability = model.predict_link(new), model.predict_parameters(new)
     assert eta.shape == (len(new), K)
     assert probability.shape == (len(new), K + 1)
     assert model.predictor_names_ == tuple(f"eta{k}" for k in range(1, K + 1))
@@ -303,8 +303,8 @@ def test_multinom_natural_standard_errors_align_missing_offset_rows(na_action):
                np.array([-.1, .2, .1, -.2, np.nan, .3])]
     retained = np.isfinite(np.column_stack(offsets)).all(axis=1)
     expected = model.standard_errors(new.iloc[np.flatnonzero(retained)],
-                                     offset=[value[retained] for value in offsets])
-    actual = model.standard_errors(new, offset=offsets, na_action=na_action)
+                                     offset=np.column_stack(offsets)[retained])
+    actual = model.standard_errors(new, offset=np.column_stack(offsets), na_action=na_action)
     # Like the underlying GAM prediction API, both omit and exclude return
     # only the retained rows for explicit newdata; pass reinserts missing rows.
     assert actual.shape == (int(retained.sum()), 3)

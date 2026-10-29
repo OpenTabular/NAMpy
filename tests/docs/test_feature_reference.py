@@ -121,7 +121,10 @@ def test_every_public_estimator_resolves_to_a_central_page():
     targets = reference.reference_targets()
     for name in models.__all__:
         assert name in targets, name
-        assert targets[name].startswith(("statistical_reference/", "neural_reference/"))
+        if name in {"DistributionCandidate", "DistributionComparison", "DistributionComparisonRow", "compare_distributions"}:
+            assert targets[name] == "user_guide/gamlss"
+        else:
+            assert targets[name].startswith(("statistical_reference/", "neural_reference/"))
 
 
 def test_unindexed_reference_signatures_keep_viewcode_backlinks():

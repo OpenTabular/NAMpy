@@ -5,7 +5,8 @@ import pytest
 from numpy.testing import assert_allclose, assert_array_equal
 from scipy.special import gamma, gammainc, ndtr
 
-from nampy.survival import SurvivalPrediction, SurvivalTarget, survival_residuals
+from nampy.diagnostics import survival_residuals
+from nampy.survival import SurvivalPrediction, SurvivalTarget
 from nampy.survival.likelihood import parametric_distribution
 
 

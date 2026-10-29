@@ -1,8 +1,8 @@
 # NAMpy — Statistical and Neural Additive Models in Python
 
 For the public API, start with estimators in `nampy.models`, probability queries in
-`nampy.distributions`, diagnostics in `nampy.diagnostics`, effects and importance
-in `nampy.inspection`, and rendering in `nampy.plotting`. See
+`nampy.distributions`, analysis (including Fisher information, effects and
+importance) in `nampy.diagnostics`, and rendering in `nampy.plotting`. See
 [API and family selection](docs/user_guide/api_and_families.rst) for the generated
 backend support table and prediction semantics.
 
@@ -138,9 +138,9 @@ model = GAMLSS(
     },
 ).fit(data_dist)
 
-parameters = model.predict(data_dist)       # columns: mu, sigma
+parameters = model.predict_parameters(data_dist)       # columns: mu, sigma
 point_prediction = model.predict_point(data_dist)
-raw_predictors = model.predict(data_dist, raw=True)
+raw_predictors = model.predict_link(data_dist)
 ```
 
 `GAMRegressor` accepts single-predictor regression families,
@@ -374,7 +374,7 @@ from nampy.models import NAMLSS
 
 model = NAMLSS(objective=ObjectiveConfig(family='normal'), training=GradientTrainingConfig(max_epochs=150, patience=15)).fit(X_train, y_train)
 
-parameters = model.predict(X_test)
+parameters = model.predict_parameters(X_test)
 mean_log_likelihood = model.score(X_test, y_test)
 components = model.predict_components(X_test)
 components.validate_additive_reconstruction()  # raw parameter/link scale

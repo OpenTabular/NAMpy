@@ -5,8 +5,8 @@ from types import MappingProxyType
 
 import numpy as np
 
+from ..diagnostics.survival import SurvivalEffects, prepare_survival_effects
 from .contracts import _readonly
-from .interpretation import SurvivalEffects, prepare_survival_effects
 from .prediction import SurvivalPrediction
 
 

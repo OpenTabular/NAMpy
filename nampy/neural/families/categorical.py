@@ -134,6 +134,10 @@ class OrdinalCumulativeLogitDistribution(ParameterizedObjective):
 
     point_summary = "mode"
 
+    @property
+    def natural_parameter_names(self):
+        return tuple(f"class_{i}" for i in range(self.num_classes))
+
     target_dtype = torch.long
 
     def __init__(

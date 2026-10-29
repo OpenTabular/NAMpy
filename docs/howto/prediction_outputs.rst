@@ -21,7 +21,7 @@ Choose the prediction method according to the quantity you need: a response pred
      - Labels or probabilities in ``classes_`` order. Binary components add in
        log-odds. Multiclass probability prediction does not imply component support.
    * - Statistical GAMLSS / neural LSS
-     - ``predict(X)``: natural family columns; ``predict(X, raw=True)``: raw predictors
+     - ``predict(X)``: point summary; ``predict_parameters(X)``: natural family columns; ``predict_link(X)``: additive predictors
      - Normal natural columns are mean and standard deviation. Raw predictors
        have family-specific transforms; statistical and neural raw scales differ.
    * - Statistical ``GAMLSS`` or neural LSS point prediction

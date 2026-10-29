@@ -12,13 +12,13 @@ from typing import Any, cast
 
 import numpy as np
 
+from ..contracts import DistributionFitStatus
 from ..diagnostics.distribution import (
     CentileCalibration,
-    _centile_probabilities,
     centile_calibration,
+    centile_probabilities,
 )
-from .contracts import DistributionFitStatus
-from .prediction import DistributionPrediction
+from ..distributions.prediction import DistributionPrediction
 
 
 @dataclass(frozen=True)
@@ -244,7 +244,7 @@ def compare_distributions(
     n_active, weight_sum = int(active.sum()), float(weights.sum())
     effective_n = float(1 / np.sum(normalized**2))
     probabilities = (
-        None if calibration_probs is None else _centile_probabilities(calibration_probs)
+        None if calibration_probs is None else centile_probabilities(calibration_probs)
     )
     configs = {
         name: candidate

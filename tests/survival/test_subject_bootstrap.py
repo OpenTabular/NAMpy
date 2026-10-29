@@ -257,7 +257,7 @@ def test_invalid_resampling_plans_and_interval_routes():
 
 
 def test_reported_nonconvergence_is_a_failed_replicate(monkeypatch):
-    from nampy.distributions.contracts import DistributionFitStatus
+    from nampy.contracts import DistributionFitStatus
 
     model, X, target, weight, offset = reference_data()
     original = model.clone_for_survival_bootstrap

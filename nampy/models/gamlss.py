@@ -25,11 +25,13 @@ def _resolve_gamlss_family(family) -> GamlssFamily:
 class GAMLSS(_GAMAdapterBase):
     """Generalized additive location, scale, and shape estimator.
 
-    ``predict`` returns natural distribution parameters in columns named by
-    ``parameter_names_``. Use ``predict(raw=True)`` or ``predict_link`` for the
-    additive linear predictors. In formula mode, a named formula mapping is
+    ``predict`` returns the family's point summary. ``predict_parameters``
+    returns natural parameter columns named by ``parameter_names_``;
+    ``predict_link`` returns additive predictors named by ``predictor_names_``. In formula mode, a named formula mapping is
     preferred, for example ``{"mu": "y ~ s(x)", "sigma": "~ s(x)"}``.
     """
+
+    _prediction_kind = "distributional"
 
     def __init__(
         self,
@@ -156,17 +158,6 @@ class GAMLSS(_GAMAdapterBase):
             encoded = y.encoded
             y = encoded[:, 0]
             context = {"observation_upper":encoded[:,1], "observation_code":encoded[:,2]}
-        if offset is not None:
-            if not isinstance(offset, (list, tuple)):
-                raise ValueError(
-                    "GAMLSS offset must be a list/tuple with one entry per "
-                    "distribution parameter."
-                )
-            if len(offset) != int(family.n_linear_predictors):
-                raise ValueError(
-                    f"GAMLSS family {family.name!r} expects "
-                    f"{family.n_linear_predictors} offsets, got {len(offset)}."
-                )
         result = self._fit_gam(
             X, y, data=data, sample_weight=sample_weight, offset=offset, context=context
         )
@@ -178,37 +169,38 @@ class GAMLSS(_GAMAdapterBase):
         )
         return result
 
-    def predict(
+    def predict(self, X, *, offset=None, batch_size=None, context=None):
+        """Return the family's declared response point prediction."""
+        return self.predict_point(X, offset=offset, batch_size=batch_size, context=context)
+
+    def predict_parameters(
         self,
-        X=None,
-        raw=False,
+        X,
         offset=None,
         *,
-        block_size=None,
+        batch_size=None,
         newdata_guaranteed=False,
         na_action="pass",
     ):
-        """Return natural parameters, or raw linear predictors with ``raw=True``."""
+        """Return natural distribution parameters in ``parameter_names_`` order."""
         eta = np.asarray(
             self.predict_link(
                 X,
                 offset=offset,
-                block_size=block_size,
+                batch_size=batch_size,
                 newdata_guaranteed=newdata_guaranteed,
                 na_action=na_action,
             ),
             dtype=np.float64,
         )
-        if raw:
-            return eta
         return self.gam_.family.distribution_parameters_from_eta(eta)
 
     def predict_distribution(
         self,
-        X=None,
+        X,
         offset=None,
         *,
-        block_size=None,
+        batch_size=None,
         newdata_guaranteed=False,
         na_action="pass",
         context=None,
@@ -217,11 +209,11 @@ class GAMLSS(_GAMAdapterBase):
 
         Parameters
         ----------
-        X : DataFrame or ndarray, optional
-            Prediction rows; omitted X uses the fitted observations.
-        offset : list or tuple, optional
-            One known offset per linear predictor, as in ``predict``.
-        block_size : int, optional
+        X : DataFrame or ndarray
+            Explicit prediction rows.
+        offset : ndarray, optional
+            Known offsets with shape (n_rows, n_predictors).
+        batch_size : int, optional
             Rows processed per statistical prediction block.
         newdata_guaranteed : bool, default=False
             Use the existing validated-newdata prediction contract.
@@ -231,8 +223,7 @@ class GAMLSS(_GAMAdapterBase):
         context : mapping of str to array, optional
             Explicit row-aligned observation context. Beta-binomial requires
             {"trials": trials} for every supplied X, even if it has the same
-            length as training data. Omitted X reuses fit context. Context
-            families currently require na_action="pass".
+            length as training data. Context families currently require na_action="pass".
 
         Returns
         -------
@@ -240,44 +231,43 @@ class GAMLSS(_GAMAdapterBase):
             NumPy probability queries and outcome draws conditional on fitted
             parameters for families declaring a probability adapter in the
             statistical family registry.
-            Other families raise ``NotImplementedError``. Existing
-            ``predict`` output and mgcv fitting semantics are unchanged.
+            Other families raise ``NotImplementedError``. Fitting remains
+            owned by the statistical likelihood backend.
         """
         from ..gam.predict.distribution_adapter import distribution_prediction
 
-        parameters = self.predict(
+        parameters = self.predict_parameters(
             X,
             offset=offset,
-            block_size=block_size,
+            batch_size=batch_size,
             newdata_guaranteed=newdata_guaranteed,
             na_action=na_action,
         )
-        context = self._prediction_context(X, context, na_action)
+        context = self._prediction_context(context, na_action)
         return distribution_prediction(self.gam_.family, parameters, context=context)
 
-    def _prediction_context(self, X, context, na_action="pass"):
-        """Reuse fit context only for omitted X; never infer it from row count."""
+    def _prediction_context(self, context, na_action="pass"):
+        """Validate context alignment policy for explicit prediction rows."""
         self._check_fitted()
         names = tuple(getattr(self.gam_.family, "prediction_context_names", getattr(self.gam_.family, "context_names", ())))
         if names and na_action != "pass":
             raise NotImplementedError(
                 "Context-dependent predictions currently require na_action='pass' to preserve row alignment."
             )
-        if context is None and names and X is None:
-            provider = getattr(self.gam_.family, "fit_context", None)
-            if not callable(provider):
-                raise NotImplementedError(
-                    "This context-dependent family does not expose fitted observation context; supply context explicitly."
-                )
-            return provider(self.gam_.n_samples_)
         return context
+
+    def predict_quantiles(self, X, probabilities, *, offset=None, context=None, batch_size=None):
+        """Return response quantiles with shape (n_rows, n_probabilities)."""
+        return self.predict_distribution(
+            X, offset=offset, context=context, batch_size=batch_size
+        ).quantile(probabilities)
 
     def predict_point(
         self,
-        X=None,
+        X,
         offset=None,
         *,
-        block_size=None,
+        batch_size=None,
         newdata_guaranteed=False,
         na_action="pass",
         context=None,
@@ -286,7 +276,7 @@ class GAMLSS(_GAMAdapterBase):
         self._check_fitted()
         if getattr(self.gam_.family, "context_names", ()):
             distribution = self.predict_distribution(
-                X, offset=offset, block_size=block_size,
+                X, offset=offset, batch_size=batch_size,
                 newdata_guaranteed=newdata_guaranteed, na_action=na_action,
                 context=context,
             )
@@ -295,10 +285,10 @@ class GAMLSS(_GAMAdapterBase):
             return distribution.mean()
         if context is not None and len(context):
             raise ValueError(f"{self.gam_.family.name} does not accept observation context.")
-        parameters = self.predict(
+        parameters = self.predict_parameters(
             X,
             offset=offset,
-            block_size=block_size,
+            batch_size=batch_size,
             newdata_guaranteed=newdata_guaranteed,
             na_action=na_action,
         )
@@ -310,7 +300,7 @@ class GAMLSS(_GAMAdapterBase):
         type="response",
         offset=None,
         *,
-        block_size=None,
+        batch_size=None,
         newdata_guaranteed=False,
         na_action="pass",
         unconditional=False,
@@ -321,7 +311,7 @@ class GAMLSS(_GAMAdapterBase):
                 X,
                 type="link",
                 offset=offset,
-                block_size=block_size,
+                batch_size=batch_size,
                 newdata_guaranteed=newdata_guaranteed,
                 na_action=na_action,
                 unconditional=unconditional,
@@ -329,21 +319,21 @@ class GAMLSS(_GAMAdapterBase):
         if type != "response":
             raise ValueError("type must be 'response' or 'link'.")
         self._check_fitted()
-        if not newdata_guaranteed:
+        if X is None or not newdata_guaranteed:
             self._validate_X(X)
         return distributional_standard_errors(
-            self.gam_, X, cov=self.covariance, offset=offset,
-            block_size=block_size, newdata_guaranteed=newdata_guaranteed,
+            self.gam_, X, cov=self.covariance, offset=self._backend_offset(X, offset, allow_missing=True),
+            block_size=batch_size, newdata_guaranteed=newdata_guaranteed,
             na_action=na_action, unconditional=unconditional,
         )
 
-    def score(self, X, y, sample_weight=None, *, context=None):
+    def score(self, X, y, sample_weight=None, *, context=None, offset=None):
         """Return weighted mean log likelihood (higher is better)."""
         self._check_fitted()
         if getattr(self.gam_.family, "context_names", ()) or context is not None:
-            logpdf = self.predict_distribution(X, context=context).log_prob(y)
+            logpdf = self.predict_distribution(X, context=context, offset=offset).log_prob(y)
         else:
-            logpdf = self.gam_.family.logpdf_from_parameters(y, self.predict(X))
+            logpdf = self.gam_.family.logpdf_from_parameters(y, self.predict_parameters(X, offset=offset))
         if sample_weight is None:
             return float(np.mean(logpdf))
         weights = np.asarray(sample_weight, dtype=np.float64).ravel()
@@ -358,7 +348,7 @@ class GAMLSS(_GAMAdapterBase):
 
         Returns
         -------
-        nampy.distributions.DistributionFitStatus
+        nampy.contracts.DistributionFitStatus
             Backend-owned convergence evidence. Missing status is unknown;
             failed coefficient or smoothing convergence is ineligible.
         """
@@ -368,7 +358,7 @@ class GAMLSS(_GAMAdapterBase):
 
     def evaluate(self, X, y_true, metrics=None, *, context=None):
         """Evaluate natural parameters (default: mean negative log likelihood)."""
-        parameters = self.predict(X)
+        parameters = self.predict_parameters(X)
         distribution = None
         if getattr(self.gam_.family, "context_names", ()) or context is not None:
             distribution = self.predict_distribution(X, context=context)
@@ -401,21 +391,21 @@ class GAMLSS(_GAMAdapterBase):
 
     def predict_components(
         self,
-        X=None,
+        X,
         offset=None,
         *,
-        block_size=None,
+        batch_size=None,
         newdata_guaranteed=False,
         na_action="pass",
     ) -> AdditivePrediction:
         """Return contributions in the actual additive predictor coordinates."""
         self._check_fitted()
-        if not newdata_guaranteed:
+        if X is None or not newdata_guaranteed:
             self._validate_X(X)
         vals = self.gam_.predict_terms(
             X,
-            offset=offset,
-            block_size=block_size,
+            offset=self._backend_offset(X, offset, allow_missing=True),
+            block_size=batch_size,
             newdata_guaranteed=newdata_guaranteed,
             na_action=na_action,
         )

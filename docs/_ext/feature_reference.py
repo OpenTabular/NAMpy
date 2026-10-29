@@ -614,7 +614,7 @@ def generate_statistical_families(root):
             ["Entry point", "Type", "Shape", "Column meaning"],
             statistical_family_returns(name, family),
         )
-        text += "The constructor returns a family object, not predictions. ``GAM.fit`` returns the fitted model. For a single-predictor family, ``GAM.predict(type='response')`` normally returns a response-scale array, while ``type='link'`` returns the additive predictor. Multi-predictor families have family-specific response transformations. ``GAMLSS.predict`` exposes natural distribution parameters; ``predict(raw=True)`` exposes link predictors. These interfaces can have different column meanings.\n\n"
+        text += "The constructor returns a family object, not predictions. ``GAM.fit`` returns the fitted model. For a single-predictor family, ``GAM.predict(type='response')`` normally returns a response-scale array, while ``type='link'`` returns the additive predictor. Multi-predictor families have family-specific response transformations. ``GAMLSS.predict`` returns the family point summary; ``predict_parameters`` exposes natural parameters and ``predict_link`` exposes additive predictors. These interfaces can have different column meanings.\n\n"
         text += example_rst(
             root,
             f"statistical_reference/families/{name}",
@@ -783,7 +783,7 @@ def generate_methods(root):
         if name == "fisher_information":
             from reference_schema import METHOD_PARAMETER_MEANINGS
 
-            overrides.update({key: METHOD_PARAMETER_MEANINGS[key] for key in ("config", "return_diagonal")})
+            overrides.update({key: METHOD_PARAMETER_MEANINGS[key] for key in ("config", "return_diagonal", "batch_size")})
             overrides["context"] = "Optional row-aligned likelihood context, such as grouped-binomial trial counts. Required fields are validated by the supported conditional likelihood."
         text += (
             heading("Parameters", "-")
@@ -954,7 +954,7 @@ def generate_neural(root):
             neural_family_returns(name, instance),
         )
         text += "``forward(raw)`` transforms a tensor of network outputs into natural parameters. ``compute_loss(raw, y)`` returns the scalar training objective; ``compute_loss_per_sample(raw, y)`` retains the observation dimension. ``predict_point(raw, transformed=False)`` returns point predictions; set transformed=True only when passing already transformed values.\n\n"
-        text += "``predict`` returns family-transformed values; ``predict(raw=True)`` returns network predictors. Shapes and column meanings follow this family’s contract above. ``predict_point`` reduces to the family-defined point functional. Conditional spread is distributional spread, not parameter-estimation uncertainty.\n\n:doc:`Shared training parameters </api/neural_training>` · :doc:`All neural family contracts </api/utils>`\n"
+        text += "``predict`` returns the family point summary; ``predict_parameters`` returns natural parameter columns and ``predict_link`` returns additive predictors. Quantile-loss families return fitted quantiles and have no natural parameter matrix. Shapes and column meanings follow this family’s contract above. ``predict_point`` reduces to the family-defined point functional. Conditional spread is distributional spread, not parameter-estimation uncertainty.\n\n:doc:`Shared training parameters </api/neural_training>` · :doc:`All neural family contracts </api/utils>`\n"
         text += example_rst(
             root, f"neural_reference/families/{name}", neural_family_example(name)
         )
@@ -1027,6 +1027,28 @@ def generate(root):
     from reference_symbols import generate as generate_symbols
 
     generate_symbols(root)
+    from reference_examples import example_rst
+
+    comparison_code = """import numpy as np
+import pandas as pd
+from nampy import GAMLSS
+from nampy.models import DistributionCandidate, compare_distributions
+
+rng = np.random.default_rng(31)
+X = pd.DataFrame({'x': np.linspace(-1, 1, 90)})
+y = rng.lognormal(.2 + .3 * X.x, .4)
+result = compare_distributions(
+    {'normal': DistributionCandidate(GAMLSS(family='normal',
+        formula={'mu': '~x', 'sigma': '~1'}, optimize_smoothing=False)),
+     'lognormal': GAMLSS(family='lognormal_lss',
+        formula={'loc': '~x', 'scale': '~1'}, optimize_smoothing=False)},
+    X.iloc[:60], y[:60], X.iloc[60:], y[60:],
+)
+assert len(result.ranking) == 2
+print(result.to_frame()[['name', 'status', 'mean_log_prob']])
+"""
+    write(root, "_generated/reference/comparison.inc",
+          example_rst(root, "user_guide/gamlss", comparison_code))
     pages = (
         generate_smooths(root)
         + generate_statistical_families(root)
@@ -1278,6 +1300,7 @@ def reference_targets():
         for name in statistical_estimator_exports()
     }
     targets["GAM"] = "statistical_reference/GAM"
+    targets.update({name: "user_guide/gamlss" for name in ("DistributionCandidate", "DistributionComparison", "DistributionComparisonRow", "compare_distributions")})
     targets.update(
         {
             name: f"statistical_reference/extensions/{name}"
@@ -1556,7 +1579,7 @@ def generate_neural_extensions(root):
         elif name in {"NeuralEstimatorFamily", "estimator_family"}:
             text += "Returns a NeuralEstimatorFamily record containing task-specific estimator classes or None for unavailable tasks. This record contains no fitted predictions. Instantiate one of its available classes and call fit to obtain a model.\n\n"
         else:
-            text += "Construction returns an unfitted estimator and fit returns self. NeuralRegressor.predict returns response predictions; NeuralClassifier.predict returns labels and predict_proba returns class probabilities. NeuralLSS.predict returns transformed distribution parameters and predict(raw=True) returns the network predictors. Additive components describe the link scale under the architecture's declared dependence contract.\n\n"
+            text += "Construction returns an unfitted estimator and fit returns self. NeuralRegressor.predict returns response predictions; NeuralClassifier.predict returns labels and predict_proba returns class probabilities. NeuralLSS.predict returns the family point summary, predict_parameters returns natural parameters and predict_link returns additive predictors. Quantile-loss models return fitted quantiles. Additive components describe the link scale under the architecture's declared dependence contract.\n\n"
         text += ":doc:`Custom architecture contract </user_guide/custom_models>` · :doc:`All training arguments </api/neural_training>` · :doc:`Neural distributions <../families/index>`\n"
         text += example_rst(
             root, f"neural_reference/extensions/{name}", extension_example(name)

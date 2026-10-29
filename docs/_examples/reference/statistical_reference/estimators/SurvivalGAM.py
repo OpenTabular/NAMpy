@@ -4,11 +4,12 @@ import numpy as np
 import pandas as pd
 from nampy.models import SurvivalGAM
 from nampy.survival import (SurvivalTarget, CensoringDistribution, brier_score,
-                            concordance_index, survival_curve, survival_residuals,
-                            prepare_survival_effects, prepare_survival_curve_interval,
+                            concordance_index, survival_curve,
+                            prepare_survival_curve_interval,
                             prepare_survival_effect_interval, combine_survival_predictions,
                             prepare_survival_hazard_interval, prepare_survival_rmst_interval,
                             bootstrap_survival)
+from nampy.diagnostics import survival_residuals, prepare_survival_effects
 
 X = pd.DataFrame({'x': np.linspace(-1., 1., 30)})
 target = SurvivalTarget(

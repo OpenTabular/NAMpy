@@ -8,7 +8,7 @@ import pytest
 from numpy.testing import assert_allclose, assert_array_equal
 from scipy import integrate, special, stats
 
-from nampy.diagnostics import prepare_centiles, prepare_worm_plot
+from nampy.diagnostics import prepare_centiles, prepare_worm_plot, quantile_residuals
 from nampy.distributions import (
     AtomMixtureLaw,
     BCCGLaw,
@@ -276,7 +276,7 @@ def test_sampling_missing_rows_generic_diagnostics_and_capabilities(law):
     medians = dist.quantile(0.5)[:, 0]
     assert_allclose(np.mean(draws[:, :3] <= medians[:3], axis=0), 0.5, atol=0.04)
     assert np.isnan(dist.cdf(1)[-1])
-    residual = dist.quantile_residuals(medians)
+    residual = quantile_residuals(dist, medians)
     assert_allclose(residual.residuals[:3], 0, atol=2e-11)
     assert len(prepare_worm_plot(residual).panels) == 1
     assert prepare_centiles(dist, [0, 1, 2, 3]).quantiles.shape == (4, 3)

@@ -1,4 +1,4 @@
-"""Runnable reference example: api/generated/nampy.inspection.FisherSnapshot."""
+"""Runnable reference example: api/generated/nampy.diagnostics.FisherSnapshot."""
 
 from nampy import FisherDiagnostics
 config = FisherDiagnostics(n_inputs=12, random_state=7)

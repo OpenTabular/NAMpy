@@ -4,12 +4,13 @@ from dataclasses import dataclass
 from types import MappingProxyType
 
 import numpy as np
+from scipy.special import xlogy
 
+from .._data import frame_for_estimator
 from ..contracts import AdditivePrediction
-from ..inspection.contributions import center_additive_prediction
-from ..inspection.effects import _frame_for_estimator
-from .contracts import SurvivalComponents, _readonly
-from .prediction import SurvivalPrediction
+from ..diagnostics.contributions import center_additive_prediction
+from ..survival.contracts import SurvivalComponents, SurvivalTarget, _readonly
+from ..survival.prediction import SurvivalPrediction
 
 
 def _subject_components(components, n_subjects):
@@ -133,7 +134,7 @@ def prepare_survival_effects(
         )
     if reference_trajectory is not None:
         raise ValueError("reference_trajectory requires a query trajectory.")
-    frame = _frame_for_estimator(estimator, X)
+    frame = frame_for_estimator(estimator, X)
     current = _subject_components(
         estimator.predict_components(X, offset=offset), len(frame)
     )
@@ -234,7 +235,7 @@ def _trajectory_effects(
     conditional_on,
 ):
     """Apply the existing reference-plus-term contract to supplied paths."""
-    from .longitudinal import SurvivalTrajectory, _trajectory_layout
+    from ..survival.longitudinal import SurvivalTrajectory, _trajectory_layout
 
     if not isinstance(trajectory, SurvivalTrajectory) or len(trajectory) != len(X):
         raise ValueError("Query features must align with a SurvivalTrajectory.")
@@ -253,7 +254,7 @@ def _trajectory_effects(
     model_grid = estimator.survival_time_grid()
     cuts, _, _ = _trajectory_layout(model_grid, trajectory)
     cuts, _, _ = _trajectory_layout(model_grid, reference_trajectory, cuts=cuts)
-    frame = _frame_for_estimator(estimator, X)
+    frame = frame_for_estimator(estimator, X)
 
     def components(data, path, known):
         raw = _subject_components(
@@ -327,4 +328,68 @@ def _trajectory_effects(
         centered.predictor_names,
         landmark,
         centered.backend,
+    )
+
+
+@dataclass(frozen=True)
+class SurvivalResiduals:
+    """Unweighted rowwise residuals; event flags retain Cox-Snell censoring.
+
+    Cox-Snell values H(exit)-H(entry) are right censored when event is false;
+    they must not be used as fully observed exponential or normal samples.
+    Martingale/deviance are counting-process diagnostics, not Pearson errors,
+    inferential standard errors, or Cox Schoenfeld residuals.
+    """
+
+    cox_snell: np.ndarray
+    martingale: np.ndarray
+    deviance: np.ndarray
+    event: np.ndarray
+    subject_id: np.ndarray
+
+    def __post_init__(self):
+        for name in self.__dataclass_fields__:
+            object.__setattr__(self, name, _readonly(getattr(self, name)))
+
+
+def survival_residuals(prediction, target):
+    """Cox-Snell, martingale and deviance residuals, conditional on entry.
+
+    With r=H(exit)-H(entry), M=event-r and
+    D=sign(M)*sqrt(-2*(M+event*log(r))). No weighting or probability clipping;
+    a zero-hazard event gives infinite deviance. Censored zero exposure gives 0.
+    Randomized PIT, uncensored worm plots and Cox-specific diagnostics are
+    deliberately not substituted for these observation-aware calculations.
+    """
+    from ..survival.longitudinal import LongitudinalSurvivalTarget
+
+    longitudinal = isinstance(target, LongitudinalSurvivalTarget)
+    original = target
+    if longitudinal:
+        target = target.as_segments()
+    if not isinstance(target, SurvivalTarget):
+        raise TypeError("target must be SurvivalTarget.")
+    if not isinstance(prediction, SurvivalPrediction) or prediction.n_subjects != len(
+        target
+    ):
+        raise ValueError("SurvivalPrediction rows must align with target.")
+    residual = prediction.cumulative_hazard_at(target.time, conditional_on=target.entry)
+    if longitudinal:
+        first = np.r_[
+            0, np.flatnonzero(original.subject_id[1:] != original.subject_id[:-1]) + 1
+        ]
+        residual = np.add.reduceat(residual, first)
+        target = original.subject_outcomes()
+    if not np.isfinite(residual).all() or np.any(residual < 0):
+        raise FloatingPointError(
+            "Cox-Snell residuals require finite nonnegative hazard increments."
+        )
+    martingale = target.event - residual
+    # xlogy defines the censored r=0 term as zero rather than 0*log(0).
+    squared = -2 * (martingale + xlogy(target.event, residual))
+    # r-1-log(r) can lose roundoff near one; only its nonnegative square root
+    # is rounded at zero. Observations and hazard increments are never clipped.
+    deviance = np.sign(martingale) * np.sqrt(np.maximum(squared, 0))
+    return SurvivalResiduals(
+        residual, martingale, deviance, target.event, target.subject_id
     )
