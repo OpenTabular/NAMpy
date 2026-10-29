@@ -65,13 +65,16 @@ def test_outer_reml_gradient_hessian_with_three_penalties_and_offsets(weighted):
         rtol=2e-3,
     )
     direction = np.array([1.0, -2.0, 1.0]) / np.sqrt(6)
-    step = 0.005
-    second = (
-        value(rho + step * direction)[0]
-        - 2 * value(rho)[0]
-        + value(rho - step * direction)[0]
-    ) / step**2
-    assert_allclose(direction @ hessian @ direction, second, atol=3e-3, rtol=3e-3)
+    # Each value refits the coefficients. Unlike gradient differences, second
+    # value differences amplify inner-solve error by 1 / step**2. Check two
+    # larger steps to avoid cancellation and verify finite-difference stability.
+    for step in (0.02, 0.04):
+        second = (
+            value(rho + step * direction)[0]
+            - 2 * value(rho)[0]
+            + value(rho - step * direction)[0]
+        ) / step**2
+        assert_allclose(direction @ hessian @ direction, second, atol=3e-3, rtol=3e-3)
 
 
 @pytest.mark.parametrize("optimizer", ["outer_newton", "bfgs", "efs"])

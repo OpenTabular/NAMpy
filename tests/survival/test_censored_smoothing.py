@@ -133,13 +133,15 @@ def test_outer_reml_gradient_hessian_with_censoring_entry_and_offsets(name, weig
             rtol=2e-3,
         )
         direction = np.array([1.0, -2.0]) / np.sqrt(5)
-        step = 0.005
-        second = (
-            value(rho + step * direction)[0]
-            - 2 * value(rho)[0]
-            + value(rho - step * direction)[0]
-        ) / step**2
-        assert_allclose(direction @ hessian @ direction, second, atol=3e-3, rtol=3e-3)
+        # Criterion values include inner-fit error, amplified by 1 / step**2.
+        # Verify stability at two larger steps without relaxing the tolerance.
+        for step in (0.02, 0.04):
+            second = (
+                value(rho + step * direction)[0]
+                - 2 * value(rho)[0]
+                + value(rho - step * direction)[0]
+            ) / step**2
+            assert_allclose(direction @ hessian @ direction, second, atol=3e-3, rtol=3e-3)
 
 
 @pytest.fixture(scope="module", params=["weibull", "lognormal"])
