@@ -33,6 +33,7 @@ def report_functions():
         "outcome",
         "array_checks",
         "family_checks",
+        "family_kwargs",
         "task_status",
         "passed_evidence",
         "checked_fit",
@@ -48,6 +49,96 @@ def report_functions():
         ]
         exec(compile(tree, "validation-notebook", "exec"), namespace)
     return namespace
+
+
+def test_validation_report_architecture_options_cover_live_registry():
+    from nampy import models
+    from nampy.neural.configuration import (
+        FixedDesignTrainingConfig,
+        GradientTrainingConfig,
+        IGANNTrainingConfig,
+        ObjectiveConfig,
+        SemiStructuredTrainingConfig,
+    )
+    from nampy.neural.registry import architectures
+
+    notebook = nbformat.read(
+        ROOT / "docs/development/notebooks/04_distributional_models.ipynb", 4
+    )
+    for cell in notebook.cells:
+        if cell.cell_type != "code":
+            continue
+        for statement in ast.parse(cell.source).body:
+            if isinstance(statement, ast.Assign) and any(
+                isinstance(target, ast.Name) and target.id == "ARCHITECTURE_OPTIONS"
+                for target in statement.targets
+            ):
+                options = ast.literal_eval(statement.value)
+                assert set(options) == set(architectures())
+                for name, spec in architectures().items():
+                    spec.config(**options[name])
+                namespace = {
+                    "models": models,
+                    "ARCHITECTURE_OPTIONS": options,
+                    "SWEEP_TRAINING": GradientTrainingConfig(max_epochs=1),
+                    "MAX_EPOCHS": 1,
+                    "RANDOM_STATE": 7,
+                    "FixedDesignTrainingConfig": FixedDesignTrainingConfig,
+                    "IGANNTrainingConfig": IGANNTrainingConfig,
+                    "SemiStructuredTrainingConfig": SemiStructuredTrainingConfig,
+                    "ObjectiveConfig": ObjectiveConfig,
+                }
+                tree = ast.parse(cell.source)
+                tree.body = [
+                    node
+                    for node in tree.body
+                    if isinstance(node, ast.FunctionDef)
+                    and node.name in {"estimator_class", "make_estimator"}
+                ]
+                exec(compile(tree, "architecture-report-setup", "exec"), namespace)
+                for suffix in ("Regressor", "Classifier", "LSS"):
+                    estimator = namespace["make_estimator"](
+                        "semistructured", architectures()["semistructured"], suffix
+                    )
+                    assert isinstance(estimator.training, SemiStructuredTrainingConfig)
+                return
+    pytest.fail("Validation report must declare its architecture options.")
+
+
+def test_validation_report_targets_and_domains_cover_live_family_registry():
+    import torch
+
+    from nampy.neural.families.registry import FAMILY_REGISTRY
+
+    notebook = nbformat.read(
+        ROOT / "docs/development/notebooks/04_distributional_models.ipynb", 4
+    )
+    cell = next(
+        c
+        for c in notebook.cells
+        if c.cell_type == "code" and "family_targets =" in c.source
+    )
+    namespace = report_functions()
+    namespace.update(
+        n=12,
+        x=np.linspace(0.03, 0.97, 12),
+        y_lss=np.linspace(-1, 1, 12),
+        rng=np.random.default_rng(7),
+    )
+    exec(
+        compile(
+            cell.source.split("family_models = {}", 1)[0], "family-report-setup", "exec"
+        ),
+        namespace,
+    )
+    assert set(namespace["family_targets"]) == set(FAMILY_REGISTRY)
+    for name, spec in FAMILY_REGISTRY.items():
+        target = namespace["family_targets"][name]
+        objective, _ = spec.instantiate(target, namespace["family_kwargs"](name))
+        raw = torch.zeros(12, objective.param_count)
+        natural = objective(raw).detach().numpy()
+        checks = namespace["family_checks"](name, raw.numpy(), natural, target)
+        assert namespace["outcome"](checks) == "Passed", (name, checks)
 
 
 @pytest.mark.parametrize(
