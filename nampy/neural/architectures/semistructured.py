@@ -20,6 +20,7 @@ from .components.base_model import BaseModel
 
 
 class SemiStructured(BaseModel):
+    supports_initial_fisher = False
     supports_native_training = True
     native_training_config = SemiStructuredTrainingConfig
     native_objective_kinds = frozenset(

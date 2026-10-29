@@ -41,6 +41,7 @@ Diagnostics
 .. toctree::
    :maxdepth: 1
 
+   fisher_information
    residuals
    ar1_standardized_residuals
    gam_check

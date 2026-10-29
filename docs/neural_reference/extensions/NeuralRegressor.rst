@@ -10,7 +10,7 @@ Signature
 
 .. code-block:: python
 
-   NeuralRegressor(model, config_class, *, architecture_config=None, objective=None, training=None, preprocessing=None)
+   NeuralRegressor(model, config_class, *, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)
 
 Parameters
 ----------
@@ -49,6 +49,10 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``PreprocessingConfig | None``
      - ``None``
      - PreprocessingConfig containing feature transformation choices.
+   * - ``fisher_diagnostics``
+     - ``bool | FisherDiagnostics``
+     - ``False``
+     - False disables fit-time Fisher diagnostics; True uses FisherDiagnostics defaults; an explicit FisherDiagnostics config controls estimators, probe budgets and recording. Postfit fisher_information remains available after supported likelihood fits.
 
 Returns and fitted outputs
 --------------------------

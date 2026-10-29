@@ -195,7 +195,7 @@ def main():
         page = pages.get(path)
         if page is None or not page.redirect or "noindex" not in page.robots:
             errors.append(f"{old}: redirect missing or indexable")
-    for filename in ("genindex.html", "search.html", "searchindex.js"):
+    for filename in ("genindex.html", "py-modindex.html", "search.html", "searchindex.js"):
         if (build / filename).exists():
             errors.append(f"{filename}: removed utility page or search index remains")
     for path in [

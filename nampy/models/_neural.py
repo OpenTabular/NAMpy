@@ -126,6 +126,52 @@ class NeuralEstimatorBase(BaseEstimator):
             self.model.model, self.fitted_preprocessing_, X, batch_size=batch_size
         )
 
+    def fisher_information(
+        self, X, *, offset=None, context=None, config=None, batch_size=None
+    ):
+        """Mean likelihood Fisher information on the supplied reference inputs.
+
+        Known offsets must be supplied again for new rows when fitting used
+        offsets. Diagnostics evaluate the deterministic fitted model and retain
+        neither reference observations nor training execution state.
+        """
+        from ..inspection.fisher import FisherDiagnostics, normalize_fisher_diagnostics
+        from ..neural.fisher import estimate_fisher_information
+        from ..neural.offsets import predictor_offset
+
+        self._require_neural_fit()
+        X = prepare_predict_features(self, X)
+        if offset is None and getattr(self, "fisher_offset_required_", False):
+            raise ValueError(
+                "Fisher diagnostics require explicit offsets because fitting used offsets."
+            )
+        validated_offset = predictor_offset(
+            offset, len(X), self.model.objective.output_dim
+        )
+        if config is None:
+            config = (
+                normalize_fisher_diagnostics(self.fisher_diagnostics)
+                or FisherDiagnostics()
+            )
+        elif not isinstance(config, FisherDiagnostics):
+            raise TypeError("config must be FisherDiagnostics or None.")
+        return estimate_fisher_information(
+            self.model,
+            self.fitted_preprocessing_,
+            X,
+            config,
+            offset=validated_offset,
+            context=context,
+            batch_size=batch_size,
+            population_size=(
+                len(X)
+                if config.input_sampling == "without_replacement"
+                and config.population_size is None
+                else config.population_size
+            ),
+            include_frozen=getattr(self, "native_training_info_", None) is not None,
+        )
+
     def local_term_importance(self, X, *, target=0, top_k=10, batch_size=None):
         """Return an architecture-owned local source-term expansion.
 
@@ -411,7 +457,12 @@ class NeuralEstimatorBase(BaseEstimator):
         objective=None,
         training=None,
         preprocessing=None,
+        fisher_diagnostics=False,
     ):
+        from ..inspection.fisher import normalize_fisher_diagnostics
+
+        normalize_fisher_diagnostics(fisher_diagnostics)
+        self.fisher_diagnostics = fisher_diagnostics
         self._config_class = config_class
         self.architecture_config = (
             config_class() if architecture_config is None else architecture_config
@@ -479,6 +530,7 @@ class NeuralEstimatorBase(BaseEstimator):
                 "objective",
                 "training",
                 "preprocessing",
+                "fisher_diagnostics",
             )
         }
         if getattr(type(self), "architecture_name", None) is None:
@@ -489,6 +541,7 @@ class NeuralEstimatorBase(BaseEstimator):
                 "objective",
                 "training",
                 "preprocessing",
+                "fisher_diagnostics",
             ):
                 value = params[group]
                 entries: Iterable[tuple[str, Any]]
@@ -519,6 +572,10 @@ class NeuralEstimatorBase(BaseEstimator):
             record = params[group]
             if isinstance(record, PreprocessingConfig):
                 params[group] = PreprocessingConfig(**(record.parameters | updates))
+            elif group == "fisher_diagnostics" and isinstance(record, bool):
+                from ..inspection.fisher import FisherDiagnostics
+
+                params[group] = FisherDiagnostics(**updates)
             elif record is None and group == "training":
                 from dataclasses import fields
 

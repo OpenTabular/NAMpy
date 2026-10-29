@@ -107,7 +107,7 @@ class ParameterizedObjective(torch.nn.Module):
     def _ensure_2d_predictions(self, predictions: TensorLike) -> torch.Tensor:
         if not torch.is_tensor(predictions):
             predictions = torch.as_tensor(predictions, dtype=torch.float32)
-        else:
+        elif not predictions.is_floating_point():
             predictions = predictions.float()
 
         if predictions.ndim == 1:

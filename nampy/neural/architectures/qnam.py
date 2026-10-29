@@ -155,6 +155,15 @@ class QNAM(BaseModel):
             return None
         return self._monotone_transform(self.raw_intercept.unsqueeze(0)).squeeze(0)
 
+    def fisher_parameter_groups(self):
+        return self._fisher_groups_from_term_modules(
+            [
+                *self.num_feature_networks.items(),
+                *self.cat_feature_networks.items(),
+                *self.interaction_networks.items(),
+            ]
+        )
+
     def forward(self, num_features: dict, cat_features: dict) -> dict:
         """
         Forward pass of QNAM.

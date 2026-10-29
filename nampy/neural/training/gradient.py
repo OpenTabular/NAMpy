@@ -67,7 +67,9 @@ class RecentStateAveraging(pl.Callback):
         if n_last_checkpoints < 1:
             raise ValueError("n_last_checkpoints must be at least 1.")
         super().__init__()
-        self.states: deque[dict[str, torch.Tensor]] = deque(maxlen=int(n_last_checkpoints))
+        self.states: deque[dict[str, torch.Tensor]] = deque(
+            maxlen=int(n_last_checkpoints)
+        )
 
     def on_train_epoch_end(self, trainer, pl_module):
         del trainer
@@ -186,7 +188,7 @@ def pretrain(estimator, architecture_config, training):
     return pretrained_state
 
 
-def fit_gradient(estimator, training):
+def fit_gradient(estimator, training, *, fisher=None):
     """Clean temporary checkpoints on success/failure; retain explicitly requested paths."""
     directory = (
         TemporaryDirectory(prefix="nampy-fit-")
@@ -194,12 +196,17 @@ def fit_gradient(estimator, training):
         else nullcontext(training.checkpoint_path)
     )
     with directory as checkpoint_root:
-        _fit_gradient(estimator, training, checkpoint_root)
+        _fit_gradient(
+            estimator,
+            training,
+            checkpoint_root,
+            **({"fisher": fisher} if fisher is not None else {}),
+        )
         if training.checkpoint_path is None:
             estimator.best_model_path_ = None
 
 
-def _fit_gradient(estimator, training, checkpoint_root):
+def _fit_gradient(estimator, training, checkpoint_root, *, fisher=None):
     """Run Lightning and select weights, retaining scalar diagnostics only."""
     early_stop_callback, checkpoint_callback = build_callbacks(
         type(estimator).__name__,
@@ -225,6 +232,9 @@ def _fit_gradient(estimator, training, checkpoint_root):
     if training.average_checkpoints:
         averaging_callback = RecentStateAveraging(training.n_last_checkpoints)
         callbacks.append(averaging_callback)
+
+    if fisher is not None and fisher.config.every_n_epochs is not None:
+        callbacks.append(fisher)
 
     trainer_options = dict(training.trainer_kwargs)
     trainer_options.setdefault("default_root_dir", str(checkpoint_root))

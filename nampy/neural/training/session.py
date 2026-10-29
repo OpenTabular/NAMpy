@@ -27,6 +27,7 @@ def fit_estimator(
     training = deepcopy(estimator.training_config_)
     objective_config = estimator.objective
     estimator._prepare_fit(y)
+    estimator.fisher_offset_required_ = offset is not None
     seed_neural_runtime(training.random_state)
     X = prepare_fit_features(estimator, X)
     if (X_val is None) ^ (y_val is None):

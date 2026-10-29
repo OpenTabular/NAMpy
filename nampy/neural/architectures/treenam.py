@@ -101,6 +101,15 @@ class TreeNAM(BaseModel):
         )
         return interaction_outputs, penalty
 
+    def fisher_parameter_groups(self):
+        return self._fisher_groups_from_term_modules(
+            [
+                *self.num_feature_models.items(),
+                *self.cat_feature_models.items(),
+                *self.interaction_models.items(),
+            ]
+        )
+
     def forward(self, num_features: dict, cat_features: dict) -> dict:
         num_outputs = {}
         total_penalty = next(self.parameters()).new_zeros(())

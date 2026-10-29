@@ -34,6 +34,17 @@ the installed ``Preprocessor``. Unsupported names continue to raise an explicit
 Model impact
 ------------
 
+Fitted piecewise-linear encoding
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+NAMpy freezes the learned piecewise-linear thresholds after PreTab fitting.
+PreTab 0.0.3 otherwise adjusts the last threshold to the maximum of each query
+batch, which makes a row's encoding depend on unrelated rows and batch size.
+The fitted adapter preserves the learned basis, cut-point and extrapolation
+semantics while making prediction, checkpoint reloads and Fisher derivatives
+independent of query batching. An encoder with no learned thresholds is rejected
+explicitly; an unsplittable numerical tree can still fail during upstream fitting.
+
 NAM
 ~~~
 

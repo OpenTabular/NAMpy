@@ -8,6 +8,7 @@ Prediction/probability and distribution-parameter signatures are documented on e
 .. toctree::
    :maxdepth: 1
 
+   fisher_information
    center_components
    explain_terms
    term_importance

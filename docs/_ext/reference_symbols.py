@@ -15,6 +15,7 @@ SYMBOLS = {
         "EnsembleAdditivePrediction",
     ],
     "nampy.inspection": [
+        "FisherDiagnostics", "FisherInformationResult", "FisherGroupSummary", "FisherSnapshot",
         "center_additive_prediction", "explain_additive_prediction", "term_importance_table",
         "DistributionalEffects", "combine_distributional_effects", "prepare_distributional_effects",
     ],
@@ -29,6 +30,45 @@ SYMBOLS = {
         "render_qq",
         "render_prediction_surface",
     ],
+}
+FISHER_MEANINGS = {
+    "estimator": "Information estimator: exact expected information, score_outer_product, or negative_hessian. Sampled estimators draw outcomes from the fitted conditional model; observed training targets are not substituted.",
+    "every_n_epochs": "Positive completed-epoch interval for supported neural gradient snapshots; None disables periodic recording. Statistical and native solver routes reject epoch schedules.",
+    "n_inputs": "Positive fit-time probe-row budget. Public postfit methods evaluate every supplied input row.",
+    "n_draws": "At least two independent conditional-outcome draws per probe input for sampled estimators; exact results report None.",
+    "split": "Fit-time neural probe split: train or validation. Results identify the evaluated split when known.",
+    "include_initial": "Record the initial neural gradient-model state when diagnostics are enabled.",
+    "include_final": "Record the selected final fitted state when diagnostics are enabled.",
+    "record_diagonal": "Fit-time per-coordinate retention: never, final, or all. Group summaries are always retained.",
+    "group_by": "Requested disjoint grouping: term, layer, or tensor. Backend-supported grouping is recorded on results.",
+    "random_state": "Private conditional-sampling/probe seed; None uses an independent generator.",
+    "regression_scale": "Positive conditional standard deviation required to declare the raw neural regression Gaussian likelihood; statistical models use fitted family dispersion.",
+    "input_sampling": "Reference-input assumption: fixed, iid, or without_replacement. Input standard errors require a declared sampling scheme.",
+    "population_size": "Known finite input population size for sampling without replacement; otherwise None.",
+    "name": "Unique group label; each parameter coordinate belongs to exactly one group.",
+    "n_parameters": "Number of trainable/coefficient coordinates represented by this result or group.",
+    "trace": "Sum of the group's mean information diagonal. Sampled negative-Hessian estimates may be signed.",
+    "mean_diagonal": "Group trace divided by its number of represented coordinates.",
+    "diagonal": "Optional read-only mean-information vector in the declared flattened parameter coordinates, shape (p,).",
+    "output_sampling_variance": "Conditional variance of a single per-input sampled information contribution, averaged across inputs; group values include coordinate covariance.",
+    "estimator_variance": "Conditional variance of the reported mean due to finitely many output draws, conditioning on evaluated inputs.",
+    "conditional_standard_error": "Square root of estimator_variance; exact expected-information evaluation has no output-sampling standard error.",
+    "input_estimator_variance": "Estimated reference-input contribution to variance of the mean under the declared input sampling scheme; may be signed after removing output-sampling noise.",
+    "total_estimator_variance": "Estimated combined input/output variance when the declared design identifies it; None when unavailable.",
+    "total_standard_error": "Square root of the available nonnegative combined variance; None when unavailable.",
+    "parameter_names": "Ordered fitted parameter-array names, corresponding to shapes and contiguous slices.",
+    "parameter_shapes": "Original shape of each parameter array before flattening.",
+    "parameter_slices": "Contiguous (start, stop) slices into the flattened p-coordinate information vector.",
+    "groups": "Disjoint FisherGroupSummary records exhausting the represented parameter coordinates.",
+    "target_source": "Declared conditional-model target source used for expected information and outcome sampling.",
+    "conditioned_on_inputs": "Whether uncertainty conditions on the supplied reference inputs.",
+    "grouping": "Resolved backend grouping, which may differ from a requested term grouping when no term hook is available.",
+    "normalization": "Always mean: average information per evaluated input row, excluding penalties.",
+    "backend": "Numerical backend label: gam or neural.",
+    "held_fixed": "Fitted nuisance quantities conditioned on by the likelihood information calculation.",
+    "stage": "Recorded fitted state: initial, epoch, or final.",
+    "epoch": "Completed one-based epoch for epoch snapshots; otherwise None.",
+    "optimizer_step": "Completed optimizer-step count when the snapshot was recorded; zero for statistical final snapshots.",
 }
 MEANINGS = {
     "feature_names": "Ordered source column names. FeatureSchema records d names; distributional rendering uses a subset of the fitted feature keys.",
@@ -165,6 +205,21 @@ effects = DistributionalEffects(feature_values={'x': x},
 
 
 def example(module, name):
+    if name in {"FisherDiagnostics", "FisherInformationResult", "FisherGroupSummary", "FisherSnapshot"}:
+        code = "from nampy import FisherDiagnostics\nconfig = FisherDiagnostics(n_inputs=12, random_state=7)\n"
+        if name == "FisherDiagnostics":
+            return code + "result = config\nprint(result.estimator)\n"
+        code += """import numpy as np
+from nampy.gam import GAM
+
+X = np.linspace(-1, 1, 24)[:, None]
+y = np.sin(X[:, 0]) + 0.1 * np.cos(np.arange(24))
+model = GAM(k=5, optimize_smoothing=False, fisher_diagnostics=config).fit(X, y)
+"""
+        call = {"FisherInformationResult": "model.fisher_information_",
+                "FisherGroupSummary": "model.fisher_information_.groups[0]",
+                "FisherSnapshot": "model.fisher_history_[-1]"}[name]
+        return code + f"result = {call}\nprint(type(result).__name__)\n"
     if module == "nampy.contracts" or name in {"center_additive_prediction", "explain_additive_prediction", "term_importance_table"}:
         calls = {
             "FeatureSchema": "FeatureSchema.from_data(X)",
@@ -240,6 +295,8 @@ assert result is None
 
 
 def return_description(module, name):
+    if name in {"FisherDiagnostics", "FisherInformationResult", "FisherGroupSummary", "FisherSnapshot"}:
+        return f"``{name}`` immutable shared record. Information uses mean-per-input normalization and excludes penalties. Sampling uncertainty describes numerical information estimation, not fitted-parameter confidence intervals. See :doc:`/user_guide/fisher_diagnostics`."
     if name in {
         "FeatureSchema",
         "AdditiveTermMetadata",
@@ -288,6 +345,11 @@ def generate(root):
                 **(MEANINGS if module.startswith("nampy.gam.") else SHARED_MEANINGS),
                 **descriptions(obj),
             }
+            fisher_record = name in {"FisherDiagnostics", "FisherInformationResult", "FisherGroupSummary", "FisherSnapshot"}
+            if fisher_record:
+                docs.update(FISHER_MEANINGS)
+                if name == "FisherInformationResult":
+                    docs["n_inputs"] = "Number of reference-input rows actually evaluated; public postfit methods use every supplied row."
             items = list(inspect.signature(obj).parameters.items())
             if module == "nampy.plotting" and name == "plot_distributional_effects":
                 from nampy.inspection import prepare_distributional_effects
@@ -344,6 +406,8 @@ def generate(root):
                         )
                         if field.default_factory is not MISSING:
                             p = p.replace(default=field.default_factory())
+                elif fisher_record:
+                    typ = str(p.annotation).replace("np.ndarray", "numpy.ndarray")
                 else:
                     typ = TYPES.get(key) or parameter_type(
                         key, p.default, obj=obj, annotation=p.annotation

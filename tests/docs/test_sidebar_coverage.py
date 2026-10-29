@@ -79,3 +79,18 @@ def test_html_audit_collects_sidebar_caption_and_source_links():
         "api/index.html",
         "_modules/nampy/gam/families/inverse_gaussian.html",
     ]
+
+
+def test_successful_html_build_removes_stale_utility_pages(tmp_path):
+    extension = runpy.run_path(str(ROOT / "docs/_ext/site_integrity.py"))
+    removed = ("genindex.html", "py-modindex.html", "search.html", "searchindex.js")
+    for filename in (*removed, "index.html"):
+        (tmp_path / filename).write_text("stale content")
+    app = SimpleNamespace(outdir=tmp_path, builder=SimpleNamespace(format="html"))
+    cleanup = extension["remove_unused_utility_pages"]
+    cleanup(app, RuntimeError("build failed"))
+    assert all((tmp_path / filename).exists() for filename in removed)
+    cleanup(app, None)
+    assert all(not (tmp_path / filename).exists() for filename in removed)
+    assert (tmp_path / "index.html").read_text() == "stale content"
+    cleanup(app, None)  # An incremental build need not contain stale files.

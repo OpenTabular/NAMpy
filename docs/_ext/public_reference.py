@@ -75,6 +75,7 @@ DEPENDENCE = {
 
 
 PARAMETER_MEANINGS = {
+    "fisher_diagnostics": "False disables fit-time Fisher diagnostics; True uses FisherDiagnostics defaults; an explicit FisherDiagnostics config controls estimators, probe budgets and recording. Postfit fisher_information remains available after supported likelihood fits.",
     "structured_formula": "Right-hand-side statistical formula for the structured block on preprocessed training features; None selects all numeric linear effects.",
     "neural_features": "Distinct numeric source features supplied jointly to the learned representation; empty selects all.",
     "hidden_dims": "Hidden widths of the learned Tanh representation; empty selects a linear representation.",
@@ -231,6 +232,7 @@ def constructor_parameter_group(name, architecture):
         "objective": "Objective",
         "training": "Training defaults",
         "preprocessing": "Preprocessing",
+        "fisher_diagnostics": "Inspection",
     }[group]
 
 
@@ -294,6 +296,7 @@ def estimator_text(cls, spec, objective):
             "Regularization",
             "Preprocessing",
             "Training defaults",
+            "Inspection",
         )
     }
     rows = []
@@ -432,6 +435,7 @@ def estimator_text(cls, spec, objective):
 
 
 GAM_PARAMETERS = {
+    "fisher_diagnostics": PARAMETER_MEANINGS["fisher_diagnostics"],
     "formula": "Formula string; GAMLSS also accepts a mapping from parameter names to formulas. None creates one smooth per input column.",
     "family": "Statistical response family. Regressor accepts single-predictor regression families; classifier accepts binomial; GAMLSS resolves location-scale aliases.",
     "k": "Basis dimension in formula-free mode; formula terms can supply their own dimensions.",

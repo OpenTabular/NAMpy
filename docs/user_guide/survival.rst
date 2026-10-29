@@ -793,7 +793,7 @@ Alternative ties, delayed-entry or longitudinal Cox,
 case weights, analytic simultaneous/conditional Cox intervals and Cox effect
 intervals remain unsupported. The
 existing probability comparison helpers do not treat partial likelihood as a
-full density. Save/load retains the version-5 trusted fitted-state contract.
+full density. Save/load retains the version-6 trusted fitted-state contract.
 
 Neural Cox training
 -------------------

@@ -12,9 +12,35 @@ from typing import TYPE_CHECKING, Any
 from .__version__ import __version__
 from .models import __all__ as _MODEL_EXPORTS
 
-_SUBMODULE_EXPORTS = frozenset({"distributions", "gam", "models", "neural", "inspection", "diagnostics", "survival", "calibration"})
-_CONFIG_EXPORTS = ("ObjectiveConfig", "SurvivalObjectiveConfig", "PreprocessingConfig", "GradientTrainingConfig",
-                   "FixedDesignTrainingConfig", "NativeTrainingConfig", "IGANNTrainingConfig", "SemiStructuredTrainingConfig")
+_SUBMODULE_EXPORTS = frozenset(
+    {
+        "distributions",
+        "gam",
+        "models",
+        "neural",
+        "inspection",
+        "diagnostics",
+        "survival",
+        "calibration",
+    }
+)
+_CONFIG_EXPORTS = (
+    "ObjectiveConfig",
+    "SurvivalObjectiveConfig",
+    "PreprocessingConfig",
+    "GradientTrainingConfig",
+    "FixedDesignTrainingConfig",
+    "NativeTrainingConfig",
+    "IGANNTrainingConfig",
+    "SemiStructuredTrainingConfig",
+)
+
+_FISHER_EXPORTS = (
+    "FisherDiagnostics",
+    "FisherGroupSummary",
+    "FisherInformationResult",
+    "FisherSnapshot",
+)
 
 if TYPE_CHECKING:
     from . import distributions, gam, models, neural  # noqa: F401
@@ -24,6 +50,8 @@ if TYPE_CHECKING:
 def __getattr__(name: str) -> Any:
     if name in _SUBMODULE_EXPORTS:
         value = import_module(f".{name}", __name__)
+    elif name in _FISHER_EXPORTS:
+        value = getattr(import_module(".inspection.fisher", __name__), name)
     elif name in _CONFIG_EXPORTS:
         value = getattr(import_module(".neural.configuration", __name__), name)
     elif name in _MODEL_EXPORTS:
@@ -45,7 +73,9 @@ __all__ = [
     "neural",
     *_MODEL_EXPORTS,
     *_CONFIG_EXPORTS,
-    "inspection", "diagnostics",
+    *_FISHER_EXPORTS,
+    "inspection",
+    "diagnostics",
     "survival",
     "calibration",
     "__version__",

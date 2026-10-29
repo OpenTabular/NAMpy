@@ -43,6 +43,7 @@ class NeuralSurvival(NeuralEstimatorBase):
         objective=None,
         training=None,
         preprocessing=None,
+        fisher_diagnostics=False,
     ):
         if not isinstance(objective, SurvivalObjectiveConfig):
             raise TypeError("Neural survival requires SurvivalObjectiveConfig.")
@@ -52,6 +53,7 @@ class NeuralSurvival(NeuralEstimatorBase):
             objective=objective,
             training=training,
             preprocessing=preprocessing,
+            fisher_diagnostics=fisher_diagnostics,
         )
         self.base_model = model
         self.model = None

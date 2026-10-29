@@ -36,6 +36,19 @@ class BaseModel(nn.Module):
         """
         return next(self.parameters()).device
 
+    def _fisher_groups_from_term_modules(self, term_modules):
+        """Attribute parameters by module identity, using additive term names."""
+        names = {id(parameter): name for name, parameter in self.named_parameters()}
+        return {
+            str(term): tuple(
+                names[id(parameter)]
+                for parameter in module.parameters()
+                if parameter.requires_grad
+            )
+            for term, module in term_modules
+            if any(parameter.requires_grad for parameter in module.parameters())
+        }
+
 
 class ModuleWithInit(nn.Module):
     """Base class for pytorch module with data-aware initializer on first batch."""

@@ -87,6 +87,6 @@ contracts remain in ``nampy.contracts``. Statistical AR(1) row transformations
 live in ``nampy.gam.correlation``; censoring/truncation observations live in
 ``nampy.distributions.observations``.
 
-The layout refactor removes old module paths directly. Version-5 fitted artifacts
+The layout refactor removes old module paths directly. Version-6 fitted artifacts
 reject earlier estimator headers before unpickling; there are no migration
 readers or forwarding modules.

@@ -208,8 +208,8 @@
   "api/generated/nampy.gam.formula.strip_offset_wrapper": "exposure",
   "api/generated/nampy.gam.results.FitResult": {
     "fields": {
-      "deviance": 1.38791579712156,
-      "edf": 6.0206286015213095,
+      "deviance": 1.3879157971215599,
+      "edf": 6.02062860152131,
       "intercept": 1.2117033510481068,
       "rss": 1.38791579712156
     },
@@ -247,7 +247,7 @@
   "api/generated/nampy.gam.results.GAMFitResult": {
     "fields": {
       "criterion_name": "reml",
-      "criterion_value": -52.71527837790031,
+      "criterion_value": -52.715278377900326,
       "family_name": "gaussian",
       "link_name": "identity"
     },
@@ -297,6 +297,85 @@
       "feature_values",
       "point_effects",
       "conditional_sd"
+    ]
+  },
+  "api/generated/nampy.inspection.FisherDiagnostics": {
+    "fields": {
+      "estimator": "exact",
+      "n_draws": 8,
+      "n_inputs": 12,
+      "split": "validation"
+    },
+    "kind": "FisherDiagnostics",
+    "omitted_fields": [
+      "every_n_epochs",
+      "include_initial",
+      "include_final",
+      "record_diagonal",
+      "group_by",
+      "random_state",
+      "regression_scale",
+      "input_sampling",
+      "population_size"
+    ]
+  },
+  "api/generated/nampy.inspection.FisherGroupSummary": {
+    "fields": {
+      "mean_diagonal": 137.0585893472948,
+      "n_parameters": 1,
+      "name": "__global__",
+      "trace": 137.0585893472948
+    },
+    "kind": "FisherGroupSummary",
+    "omitted_fields": [
+      "output_sampling_variance",
+      "estimator_variance",
+      "conditional_standard_error",
+      "input_estimator_variance",
+      "total_estimator_variance",
+      "total_standard_error"
+    ]
+  },
+  "api/generated/nampy.inspection.FisherInformationResult": {
+    "fields": {
+      "estimator": "exact",
+      "n_inputs": 12,
+      "n_parameters": 5,
+      "target_source": "analytic"
+    },
+    "kind": "FisherInformationResult",
+    "omitted_fields": [
+      "diagonal",
+      "output_sampling_variance",
+      "estimator_variance",
+      "conditional_standard_error",
+      "parameter_names",
+      "parameter_shapes",
+      "parameter_slices",
+      "groups",
+      "n_draws",
+      "conditioned_on_inputs",
+      "split",
+      "grouping",
+      "normalization",
+      "backend",
+      "held_fixed",
+      "input_sampling",
+      "input_estimator_variance",
+      "total_estimator_variance",
+      "total_standard_error"
+    ]
+  },
+  "api/generated/nampy.inspection.FisherSnapshot": {
+    "fields": {
+      "optimizer_step": 0,
+      "stage": "final"
+    },
+    "kind": "FisherSnapshot",
+    "omitted_fields": [
+      "epoch",
+      "groups",
+      "diagonal"
     ]
   },
   "api/generated/nampy.inspection.center_additive_prediction": {
@@ -3242,12 +3321,12 @@
         64
       ],
       "values": [
-        0.5785099864006042,
-        0.5106899738311768,
-        0.3723599910736084,
-        -0.329039990901947,
-        -0.35853999853134155,
-        -0.017249999567866325
+        0.57851,
+        0.51068,
+        0.37235,
+        -0.32904,
+        -0.35854,
+        -0.01726
       ]
     },
     "prediction": {
@@ -3262,12 +3341,12 @@
       ],
       "values": [
         [
-          0.5785099864006042,
-          3.1159698963165283
+          0.57851,
+          3.11602
         ],
         [
-          0.5106899738311768,
-          3.3877100944519043
+          0.51068,
+          3.38775
         ]
       ]
     },
@@ -3284,11 +3363,11 @@
       "values": [
         [
           0.57851,
-          3.07062
+          3.07067
         ],
         [
-          0.51069,
-          3.35334
+          0.51068,
+          3.35338
         ]
       ]
     }
@@ -6154,6 +6233,36 @@
       ]
     ]
   },
+  "neural_reference/methods/fisher_information": {
+    "fields": {
+      "estimator": "exact",
+      "n_inputs": 4,
+      "n_parameters": 275,
+      "target_source": "analytic"
+    },
+    "kind": "FisherInformationResult",
+    "omitted_fields": [
+      "diagonal",
+      "output_sampling_variance",
+      "estimator_variance",
+      "conditional_standard_error",
+      "parameter_names",
+      "parameter_shapes",
+      "parameter_slices",
+      "groups",
+      "n_draws",
+      "conditioned_on_inputs",
+      "split",
+      "grouping",
+      "normalization",
+      "backend",
+      "held_fixed",
+      "input_sampling",
+      "input_estimator_variance",
+      "total_estimator_variance",
+      "total_standard_error"
+    ]
+  },
   "neural_reference/methods/get_params": {
     "architecture_config": {
       "fields": {
@@ -6194,6 +6303,9 @@
         "sampling_strategy"
       ]
     },
+    "omitted_fields": [
+      "fisher_diagnostics"
+    ],
     "preprocessing": {
       "fields": {},
       "kind": "PreprocessingConfig",
@@ -8035,7 +8147,7 @@
   },
   "statistical_reference/extensions/derivative_interval": {
     "fields": {
-      "critical_value": 2.8433224775068675
+      "critical_value": 2.8433224775068706
     },
     "kind": "FunctionalInterval",
     "omitted_fields": [
@@ -8178,7 +8290,7 @@
   },
   "statistical_reference/extensions/linear_functional_interval": {
     "fields": {
-      "critical_value": 1.8777571376221196
+      "critical_value": 1.8777571376221245
     },
     "kind": "FunctionalInterval",
     "omitted_fields": [
@@ -10965,7 +11077,7 @@
       ]
     }
   },
-  "statistical_reference/methods/aic": -119.92581008934738,
+  "statistical_reference/methods/aic": -119.92581008934735,
   "statistical_reference/methods/anova": {
     "fields": {
       "covariance": "bayes",
@@ -10997,7 +11109,7 @@
       0.02006
     ]
   },
-  "statistical_reference/methods/bic": -101.53134154679483,
+  "statistical_reference/methods/bic": -101.53134154679475,
   "statistical_reference/methods/concurvity": {
     "labels": {
       "items": [
@@ -11118,11 +11230,41 @@
       0.76802
     ]
   },
+  "statistical_reference/methods/fisher_information": {
+    "fields": {
+      "estimator": "exact",
+      "n_inputs": 4,
+      "n_parameters": 12,
+      "target_source": "analytic"
+    },
+    "kind": "FisherInformationResult",
+    "omitted_fields": [
+      "diagonal",
+      "output_sampling_variance",
+      "estimator_variance",
+      "conditional_standard_error",
+      "parameter_names",
+      "parameter_shapes",
+      "parameter_slices",
+      "groups",
+      "n_draws",
+      "conditioned_on_inputs",
+      "split",
+      "grouping",
+      "normalization",
+      "backend",
+      "held_fixed",
+      "input_sampling",
+      "input_estimator_variance",
+      "total_estimator_variance",
+      "total_standard_error"
+    ]
+  },
   "statistical_reference/methods/fit": "GAM",
   "statistical_reference/methods/fit_result": {
     "fields": {
       "criterion_name": "reml",
-      "criterion_value": -52.71527837790031,
+      "criterion_value": -52.715278377900326,
       "family_name": "gaussian",
       "link_name": "identity"
     },
@@ -11156,14 +11298,14 @@
         "values": [
           [
             6.0,
-            4.020579707819975,
-            1.1235005940607536,
+            4.020579707819976,
+            1.1235005940607539,
             1.0
           ],
           [
             5.0,
             1.000048893701336,
-            0.8218281859488787,
+            0.8218281859488793,
             0.1
           ]
         ]
@@ -11237,7 +11379,7 @@
         [
           0.00178,
           0.0,
-          3.763035988729964e+91
+          3.763035846095363e+91
         ]
       ]
     }
@@ -11262,14 +11404,14 @@
     "values": [
       [
         6.0,
-        4.020579707819975,
-        1.1235005940607536,
+        4.020579707819976,
+        1.1235005940607539,
         1.0
       ],
       [
         5.0,
         1.000048893701336,
-        0.8218281859488787,
+        0.8218281859488793,
         0.1
       ]
     ]
@@ -11295,7 +11437,7 @@
       ],
       "values": [
         0.91012,
-        12416993.79903
+        12416993.79908
       ]
     },
     "proposed_smoothing": {
@@ -11308,7 +11450,7 @@
       ],
       "values": [
         1.85987,
-        1.4253072605375285e+19,
+        1.4253072605386627e+19,
         1.03864
       ]
     }
@@ -11316,7 +11458,7 @@
   "statistical_reference/methods/parity_snapshot": {
     "fit": {
       "criterion_name": "reml",
-      "criterion_value": -52.71527837790031,
+      "criterion_value": -52.715278377900326,
       "family_name": "gaussian",
       "link_name": "identity",
       "omitted_fields": [
@@ -11348,8 +11490,8 @@
           "joint_log_sigma2"
         ],
         "recomputed_criterion_source": "smoothing_score",
-        "recomputed_criterion_value": -52.71527837790031,
-        "stored_criterion_value": -52.71527837790031
+        "recomputed_criterion_value": -52.715278377900326,
+        "stored_criterion_value": -52.715278377900326
       },
       "diagnostics": {
         "omitted_fields": [
@@ -11444,8 +11586,8 @@
     "predictions": {
       "link": {
         "items": [
-          1.3479291457229738,
-          0.9662065267399479
+          1.3479291457229736,
+          0.9662065267399476
         ],
         "kind": "list",
         "length": 96,
@@ -11466,8 +11608,8 @@
       ],
       "response": {
         "items": [
-          1.3479291457229738,
-          0.9662065267399479
+          1.3479291457229736,
+          0.9662065267399476
         ],
         "kind": "list",
         "length": 96,
@@ -11475,8 +11617,8 @@
       },
       "terms": {
         "items": [
-          0.28193942789790044,
-          -0.2029423403077168
+          0.2819394278979004,
+          -0.2029423403077169
         ],
         "kind": "list",
         "length": 192,
@@ -11615,8 +11757,8 @@
     },
     "ylim": {
       "items": [
-        -0.8174257720786204,
-        0.34582408483846444
+        -0.8174257720786209,
+        0.3458240848384644
       ],
       "kind": "tuple",
       "length": 2,
@@ -12158,7 +12300,7 @@
     }
   },
   "statistical_reference/methods/predict_terms": {
-    "c9c6491a1275": {
+    "7be146cad8a9": {
       "kind": "array",
       "omitted_by_axis": [
         90
@@ -12175,7 +12317,7 @@
         -0.13891
       ]
     },
-    "dad2f5d236b7": {
+    "9688fc27a460": {
       "kind": "array",
       "omitted_by_axis": [
         90

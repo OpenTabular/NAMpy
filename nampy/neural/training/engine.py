@@ -174,9 +174,20 @@ def run_training(
                 "Warm-start checkpoint is incompatible with the current model."
             ) from error
 
-    if use_native_training:
-        fit_native(estimator, plan, train_num, train_cat, val_num, val_cat, training)
-    elif use_fixed_solver:
-        fit_fixed_design(estimator, train_num, train_cat, training)
-    else:
-        fit_gradient(estimator, training)
+    from .fisher import prepare_fisher
+
+    fisher = prepare_fisher(estimator, training, include_frozen=use_native_training)
+    try:
+        if use_native_training:
+            fit_native(
+                estimator, plan, train_num, train_cat, val_num, val_cat, training
+            )
+        elif use_fixed_solver:
+            fit_fixed_design(estimator, train_num, train_cat, training)
+        else:
+            fit_gradient(estimator, training, fisher=fisher)
+        if fisher is not None:
+            fisher.finish()
+    finally:
+        if fisher is not None:
+            fisher.release()

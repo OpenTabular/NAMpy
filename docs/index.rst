@@ -190,6 +190,7 @@ look up a specific method.
    Constrain the shape of an effect <user_guide/shape_constrained_gams>
    Predict with an offset <howto/offsets>
    Interpret and plot effects <user_guide/interpretability>
+   Inspect Fisher information <user_guide/fisher_diagnostics>
    Choose a prediction output <howto/prediction_outputs>
    Fit a regression, classification, or distributional model <examples/fit_models>
    Save and reload a model <howto/persistence>

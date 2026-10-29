@@ -54,3 +54,12 @@ This example includes all imports and input data; no variables from another page
 
 .. literalinclude:: /_examples/reference/statistical_reference/families/weibull_observation_lss.py
    :language: python
+
+
+
+Example result
+~~~~~~~~~~~~~~
+
+.. raw:: html
+
+   <div class="example-result" aria-label="Example result"><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">components</span><span class="example-result-meta">AdditivePrediction · scalar record</span></summary><div class="example-result-body"><dl class="example-result-fields"><div><dt>backend<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">gam</span></dd></div></dl><p class="example-result-note">6 additional fields available on the returned object.</p></div></details><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">parameters</span><span class="example-result-meta">ndarray[float64] · 109 × 2</span></div><div class="example-result-body"><ol class="example-result-rows"><li><span class="example-result-row-label">Row 1</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>scale</dt><dd><span>0.78555</span></dd></div><div class="example-result-coordinate"><dt>shape</dt><dd><span>1.914</span></dd></div></dl></li><li><span class="example-result-row-label">Row 2</span><dl class="example-result-coordinates"><div class="example-result-coordinate"><dt>scale</dt><dd><span>0.79606</span></dd></div><div class="example-result-coordinate"><dt>shape</dt><dd><span>1.914</span></dd></div></dl></li></ol><p class="example-result-note">Showing 2 of 109 rows.</p></div></section><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">point</span><span class="example-result-meta">ndarray[float64] · 109</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.68344</span><span class="example-result-value">0.69172</span><span class="example-result-value">0.69591</span><span class="example-result-value">0.70012</span><span class="example-result-value">0.70437</span><span class="example-result-value">0.70864</span></div><p class="example-result-note">Showing 6 of 109 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>

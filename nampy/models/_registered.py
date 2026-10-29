@@ -12,7 +12,13 @@ from .regressor import NeuralRegressor
 
 
 def _registered_parameters(
-    estimator, task, architecture_config, objective, training, preprocessing
+    estimator,
+    task,
+    architecture_config,
+    objective,
+    training,
+    preprocessing,
+    fisher_diagnostics,
 ):
     from ..neural.configuration import (
         ObjectiveConfig,
@@ -25,13 +31,17 @@ def _registered_parameters(
     if architecture_config is None:
         architecture_config = spec.config(**dict(spec.objective_defaults.get(task, {})))
     if objective is None:
-        objective = SurvivalObjectiveConfig() if task == "survival" else ObjectiveConfig(
-            family=(spec.default_family or "normal")
-            if task == "distributional"
-            else None,
-            distributional_kwargs=(dict(spec.distributional_defaults) or None)
-            if task == "distributional"
-            else None,
+        objective = (
+            SurvivalObjectiveConfig()
+            if task == "survival"
+            else ObjectiveConfig(
+                family=(spec.default_family or "normal")
+                if task == "distributional"
+                else None,
+                distributional_kwargs=(dict(spec.distributional_defaults) or None)
+                if task == "distributional"
+                else None,
+            )
         )
     if task == "distributional":
         if (
@@ -55,6 +65,7 @@ def _registered_parameters(
         "objective": objective,
         "training": training,
         "preprocessing": preprocessing,
+        "fisher_diagnostics": fisher_diagnostics,
     }
 
 
@@ -68,6 +79,7 @@ class RegisteredNeuralRegressor(NeuralRegressor):
         objective=None,
         training=None,
         preprocessing=None,
+        fisher_diagnostics=False,
     ):
         super().__init__(
             **_registered_parameters(
@@ -77,6 +89,7 @@ class RegisteredNeuralRegressor(NeuralRegressor):
                 objective,
                 training,
                 preprocessing,
+                fisher_diagnostics,
             )
         )
 
@@ -91,6 +104,7 @@ class RegisteredNeuralClassifier(NeuralClassifier):
         objective=None,
         training=None,
         preprocessing=None,
+        fisher_diagnostics=False,
     ):
         super().__init__(
             **_registered_parameters(
@@ -100,6 +114,7 @@ class RegisteredNeuralClassifier(NeuralClassifier):
                 objective,
                 training,
                 preprocessing,
+                fisher_diagnostics,
             )
         )
 
@@ -114,6 +129,7 @@ class RegisteredNeuralLSS(NeuralLSS):
         objective=None,
         training=None,
         preprocessing=None,
+        fisher_diagnostics=False,
     ):
         super().__init__(
             **_registered_parameters(
@@ -123,6 +139,7 @@ class RegisteredNeuralLSS(NeuralLSS):
                 objective,
                 training,
                 preprocessing,
+                fisher_diagnostics,
             )
         )
 
@@ -130,10 +147,26 @@ class RegisteredNeuralLSS(NeuralLSS):
 class RegisteredNeuralSurvival(NeuralSurvival):
     architecture_name: str
 
-    def __init__(self, *, architecture_config=None, objective=None, training=None, preprocessing=None):
-        super().__init__(**_registered_parameters(
-            self, "survival", architecture_config, objective, training, preprocessing
-        ))
+    def __init__(
+        self,
+        *,
+        architecture_config=None,
+        objective=None,
+        training=None,
+        preprocessing=None,
+        fisher_diagnostics=False,
+    ):
+        super().__init__(
+            **_registered_parameters(
+                self,
+                "survival",
+                architecture_config,
+                objective,
+                training,
+                preprocessing,
+                fisher_diagnostics,
+            )
+        )
 
 
 _BASES = {

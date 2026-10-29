@@ -6,6 +6,12 @@ from reference_examples import example_rst, neural_estimator_example
 from reference_schema import method_parameter_rows
 
 METHODS = {
+    "fisher_information": (
+        "NAMRegressor",
+        "FisherInformationResult",
+        "scalar record; optional diagonal (p,)",
+        "Mean model likelihood information in trainable-parameter coordinates, with disjoint group traces and sampling-error diagnostics. Penalties are excluded; unsupported likelihoods and estimator combinations fail explicitly.",
+    ),
     "center_components": (
         "NAMRegressor",
         "AdditivePrediction",
@@ -150,7 +156,10 @@ def generate(root):
                 )
                 + ". Unsupported architectures raise ``NotImplementedError``; call after fitting. Native history and metadata retain their native-solver meaning.\n\n"
             )
-        rows = method_parameter_rows(method, PARAMETERS)
+        meanings = PARAMETERS
+        if name == "fisher_information":
+            meanings = {**PARAMETERS, "context": "Optional aligned context required by the declared conditional likelihood; unsupported context is rejected."}
+        rows = method_parameter_rows(method, meanings)
         text += heading("Parameters", "-") + (
             table(["Parameter", "Type / shape", "Default", "Meaning"], rows)
             if rows
@@ -161,10 +170,15 @@ def generate(root):
         )
         if name == "local_term_importance":
             text += "Each inner dictionary contains ``term`` (source-feature tuple), ``order`` (integer interaction degree), and ``contribution`` (float for the selected output). Terms are ranked by absolute contribution within each observation; these are local polynomial terms, not global feature-importance scores.\n\n"
+        if name == "fisher_information":
+            text += "Supply the complete input population and aligned known offsets; the method evaluates every supplied row. ``config.n_inputs`` limits fit-time probes only. Raw regression requires an explicit conditional scale in ``FisherDiagnostics``. Information conditions on fitted parameters and excludes regularization; it is not a confidence interval. See :doc:`/user_guide/fisher_diagnostics`.\n\n"
         code = neural_estimator_example(cls)
+        if name == "fisher_information":
+            code += "from nampy import FisherDiagnostics\n"
         if name in {"plot_interactions", "interaction_importance"}:
             code = code.replace("interactions=[]", "interactions=[('x', 'z')]")
         calls = {
+            "fisher_information": "model.fisher_information(X.iloc[:4], config=FisherDiagnostics(regression_scale=1.0))",
             "center_components": "model.center_components(X)",
             "explain_terms": "model.explain_terms(X, max_bins=8)",
             "term_importance": "model.term_importance(X)",

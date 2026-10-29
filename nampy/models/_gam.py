@@ -34,6 +34,7 @@ _GAM_CONSTRUCTOR_PARAMS = (
     "nei",
     "coefficient_optimizer",
     "optim_method",
+    "fisher_diagnostics",
 )
 
 
@@ -67,6 +68,7 @@ class _GAMAdapterBase(BaseEstimator):
         nei=None,
         coefficient_optimizer="newton",
         optim_method=None,
+        fisher_diagnostics=False,
     ):
         self.formula = formula
         self.family = family
@@ -93,6 +95,10 @@ class _GAMAdapterBase(BaseEstimator):
         self.nei = nei
         self.coefficient_optimizer = coefficient_optimizer
         self.optim_method = optim_method
+        from ..inspection.fisher import normalize_fisher_diagnostics
+
+        normalize_fisher_diagnostics(fisher_diagnostics)
+        self.fisher_diagnostics = fisher_diagnostics
 
     # ------------------------------------------------------------------
     # Fitting
@@ -115,21 +121,24 @@ class _GAMAdapterBase(BaseEstimator):
         return GAM(family=self._resolved_family(), **hparams)
 
     def _fit_gam(self, X, y, *, data=None, sample_weight=None, offset=None, context=None):
+        gam = self._build_gam()
+        self._validate_family_role(gam.family)
         if self.formula is not None:
             frame = data if data is not None else X
-            self.schema_ = None
-            self.gam_ = self._build_gam()
-            self._validate_family_role(self.gam_.family)
-            self.gam_.fit(data=frame, y=y, sample_weight=sample_weight, offset=offset, context=context)
+            schema = None
+            gam.fit(data=frame, y=y, sample_weight=sample_weight, offset=offset, context=context)
         else:
             if X is None:
                 raise ValueError("X is required when no formula is given.")
-            self.schema_ = FeatureSchema.from_data(
+            schema = FeatureSchema.from_data(
                 X if hasattr(X, "columns") else np.asarray(X)
             )
-            self.gam_ = self._build_gam()
-            self._validate_family_role(self.gam_.family)
-            self.gam_.fit(X, y, sample_weight=sample_weight, offset=offset, context=context)
+            gam.fit(X, y, sample_weight=sample_weight, offset=offset, context=context)
+
+        self.gam_ = gam
+        self.schema_ = schema
+        for name in ("fisher_config_", "fisher_history_", "fisher_information_"):
+            setattr(self, name, getattr(gam, name))
 
         self.n_features_in_ = (
             self.schema_.n_features if self.schema_ is not None else None
@@ -146,6 +155,14 @@ class _GAMAdapterBase(BaseEstimator):
                 f"This {type(self).__name__} instance is not fitted yet. "
                 "Call 'fit' before using this method."
             )
+
+    def fisher_information(self, X=None, *, offset=None, context=None, config=None,
+                           return_diagonal=True):
+        """Evaluate mean likelihood information on explicit reference rows."""
+        self._check_fitted()
+        self._validate_X(X)
+        return self.gam_.fisher_information(X, offset=offset, context=context,
+            config=config, return_diagonal=return_diagonal)
 
     def _validate_X(self, X):
         schema = getattr(self, "schema_", None)

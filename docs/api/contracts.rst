@@ -24,6 +24,10 @@ predictions. Explanation functions operate on that shared representation.
    center_additive_prediction
    explain_additive_prediction
    term_importance_table
+   FisherDiagnostics
+   FisherInformationResult
+   FisherGroupSummary
+   FisherSnapshot
 
 
 Term metadata

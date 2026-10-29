@@ -15,6 +15,8 @@ class LinReg(BaseModel):
     contributions plus an optional intercept.
     """
 
+    supports_fisher_hessian = True
+
     def __init__(
         self,
         cat_feature_info,
@@ -51,6 +53,11 @@ class LinReg(BaseModel):
 
     def _create_subnetwork(self, input_dim: int) -> nn.Module:
         return nn.Linear(input_dim, self.num_classes)
+
+    def fisher_parameter_groups(self):
+        return self._fisher_groups_from_term_modules(
+            [*self.num_feature_networks.items(), *self.cat_feature_networks.items()]
+        )
 
     def forward(self, num_features: dict, cat_features: dict) -> dict:
         num_outputs = {}

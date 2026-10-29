@@ -2678,6 +2678,544 @@
       "()"
     ]
   ],
+  "api/generated/nampy.inspection.FisherDiagnostics": [
+    [
+      "result",
+      "nampy.inspection.fisher.FisherDiagnostics",
+      "scalar record"
+    ],
+    [
+      "result.estimator",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.every_n_epochs",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.n_inputs",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.n_draws",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.split",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.include_initial",
+      "builtins.bool",
+      "()"
+    ],
+    [
+      "result.include_final",
+      "builtins.bool",
+      "()"
+    ],
+    [
+      "result.record_diagonal",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.group_by",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.random_state",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.regression_scale",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.input_sampling",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.population_size",
+      "builtins.NoneType",
+      "not applicable"
+    ]
+  ],
+  "api/generated/nampy.inspection.FisherGroupSummary": [
+    [
+      "result",
+      "nampy.inspection.fisher.FisherGroupSummary",
+      "scalar record"
+    ],
+    [
+      "result.name",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.n_parameters",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.trace",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.mean_diagonal",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.output_sampling_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.conditional_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.input_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.total_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.total_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ]
+  ],
+  "api/generated/nampy.inspection.FisherInformationResult": [
+    [
+      "result",
+      "nampy.inspection.fisher.FisherInformationResult",
+      "scalar record"
+    ],
+    [
+      "result.estimator",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.diagonal",
+      "numpy.ndarray[float64]",
+      "(5,)"
+    ],
+    [
+      "result.output_sampling_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.conditional_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.parameter_names",
+      "tuple",
+      "length 1"
+    ],
+    [
+      "result.parameter_names[0]",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.parameter_shapes",
+      "tuple",
+      "length 1"
+    ],
+    [
+      "result.parameter_shapes[0]",
+      "tuple",
+      "length 1"
+    ],
+    [
+      "result.parameter_shapes[0][0]",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.parameter_slices",
+      "tuple",
+      "length 1"
+    ],
+    [
+      "result.parameter_slices[0]",
+      "tuple",
+      "length 2"
+    ],
+    [
+      "result.parameter_slices[0][0]",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.parameter_slices[0][1]",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.groups",
+      "tuple",
+      "length 2"
+    ],
+    [
+      "result.groups[0]",
+      "nampy.inspection.fisher.FisherGroupSummary",
+      "scalar record"
+    ],
+    [
+      "result.groups[0].name",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.groups[0].n_parameters",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.groups[0].trace",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[0].mean_diagonal",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[0].output_sampling_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].conditional_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].input_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].total_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].total_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1]",
+      "nampy.inspection.fisher.FisherGroupSummary",
+      "scalar record"
+    ],
+    [
+      "result.groups[1].name",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.groups[1].n_parameters",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.groups[1].trace",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[1].mean_diagonal",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[1].output_sampling_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].conditional_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].input_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].total_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].total_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.n_parameters",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.n_inputs",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.n_draws",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.target_source",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.conditioned_on_inputs",
+      "builtins.bool",
+      "()"
+    ],
+    [
+      "result.split",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.grouping",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.normalization",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.backend",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.held_fixed",
+      "tuple",
+      "length 1"
+    ],
+    [
+      "result.held_fixed[0]",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.input_sampling",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.input_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.total_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.total_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ]
+  ],
+  "api/generated/nampy.inspection.FisherSnapshot": [
+    [
+      "result",
+      "nampy.inspection.fisher.FisherSnapshot",
+      "scalar record"
+    ],
+    [
+      "result.stage",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.epoch",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.optimizer_step",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.groups",
+      "tuple",
+      "length 2"
+    ],
+    [
+      "result.groups[0]",
+      "nampy.inspection.fisher.FisherGroupSummary",
+      "scalar record"
+    ],
+    [
+      "result.groups[0].name",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.groups[0].n_parameters",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.groups[0].trace",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[0].mean_diagonal",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[0].output_sampling_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].conditional_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].input_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].total_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].total_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1]",
+      "nampy.inspection.fisher.FisherGroupSummary",
+      "scalar record"
+    ],
+    [
+      "result.groups[1].name",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.groups[1].n_parameters",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.groups[1].trace",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[1].mean_diagonal",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[1].output_sampling_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].conditional_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].input_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].total_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].total_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.diagonal",
+      "numpy.ndarray[float64]",
+      "(5,)"
+    ]
+  ],
   "api/generated/nampy.inspection.center_additive_prediction": [
     [
       "result",
@@ -8735,7 +9273,7 @@
     ],
     [
       "result['prediction']",
-      "numpy.ndarray[float32]",
+      "numpy.ndarray[float64]",
       "(64, 2)"
     ],
     [
@@ -8745,7 +9283,7 @@
     ],
     [
       "result['point']",
-      "numpy.ndarray[float32]",
+      "numpy.ndarray[float64]",
       "(64,)"
     ],
     [
@@ -10940,11 +11478,398 @@
       "(16,)"
     ]
   ],
+  "neural_reference/methods/fisher_information": [
+    [
+      "result",
+      "nampy.inspection.fisher.FisherInformationResult",
+      "scalar record"
+    ],
+    [
+      "result.estimator",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.diagonal",
+      "numpy.ndarray[float64]",
+      "(275,)"
+    ],
+    [
+      "result.output_sampling_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.conditional_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.parameter_names",
+      "tuple",
+      "length 13"
+    ],
+    [
+      "result.parameter_names[0]",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.parameter_names[1]",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.parameter_names[2]",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.parameter_shapes",
+      "tuple",
+      "length 13"
+    ],
+    [
+      "result.parameter_shapes[0]",
+      "tuple",
+      "length 1"
+    ],
+    [
+      "result.parameter_shapes[0][0]",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.parameter_shapes[1]",
+      "tuple",
+      "length 2"
+    ],
+    [
+      "result.parameter_shapes[1][0]",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.parameter_shapes[1][1]",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.parameter_shapes[2]",
+      "tuple",
+      "length 1"
+    ],
+    [
+      "result.parameter_shapes[2][0]",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.parameter_slices",
+      "tuple",
+      "length 13"
+    ],
+    [
+      "result.parameter_slices[0]",
+      "tuple",
+      "length 2"
+    ],
+    [
+      "result.parameter_slices[0][0]",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.parameter_slices[0][1]",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.parameter_slices[1]",
+      "tuple",
+      "length 2"
+    ],
+    [
+      "result.parameter_slices[1][0]",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.parameter_slices[1][1]",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.parameter_slices[2]",
+      "tuple",
+      "length 2"
+    ],
+    [
+      "result.parameter_slices[2][0]",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.parameter_slices[2][1]",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.groups",
+      "tuple",
+      "length 3"
+    ],
+    [
+      "result.groups[0]",
+      "nampy.inspection.fisher.FisherGroupSummary",
+      "scalar record"
+    ],
+    [
+      "result.groups[0].name",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.groups[0].n_parameters",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.groups[0].trace",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[0].mean_diagonal",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[0].output_sampling_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].conditional_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].input_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].total_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].total_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1]",
+      "nampy.inspection.fisher.FisherGroupSummary",
+      "scalar record"
+    ],
+    [
+      "result.groups[1].name",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.groups[1].n_parameters",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.groups[1].trace",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[1].mean_diagonal",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[1].output_sampling_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].conditional_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].input_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].total_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].total_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[2]",
+      "nampy.inspection.fisher.FisherGroupSummary",
+      "scalar record"
+    ],
+    [
+      "result.groups[2].name",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.groups[2].n_parameters",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.groups[2].trace",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[2].mean_diagonal",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[2].output_sampling_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[2].estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[2].conditional_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[2].input_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[2].total_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[2].total_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.n_parameters",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.n_inputs",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.n_draws",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.target_source",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.conditioned_on_inputs",
+      "builtins.bool",
+      "()"
+    ],
+    [
+      "result.split",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.grouping",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.normalization",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.backend",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.held_fixed",
+      "tuple",
+      "length 1"
+    ],
+    [
+      "result.held_fixed[0]",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.input_sampling",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.input_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.total_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.total_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ]
+  ],
   "neural_reference/methods/get_params": [
     [
       "result",
       "dict",
-      "4 named fields"
+      "5 named fields"
     ],
     [
       "result['architecture_config']",
@@ -11299,6 +12224,11 @@
     [
       "result['preprocessing'].parameters['scaling_strategy']",
       "builtins.str",
+      "()"
+    ],
+    [
+      "result['fisher_diagnostics']",
+      "builtins.bool",
       "()"
     ]
   ],
@@ -18683,6 +19613,328 @@
       "(12,)"
     ]
   ],
+  "statistical_reference/methods/fisher_information": [
+    [
+      "result",
+      "nampy.inspection.fisher.FisherInformationResult",
+      "scalar record"
+    ],
+    [
+      "result.estimator",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.diagonal",
+      "numpy.ndarray[float64]",
+      "(12,)"
+    ],
+    [
+      "result.output_sampling_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.conditional_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.parameter_names",
+      "tuple",
+      "length 1"
+    ],
+    [
+      "result.parameter_names[0]",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.parameter_shapes",
+      "tuple",
+      "length 1"
+    ],
+    [
+      "result.parameter_shapes[0]",
+      "tuple",
+      "length 1"
+    ],
+    [
+      "result.parameter_shapes[0][0]",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.parameter_slices",
+      "tuple",
+      "length 1"
+    ],
+    [
+      "result.parameter_slices[0]",
+      "tuple",
+      "length 2"
+    ],
+    [
+      "result.parameter_slices[0][0]",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.parameter_slices[0][1]",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.groups",
+      "tuple",
+      "length 3"
+    ],
+    [
+      "result.groups[0]",
+      "nampy.inspection.fisher.FisherGroupSummary",
+      "scalar record"
+    ],
+    [
+      "result.groups[0].name",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.groups[0].n_parameters",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.groups[0].trace",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[0].mean_diagonal",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[0].output_sampling_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].conditional_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].input_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].total_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[0].total_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1]",
+      "nampy.inspection.fisher.FisherGroupSummary",
+      "scalar record"
+    ],
+    [
+      "result.groups[1].name",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.groups[1].n_parameters",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.groups[1].trace",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[1].mean_diagonal",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[1].output_sampling_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].conditional_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].input_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].total_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[1].total_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[2]",
+      "nampy.inspection.fisher.FisherGroupSummary",
+      "scalar record"
+    ],
+    [
+      "result.groups[2].name",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.groups[2].n_parameters",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.groups[2].trace",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[2].mean_diagonal",
+      "numpy.float64",
+      "()"
+    ],
+    [
+      "result.groups[2].output_sampling_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[2].estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[2].conditional_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[2].input_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[2].total_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.groups[2].total_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.n_parameters",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.n_inputs",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.n_draws",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.target_source",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.conditioned_on_inputs",
+      "builtins.bool",
+      "()"
+    ],
+    [
+      "result.split",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.grouping",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.normalization",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.backend",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.held_fixed",
+      "tuple",
+      "length 1"
+    ],
+    [
+      "result.held_fixed[0]",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.input_sampling",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.input_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.total_estimator_variance",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
+      "result.total_standard_error",
+      "builtins.NoneType",
+      "not applicable"
+    ]
+  ],
   "statistical_reference/methods/fit": [
     [
       "result",
@@ -20475,12 +21727,12 @@
       "(96,)"
     ],
     [
-      "result['c9c6491a1275']",
+      "result['7be146cad8a9']",
       "numpy.ndarray[float64]",
       "(96,)"
     ],
     [
-      "result['dad2f5d236b7']",
+      "result['9688fc27a460']",
       "numpy.ndarray[float64]",
       "(96,)"
     ],

@@ -646,6 +646,10 @@ def generate_statistical_families(root):
 
 
 METHOD_OUTPUTS = {
+    "fisher_information": (
+        "Evaluate mean model Fisher information at fitted parameters under the declared conditional likelihood.",
+        "FisherInformationResult with optional per-coefficient diagonals, disjoint group traces and input/output sampling uncertainty. Exact information, sampled score outer products and sampled negative Hessians share mean normalization. Unsupported likelihoods and quasi-likelihood families fail explicitly; smoothing penalties are excluded.",
+    ),
     "fit": (
         "Fit a statistical additive model, compiling its formula and solving coefficients and optional smoothing parameters.",
         "The fitted GAM itself (self). A failed transactional fit does not replace a previously fitted session.",
@@ -776,6 +780,11 @@ def generate_methods(root):
             overrides["type"] = (
                 "Residual definition: deviance, pearson, response, working or scaled. Availability and encoding depend on the fitted family; these are residuals, not prediction modes."
             )
+        if name == "fisher_information":
+            from reference_schema import METHOD_PARAMETER_MEANINGS
+
+            overrides.update({key: METHOD_PARAMETER_MEANINGS[key] for key in ("config", "return_diagonal")})
+            overrides["context"] = "Optional row-aligned likelihood context, such as grouped-binomial trial counts. Required fields are validated by the supported conditional likelihood."
         text += (
             heading("Parameters", "-")
             + parameters(obj, overrides)
@@ -792,6 +801,8 @@ def generate_methods(root):
             text += "The :ref:`quadratic-form inference explanation <quadratic-form-inference>` describes weighted chi-square reference laws, numerical tail evaluation and approximation limits.\n\n"
         if name == "gam_check":
             text += "For raw outer-gradient, Hessian and boundary diagnostics, see :doc:`optimizer_endpoint_diagnostics </extension_reference/statistical/optimizer_endpoint_diagnostics>`. Coefficient convergence and smoothing-endpoint stationarity are separate checks.\n\n"
+        if name == "fisher_information":
+            text += "Separate fit-time offsets must be supplied again, aligned with the evaluated rows. Formula and smooth offsets follow the existing prediction contract. ``X=None`` evaluates the fitted training rows. See :doc:`/user_guide/fisher_diagnostics` for estimator, nuisance-parameter and sampling assumptions.\n\n"
         if name in {"plot", "vis"}:
             text += "For direct construction of a normalized prediction-grid mask, see :doc:`exclude_too_far </extension_reference/statistical/exclude_too_far>`. Its True entries indicate excluded grid nodes.\n\n"
         if name == "plot":
@@ -823,6 +834,7 @@ def generate_methods(root):
             "Prediction uncertainty <../uncertainty>",
         ],
         "Diagnostics": [
+            "fisher_information",
             "residuals",
             "ar1_standardized_residuals",
             "gam_check",

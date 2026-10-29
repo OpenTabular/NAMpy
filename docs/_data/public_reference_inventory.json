@@ -2082,7 +2082,7 @@
     "kind": "estimator",
     "symbol": "EnsembleTreeNAMClassifier",
     "public_import": "nampy.models.EnsembleTreeNAMClassifier",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -2099,6 +2099,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'task': 'classification'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/EnsembleTreeNAMClassifier",
@@ -2114,7 +2118,7 @@
     "kind": "estimator",
     "symbol": "EnsembleTreeNAMLSS",
     "public_import": "nampy.models.EnsembleTreeNAMLSS",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -2131,6 +2135,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/EnsembleTreeNAMLSS",
@@ -2146,7 +2154,7 @@
     "kind": "estimator",
     "symbol": "EnsembleTreeNAMRegressor",
     "public_import": "nampy.models.EnsembleTreeNAMRegressor",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -2163,6 +2171,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/EnsembleTreeNAMRegressor",
@@ -2226,7 +2238,7 @@
     "kind": "estimator",
     "symbol": "GAMClassifier",
     "public_import": "nampy.models.GAMClassifier",
-    "signature": "(formula=None, family='binomial', k=10, basis='tp', fit_intercept=True, optimize_smoothing=True, smoothing_method='reml', smoothing_optimizer='outer_newton', smoothing_params=None, select=False, knots=None, min_sp=None, para_pen=None, constraints=None, drop_intercept=None, covariance='bayes', score_gamma=1.0, max_irls_iter=200, irls_tol=1e-07, sp_log_bounds=(-80.0, 20.0), scale=0.0, control=None, nei=None, coefficient_optimizer='newton', optim_method=None)",
+    "signature": "(formula=None, family='binomial', k=10, basis='tp', fit_intercept=True, optimize_smoothing=True, smoothing_method='reml', smoothing_optimizer='outer_newton', smoothing_params=None, select=False, knots=None, min_sp=None, para_pen=None, constraints=None, drop_intercept=None, covariance='bayes', score_gamma=1.0, max_irls_iter=200, irls_tol=1e-07, sp_log_bounds=(-80.0, 20.0), scale=0.0, control=None, nei=None, coefficient_optimizer='newton', optim_method=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "basis",
@@ -2255,6 +2267,10 @@
       {
         "name": "family",
         "default": "'binomial'"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       },
       {
         "name": "fit_intercept",
@@ -2342,7 +2358,7 @@
     "kind": "estimator",
     "symbol": "GAMLSS",
     "public_import": "nampy.models.GAMLSS",
-    "signature": "(formula=None, family='normal', k=10, basis='tp', fit_intercept=True, optimize_smoothing=True, smoothing_method='reml', smoothing_optimizer='outer_newton', smoothing_params=None, select=False, knots=None, min_sp=None, drop_intercept=None, covariance='bayes', score_gamma=1.0, max_irls_iter=200, irls_tol=1e-07, sp_log_bounds=(-80.0, 20.0))",
+    "signature": "(formula=None, family='normal', k=10, basis='tp', fit_intercept=True, optimize_smoothing=True, smoothing_method='reml', smoothing_optimizer='outer_newton', smoothing_params=None, select=False, knots=None, min_sp=None, drop_intercept=None, covariance='bayes', score_gamma=1.0, max_irls_iter=200, irls_tol=1e-07, sp_log_bounds=(-80.0, 20.0), fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "basis",
@@ -2359,6 +2375,10 @@
       {
         "name": "family",
         "default": "'normal'"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       },
       {
         "name": "fit_intercept",
@@ -2430,7 +2450,7 @@
     "kind": "estimator",
     "symbol": "GAMRegressor",
     "public_import": "nampy.models.GAMRegressor",
-    "signature": "(formula=None, family=None, k=10, basis='tp', fit_intercept=True, optimize_smoothing=True, smoothing_method='reml', smoothing_optimizer='outer_newton', smoothing_params=None, select=False, knots=None, min_sp=None, para_pen=None, constraints=None, drop_intercept=None, covariance='bayes', score_gamma=1.0, max_irls_iter=200, irls_tol=1e-07, sp_log_bounds=(-80.0, 20.0), scale=0.0, control=None, nei=None, coefficient_optimizer='newton', optim_method=None)",
+    "signature": "(formula=None, family=None, k=10, basis='tp', fit_intercept=True, optimize_smoothing=True, smoothing_method='reml', smoothing_optimizer='outer_newton', smoothing_params=None, select=False, knots=None, min_sp=None, para_pen=None, constraints=None, drop_intercept=None, covariance='bayes', score_gamma=1.0, max_irls_iter=200, irls_tol=1e-07, sp_log_bounds=(-80.0, 20.0), scale=0.0, control=None, nei=None, coefficient_optimizer='newton', optim_method=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "basis",
@@ -2459,6 +2479,10 @@
       {
         "name": "family",
         "default": "None"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       },
       {
         "name": "fit_intercept",
@@ -2546,7 +2570,7 @@
     "kind": "estimator",
     "symbol": "GPNAMClassifier",
     "public_import": "nampy.models.GPNAMClassifier",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -2563,6 +2587,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'none', 'categorical_preprocessing': 'one-hot', 'scaling_strategy': None, 'task': 'classification'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/GPNAMClassifier",
@@ -2578,7 +2606,7 @@
     "kind": "estimator",
     "symbol": "GPNAMLSS",
     "public_import": "nampy.models.GPNAMLSS",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -2595,6 +2623,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'none', 'categorical_preprocessing': 'one-hot', 'scaling_strategy': None})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/GPNAMLSS",
@@ -2610,7 +2642,7 @@
     "kind": "estimator",
     "symbol": "GPNAMRegressor",
     "public_import": "nampy.models.GPNAMRegressor",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -2627,6 +2659,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'none', 'categorical_preprocessing': 'one-hot', 'scaling_strategy': None})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/GPNAMRegressor",
@@ -2642,7 +2678,7 @@
     "kind": "estimator",
     "symbol": "IGANNClassifier",
     "public_import": "nampy.models.IGANNClassifier",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -2659,6 +2695,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'none', 'categorical_preprocessing': 'int', 'scaling_strategy': None, 'task': 'classification'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/IGANNClassifier",
@@ -2674,7 +2714,7 @@
     "kind": "estimator",
     "symbol": "IGANNLSS",
     "public_import": "nampy.models.IGANNLSS",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -2691,6 +2731,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'none', 'categorical_preprocessing': 'int', 'scaling_strategy': None})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/IGANNLSS",
@@ -2706,7 +2750,7 @@
     "kind": "estimator",
     "symbol": "IGANNRegressor",
     "public_import": "nampy.models.IGANNRegressor",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -2723,6 +2767,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'none', 'categorical_preprocessing': 'int', 'scaling_strategy': None})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/IGANNRegressor",
@@ -2738,7 +2786,7 @@
     "kind": "estimator",
     "symbol": "LinRegClassifier",
     "public_import": "nampy.models.LinRegClassifier",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -2755,6 +2803,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'task': 'classification'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/LinRegClassifier",
@@ -2770,7 +2822,7 @@
     "kind": "estimator",
     "symbol": "LinRegLSS",
     "public_import": "nampy.models.LinRegLSS",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -2787,6 +2839,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/LinRegLSS",
@@ -2802,7 +2858,7 @@
     "kind": "estimator",
     "symbol": "LinRegRegressor",
     "public_import": "nampy.models.LinRegRegressor",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -2819,6 +2875,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/LinRegRegressor",
@@ -2834,7 +2894,7 @@
     "kind": "estimator",
     "symbol": "LinRegSurvival",
     "public_import": "nampy.models.LinRegSurvival",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -2851,6 +2911,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/LinRegSurvival",
@@ -2866,7 +2930,7 @@
     "kind": "estimator",
     "symbol": "NAMClassifier",
     "public_import": "nampy.models.NAMClassifier",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -2883,6 +2947,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'none', 'categorical_preprocessing': 'one-hot', 'scaling_strategy': 'minmax', 'task': 'classification'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/NAMClassifier",
@@ -2898,7 +2966,7 @@
     "kind": "estimator",
     "symbol": "NAMLSS",
     "public_import": "nampy.models.NAMLSS",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -2915,6 +2983,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'none', 'categorical_preprocessing': 'one-hot', 'scaling_strategy': 'minmax'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/NAMLSS",
@@ -2930,7 +3002,7 @@
     "kind": "estimator",
     "symbol": "NAMRegressor",
     "public_import": "nampy.models.NAMRegressor",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -2947,6 +3019,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'none', 'categorical_preprocessing': 'one-hot', 'scaling_strategy': 'minmax'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/NAMRegressor",
@@ -2962,7 +3038,7 @@
     "kind": "estimator",
     "symbol": "NAMSurvival",
     "public_import": "nampy.models.NAMSurvival",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -2979,6 +3055,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'none', 'categorical_preprocessing': 'one-hot', 'scaling_strategy': 'minmax'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/NAMSurvival",
@@ -2994,7 +3074,7 @@
     "kind": "estimator",
     "symbol": "NAMformerClassifier",
     "public_import": "nampy.models.NAMformerClassifier",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3011,6 +3091,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'task': 'classification'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/NAMformerClassifier",
@@ -3026,7 +3110,7 @@
     "kind": "estimator",
     "symbol": "NAMformerLSS",
     "public_import": "nampy.models.NAMformerLSS",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3043,6 +3127,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/NAMformerLSS",
@@ -3058,7 +3146,7 @@
     "kind": "estimator",
     "symbol": "NAMformerRegressor",
     "public_import": "nampy.models.NAMformerRegressor",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3075,6 +3163,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/NAMformerRegressor",
@@ -3090,7 +3182,7 @@
     "kind": "estimator",
     "symbol": "NATTClassifier",
     "public_import": "nampy.models.NATTClassifier",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3107,6 +3199,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'task': 'classification'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/NATTClassifier",
@@ -3122,7 +3218,7 @@
     "kind": "estimator",
     "symbol": "NATTLSS",
     "public_import": "nampy.models.NATTLSS",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3139,6 +3235,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/NATTLSS",
@@ -3154,7 +3254,7 @@
     "kind": "estimator",
     "symbol": "NATTRegressor",
     "public_import": "nampy.models.NATTRegressor",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3171,6 +3271,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/NATTRegressor",
@@ -3186,7 +3290,7 @@
     "kind": "estimator",
     "symbol": "NBMClassifier",
     "public_import": "nampy.models.NBMClassifier",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3203,6 +3307,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'none', 'categorical_preprocessing': 'one-hot', 'scaling_strategy': 'minmax', 'task': 'classification'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/NBMClassifier",
@@ -3218,7 +3326,7 @@
     "kind": "estimator",
     "symbol": "NBMLSS",
     "public_import": "nampy.models.NBMLSS",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3235,6 +3343,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'none', 'categorical_preprocessing': 'one-hot', 'scaling_strategy': 'minmax'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/NBMLSS",
@@ -3250,7 +3362,7 @@
     "kind": "estimator",
     "symbol": "NBMRegressor",
     "public_import": "nampy.models.NBMRegressor",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3267,6 +3379,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'none', 'categorical_preprocessing': 'one-hot', 'scaling_strategy': 'minmax'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/NBMRegressor",
@@ -3282,7 +3398,7 @@
     "kind": "estimator",
     "symbol": "NBMSPAMClassifier",
     "public_import": "nampy.models.NBMSPAMClassifier",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3299,6 +3415,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'none', 'categorical_preprocessing': 'one-hot', 'scaling_strategy': 'minmax', 'task': 'classification'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/NBMSPAMClassifier",
@@ -3314,7 +3434,7 @@
     "kind": "estimator",
     "symbol": "NBMSPAMLSS",
     "public_import": "nampy.models.NBMSPAMLSS",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3331,6 +3451,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'none', 'categorical_preprocessing': 'one-hot', 'scaling_strategy': 'minmax'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/NBMSPAMLSS",
@@ -3346,7 +3470,7 @@
     "kind": "estimator",
     "symbol": "NBMSPAMRegressor",
     "public_import": "nampy.models.NBMSPAMRegressor",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3363,6 +3487,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'none', 'categorical_preprocessing': 'one-hot', 'scaling_strategy': 'minmax'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/NBMSPAMRegressor",
@@ -3378,7 +3506,7 @@
     "kind": "estimator",
     "symbol": "NodeGAMClassifier",
     "public_import": "nampy.models.NodeGAMClassifier",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3395,6 +3523,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'task': 'classification'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/NodeGAMClassifier",
@@ -3410,7 +3542,7 @@
     "kind": "estimator",
     "symbol": "NodeGAMLSS",
     "public_import": "nampy.models.NodeGAMLSS",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3427,6 +3559,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/NodeGAMLSS",
@@ -3442,7 +3578,7 @@
     "kind": "estimator",
     "symbol": "NodeGAMRegressor",
     "public_import": "nampy.models.NodeGAMRegressor",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3459,6 +3595,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/NodeGAMRegressor",
@@ -3474,7 +3614,7 @@
     "kind": "estimator",
     "symbol": "QNAMLSS",
     "public_import": "nampy.models.QNAMLSS",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3491,6 +3631,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/QNAMLSS",
@@ -3558,7 +3702,7 @@
     "kind": "estimator",
     "symbol": "SIANClassifier",
     "public_import": "nampy.models.SIANClassifier",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3575,6 +3719,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'standardization', 'categorical_preprocessing': 'one-hot', 'scaling_strategy': None, 'task': 'classification'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/SIANClassifier",
@@ -3590,7 +3738,7 @@
     "kind": "estimator",
     "symbol": "SIANLSS",
     "public_import": "nampy.models.SIANLSS",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3607,6 +3755,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'standardization', 'categorical_preprocessing': 'one-hot', 'scaling_strategy': None})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/SIANLSS",
@@ -3622,7 +3774,7 @@
     "kind": "estimator",
     "symbol": "SIANRegressor",
     "public_import": "nampy.models.SIANRegressor",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3639,6 +3791,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'standardization', 'categorical_preprocessing': 'one-hot', 'scaling_strategy': None})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/SIANRegressor",
@@ -3654,7 +3810,7 @@
     "kind": "estimator",
     "symbol": "SNAMClassifier",
     "public_import": "nampy.models.SNAMClassifier",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3671,6 +3827,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'task': 'classification'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/SNAMClassifier",
@@ -3686,7 +3846,7 @@
     "kind": "estimator",
     "symbol": "SNAMLSS",
     "public_import": "nampy.models.SNAMLSS",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3703,6 +3863,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/SNAMLSS",
@@ -3718,7 +3882,7 @@
     "kind": "estimator",
     "symbol": "SNAMRegressor",
     "public_import": "nampy.models.SNAMRegressor",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3735,6 +3899,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/SNAMRegressor",
@@ -3750,7 +3918,7 @@
     "kind": "estimator",
     "symbol": "SPAMClassifier",
     "public_import": "nampy.models.SPAMClassifier",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3767,6 +3935,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'none', 'categorical_preprocessing': 'one-hot', 'scaling_strategy': 'minmax', 'task': 'classification'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/SPAMClassifier",
@@ -3782,7 +3954,7 @@
     "kind": "estimator",
     "symbol": "SPAMLSS",
     "public_import": "nampy.models.SPAMLSS",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3799,6 +3971,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'none', 'categorical_preprocessing': 'one-hot', 'scaling_strategy': 'minmax'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/SPAMLSS",
@@ -3814,7 +3990,7 @@
     "kind": "estimator",
     "symbol": "SPAMRegressor",
     "public_import": "nampy.models.SPAMRegressor",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3831,6 +4007,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'none', 'categorical_preprocessing': 'one-hot', 'scaling_strategy': 'minmax'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/SPAMRegressor",
@@ -3846,7 +4026,7 @@
     "kind": "estimator",
     "symbol": "SemiStructuredClassifier",
     "public_import": "nampy.models.SemiStructuredClassifier",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3863,6 +4043,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'none', 'categorical_preprocessing': 'one-hot', 'task': 'classification'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/SemiStructuredClassifier",
@@ -3878,7 +4062,7 @@
     "kind": "estimator",
     "symbol": "SemiStructuredLSS",
     "public_import": "nampy.models.SemiStructuredLSS",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3895,6 +4079,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'none', 'categorical_preprocessing': 'one-hot'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/SemiStructuredLSS",
@@ -3911,7 +4099,7 @@
     "kind": "estimator",
     "symbol": "SemiStructuredRegressor",
     "public_import": "nampy.models.SemiStructuredRegressor",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3928,6 +4116,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'none', 'categorical_preprocessing': 'one-hot'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/SemiStructuredRegressor",
@@ -3944,7 +4136,7 @@
     "kind": "estimator",
     "symbol": "SplineNAMRegressor",
     "public_import": "nampy.models.SplineNAMRegressor",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -3961,6 +4153,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'numerical_preprocessing': 'minmax', 'categorical_preprocessing': 'int', 'scaling_strategy': None})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/SplineNAMRegressor",
@@ -4048,7 +4244,7 @@
     "kind": "estimator",
     "symbol": "TreeNAMClassifier",
     "public_import": "nampy.models.TreeNAMClassifier",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -4065,6 +4261,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={'task': 'classification'})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/TreeNAMClassifier",
@@ -4080,7 +4280,7 @@
     "kind": "estimator",
     "symbol": "TreeNAMLSS",
     "public_import": "nampy.models.TreeNAMLSS",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -4097,6 +4297,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/TreeNAMLSS",
@@ -4112,7 +4316,7 @@
     "kind": "estimator",
     "symbol": "TreeNAMRegressor",
     "public_import": "nampy.models.TreeNAMRegressor",
-    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(*, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "architecture_config",
@@ -4129,6 +4333,10 @@
       {
         "name": "preprocessing",
         "default": "PreprocessingConfig(parameters={})"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/estimators/TreeNAMRegressor",
@@ -4144,7 +4352,7 @@
     "kind": "extension",
     "symbol": "NeuralClassifier",
     "public_import": "nampy.models.NeuralClassifier",
-    "signature": "(model, config_class, *, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(model, config_class, *, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "model",
@@ -4169,6 +4377,10 @@
       {
         "name": "preprocessing",
         "default": "None"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/extensions/NeuralClassifier",
@@ -4252,7 +4464,7 @@
     "kind": "extension",
     "symbol": "NeuralLSS",
     "public_import": "nampy.models.NeuralLSS",
-    "signature": "(model, config_class, *, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(model, config_class, *, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "model",
@@ -4277,6 +4489,10 @@
       {
         "name": "preprocessing",
         "default": "None"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/extensions/NeuralLSS",
@@ -4292,7 +4508,7 @@
     "kind": "extension",
     "symbol": "NeuralRegressor",
     "public_import": "nampy.models.NeuralRegressor",
-    "signature": "(model, config_class, *, architecture_config=None, objective=None, training=None, preprocessing=None)",
+    "signature": "(model, config_class, *, architecture_config=None, objective=None, training=None, preprocessing=None, fisher_diagnostics=False)",
     "parameters": [
       {
         "name": "model",
@@ -4317,6 +4533,10 @@
       {
         "name": "preprocessing",
         "default": "None"
+      },
+      {
+        "name": "fisher_diagnostics",
+        "default": "False"
       }
     ],
     "page": "neural_reference/extensions/NeuralRegressor",
@@ -4492,6 +4712,42 @@
     "input_contract": "statistical_reference/methods/edf1",
     "return_schema": "_examples/reference/output_schemas.json#statistical_reference/methods/edf1",
     "restrictions": "statistical_reference/methods/edf1",
+    "tests": [
+      "tests/docs/test_feature_reference.py"
+    ]
+  },
+  {
+    "kind": "method",
+    "symbol": "GAM.fisher_information",
+    "public_import": "nampy.gam.model.api.fisher_information",
+    "signature": "(self, X=None, *, offset=None, context=None, config=None, return_diagonal=True)",
+    "parameters": [
+      {
+        "name": "X",
+        "default": "None"
+      },
+      {
+        "name": "offset",
+        "default": "None"
+      },
+      {
+        "name": "context",
+        "default": "None"
+      },
+      {
+        "name": "config",
+        "default": "None"
+      },
+      {
+        "name": "return_diagonal",
+        "default": "True"
+      }
+    ],
+    "page": "statistical_reference/methods/fisher_information",
+    "example": "statistical_reference/methods/fisher_information",
+    "input_contract": "statistical_reference/methods/fisher_information",
+    "return_schema": "_examples/reference/output_schemas.json#statistical_reference/methods/fisher_information",
+    "restrictions": "statistical_reference/methods/fisher_information",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -6254,6 +6510,42 @@
   },
   {
     "kind": "neural_method",
+    "symbol": "fisher_information",
+    "public_import": "nampy.models._neural.fisher_information",
+    "signature": "(self, X, *, offset=None, context=None, config=None, batch_size=None)",
+    "parameters": [
+      {
+        "name": "X",
+        "default": "required"
+      },
+      {
+        "name": "offset",
+        "default": "None"
+      },
+      {
+        "name": "context",
+        "default": "None"
+      },
+      {
+        "name": "config",
+        "default": "None"
+      },
+      {
+        "name": "batch_size",
+        "default": "None"
+      }
+    ],
+    "page": "neural_reference/methods/fisher_information",
+    "example": "neural_reference/methods/fisher_information",
+    "input_contract": "neural_reference/methods/fisher_information",
+    "return_schema": "_examples/reference/output_schemas.json#neural_reference/methods/fisher_information",
+    "restrictions": "neural_reference/methods/fisher_information",
+    "tests": [
+      "tests/docs/test_feature_reference.py"
+    ]
+  },
+  {
+    "kind": "neural_method",
     "symbol": "get_params",
     "public_import": "nampy.models._neural.get_params",
     "signature": "(self, deep=True)",
@@ -6841,6 +7133,274 @@
     "input_contract": "api/generated/nampy.contracts.FeatureSchema",
     "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.contracts.FeatureSchema",
     "restrictions": "api/generated/nampy.contracts.FeatureSchema",
+    "tests": [
+      "tests/docs/test_feature_reference.py"
+    ]
+  },
+  {
+    "kind": "shared",
+    "symbol": "FisherDiagnostics",
+    "public_import": "nampy.inspection.FisherDiagnostics",
+    "signature": "(estimator: str = 'exact', every_n_epochs: int | None = None, n_inputs: int = 64, n_draws: int = 8, split: str = 'validation', include_initial: bool = True, include_final: bool = True, record_diagonal: str = 'final', group_by: str = 'term', random_state: int | None = None, regression_scale: float | None = None, input_sampling: str = 'fixed', population_size: int | None = None) -> None",
+    "parameters": [
+      {
+        "name": "estimator",
+        "default": "'exact'"
+      },
+      {
+        "name": "every_n_epochs",
+        "default": "None"
+      },
+      {
+        "name": "n_inputs",
+        "default": "64"
+      },
+      {
+        "name": "n_draws",
+        "default": "8"
+      },
+      {
+        "name": "split",
+        "default": "'validation'"
+      },
+      {
+        "name": "include_initial",
+        "default": "True"
+      },
+      {
+        "name": "include_final",
+        "default": "True"
+      },
+      {
+        "name": "record_diagonal",
+        "default": "'final'"
+      },
+      {
+        "name": "group_by",
+        "default": "'term'"
+      },
+      {
+        "name": "random_state",
+        "default": "None"
+      },
+      {
+        "name": "regression_scale",
+        "default": "None"
+      },
+      {
+        "name": "input_sampling",
+        "default": "'fixed'"
+      },
+      {
+        "name": "population_size",
+        "default": "None"
+      }
+    ],
+    "page": "api/generated/nampy.inspection.FisherDiagnostics",
+    "example": "api/generated/nampy.inspection.FisherDiagnostics",
+    "input_contract": "api/generated/nampy.inspection.FisherDiagnostics",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.inspection.FisherDiagnostics",
+    "restrictions": "api/generated/nampy.inspection.FisherDiagnostics",
+    "tests": [
+      "tests/docs/test_feature_reference.py"
+    ]
+  },
+  {
+    "kind": "shared",
+    "symbol": "FisherGroupSummary",
+    "public_import": "nampy.inspection.FisherGroupSummary",
+    "signature": "(name: str, n_parameters: int, trace: float, mean_diagonal: float, output_sampling_variance: float | None, estimator_variance: float | None, conditional_standard_error: float | None, input_estimator_variance: float | None = None, total_estimator_variance: float | None = None, total_standard_error: float | None = None) -> None",
+    "parameters": [
+      {
+        "name": "name",
+        "default": "required"
+      },
+      {
+        "name": "n_parameters",
+        "default": "required"
+      },
+      {
+        "name": "trace",
+        "default": "required"
+      },
+      {
+        "name": "mean_diagonal",
+        "default": "required"
+      },
+      {
+        "name": "output_sampling_variance",
+        "default": "required"
+      },
+      {
+        "name": "estimator_variance",
+        "default": "required"
+      },
+      {
+        "name": "conditional_standard_error",
+        "default": "required"
+      },
+      {
+        "name": "input_estimator_variance",
+        "default": "None"
+      },
+      {
+        "name": "total_estimator_variance",
+        "default": "None"
+      },
+      {
+        "name": "total_standard_error",
+        "default": "None"
+      }
+    ],
+    "page": "api/generated/nampy.inspection.FisherGroupSummary",
+    "example": "api/generated/nampy.inspection.FisherGroupSummary",
+    "input_contract": "api/generated/nampy.inspection.FisherGroupSummary",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.inspection.FisherGroupSummary",
+    "restrictions": "api/generated/nampy.inspection.FisherGroupSummary",
+    "tests": [
+      "tests/docs/test_feature_reference.py"
+    ]
+  },
+  {
+    "kind": "shared",
+    "symbol": "FisherInformationResult",
+    "public_import": "nampy.inspection.FisherInformationResult",
+    "signature": "(estimator: str, diagonal: numpy.ndarray | None, output_sampling_variance: numpy.ndarray | None, estimator_variance: numpy.ndarray | None, conditional_standard_error: numpy.ndarray | None, parameter_names: tuple[str, ...], parameter_shapes: tuple[tuple[int, ...], ...], parameter_slices: tuple[tuple[int, int], ...], groups: tuple[nampy.inspection.fisher.FisherGroupSummary, ...], n_parameters: int, n_inputs: int, n_draws: int | None, target_source: str, conditioned_on_inputs: bool, split: str | None, grouping: str | None = None, normalization: str = 'mean', backend: str = 'unknown', held_fixed: tuple[str, ...] = (), input_sampling: str = 'fixed', input_estimator_variance: numpy.ndarray | None = None, total_estimator_variance: numpy.ndarray | None = None, total_standard_error: numpy.ndarray | None = None) -> None",
+    "parameters": [
+      {
+        "name": "estimator",
+        "default": "required"
+      },
+      {
+        "name": "diagonal",
+        "default": "required"
+      },
+      {
+        "name": "output_sampling_variance",
+        "default": "required"
+      },
+      {
+        "name": "estimator_variance",
+        "default": "required"
+      },
+      {
+        "name": "conditional_standard_error",
+        "default": "required"
+      },
+      {
+        "name": "parameter_names",
+        "default": "required"
+      },
+      {
+        "name": "parameter_shapes",
+        "default": "required"
+      },
+      {
+        "name": "parameter_slices",
+        "default": "required"
+      },
+      {
+        "name": "groups",
+        "default": "required"
+      },
+      {
+        "name": "n_parameters",
+        "default": "required"
+      },
+      {
+        "name": "n_inputs",
+        "default": "required"
+      },
+      {
+        "name": "n_draws",
+        "default": "required"
+      },
+      {
+        "name": "target_source",
+        "default": "required"
+      },
+      {
+        "name": "conditioned_on_inputs",
+        "default": "required"
+      },
+      {
+        "name": "split",
+        "default": "required"
+      },
+      {
+        "name": "grouping",
+        "default": "None"
+      },
+      {
+        "name": "normalization",
+        "default": "'mean'"
+      },
+      {
+        "name": "backend",
+        "default": "'unknown'"
+      },
+      {
+        "name": "held_fixed",
+        "default": "()"
+      },
+      {
+        "name": "input_sampling",
+        "default": "'fixed'"
+      },
+      {
+        "name": "input_estimator_variance",
+        "default": "None"
+      },
+      {
+        "name": "total_estimator_variance",
+        "default": "None"
+      },
+      {
+        "name": "total_standard_error",
+        "default": "None"
+      }
+    ],
+    "page": "api/generated/nampy.inspection.FisherInformationResult",
+    "example": "api/generated/nampy.inspection.FisherInformationResult",
+    "input_contract": "api/generated/nampy.inspection.FisherInformationResult",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.inspection.FisherInformationResult",
+    "restrictions": "api/generated/nampy.inspection.FisherInformationResult",
+    "tests": [
+      "tests/docs/test_feature_reference.py"
+    ]
+  },
+  {
+    "kind": "shared",
+    "symbol": "FisherSnapshot",
+    "public_import": "nampy.inspection.FisherSnapshot",
+    "signature": "(stage: str, epoch: int | None, optimizer_step: int, groups: tuple[nampy.inspection.fisher.FisherGroupSummary, ...], diagonal: numpy.ndarray | None = None) -> None",
+    "parameters": [
+      {
+        "name": "stage",
+        "default": "required"
+      },
+      {
+        "name": "epoch",
+        "default": "required"
+      },
+      {
+        "name": "optimizer_step",
+        "default": "required"
+      },
+      {
+        "name": "groups",
+        "default": "required"
+      },
+      {
+        "name": "diagonal",
+        "default": "None"
+      }
+    ],
+    "page": "api/generated/nampy.inspection.FisherSnapshot",
+    "example": "api/generated/nampy.inspection.FisherSnapshot",
+    "input_contract": "api/generated/nampy.inspection.FisherSnapshot",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.inspection.FisherSnapshot",
+    "restrictions": "api/generated/nampy.inspection.FisherSnapshot",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]

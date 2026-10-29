@@ -194,6 +194,7 @@ def method_example(name):
         code += MODEL
     calls = {
         "fit": "model",
+        "fisher_information": "model.fisher_information(data.iloc[:4])",
         "predict": "model.predict(data, return_se=True)",
         "predict_terms": "model.predict_terms(data)",
         "lpmatrix": "model.lpmatrix(data)",

@@ -27,6 +27,7 @@ class NeuralRegressor(NeuralEstimatorBase):
         objective=None,
         training=None,
         preprocessing=None,
+        fisher_diagnostics=False,
     ):
         self._initialize_estimator_parameters(
             config_class,
@@ -34,6 +35,7 @@ class NeuralRegressor(NeuralEstimatorBase):
             objective=objective,
             training=training,
             preprocessing=preprocessing,
+            fisher_diagnostics=fisher_diagnostics,
         )
         self.base_model = model
         self.model = None

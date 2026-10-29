@@ -10,8 +10,18 @@ from .effects import (
     combine_distributional_effects,
     prepare_distributional_effects,
 )
+from .fisher import (
+    FisherDiagnostics,
+    FisherGroupSummary,
+    FisherInformationResult,
+    FisherSnapshot,
+)
 
 __all__ = [
+    "FisherDiagnostics",
+    "FisherGroupSummary",
+    "FisherInformationResult",
+    "FisherSnapshot",
     "center_additive_prediction",
     "explain_additive_prediction",
     "term_importance_table",

@@ -160,7 +160,7 @@ def test_failed_warm_start_changes_only_staged_weights(tmp_path, monkeypatch):
     estimator = LinRegRegressor(training=_gradient(tmp_path, warm_start=True)).fit(X, y)
     before = estimator.predict(X).copy()
 
-    def corrupt_then_fail(staged, training):
+    def corrupt_then_fail(staged, training, *, fisher=None):
         for parameter in staged.model.parameters():
             parameter.data.fill_(999)
         raise RuntimeError("warm fit failed")
@@ -191,7 +191,7 @@ def test_runtime_loss_is_owned_by_the_fit_and_failed_refits_cannot_mutate_it(tmp
     assert runtime_loss is not caller_loss
     previous = runtime_loss.shift.detach().clone()
 
-    def fail(staged, training):
+    def fail(staged, training, *, fisher=None):
         staged.model.objective.loss_fct.shift.data.fill_(999)
         raise RuntimeError("loss mutation during failed fit")
 

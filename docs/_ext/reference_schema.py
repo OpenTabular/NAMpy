@@ -8,6 +8,8 @@ from typing import get_type_hints
 
 # These spell out domains that cannot be recovered from a default of None.
 PARAMETER_TYPES = {
+    "fisher_diagnostics": "bool | FisherDiagnostics",
+    "return_diagonal": "bool",
     "X": "pandas.DataFrame | numpy.ndarray, shape (n, d) | None",
     "X_val": "pandas.DataFrame | numpy.ndarray, shape (n_val, d) | None",
     "y": "array-like, shape (n,) or family-specific (n, q) | None",
@@ -202,6 +204,8 @@ def parameter_type(
         return "str | None"
     key = name.split("__", 1)[-1]
     class_name = getattr(obj, "__name__", "")
+    if key == "config" and class_name == "fisher_information":
+        return "FisherDiagnostics | None"
     tensor_classes = {
         "TensorProductSplineTerm",
         "InteractionTensorProductSplineTerm",
@@ -307,6 +311,10 @@ def parameter_type(
 # n = prediction rows, d = input columns, p = fitted coefficients,
 # t = returned terms, r = free smoothing parameters, q = output parameters.
 METHOD_RETURNS = {
+    "fisher_information": [
+        ("result", "FisherInformationResult", "scalar record; optional diagonal (p,)",
+         "Mean likelihood information in coefficient coordinates, disjoint group traces and sampling-error diagnostics. Penalties are excluded; this is not a coefficient covariance estimate."),
+    ],
     "fit": [
         (
             "self",
@@ -719,6 +727,8 @@ PARAMETER_TYPES.update(
     }
 )
 METHOD_PARAMETER_MEANINGS = {
+    "config": "Optional FisherDiagnostics configuration; None uses the estimator's configured diagnostics or shared defaults. Public postfit evaluation uses every supplied input row; n_inputs limits fit-time probes.",
+    "return_diagonal": "Retain aligned per-parameter information and sampling-error arrays when True; group summaries remain available when False.",
     "X": "Prediction/training feature matrix with n rows and the same d columns, names and preprocessing schema used by the fitted estimator.",
     "y": "Training/score response aligned with X: (n,) for scalar regression or class labels; supported multi-output/family targets use (n,q).",
     "y_true": "Observed response aligned with prediction rows; evaluation does not refit the model.",

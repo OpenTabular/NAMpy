@@ -156,6 +156,7 @@ html_favicon = "_static/logo-sidebar-refined.svg"
 # If true, links to the reST sources are added to the pages.
 html_show_sourcelink = False
 html_use_index = False
+html_domain_indices = False
 
 # If true, "Created using Sphinx" is shown in the HTML footer.
 html_show_sphinx = True
@@ -230,7 +231,6 @@ def _refresh_html_navigation(app, env):
         # even when their shared navigation has changed.
         for page in (Path(app.outdir) / "_modules").rglob("*.html"):
             page.unlink()
-        (Path(app.outdir) / "py-modindex.html").unlink(missing_ok=True)
         return sorted(env.found_docs)
     return []
 

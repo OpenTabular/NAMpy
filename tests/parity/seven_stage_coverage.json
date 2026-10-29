@@ -148,7 +148,11 @@
       "beinf_lss",
       "zaga_lss",
       "bccg_lss",
-      "normal_observation_lss"
+      "normal_observation_lss",
+      "bct_lss",
+      "bcpe_lss",
+      "lognormal_observation_lss",
+      "weibull_observation_lss"
     ]
   },
   "invariants": [
@@ -194,7 +198,9 @@
     "tests/extensions/test_bccg_fitting.py",
     "tests/extensions/test_bccg_smoothing.py",
     "tests/extensions/test_bccg_derivatives.py",
-    "tests/extensions/test_normal_observations.py"
+    "tests/extensions/test_normal_observations.py",
+    "tests/extensions/test_boxcox_tail_fitting.py",
+    "tests/extensions/test_positive_observations.py"
   ],
   "extension_family_test_modules": {
     "lognormal_lss": [
@@ -219,6 +225,18 @@
     ],
     "normal_observation_lss": [
       "tests/extensions/test_normal_observations.py"
+    ],
+    "bct_lss": [
+      "tests/extensions/test_boxcox_tail_fitting.py"
+    ],
+    "bcpe_lss": [
+      "tests/extensions/test_boxcox_tail_fitting.py"
+    ],
+    "lognormal_observation_lss": [
+      "tests/extensions/test_positive_observations.py"
+    ],
+    "weibull_observation_lss": [
+      "tests/extensions/test_positive_observations.py"
     ]
   }
 }

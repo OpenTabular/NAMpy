@@ -51,6 +51,7 @@ class GAMLSS(_GAMAdapterBase):
         max_irls_iter=200,
         irls_tol=1e-7,
         sp_log_bounds=(-80.0, 20.0),
+        fisher_diagnostics=False,
     ):
         super().__init__(
             formula=formula,
@@ -71,6 +72,7 @@ class GAMLSS(_GAMAdapterBase):
             max_irls_iter=max_irls_iter,
             irls_tol=irls_tol,
             sp_log_bounds=sp_log_bounds,
+            fisher_diagnostics=fisher_diagnostics,
         )
 
     def __sklearn_tags__(self):

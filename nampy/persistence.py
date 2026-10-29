@@ -5,7 +5,7 @@ import pickle
 from dataclasses import dataclass
 from pathlib import Path
 
-_MAGIC = b"NAMPY-ESTIMATOR 5\n"
+_MAGIC = b"NAMPY-ESTIMATOR 6\n"
 
 
 @dataclass(frozen=True)
@@ -46,7 +46,7 @@ def save_estimator(estimator, path):
     state = _estimator_state(estimator)
     header = {
         "format": "nampy-estimator",
-        "version": 5,
+        "version": 6,
         "estimator_class": type(estimator).__name__,
     }
     with destination.open("wb") as handle:
@@ -70,7 +70,7 @@ def load_estimator(path, expected_class):
         if (
             not isinstance(header, dict)
             or header.get("format") != "nampy-estimator"
-            or header.get("version") != 5
+            or header.get("version") != 6
         ):
             raise ValueError(invalid)
         if header.get("estimator_class") != expected_class.__name__:

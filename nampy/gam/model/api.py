@@ -207,6 +207,7 @@ _GAM_HPARAM_KEYS = frozenset(
         "nei",
         "coefficient_optimizer",
         "optim_method",
+        "fisher_diagnostics",
     }
 )
 
@@ -266,6 +267,10 @@ class GAM:
         if self.coefficient_optimizer not in {"newton", "bfgs"}:
             raise ValueError("coefficient_optimizer must be 'newton' or 'bfgs'.")
         self.optim_method = self.hparams.get("optim_method", None)
+        from ...inspection.fisher import normalize_fisher_diagnostics
+
+        self.fisher_diagnostics = self.hparams.get("fisher_diagnostics", False)
+        normalize_fisher_diagnostics(self.fisher_diagnostics)
         self.sp_log_bounds = tuple(self.hparams.get("sp_log_bounds", (-80.0, 20.0)))
         self.score_gamma = float(self.hparams.get("score_gamma", 1.0))
         self.covariance = str(self.hparams.get("covariance", "bayes")).lower()
@@ -465,6 +470,15 @@ class GAM:
         that declare it (e.g. {'trials': trials} for betabinomial_lss). It is
         separate from prior weights. Existing mgcv families reject context.
         """
+        from ...inspection.fisher import FisherSnapshot, normalize_fisher_diagnostics
+
+        config = normalize_fisher_diagnostics(self.fisher_diagnostics)
+        if config is not None:
+            from ..fisher import validate_fisher_family
+
+            if config.every_n_epochs is not None:
+                raise ValueError("GAM Fisher diagnostics support final snapshots, not epoch schedules.")
+            validate_fisher_family(self.family, config)
         session = FitSession.begin(self)
         session.working_model._fit_in_place(
             X=X,
@@ -480,8 +494,34 @@ class GAM:
             drop_intercept=drop_intercept,
             context=context,
         )
+        working = session.working_model
+        working._fisher_offset_required_ = offset is not None
+        working.fisher_config_ = config
+        working.fisher_history_ = ()
+        working.fisher_information_ = None
+        if config is not None and config.include_final:
+            from ..fisher import statistical_fisher_information
+
+            result = statistical_fisher_information(working, config=config, offset=offset,
+                context=context, return_diagonal=config.record_diagonal != "never", probe=True)
+            working.fisher_information_ = result
+            working.fisher_history_ = (FisherSnapshot("final", None, 0, result.groups, result.diagonal),)
         session.commit_to(self)
         return self
+
+    def fisher_information(self, X=None, *, offset=None, context=None, config=None,
+                           return_diagonal=True):
+        """Mean likelihood Fisher information in fitted coefficient coordinates."""
+        from ...inspection.fisher import FisherDiagnostics, normalize_fisher_diagnostics
+        from ..fisher import statistical_fisher_information
+
+        resolved = config
+        if resolved is None:
+            resolved = normalize_fisher_diagnostics(self.fisher_diagnostics) or FisherDiagnostics()
+        if not isinstance(resolved, FisherDiagnostics):
+            raise TypeError("config must be FisherDiagnostics or None.")
+        return statistical_fisher_information(self, X, config=resolved, offset=offset,
+            context=context, return_diagonal=return_diagonal)
 
     def _fit_in_place(
         self,

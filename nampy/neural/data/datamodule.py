@@ -6,26 +6,7 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from .dataset import NAMpyDataset
-
-
-def _configure_unknown_category_encoding(preprocessor):
-    """Keep fitted categorical widths stable for validation and prediction.
-
-    PreTab's integer encoder already reserves zero for unknown values.  Its
-    one-hot path uses sklearn's error-on-unknown default, so switch fitted
-    one-hot encoders to the equivalent all-zero representation.  This is done
-    after fitting and therefore cannot leak validation/test categories into the
-    learned category vocabulary.
-    """
-
-    column_transformer = getattr(preprocessor, "column_transformer", None)
-    for _name, transformer, _columns in getattr(
-        column_transformer, "transformers_", ()
-    ):
-        named_steps = getattr(transformer, "named_steps", {})
-        encoder = named_steps.get("onehot")
-        if encoder is not None and hasattr(encoder, "handle_unknown"):
-            encoder.set_params(handle_unknown="ignore")
+from .preprocessing import stabilize_fitted_preprocessing
 
 
 class NAMpyDataModule(pl.LightningDataModule):
@@ -304,7 +285,7 @@ class NAMpyDataModule(pl.LightningDataModule):
         preprocessing_y = (self.y_train if self.preprocessing_targets is None
                            else self.preprocessing_targets(self.y_train))
         self.preprocessor.fit(X_fit, None if preprocessing_y is None else np.asarray(preprocessing_y))
-        _configure_unknown_category_encoding(self.preprocessor)
+        stabilize_fitted_preprocessing(self.preprocessor)
         num_info, cat_info, _ = self.preprocessor.get_feature_info(verbose=False)
         self._train_preprocessed_data = self.preprocessor.transform(X_fit)
         self.num_feature_info = self._with_cardinality(

@@ -151,7 +151,7 @@ def disable_search(app):
 def remove_unused_utility_pages(app, exception):
     """Clean previous builds when the removed utility pages are no longer emitted."""
     if exception is None and app.builder.format == "html":
-        for filename in ("genindex.html", "search.html", "searchindex.js"):
+        for filename in ("genindex.html", "py-modindex.html", "search.html", "searchindex.js"):
             (Path(app.outdir) / filename).unlink(missing_ok=True)
 
 

@@ -127,6 +127,7 @@ class GAMClassifier(_GAMAdapterBase):
         nei=None,
         coefficient_optimizer="newton",
         optim_method=None,
+        fisher_diagnostics=False,
     ):
         super().__init__(
             formula=formula,
@@ -154,6 +155,7 @@ class GAMClassifier(_GAMAdapterBase):
             nei=nei,
             coefficient_optimizer=coefficient_optimizer,
             optim_method=optim_method,
+            fisher_diagnostics=fisher_diagnostics,
         )
 
     def __sklearn_tags__(self):
