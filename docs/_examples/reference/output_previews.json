@@ -208,8 +208,8 @@
   "api/generated/nampy.gam.formula.strip_offset_wrapper": "exposure",
   "api/generated/nampy.gam.results.FitResult": {
     "fields": {
-      "deviance": 1.3879157971215599,
-      "edf": 6.02062860152131,
+      "deviance": 1.38791579712156,
+      "edf": 6.0206286015213095,
       "intercept": 1.2117033510481068,
       "rss": 1.38791579712156
     },
@@ -247,7 +247,7 @@
   "api/generated/nampy.gam.results.GAMFitResult": {
     "fields": {
       "criterion_name": "reml",
-      "criterion_value": -52.715278377900326,
+      "criterion_value": -52.71527837790031,
       "family_name": "gaussian",
       "link_name": "identity"
     },
@@ -8035,7 +8035,7 @@
   },
   "statistical_reference/extensions/derivative_interval": {
     "fields": {
-      "critical_value": 2.8433224775068706
+      "critical_value": 2.8433224775068675
     },
     "kind": "FunctionalInterval",
     "omitted_fields": [
@@ -8178,7 +8178,7 @@
   },
   "statistical_reference/extensions/linear_functional_interval": {
     "fields": {
-      "critical_value": 1.8777571376221245
+      "critical_value": 1.8777571376221196
     },
     "kind": "FunctionalInterval",
     "omitted_fields": [
@@ -10965,7 +10965,7 @@
       ]
     }
   },
-  "statistical_reference/methods/aic": -119.92581008934735,
+  "statistical_reference/methods/aic": -119.92581008934738,
   "statistical_reference/methods/anova": {
     "fields": {
       "covariance": "bayes",
@@ -10997,7 +10997,7 @@
       0.02006
     ]
   },
-  "statistical_reference/methods/bic": -101.53134154679475,
+  "statistical_reference/methods/bic": -101.53134154679483,
   "statistical_reference/methods/concurvity": {
     "labels": {
       "items": [
@@ -11122,7 +11122,7 @@
   "statistical_reference/methods/fit_result": {
     "fields": {
       "criterion_name": "reml",
-      "criterion_value": -52.715278377900326,
+      "criterion_value": -52.71527837790031,
       "family_name": "gaussian",
       "link_name": "identity"
     },
@@ -11156,14 +11156,14 @@
         "values": [
           [
             6.0,
-            4.020579707819976,
-            1.1235005940607539,
+            4.020579707819975,
+            1.1235005940607536,
             1.0
           ],
           [
             5.0,
             1.000048893701336,
-            0.8218281859488793,
+            0.8218281859488787,
             0.1
           ]
         ]
@@ -11237,7 +11237,7 @@
         [
           0.00178,
           0.0,
-          3.763035846095363e+91
+          3.763035988729964e+91
         ]
       ]
     }
@@ -11262,14 +11262,14 @@
     "values": [
       [
         6.0,
-        4.020579707819976,
-        1.1235005940607539,
+        4.020579707819975,
+        1.1235005940607536,
         1.0
       ],
       [
         5.0,
         1.000048893701336,
-        0.8218281859488793,
+        0.8218281859488787,
         0.1
       ]
     ]
@@ -11295,7 +11295,7 @@
       ],
       "values": [
         0.91012,
-        12416993.79908
+        12416993.79903
       ]
     },
     "proposed_smoothing": {
@@ -11308,7 +11308,7 @@
       ],
       "values": [
         1.85987,
-        1.4253072605386627e+19,
+        1.4253072605375285e+19,
         1.03864
       ]
     }
@@ -11316,7 +11316,7 @@
   "statistical_reference/methods/parity_snapshot": {
     "fit": {
       "criterion_name": "reml",
-      "criterion_value": -52.715278377900326,
+      "criterion_value": -52.71527837790031,
       "family_name": "gaussian",
       "link_name": "identity",
       "omitted_fields": [
@@ -11348,8 +11348,8 @@
           "joint_log_sigma2"
         ],
         "recomputed_criterion_source": "smoothing_score",
-        "recomputed_criterion_value": -52.715278377900326,
-        "stored_criterion_value": -52.715278377900326
+        "recomputed_criterion_value": -52.71527837790031,
+        "stored_criterion_value": -52.71527837790031
       },
       "diagnostics": {
         "omitted_fields": [
@@ -11444,8 +11444,8 @@
     "predictions": {
       "link": {
         "items": [
-          1.3479291457229736,
-          0.9662065267399476
+          1.3479291457229738,
+          0.9662065267399479
         ],
         "kind": "list",
         "length": 96,
@@ -11466,8 +11466,8 @@
       ],
       "response": {
         "items": [
-          1.3479291457229736,
-          0.9662065267399476
+          1.3479291457229738,
+          0.9662065267399479
         ],
         "kind": "list",
         "length": 96,
@@ -11475,8 +11475,8 @@
       },
       "terms": {
         "items": [
-          0.2819394278979004,
-          -0.2029423403077169
+          0.28193942789790044,
+          -0.2029423403077168
         ],
         "kind": "list",
         "length": 192,
@@ -11615,8 +11615,8 @@
     },
     "ylim": {
       "items": [
-        -0.8174257720786209,
-        0.3458240848384644
+        -0.8174257720786204,
+        0.34582408483846444
       ],
       "kind": "tuple",
       "length": 2,
@@ -12158,24 +12158,7 @@
     }
   },
   "statistical_reference/methods/predict_terms": {
-    "3c5c7fba5805": {
-      "kind": "array",
-      "omitted_by_axis": [
-        90
-      ],
-      "shape": [
-        96
-      ],
-      "values": [
-        -0.14571,
-        -0.04255,
-        -0.14418,
-        -0.11667,
-        0.13433,
-        0.04235
-      ]
-    },
-    "a5349f011e1f": {
+    "c9c6491a1275": {
       "kind": "array",
       "omitted_by_axis": [
         90
@@ -12190,6 +12173,23 @@
         -0.0463,
         0.10676,
         -0.13891
+      ]
+    },
+    "dad2f5d236b7": {
+      "kind": "array",
+      "omitted_by_axis": [
+        90
+      ],
+      "shape": [
+        96
+      ],
+      "values": [
+        -0.14571,
+        -0.04255,
+        -0.14418,
+        -0.11667,
+        0.13433,
+        0.04235
       ]
     },
     "intercept": 1.2117033510481068,
