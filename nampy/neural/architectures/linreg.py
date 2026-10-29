@@ -21,17 +21,10 @@ class LinReg(BaseModel):
         num_feature_info,
         num_classes: int = 1,
         config: DefaultLinRegConfig | None = None,
-        **kwargs,
     ):
         if config is None:
             config = DefaultLinRegConfig()
-        super().__init__(**kwargs)
-        self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
-
-        self.lr = self.hparams.get("lr", config.lr)
-        self.lr_patience = self.hparams.get("lr_patience", config.lr_patience)
-        self.weight_decay = self.hparams.get("weight_decay", config.weight_decay)
-        self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
+        super().__init__()
 
         self.cat_feature_info = cat_feature_info
         self.num_feature_info = num_feature_info
@@ -39,7 +32,7 @@ class LinReg(BaseModel):
         self.num_classes = num_classes
 
         self.intercept: nn.Parameter | None
-        if self.hparams.get("intercept", getattr(config, "intercept", True)):
+        if getattr(config, "intercept", True):
             self.intercept = nn.Parameter(torch.zeros(num_classes))
         else:
             self.intercept = None

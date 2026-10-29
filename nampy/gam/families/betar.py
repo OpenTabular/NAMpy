@@ -116,6 +116,7 @@ def _beta_saturated_loglik(y, weights, theta, eps):
 class BetaRegressionFamily(ExtendedFamily):
     """``mgcv::betar`` for responses in ``(0, 1)``."""
 
+    pirls_curvature_mode = "extended"
     name = "betar"
     link_name = "logit"
     family_class = "extended"

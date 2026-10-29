@@ -214,7 +214,7 @@ def _gaussian_exact_unconditional_postfit(
         return None, None, FIT_PARAMETER_SPACE
 
     solution = solve_gaussian_given_smoothing(model, model.y_, sp)
-    criterion_y = getattr(solution, "criterion_response", None)
+    criterion_y = getattr(solution.fit_state, 'criterion_response', None)
     if criterion_y is None:
         criterion_y = model.y_
     kernel = _gdi1_kernel(
@@ -612,7 +612,7 @@ def _pirls_exact_unconditional_postfit(
         fit_result.cov_bayes is None
         or fit_result.H_coef is None
         or fit_state.X is None
-        or fit_state.P is None
+        or fit_state.working_penalty is None
     ):
         return None, None, FIT_PARAMETER_SPACE
 

@@ -71,12 +71,61 @@ BETA = (
     M(r"\operatorname{Var}(Y\mid x)=\frac{ab}{(a+b)^2(a+b+1)}"),
 )
 DISTRIBUTIONS = {
+    "normal_observation_lss": (
+        M(r"f_T(y)=f_N(y)/Z,\quad Z=F_N(U)-F_N(L)"),
+        M(r"\mu\in\mathbb R,\ \sigma>0,\ L<U"),
+        M(r"E_T[Y]=\mu+\sigma\{\varphi(a)-\varphi(b)\}/Z")+" with a=(L-mu)/sigma, b=(U-mu)/sigma; distinct from latent location.",
+        M(r"Var_T(Y)=\sigma^2[1+\{a\varphi(a)-b\varphi(b)\}/Z-(\{\varphi(a)-\varphi(b)\}/Z)^2]")+" with infinite endpoint products defined by their zero limits.",
+    ),
+    "bct_lss": (
+        M(r"f_Y(y)=\frac{(y/\mu)^\nu f_{t_\tau}(z)}{\sigma y F_{t_\tau}(1/(\sigma|\nu|))},\quad z=\frac{(y/\mu)^\nu-1}{\nu\sigma}"),
+        M(r"y,\mu,\sigma,\tau>0,\quad\nu\in\mathbb R")
+        + "; at nu=0, z=log(y/mu)/sigma and the normalizer is one. Tau is Student degrees of freedom.",
+        M(r"E[Y]=M_1,\quad M_k=\int_0^\infty y^k f_Y(y)\,dy")
+        + "; mu is a transformation parameter, not the response mean. The integral may diverge.",
+        M(r"\operatorname{Var}(Y)=M_2-M_1^2")
+        + " when both moments are finite. Shared prediction laws check moment existence explicitly.",
+    ),
+    "bcpe_lss": (
+        M(r"f_Y(y)=\frac{(y/\mu)^\nu f_{PE}(z;\tau)}{\sigma y F_{PE}(1/(\sigma|\nu|);\tau)},\quad z=\frac{(y/\mu)^\nu-1}{\nu\sigma}")
+        + "; " + M(r"f_{PE}(z;\tau)=\frac{\tau e^{-(|z|/\alpha)^\tau}}{2\alpha\Gamma(1/\tau)},\quad\alpha=\sqrt{\Gamma(1/\tau)/\Gamma(3/\tau)}"),
+        M(r"y,\mu,\sigma,\tau>0,\quad\nu\in\mathbb R")
+        + "; at nu=0, z=log(y/mu)/sigma and the normalizer is one. The latent PE has variance one; tau=2 gives BCCG.",
+        M(r"E[Y]=M_1,\quad M_k=\int_0^\infty y^k f_Y(y)\,dy")
+        + "; mu is not generally the response mean. Moments are evaluated only when finite.",
+        M(r"\operatorname{Var}(Y)=M_2-M_1^2")
+        + " when both moments are finite; shared prediction laws check existence explicitly.",
+    ),
+    "bccg_lss": (
+        M(r"f(y)=\frac{(y/\mu)^\nu\varphi(z)}{\sigma y\Phi(1/(\sigma|\nu|))},\quad z=\frac{(y/\mu)^\nu-1}{\nu\sigma}"),
+        M(r"y,\mu,\sigma>0,\quad\nu\in\mathbb R;\quad\nu=0:\ \log Y\sim N(\log\mu,\sigma^2)"),
+        M(r"E[Y]=M_1,\quad M_k=\mu^k E[U^{k/\nu}\mid U>0],\quad U\sim N(1,\sigma^2\nu^2)\quad(\nu\ne0)"),
+        M(r"\operatorname{Var}(Y)=M_2-M_1^2\text{ where finite};\quad\nu<0:\ M_k<\infty\iff\nu<-k"),
+    ),
     "normal": NORMAL,
     "poisson": POISSON,
     "studentt": STUDENT,
     "negativebinom": NEGATIVE_BINOMIAL,
     "gamma": GAMMA,
     "beta": BETA,
+    "beinf_lss": (
+        M(r"p_Y(y)=\begin{cases}\pi_0&y=0,\\\pi_1&y=1,\\\pi_I f_{\mathrm{Beta}}(y;\mu\phi,(1-\mu)\phi)&0<y<1,\end{cases}\quad\pi_I=1-\pi_0-\pi_1"),
+        M(r"0<\mu<1,\quad\phi>0,\quad\pi_0,\pi_1,\pi_I\geq0,\quad\pi_0+\pi_1+\pi_I=1"),
+        M(r"m=\mathbb E[Y\mid x]=\pi_1+\pi_I\mu"),
+        M(r"\operatorname{Var}(Y\mid x)=\pi_I\left[\frac{\mu(1-\mu)}{1+\phi}+(\mu-m)^2\right]+\pi_0m^2+\pi_1(1-m)^2"),
+    ),
+    "zaga_lss": (
+        M(r"p_Y(y)=\begin{cases}\pi_0&y=0,\\(1-\pi_0)\,f_\Gamma(y;a,\theta)&y>0,\end{cases}\quad a=\sigma^{-2},\ \theta=\mu\sigma^2"),
+        M(r"\mu>0,\quad\sigma>0,\quad0\leq\pi_0\leq1,\quad y\geq0"),
+        M(r"\mathbb E[Y\mid x]=(1-\pi_0)\mu"),
+        M(r"\operatorname{Var}(Y\mid x)=(1-\pi_0)\mu^2(\sigma^2+\pi_0)"),
+    ),
+    "betabinomial_lss": (
+        M(r"\Pr(Y=y)=\binom{m}{y}\frac{\mathrm B(y+\mu\kappa,m-y+(1-\mu)\kappa)}{\mathrm B(\mu\kappa,(1-\mu)\kappa)}"),
+        M(r"0<\mu<1,\quad\kappa>0,\quad m\in\mathbb N_0,\quad y\in\{0,\ldots,m\}"),
+        M(r"\mathbb E[Y\mid x,m]=m\mu"),
+        M(r"\operatorname{Var}(Y\mid x,m)=m\mu(1-\mu)\frac{m+\kappa}{1+\kappa}"),
+    ),
     "binomial": (
         M(r"\Pr(Y=y)=\binom{m}{y}p^y(1-p)^{m-y},\quad y\in\{0,\ldots,m\}")
         + "; Bernoulli when "
@@ -264,7 +313,33 @@ DISTRIBUTIONS = {
     ),
 }
 
+
+def _positive_observation_contract(base):
+    return (
+        M(r"f_T(y)=\frac{f(y)}{Z}\mathbf1(L<y<U),\quad Z=F(U)-F(L)")
+        + "; latent law: " + DISTRIBUTIONS[base][0]
+        + ". Exact observations contribute log density; censored intervals contribute log interval probability, each minus log Z.",
+        DISTRIBUTIONS[base][1] + "; fixed truncation satisfies 0<=L<U; infinite upper bounds are supported.",
+        M(r"E_T[Y]=\frac{1}{Z}\int_L^U y f(y)\,dy")
+        + "; the estimator's default point summary is the conditional median. This integral defines the mean mathematically; generic conditional mean evaluation is unsupported.",
+        M(r"\operatorname{Var}_T(Y)=\frac{1}{Z}\int_L^U y^2 f(y)\,dy-E_T[Y]^2")
+        + "; generic conditional variance evaluation is unsupported.",
+    )
+
+
+DISTRIBUTIONS.update({
+    name + "_observation_lss": _positive_observation_contract(name)
+    for name in ("lognormal", "weibull")
+})
+
 ALIASES = {
+    "bct": "bct_lss", "bcpe": "bcpe_lss",
+    "lognormal_observation": "lognormal_observation_lss",
+    "weibull_observation": "weibull_observation_lss",
+    "bccg":"bccg_lss", "beinf":"beinf_lss", "zaga":"zaga_lss",
+    "betabinomial":"betabinomial_lss", "normal_observation":"normal_observation_lss",
+    "lognormal_lss": "lognormal",
+    "weibull_lss": "weibull",
     "gaussian": "normal",
     "gaulss": "normal",
     "student_lss": "studentt",

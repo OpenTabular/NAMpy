@@ -6,7 +6,7 @@ Piecewise exponential survival data
 Types, defaults and output shapes
 ---------------------------------
 
-.. autofunction:: nampy.gam.extensions.piecewise_exponential_data
+.. autofunction:: nampy.survival.piecewise_exponential_data
 
 
 

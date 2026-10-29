@@ -176,3 +176,44 @@ extra for its independent 100-digit boundary references.
      tests/public_api/test_remaining_gamlss_families.py \
      tests/parity/test_gamlss_public_semantic_parity.py \
      tests/families/test_general_family_mgcv_parity.py -q
+
+Workflow and likelihood additions
+---------------------------------
+
+Subject-trajectory resampling retains every record of each sampled independent
+subject and assigns fresh occurrence IDs. Independent refits validate the
+statistical bootstrap; the same shared prediction/effect contract is exercised
+with native and gradient neural models. Failure draws are recorded rather than
+replaced. Temporal statistical PEM effects match new mgcv ti() captures.
+
+Cox third/fourth likelihood tensors match independent automatic differentiation;
+outer REML derivatives match numerical checks used only in tests. New mgcv
+captures validate smoothing endpoints, baseline q/a standard errors and raw
+Schoenfeld/score processes. Separate direct-baseline captures isolate two source
+1.9-4 stratum/offset reporting quirks. Stratified automatic Newton remains
+unsupported; stratified BFGS passes the fitted endpoint gate. Pointwise Wald
+intervals include baseline and coefficient variability conditional on smoothing;
+bootstrap inference re-estimates both.
+
+Adaptive qgam checks use installed qgam 2.0.1 and mgcv 1.9-4: initial Gaussian
+variance/penalty EDF, residual SHASH bandwidth, scale-profile REML criteria,
+posterior/sandwich prediction variances and final calibrated functions. A flat
+oversmoothing limit does not identify a unique smoothing coordinate. A nonlinear
+capture checks an identified finite smoothing parameter. The ELF adapter uses
+the existing extended-family PIRLS engine with exact outer derivatives; other
+families retain their declared source numerical staging. Independent selected-
+smoothing median coverage simulations exercise complete fits, without dropping
+failed draws or claiming universal coverage.
+
+BCT/BCPE finite moments match independent integrals of GAMLSS densities. Analytic
+existence gates distinguish divergent moments from unsupported finite numerical
+ranges. Neural BCCG/ZAGA/BEINF/beta-binomial use normalized differentiable losses
+and the same shared inference laws. They do not implement GAMLSS RS/backfitting.
+
+Normal observation composition checks exact/left/right/interval likelihoods,
+fixed truncation and far-tail probabilities. Analytic coefficient derivatives
+through order four match Torch, outer REML derivatives match test-only numerical
+checks, and an independent R normalized-likelihood optimizer validates fitted
+endpoints. This is separate from mgcv cnorm. Persisted distributed-lag marginal
+bases replay the established dlnm column-order reference; cumulative contrasts
+reuse full statistical coefficient covariance.

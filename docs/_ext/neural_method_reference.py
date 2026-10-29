@@ -9,7 +9,7 @@ METHODS = {
     "center_components": (
         "NAMRegressor",
         "AdditivePrediction",
-        "same n-row link/response shape",
+        "same (n,K) additive predictor shape",
         "Centered link-scale terms, with reference means transferred into the intercept.",
     ),
     "explain_terms": (
@@ -178,7 +178,7 @@ def generate(root):
             "training_history": "model.training_history()",
             "model_complexity": "model.model_complexity()",
             "get_params": "model.get_params(deep=False)",
-            "set_params": "model.set_params(lr=0.001)",
+            "set_params": "model.set_params(training__lr=0.001)",
         }
         if name in {"save_model", "load_model"}:
             code += """with TemporaryDirectory() as directory:

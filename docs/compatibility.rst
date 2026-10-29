@@ -394,7 +394,14 @@ variance. Native prediction routines retain those source behaviors.
 and second derivatives. Source likelihood weight conventions, offset guards,
 support boundaries and constructor quirks are documented in
 :doc:`api/gam_families`; no numerical derivative substitute is used for fitting.
-``cox.ph``/``cox.pht``, ``mvn`` and ``gfam`` remain outside this task's scope.
+The raw ``GAM`` family interface does not accept ``cox.ph``/``cox.pht``.
+The separate ``CoxGAM`` estimator supports static right-censored fixed and
+eligible automatic REML partial likelihood, validated against mgcv. Stratified
+automatic fitting requires BFGS; strict stratified Newton remains unavailable.
+Baseline-aware survival SE/pointwise intervals and bootstrap survival/RMST
+uncertainty are supported. Delayed entry and longitudinal/neural Cox remain
+unsupported. See :doc:`user_guide/survival` for source diagnostic quirks.
+``mvn`` and ``gfam`` remain outside this task's scope.
 
 General-family unconditional covariance requires the outer derivative state
 from smoothing selection. A genuinely fixed-SP fit does not acquire that
@@ -494,3 +501,24 @@ GAMs. See :doc:`user_guide/statistical_gams` for matrix coordinates and ordering
    :maxdepth: 1
 
    Published PreTab boundary <user_guide/pretab_compatibility>
+
+
+Calibrated quantiles and spline–neural composition
+--------------------------------------------------
+
+``CalibratedQuantileGAM`` implements qgam 2.0.1 calFast scalar loss-scale
+calibration for unweighted independent observations with supplied or adaptive
+ELF bandwidth and fixed or automatically selected REML smoothing. Pointwise intervals target the conditional quantile;
+they are approximate and distinct from response conformal intervals. R
+criterion/covariance/endpoints and an independent linear-median simulation
+validate this subset. Covariate-dependent scales,
+weighted/bootstrap calibration, simultaneous bands and noncrossing fits remain
+unsupported. Existing ``QuantileGAM`` fitting is unchanged. See
+:doc:`user_guide/quantile_inference`.
+
+``SemiStructuredRegressor``/``SemiStructuredClassifier``/``SemiStructuredLSS`` jointly train fixed-penalty
+structured effects and a weighted-orthogonalized neural representation. The
+projection is fitted on training rows and reused for all queries. Scalar numerical and fitted one-hot categorical features, scalar regression,
+classification, scalar LSS and exact predictor-width offsets are supported.
+Vector inputs/responses, joint REML and neural covariance intervals remain unsupported.
+See :doc:`user_guide/semistructured`.

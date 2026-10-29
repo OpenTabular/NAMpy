@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import copy
-import random
 from numbers import Integral
 
 import numpy as np
@@ -42,7 +41,23 @@ class NeuralEnsemble(BaseEstimator):
     def __sklearn_tags__(self):
         return copy.deepcopy(self.estimator.__sklearn_tags__())
 
-    def fit(self, X, y, **fit_params):
+    def fit(
+        self,
+        X,
+        y,
+        *,
+        X_val=None,
+        y_val=None,
+        offset=None,
+        offset_val=None,
+        sample_weight=None,
+        sample_weight_val=None,
+    ):
+        fit_params = {
+            name: value
+            for name, value in locals().copy().items()
+            if name not in {"self", "X", "y"} and value is not None
+        }
         if not isinstance(self.n_estimators, Integral) or self.n_estimators < 1:
             raise ValueError("n_estimators must be a positive integer.")
         if self._estimator_type not in {"classifier", "regressor"}:
@@ -50,22 +65,23 @@ class NeuralEnsemble(BaseEstimator):
                 "NeuralEnsemble requires a classifier or regressor estimator; "
                 "distributional/LSS ensembles need family-specific aggregation."
             )
-        base_seed = int(fit_params.pop("random_state", self.random_state))
+        base_seed = int(self.random_state)
         base_estimator = self.estimator
 
         def fit_member(index):
             member_seed = base_seed + index
-            random.seed(member_seed)
-            np.random.seed(member_seed)
-            try:
-                import torch
-
-                torch.manual_seed(member_seed)
-            except ImportError:  # pragma: no cover - neural estimators require torch
-                pass
             member = clone(base_estimator)
             member_fit_params = dict(fit_params)
-            member_fit_params["random_state"] = member_seed
+            if hasattr(member, "_resolved_training"):
+                from dataclasses import replace
+
+                member.set_params(
+                    training=replace(
+                        member._resolved_training(y), random_state=member_seed
+                    )
+                )
+            elif "random_state" in member.get_params(deep=False):
+                member.set_params(random_state=member_seed)
             member_X = X
             member_y = y
             if self.bootstrap:
@@ -80,14 +96,27 @@ class NeuralEnsemble(BaseEstimator):
                         )
             return member.fit(member_X, member_y, **member_fit_params)
 
-        self.estimators_ = Parallel(n_jobs=self.n_jobs)(
+        members = Parallel(n_jobs=self.n_jobs)(
             delayed(fit_member)(index) for index in range(int(self.n_estimators))
         )
         if self._estimator_type == "classifier":
-            classes = [tuple(member.classes_) for member in self.estimators_]
+            classes = [tuple(member.classes_) for member in members]
             if any(current != classes[0] for current in classes[1:]):
                 raise RuntimeError("Ensemble members learned inconsistent classes.")
             self.classes_ = np.asarray(classes[0])
+        self.estimators_ = members
+        return self
+
+    def set_params(self, **parameters):
+        if not parameters:
+            return self
+        replacement = clone(self)
+        BaseEstimator.set_params(replacement, **parameters)
+        replacement._estimator_type = getattr(
+            replacement.estimator, "_estimator_type", None
+        )
+        self.__dict__.clear()
+        self.__dict__.update(replacement.__dict__)
         return self
 
     def _members(self):
@@ -122,34 +151,68 @@ class NeuralEnsemble(BaseEstimator):
 
     @staticmethod
     def _aggregate_components(components):
-        keys = tuple(components[0].terms)
-        if any(tuple(component.terms) != keys for component in components[1:]):
-            raise RuntimeError("Ensemble members returned inconsistent additive terms.")
-        responses = np.stack([component.response for component in components], axis=0)
+        # Sparse/discovery-based architectures can learn different term supports
+        # across independent replicas.  A term omitted by a member contributes
+        # exactly zero for that member, so aggregate over the ordered union.  This
+        # also lets term_std reflect between-member selection instability.
+        if not components:
+            raise ValueError("At least one component record is required.")
+        first = components[0]
+        for part in components[1:]:
+            if (
+                part.backend != first.backend
+                or part.predictor_names != first.predictor_names
+            ):
+                raise ValueError(
+                    "Ensemble components must use the same predictor coordinates."
+                )
+            if (part.offset is None) != (first.offset is None) or (
+                part.offset is not None
+                and not np.array_equal(part.offset, first.offset, equal_nan=True)
+            ):
+                raise ValueError(
+                    "Ensemble components must use identical prediction offsets."
+                )
+        metadata = {}
+        for part in components:
+            for name, value in part.term_metadata.items():
+                if name in metadata and metadata[name] != value:
+                    raise ValueError(f"Ensemble term {name!r} has inconsistent metadata.")
+                metadata[name] = value
+        keys = tuple(
+            dict.fromkeys(name for component in components for name in component.terms)
+        )
         links = np.stack([component.link for component in components], axis=0)
         intercepts = np.stack(
-            [np.asarray(component.intercept) for component in components], axis=0
+            np.broadcast_arrays(
+                *[np.asarray(component.intercept) for component in components]
+            ),
+            axis=0,
         )
-        term_arrays = {
-            name: np.stack([component.terms[name] for component in components], axis=0)
-            for name in keys
-        }
+        term_arrays = {}
+        for name in keys:
+            template = next(
+                np.asarray(component.terms[name])
+                for component in components
+                if name in component.terms
+            )
+            term_arrays[name] = np.stack(
+                [
+                    np.asarray(component.terms[name])
+                    if name in component.terms
+                    else np.zeros_like(template)
+                    for component in components
+                ],
+                axis=0,
+            )
         first = components[0]
         mean = AdditivePrediction(
-            response=responses.mean(axis=0),
             link=links.mean(axis=0),
             terms={name: values.mean(axis=0) for name, values in term_arrays.items()},
             intercept=intercepts.mean(axis=0),
             backend=first.backend,
-            term_metadata={
-                name: next(
-                    part.term_metadata[name]
-                    for part in components
-                    if name in part.term_metadata
-                )
-                for name in keys
-                if any(name in part.term_metadata for part in components)
-            },
+            predictor_names=first.predictor_names,
+            term_metadata=metadata,
             offset=first.offset,
         )
         intercept_std = intercepts.std(axis=0)
@@ -157,7 +220,6 @@ class NeuralEnsemble(BaseEstimator):
             intercept_std = float(np.asarray(intercept_std).reshape(-1)[0])
         return EnsembleAdditivePrediction(
             mean=mean,
-            response_std=responses.std(axis=0),
             link_std=links.std(axis=0),
             term_std={name: values.std(axis=0) for name, values in term_arrays.items()},
             intercept_std=intercept_std,

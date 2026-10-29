@@ -157,7 +157,7 @@ def _negbin_joint_kernel_state(model, y, log_sp, log_theta, method):
         )
         state = {
             "theta": float(theta),
-            "scale_est": float(sol["scale"]),
+            "scale_est": float(sol.fit_result.scale),
             "Dp": float(gdi2.Dp),
             "Dp1": np.asarray(gdi2.Dp1, dtype=np.float64),
             "Dp2": np.asarray(gdi2.Dp2, dtype=np.float64),
@@ -233,13 +233,7 @@ def gdi2_negbin_joint_kernel(model, y, sol, sp, *, method, need_hessian):
     pk_state = setup.pk
     ift = _gdi2_ift2_state_theta(model, y, sol, sp, current, pk_state)
     weights = _prior_weights(model, y)
-    dd = _family_ddeta_logtheta(
-        model.family,
-        y,
-        np.asarray(sol["mu"], dtype=np.float64),
-        weights,
-        deriv=2,
-    )
+    dd = _family_ddeta_logtheta(model.family, y, np.asarray(sol.fit_result.mu, dtype=np.float64), weights, deriv=2)
     D1, D2 = _gdi2_deviance_derivatives(
         current, ift, dd, include_theta=True, need_hessian=need_hessian
     )
@@ -270,7 +264,7 @@ def gdi2_negbin_joint_kernel(model, y, sol, sp, *, method, need_hessian):
         method=method,
         rank_tol=_MGCV_GAM_FIT4_RANK_TOL,
     )
-    Dp = float(sol["deviance"]) + float(bSb)
+    Dp = float(sol.fit_result.deviance) + float(bSb)
     Dp1 = np.asarray(D1 + bSb1, dtype=np.float64)
     Dp2 = None if D2 is None else np.asarray(D2 + bSb2, dtype=np.float64)
     return _GDI2Kernel(

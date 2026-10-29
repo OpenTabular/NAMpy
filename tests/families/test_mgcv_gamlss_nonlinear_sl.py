@@ -677,8 +677,8 @@ def test_solve_general_family_fit_accepts_model_generated_nonlinear_sl():
         np.array([2.0, 3.0], dtype=np.float64),
     )
 
-    assert_allclose(sol.beta, np.array([0.25, -0.2], dtype=np.float64), atol=1e-10)
-    assert_allclose(sol.penalty_matrix, np.diag([3.0, 4.0]), atol=1e-12)
+    assert_allclose(sol.fit_result.beta, np.array([0.25, -0.2], dtype=np.float64), atol=1e-10)
+    assert_allclose(sol.fit_state.penalty_matrix, np.diag([3.0, 4.0]), atol=1e-12)
 
 
 def test_solve_general_family_fit_applies_exact_nonlinear_vb_corr():
@@ -714,11 +714,11 @@ def test_solve_general_family_fit_applies_exact_nonlinear_vb_corr():
     )
 
     fixed = solve_general_family_fit(model, y, sp)
-    assert_allclose(fixed.cov_unconditional, fixed.cov_bayes, atol=1e-12)
+    assert_allclose(fixed.fit_result.cov_unconditional, fixed.fit_result.cov_bayes, atol=1e-12)
     # gam.fit5.post.proc requires an actual outer Hessian. An inner REML2
     # alone must not invent smoothing uncertainty for a fixed-SP model.
     model._optim_result = SimpleNamespace(hess=np.asarray(fit["REML2"]))
     sol = solve_general_family_fit(model, y, sp)
 
     assert float(np.trace(with_exact["Vc"])) > float(np.trace(without_exact["Vc"]))
-    assert_allclose(sol.cov_unconditional, with_exact["Vc"], atol=1e-12)
+    assert_allclose(sol.fit_result.cov_unconditional, with_exact['Vc'], atol=1e-12)

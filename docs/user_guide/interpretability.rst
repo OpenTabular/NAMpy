@@ -49,11 +49,14 @@ contract:
 
 .. code-block:: python
 
+
+   from dataclasses import replace
+   from nampy.neural.configuration import GradientTrainingConfig
    from nampy.models import NAMRegressor
-   
+
    model = NAMRegressor()
-   model.fit(X_train, y_train, max_epochs=100)
-   
+   model.set_params(training=replace(model.training or GradientTrainingConfig(), max_epochs=100)).fit(X_train, y_train)
+
    components = model.predict_components(X_test, center=True, reference_X=X_train)
    table = model.explain_terms(X_test, center=True, reference_X=X_train)
    importance = model.term_importance(X_test, center=True, reference_X=X_train)
@@ -146,9 +149,11 @@ parameter links before plotting, through ``predict_point`` and
 
 .. code-block:: python
 
+
+   from nampy.neural.configuration import ObjectiveConfig
    from nampy.models import NAMLSS
 
-   model = NAMLSS(family="normal").fit(X_train, y_train)
+   model = NAMLSS(objective=ObjectiveConfig(family='normal')).fit(X_train, y_train)
    figures = model.plot_distributional_effects(
        X_test,
        reference_X=X_train,

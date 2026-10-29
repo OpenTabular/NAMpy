@@ -1044,7 +1044,7 @@ class TestMgcvDeviancePenaltyScaleAssembly:
         gam = _fit_nampy_model(data, formula, "gaussian", "REML")
         sp = np.asarray(gam.smoothing_params, dtype=np.float64)
         sol = solve_gaussian_fit(gam, gam.y_, sp)
-        pen_py = quadratic_form_penalty(sol.coef_full, sol.penalty_matrix)
+        pen_py = quadratic_form_penalty(sol.fit_result.coef_full, sol.fit_state.penalty_matrix)
         pen_r = float(snap["fit"]["penalty_quadratic"])
         np.testing.assert_allclose(pen_py, pen_r, rtol=2e-5, atol=2e-5)
 
@@ -1090,7 +1090,7 @@ class TestMgcvDeviancePenaltyScaleAssembly:
             gam.smoothing_params,
             weights=gam.prior_weights_,
         )
-        pen_py = quadratic_form_penalty(sol.coef_full, sol.penalty_matrix)
+        pen_py = quadratic_form_penalty(sol.fit_result.coef_full, sol.fit_state.penalty_matrix)
         np.testing.assert_allclose(
             pen_py,
             float(snap["fit"]["penalty_quadratic"]),
@@ -1142,13 +1142,13 @@ class TestGaussianPriorWeights:
             gam.smoothing_params,
             weights=gam.prior_weights_,
         )
-        X = np.asarray(sol.X, dtype=np.float64)
-        P = np.asarray(sol.penalty_matrix, dtype=np.float64)
+        X = np.asarray(sol.fit_state.X, dtype=np.float64)
+        P = np.asarray(sol.fit_state.penalty_matrix, dtype=np.float64)
         y_work = np.asarray(gam.y_, dtype=np.float64).ravel()
         lhs = X.T @ (w[:, np.newaxis] * X) + P
         rhs = X.T @ (w * y_work)
         beta_manual = np.linalg.solve(lhs, rhs)
-        np.testing.assert_allclose(sol.coef_full, beta_manual, rtol=0.0, atol=1e-9)
+        np.testing.assert_allclose(sol.fit_result.coef_full, beta_manual, rtol=0.0, atol=1e-09)
 
     def test_sample_weight_bad_length_raises(self):
         data = _make_gaussian_data()
@@ -1222,13 +1222,11 @@ class TestGaussianPriorWeightsMgcvParity:
 
         sol = solve_gaussian_fit(core, core.y_, sp, weights=core.prior_weights_)
         yv = np.asarray(core.y_, dtype=np.float64).ravel()
-        mu = np.asarray(sol.mu, dtype=np.float64).ravel()
+        mu = np.asarray(sol.fit_result.mu, dtype=np.float64).ravel()
         wv = d["w"].to_numpy(dtype=np.float64)
         dev = gaussian_weighted_residual_sum_squares(yv, mu, wv)
-        Pq = quadratic_form_penalty(sol.coef_full, sol.penalty_matrix)
-        c_a, _ = cho_factor(
-            np.asarray(sol.A, dtype=np.float64), lower=True, check_finite=False
-        )
+        Pq = quadratic_form_penalty(sol.fit_result.coef_full, sol.fit_state.penalty_matrix)
+        c_a, _ = cho_factor(np.asarray(sol.fit_state.A, dtype=np.float64), lower=True, check_finite=False)
         logdet_a = 2.0 * float(np.sum(np.log(np.abs(np.diag(c_a)))))
         logdet_s = float(_stable_penalty_logdet(core, sp))
         mp = float(

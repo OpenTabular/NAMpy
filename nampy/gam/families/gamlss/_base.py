@@ -174,7 +174,7 @@ class GamlssFamily(GeneralFamily):
         )
 
     def distribution_parameter_jacobian(self, eta: np.ndarray) -> np.ndarray:
-        """Return diagonal ``d parameter / d eta`` values with shape ``(n, K)``."""
+        """Return diagonal (n,K) or coupled (n,parameters,K) parameter Jacobians."""
         raise NotImplementedError(
             f"{self.__class__.__name__} does not define parameter derivatives."
         )

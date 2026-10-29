@@ -2,7 +2,7 @@
 
 import numpy as np
 import torch
-from nampy.neural.distributions.distributions import LogNormalDistribution
+from nampy.neural.families.continuous import LogNormalDistribution
 
 family = LogNormalDistribution()
 n = 8

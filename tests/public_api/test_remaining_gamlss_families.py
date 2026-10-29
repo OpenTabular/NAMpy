@@ -182,8 +182,8 @@ def test_natural_parameters_points_scores_and_component_shapes(fitted_family):
     assert model.evaluate(frame, frame.y)["Negative Log-Likelihood"] == pytest.approx(-np.mean(density), abs=2e-12, rel=2e-12)
     components = model.predict_components(frame)
     components.validate_additive_reconstruction()
-    np.testing.assert_array_equal(components.response, model.predict(frame))
-    assert components.link.shape == params.shape
+    np.testing.assert_array_equal(components.link, eta)
+    assert components.link.shape == eta.shape
     assert model.standard_errors(frame).shape == params.shape
     assert model.standard_errors(frame, type="link").shape == eta.shape
     if name != "multinom":
@@ -202,8 +202,8 @@ def test_natural_parameters_points_scores_and_component_shapes(fitted_family):
             jacobian = np.column_stack((np.exp(eta[:, 0]), (family.b - family.a) * q * (1 - q), np.exp(eta[:, 2])))
         np.testing.assert_allclose(model.standard_errors(frame), jacobian * model.standard_errors(frame, type="link"), atol=2e-12, rtol=2e-12)
     for term, metadata in components.term_metadata.items():
-        assert metadata.parameter in model.parameter_names_
-        assert components.terms[term].shape == params.shape
+        assert metadata.parameter in model.predictor_names_
+        assert components.terms[term].shape == eta.shape
 
 
 def test_registered_general_family_persistence_roundtrip(fitted_family, tmp_path):
@@ -241,13 +241,9 @@ def test_multinom_baseline_components_and_full_coefficient_delta_covariance(K, t
     np.testing.assert_allclose(probability, softmax(np.column_stack((np.zeros(len(new)), eta)), axis=1), atol=2e-15)
     components = model.predict_components(new)
     components.validate_additive_reconstruction()
-    np.testing.assert_array_equal(components.link[:, 0], 0)
-    np.testing.assert_array_equal(components.intercept[0], 0)
-    np.testing.assert_array_equal(components.link[:, 1:], eta)
-    for values in components.terms.values():
-        np.testing.assert_array_equal(values[:, 0], 0)
-    if components.offset is not None:
-        np.testing.assert_array_equal(components.offset[:, 0], 0)
+    np.testing.assert_array_equal(components.link, eta)
+    assert components.predictor_names == model.predictor_names_
+    assert all(value.shape == eta.shape for value in components.terms.values())
 
     # Independent coefficient-space delta covariance. Keep every cross-LP
     # covariance, including negative ones: unlike native mgcv prediction,

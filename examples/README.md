@@ -11,6 +11,7 @@ use the [API reference](../docs/api/index.rst).
 
 | Script | Focus |
 |---|---|
+| `example_boxcox_tail_probabilities.py` | shared BCT/BCPE probabilities, centiles and sampling; moments and fitting unavailable |
 | `example_gam.py` | binomial GAM classification and link-scale decomposition |
 | `example_gam2.py` | Gaussian GAM smoothing with fixed, GCV, and REML fits |
 | `example_scat_gam.py` | scaled-t location with fixed ancillary parameters |
@@ -19,6 +20,7 @@ use the [API reference](../docs/api/index.rst).
 | `example_clog_gam.py` | logistic location, paired censor bounds, and additive reconstruction |
 | `example_cpois_gam.py` | censored Poisson counts, latent means, and prediction uncertainty |
 | `example_bcg_gam.py` | censored Box-Cox Gaussian location with estimated lambda and SD |
+| `example_bccg_probabilities.py` | shared BCCG probabilities, centiles and moments; fitting unavailable |
 | `example_soap_compositions.py` | known-boundary soap tensors and matrix-coordinate factor smooths |
 | `example_bs_constraints.py` | derivative-penalized B-splines with explicit coefficient constraints |
 | `example_matrix_factor.py` | soap functionals with explicit factors varying across quadrature locations |
@@ -29,6 +31,8 @@ use the [API reference](../docs/api/index.rst).
 | `example_gevlss_gam.py` | generalized extreme value location, log scale, and shape |
 | `example_shash_gamlss.py` | sinh-arcsinh location, scale, skewness, tail shape, and additive components |
 | `example_twlss_gamlss.py` | Tweedie mean, power, and dispersion with EFS selection |
+| `example_distribution_diagnostics.py OUTPUT_DIR` | held-out NB2 quantile residuals, grouped worm plots, conditional centiles and attainable-probability calibration |
+| `example_distribution_comparison.py [--neural]` | common held-out log scores, retained failures, weighted ranking and distinct statistical convergence/neural completion |
 | `example_nam.py` | mixed-feature NAM regression |
 | `example_gpnam.py` | GPNAM smooth additive regression |
 | `example_nbm.py` | NBM main effects and a pairwise interaction |

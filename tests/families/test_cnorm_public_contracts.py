@@ -27,7 +27,7 @@ def test_cnorm_adapter_prediction_components_match_upstream():
     components = model.predict_components(newdata)
     components.validate_additive_reconstruction()
     np.testing.assert_allclose(
-        components.response, reference["prediction"], atol=2e-7, rtol=2e-7
+        components.link[:, 0], reference["prediction"], atol=2e-7, rtol=2e-7
     )
 
 

@@ -1330,13 +1330,15 @@ def test_stage_7_persistence_rejects_corrupt_and_non_model_payloads(tmp_path):
     """Persistence failures are explicit for damaged or wrong-type state."""
     corrupt = tmp_path / "corrupt.pkl"
     corrupt.write_bytes(b"not a pickle payload")
-    with pytest.raises((pickle.UnpicklingError, EOFError)):
+    with pytest.raises(ValueError, match="not a supported NAMpy estimator artifact"):
         GAM.load_model(corrupt)
 
     wrong_type = tmp_path / "wrong-type.pkl"
-    with wrong_type.open("wb") as stream:
-        pickle.dump({"_fitted": True}, stream)
-    with pytest.raises(TypeError, match=r"contains dict, not GAM\.$"):
+    GAM().save_model(wrong_type)
+    with wrong_type.open("rb") as stream:
+        header = stream.readline() + stream.readline()
+    wrong_type.write_bytes(header + pickle.dumps({"_fitted": True}))
+    with pytest.raises(TypeError, match="unexpected estimator state"):
         GAM.load_model(wrong_type)
 
 

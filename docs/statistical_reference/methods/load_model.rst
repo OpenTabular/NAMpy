@@ -10,7 +10,7 @@ Signature
 
 .. code-block:: python
 
-   GAM.load_model(path, device='cpu')
+   GAM.load_model(path)
 
 Parameters
 ----------
@@ -29,10 +29,6 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``str | pathlib.Path``
      - Required
      - Filesystem destination/source for a serialized model. Load only trusted pickle-based artifacts.
-   * - ``device``
-     - ``str``
-     - ``'cpu'``
-     - Device used by the architecture-native solver.
 
 Returns
 -------

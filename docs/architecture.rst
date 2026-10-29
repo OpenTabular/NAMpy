@@ -10,6 +10,19 @@ combine a registered architecture with an objective and delegate training to
 ``nampy.neural``. The statistical engine uses mgcv and scam as behavioral
 references. They are not runtime dependencies or additional NAMpy backends.
 
+The public task packages are ``distributions`` (probability queries),
+``diagnostics`` (residuals and centiles), ``inspection`` (effects and importance),
+``plotting`` (rendering), ``calibration`` and ``survival``. Shared distribution
+contracts live with probability laws; generic feature/additive contracts remain
+in ``nampy.contracts``. See :doc:`user_guide/api_and_families` for canonical
+imports and the generated backend support table.
+
+Training families are named by their owner: ``gam/families`` supplies statistical
+likelihood derivatives and ``neural/families`` supplies Torch losses. Their
+registries own constructor options and probability-prediction adapters.
+Statistical row-correlation transforms live in ``gam/correlation``. Quantile loss
+and the common parameterized-response objective base live in ``neural/objectives``.
+
 .. image:: /_static/backend_architecture.svg
    :alt: Public estimators delegate to statistical or neural backends, which return shared additive prediction contracts
    :class: scientific-figure
@@ -225,8 +238,8 @@ Extension points
   The :doc:`custom-model guide <user_guide/custom_models>` explains feature
   blocks, output width, and named contribution tensors.
 * **Neural objective or distribution:** put target encoding, per-row loss,
-  prediction semantics, and metrics in ``objectives.py`` or
-  ``neural/distributions/``. Keep them independent of the forward architecture.
+  prediction semantics, and metrics in ``neural/objectives/`` or
+  ``neural/families/``. Keep them independent of the forward architecture.
 * **Smooth or statistical fitting change:** work in ``nampy/gam/`` and identify
   the relevant basis, penalty, coefficient solver, or smoothing-selection
   layer. Preserve explicit compatibility checks and the upstream statistical
@@ -318,3 +331,34 @@ and upstream mappings are maintained in :doc:`development/neighbor_parity`.
    :maxdepth: 1
 
    Statistical extension validation <development/neighbor_parity>
+
+Explicit ownership at public boundaries
+---------------------------------------
+
+Additive decompositions contain actual predictor coordinates only. ``link`` and
+all contributions have shape ``(n, K)`` and ``predictor_names`` names those K
+predictors. Response predictions belong to estimator methods; natural parameters
+and probability queries belong to ``DistributionPrediction``. These widths may
+differ: BEINF has four predictors and five natural parameters, while multinomial
+models have K predictors and K+1 probabilities. No reference column is inserted
+into an additive decomposition.
+
+``nampy.inspection`` owns numerical preparation of distributional effects.
+Backend adapters evaluate hypothetical predictor arrays through
+``summarize_predictors``. Renderers consume prepared numerical data and do not
+inspect neural objectives or import Torch. Conditional distribution spread and
+between-fit variability remain separate quantities.
+
+Neural constructor configuration uses explicit architecture, objective, training
+and preprocessing records. Training preparation, route selection, gradient
+execution and native/fixed execution have separate owners. The published neural
+prediction module contains no Lightning training runtime. See
+:doc:`/user_guide/training` for configuration and refit semantics.
+
+The statistical fitting core returns ``FitCoreSolution.fit_result`` and
+``FitCoreSolution.fit_state`` explicitly. Solver dictionaries are assembled at the
+private solver boundary; there is no dictionary or attribute forwarding from the
+solution record. Established asymmetric losses live in ``gam.losses``, functional
+inference in ``gam.inference.functionals``, and lag/survival construction in
+``gam.structured``. Statistical solver arithmetic and compilation stages retain
+their mgcv semantics.

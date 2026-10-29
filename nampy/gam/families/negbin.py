@@ -9,6 +9,7 @@ from .family_base import ExtendedFamily, JointOuterStrategy
 class NegativeBinomialLogFamily(ExtendedFamily):
     """Negative binomial family with log link. Matches mgcv::negbin(link="log")."""
 
+    pirls_curvature_mode = "extended"
     name = "negbin"
     link_name = "log"
     canonical_link = False

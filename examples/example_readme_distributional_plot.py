@@ -1,5 +1,11 @@
 """Generate the distributional feature-effect plot shown in the README."""
 
+from dataclasses import replace
+from nampy.neural.configs.nam_config import DefaultNAMConfig
+from nampy.neural.configuration import GradientTrainingConfig
+from nampy.neural.configuration import ObjectiveConfig
+from nampy.neural.configuration import PreprocessingConfig
+
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -28,25 +34,9 @@ def main() -> None:
     )
     y = location + rng.normal(0.0, scale, n)
 
-    model = NAMLSS(
-        family="normal",
-        layer_sizes=[48, 24],
-        dropout=0.0,
-        numerical_preprocessing="minmax",
-    )
+    model = NAMLSS(architecture_config=DefaultNAMConfig(layer_sizes=[48, 24], dropout=0.0), objective=ObjectiveConfig(family='normal'), preprocessing=PreprocessingConfig(numerical_preprocessing='minmax'))
     with TemporaryDirectory() as checkpoint_dir:
-        model.fit(
-            X,
-            y,
-            max_epochs=100,
-            batch_size=128,
-            patience=12,
-            random_state=11,
-            checkpoint_path=checkpoint_dir,
-            logger=False,
-            enable_progress_bar=False,
-            enable_model_summary=False,
-        )
+        model.set_params(training=replace(model.training or GradientTrainingConfig(), max_epochs=100, batch_size=128, patience=12, random_state=11, checkpoint_path=checkpoint_dir, trainer_kwargs={'logger': False, 'enable_progress_bar': False, 'enable_model_summary': False})).fit(X, y)
 
     figures = model.plot_distributional_effects(
         X,

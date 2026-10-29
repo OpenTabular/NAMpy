@@ -10,12 +10,6 @@ import torch.nn as nn
 class DefaultSIANConfig:
     """SIAN architecture, sparse search, and reference-network controls."""
 
-    lr: float = 5e-3
-    lr_patience: int = 10
-    weight_decay: float = 0.0
-    lr_factor: float = 0.1
-    lr_schedule: str = "plateau"
-    optimizer: str = "adagrad"
     layer_sizes: List[int] = field(default_factory=lambda: [16, 12, 8])
     activation: Any = nn.ReLU
     dropout: float = 0.0
@@ -26,9 +20,7 @@ class DefaultSIANConfig:
     l1_regularization: float = 5e-5
     execution_mode: str = "block_masked"
     residual_network: bool = False
-    residual_layer_sizes: List[int] = field(
-        default_factory=lambda: [256, 128, 64]
-    )
+    residual_layer_sizes: List[int] = field(default_factory=lambda: [256, 128, 64])
 
     interaction_detector: str = "archipelago"
     max_interaction_order: int = 3
@@ -43,9 +35,7 @@ class DefaultSIANConfig:
     selection_max_pairs: int = 1024
     selection_batch_size: int = 1024
     selection_output_index: int = 0
-    reference_layer_sizes: List[int] = field(
-        default_factory=lambda: [256, 128, 64]
-    )
+    reference_layer_sizes: List[int] = field(default_factory=lambda: [256, 128, 64])
     reference_epochs: int = 100
     reference_batch_size: int = 128
     reference_lr: float = 5e-3

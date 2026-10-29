@@ -1,0 +1,9 @@
+# Development reference clones and local execution output are not package sources.
+prune nampy_notes
+prune upstreams
+prune build
+prune dist
+prune model_checkpoints
+prune lightning_logs
+prune .venv
+global-exclude __pycache__ *.py[cod] *:Zone.Identifier

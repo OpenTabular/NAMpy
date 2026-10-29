@@ -1,12 +1,12 @@
 import math
-from typing import Any, Type
+from typing import Type
 
 import lightning as pl
 import torch
 import torch.nn as nn
 
+from .configuration import GradientTrainingConfig
 from .contracts import harvest_penalties
-from .objectives import objective_from_legacy
 
 
 class TaskModule(pl.LightningModule):
@@ -18,25 +18,13 @@ class TaskModule(pl.LightningModule):
         config,
         cat_feature_info,
         num_feature_info,
-        num_classes=1,  # semantic class count for classification, output dim for regression/LSS
-        task: str | None = None,
-        lss=False,
-        family=None,
+        training: GradientTrainingConfig,
         objective=None,
-        loss_fct: Any = None,
-        optimizer="adam",
-        optimizer_kwargs=None,
-        lr_warmup_steps=0,
-        lr_decay_steps=0,
-        lr_decay_factor=0.2,
-        lr_schedule="plateau",
-        scheduler_monitor="val_loss",
-        scheduler_mode="min",
+        reconstruction_width=None,
         pretraining=False,
         pretraining_ratio=0.15,
         pretraining_noise=0.1,
         pretraining_feature_mask=True,
-        **kwargs,
     ):
         super().__init__()
 
@@ -45,70 +33,47 @@ class TaskModule(pl.LightningModule):
         self.pretraining_noise = float(pretraining_noise)
         self.pretraining_feature_mask = bool(pretraining_feature_mask)
         if self.pretraining:
+            if reconstruction_width is None:
+                raise ValueError("Pretraining requires reconstruction_width.")
             self.objective = None
             self.task_kind = "pretraining"
-            self.output_dim = int(num_classes)
+            self.output_dim = int(reconstruction_width)
         else:
             if objective is None:
-                objective = objective_from_legacy(
-                    num_classes=num_classes,
-                    task=task,
-                    lss=lss,
-                    family=family,
-                    loss_fct=loss_fct,
-                )
+                raise TypeError("TaskModule requires an explicit objective.")
             self.objective = objective
             self.task_kind = objective.kind
             self.output_dim = objective.output_dim
-        self.n_classes = int(num_classes)
-
-        # Avoid checkpoint bloat / pickle issues
-        ignore_list = [
-            "model_class",
-            "loss_fct",
-            "family",
-            "objective",
-            "cat_feature_info",
-            "num_feature_info",
-            "base_model_class",
-            "gam_payload",
-        ]
-        self.save_hyperparameters(ignore=ignore_list)
-
-        self.lr = self.hparams.get("lr", config.lr)
-        self.lr_patience = self.hparams.get("lr_patience", config.lr_patience)
-        self.weight_decay = self.hparams.get("weight_decay", config.weight_decay)
-        self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
-        self.optimizer_name = optimizer
-        self.optimizer_kwargs = dict(optimizer_kwargs or {})
-        self.lr_warmup_steps = int(lr_warmup_steps)
-        self.lr_decay_steps = int(lr_decay_steps)
-        self.lr_decay_factor = float(lr_decay_factor)
-        self.lr_schedule = str(lr_schedule).lower()
-        if self.lr_warmup_steps < 0 or self.lr_decay_steps < 0:
-            raise ValueError("lr_warmup_steps and lr_decay_steps must be non-negative.")
-        if not 0 < self.lr_decay_factor <= 1:
-            raise ValueError("lr_decay_factor must lie in (0, 1].")
-        if self.lr_schedule not in {
-            "plateau",
-            "inverse_sqrt",
-            "cosine",
-            "warmup_cosine",
-            "none",
-        }:
-            raise ValueError(
-                "lr_schedule must be 'plateau', 'inverse_sqrt', 'cosine', "
-                "'warmup_cosine', or 'none'."
+        self.n_classes = self.output_dim
+        self.save_hyperparameters(
+            ignore=["model_class", "objective", "cat_feature_info", "num_feature_info"]
+        )
+        if not isinstance(training, GradientTrainingConfig):
+            raise TypeError(
+                "TaskModule requires a resolved gradient training configuration."
             )
-        self.scheduler_monitor = scheduler_monitor
-        self.scheduler_mode = scheduler_mode
+        for name in (
+            "lr",
+            "lr_patience",
+            "weight_decay",
+            "lr_factor",
+            "lr_warmup_steps",
+            "lr_decay_steps",
+            "lr_decay_factor",
+            "lr_schedule",
+        ):
+            setattr(self, name, getattr(training, name))
+        self.optimizer_name = training.optimizer
+        self.optimizer_kwargs = dict(training.optimizer_kwargs)
+        self.scheduler_monitor = training.monitor
+        self.scheduler_mode = training.mode
+        self.training_config = training
 
         self.model = model_class(
             config=config,
             num_feature_info=num_feature_info,
             cat_feature_info=cat_feature_info,
             num_classes=self.output_dim,
-            **kwargs,
         )
 
     def forward(self, num_features, cat_features):
@@ -124,7 +89,11 @@ class TaskModule(pl.LightningModule):
             return None
         return getattr(self.objective, "family", None)
 
-    def compute_loss(self, predictions, y_true, sample_weight=None):
+    def compute_loss(self, predictions, y_true, sample_weight=None, *, stage=None):
+        if stage is not None:
+            return self.objective.compute_stage_loss(
+                predictions, y_true, sample_weight=sample_weight, stage=stage
+            )
         return self.objective.compute_loss(
             predictions, y_true, sample_weight=sample_weight
         )
@@ -161,8 +130,12 @@ class TaskModule(pl.LightningModule):
                     f"Per-sample offsets are not supported for {self.task_kind} "
                     "objectives."
                 )
-            preds = preds + offset
-        data_loss = self.compute_loss(preds, labels, sample_weight=sample_weight)
+            from .offsets import add_predictor_offset
+
+            preds = add_predictor_offset(preds, offset)
+        data_loss = self.compute_loss(
+            preds, labels, sample_weight=sample_weight, stage=stage
+        )
         loss = data_loss
         penalty = harvest_penalties(result)
         if penalty is not None:
@@ -175,6 +148,7 @@ class TaskModule(pl.LightningModule):
             on_epoch=True,
             prog_bar=True,
             logger=True,
+            batch_size=preds.shape[0],
         )
 
         self._log_task_metrics(stage, preds, labels, data_loss)
@@ -188,14 +162,10 @@ class TaskModule(pl.LightningModule):
             raise ValueError("Masked reconstruction requires at least one feature.")
         tensors = [tensor.float() for _, tensor in ordered]
         targets = torch.cat(tensors, dim=1)
-        masks = torch.bernoulli(
-            torch.full_like(targets, self.pretraining_ratio)
-        )
+        masks = torch.bernoulli(torch.full_like(targets, self.pretraining_ratio))
         applied_masks = masks
         if self.pretraining_noise > 0:
-            applied_masks = torch.bernoulli(
-                (1.0 - self.pretraining_noise) * masks
-            )
+            applied_masks = torch.bernoulli((1.0 - self.pretraining_noise) * masks)
         masked = (1.0 - applied_masks) * targets
 
         masked_num = {}
@@ -290,9 +260,7 @@ class TaskModule(pl.LightningModule):
             def cosine_multiplier(step):
                 if warmup_steps > 0 and step < warmup_steps:
                     return (step + 1) / warmup_steps
-                progress = (step - warmup_steps) / max(
-                    total_steps - warmup_steps, 1
-                )
+                progress = (step - warmup_steps) / max(total_steps - warmup_steps, 1)
                 progress = min(max(progress, 0.0), 1.0)
                 return 0.5 * (1.0 + math.cos(math.pi * progress))
 
@@ -306,6 +274,7 @@ class TaskModule(pl.LightningModule):
             return {"optimizer": optimizer, "lr_scheduler": scheduler}
 
         if self.lr_warmup_steps > 0 or self.lr_decay_steps > 0:
+
             def lr_multiplier(step):
                 warmup = 1.0
                 if self.lr_warmup_steps > 0:

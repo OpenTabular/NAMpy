@@ -8,10 +8,12 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "docs/scripts"))
 sys.path.insert(0, str(ROOT / "docs/_ext"))
 
 
 def main():
+    from check_reference_examples import implementation_fingerprint
     from neural_method_reference import METHODS, OPTIONAL_HOOKS, supported_architectures
     from reference_schema import core_parameter_rows
     from reference_symbols import SYMBOLS
@@ -34,15 +36,16 @@ def main():
         generate(docs)
     examples = docs / "_examples/reference"
     verification = json.loads((examples / "verification.json").read_text())
+    implementation = implementation_fingerprint()
     schemas = json.loads((examples / "output_schemas.json").read_text())
     errors = []
     expected = set()
     inventory = json.loads((docs / "_data/public_reference_inventory.json").read_text())
-    from public_reference import literal
+    from public_reference import constructor_defaults, literal
 
     from nampy import models
     from nampy.gam.basis_registry import basis_descriptors
-    from nampy.neural.distributions.registry import FAMILY_REGISTRY
+    from nampy.neural.families.registry import FAMILY_REGISTRY
     from nampy.neural.registry import architectures
 
     config_classes = {
@@ -77,7 +80,7 @@ def main():
             errors.append(f"{page}: missing runtime constructor contract")
         if feature["kind"] == "estimator":
             cls = getattr(models, feature["symbol"])
-            actual = {n: literal(v) for n, v in cls().get_params(deep=False).items()}
+            actual = {n: literal(v) for n, v in constructor_defaults(cls).items()}
             recorded = {p["name"]: p["default"] for p in feature["parameters"]}
             if actual != recorded:
                 errors.append(
@@ -166,7 +169,11 @@ def main():
             continue
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
         record = verification.get(page, {})
-        if record.get("status") != "passed" or record.get("sha256") != digest:
+        if (
+            record.get("status") != "passed"
+            or record.get("sha256") != digest
+            or record.get("implementation_sha256") != implementation
+        ):
             errors.append(
                 f"{page}: example unexecuted, failed or changed since execution"
             )

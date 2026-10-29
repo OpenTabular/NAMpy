@@ -10,7 +10,7 @@ Signature
 
 .. code-block:: python
 
-   NeuralLSS(model, config, family='normal', distributional_kwargs=None, **kwargs)
+   NeuralLSS(model, config_class, *, architecture_config=None, objective=None, training=None, preprocessing=None)
 
 Parameters
 ----------
@@ -29,22 +29,26 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``type[torch.nn.Module]``
      - Required
      - Custom PyTorch architecture class implementing the additive forward-output contract; see the custom-model guide.
-   * - ``config``
-     - ``type[dataclass configuration]``
+   * - ``config_class``
+     - ``type``
      - Required
-     - Configuration class (for example DefaultNAMConfig, without parentheses). The estimator instantiates it using configuration overrides; passing an already constructed instance raises TypeError.
-   * - ``family``
-     - ``str | Mapping[str, object] | BaseFamily | None``
-     - ``'normal'``
-     - Neural distribution family name, default 'normal'. This selects the loss, parameter transforms and prediction contract.
-   * - ``distributional_kwargs``
-     - ``Mapping[str, object] | None``
+     - Architecture configuration class used by a generic estimator.
+   * - ``architecture_config``
+     - ``architecture configuration dataclass | None``
      - ``None``
-     - Optional mapping of neural family constructor arguments. Use the family reference for domains and parameter ordering.
-   * - ``kwargs``
-     - ``keyword arguments``
-     - Variable arguments
-     - Preprocessing and estimator configuration overrides accepted by the custom estimator. Architecture-specific controls come from its config.
+     - Architecture configuration instance; representation controls have no flat overrides.
+   * - ``objective``
+     - ``ObjectiveConfig | None``
+     - ``None``
+     - ObjectiveConfig containing task-specific loss or distribution family settings.
+   * - ``training``
+     - ``GradientTrainingConfig | FixedDesignTrainingConfig | NativeTrainingConfig | None``
+     - ``None``
+     - Route-specific gradient, fixed-design or architecture-native training record; None resolves the supported default.
+   * - ``preprocessing``
+     - ``PreprocessingConfig | None``
+     - ``None``
+     - PreprocessingConfig containing feature transformation choices.
 
 Returns and fitted outputs
 --------------------------

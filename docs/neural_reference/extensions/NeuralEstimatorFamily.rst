@@ -10,7 +10,7 @@ Signature
 
 .. code-block:: python
 
-   NeuralEstimatorFamily(regressor: 'type | None' = None, classifier: 'type | None' = None, lss: 'type | None' = None) -> None
+   NeuralEstimatorFamily(regressor: 'type | None' = None, classifier: 'type | None' = None, lss: 'type | None' = None, survival: 'type | None' = None) -> None
 
 Parameters
 ----------
@@ -37,6 +37,10 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``type | None``
      - ``None``
      - Optional distributional estimator class; None means that task is unavailable.
+   * - ``survival``
+     - ``type | None``
+     - ``None``
+     - Optional registered survival estimator class; None when the architecture has no validated survival task.
 
 Returns and fitted outputs
 --------------------------
@@ -63,4 +67,4 @@ Example result
 
 .. raw:: html
 
-   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">result</span><span class="example-result-meta">NeuralEstimatorFamily · scalar record</span></div><div class="example-result-body"><dl class="example-result-fields"></dl><p class="example-result-note">3 additional fields available on the returned object.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p><p class="example-result-note">3 additional output fields are available in the returned result.</p></div>
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">result</span><span class="example-result-meta">NeuralEstimatorFamily · scalar record</span></div><div class="example-result-body"><dl class="example-result-fields"></dl><p class="example-result-note">4 additional fields available on the returned object.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p><p class="example-result-note">4 additional output fields are available in the returned result.</p></div>

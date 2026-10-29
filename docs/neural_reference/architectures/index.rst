@@ -16,6 +16,14 @@ Linear and feature networks
    ../snam
    ../spline_nam
 
+Structured and neural composition
+---------------------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   ../semistructured
+
 Basis and polynomial models
 ---------------------------
 

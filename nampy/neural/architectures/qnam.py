@@ -5,10 +5,10 @@ import torch.nn.functional as F
 from ..configs.qnam_config import DefaultQNAMConfig
 from .components.base_model import BaseModel
 from .components.interactions import (
-    apply_feature_dropout,
     create_interaction_networks,
     interaction_forward,
     sum_feature_dims,
+    sum_term_outputs,
 )
 from .components.mlp import MLP
 from .components.module_dict import RawKeyModuleDict
@@ -45,48 +45,36 @@ class QNAM(BaseModel):
         num_feature_info,
         num_classes: int = 1,
         config: DefaultQNAMConfig | None = None,
-        **kwargs,
     ):
         if config is None:
             config = DefaultQNAMConfig()
-        super().__init__(**kwargs)
-        self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
+        super().__init__()
 
         # Optimization hyperparameters
-        self.lr = self.hparams.get("lr", config.lr)
-        self.lr_patience = self.hparams.get("lr_patience", config.lr_patience)
-        self.weight_decay = self.hparams.get("weight_decay", config.weight_decay)
-        self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
 
         # Data / task metadata
         self.cat_feature_info = cat_feature_info
         self.num_feature_info = num_feature_info
         self._validate_features(num_feature_info, cat_feature_info)
         self.num_classes = num_classes
-        self.interaction_degree = self.hparams.get(
-            "interaction_degree", config.interaction_degree
-        )
-        self.interactions = self.hparams.get("interactions", config.interactions)
+        self.interaction_degree = config.interaction_degree
+        self.interactions = config.interactions
 
         # Architecture hyperparameters (same pattern as corrected NAM)
-        self.layer_sizes = self.hparams.get("layer_sizes", config.layer_sizes)
-        self.activation = self.hparams.get("activation", config.activation)
-        self.norm = self.hparams.get("norm", config.norm)
-        self.use_glu = self.hparams.get("use_glu", config.use_glu)
-        self.skip_connections = self.hparams.get(
-            "skip_connections", config.skip_connections
-        )
-        self.batch_norm = self.hparams.get("batch_norm", config.batch_norm)
-        self.layer_norm = self.hparams.get("layer_norm", config.layer_norm)
-        self.dropout = self.hparams.get("dropout", config.dropout)
+        self.layer_sizes = config.layer_sizes
+        self.activation = config.activation
+        self.norm = config.norm
+        self.use_glu = config.use_glu
+        self.skip_connections = config.skip_connections
+        self.batch_norm = config.batch_norm
+        self.layer_norm = config.layer_norm
+        self.dropout = config.dropout
 
-        self.feature_dropout_p = self.hparams.get(
-            "feature_dropout", config.feature_dropout
-        )
+        self.feature_dropout_p = config.feature_dropout
 
         # Raw intercept parameter; transformed to monotone quantile outputs in forward
         self.raw_intercept: nn.Parameter | None
-        if self.hparams.get("intercept", config.intercept):
+        if config.intercept:
             self.raw_intercept = nn.Parameter(torch.zeros(num_classes))
         else:
             self.raw_intercept = None
@@ -115,10 +103,8 @@ class QNAM(BaseModel):
         )
 
         # Monotone transform function
-        self.monotone_transform = self.hparams.get(
-            "monotone_transform", config.monotone_transform
-        )
-        self.min_increment = self.hparams.get("min_increment", config.min_increment)
+        self.monotone_transform = config.monotone_transform
+        self.min_increment = config.min_increment
 
     def _create_subnetwork(self, input_dim: int) -> MLP:
         """Create one feature/interaction subnetwork."""
@@ -209,33 +195,13 @@ class QNAM(BaseModel):
             ),
         )
 
-        all_outputs = (
-            list(num_outputs.values())
-            + list(cat_outputs.values())
-            + list(interaction_outputs.values())
+        terms = {**num_outputs, **cat_outputs, **interaction_outputs}
+        result = sum_term_outputs(
+            terms,
+            self._get_intercept(),
+            p=self.feature_dropout_p,
+            training=self.training,
         )
-
-        if not all_outputs:
-            raise ValueError("QNAM received no feature contributions to sum.")
-
-        # [B, T, Q]; feature-level dropout drops whole term contributions
-        # consistently across all quantiles, preserving monotonicity within
-        # each kept term.
-        stacked = torch.stack(all_outputs, dim=1)
-        stacked = apply_feature_dropout(stacked, self.feature_dropout_p, self.training)
-
-        x = stacked.sum(dim=1)  # [B, Q]
-
-        intercept = self._get_intercept()
-        if intercept is not None:
-            x = x + intercept
-
-        result = {"output": x}
-        result.update(num_outputs)
-        result.update(cat_outputs)
-        result.update(interaction_outputs)
-
-        if intercept is not None:
-            result["intercept"] = intercept
+        result["output"]
 
         return result

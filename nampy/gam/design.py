@@ -102,6 +102,81 @@ class CompiledDesign:
     _preprocess_state: dict | None
     _fit_intercept: bool
 
+    @classmethod
+    def from_fitted_gam(cls, model, X, *, offset=None):
+        """Use a fitted statistical GAM's actual basis/coordinate owner.
+
+        No second basis construction, knot fitting or coefficient transport is
+        performed. This supports the same single unconstrained predictor as
+        compile_design; likelihood fitting remains with the original model.
+        """
+        compiled = model.gam_result_.require_compiled_model()
+        if len(compiled.predictors) != 1 or np.any(compiled.positive_coefficient_mask):
+            raise NotImplementedError(
+                "A compiled design requires one unconstrained fitted predictor."
+            )
+        intercept = bool(model.fit_intercept)
+        matrix = np.asarray(model.predict(X, type="lpmatrix"))
+        mapping = compiled.coef_reduced_to_full_idx
+        strengths = np.asarray(model.smoothing_params).copy()
+        penalty = np.zeros((matrix.shape[1], matrix.shape[1]))
+        for block in compiled.compiled_penalties:
+            indices = mapping[block.coef_slice]
+            penalty[np.ix_(indices, indices)] += (
+                strengths[block.smoothing_index] * block.matrix
+            )
+        terms = tuple(
+            DesignTerm(
+                term.label,
+                term.term_id,
+                mapping[term.coef_slice].copy(),
+                tuple(term.feature_info.feature_names),
+            )
+            for term in compiled.compiled_terms
+        )
+        result = cls(
+            matrix,
+            penalty,
+            np.zeros(len(matrix)),
+            np.ones(len(matrix)),
+            None,
+            strengths,
+            terms,
+            np.array([0], dtype=int) if intercept else np.empty(0, dtype=int),
+            tuple(model.feature_names),
+            compiled,
+            getattr(model, "formula_preprocess_state_", None),
+            intercept,
+        )
+        from dataclasses import replace
+
+        return replace(result, training_offset=result.evaluate(X, offset=offset).offset)
+
+    def for_prediction(self):
+        """Copy fitted basis/schema state without cached training design rows.
+
+        Knot centers and identification maps needed for prediction are retained.
+        This state cannot be used as a training design or for fit diagnostics.
+        """
+        from copy import deepcopy
+        from dataclasses import replace
+
+        compiled = deepcopy(self._compiled)
+        compiled.design_matrix = np.empty((0, compiled.design_matrix.shape[1]))
+        for predictor in compiled.predictors:
+            predictor.design_matrix = np.empty((0, predictor.design_matrix.shape[1]))
+        for term in compiled.compiled_terms:
+            term.basis_train = np.empty((0, term.basis_train.shape[1]))
+            term.offset_train = None
+        return replace(
+            self,
+            _compiled=compiled,
+            matrix=np.empty((0, self.matrix.shape[1])),
+            response=None,
+            training_offset=np.empty(0),
+            sample_weight=np.empty(0),
+        )
+
     def evaluate(self, X, *, offset=None):
         """Return DesignEvaluation for DataFrame/array X (m,d).
 
@@ -194,7 +269,7 @@ def compile_design(
         if not isinstance(frame, pd.DataFrame):
             raise TypeError("Formula compilation requires a DataFrame.")
         _, specs, raw, names, target, _, formula_offset, state = prepare_formula_inputs(
-            options, frame, formula, y=y, knots=knots
+            options, frame, formula, y=y, knots=knots, response_required=False
         )
         if len(specs) != 1:
             raise ValueError("compile_design requires one linear predictor.")

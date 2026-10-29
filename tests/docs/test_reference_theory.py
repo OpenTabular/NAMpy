@@ -20,7 +20,7 @@ def test_theory_covers_the_live_feature_registries():
     import nampy.gam.specs  # noqa: F401
     from nampy.gam.basis_registry import basis_descriptors
     from nampy.gam.families.registry import GENERAL_FAMILIES
-    from nampy.neural.distributions.registry import FAMILY_REGISTRY
+    from nampy.neural.families.registry import FAMILY_REGISTRY
 
     for descriptor in basis_descriptors():
         assert ".. math::" in smooth_theory(descriptor.name)

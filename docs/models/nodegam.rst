@@ -24,14 +24,11 @@ Fit and inspect
 
 .. code-block:: python
 
+
+   from nampy.neural.configs.nodegam_config import DefaultNodeGAMConfig
    from nampy.models import NodeGAMRegressor
 
-   model = NodeGAMRegressor(
-       num_trees=200,
-       num_layers=2,
-       depth=3,
-       interaction_degree=2,
-   ).fit(X_train, y_train)
+   model = NodeGAMRegressor(architecture_config=DefaultNodeGAMConfig(num_trees=200, num_layers=2, depth=3, interaction_degree=2)).fit(X_train, y_train)
 
    prediction = model.predict(X_test)
    components = model.predict_components(X_test, center=True)

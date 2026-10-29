@@ -4,9 +4,9 @@ import torch.nn as nn
 from ..configs.spline_nam_config import DefaultSplineNAMConfig
 from .components.base_model import BaseModel
 from .components.interactions import (
-    apply_feature_dropout,
     create_interaction_networks,
     interaction_forward,
+    sum_term_outputs,
 )
 from .components.module_dict import RawKeyModuleDict
 from .components.splines import CubicSplineLayer
@@ -26,33 +26,23 @@ class SplineNAM(BaseModel):
         num_feature_info,
         num_classes: int = 1,
         config: DefaultSplineNAMConfig | None = None,
-        **kwargs,
     ):
         if config is None:
             config = DefaultSplineNAMConfig()
-        super().__init__(**kwargs)
-        self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
+        super().__init__()
 
-        self.lr = self.hparams.get("lr", config.lr)
-        self.lr_patience = self.hparams.get("lr_patience", config.lr_patience)
-        self.weight_decay = self.hparams.get("weight_decay", config.weight_decay)
-        self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
         self.cat_feature_info = cat_feature_info
         self.num_feature_info = num_feature_info
         self._validate_features(num_feature_info, cat_feature_info)
         self.num_classes = num_classes
-        self.n_knots = int(self.hparams.get("n_knots", config.n_knots))
-        self.learn_knots = bool(
-            self.hparams.get("learn_knots", config.learn_knots)
-        )
-        self.identify = bool(self.hparams.get("identify", config.identify))
-        self.smoothing = float(self.hparams.get("smoothing", config.smoothing))
-        self.interaction_degree = self.hparams.get(
-            "interaction_degree", config.interaction_degree
-        )
-        self.interactions = self.hparams.get("interactions", config.interactions)
+        self.n_knots = int(config.n_knots)
+        self.learn_knots = bool(config.learn_knots)
+        self.identify = bool(config.identify)
+        self.smoothing = float(config.smoothing)
+        self.interaction_degree = config.interaction_degree
+        self.interactions = config.interactions
         self.intercept: nn.Parameter | None
-        if self.hparams.get("intercept", config.intercept):
+        if config.intercept:
             self.intercept = nn.Parameter(
                 torch.zeros(
                     num_classes,
@@ -61,9 +51,7 @@ class SplineNAM(BaseModel):
         else:
             self.intercept = None
 
-        self.feature_dropout_p = float(
-            self.hparams.get("feature_dropout", config.feature_dropout)
-        )
+        self.feature_dropout_p = float(config.feature_dropout)
 
         if not set(num_feature_info) | set(cat_feature_info):
             raise ValueError("SplineNAM requires at least one input feature.")
@@ -148,26 +136,12 @@ class SplineNAM(BaseModel):
             ),
         )
 
-        all_outputs = (
-            list(num_outputs.values())
-            + list(cat_outputs.values())
-            + list(interaction_outputs.values())
+        terms = {**num_outputs, **cat_outputs, **interaction_outputs}
+        result = sum_term_outputs(
+            terms, self.intercept, p=self.feature_dropout_p, training=self.training
         )
-        term_outputs = torch.stack(all_outputs, dim=1)
-        term_outputs = apply_feature_dropout(
-            term_outputs, self.feature_dropout_p, self.training
-        )
-        x = term_outputs.sum(dim=1)
+        x = result["output"]
 
-        if self.intercept is not None:
-            x += self.intercept
-
-        result = {"output": x}
-        result.update(num_outputs)
-        result.update(cat_outputs)
-        result.update(interaction_outputs)
-        if self.intercept is not None:
-            result["intercept"] = self.intercept
         if self.smoothing > 0.0:
             smoothness = x.new_zeros(())
             for network in (

@@ -3,4 +3,4 @@
 
    Model,Test n,Test RMSE (lower better),Test R2 (higher better)
    Main effects,180,0.8813,0.4141
-   Selected SIAN,180,0.4191,0.8675
+   Selected SIAN,180,0.1307,0.9871

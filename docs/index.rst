@@ -180,7 +180,12 @@ look up a specific method.
    Train and tune neural models <user_guide/training>
    Build a GAM formula <user_guide/formula_visual_reference>
    Specify and diagnose a statistical GAM <user_guide/statistical_gams>
+   Choose an API and response family <user_guide/api_and_families>
    Model location and spread <user_guide/gamlss>
+   Fit survival models <user_guide/survival>
+   Calibrate prediction intervals <user_guide/calibration>
+   Calibrate quantile-function inference <user_guide/quantile_inference>
+   Compose spline and neural effects <user_guide/semistructured>
    Add an interaction <howto/interactions>
    Constrain the shape of an effect <user_guide/shape_constrained_gams>
    Predict with an offset <howto/offsets>

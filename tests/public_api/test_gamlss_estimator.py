@@ -146,7 +146,7 @@ def test_components_are_zero_padded_and_reconstruct_every_predictor():
         "sigma:x1",
     }
     assert components.intercept.shape == (2,)
-    assert components.link.shape == components.response.shape == (len(X), 2)
+    assert components.link.shape == (len(X), 2)
     assert np.all(components.terms["mu:x0"][:, 1] == 0.0)
     assert np.all(components.terms["sigma:x0"][:, 0] == 0.0)
     components.validate_additive_reconstruction()

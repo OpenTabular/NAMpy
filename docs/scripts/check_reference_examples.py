@@ -23,6 +23,21 @@ ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES = ROOT / "docs/_examples/reference"
 
 
+def implementation_fingerprint(root=ROOT):
+    """Invalidate execution evidence when library or checker semantics change."""
+    digest = hashlib.sha256()
+    paths = sorted((root / "nampy").rglob("*.py"))
+    paths.extend([
+        root / "pyproject.toml",
+        root / "docs/scripts/check_reference_examples.py",
+    ])
+    for path in paths:
+        if path.is_file():
+            digest.update(path.relative_to(root).as_posix().encode() + b"\0")
+            digest.update(path.read_bytes() + b"\0")
+    return digest.hexdigest()
+
+
 def write_json_atomic(path, value):
     """Keep an existing manifest readable until its complete replacement exists."""
     temporary = None
@@ -235,6 +250,7 @@ def main():
         if args.match in path.relative_to(EXAMPLES).as_posix()
     ]
     cache = {}
+    implementation = implementation_fingerprint()
     for path in files:
         key = path.relative_to(EXAMPLES).with_suffix("").as_posix()
         source = path.read_text()
@@ -242,6 +258,7 @@ def main():
         if (
             args.resume
             and records.get(key, {}).get("sha256") == digest
+            and records[key].get("implementation_sha256") == implementation
             and records[key].get("status") == "passed"
             and key in previews
             and records[key].get("preview_version") == PREVIEW_VERSION
@@ -282,6 +299,7 @@ def main():
                         os.chdir(previous)
             records[key] = {
                 "sha256": digest,
+                "implementation_sha256": implementation,
                 "status": "passed",
                 "preview_version": PREVIEW_VERSION,
             }
@@ -291,6 +309,7 @@ def main():
             failures.append(key)
             records[key] = {
                 "sha256": digest,
+                "implementation_sha256": implementation,
                 "status": "failed",
                 "error": f"{type(error).__name__}: {error}",
             }

@@ -7,10 +7,32 @@ and no optional tensor/autodiff dependency in the statistical backend.
 
 from functools import lru_cache
 from itertools import combinations_with_replacement
-from math import factorial
+from math import comb, factorial
 
 import numpy as np
-from scipy.special import gammaln, polygamma
+from scipy.special import erfcx, expit, gammaln, log_ndtr, polygamma
+
+
+def _normal_mills_tail_derivatives(z, depth=64):
+    """Derivatives 0..3 of m(z)-z for z>=8, by Laplace's continued fraction.
+
+    DLMF 7.9.1, rescaled to the standard normal, gives
+    m(z)-z = 1/(z + 2/(z + 3/(z + ...))). Differentiate the rational
+    convergents analytically, without subtracting nearly equal powers of z.
+    The 64-level evaluation is checked against 128 levels and high-precision
+    log-erfc derivatives, including the branch boundary and far positive tail.
+    """
+    tail = [np.zeros_like(z) for _ in range(4)]
+    for numerator in range(depth, 0, -1):
+        denominator = [z + tail[0], 1 + tail[1], tail[2], tail[3]]
+        current = [numerator / denominator[0]]
+        for degree in range(1, 4):
+            current.append(-sum(
+                comb(degree, j) * denominator[j] * current[degree-j]
+                for j in range(1, degree+1)
+            ) / denominator[0])
+        tail = current
+    return tail
 
 
 @lru_cache(None)
@@ -118,8 +140,63 @@ class Taylor:
         value = np.exp(self.value)
         return self.compose([value] * (self.order + 1))
 
+    def log_normal_survival(self):
+        """Stable log Phi(-z), with analytic derivatives through order four."""
+        if self.order > 4:
+            raise NotImplementedError("Normal log-survival derivatives stop at order four.")
+        z = self.value
+        value = log_ndtr(-z)
+        mills = np.empty_like(z)
+        positive = z >= 0
+        mills[positive] = np.sqrt(2/np.pi)/erfcx(z[positive]/np.sqrt(2))
+        mills[~positive] = np.exp(-.5*z[~positive]**2 - .5*np.log(2*np.pi) - value[~positive])
+        derivatives = [value, -mills, mills*(z-mills)]
+        if self.order >= 3:
+            first = mills*(mills-z)
+            second = first*(2*mills-z)-mills
+            third = second*(2*mills-z)+2*first*(first-1)
+            tail = z >= 8
+            if tail.any():
+                fraction = _normal_mills_tail_derivatives(z[tail])
+                second[tail], third[tail] = fraction[2], fraction[3]
+            derivatives.extend([-second, -third])
+        return self.compose(derivatives[:self.order+1])
+
     def expm1(self):
         return self.compose([np.expm1(self.value)] + [np.exp(self.value)] * self.order)
+
+    def expm1_over_x(self):
+        """Analytic expm1(x)/x, including all derivatives at zero.
+
+        f^(k)(x)=integral_0^1 t**k exp(x*t) dt. The convergent Taylor
+        series is evaluated for |x|<=4; outside use x*f'=exp(x)-f.
+        Forty-eight terms bound the series remainder below float64 precision
+        for orders through four on that interval.
+        """
+        if self.order > 4:
+            raise NotImplementedError("expm1_over_x derivatives are available through order four.")
+        x = self.value
+        small = np.abs(x) <= 4
+        derivatives: list[np.ndarray] = []
+        for degree in range(self.order + 1):
+            value = np.empty_like(x)
+            coefficients = [1 / (factorial(j)*(j+degree+1)) for j in range(48)]
+            value[small] = np.polynomial.polynomial.polyval(x[small], coefficients)
+            value[~small] = (np.expm1(x[~small])/x[~small] if degree == 0 else
+                             (np.exp(x[~small])-degree*derivatives[-1][~small])/x[~small])
+            derivatives.append(value)
+        return self.compose(derivatives)
+
+    def softplus(self):
+        """Stable log(1+exp(x)) with exact derivatives through order four."""
+        p = expit(self.value)
+        derivatives = [
+            np.logaddexp(0, self.value), p, p*(1-p),
+            p*(1-p)*(1-2*p), p*(1-p)*(1-6*p+6*p*p),
+        ]
+        if self.order > 4:
+            raise NotImplementedError("softplus derivatives are implemented through order four.")
+        return self.compose(derivatives[:self.order+1])
 
     def log1p(self):
         x = self.value
@@ -139,7 +216,7 @@ class Taylor:
         """
         x = self.value
         small = np.abs(x) <= 0.25
-        derivatives = []
+        derivatives: list[np.ndarray] = []
         for degree in range(self.order + 1):
             out = np.empty_like(x)
             coefficients = np.zeros(41)

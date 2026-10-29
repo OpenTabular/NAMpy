@@ -2,7 +2,7 @@
 
 import numpy as np
 import torch
-from nampy.neural.distributions.distributions import DirichletDistribution
+from nampy.neural.families.multivariate import DirichletDistribution
 
 family = DirichletDistribution(n_dim=3)
 n = 8

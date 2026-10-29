@@ -5,6 +5,18 @@ from family_math import display_definition, distribution_contract, math
 
 def parameterization_notes(name, backend):
     special = ""
+    if backend == 'statistical' and name == 'bccg_lss':
+        special += "Natural columns are ``mu, sigma, nu`` with log/log/identity predictors. Mu is not generally the response mean or exact median. Positive responses require a Jacobian and a truncated-normal normalizer. At nu=0 the law is lognormal. Mean is infinite for -1<=nu<0; variance is NaN there and infinite for -2<=nu<-1. Finite moment quadrature has explicit numerical limits, including negative-power variance below sigma=sqrt(machine epsilon). At least three distinct positive-weight responses are required; this necessary guard does not establish estimability of arbitrary formulas.\n\n"
+    if backend == "statistical" and name == "beinf_lss":
+        special += "Four formula keys are ``mu, phi, pi0, pi1``. Natural columns are ``mu, phi, pi0, pi1, pi_interior``; raw columns are logit(mu), log(phi), log(pi0/pi_interior), log(pi1/pi_interior). The last two are coupled category log ratios, not independent probability logits. Components contain exactly four predictors; the interior probability depends on both atom predictors and has no separate term. Full covariance is retained for all five natural errors. R BEINF uses sigma=1/sqrt(1+phi), nu=pi0/pi_interior, tau=pi1/pi_interior. All components and distinct interior observations are required for fitting; neural fitting uses its normalized likelihood. The saved gamlss.dist 6.1.1 variance hook adds rather than subtracts squared mean; NAMpy uses the normalized mixture variance and records this discrepancy.\n\n"
+    if backend == "statistical" and name == "zaga_lss":
+        special += "Natural columns are ``mu, sigma, pi0`` with log/log/logit links. Mu is the positive Gamma mean, sigma its coefficient of variation, and pi0 the exact zero probability (gamlss.dist ZAGA calls it nu). The whole-response mean is (1-pi0)*mu. Log probability reports mass at zero and density elsewhere. Finite-logit fitting requires both components and distinct positive observations; exact zero/one atom probabilities are available only for probability queries. Neural ZAGA fitting uses its normalized likelihood.\n\n"
+    if backend == "statistical" and name == "betabinomial_lss":
+        special += "Natural columns are ``mu, kappa``, with logit/log links. Supply ``context={'trials': trials}`` at fit and for every explicit prediction dataset. Omitted X reuses fitted trials. The response is integer successes, not proportions or success/failure pairs; the mean count is trials*mu. R BB uses sigma=1/kappa and bd=trials. Fixed smoothing and automatic joint REML with Newton, BFGS and EFS are validated; neural fitting uses its normalized likelihood.\n\n"
+    if backend == "statistical" and name == "lognormal_lss":
+        special += "Natural columns are ``loc, scale`` for log(Y); identity/log predictors are used. loc may be negative. The density includes the response Jacobian -log(y); the response mean is exp(loc+scale**2/2), not loc or exp(loc). No LOGNO2/LNO parameterization or alternate links are implied.\n\n"
+    if backend == "statistical" and name == "weibull_lss":
+        special += "Natural columns are ``scale, shape``, both log-linked. The WEI mapping is mu=scale, sigma=shape; this is not WEI2 or WEI3. The response mean is scale*Gamma(1+1/shape).\n\n"
     if name in {"zip", "zinb", "ziplss", "hurdlepoisson", "hurdlenegativebinom"}:
         special += (
             "Here "
@@ -133,9 +145,13 @@ def mathematical_contract(name, backend):
         + (definition_notes + "\n\n" if definition_notes else "")
         + special
     )
-    if backend == "statistical" and name in {"student_lss", "beta_lss", "nb_lss"}:
-        reference = {"student_lss": "TF", "beta_lss": "BE", "nb_lss": "NBI"}[name]
+    if backend == "statistical" and name in {"bccg_lss", "student_lss", "beta_lss", "nb_lss", "lognormal_lss", "weibull_lss", "betabinomial_lss", "zaga_lss", "beinf_lss"}:
+        reference = {"bccg_lss": "BCCG", "student_lss": "TF", "beta_lss": "BE", "nb_lss": "NBI", "lognormal_lss": "LOGNO", "weibull_lss": "WEI", "betabinomial_lss": "BB", "zaga_lss": "ZAGA", "beinf_lss": "BEINF"}[name]
         text += f"Distribution reference: `gamlss.dist::{reference} <https://github.com/cran/gamlss.dist/blob/master/man/{reference}.Rd>`_. Fitting uses NAMpy's joint penalized engine, not gamlss RS backfitting. See :doc:`/development/neighbor_parity` for the tested mapping and numerical comparisons.\n\n"
+        if name == 'bccg_lss':
+            text += "Fixed smoothing and automatic joint REML with outer_newton, bfgs and efs are validated, including three smoothed predictors. Analytic likelihood derivatives through order four include the truncated-normal normalizer and the zero-power limit. Outer gradients/Hessians are checked with offsets and nonunit/zero weights; selected endpoints are compared to an independent derivative-free REML profile. Other method labels retain mgcv general-family coercion to REML, not separate ML/GCV/UBRE/NCV criteria. The optim route lacks family-defined null deviance scaling; magic and nlm.fd are also unavailable. Neural fitting, alternate links, censoring/truncation and deviance residuals remain unsupported. Generic conditional and approximate smoothing-uncertainty covariance transport are available; simulation/refit centile bands are not. Tight stopping rules may report nonconvergence at a float64 plateau; such fits remain ineligible for family ranking. This is distinct from mgcv's existing censored bcg likelihood.\n\n"
+        if name in {"lognormal_lss", "weibull_lss", "betabinomial_lss", "zaga_lss", "beinf_lss"}:
+            text += "Fixed smoothing and automatic general-family REML with outer_newton, bfgs and efs are validated. Method labels retain mgcv general-family coercion to REML; this is not separate ML/GCV/UBRE/NCV support. The optim route is unavailable because the extension has no family-defined null deviance for its objective scaling; magic and nlm.fd are also unsupported. Native deviance residuals and null deviance are unavailable; shared distribution quantile residuals are available. Censoring, truncation and alternate links are unsupported. Existing transformed-coefficient/observation and general-NCV guards remain in force.\n\n"
     elif backend == "statistical":
         text += "References: `mgcv distribution-family definitions <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/family.mgcv.html>`_. NAMpy fitting support is listed below.\n\n"
         if name in {"gammals", "shash", "bcg"}:
@@ -146,6 +162,12 @@ def mathematical_contract(name, backend):
     if not (backend == "statistical" and name == "student_lss"):
         text += family_theory(name, backend, include_heading=False)
     if backend == "neural":
+        if name == "normal_observation":
+            text += "Use ObservationTarget for fitting/scoring. The internal finite batching encoding has columns (value, upper, code); prediction parameters describe the latent normal while probability queries condition on truncation.\n\n"
+        if name == "beinf":
+            text += "Four raw predictors produce five natural columns: mu, phi, pi0, pi1, pi_interior. No fifth additive predictor is padded.\n\n"
+        if name == "betabinomial":
+            text += "Supply distributional_kwargs={'trials': m}, a fixed integer m>=2. Row-specific trial counts are unsupported by this neural route.\n\n"
         if name == "categorical":
             text += "The low-level categorical loss also accepts one-hot/probability targets of shape ``(n,C)`` (or ``(n,1,C)``), reducing them by argmax rather than fitting a soft-label cross-entropy objective. Scalar labels may have shape ``(n,1)``.\n\n"
         target = (
@@ -167,7 +189,7 @@ def mathematical_contract(name, backend):
     text += (
         "Implementation definitions: "
         + (
-            ":mod:`nampy.neural.distributions.distributions`"
+            ":mod:`nampy.neural.families`"
             if backend == "neural"
             else ":mod:`nampy.gam.families`"
         )

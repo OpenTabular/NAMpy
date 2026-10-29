@@ -185,7 +185,9 @@ def test_public_fit_coerces_general_family_method_before_support_check(
     monkeypatch.setattr(
         orchestrator_module,
         "solve_fit",
-        lambda *args, **kwargs: SimpleNamespace(inner_trace=[]),
+        lambda *args, **kwargs: SimpleNamespace(
+            fit_result=SimpleNamespace(inner_trace=[])
+        ),
     )
     monkeypatch.setattr(orchestrator_module, "assign_fit_solution", lambda *args: None)
     monkeypatch.setattr(

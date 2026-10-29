@@ -32,11 +32,11 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
    * - ``k``
      - ``int``
      - ``10``
-     - Requested basis dimension before identifiability constraints; not the effective degrees of freedom. Negative values select basis-specific automatic dimensions. Tensor terms may accept marginal dimensions.
+     - Default structured smooth basis dimension, overridden by explicit formula terms.
    * - ``basis``
      - ``str``
      - ``'cr'``
-     - Basis code; shared runtime classes require the explicit code for variants (for example basis='ts' or basis='cc'). Tensor terms use marginal basis codes.
+     - Default structured smooth basis type, overridden by explicit formula terms.
    * - ``label``
      - ``str | None``
      - ``None``

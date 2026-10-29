@@ -1,5 +1,13 @@
 from __future__ import annotations
 
+from nampy.neural.configuration import GradientTrainingConfig
+
+from dataclasses import replace
+from nampy.neural.configs.nam_config import DefaultNAMConfig
+from nampy.neural.configuration import GradientTrainingConfig
+from nampy.neural.configuration import ObjectiveConfig
+from nampy.neural.configuration import PreprocessingConfig
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -24,7 +32,7 @@ from nampy.neural.architectures.nam import NAM
 from nampy.neural.architectures.nodegam import NodeGAM
 from nampy.neural.configs.nam_config import DefaultNAMConfig
 from nampy.neural.configs.nodegam_config import DefaultNodeGAMConfig
-from nampy.neural.distributions.distributions import Quantile
+from nampy.neural.objectives.quantile import Quantile
 from nampy.neural.task import TaskModule
 
 
@@ -89,27 +97,8 @@ def test_nam_output_regularizer_uses_dropout_free_term_outputs():
 def test_nam_exu_adaptive_width_fits_through_estimator_contract(tmp_path):
     X = pd.DataFrame({"x": np.linspace(-1.0, 1.0, 36)})
     y = np.sin(X["x"].to_numpy())
-    estimator = NAMRegressor(
-        feature_layer="exu",
-        layer_sizes=[16],
-        adaptive_width=True,
-        num_basis_functions=8,
-        units_multiplier=2,
-        output_regularization=1e-4,
-        numerical_preprocessing="minmax",
-    )
-    estimator.fit(
-        X,
-        y,
-        sample_weight=np.linspace(1.0, 2.0, len(y)),
-        max_epochs=1,
-        batch_size=12,
-        checkpoint_path=tmp_path,
-        logger=False,
-        enable_progress_bar=False,
-        enable_model_summary=False,
-        num_sanity_val_steps=0,
-    )
+    estimator = NAMRegressor(architecture_config=DefaultNAMConfig(feature_layer='exu', layer_sizes=[16], adaptive_width=True, num_basis_functions=8, units_multiplier=2, output_regularization=0.0001), preprocessing=PreprocessingConfig(numerical_preprocessing='minmax'))
+    estimator.set_params(training=replace(estimator.training or GradientTrainingConfig(), max_epochs=1, batch_size=12, checkpoint_path=tmp_path, trainer_kwargs={'logger': False, 'enable_progress_bar': False, 'enable_model_summary': False, 'num_sanity_val_steps': 0})).fit(X, y, sample_weight=np.linspace(1.0, 2.0, len(y)))
     feature_network = estimator.model.model.num_feature_networks["x"]
     assert feature_network.first_layer.out_features == 8
     components = estimator.predict_components(X, center=True)
@@ -321,16 +310,7 @@ def test_nodegam_masked_reconstruction_matches_reference_loss(monkeypatch):
         output_dropout=0.0,
         last_dropout=0.0,
     )
-    task = TaskModule(
-        model_class=NodeGAM,
-        config=config,
-        cat_feature_info={},
-        num_feature_info={"x": {"dimension": 1}, "z": {"dimension": 1}},
-        num_classes=2,
-        pretraining=True,
-        pretraining_ratio=1.0,
-        pretraining_noise=0.0,
-    )
+    task = TaskModule(model_class=NodeGAM, config=config, cat_feature_info={}, num_feature_info={'x': {'dimension': 1}, 'z': {'dimension': 1}}, pretraining=True, pretraining_ratio=1.0, pretraining_noise=0.0, reconstruction_width=2, training=GradientTrainingConfig())
     captured = {}
 
     def fake_forward(num_features, cat_features, feature_masks=None):
@@ -409,18 +389,12 @@ def test_qnam_output_is_not_transformed_twice():
     assert torch.all(output[:, 1:] >= output[:, :-1])
 
 
-def test_lss_infers_ordinal_and_multivariate_dimensions(monkeypatch):
-    def skip_training(self, X, y, **kwargs):
-        return self
-
-    monkeypatch.setattr(NeuralEstimatorBase, "fit", skip_training)
-
-    ordinal = NAMLSS(family="ordinal")
-    ordinal.fit([[0.0], [1.0], [2.0]], [0, 1, 2])
+def test_lss_infers_ordinal_and_multivariate_dimensions():
+    ordinal = NAMLSS(objective=ObjectiveConfig(family="ordinal"))
+    ordinal._prepare_fit([0, 1, 2])
     assert ordinal.family_.num_classes == 3
     assert ordinal.family_.param_count == 1
-
-    mvnormal = NAMLSS(family="mvnormdiag")
-    mvnormal.fit([[0.0], [1.0]], [[0.0, 1.0], [1.0, 2.0]])
+    mvnormal = NAMLSS(objective=ObjectiveConfig(family="mvnormdiag"))
+    mvnormal._prepare_fit([[0.0, 1.0], [1.0, 2.0]])
     assert mvnormal.family_.n_dim == 2
     assert mvnormal.family_.param_count == 4

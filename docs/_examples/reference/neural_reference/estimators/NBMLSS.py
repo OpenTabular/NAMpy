@@ -11,11 +11,12 @@ rng = np.random.default_rng(7)
 n = 64
 X = pd.DataFrame({'x': np.linspace(-1, 1, n), 'z': rng.uniform(-1, 1, n)})
 y = np.sin(3 * X.x.to_numpy()) + rng.normal(0, 0.1, n)
-model = NBMLSS(layer_sizes=[12, 8], num_bases=8, n_knots=6)
+from nampy.neural.configs.nbm_config import DefaultNBMConfig
+from nampy.neural.configuration import GradientTrainingConfig
+model = NBMLSS(architecture_config=DefaultNBMConfig(layer_sizes=[12, 8], num_bases=8), training=GradientTrainingConfig(batch_size=32, random_state=7, max_epochs=2, trainer_kwargs={'logger': False, 'enable_progress_bar': False, 'enable_model_summary': False}))
 with TemporaryDirectory() as directory:
-    model.fit(X, y, max_epochs=2, batch_size=32, random_state=7,
-              checkpoint_path=directory, logger=False, enable_progress_bar=False,
-              enable_model_summary=False)
+    model.set_params(training__checkpoint_path=directory)
+    model.fit(X, y)
 prediction = model.predict(X)
 result = {'prediction': prediction}
 result['raw'] = model.predict(X, raw=True)

@@ -7,12 +7,17 @@ from typing import Any
 
 __all__ = [
     "configs",
+    "configuration",
+    "training",
+    "fitted",
+    "prediction",
     "data",
-    "distributions",
+    "families",
     "architectures",
     "contracts",
     "interaction_selection",
     "objectives",
+    "survival",
     "registry",
     "task",
 ]

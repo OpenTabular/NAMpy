@@ -22,7 +22,44 @@
       "mgcv_package_version": "1.9-4",
       "fixture_namespace": "gamlss",
       "generator": "tests/parity/gamlss_semantic_reference.R",
-      "scope": "Parametric natural-parameter and density semantics; mgcv remains the smooth-fit numerical authority"
+      "scope": "Parametric natural-parameter and density semantics; mgcv remains the smooth-fit numerical authority",
+      "additional_fixtures": {
+        "boxcox_tail": {
+          "generator": "tests/parity/boxcox_tail_reference.R",
+          "versions": "tests/reference_fixtures/boxcox_tail/versions.csv",
+          "scope": "BCT/BCPE fixed density, CDF, survival, log tails and quantiles from gamlss.dist 6.1.1. Separate fixtures record nonpositive support quirks, boundary-tail cancellation, BCT density-only Gaussian switching and BCPE gamma underflow. The installed pBCPE source is captured because its boundary behavior differs from the vendored source. Shared normalized laws do not reproduce these discrepancies. No moments or fitting support is claimed."
+        },
+        "bccg": {
+          "generator": "tests/parity/bccg_reference.R",
+          "versions": "tests/reference_fixtures/bccg/versions.csv",
+          "scope": "Fixed-parameter BCCG density, CDF, survival and quantiles from gamlss.dist 6.1.1. Records source support/log-tail discrepancies and first-score/working-curvature hooks separately; shared normalized probabilities do not reproduce those quirks, and source working curvature is not an observed Hessian oracle. No fitted endpoints or R moment parity; moments use independent high-precision identities."
+        },
+        "bccg_fitting": {
+          "generator": "tests/parity/bccg_fitting_reference.R",
+          "versions": "tests/reference_fixtures/bccg_fitting/versions.csv",
+          "scope": "Unpenalized BCCG log/log/identity fitted natural parameters and normalized log densities: positive/negative power and zero/nonunit weights. No GAMLSS RS/backfitting smoothing parity or automatic-smoothing support is claimed. Existing BCCG probability and mgcv references are unchanged."
+        },
+        "inflated_beta": {
+          "generator": "tests/parity/inflated_beta_reference.R",
+          "versions": "tests/reference_fixtures/inflated_beta/versions.csv",
+          "scope": "BEINF fixed density/mass, CDF, quantiles, unpenalized fit, and recorded variance-hook discrepancy. No RS/backfitting smoothing parity."
+        },
+        "zero_adjusted_gamma": {
+          "generator": "tests/parity/zero_adjusted_gamma_reference.R",
+          "versions": "tests/reference_fixtures/zero_adjusted_gamma/versions.csv",
+          "scope": "Fixed ZAGA mass/density, CDF and quantiles, and unpenalized three-predictor fit. No RS/backfitting smoothing parity."
+        },
+        "betabinomial_lss": {
+          "generator": "tests/parity/betabinomial_lss_reference.R",
+          "versions": "tests/reference_fixtures/betabinomial_lss/versions.csv",
+          "scope": "Fixed-parameter BB mass, CDF and quantiles, and unpenalized fits with variable trials. No smoothing/backfitting parity; R small-sigma binomial substitutions are not copied."
+        },
+        "positive_lss": {
+          "generator": "tests/parity/positive_lss_reference.R",
+          "versions": "tests/reference_fixtures/positive_lss/versions.csv",
+          "scope": "Fixed-parameter LOGNO/WEI density, CDF and quantile values, and unpenalized distributional fits. No GAMLSS smoothing/backfitting parity is claimed."
+        }
+      }
     },
     "scam": {
       "package_version": "1.2-22",
@@ -1045,6 +1082,140 @@
       "generator": "tests/diagnostics/test_mgcv_k_check_shared_plan.py",
       "scope": "Seven smooth structures crossed with three non-Gaussian families and two subsampling policies. Python and the actual R k.check body share selected rows and 37 permutations; only sample() is supplied to R. Tight full-table comparison includes permutation probabilities, tensor rescaling and undefined categorical diagnostics. The common probe restores upstream Newton behavior in-process.",
       "manifest": "tests/reference_fixtures/mgcv_k_check_shared_plan/manifest.json"
+    },
+    "mgcv_cox_fixed": {
+      "generator": "tests/reference_fixtures/generate_cox_fixed.R",
+      "generator_sha256": "bb134ca39ce8ce41f070c78ce225dc00a0fb6ba7ca9fd917e3836b1a4bf92b7a",
+      "scope": "Native fixed-smoothing Cox linear/smooth/categorical/stratified endpoints, tied event/censor risk sets, offsets, absolute survival and coefficient covariance functionals. Automatic smoothing and baseline/curve inference are unsupported.",
+      "files": {
+        "cox_fixed.csv": "518887cb288250d609c17a42218171b2722dad46bcb81de3e23dd22152658847",
+        "cox_fixed_input.csv": "0233d334a9a606d780d6ec82719fa081b8d31dec358a982ba3378caea522b084"
+      },
+      "package_version": "1.9-4"
+    },
+    "qgam_calfast_fixed": {
+      "generator": "tests/reference_fixtures/generate_qgam_calfast_fixed.R",
+      "generator_sha256": "452a488583e42c9c8b10930f006c91888d9157d6bc3a1fd5e06c121f4780ac95",
+      "scope": "qgam ELF fixed bandwidth/fixed penalty calFast scalar calibration: four-scale criterion, posterior/sandwich prediction variances and optimized endpoints at k=4 and shrinkage-active k=10. Automatic bandwidth/smoothing and bootstrap calibration are unsupported.",
+      "files": {
+        "qgam_calfast_fixed.csv": "e2324c71b0cd2ac3f02cae89e9050d70631ae3f90f17ae91a26906502ff21bea",
+        "qgam_calfast_fixed_input.csv": "e5239db2660ef51c1c0852578c334965ffcbf9e19778faff7214feaa6aed48f7",
+        "qgam_calfast_fixed_k10.csv": "33cf57141c0bd488f1797581c13c5cea7a41dc4a5b1ab10a8e303a4825f263a1",
+        "qgam_calfast_fixed_k10_input.csv": "e5239db2660ef51c1c0852578c334965ffcbf9e19778faff7214feaa6aed48f7",
+        "qgam_calfast_fixed_k10_profile.csv": "4061bb8923041311909fa6e663bcda9d1b8a8849c1642b318a66f87bfcdf6be5",
+        "qgam_calfast_fixed_profile.csv": "ef55e3f0d9cb2689751c0a04fb4bdd43366440235071905e795d3625894bfa58"
+      },
+      "package_version": "2.0.1",
+      "mgcv_package_version": "1.9-4"
+    },
+    "survival_longitudinal": {
+      "generator": "tests/reference_fixtures/generate_survival_longitudinal.R",
+      "generator_sha256": "3043b5a4f2490d0ef005130ea4ca8efbbc9dbbc0af07fe542b412b3bed631bde",
+      "scope": "R glm Poisson weighted terminal-event changing-covariate likelihood and supplied-trajectory predictions with independent model/record boundaries. No recurrent-event, parametric longitudinal or trajectory bootstrap inference is claimed.",
+      "files": {
+        "survival_longitudinal.csv": "bfd744ea050b048b4f4c34fc2af4918c26471ff40a67c8b3f9f4971e8b7a77c8",
+        "survival_longitudinal_input.csv": "9a162f8340caf53d20652808406f224c9d7389e6381ae5dcc5af7c8ebe0098c7"
+      },
+      "engine": "R stats::glm, Poisson log link"
+    },
+    "survival_temporal": {
+      "generator": "tests/reference_fixtures/generate_survival_temporal.R",
+      "generator_sha256": "d039c45d5982835699b5899125def24efd8d54d48245e88ca93a79b4b27d1da8",
+      "engine": "mgcv 1.9-4",
+      "scope": "Fixed/REML weighted delayed-entry and offset PEM temporal ti(survival_time,x) fitted endpoints.",
+      "files": {
+        "survival_temporal_input.csv": "b6e8e32deaf98d3cf825f4150c5bb2d1c300ab6aa8bd97433dc42980a775f0f0",
+        "survival_temporal.csv": "0a24542706cbc0a19a4a9a2e6a4616cd2100ca69ece5b9de420caa4d6b90a61e"
+      }
+    },
+    "cox_smoothing": {
+      "generator": "tests/reference_fixtures/generate_cox_smoothing.R",
+      "generator_sha256": "25a5244de8f5b2e93bf09def86b61675fee66a0de0e621832ca2462368713bbf",
+      "engine": "mgcv 1.9-4",
+      "scope": "Coupled Cox automatic REML fitted endpoints: unstratified Newton/BFGS and stratified BFGS. Stratified Newton remains unsupported.",
+      "files": {
+        "cox_smoothing_input.csv": "848da6b4e966f8fbf32ae56b36145fc2baae3f68f68a2c572033a6e7123af21d",
+        "cox_smoothing.csv": "99b448abbe23b75ed36a2fbce80356d0a40a6eba7972046f421b5f2123bdb33e"
+      }
+    },
+    "cox_uncertainty": {
+      "generator": "tests/reference_fixtures/generate_cox_uncertainty.R",
+      "generator_sha256": "f5973a477c4893c90ef30176f56f10316b6c5b841fc04a8004fab64c1ac8b2b0",
+      "engine": "mgcv 1.9-4",
+      "scope": "Baseline q/a and coxpred standard errors; raw Schoenfeld and score processes. Raw source martingale/deviance retain recorded stratified indexing quirks.",
+      "files": {
+        "cox_uncertainty.csv": "116ea39c3ebcd65fea1ac86ee321dd9cbb36f0e767c7dee1379143a32caae14c",
+        "cox_diagnostics.csv": "13cfd2601ae4b9ebb7845836b881c5e88aea7612f7e1e8e14e9ea60ad99fb353"
+      }
+    },
+    "cox_diagnostics_consistent": {
+      "generator": "tests/reference_fixtures/generate_cox_diagnostics_consistent.R",
+      "generator_sha256": "a1a2b1a72f71fe83d2b17847918de17dda228d674635b0f3224899280b765f44",
+      "engine": "mgcv 1.9-4",
+      "scope": "Direct source baseline hazard/stratum lookup with original predictors, isolating source fitted-value indexing and varying-offset query-ordering quirks.",
+      "files": {
+        "cox_diagnostics_consistent.csv": "1ebfb17a5f1b9d14cefb53126614850f0815218457451baeadb3bc20554a5ed1"
+      }
+    },
+    "qgam_bandwidth": {
+      "generator": "tests/reference_fixtures/generate_qgam_bandwidth.R",
+      "generator_sha256": "66e0831262070d6979c28edf1a441005e50d7c42b0c0ddf0dc408005dc5cd6a0",
+      "engine": "qgam 2.0.1, mgcv 1.9-4",
+      "scope": "Source residual SHASH estimate and three bandwidth levels. Flat nuisance coordinates are not identifiable endpoints.",
+      "files": {
+        "qgam_bandwidth_input.csv": "91b89115746516f4b848ef14bacc0dfd0e0ce38236e9d193e4cc8a9066adc89c",
+        "qgam_bandwidth.csv": "012d0b33e25bddaaf8a7579821df15cc43a9ac9ee4d2ab968bb78fa8566a35ab"
+      }
+    },
+    "qgam_adaptive_bandwidth": {
+      "generator": "tests/reference_fixtures/generate_qgam_adaptive_bandwidth.R",
+      "generator_sha256": "f1b1419bf061987ef45ac75d0eb057248e3be61f2fbe31681c10f54afb075685",
+      "engine": "qgam 2.0.1, mgcv 1.9-4",
+      "scope": "Nonlinear initial Gaussian REML variance, penalty EDF, standardized residuals and SHASH bandwidth.",
+      "files": {
+        "qgam_adaptive_bandwidth.csv": "64a07d40c6ac2c0483174f12e0ecbf06cfad0c792fc933fd08530b99ff099495"
+      }
+    },
+    "qgam_calfast_auto": {
+      "generator": "tests/reference_fixtures/generate_qgam_calfast_auto.R",
+      "generator_sha256": "7ab0601078d6605f54d7b36244a7d75a519974f6e24376ba037c787e0db3278a",
+      "engine": "qgam 2.0.1, mgcv 1.9-4",
+      "scope": "Scale-profile REML selection and calibrated endpoints; oversmoothing-limit SP coordinates need not be identified.",
+      "files": {
+        "qgam_calfast_auto_input.csv": "e5239db2660ef51c1c0852578c334965ffcbf9e19778faff7214feaa6aed48f7",
+        "qgam_calfast_auto_profile.csv": "d0fb08fe482868cdbeb80944cfc859b5f3601eb9c67b2f4883bd4cb56c65dab3",
+        "qgam_calfast_auto.csv": "c1cb60e5896109bfe989ff76896faa7f76727aa382eaa8a00f57fbdb102f9b88"
+      }
+    },
+    "qgam_calfast_auto_nonlinear": {
+      "generator": "tests/reference_fixtures/generate_qgam_calfast_auto_nonlinear.R",
+      "generator_sha256": "a1a37698fea345cba244daba62bf7d154b44f1f7769d95eafbaa0d85305351e7",
+      "engine": "qgam 2.0.1, mgcv 1.9-4",
+      "scope": "Nonlinear scale-profile REML selection, calibrated functions/covariance and identified finite smoothing endpoint.",
+      "files": {
+        "qgam_calfast_auto_nonlinear_input.csv": "ac52ee97e88d616a55071d8ceb504f7fd1d0f5f618c867312f22b377b9f8839e",
+        "qgam_calfast_auto_nonlinear_profile.csv": "f110291a5a504bbc2130199b9d5d5d5978c0f4ff087ab0b0faa95147eb23c1ef",
+        "qgam_calfast_auto_nonlinear.csv": "a3296abf6c3519abedc129270ac4ab1cb1c73e1f19da3aa77f9b8e62f06d6381"
+      }
+    },
+    "boxcox_moments": {
+      "generator": "tests/reference_fixtures/generate_boxcox_moments.R",
+      "generator_sha256": "ff2046dd4897f5355084e6b157b6e21ea17034cdec09e7c9e0949e76e8e73759",
+      "engine": "gamlss.dist 6.1.1",
+      "scope": "Independent response-space integrals of BCT/BCPE densities for finite moments; no fitting capability implied.",
+      "files": {
+        "boxcox_moments.csv": "685e7718b5eb57a65b7a79c7cd1c2baa872ec46690b19173bf2e52429d59eb95"
+      }
+    },
+    "normal_observations": {
+      "generator": "tests/reference_fixtures/generate_normal_observations.R",
+      "generator_sha256": "92ad4c5343e38f8e01e620f32ff3c4fcdff4a6a7eda6f69a58d2d6365aaef653",
+      "engine": "R stats::optim BFGS",
+      "scope": "Independent normalized normal likelihood with exact, left/right and interval censoring inside fixed truncation. Not a claim of matching mgcv cnorm parameterization.",
+      "files": {
+        "normal_observations_input.csv": "927ee54cc89200d00f134121ee0cc7f0d298b4568b1ddfcd391427790fbde42c",
+        "normal_observations.csv": "7a02263fa3d1a1ce6059f5ca4275bdc7e2263e35f43ccdf3d1af68eeea51227a"
+      }
     }
   }
 }

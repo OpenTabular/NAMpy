@@ -1,4 +1,8 @@
 from __future__ import annotations
+from nampy.neural.configuration import ObjectiveConfig, PreprocessingConfig
+
+from dataclasses import replace
+from nampy.neural.configuration import GradientTrainingConfig
 
 from dataclasses import dataclass
 
@@ -248,31 +252,26 @@ def test_public_neural_estimator_fits_and_predicts(case, tmp_path):
     )
     classification_target = np.resize(np.arange(case.n_classes), x.size)
 
-    estimator_kwargs = {
-        "numerical_preprocessing": "minmax",
-        "categorical_preprocessing": case.categorical_preprocessing,
-        **case.model_kwargs,
-    }
-    if case.task == "lss":
-        estimator_kwargs["family"] = "normal"
-    estimator = case.estimator_class(**estimator_kwargs)
+    from dataclasses import replace
+    from nampy.neural.configuration import ObjectiveConfig, PreprocessingConfig
+    prototype = case.estimator_class()
+    estimator = case.estimator_class(
+        architecture_config=replace(prototype.architecture_config, **case.model_kwargs),
+        preprocessing=PreprocessingConfig(numerical_preprocessing="minmax",
+                                           categorical_preprocessing=case.categorical_preprocessing),
+        objective=prototype.objective,
+    )
     target = (
         classification_target
         if case.task == "classification"
         else regression_target
     )
-    fit_kwargs = {
-        "max_epochs": 1,
-        "batch_size": 20,
-        "shuffle": False,
-        "checkpoint_path": tmp_path / case.name,
-        "logger": False,
-        "enable_progress_bar": False,
-        "enable_model_summary": False,
-        "num_sanity_val_steps": 0,
-        "fast_dev_run": True,
-    }
-    returned = estimator.fit(data, target, **fit_kwargs)
+    estimator.set_params(training=GradientTrainingConfig(max_epochs=1, batch_size=20,
+        shuffle=False, checkpoint_path=tmp_path / case.name,
+        trainer_kwargs={"logger": False, "enable_progress_bar": False,
+                        "enable_model_summary": False, "num_sanity_val_steps": 0,
+                        "fast_dev_run": True}))
+    returned = estimator.fit(data, target)
     assert returned is estimator
     contributions = estimator._predict(data)
     assert {"output", "x", "z"} <= set(contributions)
@@ -315,23 +314,12 @@ def test_public_neural_regressors_support_multioutput_targets(case, tmp_path):
             np.cos(np.pi * x) - 0.1 * x,
         )
     )
+    prototype = case.estimator_class()
     estimator = case.estimator_class(
-        numerical_preprocessing="minmax", **case.model_kwargs
-    )
+        architecture_config=replace(prototype.architecture_config, **case.model_kwargs),
+        preprocessing=PreprocessingConfig(numerical_preprocessing="minmax"))
 
-    estimator.fit(
-        data,
-        targets,
-        max_epochs=1,
-        batch_size=len(data),
-        shuffle=False,
-        checkpoint_path=tmp_path / case.name,
-        logger=False,
-        enable_progress_bar=False,
-        enable_model_summary=False,
-        num_sanity_val_steps=0,
-        fast_dev_run=True,
-    )
+    estimator.set_params(training=replace(estimator.training or GradientTrainingConfig(), max_epochs=1, batch_size=len(data), shuffle=False, checkpoint_path=tmp_path / case.name, trainer_kwargs={'logger': False, 'enable_progress_bar': False, 'enable_model_summary': False, 'num_sanity_val_steps': 0, 'fast_dev_run': True})).fit(data, targets)
 
     predictions = estimator.predict(data)
     assert estimator.n_outputs_ == 2

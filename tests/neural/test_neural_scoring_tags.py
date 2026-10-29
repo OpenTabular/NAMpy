@@ -7,6 +7,11 @@ sklearn upgrade that changes the tags API fails loudly.
 
 from __future__ import annotations
 
+from dataclasses import replace
+from nampy.neural.configuration import GradientTrainingConfig
+from nampy.neural.configuration import ObjectiveConfig
+from nampy.neural.configuration import PreprocessingConfig
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -34,9 +39,9 @@ def _classification_data(n=80, seed=0, labels=("cat", "dog")):
 
 
 def test_estimator_type_tags_without_mixins():
-    reg = LinRegRegressor(numerical_preprocessing="standardization")
-    clf = LinRegClassifier(numerical_preprocessing="standardization")
-    lss = LinRegLSS(numerical_preprocessing="standardization")
+    reg = LinRegRegressor(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
+    clf = LinRegClassifier(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
+    lss = LinRegLSS(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
 
     assert get_tags(reg).estimator_type == "regressor"
     assert get_tags(clf).estimator_type == "classifier"
@@ -53,16 +58,16 @@ def test_estimator_type_tags_without_mixins():
 
 def test_regressor_score_matches_r2(tmp_path):
     X, y = _regression_data()
-    estimator = LinRegRegressor(numerical_preprocessing="standardization")
-    estimator.fit(X, y, max_epochs=3, patience=2, checkpoint_path=str(tmp_path))
+    estimator = LinRegRegressor(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
+    estimator.set_params(training=replace(estimator.training or GradientTrainingConfig(), max_epochs=3, patience=2, checkpoint_path=str(tmp_path))).fit(X, y)
 
     assert estimator.score(X, y) == pytest.approx(r2_score(y, estimator.predict(X)))
 
 
 def test_classifier_string_labels_round_trip(tmp_path):
     X, y = _classification_data(labels=("cat", "dog"))
-    estimator = LinRegClassifier(numerical_preprocessing="standardization")
-    estimator.fit(X, y, max_epochs=3, patience=2, checkpoint_path=str(tmp_path))
+    estimator = LinRegClassifier(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
+    estimator.set_params(training=replace(estimator.training or GradientTrainingConfig(), max_epochs=3, patience=2, checkpoint_path=str(tmp_path))).fit(X, y)
 
     assert list(estimator.classes_) == ["cat", "dog"]
 
@@ -80,27 +85,23 @@ def test_classifier_string_labels_round_trip(tmp_path):
 
 def test_classifier_noncontiguous_integer_labels(tmp_path):
     X, y = _classification_data(labels=(3, 7))
-    estimator = LinRegClassifier(numerical_preprocessing="standardization")
-    estimator.fit(X, y.astype(int), max_epochs=3, patience=2, checkpoint_path=str(tmp_path))
+    estimator = LinRegClassifier(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
+    estimator.set_params(training=replace(estimator.training or GradientTrainingConfig(), max_epochs=3, patience=2, checkpoint_path=str(tmp_path))).fit(X, y.astype(int))
 
     assert list(estimator.classes_) == [3, 7]
     assert set(estimator.predict(X)) <= {3, 7}
 
 
 def test_classifier_rejects_single_class():
-    estimator = LinRegClassifier(numerical_preprocessing="standardization")
+    estimator = LinRegClassifier(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
     with pytest.raises(ValueError, match="at least 2 classes"):
         estimator._build_training_plan(np.zeros(10), None)
 
 
 def test_lss_score_is_negative_mean_nll(tmp_path):
     X, y = _regression_data()
-    estimator = LinRegLSS(
-        family="normal", numerical_preprocessing="standardization"
-    )
-    estimator.fit(
-        X, y, max_epochs=3, patience=2, checkpoint_path=str(tmp_path)
-    )
+    estimator = LinRegLSS(objective=ObjectiveConfig(family='normal'), preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
+    estimator.set_params(training=replace(estimator.training or GradientTrainingConfig(), max_epochs=3, patience=2, checkpoint_path=str(tmp_path))).fit(X, y)
 
     score = estimator.score(X, y)
     series_score = estimator.score(X, pd.Series(y))
@@ -111,10 +112,8 @@ def test_lss_score_is_negative_mean_nll(tmp_path):
 
 def test_lss_persistence_round_trip_includes_distribution_transforms(tmp_path):
     X, y = _regression_data(n=50)
-    estimator = LinRegLSS(
-        family="normal", numerical_preprocessing="standardization"
-    )
-    estimator.fit(X, y, max_epochs=2, patience=1, checkpoint_path=str(tmp_path))
+    estimator = LinRegLSS(objective=ObjectiveConfig(family='normal'), preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
+    estimator.set_params(training=replace(estimator.training or GradientTrainingConfig(), max_epochs=2, patience=1, checkpoint_path=str(tmp_path))).fit(X, y)
     expected = estimator.predict(X.iloc[:8])
 
     path = estimator.save_model(tmp_path / "normal-lss.nampy")
@@ -126,10 +125,8 @@ def test_lss_persistence_round_trip_includes_distribution_transforms(tmp_path):
 def test_ordinal_lss_predict_detaches_learned_cutpoints(tmp_path):
     X, continuous = _regression_data(n=60)
     y = np.digitize(continuous, np.quantile(continuous, [1 / 3, 2 / 3]))
-    estimator = LinRegLSS(
-        family="ordinal", numerical_preprocessing="standardization"
-    )
-    estimator.fit(X, y, max_epochs=2, patience=1, checkpoint_path=str(tmp_path))
+    estimator = LinRegLSS(objective=ObjectiveConfig(family='ordinal'), preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
+    estimator.set_params(training=replace(estimator.training or GradientTrainingConfig(), max_epochs=2, patience=1, checkpoint_path=str(tmp_path))).fit(X, y)
 
     probabilities = estimator.predict(X)
     assert isinstance(probabilities, np.ndarray)
@@ -139,13 +136,13 @@ def test_ordinal_lss_predict_detaches_learned_cutpoints(tmp_path):
 
 def test_cross_val_score_runs_on_neural_estimators(tmp_path):
     X, y = _regression_data(n=60)
-    reg = LinRegRegressor(numerical_preprocessing="standardization")
+    reg = LinRegRegressor(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
+    reg.set_params(training=GradientTrainingConfig(max_epochs=2, patience=1, checkpoint_path=str(tmp_path)))
     scores = cross_val_score(
         reg,
         X,
         y,
         cv=2,
-        params={"max_epochs": 2, "patience": 1, "checkpoint_path": str(tmp_path)},
     )
     assert scores.shape == (2,)
     assert np.all(np.isfinite(scores))
@@ -153,16 +150,14 @@ def test_cross_val_score_runs_on_neural_estimators(tmp_path):
 
 def test_cross_val_score_runs_on_lss_with_constructor_family(tmp_path):
     X, y = _regression_data(n=60)
-    estimator = LinRegLSS(
-        family="normal", numerical_preprocessing="standardization"
-    )
+    estimator = LinRegLSS(objective=ObjectiveConfig(family='normal'), preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
 
+    estimator.set_params(training=GradientTrainingConfig(max_epochs=2, patience=1, checkpoint_path=str(tmp_path)))
     scores = cross_val_score(
         estimator,
         X,
         y,
         cv=2,
-        params={"max_epochs": 2, "patience": 1, "checkpoint_path": str(tmp_path)},
     )
 
     assert scores.shape == (2,)

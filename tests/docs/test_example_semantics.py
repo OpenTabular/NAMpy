@@ -85,11 +85,10 @@ def test_validation_report_checks_observed_term_kinds(kind, task, status):
     ]
     values = np.arange(4.0)
     components = AdditivePrediction(
-        values,
-        values,
-        {"term": values},
-        0.0,
-        "neural",
+        link=values,
+        terms={"term": values},
+        intercept=0.0,
+        backend="neural",
         term_metadata={"term": AdditiveTermMetadata(("x",), kind=kind)},
     )
     calls = []

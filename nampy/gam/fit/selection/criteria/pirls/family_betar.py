@@ -49,11 +49,7 @@ def _betar_score_from_kernel(model, y, sol, kernel, method):
     # ``irls_core`` retains mgcv's postprocessed reporting deviance for
     # betar. ``gam.fit4`` optimizes the raw ``dev.resids`` sum because
     # ``betar$ls`` is identically zero.
-    raw_deviance = model.family.deviance(
-        np.asarray(y, dtype=np.float64),
-        np.asarray(sol["mu"], dtype=np.float64),
-        weights=_prior_weights(model, y),
-    )
+    raw_deviance = model.family.deviance(np.asarray(y, dtype=np.float64), np.asarray(sol.fit_result.mu, dtype=np.float64), weights=_prior_weights(model, y))
     penalty_deviance = float(raw_deviance) + float(kernel.bSb)
     score = penalty_deviance / (2.0 * gamma) + float(kernel.K)
     if str(method).upper() == "REML":

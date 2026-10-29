@@ -24,13 +24,11 @@ Fit and inspect
 
 .. code-block:: python
 
+
+   from nampy.neural.configs.treenam_config import DefaultTreeNAMConfig
    from nampy.models import TreeNAMRegressor
 
-   model = TreeNAMRegressor(
-       tree_depth=4,
-       tree_temperature=1.0,
-       interaction_degree=2,
-   ).fit(X_train, y_train)
+   model = TreeNAMRegressor(architecture_config=DefaultTreeNAMConfig(tree_depth=4, tree_temperature=1.0, interaction_degree=2)).fit(X_train, y_train)
 
    components = model.predict_components(X_test, center=True)
    figures = model.plot_terms(X_test)

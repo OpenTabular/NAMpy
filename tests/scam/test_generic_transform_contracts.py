@@ -12,7 +12,7 @@ from nampy.gam.coefficients import (
     compose_coefficient_transforms,
 )
 from nampy.gam.fit.selection.criteria import criterion_gradient, criterion_value
-from nampy.gam.observations import AR1ObservationTransform
+from nampy.gam.correlation import AR1ObservationTransform
 
 
 def test_identity_and_block_coefficient_transforms_preserve_layout():

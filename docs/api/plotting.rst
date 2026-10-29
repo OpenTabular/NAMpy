@@ -26,10 +26,7 @@ Distributional effects
    :nosignatures:
 
    plot_distributional_effects
-   prepare_distributional_effects
-   combine_distributional_effects
    render_distributional_effects
-   DistributionalEffects
 
 
 Diagnostic and surface renderers
@@ -44,3 +41,16 @@ Diagnostic and surface renderers
    render_prediction_surface
 
 .. include:: /_includes/statistical_plot_notes.inc
+
+Numerical preparation
+---------------------
+
+.. currentmodule:: nampy.inspection
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   DistributionalEffects
+   combine_distributional_effects
+   prepare_distributional_effects

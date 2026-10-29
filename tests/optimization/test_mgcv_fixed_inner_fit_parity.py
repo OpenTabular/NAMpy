@@ -327,13 +327,13 @@ def test_gaussian_magic_fixed_sp_state_matches_mgcv():
     sol = solve_gaussian_given_smoothing(gam, y, sp)
     expected = _run_mgcv_magic_fixed_sp(data, formula, sp)
 
-    _assert_allclose(sol.coef_full, expected["coefficients"], atol=1e-10)
-    _assert_allclose(sol.eta, expected["linear_predictors"], atol=1e-10)
-    _assert_allclose(sol.mu, expected["fitted_values"], atol=1e-10)
-    _assert_allclose(sol.deviance, expected["deviance"], atol=1e-10)
-    _assert_allclose(sol.working_weights, expected["working_weights"], atol=1e-12)
-    _assert_allclose(sol.fisher_weights, expected["weights"], atol=1e-12)
-    _assert_allclose(sol.working_response, expected["working_response"], atol=1e-12)
+    _assert_allclose(sol.fit_result.coef_full, expected['coefficients'], atol=1e-10)
+    _assert_allclose(sol.fit_result.eta, expected['linear_predictors'], atol=1e-10)
+    _assert_allclose(sol.fit_result.mu, expected['fitted_values'], atol=1e-10)
+    _assert_allclose(sol.fit_result.deviance, expected['deviance'], atol=1e-10)
+    _assert_allclose(sol.fit_state.working_weights, expected['working_weights'], atol=1e-12)
+    _assert_allclose(sol.fit_state.fisher_weights, expected['weights'], atol=1e-12)
+    _assert_allclose(sol.fit_state.working_response, expected['working_response'], atol=1e-12)
 
     actual_reml = float(
         criterion_ml_reml_gaussian_dynamic_profiled(
@@ -358,13 +358,13 @@ def test_poisson_gam_fit3_fixed_sp_inner_state_matches_mgcv():
     kernel = _gdi1_kernel(gam, y, sol, sp, method="REML")
     expected = _run_reference_fit3_fixed_sp(data, formula, "poisson", sp)
 
-    _assert_allclose(sol.coef_full, expected["coefficients"], atol=1e-8)
-    _assert_allclose(sol.eta, expected["linear_predictors"], atol=1e-8)
-    _assert_allclose(sol.mu, expected["fitted_values"], atol=1e-8)
-    _assert_allclose(sol.deviance, expected["deviance"], atol=1e-8)
-    _assert_allclose(sol.fisher_weights, expected["weights"], atol=5e-8)
-    _assert_allclose(sol.working_weights, expected["working_weights"], atol=5e-8)
-    _assert_allclose(sol.working_response, expected["working_response"], atol=2e-7)
+    _assert_allclose(sol.fit_result.coef_full, expected['coefficients'], atol=1e-08)
+    _assert_allclose(sol.fit_result.eta, expected['linear_predictors'], atol=1e-08)
+    _assert_allclose(sol.fit_result.mu, expected['fitted_values'], atol=1e-08)
+    _assert_allclose(sol.fit_result.deviance, expected['deviance'], atol=1e-08)
+    _assert_allclose(sol.fit_state.fisher_weights, expected['weights'], atol=5e-08)
+    _assert_allclose(sol.fit_state.working_weights, expected['working_weights'], atol=5e-08)
+    _assert_allclose(sol.fit_state.working_response, expected['working_response'], atol=2e-07)
 
     _assert_allclose(kernel.dVkk, expected["dVkk"], atol=5e-8)
     _assert_allclose(
@@ -564,7 +564,7 @@ def test_linked_id_gaussian_magic_fixed_sp_matches_mgcv_supported_bases(
     expected = _run_mgcv_magic_fixed_sp(data, formula, sp)
 
     if compare_coef:
-        _assert_allclose(sol.coef_full, expected["coefficients"], atol=atol)
-    _assert_allclose(sol.eta, expected["linear_predictors"], atol=atol)
-    _assert_allclose(sol.mu, expected["fitted_values"], atol=atol)
-    _assert_allclose(sol.deviance, expected["deviance"], atol=atol)
+        _assert_allclose(sol.fit_result.coef_full, expected['coefficients'], atol=atol)
+    _assert_allclose(sol.fit_result.eta, expected['linear_predictors'], atol=atol)
+    _assert_allclose(sol.fit_result.mu, expected['fitted_values'], atol=atol)
+    _assert_allclose(sol.fit_result.deviance, expected['deviance'], atol=atol)

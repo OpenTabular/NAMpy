@@ -27,14 +27,12 @@ Fit and inspect
 
 .. code-block:: python
 
+
+   from nampy.neural.configs.nbm_config import DefaultNBMConfig
+   from nampy.neural.configuration import GradientTrainingConfig
    from nampy.models import NBMRegressor
 
-   model = NBMRegressor(
-       num_bases=100,
-       interaction_degree=2,
-       sparse=False,
-       output_penalty=1e-4,
-   ).fit(X_train, y_train)
+   model = NBMRegressor(architecture_config=DefaultNBMConfig(num_bases=100, interaction_degree=2, output_penalty=0.0001), training=GradientTrainingConfig(sparse=False)).fit(X_train, y_train)
 
    components = model.predict_components(X_test, center=True)
    effects = model.explain_terms(X_test)

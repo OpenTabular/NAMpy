@@ -3,8 +3,8 @@
 import numpy as np
 
 from ...._mgcv_constants import LOG_GUARD_MIN
+from ....correlation import ar1_log_determinant_correction
 from ....model_state import _coef_column_offset, _n_smoothing_params
-from ....observations import ar1_log_determinant_correction
 from ...backends import solve_gaussian_given_smoothing
 from ...smoothing_params import expand_smoothing_params_from_log
 from ..reparam import (
@@ -21,7 +21,7 @@ from .pirls.derivatives import _gdi1_kernel
 
 def _cache_gaussian_reml_scale_est(model, sol) -> None:
     """Cache the current fixed-fit Gaussian scale estimate for outer-Newton scaling."""
-    model._gaussian_reml_last_scale_est_ = float(sol["scale"])
+    model._gaussian_reml_last_scale_est_ = float(sol.fit_result.scale)
 
 
 def _gaussian_dynamic_deviance(
@@ -40,13 +40,9 @@ def _gaussian_dynamic_deviance(
     Observation-transformed fits store their criterion deviance separately
     from the original-row deviance used in public diagnostics.
     """
-    dev = None
-    if isinstance(sol, dict):
-        dev = sol.get("criterion_deviance", sol.get("deviance", None))
-    else:
-        dev = getattr(sol, "criterion_deviance", None)
-        if dev is None:
-            dev = getattr(sol, "deviance", None)
+    dev = sol.fit_state.criterion_deviance
+    if dev is None:
+        dev = sol.fit_result.deviance
     if dev is None or not np.isfinite(float(dev)):
         raise RuntimeError(
             "Gaussian dynamic ML/REML requires the gam.fit3 deviance state."
@@ -55,15 +51,10 @@ def _gaussian_dynamic_deviance(
 
 
 def _gaussian_penalty_quadratic(model, sol, sp) -> float:
-    beta = np.asarray(sol["coef_full"], dtype=np.float64).ravel()
+    beta = np.asarray(sol.fit_result.coef_full, dtype=np.float64).ravel()
     if beta.size == 0:
         return 0.0
-    state = build_penalty_reparameterization_state(
-        model,
-        np.asarray(sol["X"], dtype=np.float64),
-        np.asarray(sp, dtype=np.float64),
-        deriv=0,
-    )
+    state = build_penalty_reparameterization_state(model, np.asarray(sol.fit_state.X, dtype=np.float64), np.asarray(sp, dtype=np.float64), deriv=0)
     alpha = np.linalg.solve(np.asarray(state.T, dtype=np.float64), beta)
     St = np.asarray(state.St, dtype=np.float64)
     return float(alpha @ (St @ alpha))
@@ -84,9 +75,9 @@ def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
         )
 
     n_s = int(model.n_samples_)
-    w1 = prior_weights_diagonal_from_fit(sol, n_s)
+    w1 = prior_weights_diagonal_from_fit(sol.fit_state, n_s)
     dev = _gaussian_dynamic_deviance(sol, y, w1)
-    criterion_y = np.asarray(sol.get("criterion_response", y), dtype=np.float64)
+    criterion_y = np.asarray(sol.fit_state.criterion_response if sol.fit_state.criterion_response is not None else y, dtype=np.float64)
     kernel = _gdi1_kernel(model, criterion_y, sol, sp, method=method_u)
     Pq = float(kernel.bSb)
     F = float(dev) + float(Pq)
@@ -183,7 +174,7 @@ def criterion_ml_reml_gaussian_dynamic_joint(
     nobs = float(model.n_samples_)
     Mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     n_eff = getattr(model, "n_true_", None)
-    w1 = prior_weights_diagonal_from_fit(sol, int(nobs))
+    w1 = prior_weights_diagonal_from_fit(sol.fit_state, int(nobs))
     nu, sum_log_scaled = gaussian_reml_weighted_degrees_and_log_weight_term(
         w1, nobs, Mp, n_effective_total=n_eff
     )
@@ -191,7 +182,7 @@ def criterion_ml_reml_gaussian_dynamic_joint(
     if not np.isfinite(gamma) or gamma <= 0.0:
         return np.inf
     dev = _gaussian_dynamic_deviance(sol, y, w1)
-    criterion_y = np.asarray(sol.get("criterion_response", y), dtype=np.float64)
+    criterion_y = np.asarray(sol.fit_state.criterion_response if sol.fit_state.criterion_response is not None else y, dtype=np.float64)
     kernel = _gdi1_kernel(model, criterion_y, sol, sp, method=method_u)
     Pq = float(kernel.bSb)
     rss_bSb = float(dev) + float(Pq)
@@ -246,7 +237,7 @@ def criterion_ml_reml_gaussian_dynamic_profiled(model, y, log_sp_free, method="R
     nobs = float(model.n_samples_)
     Mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     n_eff = getattr(model, "n_true_", None)
-    w1 = prior_weights_diagonal_from_fit(sol, int(nobs))
+    w1 = prior_weights_diagonal_from_fit(sol.fit_state, int(nobs))
     nu, _sum_log_scaled = gaussian_reml_weighted_degrees_and_log_weight_term(
         w1, nobs, Mp, n_effective_total=n_eff
     )
@@ -262,7 +253,7 @@ def criterion_ml_reml_gaussian_dynamic_profiled(model, y, log_sp_free, method="R
         return np.inf
 
     dev = _gaussian_dynamic_deviance(sol, y, w1)
-    criterion_y = np.asarray(sol.get("criterion_response", y), dtype=np.float64)
+    criterion_y = np.asarray(sol.fit_state.criterion_response if sol.fit_state.criterion_response is not None else y, dtype=np.float64)
     kernel = _gdi1_kernel(model, criterion_y, sol, sp, method=method_u)
     Pq = float(kernel.bSb)
     F = float(dev) + float(Pq)
@@ -295,10 +286,10 @@ def criterion_gradient_ml_reml_gaussian_dynamic_joint(
     )
     sol = solve_gaussian_given_smoothing(model, y, sp)
     _cache_gaussian_reml_scale_est(model, sol)
-    criterion_y = np.asarray(sol.get("criterion_response", y), dtype=np.float64)
+    criterion_y = np.asarray(sol.fit_state.criterion_response if sol.fit_state.criterion_response is not None else y, dtype=np.float64)
     kernel = _gdi1_kernel(model, criterion_y, sol, sp, method=method_u)
     nobs = float(model.n_samples_)
-    w1 = prior_weights_diagonal_from_fit(sol, int(nobs))
+    w1 = prior_weights_diagonal_from_fit(sol.fit_state, int(nobs))
     dev = _gaussian_dynamic_deviance(sol, y, w1)
     F = float(dev) + float(kernel.bSb)
     Mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
@@ -350,14 +341,14 @@ def criterion_hessian_ml_reml_gaussian_dynamic_joint(
     )
     sol = solve_gaussian_given_smoothing(model, y, sp)
     _cache_gaussian_reml_scale_est(model, sol)
-    criterion_y = np.asarray(sol.get("criterion_response", y), dtype=np.float64)
+    criterion_y = np.asarray(sol.fit_state.criterion_response if sol.fit_state.criterion_response is not None else y, dtype=np.float64)
     kernel = _gdi1_kernel(model, criterion_y, sol, sp, method=method_u)
     gamma = float(model.score_gamma)
     if not np.isfinite(gamma) or gamma <= 0.0:
         return None
 
     nobs = float(model.n_samples_)
-    w1 = prior_weights_diagonal_from_fit(sol, int(nobs))
+    w1 = prior_weights_diagonal_from_fit(sol.fit_state, int(nobs))
     dev = _gaussian_dynamic_deviance(sol, y, w1)
     F = float(dev) + float(kernel.bSb)
     Mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))

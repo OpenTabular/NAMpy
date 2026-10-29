@@ -6,7 +6,7 @@ LAWS expectile solver
 Types, defaults and output shapes
 ---------------------------------
 
-.. autofunction:: nampy.gam.extensions.fit_expectile
+.. autofunction:: nampy.gam.losses.fit_expectile
 
 
 

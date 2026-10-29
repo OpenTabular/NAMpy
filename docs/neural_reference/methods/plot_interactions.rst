@@ -81,7 +81,7 @@ Example result
 
 .. raw:: html
 
-   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">result</span><span class="example-result-meta">NoneType · not applicable</span></div><div class="example-result-body"><span class="example-result-scalar">None</span></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
+   <div class="example-result" aria-label="Example result"><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">result</span><span class="example-result-meta">list · length 1</span></div><div class="example-result-body"><ol class="example-result-sequence"><li><span class="example-result-scalar">Figure</span></li></ol></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
 
 .. automethod:: nampy.models._neural.NeuralEstimatorBase.plot_interactions
    :no-index:

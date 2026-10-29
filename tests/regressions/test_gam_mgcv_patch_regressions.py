@@ -1,4 +1,5 @@
 import importlib
+from dataclasses import replace
 from types import SimpleNamespace
 
 import numpy as np
@@ -59,11 +60,24 @@ from nampy.gam.model_state import (
     _n_coef,
     _penalty_blocks_seq,
 )
-from nampy.gam.observations import IdentityObservationTransform
+from nampy.gam.correlation import IdentityObservationTransform
 from nampy.gam.results import FitResult, GAMResult
 from nampy.gam.specs.build import build_formula_model
 from nampy.gam.splines.univariate.tp import construct_tprs_basis
 from tests.mgcv_parity_utils import _make_gaussian_data
+
+
+def _solution_stub(*, fit_state=None, **outputs):
+    result = FitResult(
+        coef_full=np.empty(0), intercept=0.0, beta=np.empty(0),
+        eta=np.empty(0), mu=np.empty(0), rss=None, deviance=0.0,
+        edf=0.0, trace_H=0.0, scale=1.0, cov_bayes=None, cov_freq=None,
+        cov_unconditional=None, H_coef=np.empty((0, 0)),
+    )
+    return FitCoreSolution(
+        fit_result=replace(result, **outputs),
+        fit_state=FitState() if fit_state is None else fit_state,
+    )
 
 
 def test_smooth_test_stat_preserves_mgcv_negative_qfc_artifact(monkeypatch):
@@ -83,7 +97,7 @@ def test_smooth_test_stat_preserves_mgcv_negative_qfc_artifact(monkeypatch):
 
 def test_gcv_scores_square_negative_denominator_like_mgcv(monkeypatch):
     model = SimpleNamespace(n_samples_=10, score_gamma=2.0)
-    sol = {"trace_H": 10.0, "rss": 5.0, "deviance": 7.0}
+    sol = _solution_stub(trace_H=10.0, rss=5.0, deviance=7.0)
 
     monkeypatch.setattr(
         gaussian_criteria,
@@ -648,13 +662,12 @@ def test_gdi_pk_setup_and_ift1_match_signed_weight_inverse_root(monkeypatch):
             fit_summary=None,
         ),
     )
-    sol = {
-        "X": X,
-        "coef_full": np.asarray(out["coef_full"], dtype=np.float64),
-        "working_weights": w,
-        "eta": np.asarray(out["eta"], dtype=np.float64),
-        "mu": np.asarray(out["eta"], dtype=np.float64),
-    }
+    sol = _solution_stub(
+        fit_state=FitState(X=X, working_weights=w),
+        coef_full=np.asarray(out["coef_full"], dtype=np.float64),
+        eta=np.asarray(out["eta"], dtype=np.float64),
+        mu=np.asarray(out["eta"], dtype=np.float64),
+    )
 
     setup = pirls_deriv_module._gdi_pk_setup(model, sol, sp, deriv=2)
     current = setup.current
@@ -898,10 +911,9 @@ def test_assign_fit_solution_transforms_gaussian_unconditional_covariance(
         A=np.eye(3, dtype=np.float64),
         A_inv=np.eye(3, dtype=np.float64),
         XtWX=np.eye(3, dtype=np.float64),
-        P=np.zeros((3, 3), dtype=np.float64),
+        working_penalty=np.zeros((3, 3), dtype=np.float64),
         working_weights=np.ones(3, dtype=np.float64),
         fisher_weights=np.ones(3, dtype=np.float64),
-        scale=1.0,
     )
     fit_result = FitResult(
         coef_full=np.array([1.0, -0.5, 0.25], dtype=np.float64),
@@ -927,7 +939,7 @@ def test_assign_fit_solution_transforms_gaussian_unconditional_covariance(
         n_samples_=3,
         gam_result_=GAMResult(
             compiled_model=SimpleNamespace(
-                metadata={"fit_to_prediction_parameterization_map": P},
+                fit_to_prediction_parameterization_map=P,
                 compiled_terms=(),
                 compiled_penalties=(),
                 predictors=(),
@@ -1004,10 +1016,9 @@ def test_assign_fit_solution_transforms_pirls_unconditional_covariance_and_edf2(
         A=np.eye(2, dtype=np.float64),
         A_inv=np.eye(2, dtype=np.float64),
         XtWX=np.eye(2, dtype=np.float64),
-        P=np.zeros((2, 2), dtype=np.float64),
+        working_penalty=np.zeros((2, 2), dtype=np.float64),
         working_weights=np.ones(2, dtype=np.float64),
         fisher_weights=np.ones(2, dtype=np.float64),
-        scale=1.0,
     )
     fit_result = FitResult(
         coef_full=np.array([0.2, -0.1], dtype=np.float64),
@@ -1033,7 +1044,7 @@ def test_assign_fit_solution_transforms_pirls_unconditional_covariance_and_edf2(
         n_samples_=2,
         gam_result_=GAMResult(
             compiled_model=SimpleNamespace(
-                metadata={"fit_to_prediction_parameterization_map": P},
+                fit_to_prediction_parameterization_map=P,
                 compiled_terms=(),
                 compiled_penalties=(),
                 predictors=(),
@@ -1165,10 +1176,9 @@ def test_pirls_unconditional_postfit_uses_edge_correct_vc_but_fitted_edf2(
         A=np.array([[1.0]], dtype=np.float64),
         A_inv=np.array([[1.0]], dtype=np.float64),
         XtWX=np.array([[1.0]], dtype=np.float64),
-        P=np.zeros((1, 1), dtype=np.float64),
+        working_penalty=np.zeros((1, 1), dtype=np.float64),
         fisher_weights=np.array([1.0], dtype=np.float64),
         working_weights=np.array([1.0], dtype=np.float64),
-        scale=1.0,
     )
     fit_result = FitResult(
         coef_full=np.array([0.0], dtype=np.float64),
@@ -1270,7 +1280,7 @@ def test_gaussian_unconditional_postfit_augments_link_matrix_for_joint_scale(
     monkeypatch.setattr(
         backends_module,
         "solve_gaussian_given_smoothing",
-        lambda *args, **kwargs: SimpleNamespace(),
+        lambda *args, **kwargs: FitCoreSolution(fit_result=fit_result, fit_state=fit_state),
     )
     monkeypatch.setattr(
         pirls_deriv_module,
@@ -1323,10 +1333,9 @@ def test_gaussian_unconditional_postfit_augments_link_matrix_for_joint_scale(
         A=np.array([[1.0]], dtype=np.float64),
         A_inv=np.array([[1.0]], dtype=np.float64),
         XtWX=np.array([[1.0]], dtype=np.float64),
-        P=np.zeros((1, 1), dtype=np.float64),
+        working_penalty=np.zeros((1, 1), dtype=np.float64),
         fisher_weights=np.array([1.0], dtype=np.float64),
         working_weights=np.array([1.0], dtype=np.float64),
-        scale=0.5,
     )
     fit_result = FitResult(
         coef_full=np.array([0.0], dtype=np.float64),
@@ -1376,7 +1385,7 @@ def test_gaussian_dynamic_deviance_requires_gam_fit3_state():
 
     with pytest.raises(RuntimeError, match="gam.fit3 deviance state"):
         gaussian_dyn_module._gaussian_dynamic_deviance(
-            {"mu": np.zeros(2, dtype=np.float64)},
+            _solution_stub(mu=np.zeros(2, dtype=np.float64), deviance=None),
             np.ones(2, dtype=np.float64),
             np.ones(2, dtype=np.float64),
         )
@@ -1630,7 +1639,7 @@ def test_prediction_parameterization_respects_public_space_covariance_tags():
         family=GaussianIdentityFamily(),
         gam_result_=GAMResult(
             compiled_model=SimpleNamespace(
-                metadata={"fit_to_prediction_parameterization_map": P},
+                fit_to_prediction_parameterization_map=P,
                 compiled_terms=(),
                 coef_reduced_to_full_idx=np.arange(2, dtype=int),
             )

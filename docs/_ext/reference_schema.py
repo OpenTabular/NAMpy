@@ -13,6 +13,7 @@ PARAMETER_TYPES = {
     "y": "array-like, shape (n,) or family-specific (n, q) | None",
     "y_val": "array-like, shape (n_val,) or (n_val, q) | None",
     "data": "pandas.DataFrame, n rows | None",
+    "context": "Mapping[str, array-like, shape (n,)] | None",
     "feature": "str | int | Sequence[str | int]",
     "feature_names": "Sequence[str], length d",
     "k": "int",
@@ -151,6 +152,19 @@ for _transform in [
     )
 
 
+PARAMETER_TYPES.update(
+    {
+        "architecture_config": "architecture configuration dataclass | None",
+        "objective": "ObjectiveConfig | None",
+        "training": "GradientTrainingConfig | FixedDesignTrainingConfig | NativeTrainingConfig | None",
+        "preprocessing": "PreprocessingConfig | None",
+        "config_class": "type",
+        "predictor_names": "tuple[str, ...]",
+        "parameters": "dict[str, object]",
+    }
+)
+
+
 def numpy_types(obj):
     """Return only declared parameter types, excluding prose and return sections."""
     result = {}
@@ -184,6 +198,8 @@ def parameter_type(
     annotation=inspect.Parameter.empty,
     declared=None,
 ):
+    if name == "objective__family":
+        return "str | None"
     key = name.split("__", 1)[-1]
     class_name = getattr(obj, "__name__", "")
     tensor_classes = {
@@ -586,7 +602,7 @@ def estimator_returns(task):
             "predict_components",
             "AdditivePrediction",
             "scalar record",
-            "link/response have n rows; terms maps labels to arrays with n rows. intercept is scalar or output-sized; offset is None or broadcast-compatible. Contributions reconstruct link, not probabilities.",
+            "link and every term have shape (n,K) for K actual predictors; intercept and offset are aligned with these coordinates. Response values and natural parameters are queried separately.",
         ),
         (
             "explain_terms",
@@ -660,6 +676,18 @@ def estimator_returns(task):
                 "(n,) or (n, response_dimensions)",
                 "Family-defined mean, median or most probable class; not always an expectation.",
             ),
+            (
+                "predict_distribution",
+                "nampy.distributions.DistributionPrediction",
+                "one scalar conditional distribution per prediction row",
+                "Normal, Gamma, Student-t, beta, negative-binomial, lognormal and Weibull: NumPy probability, quantile, sampling, moment and shared quantile-residual operations. Statistical beta-binomial requires explicit trial context; zaga_lss adds exact zeros to Gamma outcomes and beinf_lss adds zero/one atoms to beta proportions. Statistical bccg_lss supplies BCCG predictions with fixed or automatic joint REML and explicit divergent-moment semantics. Neural beta-binomial, ZAGA, BEINF and BCCG fitting are unsupported. Other families and clamped neural NB regimes raise NotImplementedError. Draws condition on fitted parameters.",
+            ),
+            (
+                "distribution_fit_status",
+                "nampy.distributions.DistributionFitStatus",
+                "scalar record",
+                "Backend-owned eligibility evidence: statistical convergence, completed neural training, failure or unknown status. Completed training is not statistical convergence.",
+            ),
         ]
     return rows
 
@@ -679,7 +707,6 @@ PARAMETER_TYPES.update(
         "rug": "bool | None",
         "metrics": "Sequence[str] | Mapping[str, callable] | None",
         "y_true": "array-like, shape (n,) or (n, q)",
-        "fit_params": "fit keyword arguments",
         "plot_kwargs": "plotting keyword arguments",
         "ar_start": "array-like[bool], shape (n,) | None",
         "start": "array-like, shape (p,) | None",
@@ -715,16 +742,34 @@ METHOD_PARAMETER_MEANINGS = {
     "feature_names": "Optional collection of features to display; None uses supported fitted features.",
     "plot_kwargs": "Additional documented plotting arguments forwarded to the distributional renderer.",
     "offset": "Known additive predictor offset, scalar or one value per row; supported distributional families accept per-predictor offsets.",
+    "context": "Explicit observation context separate from weights: betabinomial_lss requires {'trials': trials}. Supply again for explicit prediction rows; omitted X reuses fit context. Context-dependent predictions currently require na_action='pass'.",
     "block_size": "Positive statistical prediction row-block size; None uses the engine default.",
     "newdata_guaranteed": "Request the optimized validated prediction path for complete explicit new data; omitted columns are allowed only for excluded terms covered by the contract.",
     "na_action": "Missing-row policy: pass restores missing rows as NaN, omit/exclude retain complete rows, fail raises an error.",
     "type": "Prediction/uncertainty scale, such as response or link. Supported names and widths depend on the estimator and family.",
     "unconditional": "Request supported smoothing-parameter uncertainty corrections for coefficient/prediction uncertainty.",
     "metrics": "Optional metric selection/custom metric mapping. None uses the estimator objective/family defaults; returned values are scalar metric scores.",
-    "fit_params": "Keyword arguments forwarded to member fit calls. Ensemble seeds and optional bootstrap row indices are applied per member.",
     "kwargs": "Additional method-specific options documented by the corresponding statistical engine or renderer.",
     "device": "Loading/execution device, for example cpu. Statistical models execute on the CPU.",
 }
+
+
+METHOD_PARAMETER_MEANINGS.update(
+    {
+        "X_val": "Optional explicit validation features; provide together with y_val.",
+        "y_val": "Optional validation targets, aligned with X_val and the training objective.",
+        "offset_val": "Optional known predictor offsets for explicit validation rows.",
+        "sample_weight_val": "Optional nonnegative explicit-validation observation weights.",
+    }
+)
+PARAMETER_TYPES.update(
+    {
+        "X_val": "DataFrame | ndarray | None",
+        "y_val": "array-like | None",
+        "offset_val": "array-like | None",
+        "sample_weight_val": "array-like | None",
+    }
+)
 
 
 def method_parameter_rows(method, extra_meanings=None):
@@ -958,6 +1003,8 @@ def neural_family_returns(name, instance):
     width = str(instance.param_count)
     natural_width = width
     point_shape = "(n,)"
+    if name == "beinf":
+        natural_width = "5"
     if name in {"categorical", "ordinal"}:
         width = "C" if name == "categorical" else "1"
         natural_width = "C"
@@ -983,7 +1030,7 @@ def neural_family_returns(name, instance):
             (
                 "Class probabilities in class order."
                 if name in {"categorical", "ordinal"}
-                else "Transformed parameters in param_names order. dtype/device follow the supplied tensor."
+                else "Natural columns mu, phi, pi0, pi1, pi_interior; four raw predictors." if name=="beinf" else "Transformed parameters in param_names order. dtype/device follow the supplied tensor."
             ),
         ),
         (
@@ -1009,9 +1056,9 @@ def neural_family_returns(name, instance):
             ),
         ),
     ]
-    from nampy.neural.distributions.distributions import BaseDistribution
+    from nampy.neural.objectives import ParameterizedObjective
 
-    if type(instance).predict_spread is BaseDistribution.predict_spread:
+    if type(instance).predict_spread is ParameterizedObjective.predict_spread:
         rows.append(
             (
                 "predict_spread",

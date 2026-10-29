@@ -1,347 +1,132 @@
-Training Models
-===============
+Training neural models
+======================
 
-This guide covers gradient-trained neural estimators. Statistical GAMs and
-architecture-native solvers use their model-specific fitting controls.
+Neural estimators have four configuration groups: ``architecture_config``,
+``objective``, ``training`` and ``preprocessing``. Training controls belong to the
+constructor. ``fit`` accepts features, targets, explicit validation data,
+observation weights and known predictor offsets.
 
-Basic Training
---------------
+Configuration ownership
+-----------------------
 
-Create one development/test split and one training/validation split. All
-examples on this page reuse these rows:
+``architecture_config`` is the architecture's dataclass instance, such as
+``DefaultNAMConfig``. It owns representation choices, including layer widths,
+feature layers, dropout and interactions. Architectures read this record directly;
+there is no flat override channel.
 
-.. literalinclude:: ../scripts/generate_howto_assets.py
-   :language: python
-   :start-after: # TRAINING START
-   :end-before: # TRAINING FIT
-   :dedent: 4
+``ObjectiveConfig`` owns the loss or distribution family, distributional family
+options, class weights and sampling strategy. Estimator roles determine regression,
+classification or distributional target semantics.
 
-Gradient-trained neural estimators share the following fit controls:
+``PreprocessingConfig`` contains PreTab feature transformation options. Architecture
+preprocessing defaults apply to unspecified options; explicit options replace them.
+The fitted preprocessing state is learned from training rows only.
 
-.. code-block:: python
-
-   from nampy.models import NAMRegressor
-
-   model = NAMRegressor()
-   model.fit(X_train, y_train, max_epochs=100, lr=1e-3)
-
-Training parameters
--------------------
-
-The defaults below describe ``NAMRegressor`` and its shared ``fit`` defaults.
-Other architecture configurations may override optimizer settings.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 20 50 15 15
-
-   * - Parameter
-     - Description
-     - Default
-     - Typical Range
-   * - ``max_epochs``
-     - Maximum number of training epochs
-     - 100
-     - 50-300
-   * - ``lr``
-     - Learning rate
-     - 1e-4
-     - 1e-5 to 1e-2
-   * - ``patience``
-     - Early stopping patience (epochs)
-     - 15
-     - 5-30
-   * - ``val_size``
-     - Fraction of data for validation
-     - 0.2
-     - 0.1-0.3
-
-Early Stopping
---------------
-
-Early stopping monitors a validation criterion and can reduce overfitting:
+``training`` selects a supported computational route. ``None`` resolves its default
+from the architecture and actual objective, including the observed class count.
 
 .. code-block:: python
 
-   model.fit(
-       X_train,
-       y_train,
-       max_epochs=200,
-       patience=15,              # Stop if val loss doesn't improve for 15 epochs
-       val_size=0.2
-   )
-
-It selects a checkpoint according to the monitored validation criterion and
-can save training time. It does not establish an optimal stopping point or
-guarantee generalization. Keep final test rows outside checkpoint selection.
-
-Learning Rate Scheduling
--------------------------
-
-nampy automatically adjusts the learning rate during training:
-
-.. code-block:: python
-
-   model = NAMRegressor(
-       lr=1e-3,                  # Initial learning rate
-       lr_patience=10,           # Reduce LR after 10 epochs w/o improvement
-       lr_factor=0.1             # Multiply LR by 0.1 when reducing
-   )
-
-The learning rate is reduced when validation loss plateaus.
-
-``lr_schedule`` accepts ``"plateau"``, ``"inverse_sqrt"``, ``"cosine"``,
-``"warmup_cosine"``, and ``"none"``. Step-wise schedules are selected at fit
-time. ``cosine`` reproduces the schedule used by the NBM-SPAM reference trainer; adding warm-up steps yields
-its warm-up/cosine variant.
-
-.. code-block:: python
-
-   model.fit(
-       X_train,
-       y_train,
-       lr_schedule="cosine",
-       lr_warmup_steps=100,
-       lr_decay_steps=5000,  # cosine horizon; inferred when omitted
-   )
-
-Monitoring Training
--------------------
-
-Pass a Lightning logger through ``fit`` to record the actual training and
-validation losses. The worked example below uses ``CSVLogger`` and plots the
-retained checkpoint; the complete logging and plotting code is included.
-
-.. literalinclude:: ../scripts/generate_howto_assets.py
-   :language: python
-   :start-after: # TRAINING FIT
-   :end-before: # TRAINING PLOTTING
-   :dedent: 4
-
-.. dropdown:: Plotting code
-
-   .. literalinclude:: ../scripts/generate_howto_assets.py
-      :language: python
-      :start-after: # TRAINING PLOTTING
-      :end-before: # TRAINING END
-      :dedent: 4
-
-.. image:: /_static/howto_training.png
-   :alt: Actual training and validation losses with the retained validation checkpoint marked
-   :class: scientific-figure
-
-The vertical line marks the checkpoint restored after fitting. Later epochs
-can have lower training loss while validation loss deteriorates. Both curves
-are the logged training objectives; they are not held-out test errors.
-
-GPU Training
-------------
-
-GPU benefit depends on network size, batch size, data transfer, and workload.
-Small tabular models can be faster on CPU. For Lightning gradient fitting,
-choose a device explicitly:
-
-.. code-block:: python
-
-   model.fit(X_train, y_train, accelerator="cpu", devices=1)
-   # On a machine with a supported CUDA GPU:
-   # model.fit(X_train, y_train, accelerator="gpu", devices=1)
-
-Native solvers have their own device controls; see the architecture guide.
-
-Batch Size
-----------
-
-Batching is controlled via the ``batch_size`` argument in ``fit()``:
-
-.. code-block:: python
-
-   model.fit(X_train, y_train, max_epochs=100, batch_size=128)
-
-Inference can be chunked independently to bound accelerator memory:
-
-.. code-block:: python
-
-   predictions = model.predict(X_test, batch_size=2048)
-   components = model.predict_components(X_test, batch_size=2048)
-
-The same option is available on ``predict_proba`` and fixed-basis
-``basis_transform`` calls.
-
-Architecture-native training
-----------------------------
-
-Most neural architectures use Lightning epochs. IGANN regression and binary
-classification instead follow its released sequential ELM algorithm, so
-``n_estimators`` is the maximum number of boosting stages and
-``early_stopping`` is validation-stage patience. Multiclass and IGANNLSS use
-Lightning over the complete fixed ELM basis. The usual NAMpy split,
-preprocessing, persistence, prediction batching, and component APIs apply to
-both routes. For native fits, inspect attempted stage losses with
-``model.training_history()`` and the retained stage count with
-``model.n_estimators_``.
-
-Regularization
---------------
-
-Weight Decay (L2)
-~~~~~~~~~~~~~~~~~
-
-Add L2 regularization:
-
-.. code-block:: python
-
-   model = NAMRegressor(
-       weight_decay=1e-5         # L2 penalty
-   )
-
-Dropout
-~~~~~~~
-
-Add dropout for regularization:
-
-.. code-block:: python
-
-   model = NAMRegressor(
-       dropout=0.3               # Drop 30% of activations
-   )
-
-Estimator parameters and sample weights
----------------------------------------
-
-Constructor parameters describe an unfitted estimator. A search can clone it
-and set a candidate's parameters without carrying over fitted state:
-
-.. code-block:: python
-
-   from sklearn.base import clone
-   from nampy.models import NAMRegressor
-
-   template = NAMRegressor(layer_sizes=[8])
-   candidate = clone(template).set_params(dropout=0.05)
-   parameters = candidate.get_params(deep=False)
-
-The following sample-weight and cross-validation recipes use statistical
-``GAMRegressor`` to illustrate controls shared by the estimator interfaces.
-
-Sample weights change each training row's contribution to the fitting
-objective; they are different from a fixed offset in the predictor.
-Using the numerical ``x`` column from the split above:
-
-.. code-block:: python
-
-   import numpy as np
-   from nampy.models import GAMRegressor
-
-   sample_weight = np.where(X_train["x"].to_numpy() > 0, 2.0, 1.0)
-   weighted_gam = GAMRegressor(k=8, basis="cr").fit(
-       X_train[["x"]], y_train, sample_weight=sample_weight
-   )
-
-Hyperparameter Tuning
-----------------------
-
-Manual Search
-~~~~~~~~~~~~~
-
-Use the ``X_train``, ``y_train``, ``X_val``, and ``y_val`` arrays created
-above. Every candidate receives the same validation rows
-and random seed; validation selects both checkpoints and hyperparameters.
-
-.. code-block:: python
-
-   import numpy as np
-
-   best_score = -np.inf
-   best_params = None
-
-   for lr in [1e-5, 1e-4, 1e-3]:
-       for dropout in [0.1, 0.3, 0.5]:
-           model = NAMRegressor(dropout=dropout)
-           model.fit(
-               X_train, y_train, X_val=X_val, y_val=y_val,
-               max_epochs=50, lr=lr, random_state=7,
-           )
-           score = model.score(X_val, y_val)
-
-           if score > best_score:
-               best_score = score
-               best_params = {'lr': lr, 'dropout': dropout}
-
-   print(f"Best params: {best_params}")
-
-Use validation rows to choose hyperparameters and checkpoints. Keep test rows
-outside both decisions, and fit any external preprocessing inside each
-training fold. A good regression score does not establish probability or
-interval calibration. Compare probability predictions and reliability in
-:doc:`../notebooks/05_real_data_classification`, or quantile coverage and
-interval width in :doc:`../in_depth/quantile_calibration`.
-
-Cross-validation
-~~~~~~~~~~~~~~~~
-
-Cross-validation evaluates a fitting procedure across several train–validation splits. Any transformation learned from the data must be fitted separately within each training fold.
-
-Use the same development rows (``X_fit``, ``y_fit``) and untouched test
-split introduced above. These statistical recipes use only numerical
-``x``; the group column is excluded. One smooth needs one fixed penalty.
-
-.. code-block:: python
-
-   import pandas as pd
-   from nampy.models import GAMRegressor
-
-   from sklearn.model_selection import GridSearchCV, KFold, cross_val_score
-
-   X_development, y_development = X_fit[["x"]], y_fit
-   numeric_X = X_development
-   model = GAMRegressor(optimize_smoothing=False, smoothing_method="fixed", smoothing_params=[0.7])
-   cv = KFold(n_splits=10, shuffle=True, random_state=7)
-   cv_scores = cross_val_score(model, numeric_X, y_development, cv=cv, scoring="r2")
-
-   search = GridSearchCV(
-       model,
-       {"k": [6, 9]},
-       cv=cv,
-       scoring="neg_mean_squared_error",
-   ).fit(numeric_X, y_development)
-
-   pd.DataFrame({
-       "Baseline mean CV R2": [float(cv_scores.mean())],
-       "Selected basis dimension": [search.best_params_["k"]],
-   }).style.hide(axis="index").format({"Baseline mean CV R2": "{:.3f}"})
-
-The R² above belongs to the baseline, while the basis dimension is chosen
-by a separate negative-MSE search; these are different results.
-
-The selected model is refit on the development rows. Evaluate
-``search.best_estimator_`` on ``X_test[["x"]]`` and ``y_test`` once to report final
-performance.
-
-Troubleshooting
----------------
-
-.. list-table::
-   :header-rows: 1
-
-   * - Symptom
-     - Checks
-     - Possible adjustment
-   * - Loss does not decrease
-     - Check input/target scales, finite values, and loss history.
-     - Try a smaller learning rate or more epochs.
-   * - Training improves while validation deteriorates
-     - Check the split and checkpoint criterion.
-     - Use early stopping, dropout, or weight decay.
-   * - Both training and validation fit poorly
-     - Check preprocessing, optimization, and model capacity.
-     - Increase capacity or reduce excessive regularization.
-   * - Training is slow
-     - Profile batch time and check the selected device.
-     - Use an available GPU, larger batches, or a smaller architecture.
-
-Next Steps
-----------
-
-* Learn about :doc:`preprocessing`
-* Check :doc:`interpretability`
+    from nampy import NAMRegressor, GradientTrainingConfig, PreprocessingConfig
+    from nampy.neural.configs import DefaultNAMConfig
+
+    model = NAMRegressor(
+        architecture_config=DefaultNAMConfig(layer_sizes=[32, 16], dropout=0.1),
+        preprocessing=PreprocessingConfig(numerical_preprocessing="standardization"),
+        training=GradientTrainingConfig(max_epochs=50, batch_size=128,
+                                        random_state=7, lr=0.001),
+    )
+    model.fit(X, y, X_val=X_validation, y_val=y_validation,
+              sample_weight=training_weights)
+
+Gradient training
+-----------------
+
+``GradientTrainingConfig`` owns ``max_epochs``, ``max_steps``, ``max_time``, batching,
+validation splitting, optimizer, scheduling and stopping controls. ``trainer_kwargs``
+contains additional Lightning Trainer options, such as logging or accelerator
+selection. Controls already owned by this record must be set on the record rather
+than repeated in ``trainer_kwargs``.
+
+Optimizer choices include ``adam``, ``adamw``, ``adagrad``, ``sgd`` and optional
+``qhadam``. ``optimizer_kwargs`` supplies optimizer-specific arguments.
+``lr`` and ``weight_decay`` configure the optimizer. ``lr_schedule`` selects
+``plateau``, ``inverse_sqrt``, ``cosine``, ``warmup_cosine`` or ``none``;
+``lr_patience``, ``lr_factor``, ``lr_warmup_steps``, ``lr_decay_steps`` and
+``lr_decay_factor`` configure the selected schedule.
+
+``monitor``, ``mode`` and ``patience`` control early stopping and best-checkpoint
+selection. ``early_stopping_steps`` instead measures patience in optimizer steps.
+``average_checkpoints`` and ``n_last_checkpoints`` select arithmetic averaging of
+recent epoch-end weights. These are gradient-training operations.
+
+Checkpoints use a temporary directory by default, removed after the selected
+weights are loaded, including when training fails. Set ``checkpoint_path`` to
+retain a separate checkpoint directory for each fit. ``best_model_path_`` is
+``None`` when temporary checkpoints have been removed.
+
+``feature_dropout`` drops complete term contributions independently per row,
+with one mask shared across the term's output columns. Returned training terms
+include that mask and reconstruct the prediction together with the intercept.
+Evaluation disables this dropout. Hidden-layer dropout remains configured by
+the architecture's separate controls.
+
+Prediction preprocesses and evaluates batches of at most 1024 rows by default;
+``batch_size`` overrides that limit. Results are accumulated on CPU, and the
+model's previous training/evaluation state is restored after prediction.
+
+Masked reconstruction uses ``pretrain_epochs``, ``pretrain_max_steps``,
+``pretraining_ratio``, ``pretraining_noise`` and ``pretraining_feature_mask``.
+Architectures without the required capability reject pretraining explicitly.
+
+Fixed designs and native fitting
+--------------------------------
+
+``FixedDesignTrainingConfig`` selects the conjugate-gradient weighted ridge solve
+for architectures exposing a fixed linear design, currently GPNAM with the default
+regression loss. It owns ``ridge``, ``cg_rtol`` and ``cg_max_iter``. With no explicit
+validation data, preprocessing and coefficient fitting use every supplied row.
+Classification, LSS and custom losses do not support this route.
+
+``NativeTrainingConfig`` defines common execution controls for an architecture-owned
+algorithm. ``IGANNTrainingConfig`` adds IGANN boosting, ridge-initialization,
+early-stopping and sparse-selection controls. It contains no unused gradient
+optimizer or scheduler settings. IGANN defaults to native fitting for default-loss
+regression and binary classification; multiclass and distributional objectives
+use gradient training. Requesting an unsupported native route raises an error.
+
+Cloning, refitting and artifacts
+--------------------------------
+
+Use nested parameters for sklearn searches, for example ``training__lr``,
+``architecture_config__dropout`` and ``preprocessing__n_bins``. ``set_params``
+replaces configuration records without mutating caller-owned records and clears
+fitted state. ``clone`` creates an unfitted estimator.
+
+A fit builds preprocessing, the objective and a trained module in staged state.
+Only a successful fit publishes that state. Failed refits preserve the previous
+prediction model and completion evidence. ``training_config_`` records the resolved
+training configuration used by the successful fit.
+
+Set ``GradientTrainingConfig(warm_start=True)`` before fitting to reuse weights on
+subsequent fits. The first fit initializes fresh weights. Warm starts load weights
+into a new staged module; optimizer state is not resumed. Incompatible architectures
+or output widths fail explicitly. A checkpoint path may also supply initial weights.
+
+The fitted model retains its prediction module, objective, fitted preprocessing
+and lightweight diagnostics. It does not retain a Lightning Trainer, callbacks,
+training batches or training observations. ``save_model`` and ``load_model`` use
+the shared versioned NAMpy artifact format. Previous artifact versions are rejected
+without migration or old-module remapping; load artifacts only from trusted sources.
+
+For LSS models, completed neural training is distinct from statistical convergence.
+Probability operations and moments are available only where the shared law declares
+them. BCT/BCPE probability support does not imply a supported fitting route.
+
+Joint structured/neural training
+--------------------------------
+
+``SemiStructuredTrainingConfig`` uses full-cohort CPU optimization with a
+training-fitted weighted projection, fixed structured smoothing parameters and
+validation early stopping. It has no Lightning optimizer/callback controls.
+See :doc:`semistructured` for its supported objectives and interpretation.

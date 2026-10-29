@@ -6,7 +6,7 @@ Exposure histories
 Types, defaults and output shapes
 ---------------------------------
 
-.. autofunction:: nampy.gam.extensions.exposure_history
+.. autofunction:: nampy.gam.structured.exposure_history
 
 
 

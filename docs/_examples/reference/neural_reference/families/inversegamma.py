@@ -2,7 +2,7 @@
 
 import numpy as np
 import torch
-from nampy.neural.distributions.distributions import InverseGammaDistribution
+from nampy.neural.families.continuous import InverseGammaDistribution
 
 family = InverseGammaDistribution()
 n = 8

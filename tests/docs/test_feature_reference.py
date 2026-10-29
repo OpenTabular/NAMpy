@@ -66,7 +66,7 @@ def test_registered_features_have_dedicated_pages_and_parameter_contracts(tmp_pa
     from public_reference import generate
 
     from nampy.gam.basis_registry import basis_descriptors
-    from nampy.neural.distributions.registry import FAMILY_REGISTRY
+    from nampy.neural.families.registry import FAMILY_REGISTRY
     from nampy.neural.registry import architectures
 
     docs = tmp_path / "docs"
@@ -217,7 +217,7 @@ def test_quantiles_do_not_claim_a_scalar_spread_hook():
     import numpy as np
     from reference_schema import neural_family_returns
 
-    from nampy.neural.distributions.registry import FAMILY_REGISTRY
+    from nampy.neural.families.registry import FAMILY_REGISTRY
 
     family, _ = FAMILY_REGISTRY["quantile"].instantiate(np.ones(4))
     rows = neural_family_returns("quantile", family)

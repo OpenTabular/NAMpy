@@ -10,7 +10,7 @@ Signature
 
 .. code-block:: python
 
-   GAM.fit(self, X=None, y=None, optimize_smoothing=None, smoothing_method=None, data=None, formula=None, offset=None, sample_weight=None, min_sp=None, knots=None, drop_intercept=None)
+   GAM.fit(self, X=None, y=None, optimize_smoothing=None, smoothing_method=None, data=None, formula=None, offset=None, sample_weight=None, min_sp=None, knots=None, drop_intercept=None, context=None)
 
 Parameters
 ----------
@@ -69,6 +69,10 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``bool | Sequence[bool] | None``
      - ``None``
      - Optional per-predictor intercept removal policy for formula compilation.
+   * - ``context``
+     - ``Mapping[str, array-like, shape (n,)] | None``
+     - ``None``
+     - Explicit row-aligned observation context, separate from prior weights. betabinomial_lss requires {'trials': trials}; other families reject unsupported context.
 
 Returns
 -------

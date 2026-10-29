@@ -10,10 +10,6 @@ import torch.nn as nn
 class DefaultNBMSPAMConfig:
     """NBM-SPAM defaults with an upstream-compatible NBM basis topology."""
 
-    lr: float = 1e-3
-    lr_patience: int = 10
-    weight_decay: float = 0.0
-    lr_factor: float = 0.1
     layer_sizes: List[int] = field(default_factory=lambda: [256, 128, 128])
     activation: type = nn.ReLU
     dropout: float = 0.0

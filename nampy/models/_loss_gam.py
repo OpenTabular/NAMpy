@@ -11,8 +11,8 @@ from sklearn.utils.validation import check_is_fitted
 from nampy.contracts import AdditivePrediction, AdditiveTermMetadata
 from nampy.gam.design import compile_design, observation_weights, response_vector
 
+from ..persistence import load_estimator, save_estimator
 from ._data import feature_frame
-from ._persistence import load_estimator, save_estimator
 
 
 class _LossGAMBase(RegressorMixin, BaseEstimator, ABC):
@@ -109,7 +109,7 @@ class _LossGAMBase(RegressorMixin, BaseEstimator, ABC):
         return evaluation.matrix @ self.coef_ + evaluation.offset
 
     def predict_components(self, X, *, offset=None):
-        """Return AdditivePrediction with (n,) response/link and (n,1) terms."""
+        """Return predictor decomposition with (n,1) link and term arrays."""
         check_is_fitted(self, "coef_")
         evaluation = self.design_.evaluate(X, offset=offset)
         B = evaluation.matrix
@@ -127,7 +127,6 @@ class _LossGAMBase(RegressorMixin, BaseEstimator, ABC):
         prediction = B @ self.coef_ + evaluation.offset
         off = evaluation.offset
         return AdditivePrediction(
-            response=prediction,
             link=prediction,
             terms=terms,
             intercept=intercept,

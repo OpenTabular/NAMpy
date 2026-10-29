@@ -212,46 +212,18 @@ def test_persistence_after_optimized_fit_matches_mgcv(tmp_path):
     np.testing.assert_allclose(actual_smooth, expected_smooth, rtol=1e-5, atol=1e-8)
 
 
-def test_legacy_pickle_state_migrates_family_and_term_coordinates():
-    """Schema-0 state remains usable after lifecycle and term-layout additions."""
-    data = _make_gaussian_data(seed=454, n=100)
-    formula = 'y ~ s(x0, bs="cr", k=7) + s(x1, bs="cr", k=7)'
-    model = GAM(
-        family="gaussian",
-        formula=formula,
-        smoothing_params=[0.6, 1.1],
-    ).fit(data=data)
-    expected = model.predict(data.drop(columns=["y"]), type="link")
+def test_previous_pickle_state_is_rejected_without_migration():
+    model = GAM()
     state = model.__getstate__()
     state.pop("_gam_state_schema_version")
-    state.pop("_family_template")
-    compiled = state["gam_result_"].compiled_model
-    compiled.__dict__.pop("predictor_full_indices", None)
-    for term in compiled.compiled_terms:
-        term.__dict__.pop("predictor_index", None)
-        term.__dict__.pop("predictor_name", None)
-        term.__dict__.pop("full_coef_indices", None)
-        term.__dict__.pop("predictor_indices", None)
-
     restored = GAM.__new__(GAM)
-    restored.__setstate__(state)
-
-    assert restored._family_template is not restored.family
-    for term in restored.gam_result_.compiled_model.compiled_terms:
-        mapped = restored.gam_result_.compiled_model.coef_reduced_to_full_idx[
-            term.coef_slice.start : term.coef_slice.stop
-        ]
-        np.testing.assert_array_equal(term.full_coef_indices, mapped)
-        assert term.predictor_indices == (term.predictor_index,)
-    np.testing.assert_array_equal(
-        restored.predict(data.drop(columns=["y"]), type="link"),
-        expected,
-    )
+    with pytest.raises(ValueError, match="Unsupported GAM state schema"):
+        restored.__setstate__(state)
 
 
 def test_future_pickle_schema_is_rejected_explicitly():
     state = GAM(family="gaussian").__getstate__()
     state["_gam_state_schema_version"] = 10_000
     restored = GAM.__new__(GAM)
-    with pytest.raises(ValueError, match="Cannot load GAM pickle schema"):
+    with pytest.raises(ValueError, match="Unsupported GAM state schema"):
         restored.__setstate__(state)

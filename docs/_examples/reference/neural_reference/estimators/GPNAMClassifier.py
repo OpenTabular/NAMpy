@@ -11,11 +11,12 @@ rng = np.random.default_rng(7)
 n = 64
 X = pd.DataFrame({'x': np.linspace(-1, 1, n), 'z': rng.uniform(-1, 1, n)})
 y = (np.arange(n) % 2).astype(int)
-model = GPNAMClassifier(rff_num_feat=16, n_knots=6, interactions=[])
+from nampy.neural.configs.gpnam_config import DefaultGPNAMConfig
+from nampy.neural.configuration import GradientTrainingConfig
+model = GPNAMClassifier(architecture_config=DefaultGPNAMConfig(rff_num_feat=16, interactions=[]), training=GradientTrainingConfig(batch_size=32, random_state=7, lr=0.01, lr_schedule='inverse_sqrt', weight_decay=0.0, max_epochs=2, trainer_kwargs={'logger': False, 'enable_progress_bar': False, 'enable_model_summary': False}))
 with TemporaryDirectory() as directory:
-    model.fit(X, y, max_epochs=2, batch_size=32, random_state=7,
-              checkpoint_path=directory, logger=False, enable_progress_bar=False,
-              enable_model_summary=False)
+    model.set_params(training__checkpoint_path=directory)
+    model.fit(X, y)
 prediction = model.predict(X)
 result = {'prediction': prediction}
 probability = model.predict_proba(X)

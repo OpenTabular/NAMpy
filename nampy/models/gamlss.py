@@ -7,27 +7,14 @@ from collections.abc import Mapping, Sequence
 import numpy as np
 
 from ..contracts import AdditivePrediction, AdditiveTermMetadata
-from ..gam.families.gamlss import GamlssFamily, gammals, gaulss
-from ..gam.families.registry import make_gam_family
+from ..gam.families.gamlss import GamlssFamily
+from ..gam.families.registry import make_distributional_family
 from ..gam.predict.distributional import distributional_standard_errors
 from ._gam import _GAMAdapterBase
 
-_FAMILY_ALIASES = {
-    "normal": gaulss,
-    "gaussian": gaulss,
-    "gaulss": gaulss,
-    "gamma": gammals,
-    "gammals": gammals,
-}
-
 
 def _resolve_gamlss_family(family) -> GamlssFamily:
-    if isinstance(family, GamlssFamily):
-        return family
-    key = str(family).lower()
-    if key in _FAMILY_ALIASES:
-        return _FAMILY_ALIASES[key]()
-    result = make_gam_family(family)
+    result = make_distributional_family(family)
     if not isinstance(result, GamlssFamily):
         raise ValueError(
             f"Unknown GAMLSS family {family!r}: a general distribution family is required."
@@ -150,9 +137,23 @@ class GAMLSS(_GAMAdapterBase):
                     )
         return formulas
 
-    def fit(self, X, y=None, *, data=None, sample_weight=None, offset=None):
-        """Fit distribution parameters in array or multi-formula mode."""
+    def fit(self, X, y=None, *, data=None, sample_weight=None, offset=None, context=None):
+        """Fit distribution parameters; context supplies explicit observation vectors.
+
+        For betabinomial_lss use context={"trials": trials}. Counts are successes,
+        never proportions or success/failure pairs. Context is separate from
+        sample_weight and is copied into this fit's isolated family state.
+        """
         family = self._resolved_family()
+        from ..distributions.observations import ObservationTarget
+        if isinstance(y, ObservationTarget):
+            if not getattr(family, "supports_observation_target", False):
+                raise NotImplementedError("This family does not support ObservationTarget.")
+            if context is not None:
+                raise ValueError("ObservationTarget already supplies observation context.")
+            encoded = y.encoded
+            y = encoded[:, 0]
+            context = {"observation_upper":encoded[:,1], "observation_code":encoded[:,2]}
         if offset is not None:
             if not isinstance(offset, (list, tuple)):
                 raise ValueError(
@@ -165,7 +166,7 @@ class GAMLSS(_GAMAdapterBase):
                     f"{family.n_linear_predictors} offsets, got {len(offset)}."
                 )
         result = self._fit_gam(
-            X, y, data=data, sample_weight=sample_weight, offset=offset
+            X, y, data=data, sample_weight=sample_weight, offset=offset, context=context
         )
         fitted_family = self.gam_.family
         self.predictor_names_ = tuple(fitted_family.parameter_names)
@@ -200,6 +201,75 @@ class GAMLSS(_GAMAdapterBase):
             return eta
         return self.gam_.family.distribution_parameters_from_eta(eta)
 
+    def predict_distribution(
+        self,
+        X=None,
+        offset=None,
+        *,
+        block_size=None,
+        newdata_guaranteed=False,
+        na_action="pass",
+        context=None,
+    ):
+        """Return conditional distributions for supported scalar GAMLSS families.
+
+        Parameters
+        ----------
+        X : DataFrame or ndarray, optional
+            Prediction rows; omitted X uses the fitted observations.
+        offset : list or tuple, optional
+            One known offset per linear predictor, as in ``predict``.
+        block_size : int, optional
+            Rows processed per statistical prediction block.
+        newdata_guaranteed : bool, default=False
+            Use the existing validated-newdata prediction contract.
+        na_action : str, default="pass"
+            Existing prediction missing-row policy. Pass preserves missing
+            rows as NaN in the returned distribution.
+        context : mapping of str to array, optional
+            Explicit row-aligned observation context. Beta-binomial requires
+            {"trials": trials} for every supplied X, even if it has the same
+            length as training data. Omitted X reuses fit context. Context
+            families currently require na_action="pass".
+
+        Returns
+        -------
+        nampy.distributions.DistributionPrediction
+            NumPy probability queries and outcome draws conditional on fitted
+            parameters for families declaring a probability adapter in the
+            statistical family registry.
+            Other families raise ``NotImplementedError``. Existing
+            ``predict`` output and mgcv fitting semantics are unchanged.
+        """
+        from ..gam.predict.distribution_adapter import distribution_prediction
+
+        parameters = self.predict(
+            X,
+            offset=offset,
+            block_size=block_size,
+            newdata_guaranteed=newdata_guaranteed,
+            na_action=na_action,
+        )
+        context = self._prediction_context(X, context, na_action)
+        return distribution_prediction(self.gam_.family, parameters, context=context)
+
+    def _prediction_context(self, X, context, na_action="pass"):
+        """Reuse fit context only for omitted X; never infer it from row count."""
+        self._check_fitted()
+        names = tuple(getattr(self.gam_.family, "prediction_context_names", getattr(self.gam_.family, "context_names", ())))
+        if names and na_action != "pass":
+            raise NotImplementedError(
+                "Context-dependent predictions currently require na_action='pass' to preserve row alignment."
+            )
+        if context is None and names and X is None:
+            provider = getattr(self.gam_.family, "fit_context", None)
+            if not callable(provider):
+                raise NotImplementedError(
+                    "This context-dependent family does not expose fitted observation context; supply context explicitly."
+                )
+            return provider(self.gam_.n_samples_)
+        return context
+
     def predict_point(
         self,
         X=None,
@@ -208,8 +278,21 @@ class GAMLSS(_GAMAdapterBase):
         block_size=None,
         newdata_guaranteed=False,
         na_action="pass",
+        context=None,
     ):
-        """Return the family-defined conditional mean prediction."""
+        """Return the family-defined point summary (mean or median)."""
+        self._check_fitted()
+        if getattr(self.gam_.family, "context_names", ()):
+            distribution = self.predict_distribution(
+                X, offset=offset, block_size=block_size,
+                newdata_guaranteed=newdata_guaranteed, na_action=na_action,
+                context=context,
+            )
+            if getattr(self.gam_.family, "point_summary", "mean") == "median":
+                return distribution.quantile(0.5)[:, 0]
+            return distribution.mean()
+        if context is not None and len(context):
+            raise ValueError(f"{self.gam_.family.name} does not accept observation context.")
         parameters = self.predict(
             X,
             offset=offset,
@@ -252,9 +335,13 @@ class GAMLSS(_GAMAdapterBase):
             na_action=na_action, unconditional=unconditional,
         )
 
-    def score(self, X, y, sample_weight=None):
+    def score(self, X, y, sample_weight=None, *, context=None):
         """Return weighted mean log likelihood (higher is better)."""
-        logpdf = self.gam_.family.logpdf_from_parameters(y, self.predict(X))
+        self._check_fitted()
+        if getattr(self.gam_.family, "context_names", ()) or context is not None:
+            logpdf = self.predict_distribution(X, context=context).log_prob(y)
+        else:
+            logpdf = self.gam_.family.logpdf_from_parameters(y, self.predict(X))
         if sample_weight is None:
             return float(np.mean(logpdf))
         weights = np.asarray(sample_weight, dtype=np.float64).ravel()
@@ -264,16 +351,51 @@ class GAMLSS(_GAMAdapterBase):
             )
         return float(np.average(logpdf, weights=weights))
 
-    def evaluate(self, X, y_true, metrics=None):
+    def distribution_fit_status(self):
+        """Report existing coefficient/outer convergence for family comparison.
+
+        Returns
+        -------
+        nampy.distributions.DistributionFitStatus
+            Backend-owned convergence evidence. Missing status is unknown;
+            failed coefficient or smoothing convergence is ineligible.
+        """
+        from ..gam.diagnostics.fit_status import distribution_fit_status
+
+        return distribution_fit_status(getattr(self, "gam_", None))
+
+    def evaluate(self, X, y_true, metrics=None, *, context=None):
         """Evaluate natural parameters (default: mean negative log likelihood)."""
         parameters = self.predict(X)
+        distribution = None
+        if getattr(self.gam_.family, "context_names", ()) or context is not None:
+            distribution = self.predict_distribution(X, context=context)
         if metrics is None:
-            logpdf = self.gam_.family.logpdf_from_parameters(y_true, parameters)
+            logpdf = (distribution.log_prob(y_true) if distribution is not None
+                      else self.gam_.family.logpdf_from_parameters(y_true, parameters))
             return {"Negative Log-Likelihood": float(-np.mean(logpdf))}
         return {
             metric_name: metric_func(y_true, parameters)
             for metric_name, metric_func in metrics.items()
         }
+
+    @property
+    def predictor_point_summary(self):
+        self._check_fitted()
+        return getattr(self.gam_.family, "point_summary", "mean")
+
+    def summarize_predictors(self, predictors):
+        """Evaluate the family point summary and SD through its probability law."""
+        from ..gam.predict.distribution_adapter import distribution_prediction
+
+        self._check_fitted()
+        parameters = self.gam_.family.distribution_parameters_from_eta(
+            np.asarray(predictors, dtype=float)
+        )
+        distribution = distribution_prediction(self.gam_.family, parameters)
+        point = (distribution.quantile(0.5)[:, 0]
+                 if self.predictor_point_summary == "median" else distribution.mean())
+        return point, np.sqrt(distribution.variance())
 
     def predict_components(
         self,
@@ -284,7 +406,7 @@ class GAMLSS(_GAMAdapterBase):
         newdata_guaranteed=False,
         na_action="pass",
     ) -> AdditivePrediction:
-        """Return zero-padded per-parameter contributions on the link scale."""
+        """Return contributions in the actual additive predictor coordinates."""
         self._check_fitted()
         if not newdata_guaranteed:
             self._validate_X(X)
@@ -297,14 +419,11 @@ class GAMLSS(_GAMAdapterBase):
         )
         eta = np.asarray(vals["output"], dtype=np.float64)
         family = self.gam_.family
-        response = family.distribution_parameters_from_eta(eta)
-        additive_link = getattr(family, "additive_link_from_eta", None)
-        link = np.asarray(additive_link(eta) if callable(additive_link) else eta, dtype=float)
+        link = eta
         n_samples, n_parameters = link.shape
-
+        names = tuple(family.parameter_names)
         compiled = self.gam_.gam_result_.require_compiled_model()
-        positions = tuple(getattr(family, "additive_predictor_indices", range(eta.shape[1])))
-        predictor_index = {f"eta{index + 1}": target for index, target in enumerate(positions)}
+        predictor_index = {f"eta{index + 1}": index for index in range(n_parameters)}
         label_map = {}
         feature_map = {}
         for term in compiled.compiled_terms:
@@ -315,7 +434,7 @@ class GAMLSS(_GAMAdapterBase):
                 label_map[(f"eta{int(target) + 1}", str(term.term_id))] = str(
                     term.label
                 )
-                features = tuple(term.feature_info.feature_names)
+                features = tuple(term.metadata.get("source_variables", term.feature_info.feature_names))
                 by = term.by_variable_info.name
                 feature_map[(f"eta{int(target) + 1}", str(term.term_id))] = tuple(
                     dict.fromkeys((*features, *((by,) if by else ())))
@@ -334,14 +453,14 @@ class GAMLSS(_GAMAdapterBase):
             contribution = np.zeros((n_samples, n_parameters), dtype=np.float64)
             contribution[:, index] = np.asarray(value, dtype=np.float64)
             label = label_map.get((predictor_name, term_id), term_id)
-            public_key = f"{self.parameter_names_[index]}:{label}"
+            public_key = f"{names[index]}:{label}"
             if public_key in terms:
-                public_key = f"{self.parameter_names_[index]}:{term_id}"
+                public_key = f"{names[index]}:{term_id}"
             terms[public_key] = contribution
             features = feature_map.get((predictor_name, term_id), ())
             metadata[public_key] = AdditiveTermMetadata(
                 features=features,
-                parameter=self.parameter_names_[index],
+                parameter=names[index],
                 kind="interaction" if len(features) > 1 else "main",
             )
 
@@ -361,8 +480,8 @@ class GAMLSS(_GAMAdapterBase):
                 )
 
         return AdditivePrediction(
-            response=response,
             link=link,
+            predictor_names=names,
             terms=terms,
             intercept=intercept,
             backend="gam",

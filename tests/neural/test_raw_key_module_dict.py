@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+from nampy.neural.configs.qnam_config import DefaultQNAMConfig
+from nampy.neural.configuration import GradientTrainingConfig
+from nampy.neural.configuration import PreprocessingConfig
+
 import pickle
 
 import numpy as np
@@ -83,24 +88,8 @@ def test_qnamlss_reserved_and_dotted_columns_fit_predict_and_reload(tmp_path):
         }
     )
     target = 500.0 + 100.0 * x + 25.0 * data["children"].to_numpy()
-    estimator = QNAMLSS(
-        layer_sizes=[4],
-        dropout=0.0,
-        numerical_preprocessing="minmax",
-    )
-    estimator.fit(
-        data,
-        target,
-        max_epochs=1,
-        batch_size=20,
-        shuffle=False,
-        checkpoint_path=tmp_path / "checkpoints",
-        logger=False,
-        enable_progress_bar=False,
-        enable_model_summary=False,
-        num_sanity_val_steps=0,
-        fast_dev_run=True,
-    )
+    estimator = QNAMLSS(architecture_config=DefaultQNAMConfig(layer_sizes=[4], dropout=0.0), preprocessing=PreprocessingConfig(numerical_preprocessing='minmax'))
+    estimator.set_params(training=replace(estimator.training or GradientTrainingConfig(), max_epochs=1, batch_size=20, shuffle=False, checkpoint_path=tmp_path / 'checkpoints', trainer_kwargs={'logger': False, 'enable_progress_bar': False, 'enable_model_summary': False, 'num_sanity_val_steps': 0, 'fast_dev_run': True})).fit(data, target)
 
     expected = estimator.predict(data, raw=True)
     artifact = estimator.save_model(tmp_path / "qnam-safe-columns.nampy")

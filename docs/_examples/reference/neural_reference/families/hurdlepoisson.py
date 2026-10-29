@@ -2,7 +2,7 @@
 
 import numpy as np
 import torch
-from nampy.neural.distributions.distributions import HurdlePoissonDistribution
+from nampy.neural.families.counts import HurdlePoissonDistribution
 
 family = HurdlePoissonDistribution()
 n = 8

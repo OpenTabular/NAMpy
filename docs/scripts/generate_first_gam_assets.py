@@ -17,6 +17,11 @@ from sklearn.model_selection import train_test_split  # noqa: E402
 
 from nampy.gam import GAM  # noqa: E402
 from nampy.models import NAMLSS, GAMRegressor, NAMRegressor, NBMRegressor  # noqa: E402
+from nampy.neural.configs.nam_config import DefaultNAMConfig  # noqa: E402
+from nampy.neural.configs.nbm_config import DefaultNBMConfig  # noqa: E402
+from nampy.neural.configuration import (  # noqa: E402
+    GradientTrainingConfig, ObjectiveConfig, PreprocessingConfig,
+)
 
 PINK = "#b4234d"
 PINK_FILL = "#f3b4c2"
@@ -153,23 +158,18 @@ def generate_gam_nam_comparison() -> None:
 
     with tempfile.TemporaryDirectory(prefix="nampy-docs-gam-nam-") as directory:
         nam = NAMRegressor(
-            layer_sizes=[48, 24],
-            dropout=0.0,
-            numerical_preprocessing="minmax",
+            architecture_config=DefaultNAMConfig(layer_sizes=[48, 24], dropout=0.0),
+            preprocessing=PreprocessingConfig(numerical_preprocessing="minmax"),
+            training=GradientTrainingConfig(
+                max_epochs=60, lr=5e-3, batch_size=128, patience=10,
+                random_state=41, checkpoint_path=Path(directory),
+                trainer_kwargs={"logger": False, "enable_progress_bar": False,
+                                "enable_model_summary": False, "num_sanity_val_steps": 0},
+            ),
         )
         nam.fit(
             train.loc[:, list(features)],
             train["value"],
-            max_epochs=60,
-            lr=5e-3,
-            batch_size=128,
-            patience=10,
-            random_state=41,
-            checkpoint_path=Path(directory),
-            logger=False,
-            enable_progress_bar=False,
-            enable_model_summary=False,
-            num_sanity_val_steps=0,
         )
 
     gam_training = gam.predict_components(train)
@@ -612,18 +612,13 @@ def generate_tensor_constructor_comparison() -> None:
     plt.close(figure)
 
 
-def _neural_fit_kwargs(checkpoint_path: Path) -> dict:
-    return {
-        "max_epochs": 30,
-        "lr": 1e-2,
-        "batch_size": 128,
-        "random_state": 17,
-        "checkpoint_path": checkpoint_path,
-        "logger": False,
-        "enable_progress_bar": False,
-        "enable_model_summary": False,
-        "num_sanity_val_steps": 0,
-    }
+def _neural_training(checkpoint_path: Path) -> GradientTrainingConfig:
+    return GradientTrainingConfig(
+        max_epochs=30, lr=1e-2, batch_size=128, random_state=17,
+        checkpoint_path=checkpoint_path,
+        trainer_kwargs={"logger": False, "enable_progress_bar": False,
+                        "enable_model_summary": False, "num_sanity_val_steps": 0},
+    )
 
 
 def generate_neural_comparison() -> None:
@@ -641,20 +636,23 @@ def generate_neural_comparison() -> None:
 
     with tempfile.TemporaryDirectory(prefix="nampy-docs-neural-") as directory:
         checkpoint = Path(directory)
-        fit_kwargs = _neural_fit_kwargs(checkpoint)
+        training = _neural_training(checkpoint)
         models = {
             "NAM": NAMRegressor(
-                layer_sizes=[24, 12], dropout=0.0,
-                numerical_preprocessing="minmax",
+                architecture_config=DefaultNAMConfig(layer_sizes=[24, 12], dropout=0.0),
+                preprocessing=PreprocessingConfig(numerical_preprocessing="minmax"),
+                training=training,
             ),
             "NBM": NBMRegressor(
-                layer_sizes=[16], num_bases=8, nary=[1], dropout=0.0,
-                bases_dropout=0.0, numerical_preprocessing="minmax",
+                architecture_config=DefaultNBMConfig(layer_sizes=[16], num_bases=8,
+                    nary=[1], dropout=0.0, bases_dropout=0.0),
+                preprocessing=PreprocessingConfig(numerical_preprocessing="minmax"),
+                training=training,
             ),
         }
         tables = {}
         for name, model in models.items():
-            model.fit(X, response, **fit_kwargs)
+            model.fit(X, response)
             model.predict_components(X, center=True).validate_additive_reconstruction(
                 atol=1e-5
             )
@@ -693,12 +691,12 @@ def generate_distributional_plot() -> None:
 
     with tempfile.TemporaryDirectory(prefix="nampy-docs-lss-") as directory:
         model = NAMLSS(
-            family="normal",
-            layer_sizes=[24, 12],
-            dropout=0.0,
-            numerical_preprocessing="minmax",
+            objective=ObjectiveConfig(family="normal"),
+            architecture_config=DefaultNAMConfig(layer_sizes=[24, 12], dropout=0.0),
+            preprocessing=PreprocessingConfig(numerical_preprocessing="minmax"),
+            training=_neural_training(Path(directory)),
         )
-        model.fit(X, response, **_neural_fit_kwargs(Path(directory)))
+        model.fit(X, response)
         figures = model.plot_distributional_effects(
             X,
             reference_X=X,

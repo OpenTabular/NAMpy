@@ -28,14 +28,12 @@ Fit and inspect
 
 .. code-block:: python
 
+
+   from nampy.neural.configs.igann_config import DefaultIGANNConfig
+   from nampy.neural.configuration import IGANNTrainingConfig
    from nampy.models import IGANNRegressor
 
-   model = IGANNRegressor(
-       n_hid=10,
-       n_estimators=500,
-       boost_rate=0.1,
-       early_stopping=30,
-   ).fit(X_train, y_train)
+   model = IGANNRegressor(architecture_config=DefaultIGANNConfig(n_hid=10, n_estimators=500), training=IGANNTrainingConfig(boost_rate=0.1, early_stopping=30)).fit(X_train, y_train)
 
    prediction = model.predict(X_test)
    components = model.predict_components(X_test, center=True)

@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from dataclasses import replace
+from nampy.neural.configs.spline_nam_config import DefaultSplineNAMConfig
+from nampy.neural.configuration import GradientTrainingConfig
+from nampy.neural.configuration import PreprocessingConfig
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -103,29 +108,15 @@ def test_spline_nam_regressor_fits_and_predicts_with_default_preprocessing(tmp_p
         }
     )
     y = np.sin(2.0 * x) + 0.2 * (data["group"] == "b").to_numpy(dtype=float)
-    model = SplineNAMRegressor(
-        n_knots=6,
-        interaction_degree=2,
-        smoothing=1e-4,
-    )
+    model = SplineNAMRegressor(architecture_config=DefaultSplineNAMConfig(interaction_degree=2, smoothing=0.0001, n_knots=6))
 
-    fitted = model.fit(
-        data,
-        y,
-        max_epochs=1,
-        batch_size=12,
-        checkpoint_path=tmp_path,
-        logger=False,
-        enable_progress_bar=False,
-        enable_model_summary=False,
-        num_sanity_val_steps=0,
-    )
+    fitted = model.set_params(training=replace(model.training or GradientTrainingConfig(), max_epochs=1, batch_size=12, checkpoint_path=tmp_path, trainer_kwargs={'logger': False, 'enable_progress_bar': False, 'enable_model_summary': False, 'num_sanity_val_steps': 0})).fit(data, y)
     predictions = fitted.predict(data)
     terms = fitted.predict_components(data).terms
 
     assert fitted is model
-    assert model.config.n_knots == 6
-    assert model.preprocessor.numerical_preprocessing == "minmax"
+    assert model.architecture_config.n_knots == 6
+    assert model.fitted_preprocessing_.preprocessor.numerical_preprocessing == "minmax"
     assert predictions.shape == (len(data),)
     assert np.isfinite(predictions).all()
     assert terms["x:group"].shape == (len(data), 1)

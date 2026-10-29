@@ -77,7 +77,7 @@ class FormulaBuildResult:
     X: np.ndarray
     feature_names: list[str]
     used_columns: list[str]
-    response: np.ndarray
+    response: np.ndarray | None
     offsets: np.ndarray | list[np.ndarray | None] | None
     preprocess_state: dict
     response_name: str | None
@@ -456,7 +456,9 @@ def _factor_levels_metadata_for_features(data_work, features):
         if matrix_factor is not None:
             values = feature_values_for_levels(s)
             if pd.isna(values).any():
-                raise ValueError(f"Matrix factor column {name!r} contains missing values.")
+                raise ValueError(
+                    f"Matrix factor column {name!r} contains missing values."
+                )
             if any(not np.any(values == level) for level in matrix_factor["levels"]):
                 raise ValueError(
                     f"Matrix factor column {name!r} contains unused declared levels; "
@@ -1282,6 +1284,7 @@ def build_formula_model(
     default_basis=None,
     default_select=False,
     response_infinite_bounds=False,
+    response_required=True,
 ):
     if not isinstance(data, pd.DataFrame):
         raise TypeError(
@@ -1325,11 +1328,13 @@ def build_formula_model(
             break
 
     if y is None:
-        if response_name is None:
+        if response_name is None and response_required:
             raise ValueError(
                 "Formula does not specify a response, so `y` must be supplied explicitly."
             )
-        if _is_bare_formula_name(response_name):
+        if response_name is None:
+            y_out = None
+        elif _is_bare_formula_name(response_name):
             if response_name not in data_work.columns:
                 raise KeyError(
                     f"Response column {response_name!r} not found in `data`."

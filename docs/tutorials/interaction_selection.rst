@@ -10,6 +10,8 @@ Generate data with an interaction
 
 .. code-block:: python
 
+   from dataclasses import replace
+   from nampy.neural.configuration import GradientTrainingConfig
    import tempfile
    import numpy as np
    import pandas as pd
@@ -23,17 +25,18 @@ Generate data with an interaction
    y = np.sin(3*X.x) + .4*X.z + 2.5*X.x*X.z + rng.normal(0, .12, len(X))
    X_fit, X_test, y_fit, y_test = train_test_split(X, y, test_size=.2, random_state=43)
    X_train, X_val, y_train, y_val = train_test_split(X_fit, y_fit, test_size=.25, random_state=44)
-   fit_options = dict(max_epochs=100, lr=.01, batch_size=128, patience=15,
-                      random_state=43, checkpoint_path=tempfile.mkdtemp(),
-                      logger=False, enable_progress_bar=False, enable_model_summary=False)
+   training = GradientTrainingConfig(max_epochs=100, lr=0.01, batch_size=128, patience=15, random_state=43, checkpoint_path=tempfile.mkdtemp(), trainer_kwargs={'logger': False, 'enable_progress_bar': False, 'enable_model_summary': False})
 
 Fit a main-effects model
 ------------------------
 
 .. code-block:: python
 
-   baseline = NAMRegressor(layer_sizes=[24, 12], dropout=0., numerical_preprocessing="minmax")
-   baseline.fit(X_train, y_train, X_val=X_val, y_val=y_val, **fit_options)
+
+   from nampy.neural.configs.nam_config import DefaultNAMConfig
+   from nampy.neural.configuration import PreprocessingConfig
+   baseline = NAMRegressor(architecture_config=DefaultNAMConfig(layer_sizes=[24, 12], dropout=0.0), preprocessing=PreprocessingConfig(numerical_preprocessing='minmax'))
+   baseline.set_params(training=training).fit(X_train, y_train, X_val=X_val, y_val=y_val)
 
 Inspect validation residuals
 ----------------------------
@@ -67,13 +70,11 @@ interpretation concerns the reported additive terms.
 
 .. code-block:: python
 
-   selected = SIANRegressor(
-       layer_sizes=[24, 12], residual_network=False,
-       numerical_preprocessing="minmax", max_interaction_order=2,
-       interaction_thresholds=.1, reference_layer_sizes=[32, 16],
-       reference_epochs=80, selection_max_samples=80,
-   )
-   selected.fit(X_train, y_train, X_val=X_val, y_val=y_val, **fit_options)
+
+   from nampy.neural.configs.sian_config import DefaultSIANConfig
+   from nampy.neural.configuration import PreprocessingConfig
+   selected = SIANRegressor(architecture_config=DefaultSIANConfig(layer_sizes=[24, 12], residual_network=False, max_interaction_order=2, interaction_thresholds=0.1, reference_layer_sizes=[32, 16], reference_epochs=80, selection_max_samples=80), preprocessing=PreprocessingConfig(numerical_preprocessing='minmax'))
+   selected.set_params(training=training).fit(X_train, y_train, X_val=X_val, y_val=y_val)
    selection_table = selected.interaction_selection_table()
 
 .. include:: /_generated/interaction_detector.inc

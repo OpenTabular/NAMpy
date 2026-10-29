@@ -17,7 +17,7 @@ from ..coefficients import (
     CoordinatewiseCoefficientTransform,
     IdentityCoefficientTransform,
 )
-from ..observations import IdentityObservationTransform, ObservationTransform
+from ..correlation import IdentityObservationTransform, ObservationTransform
 from .contracts import (
     ByVariableInfo,
     CoefficientMap,

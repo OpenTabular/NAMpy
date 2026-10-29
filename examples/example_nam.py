@@ -5,6 +5,11 @@ full training, evaluation, and a feature-importance plot.
 Run: python examples/example_nam.py
 """
 
+from dataclasses import replace
+from nampy.neural.configs.nam_config import DefaultNAMConfig
+from nampy.neural.configuration import GradientTrainingConfig
+from nampy.neural.configuration import PreprocessingConfig
+
 import os
 import tempfile
 
@@ -45,29 +50,10 @@ def main():
         X, y, test_size=0.2, random_state=42
     )
 
-    model = NAMRegressor(
-        layer_sizes=(64, 32),
-        dropout=0.05,
-        numerical_method="ple",
-        output_dim=50,
-        categorical_method="one_hot",
-        cat_cutoff=0.05,
-    )
+    model = NAMRegressor(architecture_config=DefaultNAMConfig(layer_sizes=(64, 32), dropout=0.05, numerical_method='ple', output_dim=50, categorical_method='one_hot'), preprocessing=PreprocessingConfig(cat_cutoff=0.05))
 
     with tempfile.TemporaryDirectory() as ckpt_dir:
-        model.fit(
-            X_train,
-            y_train,
-            X_val=X_val,
-            y_val=y_val,
-            checkpoint_path=ckpt_dir,
-            max_epochs=150,
-            batch_size=64,
-            val_size=0.2,
-            patience=20,
-            logger=False,
-            enable_progress_bar=True,
-        )
+        model.set_params(training=replace(model.training or GradientTrainingConfig(), checkpoint_path=ckpt_dir, max_epochs=150, batch_size=64, val_size=0.2, patience=20, trainer_kwargs={'logger': False, 'enable_progress_bar': True})).fit(X_train, y_train, X_val=X_val, y_val=y_val)
 
     model.predict(X_val)
     scores = model.evaluate(
@@ -81,7 +67,7 @@ def main():
     components = model.predict_components(X_val)
     feat_vals = dict(components.terms)
     feat_vals["output"] = components.link
-    feat_vals["response"] = components.response
+    feat_vals["response"] = model.predict(X_val)
     feat_vals["intercept"] = components.intercept
     print(f"Feature / interaction keys: {list(feat_vals.keys())}")
 

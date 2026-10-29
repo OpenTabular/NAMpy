@@ -11,6 +11,11 @@ Run:
     python examples/example_nbm.py
 """
 
+from dataclasses import replace
+from nampy.neural.configs.nbm_config import DefaultNBMConfig
+from nampy.neural.configuration import GradientTrainingConfig
+from nampy.neural.configuration import PreprocessingConfig
+
 import os
 import tempfile
 
@@ -76,32 +81,10 @@ def main():
     # - numerical_method="standardization" keeps each feature 1D
     # - nary=[1, 2] enables unary + pairwise terms
     # ------------------------------------------------------------------
-    model = NBMRegressor(
-        layer_sizes=(128, 64),
-        num_bases=64,
-        num_subnets=1,
-        dropout=0.05,
-        bases_dropout=0.05,
-        output_penalty=1e-4,
-        nary=[1, 2],  # unary + pairwise
-        numerical_method="standardization",
-        treat_all_integers_as_numerical=True,
-    )
+    model = NBMRegressor(architecture_config=DefaultNBMConfig(layer_sizes=(128, 64), num_bases=64, num_subnets=1, dropout=0.05, bases_dropout=0.05, output_penalty=0.0001, nary=[1, 2], numerical_method='standardization'), preprocessing=PreprocessingConfig(treat_all_integers_as_numerical=True))
 
     with tempfile.TemporaryDirectory() as ckpt_dir:
-        model.fit(
-            X_train,
-            y_train,
-            X_val=X_val,
-            y_val=y_val,
-            checkpoint_path=ckpt_dir,
-            max_epochs=200,
-            batch_size=64,
-            val_size=0.2,
-            patience=25,
-            logger=False,
-            enable_progress_bar=True,
-        )
+        model.set_params(training=replace(model.training or GradientTrainingConfig(), checkpoint_path=ckpt_dir, max_epochs=200, batch_size=64, val_size=0.2, patience=25, trainer_kwargs={'logger': False, 'enable_progress_bar': True})).fit(X_train, y_train, X_val=X_val, y_val=y_val)
 
     # ------------------------------------------------------------------
     # Predict / evaluate
@@ -120,7 +103,7 @@ def main():
     components = model.predict_components(X_val)
     feat_vals = dict(components.terms)
     feat_vals["output"] = components.link
-    feat_vals["response"] = components.response
+    feat_vals["response"] = model.predict(X_val)
     feat_vals["intercept"] = components.intercept
     print("\nReturned contribution keys:")
     print(list(feat_vals.keys()))

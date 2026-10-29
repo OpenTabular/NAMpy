@@ -29,9 +29,7 @@ def _atomic_feature_names(
 ) -> list[str]:
     names: list[str] = []
     feature_info = {"num": num_feature_info, "cat": cat_feature_info}
-    for kind, feature_name in ordered_feature_keys(
-        num_feature_info, cat_feature_info
-    ):
+    for kind, feature_name in ordered_feature_keys(num_feature_info, cat_feature_info):
         info = feature_info[kind][feature_name]
         dimension = int(info["dimension"])
         if dimension <= 0:
@@ -237,7 +235,7 @@ class _NBMCore(nn.Module):
                 missing = set(self.order_keys) - set(normalized_ignore)
                 if missing:
                     raise ValueError(
-                        "nary_ignore_input is missing orders " f"{sorted(missing)}."
+                        f"nary_ignore_input is missing orders {sorted(missing)}."
                     )
                 self.nary_ignore_input = OrderedDict(
                     (key, float(normalized_ignore[key])) for key in self.order_keys
@@ -263,9 +261,7 @@ class _NBMCore(nn.Module):
                     torch.empty(self.num_channels, self.num_bases)
                 )
                 self.featurizer_bias = nn.Parameter(torch.empty(self.num_channels))
-                nn.init.kaiming_uniform_(
-                    self.featurizer_weight, a=math.sqrt(5)
-                )
+                nn.init.kaiming_uniform_(self.featurizer_weight, a=math.sqrt(5))
                 bound = 1 / math.sqrt(self.num_bases)
                 nn.init.uniform_(self.featurizer_bias, -bound, bound)
 
@@ -291,9 +287,9 @@ class _NBMCore(nn.Module):
         all_bases = torch.cat(chunks, dim=1)
         if self.featurizer is not None:
             # Mirrors upstream ConceptNBMNary.forward.
-            return self.featurizer(
-                all_bases.reshape(inputs.shape[0], -1, 1)
-            ).squeeze(-1)
+            return self.featurizer(all_bases.reshape(inputs.shape[0], -1, 1)).squeeze(
+                -1
+            )
         assert self.featurizer_weight is not None
         assert self.featurizer_bias is not None
         return (
@@ -325,7 +321,9 @@ class _NBMCore(nn.Module):
         return torch.cat(chunks, dim=1)
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
-        return self._sparse_forward(inputs) if self.sparse else self._dense_forward(inputs)
+        return (
+            self._sparse_forward(inputs) if self.sparse else self._dense_forward(inputs)
+        )
 
 
 class NBM(BaseModel):
@@ -337,64 +335,47 @@ class NBM(BaseModel):
         num_feature_info,
         num_classes: int = 1,
         config: DefaultNBMConfig | None = None,
-        **kwargs,
     ) -> None:
         if config is None:
             config = DefaultNBMConfig()
-        super().__init__(**kwargs)
-        self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
+        super().__init__()
+
         self._validate_features(num_feature_info, cat_feature_info)
 
-        self.lr = self.hparams.get("lr", config.lr)
-        self.lr_patience = self.hparams.get("lr_patience", config.lr_patience)
-        self.weight_decay = self.hparams.get("weight_decay", config.weight_decay)
-        self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
         self.num_classes = int(num_classes)
-        self.output_penalty = float(
-            self.hparams.get("output_penalty", config.output_penalty)
-        )
-        self.feature_dropout_p = float(
-            self.hparams.get("feature_dropout", config.feature_dropout)
-        )
+        self.output_penalty = float(config.output_penalty)
+        self.feature_dropout_p = float(config.feature_dropout)
 
         self.num_feature_keys = list(num_feature_info)
         self.cat_feature_keys = list(cat_feature_info)
-        self.feature_order = ordered_feature_keys(
-            num_feature_info, cat_feature_info
-        )
+        self.feature_order = ordered_feature_keys(num_feature_info, cat_feature_info)
         self.atomic_feature_names = _atomic_feature_names(
             num_feature_info, cat_feature_info
         )
         self.num_atomic_features = len(self.atomic_feature_names)
         self.nary = _normalize_nary(
-            nary=self.hparams.get("nary", config.nary),
-            interaction_degree=self.hparams.get(
-                "interaction_degree", config.interaction_degree
-            ),
-            order=self.hparams.get("order", config.order),
+            nary=config.nary,
+            interaction_degree=config.interaction_degree,
+            order=config.order,
             num_concepts=self.num_atomic_features,
         )
 
         self.core = _NBMCore(
             nary=self.nary,
-            num_bases=self.hparams.get("num_bases", config.num_bases),
-            num_subnets=self.hparams.get("num_subnets", config.num_subnets),
-            layer_sizes=self.hparams.get("layer_sizes", config.layer_sizes),
-            activation=self.hparams.get("activation", config.activation),
-            dropout=self.hparams.get("dropout", config.dropout),
-            bases_dropout=self.hparams.get("bases_dropout", config.bases_dropout),
-            norm=self.hparams.get("norm", config.norm),
-            use_glu=self.hparams.get("use_glu", config.use_glu),
-            skip_connections=self.hparams.get(
-                "skip_connections", config.skip_connections
-            ),
-            batch_norm=self.hparams.get("batch_norm", config.batch_norm),
-            layer_norm=self.hparams.get("layer_norm", config.layer_norm),
-            featurizer=self.hparams.get("featurizer", config.featurizer),
-            sparse=self.hparams.get("sparse", config.sparse),
-            nary_ignore_input=self.hparams.get(
-                "nary_ignore_input", config.nary_ignore_input
-            ),
+            num_bases=config.num_bases,
+            num_subnets=config.num_subnets,
+            layer_sizes=config.layer_sizes,
+            activation=config.activation,
+            dropout=config.dropout,
+            bases_dropout=config.bases_dropout,
+            norm=config.norm,
+            use_glu=config.use_glu,
+            skip_connections=config.skip_connections,
+            batch_norm=config.batch_norm,
+            layer_norm=config.layer_norm,
+            featurizer=config.featurizer,
+            sparse=config.sparse,
+            nary_ignore_input=config.nary_ignore_input,
         )
         self.num_subnets = self.core.num_subnets
         self.num_bases = self.core.num_bases
@@ -416,7 +397,7 @@ class NBM(BaseModel):
             )
             self.term_to_channel_indices.setdefault(name, []).append(channel_index)
 
-        use_intercept = bool(self.hparams.get("intercept", config.intercept))
+        use_intercept = bool(config.intercept)
         self.classifier = nn.Linear(
             self.num_channels, self.num_classes, bias=use_intercept
         )

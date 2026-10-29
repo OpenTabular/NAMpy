@@ -121,10 +121,14 @@ FAMILY_GROUPS = {
         "weibull",
         "loglogistic",
         "gammals",
+        "lognormal_lss",
+        "weibull_lss",
+        "bccg_lss", "bccg", "bct_lss", "bct", "bcpe_lss", "bcpe",
     },
-    "Nonnegative semicontinuous responses": {"tw", "twlss", "tweedie"},
-    "Proportions": {"beta", "betar", "beta_lss"},
+    "Nonnegative semicontinuous responses": {"tw", "twlss", "tweedie", "zaga_lss", "zaga"},
+    "Proportions": {"beta", "betar", "beta_lss", "beinf_lss", "beinf"},
     "Counts": {
+        "betabinomial_lss", "betabinomial",
         "poisson",
         "nb",
         "negbin",
@@ -145,13 +149,16 @@ FAMILY_GROUPS = {
         "categorical",
         "multinom",
     },
-    "Censored responses": {"cnorm", "clog", "cpois", "bcg"},
+    "Censored responses": {"cnorm", "clog", "cpois", "bcg", "normal_observation", "normal_observation_lss", "lognormal_observation", "lognormal_observation_lss", "weibull_observation", "weibull_observation_lss"},
     "Multivariate responses": {"dirichlet", "mvnormdiag"},
     "Quantiles": {"quantile"},
 }
 
 # Domains and ordering are separate from constructor-option meanings.
 NEURAL_PARAMETERS = {
+    "trials": "Fixed integer denominator >=2; observation-specific neural trials are unsupported.",
+    "lower": "Fixed lower truncation bound; -inf leaves the lower tail untruncated.",
+    "upper": "Fixed upper truncation bound; inf leaves the upper tail untruncated.",
     "zero_prob_transform": "Transform of the structural-zero or hurdle-zero probability; default maps raw values into (0,1).",
     "name": "Display label for this distribution; does not change its mathematical family.",
     "eps": "Positive numerical floor used by positivity transforms and stable logarithms; it is not response noise.",
@@ -194,18 +201,20 @@ def grouped_families(root, backend, names):
     from public_reference import FAMILY_MEANINGS
 
     from nampy.gam.families.registry import make_gam_family
-    from nampy.neural.distributions.registry import FAMILY_REGISTRY
+    from nampy.neural.families.registry import FAMILY_REGISTRY
 
     text = heading(
         "Response families"
         if backend == "statistical"
-        else "Neural response distributions"
+        else "Neural response families and objectives"
     )
     text += "Choose by response support, then compare parameterization and fitting interface. Column meanings on the individual page take precedence over a similarly named family in another backend.\n\n"
     text += "The parameter column describes natural distribution parameters, not link predictors or lower-level response output columns. Family pages distinguish these interfaces. Fixed nuisance parameters are listed in each constructor contract.\n\n"
     text += "For likelihoods, links, response support and joint parameter predictors, start with :doc:`/statistical_reference/families/theory`. Individual pages develop the theory of their response law before its API contracts.\n\n"
     if backend == "statistical":
         text += "Choose a parameter transformation in the :doc:`link-function reference </statistical_reference/links/index>`; the response law and its link are separate choices.\n\n"
+    if backend == "neural":
+        text += "Quantile entries define pinball-loss objectives, not probability densities. Their implementation lives in ``nampy.neural.objectives``.\n\n"
     covered = set()
     for title, members in FAMILY_GROUPS.items():
         selected = sorted(set(names) & members)
@@ -237,6 +246,12 @@ def grouped_families(root, backend, names):
                         "student_lss": "Real scalar, Student-t location/scale with fixed degrees of freedom.",
                         "beta_lss": "Proportion strictly between zero and one, mean/precision predictors.",
                         "nb_lss": "Nonnegative integer counts, mean/inverse-shape dispersion predictors.",
+                        "lognormal_lss": "Positive scalar; real log-location and positive log-SD, identity/log predictors.",
+                        "weibull_lss": "Positive scalar; positive scale and shape, both log-linked (WEI convention).",
+                            "bccg_lss": "Positive scalar; Box-Cox Cole-Green mu/scale/power with log/log/identity links. Fixed and automatic joint REML; mu is not generally the response mean.",
+                        "betabinomial_lss": "Integer successes with explicit trials context; logit mean probability and log precision. Fixed smoothing and validated joint REML routes.",
+                        "zaga_lss": "Exact zeros with positive Gamma outcomes; positive-component mean/CV and zero probability, log/log/logit predictors.",
+                        "beinf_lss": "Proportions including zero/one atoms; interior mean/precision, coupled probabilities and four predictors/five natural outputs.",
                     }.get(name, "Multi-parameter response family; see contract."),
                 )
                 interface = (
@@ -257,7 +272,7 @@ def grouped_families(root, backend, names):
                     if name in {"dirichlet", "mvnormdiag"}
                     else np.array([0, 1, 2, 0, 1, 2])
                 )
-                instance, _ = FAMILY_REGISTRY[name].instantiate(sample)
+                instance, _ = FAMILY_REGISTRY[name].instantiate(sample, {"trials":10} if name=="betabinomial" else {})
                 params = instance.param_names
                 support = FAMILY_MEANINGS[name][0]
                 interface = "LSS estimators supporting this response family"
@@ -302,7 +317,7 @@ def organize_reference(root):
     from nampy.gam import gam_control
     from nampy.gam.basis_registry import basis_descriptors
     from nampy.gam.families.registry import GENERAL_FAMILIES
-    from nampy.neural.distributions.registry import FAMILY_REGISTRY
+    from nampy.neural.families.registry import FAMILY_REGISTRY
 
     descriptors = sorted(basis_descriptors(), key=lambda d: d.name)
     groups = {
@@ -530,7 +545,7 @@ def organize_reference(root):
             )
     from feature_reference import reference_targets
     from neural_method_reference import METHODS
-    from public_reference import literal
+    from public_reference import constructor_defaults, literal
     from reference_symbols import SYMBOLS
 
     from nampy import models
@@ -546,7 +561,7 @@ def organize_reference(root):
         except (ValueError, TypeError):
             signature = None
         defaults = (
-            obj().get_params(deep=False)
+            constructor_defaults(obj)
             if kind == "estimator" and hasattr(obj, "get_params")
             else None
         )
@@ -562,7 +577,7 @@ def organize_reference(root):
                 if n not in {"self", "cls"}
             }
         for n, default in (defaults or {}).items():
-            params.append({"name": n, "default": literal(default)})
+            params.append({"name": n, "default": "required" if default is inspect.Parameter.empty else literal(default)})
         rendered_signature = str(signature)
         if signature:
             for parameter in signature.parameters.values():
@@ -605,12 +620,21 @@ def organize_reference(root):
                 page,
                 "shared",
             )
-    from nampy.gam import design, extensions
+    from nampy.gam import design, losses, structured
+    from nampy.gam.inference import functionals
 
-    for module in [design, extensions]:
+    for module in [design, losses, structured, functionals]:
         for name in module.__all__:
             page = "statistical_reference/extensions/" + name
             record(name, getattr(module, name), page, page, "statistical_extension")
+    from nampy import survival
+
+    for name in ("piecewise_exponential_data", "survival_from_hazard"):
+        page = "statistical_reference/extensions/" + name
+        record(name, getattr(survival, name), page, page, "shared")
+    from feature_reference import statistical_estimator_exports
+
+    statistical_estimators = statistical_estimator_exports()
     for name in models.__all__:
         record(
             name,
@@ -618,11 +642,19 @@ def organize_reference(root):
             targets[name],
             targets[name],
             "estimator"
-            if name.endswith(("Regressor", "Classifier", "LSS"))
+            if (name.endswith(("Regressor", "Classifier", "LSS", "Survival")) or name in statistical_estimators)
             and name not in {"NeuralRegressor", "NeuralClassifier", "NeuralLSS"}
             else "extension",
         )
         inventory[-1]["public_import"] = "nampy.models." + name
+        validation = {
+            "CoxGAM": "tests/survival/test_cox_fixed.py",
+            "CalibratedQuantileGAM": "tests/extensions/test_calibrated_quantile.py",
+            "SemiStructuredRegressor": "tests/neural/test_semistructured.py",
+            "SemiStructuredLSS": "tests/neural/test_semistructured.py",
+        }.get(name)
+        if validation:
+            inventory[-1]["tests"].append(validation)
     for name in FAMILY_SUPPORT.keys() | GENERAL_FAMILIES.keys():
         if (
             name not in FAMILY_SUPPORT
@@ -650,6 +682,8 @@ def organize_reference(root):
     for name, spec in architectures().items():
         page = "neural_reference/" + name
         record(spec.config.__name__, spec.config, page, page, "architecture")
+        if name == "semistructured":
+            inventory[-1]["tests"].append("tests/neural/test_semistructured.py")
     for name, obj in inspect.getmembers(GAM, predicate=callable):
         if name.startswith("_"):
             continue
@@ -681,6 +715,10 @@ def organize_reference(root):
     for symbol, obj, page, kind in inventory_features():
         record(symbol, obj, page, page, kind)
         inventory[-1]["tests"] = ["tests/docs/test_statistical_helper_reference.py"]
+    # Public symbol pages document the package export, not an implementation owner.
+    for entry in inventory:
+        if entry["page"].startswith("api/generated/nampy.inspection."):
+            entry["public_import"] = "nampy.inspection." + entry["symbol"]
     inventory.sort(key=lambda entry: (entry["kind"], entry["symbol"]))
     write(
         root,

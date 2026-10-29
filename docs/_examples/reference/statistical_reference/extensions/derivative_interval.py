@@ -11,5 +11,5 @@ data['y'] = 0.4 + np.sin(3 * data.x) + 0.3 * data.z + rng.normal(0, 0.12, n)
 model = GAM(formula="y ~ s(x, bs='ps', k=7) + s(z, bs='cr', k=6)",
             optimize_smoothing=True, smoothing_method='reml').fit(data=data)
 
-from nampy.gam.extensions import derivative_interval
+from nampy.gam.inference.functionals import derivative_interval
 result = derivative_interval(model, data, 'x', n_draws=2000, seed=4)

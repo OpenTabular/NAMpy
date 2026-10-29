@@ -323,7 +323,7 @@ def fit_model_core(
 
     assign_fit_solution(model, sol)
     if method != "fixed" and not (getattr(model, "_optim_trace", None) or []):
-        inner_trace = list(getattr(sol, "inner_trace", None) or [])
+        inner_trace = list(getattr(sol.fit_result, 'inner_trace', None) or [])
         if inner_trace:
             fixed_mask = (
                 np.zeros(_n_smoothing_params(model), dtype=bool)

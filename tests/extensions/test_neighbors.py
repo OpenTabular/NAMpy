@@ -11,20 +11,18 @@ from numpy.testing import assert_allclose
 from sklearn.base import clone
 
 from nampy import GAMLSS, ExpectileGAM, GAMRegressor, QuantileGAM
-from nampy.gam.extensions import (
-    coefficient_draws,
-    cross_basis,
-    cross_basis_penalty,
-    cumulative_lag_matrix,
-    derivative_interval,
-    exposure_history,
-    fit_expectile,
-    fit_quantile,
-    joint_edf,
-    linear_functional_interval,
-    piecewise_exponential_data,
-    survival_from_hazard,
-)
+from nampy.gam.inference.functionals import coefficient_draws
+from nampy.gam.structured.lags import cross_basis
+from nampy.gam.structured.lags import cross_basis_penalty
+from nampy.gam.structured.lags import cumulative_lag_matrix
+from nampy.gam.inference.functionals import derivative_interval
+from nampy.gam.structured.lags import exposure_history
+from nampy.gam.losses.objectives import fit_expectile
+from nampy.gam.losses.objectives import fit_quantile
+from nampy.gam.inference.functionals import joint_edf
+from nampy.gam.inference.functionals import linear_functional_interval
+from nampy.survival import piecewise_exponential_data
+from nampy.survival import survival_from_hazard
 
 FIXTURE = Path(__file__).parents[1] / "reference_fixtures/extensions/neighbors.json"
 
@@ -243,9 +241,9 @@ def test_estimators_formula_offsets_components_and_sklearn_clone(cls):
     reconstructed = (
         components.intercept
         + components.offset
-        + sum(v[:, 0] for v in components.terms.values())
+        + sum(components.terms.values())
     )
-    assert_allclose(prediction, reconstructed)
+    assert_allclose(prediction[:, None], reconstructed)
     assert prediction.shape == (50,)
     changed = data.assign(off=data.off + 2)
     assert_allclose(model.predict(changed) - prediction, 2)

@@ -33,17 +33,10 @@ class GPNAM(BaseModel):
         num_feature_info,
         num_classes: int = 1,
         config: DefaultGPNAMConfig | None = None,
-        **kwargs,
     ):
         if config is None:
             config = DefaultGPNAMConfig()
-        super().__init__(**kwargs)
-        self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
-
-        self.lr = self.hparams.get("lr", config.lr)
-        self.lr_patience = self.hparams.get("lr_patience", config.lr_patience)
-        self.weight_decay = self.hparams.get("weight_decay", config.weight_decay)
-        self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
+        super().__init__()
 
         self.cat_feature_info = cat_feature_info
         self.num_feature_info = num_feature_info
@@ -55,34 +48,16 @@ class GPNAM(BaseModel):
         self.atomic_feature_names = self._build_atomic_feature_names()
         self.input_dim = len(self.atomic_feature_names)
 
-        self.rff_num_feat = int(self.hparams.get("rff_num_feat", config.rff_num_feat))
+        self.rff_num_feat = int(config.rff_num_feat)
         if self.rff_num_feat < 1:
             raise ValueError("rff_num_feat must be a positive integer.")
-        self.rff_scheme = str(
-            self.hparams.get("rff_scheme", config.rff_scheme)
-        ).lower()
+        self.rff_scheme = str(config.rff_scheme).lower()
         if self.rff_scheme not in {"quasi_random", "random"}:
             raise ValueError("rff_scheme must be 'quasi_random' or 'random'.")
-        self.rff_random_state = self.hparams.get(
-            "rff_random_state", config.rff_random_state
-        )
-
-        self.solver = str(self.hparams.get("solver", config.solver)).lower()
-        if self.solver not in {"cg", "gradient"}:
-            raise ValueError("solver must be 'cg' or 'gradient'.")
-        self.ridge = float(self.hparams.get("ridge", config.ridge))
-        self.cg_rtol = float(self.hparams.get("cg_rtol", config.cg_rtol))
-        self.cg_max_iter = self.hparams.get("cg_max_iter", config.cg_max_iter)
-        if self.ridge < 0:
-            raise ValueError("ridge must be non-negative.")
-        if self.cg_rtol <= 0:
-            raise ValueError("cg_rtol must be positive.")
+        self.rff_random_state = config.rff_random_state
 
         self.interaction_names, interaction_indices = self._resolve_interactions(
-            interaction_degree=self.hparams.get(
-                "interaction_degree", config.interaction_degree
-            ),
-            requested=self.hparams.get("interactions", config.interactions),
+            interaction_degree=config.interaction_degree, requested=config.interactions
         )
         self.register_buffer(
             "interaction_indices",
@@ -112,7 +87,7 @@ class GPNAM(BaseModel):
                 len(self.interaction_names), self.rff_num_feat, self.num_classes
             )
         )
-        if self.hparams.get("intercept", config.intercept):
+        if config.intercept:
             self.intercept: nn.Parameter | None = nn.Parameter(
                 torch.zeros(self.num_classes)
             )
@@ -186,7 +161,7 @@ class GPNAM(BaseModel):
         return names, indices
 
     def _initial_kernel_widths(self, config):
-        explicit = self.hparams.get("kernel_widths", config.kernel_widths)
+        explicit = config.kernel_widths
         if explicit is not None:
             widths = torch.as_tensor(explicit, dtype=torch.float32).flatten()
             if widths.numel() != self.input_dim:
@@ -198,7 +173,7 @@ class GPNAM(BaseModel):
                 raise ValueError("All kernel_widths must be finite and positive.")
             return widths, False
 
-        width = self.hparams.get("kernel_width", config.kernel_width)
+        width = config.kernel_width
         if isinstance(width, str):
             if width.lower() != "auto":
                 raise ValueError("kernel_width must be positive or 'auto'.")
@@ -233,16 +208,16 @@ class GPNAM(BaseModel):
             phase_grid = self._phase_grid()
             c = torch.stack(
                 [
-                    phase_grid[
-                        torch.randperm(self.rff_num_feat, generator=generator)
-                    ]
+                    phase_grid[torch.randperm(self.rff_num_feat, generator=generator)]
                     for _ in range(self.input_dim)
                 ]
             )
         else:
             z = torch.randn(self.rff_num_feat, generator=generator)
-            c = 2.0 * math.pi * torch.rand(
-                self.input_dim, self.rff_num_feat, generator=generator
+            c = (
+                2.0
+                * math.pi
+                * torch.rand(self.input_dim, self.rff_num_feat, generator=generator)
             )
         return z, c
 
@@ -267,9 +242,7 @@ class GPNAM(BaseModel):
             return z, c
         return (
             torch.randn(count, self.rff_num_feat, 2, generator=generator),
-            2.0
-            * math.pi
-            * torch.rand(count, self.rff_num_feat, generator=generator),
+            2.0 * math.pi * torch.rand(count, self.rff_num_feat, generator=generator),
         )
 
     def _concat_all_features(self, num_features, cat_features):
@@ -285,8 +258,7 @@ class GPNAM(BaseModel):
         result = torch.cat(tensors, dim=1).float()
         if result.shape[1] != self.input_dim:
             raise RuntimeError(
-                f"Expected {self.input_dim} architecture inputs, got "
-                f"{result.shape[1]}."
+                f"Expected {self.input_dim} architecture inputs, got {result.shape[1]}."
             )
         return result
 
@@ -348,9 +320,7 @@ class GPNAM(BaseModel):
 
     def set_linear_coefficients(self, coefficients, intercept=None) -> None:
         """Install a fixed-design solution without replacing Parameters."""
-        expected = (
-            self.input_dim + len(self.interaction_names)
-        ) * self.rff_num_feat
+        expected = (self.input_dim + len(self.interaction_names)) * self.rff_num_feat
         if coefficients.shape != (expected, self.num_classes):
             raise ValueError(
                 f"Expected coefficient shape {(expected, self.num_classes)}, got "

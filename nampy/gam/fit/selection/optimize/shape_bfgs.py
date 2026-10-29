@@ -24,10 +24,10 @@ def _current_scale_estimate(objective) -> float:
     if not isinstance(state, dict):
         return np.nan
     solution = state.get("solution", {})
-    denominator = float(model.n_samples_) - float(solution.get("trace_H", np.nan))
+    denominator = float(model.n_samples_) - float(solution.fit_result.trace_H if solution.fit_result.trace_H is not None else np.nan)
     if not np.isfinite(denominator) or denominator == 0.0:
         return np.nan
-    return float(solution.get("deviance", np.nan)) / denominator
+    return float(solution.fit_result.deviance if solution.fit_result.deviance is not None else np.nan) / denominator
 
 
 def optimize_shape_bfgs(

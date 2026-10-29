@@ -11,6 +11,11 @@ Run:
     python examples/example_nbm_onehot.py
 """
 
+from dataclasses import replace
+from nampy.neural.configs.nbm_config import DefaultNBMConfig
+from nampy.neural.configuration import GradientTrainingConfig
+from nampy.neural.configuration import PreprocessingConfig
+
 import os
 import tempfile
 
@@ -81,33 +86,10 @@ def main():
     # - unary only, because this test is about categorical one-hot features
     # - one-hot categoricals so returned keys should include region[0], ...
     # ------------------------------------------------------------------
-    model = NBMRegressor(
-        layer_sizes=(128, 64),
-        num_bases=64,
-        num_subnets=1,
-        dropout=0.05,
-        bases_dropout=0.05,
-        output_penalty=1e-4,
-        nary=[1],
-        numerical_method="standardization",
-        categorical_method="one_hot",
-        cat_cutoff=0.0,
-    )
+    model = NBMRegressor(architecture_config=DefaultNBMConfig(layer_sizes=(128, 64), num_bases=64, num_subnets=1, dropout=0.05, bases_dropout=0.05, output_penalty=0.0001, nary=[1], numerical_method='standardization', categorical_method='one_hot'), preprocessing=PreprocessingConfig(cat_cutoff=0.0))
 
     with tempfile.TemporaryDirectory() as ckpt_dir:
-        model.fit(
-            X_train,
-            y_train,
-            X_val=X_val,
-            y_val=y_val,
-            checkpoint_path=ckpt_dir,
-            max_epochs=180,
-            batch_size=64,
-            val_size=0.2,
-            patience=20,
-            logger=False,
-            enable_progress_bar=True,
-        )
+        model.set_params(training=replace(model.training or GradientTrainingConfig(), checkpoint_path=ckpt_dir, max_epochs=180, batch_size=64, val_size=0.2, patience=20, trainer_kwargs={'logger': False, 'enable_progress_bar': True})).fit(X_train, y_train, X_val=X_val, y_val=y_val)
 
     preds = model.predict(X_val)
     scores = model.evaluate(
@@ -123,7 +105,7 @@ def main():
 
     feat_vals["output"] = components.link
 
-    feat_vals["response"] = components.response
+    feat_vals["response"] = model.predict(X_val)
 
     feat_vals["intercept"] = components.intercept
 

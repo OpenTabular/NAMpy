@@ -15,6 +15,7 @@ from .nbm_config import DefaultNBMConfig
 from .nbm_spam_config import DefaultNBMSPAMConfig
 from .nodegam_config import DefaultNodeGAMConfig
 from .qnam_config import DefaultQNAMConfig
+from .semistructured_config import DefaultSemiStructuredConfig
 from .sian_config import DefaultSIANConfig
 from .snam_config import DefaultSNAMConfig
 from .spam_config import DefaultSPAMConfig
@@ -23,6 +24,7 @@ from .treenam_config import DefaultTreeNAMConfig
 
 __all__ = [
     "DefaultNAMConfig",
+    "DefaultSemiStructuredConfig",
     "DefaultSNAMConfig",
     "DefaultNBMConfig",
     "DefaultNBMSPAMConfig",

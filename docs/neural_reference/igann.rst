@@ -38,30 +38,6 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - Type / input shape
      - Default
      - Description
-   * - ``lr``
-     - ``float``
-     - ``0.1``
-     - Learning rate for the optimizer.
-   * - ``lr_patience``
-     - ``int``
-     - ``10``
-     - Number of epochs with no improvement after which learning rate will be reduced.
-   * - ``weight_decay``
-     - ``float``
-     - ``0.0``
-     - Weight decay (L2 penalty) for the optimizer.
-   * - ``lr_factor``
-     - ``float``
-     - ``0.1``
-     - Factor by which the learning rate will be reduced.
-   * - ``lr_schedule``
-     - ``str``
-     - ``'none'``
-     - Learning-rate schedule used by gradient training; see the shared training contract.
-   * - ``solver``
-     - ``str``
-     - ``'auto'``
-     - Architecture-native solver choice; cg uses a regularized fixed-design solve for supported GPNAM regression.
    * - ``n_hid``
      - ``int``
      - ``10``
@@ -70,46 +46,18 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``int``
      - ``5000``
      - Maximum number of stages in the architecture-native boosting fit.
-   * - ``boost_rate``
-     - ``float``
-     - ``0.1``
-     - Multiplier applied to each native boosting update.
-   * - ``init_reg``
-     - ``float``
-     - ``1.0``
-     - Regularization strength for the initial native linear fit; binary IGANN requires a positive value.
    * - ``elm_scale``
      - ``float``
      - ``1.0``
      - Scale of fixed random extreme-learning-machine hidden weights.
-   * - ``elm_alpha``
-     - ``float``
-     - ``1.0``
-     - Nonnegative ridge penalty for extreme-learning-machine stage coefficients.
    * - ``activation``
      - ``str | torch.nn.Module | type[torch.nn.Module]``
      - ``'elu'``
      - Activation class for the basis MLP layers (e.g. nn.ReLU); a new instance is used per layer.
-   * - ``early_stopping``
-     - ``int``
-     - ``50``
-     - Number of non-improving native boosting stages allowed.
    * - ``elm_random_state``
      - ``int``
      - ``0``
      - Seed for the fixed random extreme-learning-machine features.
-   * - ``sparse``
-     - ``bool | int``
-     - ``0``
-     - Use the released active-tuple sparse execution topology.
-   * - ``device``
-     - ``str``
-     - ``'cpu'``
-     - Device used by the architecture-native solver.
-   * - ``clip_predictions``
-     - ``float``
-     - ``100.0``
-     - Positive numerical limit used by native IGANN classification updates.
 
 
 
@@ -130,4 +78,4 @@ Example result
 
 .. raw:: html
 
-   <div class="example-result" aria-label="Example result"><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">components</span><span class="example-result-meta">AdditivePrediction · scalar record</span></summary><div class="example-result-body"><dl class="example-result-fields"><div><dt>backend<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">neural</span></dd></div><div><dt>intercept<span class="example-result-meta">float · scalar</span></dt><dd><span class="example-result-scalar">0.013236</span></dd></div></dl><p class="example-result-note">5 additional fields available on the returned object.</p></div></details><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">prediction</span><span class="example-result-meta">ndarray[float32] · 64</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">-0.88727</span><span class="example-result-value">-0.86347</span><span class="example-result-value">-0.83405</span><span class="example-result-value">-0.79329</span><span class="example-result-value">-0.76746</span><span class="example-result-value">-0.75149</span></div><p class="example-result-note">Showing 6 of 64 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
+   <div class="example-result" aria-label="Example result"><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">components</span><span class="example-result-meta">AdditivePrediction · scalar record</span></summary><div class="example-result-body"><dl class="example-result-fields"><div><dt>backend<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">neural</span></dd></div></dl><p class="example-result-note">6 additional fields available on the returned object.</p></div></details><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">prediction</span><span class="example-result-meta">ndarray[float32] · 64</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">-0.88727</span><span class="example-result-value">-0.86347</span><span class="example-result-value">-0.83405</span><span class="example-result-value">-0.79329</span><span class="example-result-value">-0.76746</span><span class="example-result-value">-0.75149</span></div><p class="example-result-note">Showing 6 of 64 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>

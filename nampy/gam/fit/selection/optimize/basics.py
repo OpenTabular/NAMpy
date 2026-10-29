@@ -258,7 +258,7 @@ def _initial_smoothing_params_from_design(model, y):
             _fit_intercept(model),
             _n_coef(model),
         )
-        data_hessian = np.asarray(trial["A"], dtype=np.float64) - full_trial_penalty
+        data_hessian = np.asarray(trial.fit_state.A, dtype=np.float64) - full_trial_penalty
         initial = np.zeros(n_sp, dtype=np.float64)
         seen = np.zeros(n_sp, dtype=bool)
         for block in penalty_blocks:
@@ -499,12 +499,12 @@ def _initial_smoothing_params_from_design(model, y):
             mu0 = np.asarray(model.family.initialize_mu(family_y), dtype=np.float64)
         eta0 = np.asarray(model.family.link(mu0), dtype=np.float64)
         mu_eta = np.asarray(model.family.mu_eta(eta0), dtype=np.float64)
-        if str(getattr(model.family, "name", "")).lower() not in {"scat", "zip", "cnorm", "clog", "cpois", "bcg"}:
+        if getattr(model.family, "pirls_curvature_mode", "glm") != "observed":
             var_mu = np.asarray(model.family.variance(mu0), dtype=np.float64)
     except Exception:
         return None
 
-    if str(getattr(model.family, "name", "")).lower() in {"scat", "zip", "cnorm", "clog", "cpois", "bcg"}:
+    if getattr(model.family, "pirls_curvature_mode", "glm") == "observed":
         # initial.spg uses observed mu curvature for extended families and
         # switches the entire vector to expected curvature if any is negative.
         # Dd already includes prior weights; EDmu2 has its own family semantics.

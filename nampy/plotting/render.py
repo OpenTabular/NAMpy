@@ -206,7 +206,7 @@ def render_term_plots(
             fit = trans(np.asarray(P["fit"], dtype=np.float64) + shift)
             ylimit = common_ylim
             if density:
-                from .distributional import add_density_shading
+                from .effects import add_density_shading
 
                 add_density_shading(
                     ax,

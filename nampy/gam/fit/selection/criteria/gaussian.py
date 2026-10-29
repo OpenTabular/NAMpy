@@ -35,10 +35,10 @@ def gcv_score_gaussian(model, y, log_smoothing_params):
     sp = expand_smoothing_params_from_log(model, log_smoothing_params)
     sol = solve_gaussian_given_smoothing(model, y, sp)
     n = _smoothing_nobs(model)
-    den = 1.0 - model.score_gamma * sol["trace_H"] / n
+    den = 1.0 - model.score_gamma * sol.fit_result.trace_H / n
     if not np.isfinite(den) or den == 0.0:
         return np.inf
-    rss = float(sol.get("criterion_rss", sol["rss"]))
+    rss = float(sol.fit_state.criterion_rss if sol.fit_state.criterion_rss is not None else sol.fit_result.rss)
     return (rss / n) / (den**2)
 
 
@@ -209,14 +209,14 @@ def criterion_ml_reml_exact_dynamic(model, y, log_sp, method):
             method=method,
         )
 
-    X = np.asarray(sol["X"], dtype=np.float64)
+    X = np.asarray(sol.fit_state.X, dtype=np.float64)
     Xf, Zr, split = _static_fixed_and_random_designs(model, X, sp)
     n = X.shape[0]
     p = int(Xf.shape[1])
     q = int(Zr.shape[1])
 
     if q == 0:
-        rss_v = max(float(sol["rss"]), 1e-14)
+        rss_v = max(float(sol.fit_result.rss), 1e-14)
         prof_df = float(n - p * gamma)
         if method == "ML":
             prof_df = float(n)

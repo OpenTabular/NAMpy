@@ -65,7 +65,9 @@ class _SPAMCore(nn.Module):
             self.degrees.append(index + 2)
             num_features += rank
         if num_features == 0:
-            raise ValueError("SPAM requires unary features or at least one positive rank.")
+            raise ValueError(
+                "SPAM requires unary features or at least one positive rank."
+            )
         self.num_features = num_features
         self.classifier = nn.Linear(num_features, self.num_outputs, bias=intercept)
 
@@ -87,9 +89,7 @@ class _SPAMCore(nn.Module):
             inputs.shape[0], weight.shape[0], device=inputs.device, dtype=inputs.dtype
         )
         for exponent in range(2, degree + 1):
-            coefficient = math.comb(degree, exponent) * (
-                2 * (1 - (exponent % 2)) - 1
-            )
+            coefficient = math.comb(degree, exponent) * (2 * (1 - (exponent % 2)) - 1)
             complement = degree - exponent
             first = F.linear(inputs.pow(exponent), weight.pow(exponent))
             second = 1.0
@@ -102,13 +102,9 @@ class _SPAMCore(nn.Module):
         blocks: list[tuple[str, torch.Tensor]] = []
         if not self.ignore_unary:
             blocks.append(("unary", inputs))
-        for degree, projection in zip(
-            self.degrees, self.poly_weights, strict=True
-        ):
+        for degree, projection in zip(self.degrees, self.poly_weights, strict=True):
             transformed = (
-                self._signed_root(inputs, degree)
-                if self.use_geometric_mean
-                else inputs
+                self._signed_root(inputs, degree) if self.use_geometric_mean else inputs
             )
             features = projection(transformed).pow(degree)
             if self.lower_order_correction:
@@ -124,9 +120,7 @@ class _SPAMCore(nn.Module):
         if self.proximal:
             self._proximal_step()
         raw_blocks = self.feature_blocks(inputs)
-        features = self.dropout(
-            torch.cat([values for _, values in raw_blocks], dim=1)
-        )
+        features = self.dropout(torch.cat([values for _, values in raw_blocks], dim=1))
         blocks = []
         offset = 0
         for name, values in raw_blocks:
@@ -146,12 +140,13 @@ class _SPAMCore(nn.Module):
             loss = loss + torch.linalg.vector_norm(
                 self.classifier.bias, ord=self.reg_order
             )
-        for degree, projection in zip(
-            self.degrees, self.poly_weights, strict=True
-        ):
-            loss = loss + torch.linalg.vector_norm(
-                projection.weight, ord=self.reg_order, dim=0
-            ).pow(degree).sum()
+        for degree, projection in zip(self.degrees, self.poly_weights, strict=True):
+            loss = (
+                loss
+                + torch.linalg.vector_norm(projection.weight, ord=self.reg_order, dim=0)
+                .pow(degree)
+                .sum()
+            )
         return loss
 
     def basis_l1_regularization(self) -> torch.Tensor:
@@ -198,13 +193,9 @@ class _SPAMCore(nn.Module):
             }
             classifier_offset = self.num_concepts
             candidates: list[tuple[tuple[int, ...], float]] = []
-            for degree, projection in zip(
-                self.degrees, self.poly_weights, strict=True
-            ):
+            for degree, projection in zip(self.degrees, self.poly_weights, strict=True):
                 transformed = (
-                    self._signed_root(row, degree)
-                    if self.use_geometric_mean
-                    else row
+                    self._signed_root(row, degree) if self.use_geometric_mean else row
                 )
                 rank = projection.weight.shape[0]
                 degree_weights = classifier_weights[
@@ -213,16 +204,13 @@ class _SPAMCore(nn.Module):
                 for index in nonzero:
                     diagonal = torch.sum(
                         degree_weights
-                        * (projection.weight[:, index] * transformed[index]).pow(
-                            degree
-                        )
+                        * (projection.weight[:, index] * transformed[index]).pow(degree)
                     )
                     unary[(index,)] += float(diagonal.detach().item())
                 activations = projection.weight * transformed.unsqueeze(0)
                 for term in combinations(nonzero, degree):
                     contribution = torch.sum(
-                        degree_weights
-                        * torch.prod(activations[:, list(term)], dim=1)
+                        degree_weights * torch.prod(activations[:, list(term)], dim=1)
                     )
                     candidates.append(
                         (tuple(term), float(contribution.detach().item()))
@@ -243,51 +231,34 @@ class SPAM(BaseModel):
         num_feature_info,
         num_classes: int = 1,
         config: DefaultSPAMConfig | None = None,
-        **kwargs,
     ) -> None:
         if config is None:
             config = DefaultSPAMConfig()
-        super().__init__(**kwargs)
-        self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
+        super().__init__()
+
         self._validate_features(num_feature_info, cat_feature_info)
 
-        self.lr = self.hparams.get("lr", config.lr)
-        self.lr_patience = self.hparams.get("lr_patience", config.lr_patience)
-        self.weight_decay = self.hparams.get("weight_decay", config.weight_decay)
-        self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
-        self.regularization_scale = float(
-            self.hparams.get("regularization_scale", config.regularization_scale)
-        )
-        self.basis_l1_scale = float(
-            self.hparams.get(
-                "basis_l1_regularization", config.basis_l1_regularization
-            )
-        )
+        self.regularization_scale = float(config.regularization_scale)
+        self.basis_l1_scale = float(config.basis_l1_regularization)
 
         self.num_feature_keys = list(num_feature_info)
         self.cat_feature_keys = list(cat_feature_info)
-        self.feature_order = ordered_feature_keys(
-            num_feature_info, cat_feature_info
-        )
+        self.feature_order = ordered_feature_keys(num_feature_info, cat_feature_info)
         self.atomic_feature_names = _atomic_feature_names(
             num_feature_info, cat_feature_info
         )
         self.core = _SPAMCore(
             num_concepts=len(self.atomic_feature_names),
             num_outputs=int(num_classes),
-            ranks=self.hparams.get("ranks", config.ranks),
-            dropout=self.hparams.get("dropout", config.dropout),
-            ignore_unary=self.hparams.get("ignore_unary", config.ignore_unary),
-            reg_order=self.hparams.get("reg_order", config.reg_order),
-            lower_order_correction=self.hparams.get(
-                "lower_order_correction", config.lower_order_correction
-            ),
-            use_geometric_mean=self.hparams.get(
-                "use_geometric_mean", config.use_geometric_mean
-            ),
-            orthogonal=self.hparams.get("orthogonal", config.orthogonal),
-            proximal=self.hparams.get("proximal", config.proximal),
-            intercept=self.hparams.get("intercept", config.intercept),
+            ranks=config.ranks,
+            dropout=config.dropout,
+            ignore_unary=config.ignore_unary,
+            reg_order=config.reg_order,
+            lower_order_correction=config.lower_order_correction,
+            use_geometric_mean=config.use_geometric_mean,
+            orthogonal=config.orthogonal,
+            proximal=config.proximal,
+            intercept=config.intercept,
         )
 
     @property
@@ -343,9 +314,7 @@ class SPAM(BaseModel):
             self.cat_feature_keys,
             self.feature_order,
         )
-        rows = self.core.local_term_importance(
-            inputs, target=target, top_k=top_k
-        )
+        rows = self.core.local_term_importance(inputs, target=target, top_k=top_k)
         return [
             [
                 {

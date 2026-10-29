@@ -59,10 +59,10 @@ def criterion_gcv_pirls(model, y, log_sp):
     sp = expand_smoothing_params_from_log(model, log_sp)
     sol = solve_pirls_given_smoothing(model, y, sp)
     n = _smoothing_nobs(model)
-    den = 1.0 - model.score_gamma * sol["trace_H"] / n
+    den = 1.0 - model.score_gamma * sol.fit_result.trace_H / n
     if not np.isfinite(den) or den == 0.0:
         return np.inf
-    return (sol["deviance"] / n) / (den**2)
+    return (sol.fit_result.deviance / n) / (den**2)
 
 
 def criterion_gacv_pirls(model, y, log_sp):
@@ -71,13 +71,13 @@ def criterion_gacv_pirls(model, y, log_sp):
 
     sp = expand_smoothing_params_from_log(model, log_sp)
     sol = solve_pirls_given_smoothing(model, y, sp)
-    criterion_y = np.asarray(sol.get("criterion_response", y), dtype=np.float64)
+    criterion_y = np.asarray(sol.fit_state.criterion_response if sol.fit_state.criterion_response is not None else y, dtype=np.float64)
     kernel = _gdi1_kernel(model, criterion_y, sol, sp, method="GCV")
     nobs = float(model.n_samples_)
     delta = nobs - float(model.score_gamma) * float(kernel.trA)
     if not np.isfinite(delta) or delta == 0.0:
         return np.inf
-    dev = float(sol.get("criterion_deviance", sol["deviance"]))
+    dev = float(sol.fit_state.criterion_deviance if sol.fit_state.criterion_deviance is not None else sol.fit_result.deviance)
     return float(
         dev / nobs
         + kernel.P * 2.0 * float(model.score_gamma) * kernel.trA / (delta * nobs)
@@ -94,17 +94,17 @@ def criterion_ubre_pirls(model, y, log_sp):
             "but the family does not have known scale."
         )
     n = _smoothing_nobs(model)
-    edf = sol["trace_H"]
-    return (sol["deviance"] / n) - scale + (2.0 * model.score_gamma * scale * edf / n)
+    edf = sol.fit_result.trace_H
+    return (sol.fit_result.deviance / n) - scale + (2.0 * model.score_gamma * scale * edf / n)
 
 
 def _pirls_laplace_logdet_term(model, sol, sp, method):
-    design = dynamic_reparam_design(model, sol["X"], sp)
+    design = dynamic_reparam_design(model, sol.fit_state.X, sp)
     Xf = design.X_fix
     Zr = design.Z_rand
     p = int(Xf.shape[1])
     q = int(Zr.shape[1])
-    W = np.asarray(sol["working_weights"], dtype=np.float64)
+    W = np.asarray(sol.fit_state.working_weights, dtype=np.float64)
 
     if q == 0:
         if method == "ML" or p == 0:
@@ -146,9 +146,9 @@ def _pirls_tensor_coefficient_space_logdet_term(model, y, sol, sp, method):
 
         return float(_gdi1_kernel(model, y, sol, sp, method="ML").K)
 
-    X = np.asarray(sol["X"], dtype=np.float64)
-    W = np.asarray(sol["working_weights"], dtype=np.float64)
-    P = np.asarray(sol["P"], dtype=np.float64)
+    X = np.asarray(sol.fit_state.X, dtype=np.float64)
+    W = np.asarray(sol.fit_state.working_weights, dtype=np.float64)
+    P = np.asarray(sol.fit_state.working_penalty, dtype=np.float64)
     A = X.T @ (W[:, None] * X) + P
     try:
         cA, _ = cho_factor(A, check_finite=False)
@@ -201,7 +201,7 @@ def criterion_p_ml_reml_pirls(model, y, log_sp, method):
     ls = np.asarray(model.family.ls(y, weights, len(y), phi), dtype=np.float64)
     if nobs > 0.0 and ntrue != nobs:
         ls *= ntrue / nobs
-    dp = float(sol["deviance"]) + float(kernel.bSb)
+    dp = float(sol.fit_result.deviance) + float(kernel.bSb)
     reml_ind = 1.0 if method == "P-REML" else 0.0
     return float(
         dp / (2.0 * phi)
@@ -213,14 +213,14 @@ def criterion_p_ml_reml_pirls(model, y, log_sp, method):
 
 def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
     method = str(method).upper()
-    scale = float(sol["scale"])
+    scale = float(sol.fit_result.scale)
     if not np.isfinite(scale) or scale <= 0:
         return np.inf
     gamma = float(model.score_gamma)
     if not np.isfinite(gamma) or gamma <= 0.0:
         return np.inf
 
-    penalty_quad = float(sol["penalty_quadratic"] or 0.0)
+    penalty_quad = float(sol.fit_result.penalty_quadratic or 0.0)
     mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     n_obs = float(len(y))
     family_name = str(getattr(model.family, "name", "")).lower()
@@ -245,7 +245,7 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
                 kernel = _gdi1_kernel(model, y, sol, sp, method=method)
             except np.linalg.LinAlgError:
                 return np.inf
-            Dp = float(sol["deviance"]) + float(kernel.bSb)
+            Dp = float(sol.fit_result.deviance) + float(kernel.bSb)
             y_arr = np.asarray(y, dtype=np.float64)
             weights = _prior_weights(model, y_arr)
             nobs = float(len(y_arr))
@@ -280,15 +280,8 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
                 _solve_gamma_profile_scale,
             )
 
-            Dp = float(sol["deviance"]) + penalty_quad
-            phi = _solve_gamma_profile_scale(
-                model,
-                y,
-                Dp,
-                mp,
-                method=method,
-                init_scale=float(sol["scale"]),
-            )
+            Dp = float(sol.fit_result.deviance) + penalty_quad
+            phi = _solve_gamma_profile_scale(model, y, Dp, mp, method=method, init_scale=float(sol.fit_result.scale))
             if not np.isfinite(phi) or phi <= 0.0:
                 return np.inf
             saturated_loglik, _, _ = _gamma_profile_objective_curvature(
@@ -296,25 +289,9 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
             )
             base_objective = Dp / (2.0 * phi * gamma) - saturated_loglik / gamma
         else:
-            var = np.clip(
-                np.asarray(model.family.variance(sol["mu"]), dtype=np.float64),
-                1e-14,
-                None,
-            )
+            var = np.clip(np.asarray(model.family.variance(sol.fit_result.mu), dtype=np.float64), 1e-14, None)
             weights = _prior_weights(model, y)
-            pearson = float(
-                np.sum(
-                    weights
-                    * (
-                        (
-                            np.asarray(y, dtype=np.float64)
-                            - np.asarray(sol["mu"], dtype=np.float64)
-                        )
-                        ** 2
-                        / var
-                    )
-                )
-            )
+            pearson = float(np.sum(weights * ((np.asarray(y, dtype=np.float64) - np.asarray(sol.fit_result.mu, dtype=np.float64)) ** 2 / var)))
             denom = n_obs - mp
             if not np.isfinite(denom) or denom <= 0.0:
                 return np.inf
@@ -323,7 +300,7 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
                 return np.inf
 
             saturated_loglik = _saturated_loglik(model, y, scale=phi)
-            base_objective = (float(sol["deviance"]) + penalty_quad) / (
+            base_objective = (float(sol.fit_result.deviance) + penalty_quad) / (
                 2.0 * phi * gamma
             ) - saturated_loglik / gamma
         try:
@@ -349,7 +326,7 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
         return objective
 
     saturated_loglik = _saturated_loglik(model, y, scale=scale)
-    base_objective = (float(sol["deviance"]) + penalty_quad) / (
+    base_objective = (float(sol.fit_result.deviance) + penalty_quad) / (
         2.0 * scale * gamma
     ) - saturated_loglik / gamma
 
@@ -379,7 +356,7 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
             # roots. The original-coordinate beta' S beta loses precision
             # when a large smoothing parameter suppresses the penalized part.
             # At flat boundaries this can change optim's stopping iteration.
-            base_objective = (float(sol["deviance"]) + float(kernel.bSb)) / (
+            base_objective = (float(sol.fit_result.deviance) + float(kernel.bSb)) / (
                 2.0 * scale * gamma
             ) - saturated_loglik / gamma
         objective = base_objective + det_term
@@ -387,12 +364,12 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
             objective -= 0.5 * mp * (np.log(2.0 * np.pi * scale) - np.log(gamma))
         return objective
 
-    design = dynamic_reparam_design(model, sol["X"], sp)
+    design = dynamic_reparam_design(model, sol.fit_state.X, sp)
     Xf = design.X_fix
     Zr = design.Z_rand
     p = int(Xf.shape[1])
     q = int(Zr.shape[1])
-    W = np.asarray(sol["working_weights"], dtype=np.float64)
+    W = np.asarray(sol.fit_state.working_weights, dtype=np.float64)
     if q == 0:
         if method == "ML":
             return base_objective
@@ -448,7 +425,7 @@ def criterion_ml_reml_pirls_dynamic(model, y, log_sp, method):
     sp = expand_smoothing_params_from_log(model, log_sp)
     sol = solve_pirls_given_smoothing(model, y, sp)
 
-    scale = float(sol["scale"])
+    scale = float(sol.fit_result.scale)
     if not np.isfinite(scale) or scale <= 0:
         return np.inf
     gamma = float(model.score_gamma)
@@ -457,11 +434,11 @@ def criterion_ml_reml_pirls_dynamic(model, y, log_sp, method):
 
     saturated_loglik = _saturated_loglik(model, y, scale=scale)
     base_objective = (
-        float(sol["deviance"]) + float(sol["penalty_quadratic"] or 0.0)
+        float(sol.fit_result.deviance) + float(sol.fit_result.penalty_quadratic or 0.0)
     ) / (2.0 * scale * gamma) - saturated_loglik / gamma
 
-    X = np.asarray(sol["X"], dtype=np.float64)
-    W = np.asarray(sol["working_weights"], dtype=np.float64)
+    X = np.asarray(sol.fit_state.X, dtype=np.float64)
+    W = np.asarray(sol.fit_state.working_weights, dtype=np.float64)
     mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     Xf, Zr, split = _static_fixed_and_random_designs(model, X, sp)
     p = int(Xf.shape[1])

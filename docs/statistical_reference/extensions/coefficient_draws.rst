@@ -6,7 +6,7 @@ Joint coefficient simulation
 Types, defaults and output shapes
 ---------------------------------
 
-.. autofunction:: nampy.gam.extensions.coefficient_draws
+.. autofunction:: nampy.gam.inference.functionals.coefficient_draws
 
 
 

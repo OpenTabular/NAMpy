@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from ..correlation import ar1_log_determinant_correction
 from ..fit.capabilities import (
     has_transformed_coefficients,
     has_transformed_observations,
@@ -29,7 +30,6 @@ from ..model_state import (
     _fitted_mu,
     _predictor_full_indices,
 )
-from ..observations import ar1_log_determinant_correction
 
 
 def loglik_effective_df(model) -> float:

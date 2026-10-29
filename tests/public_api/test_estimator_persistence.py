@@ -1,5 +1,6 @@
 """One artifact contract for neural, likelihood and fixed-loss estimators."""
 
+import json
 import pickle
 
 import pytest
@@ -14,7 +15,8 @@ def test_shared_artifact_preserves_estimator_type(cls, tmp_path):
     restored = cls.load_model(path)
     assert type(restored) is cls
     with path.open("rb") as handle:
-        envelope = pickle.load(handle)
+        assert handle.readline() == b"NAMPY-ESTIMATOR 5\n"
+        envelope = json.loads(handle.readline())
     assert envelope["format"] == "nampy-estimator"
     assert envelope["estimator_class"] == cls.__name__
     other = QuantileGAM if cls is not QuantileGAM else ExpectileGAM
@@ -37,3 +39,11 @@ def test_shared_artifact_rejects_unsupported_envelopes(payload, cls, tmp_path):
     path.write_bytes(pickle.dumps(payload))
     with pytest.raises(ValueError, match="not a supported NAMpy estimator artifact"):
         cls.load_model(path)
+
+
+@pytest.mark.parametrize("version", [1, 2, 3, 4])
+def test_previous_readable_artifact_headers_are_rejected_before_payload(version, tmp_path):
+    path = tmp_path / "previous.nampy"
+    path.write_bytes(f"NAMPY-ESTIMATOR {version}\n".encode() + b"this payload must never be unpickled")
+    with pytest.raises(ValueError, match="not a supported NAMpy estimator artifact"):
+        GAMRegressor.load_model(path)

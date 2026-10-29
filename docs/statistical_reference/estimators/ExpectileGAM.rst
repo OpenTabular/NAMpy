@@ -23,35 +23,35 @@ Constructor parameter details
      - Type
      - Default
      - Meaning
-   * - formula
+   * - ``formula``
      - str | None
      - None
      - Response formula with ordinary smooths, tensors and parametric terms. None constructs smooths from numeric input columns.
-   * - level
+   * - ``level``
      - float
      - 0.5
      - Level strictly inside (0,1); 0.5 targets the conditional mean.
-   * - smoothing_params
+   * - ``smoothing_params``
      - float | sequence[float] | mapping | None
      - None
      - Fixed nonnegative strengths, one per compiled penalty. None uses ones; this does not run REML.
-   * - k
+   * - ``k``
      - int
      - 10
      - Default basis dimension for implicit smooths; explicit formula k values take precedence.
-   * - basis
+   * - ``basis``
      - str
      - 'tp'
      - Default ordinary smooth basis code. Transformed shape-constrained bases are rejected.
-   * - fit_intercept
+   * - ``fit_intercept``
      - bool
      - True
      - Include an unpenalized predictor intercept.
-   * - max_iter
+   * - ``max_iter``
      - int
      - 200
      - Positive upper limit on coefficient iterations. Nonconvergence is reported by warning and ``fit_result_.converged``.
-   * - tol
+   * - ``tol``
      - float
      - 1e-09
      - Positive scaled objective-gradient tolerance for LAWS.
@@ -441,4 +441,4 @@ Example result
 
 .. raw:: html
 
-   <div class="example-result" aria-label="Example result"><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">components</span><span class="example-result-meta">AdditivePrediction · scalar record</span></summary><div class="example-result-body"><dl class="example-result-fields"><div><dt>backend<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">gam</span></dd></div><div><dt>intercept<span class="example-result-meta">float · scalar</span></dt><dd><span class="example-result-scalar">0.12988</span></dd></div></dl><p class="example-result-note">5 additional fields available on the returned object.</p></div></details><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">fit</span><span class="example-result-meta">LossFit · scalar record</span></summary><div class="example-result-body"><dl class="example-result-fields"><div><dt>converged<span class="example-result-meta">bool · scalar</span></dt><dd><span class="example-result-scalar">True</span></dd></div><div><dt>iterations<span class="example-result-meta">int · scalar</span></dt><dd><span class="example-result-scalar">2</span></dd></div><div><dt>objective<span class="example-result-meta">float · scalar</span></dt><dd><span class="example-result-scalar">2.5374</span></dd></div><div><dt>optimality<span class="example-result-meta">float · scalar</span></dt><dd><span class="example-result-scalar">3.6087e-14</span></dd></div></dl><p class="example-result-note">2 additional fields available on the returned object.</p></div></details><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">prediction</span><span class="example-result-meta">ndarray[float64] · 60</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">-0.29822</span><span class="example-result-value">-0.33954</span><span class="example-result-value">-0.38068</span><span class="example-result-value">-0.42136</span><span class="example-result-value">-0.46121</span><span class="example-result-value">-0.49975</span></div><p class="example-result-note">Showing 6 of 60 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
+   <div class="example-result" aria-label="Example result"><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">components</span><span class="example-result-meta">AdditivePrediction · scalar record</span></summary><div class="example-result-body"><dl class="example-result-fields"><div><dt>backend<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">gam</span></dd></div></dl><p class="example-result-note">6 additional fields available on the returned object.</p></div></details><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">fit</span><span class="example-result-meta">LossFit · scalar record</span></summary><div class="example-result-body"><dl class="example-result-fields"><div><dt>converged<span class="example-result-meta">bool · scalar</span></dt><dd><span class="example-result-scalar">True</span></dd></div><div><dt>iterations<span class="example-result-meta">int · scalar</span></dt><dd><span class="example-result-scalar">2</span></dd></div><div><dt>objective<span class="example-result-meta">float · scalar</span></dt><dd><span class="example-result-scalar">2.5374</span></dd></div><div><dt>optimality<span class="example-result-meta">float · scalar</span></dt><dd><span class="example-result-scalar">3.6087e-14</span></dd></div></dl><p class="example-result-note">2 additional fields available on the returned object.</p></div></details><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">prediction</span><span class="example-result-meta">ndarray[float64] · 60</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">-0.29822</span><span class="example-result-value">-0.33954</span><span class="example-result-value">-0.38068</span><span class="example-result-value">-0.42136</span><span class="example-result-value">-0.46121</span><span class="example-result-value">-0.49975</span></div><p class="example-result-note">Showing 6 of 60 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>

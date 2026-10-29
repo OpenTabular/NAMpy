@@ -6,7 +6,7 @@ Joint effective degrees of freedom
 Types, defaults and output shapes
 ---------------------------------
 
-.. autofunction:: nampy.gam.extensions.joint_edf
+.. autofunction:: nampy.gam.inference.functionals.joint_edf
 
 
 

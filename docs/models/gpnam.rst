@@ -28,14 +28,12 @@ Fit and inspect
 
 .. code-block:: python
 
+
+   from nampy.neural.configs.gpnam_config import DefaultGPNAMConfig
+   from nampy.neural.configuration import FixedDesignTrainingConfig
    from nampy.models import GPNAMRegressor
 
-   model = GPNAMRegressor(
-       rff_num_feat=200,
-       kernel_width="auto",
-       ridge=0.05,
-       interaction_degree=2,
-   ).fit(X_train, y_train)
+   model = GPNAMRegressor(architecture_config=DefaultGPNAMConfig(rff_num_feat=200, kernel_width='auto', interaction_degree=2), training=FixedDesignTrainingConfig(ridge=0.05)).fit(X_train, y_train)
 
    prediction = model.predict(X_test)
    components = model.predict_components(X_test, center=True)

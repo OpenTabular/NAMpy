@@ -15,7 +15,7 @@ from .contracts import (
     ByVariableInfo,
     CoefficientMap,
     TermFeatureInfo,
-    compatibility_constructor_metadata,
+    build_constructor_metadata,
     compose_coefficient_maps,
     default_side_condition_policy,
 )
@@ -245,7 +245,7 @@ def construct_smooth(
             )
         )
 
-    constructor_metadata = compatibility_constructor_metadata(
+    constructor_metadata = build_constructor_metadata(
         runtime_transform_applied=runtime_transform_applied,
         side_condition_policy=side_condition_policy,
         by_variable_info=by_variable_info,

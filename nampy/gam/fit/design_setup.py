@@ -46,7 +46,7 @@ def compile_designs(model, X, feature_names):
         raise NotImplementedError(
             "Mapped para_pen penalties are not implemented for transformed-coefficient fits."
         )
-    from ..observations import make_observation_transform
+    from ..correlation import make_observation_transform
 
     compiled_model.observation_transform = make_observation_transform(
         size=int(np.asarray(compiled_model.design_matrix).shape[0]),

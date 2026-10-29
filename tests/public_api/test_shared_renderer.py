@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+from nampy.neural.configuration import GradientTrainingConfig
+from nampy.neural.configuration import PreprocessingConfig
+
 import matplotlib
 
 matplotlib.use("Agg")
@@ -102,17 +106,8 @@ def test_neural_plot_terms_uses_shared_renderer(tmp_path):
     X = pd.DataFrame({"x": rng.normal(size=60), "z": rng.normal(size=60)})
     y = 2.0 * X["x"].to_numpy() - X["z"].to_numpy()
 
-    estimator = LinRegRegressor(numerical_preprocessing="standardization")
-    estimator.fit(
-        X,
-        y,
-        max_epochs=2,
-        patience=1,
-        checkpoint_path=str(tmp_path),
-        logger=False,
-        enable_progress_bar=False,
-        enable_model_summary=False,
-    )
+    estimator = LinRegRegressor(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
+    estimator.set_params(training=replace(estimator.training or GradientTrainingConfig(), max_epochs=2, patience=1, checkpoint_path=str(tmp_path), trainer_kwargs={'logger': False, 'enable_progress_bar': False, 'enable_model_summary': False})).fit(X, y)
 
     figures = estimator.plot_terms(X)
     try:
@@ -131,17 +126,8 @@ def test_neural_plot_terms_can_replace_density_with_rug(tmp_path):
     X = pd.DataFrame({"x": rng.normal(size=60)})
     y = 2.0 * X["x"].to_numpy()
 
-    estimator = LinRegRegressor(numerical_preprocessing="standardization")
-    estimator.fit(
-        X,
-        y,
-        max_epochs=2,
-        patience=1,
-        checkpoint_path=str(tmp_path),
-        logger=False,
-        enable_progress_bar=False,
-        enable_model_summary=False,
-    )
+    estimator = LinRegRegressor(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
+    estimator.set_params(training=replace(estimator.training or GradientTrainingConfig(), max_epochs=2, patience=1, checkpoint_path=str(tmp_path), trainer_kwargs={'logger': False, 'enable_progress_bar': False, 'enable_model_summary': False})).fit(X, y)
 
     figures = estimator.plot_terms(X, density=False, rug=True)
     try:

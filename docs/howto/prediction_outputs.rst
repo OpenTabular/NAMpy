@@ -32,6 +32,8 @@ Choose the prediction method according to the quantity you need: a response pred
      - ``predict(X)``: ``(n, q)``
      - Conditional quantiles, without a complete density. ``evaluate`` reports
        ``pinball_loss``, summed over levels and averaged over rows.
+       Neural ``predict_quantiles(X, probabilities)`` selects explicitly fitted
+       levels as ``(n, q)`` without inventing a complete density.
    * - Additive components
      - ``predict_components(X)``: ``AdditivePrediction``
      - Intercept, terms and optional offset reconstruct ``link``. ``response``
@@ -74,4 +76,12 @@ A confidence band concerns an estimated function; a conditional standard
 deviation concerns outcomes; an ensemble-member standard deviation concerns
 between-fit disagreement. Name the actual quantity in each caption.
 
-Neural offsets require explicit inference composition; see :doc:`offsets`.
+Pass new-row predictor offsets explicitly to prediction and components; see :doc:`offsets`.
+
+Calibrated future-observation intervals
+---------------------------------------
+
+Use :doc:`../user_guide/calibration` for split-conformal intervals based on a
+separate calibration cohort. These carry future-observation uncertainty rather
+than coefficient uncertainty or intervals for an estimated conditional quantile.
+Calibration does not change the fitting algorithm or probability law.

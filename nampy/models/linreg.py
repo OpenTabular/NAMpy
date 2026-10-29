@@ -6,5 +6,6 @@ _family = estimator_family("linreg", module_name=__name__)
 LinRegRegressor = _family.regressor
 LinRegClassifier = _family.classifier
 LinRegLSS = _family.lss
+LinRegSurvival = _family.survival
 
-__all__ = ["LinRegRegressor", "LinRegClassifier", "LinRegLSS"]
+__all__ = ["LinRegRegressor", "LinRegClassifier", "LinRegLSS", "LinRegSurvival"]

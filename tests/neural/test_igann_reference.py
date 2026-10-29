@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+from dataclasses import replace
+from nampy.neural.configs.igann_config import DefaultIGANNConfig
+from nampy.neural.configuration import GradientTrainingConfig
+from nampy.neural.configuration import IGANNTrainingConfig
+from nampy.neural.configuration import ObjectiveConfig
+
 import importlib.util
 
 import numpy as np
@@ -59,12 +65,9 @@ def test_native_regression_stage_matches_upstream_elm_ridge_equations():
     config = DefaultIGANNConfig(
         n_hid=2,
         n_estimators=1,
-        boost_rate=0.2,
-        init_reg=0.01,
-        elm_alpha=0.5,
-        early_stopping=0,
     )
-    model = IGANN({}, _numeric_info("x", "z"), config=config)
+    model = IGANN({}, _numeric_info("x", "z"), config=config,
+                  training=IGANNTrainingConfig(boost_rate=0.2, init_reg=0.01, elm_alpha=0.5, early_stopping=0))
     train_num = {
         "x": torch.tensor([[-1.0], [-0.3], [0.2], [0.7], [1.1], [1.5]]),
         "z": torch.tensor([[0.5], [-0.5], [1.0], [-1.0], [0.2], [-0.2]]),
@@ -110,20 +113,14 @@ def test_registered_igann_regression_exposes_components_history_and_complexity()
     generator = np.random.default_rng(4)
     X = pd.DataFrame(generator.normal(size=(48, 3)), columns=["x", "z", "w"])
     y = 1.2 * X["x"] + np.sin(2.0 * X["z"]) - 0.4 * X["w"]
-    model = IGANNRegressor(
-        n_hid=4,
-        n_estimators=3,
-        early_stopping=0,
-        init_reg=0.01,
-        elm_alpha=1.0,
-    )
+    model = IGANNRegressor(architecture_config=DefaultIGANNConfig(n_hid=4, n_estimators=3), training=IGANNTrainingConfig(early_stopping=0, init_reg=0.01, elm_alpha=1.0))
 
-    model.fit(X, y, random_state=11)
+    model.set_params(training=replace(model.training or IGANNTrainingConfig(), random_state=11)).fit(X, y)
     prediction = model.predict_components(X.iloc[:9], batch_size=4)
 
     reconstructed = (
         np.asarray(prediction.intercept) + sum(prediction.terms.values())
-    ).squeeze(-1)
+    )
     np.testing.assert_allclose(reconstructed, prediction.link, rtol=1e-5, atol=1e-6)
     assert model.n_estimators_ == 3
     assert len(model.training_history()["val_loss"]) == 3
@@ -140,28 +137,16 @@ def test_registered_igann_native_binary_and_generic_multiclass_classification():
         }
     )
     y = np.where(X["x"].to_numpy() + (X["z"] == "b") * 0.3 > 0, "yes", "no")
-    model = IGANNClassifier(
-        n_hid=3,
-        n_estimators=2,
-        early_stopping=0,
-        init_reg=0.1,
-    )
-    model.fit(X, y, random_state=3)
+    model = IGANNClassifier(architecture_config=DefaultIGANNConfig(n_hid=3, n_estimators=2), training=IGANNTrainingConfig(early_stopping=0, init_reg=0.1))
+    model.set_params(training=replace(model.training or IGANNTrainingConfig(), random_state=3)).fit(X, y)
 
     probabilities = model.predict_proba(X.iloc[:7], batch_size=3)
     assert probabilities.shape == (7, 2)
     np.testing.assert_allclose(probabilities.sum(axis=1), 1.0, atol=1e-6)
     assert set(model.predict(X.iloc[:7])) <= {"no", "yes"}
 
-    multiclass = IGANNClassifier(n_estimators=1, n_hid=2)
-    multiclass.fit(
-        X.iloc[:12],
-        np.tile([0, 1, 2], 4),
-        random_state=2,
-        max_epochs=1,
-        logger=False,
-        enable_model_summary=False,
-    )
+    multiclass = IGANNClassifier(architecture_config=DefaultIGANNConfig(n_estimators=1, n_hid=2))
+    multiclass.set_params(training=replace(multiclass.training or GradientTrainingConfig(), random_state=2, max_epochs=1, trainer_kwargs={'logger': False, 'enable_model_summary': False})).fit(X.iloc[:12], np.tile([0, 1, 2], 4))
     assert multiclass.native_training_info_ is None
     assert multiclass.predict_proba(X.iloc[:3]).shape == (3, 3)
 
@@ -169,44 +154,24 @@ def test_registered_igann_native_binary_and_generic_multiclass_classification():
 def test_igann_lss_uses_generic_distribution_objective():
     X = pd.DataFrame({"x": np.linspace(-1.0, 1.0, 36)})
     y = 0.5 + X["x"] ** 2
-    model = IGANNLSS(
-        family="normal",
-        n_hid=2,
-        n_estimators=2,
-    )
-    model.fit(
-        X,
-        y,
-        random_state=6,
-        max_epochs=2,
-        logger=False,
-        enable_model_summary=False,
-    )
+    model = IGANNLSS(architecture_config=DefaultIGANNConfig(n_hid=2, n_estimators=2), objective=ObjectiveConfig(family='normal'))
+    model.set_params(training=replace(model.training or GradientTrainingConfig(), random_state=6, max_epochs=1)).fit(X, y)
 
     prediction = model.predict_components(X.iloc[:5])
     assert prediction.link.shape == (5, 2)
-    assert prediction.response.shape == (5, 2)
+    assert model.predict(X.iloc[:5]).shape == (5, 2)
     assert model.native_training_info_ is None
     assert model.n_estimators_ == 2
 
-    native_only = IGANNLSS(
-        family="normal",
-        n_estimators=1,
-        solver="native",
-    )
-    with pytest.raises(NotImplementedError, match="solver='native'"):
-        native_only.fit(X, y, max_epochs=1)
+    native_only = IGANNLSS(architecture_config=DefaultIGANNConfig(n_estimators=1), objective=ObjectiveConfig(family='normal'), training=IGANNTrainingConfig())
+    with pytest.raises(NotImplementedError, match="Native training"):
+        native_only.fit(X, y)
 
 
 def test_fitted_igann_persistence_preserves_native_state(tmp_path):
     X = pd.DataFrame({"x": np.linspace(-1.0, 1.0, 30)})
     y = X["x"] ** 2
-    model = IGANNRegressor(
-        n_hid=3,
-        n_estimators=2,
-        early_stopping=0,
-        init_reg=0.01,
-    ).fit(X, y, random_state=8)
+    model = IGANNRegressor(architecture_config=DefaultIGANNConfig(n_hid=3, n_estimators=2), training=IGANNTrainingConfig(early_stopping=0, init_reg=0.01, random_state=8)).fit(X, y)
     expected = model.predict(X)
 
     path = model.save_model(tmp_path / "igann.pkl")
@@ -225,7 +190,7 @@ def test_igann_sparse_requires_abess_only_when_requested():
     model = IGANN(
         {},
         _numeric_info("x", "z"),
-        config=DefaultIGANNConfig(n_estimators=1, sparse=1),
+        config=DefaultIGANNConfig(n_estimators=1), training=IGANNTrainingConfig(sparse=1),
     )
     values = {
         "x": torch.tensor([[-1.0], [0.0], [1.0], [2.0]]),
@@ -248,15 +213,9 @@ def test_igann_sparse_retains_at_most_requested_atomic_features():
     generator = np.random.default_rng(12)
     X = pd.DataFrame(generator.normal(size=(60, 3)), columns=["signal", "a", "b"])
     y = np.sin(2.0 * X["signal"]) + 0.02 * generator.normal(size=len(X))
-    model = IGANNRegressor(
-        n_hid=3,
-        n_estimators=1,
-        early_stopping=0,
-        sparse=1,
-        init_reg=0.01,
-    )
+    model = IGANNRegressor(architecture_config=DefaultIGANNConfig(n_hid=3, n_estimators=1), training=IGANNTrainingConfig(early_stopping=0, sparse=1, init_reg=0.01))
 
-    model.fit(X, y, random_state=5)
+    model.set_params(training=replace(model.training or IGANNTrainingConfig(), random_state=5)).fit(X, y)
 
     assert 1 <= len(model.selected_features_) <= 1
     assert model.model_complexity()["selected_features"] == 1

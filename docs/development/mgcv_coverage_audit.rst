@@ -33,7 +33,7 @@ normal dispatcher; it should be classified before adding numerical scenarios.
      - What needs investigation
    * - ``parity/compare.py`` and ``parity/validator.py``
      - 0 percent
-     - Public snapshot comparison is unexercised. The legacy comparator still
+     - Internal development snapshot comparison is unexercised. The legacy comparator still
        compares coefficients, basis matrices and coefficient covariance entries.
        It needs an invariant-only migration and tests for equivalent
        reparameterizations, malformed inputs and real numerical disagreement.

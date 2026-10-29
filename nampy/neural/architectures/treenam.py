@@ -4,10 +4,10 @@ import torch.nn as nn
 from ..configs.treenam_config import DefaultTreeNAMConfig
 from .components.base_model import BaseModel
 from .components.interactions import (
-    apply_feature_dropout,
     create_interaction_networks,
     interaction_forward,
     sum_feature_dims,
+    sum_term_outputs,
 )
 from .components.module_dict import RawKeyModuleDict
 from .components.trees import NeuralDecisionTree
@@ -25,41 +25,26 @@ class TreeNAM(BaseModel):
         num_feature_info,
         num_classes: int = 1,
         config: DefaultTreeNAMConfig | None = None,
-        **kwargs,
     ):
         if config is None:
             config = DefaultTreeNAMConfig()
-        super().__init__(**kwargs)
-        self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
-
-        self.lr = self.hparams.get("lr", config.lr)
-        self.lr_patience = self.hparams.get("lr_patience", config.lr_patience)
-        self.weight_decay = self.hparams.get("weight_decay", config.weight_decay)
-        self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
+        super().__init__()
 
         self.cat_feature_info = cat_feature_info
         self.num_feature_info = num_feature_info
         self._validate_features(num_feature_info, cat_feature_info)
         self.num_classes = num_classes
 
-        self.tree_depth = self.hparams.get("tree_depth", config.tree_depth)
-        self.tree_lamda = self.hparams.get("tree_lamda", config.tree_lamda)
-        self.tree_temperature = self.hparams.get(
-            "tree_temperature", config.tree_temperature
-        )
-        self.use_hard_routing_in_eval = self.hparams.get(
-            "use_hard_routing_in_eval", config.use_hard_routing_in_eval
-        )
-        self.feature_dropout_p = self.hparams.get(
-            "feature_dropout", config.feature_dropout
-        )
-        self.interaction_degree = self.hparams.get(
-            "interaction_degree", config.interaction_degree
-        )
-        self.interactions = self.hparams.get("interactions", config.interactions)
+        self.tree_depth = config.tree_depth
+        self.tree_lamda = config.tree_lamda
+        self.tree_temperature = config.tree_temperature
+        self.use_hard_routing_in_eval = config.use_hard_routing_in_eval
+        self.feature_dropout_p = config.feature_dropout
+        self.interaction_degree = config.interaction_degree
+        self.interactions = config.interactions
 
         self.intercept: nn.Parameter | None
-        if self.hparams.get("intercept", config.intercept):
+        if config.intercept:
             self.intercept = nn.Parameter(torch.zeros(num_classes))
         else:
             self.intercept = None
@@ -141,32 +126,11 @@ class TreeNAM(BaseModel):
         )
         total_penalty = total_penalty + interaction_penalty
 
-        all_outputs = (
-            list(num_outputs.values())
-            + list(cat_outputs.values())
-            + list(interaction_outputs.values())
+        terms = {**num_outputs, **cat_outputs, **interaction_outputs}
+        result = sum_term_outputs(
+            terms, self.intercept, p=self.feature_dropout_p, training=self.training
         )
-
-        if not all_outputs:
-            raise ValueError("TreeNAM received no feature contributions to sum.")
-
-        concatenated = torch.cat(all_outputs, dim=1)
-        num_terms = len(all_outputs)
-        shaped = concatenated.view(-1, num_terms, self.num_classes)
-        shaped = apply_feature_dropout(shaped, self.feature_dropout_p, self.training)
-
-        x = shaped.sum(dim=1)
-
-        if self.intercept is not None:
-            x = x + self.intercept
-
-        result = {"output": x}
-        result.update(num_outputs)
-        result.update(cat_outputs)
-        result.update(interaction_outputs)
-
-        if self.intercept is not None:
-            result["intercept"] = self.intercept
+        result["output"]
 
         # Reuse the existing wrapper convention so no lightning changes are required
         if self.tree_lamda > 0.0:

@@ -74,12 +74,11 @@ class SIAN(BaseModel):
         num_feature_info,
         num_classes: int = 1,
         config: DefaultSIANConfig | None = None,
-        **kwargs,
     ):
         if config is None:
             config = DefaultSIANConfig()
-        super().__init__(**kwargs)
-        self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
+        super().__init__()
+
         self.cat_feature_info = cat_feature_info
         self.num_feature_info = num_feature_info
         self._validate_features(num_feature_info, cat_feature_info)
@@ -88,24 +87,16 @@ class SIAN(BaseModel):
         if not self.feature_names:
             raise ValueError("SIAN requires at least one feature.")
 
-        self.layer_sizes = tuple(
-            int(size) for size in self.hparams.get("layer_sizes", config.layer_sizes)
-        )
-        self.activation = self.hparams.get("activation", config.activation)
-        self.dropout = float(self.hparams.get("dropout", config.dropout))
-        self.feature_output_bias = bool(
-            self.hparams.get("feature_output_bias", config.feature_output_bias)
-        )
-        self.l1_regularization = float(
-            self.hparams.get("l1_regularization", config.l1_regularization)
-        )
+        self.layer_sizes = tuple((int(size) for size in config.layer_sizes))
+        self.activation = config.activation
+        self.dropout = float(config.dropout)
+        self.feature_output_bias = bool(config.feature_output_bias)
+        self.l1_regularization = float(config.l1_regularization)
         if self.l1_regularization < 0:
             raise ValueError("l1_regularization must be non-negative.")
 
-        interaction_degree = self.hparams.get(
-            "interaction_degree", config.interaction_degree
-        )
-        interactions = self.hparams.get("interactions", config.interactions)
+        interaction_degree = config.interaction_degree
+        interactions = config.interactions
         resolved_interactions = resolve_interactions(
             self.feature_names, interaction_degree, interactions
         )
@@ -128,14 +119,12 @@ class SIAN(BaseModel):
         self.input_dim = input_dim
 
         self.intercept: nn.Parameter | None
-        if self.hparams.get("intercept", config.intercept):
+        if config.intercept:
             self.intercept = nn.Parameter(torch.zeros(self.num_classes))
         else:
             self.intercept = None
 
-        requested_mode = str(
-            self.hparams.get("execution_mode", config.execution_mode)
-        ).lower()
+        requested_mode = str(config.execution_mode).lower()
         if requested_mode not in {"block_masked", "independent"}:
             raise ValueError("execution_mode must be 'block_masked' or 'independent'.")
         self.execution_mode_ = requested_mode
@@ -146,14 +135,10 @@ class SIAN(BaseModel):
         else:
             self.term_networks = self._make_independent_networks()
 
-        self.residual_network_enabled = bool(
-            self.hparams.get("residual_network", config.residual_network)
-        )
+        self.residual_network_enabled = bool(config.residual_network)
         self.residual_network: nn.Module | None = None
         if self.residual_network_enabled:
-            residual_sizes = self.hparams.get(
-                "residual_layer_sizes", config.residual_layer_sizes
-            )
+            residual_sizes = config.residual_layer_sizes
             self.residual_network = MuPResidualMLP(
                 self.input_dim,
                 residual_sizes,
@@ -232,7 +217,10 @@ class SIAN(BaseModel):
             )
         if self.residual_network is not None:
             penalty = penalty + sum(
-                (parameter.abs().sum() for parameter in self.residual_network.parameters()),
+                (
+                    parameter.abs().sum()
+                    for parameter in self.residual_network.parameters()
+                ),
                 start=penalty.new_zeros(()),
             )
         return penalty
@@ -254,9 +242,7 @@ class SIAN(BaseModel):
             result["intercept"] = self.intercept
         result["output"] = output
         if self.l1_regularization > 0:
-            result["parameter_regularizer"] = (
-                self.l1_regularization * self._active_l1()
-            )
+            result["parameter_regularizer"] = self.l1_regularization * self._active_l1()
         return result
 
     def compress(self) -> None:

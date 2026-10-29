@@ -2,7 +2,7 @@
 
 import numpy as np
 import torch
-from nampy.neural.distributions.distributions import BetaDistribution
+from nampy.neural.families.continuous import BetaDistribution
 
 family = BetaDistribution()
 n = 8

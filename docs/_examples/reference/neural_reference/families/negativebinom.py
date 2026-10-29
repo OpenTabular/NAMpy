@@ -2,7 +2,7 @@
 
 import numpy as np
 import torch
-from nampy.neural.distributions.distributions import NegativeBinomialDistribution
+from nampy.neural.families.counts import NegativeBinomialDistribution
 
 family = NegativeBinomialDistribution()
 n = 8

@@ -35,7 +35,6 @@ class NodeGAM(BaseModel):
         num_feature_info,
         num_classes: int = 1,
         config: DefaultNodeGAMConfig | None = None,
-        **kwargs,
     ):
         """
         Initializes the Neural Additive Model (NodeGAM) with the given configuration.
@@ -55,37 +54,24 @@ class NodeGAM(BaseModel):
         """
         if config is None:
             config = DefaultNodeGAMConfig()
-        super().__init__(**kwargs)
-        self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
+        super().__init__()
 
-        self.lr = self.hparams.get("lr", config.lr)
-        self.lr_patience = self.hparams.get("lr_patience", config.lr_patience)
-        self.weight_decay = self.hparams.get("weight_decay", config.weight_decay)
-        self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
-        self.l2_lambda = self.hparams.get("l2_lambda", config.l2_lambda)
+        self.l2_lambda = config.l2_lambda
         self.cat_feature_info = cat_feature_info
         self.num_feature_info = num_feature_info
         self._validate_features(num_feature_info, cat_feature_info)
         self.num_classes = num_classes
-        self.interaction_degree = self.hparams.get(
-            "interaction_degree", config.interaction_degree
-        )
+        self.interaction_degree = config.interaction_degree
 
         # Calculate total input dimension
         total_input_dim = sum(
             info["dimension"] for info in num_feature_info.values()
         ) + sum(info["dimension"] for info in cat_feature_info.values())
 
-        selector_activation = self.hparams.get(
-            "selector_activation", config.selector_activation
-        ).lower()
-        bin_activation = self.hparams.get(
-            "bin_activation", config.bin_activation
-        ).lower()
+        selector_activation = config.selector_activation.lower()
+        bin_activation = config.bin_activation.lower()
         if selector_activation == "entmax15":
-            choice_fn = EM15Temp(
-                max_temp=1.0, min_temp=0.01, steps=config.anneal_steps
-            )
+            choice_fn = EM15Temp(max_temp=1.0, min_temp=0.01, steps=config.anneal_steps)
         elif selector_activation == "sparsemax":
             choice_fn = sparsemax
         else:
@@ -130,9 +116,7 @@ class NodeGAM(BaseModel):
             **({} if config.arch == "GAM" else {"dim_att": config.dim_att}),
         )
 
-        self.feature_dropout = nn.Dropout(
-            self.hparams.get("feature_dropout", config.feature_dropout)
-        )
+        self.feature_dropout = nn.Dropout(config.feature_dropout)
 
     def forward(
         self, num_features: dict, cat_features: dict, feature_masks=None
@@ -198,8 +182,7 @@ class NodeGAM(BaseModel):
         # unrelated to the fitted model (the original NODE-GAM term contract
         # aggregates tree outputs by their selected feature term).
         feature_outputs = {
-            feature_name: torch.zeros_like(output)
-            for feature_name in feature_names
+            feature_name: torch.zeros_like(output) for feature_name in feature_names
         }
         if not self.training:
             # During selector annealing the upstream NODE-GAM representation

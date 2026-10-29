@@ -6763,7 +6763,7 @@
         364
       ]
     },
-    "nampy/gam/observations/__init__.py": {
+    "nampy/gam/correlation/__init__.py": {
       "source_sha256": "3615c7fafb1f3306c535760c904672873adb4882116927607badac8d8c930d0a",
       "summary": {
         "covered_lines": 2,
@@ -6783,7 +6783,7 @@
       },
       "missing_lines": []
     },
-    "nampy/gam/observations/transforms.py": {
+    "nampy/gam/correlation/transforms.py": {
       "source_sha256": "dbf33863346c2c4d17024e9e258e9cedef3b1694f6f000e33c732a2bea9e7d13",
       "summary": {
         "covered_lines": 66,

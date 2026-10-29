@@ -38,10 +38,7 @@ def prior_weights_diagonal_from_fit(sol: Any, n: int) -> np.ndarray:
     n = int(n)
     if sol is None:
         return np.ones(n, dtype=np.float64)
-    if isinstance(sol, Mapping):
-        w = sol.get("working_weights")
-    else:
-        w = getattr(sol, "working_weights", None)
+    w = sol.working_weights
     if w is None:
         return np.ones(n, dtype=np.float64)
     w = np.asarray(w, dtype=np.float64).ravel()

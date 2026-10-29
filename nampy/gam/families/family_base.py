@@ -623,6 +623,10 @@ class ExtendedFamily(BaseFamily):
     """
 
     family_class = "extended"
+    # Numerical staging, independent of smoothing support. 'extended' uses
+    # Dd after GLM initialization; 'observed' uses it throughout; 'ordinal'
+    # has its own outer kernel. Tweedie's source path retains 'glm'.
+    pirls_curvature_mode = "glm"
     n_linear_predictors = 1
 
     def initialize_linear_predictors(self, y):

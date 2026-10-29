@@ -34,9 +34,9 @@ def test_extension_generator_is_idempotent_and_discovers_all_symbols(tmp_path):
 
 
 def test_new_runtime_symbols_require_authored_examples(monkeypatch, tmp_path):
-    from nampy.gam import extensions
+    from nampy.gam import structured
 
-    monkeypatch.setattr(extensions, "__all__", [*extensions.__all__, "FutureFeature"])
+    monkeypatch.setattr(structured, "__all__", [*structured.__all__, "FutureFeature"])
     with pytest.raises(ValueError, match="inventory differs"):
         references.generate(tmp_path)
 

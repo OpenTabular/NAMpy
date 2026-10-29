@@ -13,6 +13,22 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "docs/_ext"))
 
 
+def test_example_execution_evidence_tracks_library_changes(tmp_path):
+    module = runpy.run_path(str(ROOT / "docs/scripts/check_reference_examples.py"))
+    package = tmp_path / "nampy"
+    package.mkdir()
+    source = package / "contracts.py"
+    source.write_text("value = 1\n")
+    fingerprint = module["implementation_fingerprint"]
+    before = fingerprint(tmp_path)
+    output = tmp_path / "docs/_generated/output.json"
+    output.parent.mkdir(parents=True)
+    output.write_text("{}")
+    assert fingerprint(tmp_path) == before
+    source.write_text("value = 2\n")
+    assert fingerprint(tmp_path) != before
+
+
 def test_inventory_dimensions_match_smooth_purpose():
     from smooth_contracts import smooth_inputs
 
@@ -114,7 +130,7 @@ def test_controls_have_one_combined_example_and_no_scalar_output_dumps():
 
 
 @pytest.mark.parametrize(
-    "name,reference", [("student_lss", "TF"), ("beta_lss", "BE"), ("nb_lss", "NBI")]
+    "name,reference", [("student_lss", "TF"), ("beta_lss", "BE"), ("nb_lss", "NBI"), ("lognormal_lss", "LOGNO"), ("weibull_lss", "WEI"), ("betabinomial_lss", "BB"), ("zaga_lss", "ZAGA"), ("beinf_lss", "BEINF")]
 )
 def test_extension_family_leads_with_supported_parameterization(name, reference):
     from family_contracts import mathematical_contract
@@ -129,8 +145,22 @@ def test_extension_family_leads_with_supported_parameterization(name, reference)
         assert text.count(r"\sigma^2\nu/(\nu-2)") == 1
     elif name == "beta_lss":
         assert r"\frac{\mu(1-\mu)}{1+\phi}" in text
-    else:
+    elif name == "nb_lss":
         assert r"\mu+\alpha\mu^2" in text
+    elif name == "betabinomial_lss":
+        assert "sigma=1/kappa" in text
+        assert "automatic joint REML" in text
+        assert "neural fitting uses its normalized likelihood" in text
+    elif name == "zaga_lss":
+        assert "mass at zero and density elsewhere" in text
+        assert "automatic general-family REML" in text
+    elif name == "beinf_lss":
+        assert "coupled category log ratios" in text
+        assert "all five natural errors" in text
+        assert "variance hook" in text
+    else:
+        assert "coercion to REML" in text
+        assert "optim route is unavailable" in text
 
 
 def test_multinomial_contract_and_adapter_inventory_are_symbolic():

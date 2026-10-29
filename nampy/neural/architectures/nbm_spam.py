@@ -28,71 +28,52 @@ class NBMSPAM(BaseModel):
         num_feature_info,
         num_classes: int = 1,
         config: DefaultNBMSPAMConfig | None = None,
-        **kwargs,
     ) -> None:
         if config is None:
             config = DefaultNBMSPAMConfig()
-        super().__init__(**kwargs)
-        self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
+        super().__init__()
+
         self._validate_features(num_feature_info, cat_feature_info)
 
-        self.lr = self.hparams.get("lr", config.lr)
-        self.lr_patience = self.hparams.get("lr_patience", config.lr_patience)
-        self.weight_decay = self.hparams.get("weight_decay", config.weight_decay)
-        self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
-        self.output_penalty = float(
-            self.hparams.get("output_penalty", config.output_penalty)
-        )
-        self.regularization_scale = float(
-            self.hparams.get("regularization_scale", config.regularization_scale)
-        )
-        self.basis_l1_scale = float(
-            self.hparams.get(
-                "basis_l1_regularization", config.basis_l1_regularization
-            )
-        )
+        self.output_penalty = float(config.output_penalty)
+        self.regularization_scale = float(config.regularization_scale)
+        self.basis_l1_scale = float(config.basis_l1_regularization)
 
         self.num_feature_keys = list(num_feature_info)
         self.cat_feature_keys = list(cat_feature_info)
-        self.feature_order = ordered_feature_keys(
-            num_feature_info, cat_feature_info
-        )
+        self.feature_order = ordered_feature_keys(num_feature_info, cat_feature_info)
         self.atomic_feature_names = _atomic_feature_names(
             num_feature_info, cat_feature_info
         )
         num_concepts = len(self.atomic_feature_names)
         nary = _normalize_nary(
-            nary=self.hparams.get("nary"),
-            interaction_degree=self.hparams.get("interaction_degree"),
+            nary=None,
+            interaction_degree=None,
             order=1,
             num_concepts=num_concepts,
         )
         if list(nary) != ["1"]:
             raise ValueError("NBM-SPAM requires unary NBM terms only.")
 
-        self.ranks = [int(value) for value in self.hparams.get("ranks", config.ranks)]
+        self.ranks = [int(value) for value in config.ranks]
         if not self.ranks or any(value <= 0 for value in self.ranks):
             raise ValueError("NBM-SPAM ranks must be a non-empty positive list.")
-        self.num_subnets_per_polynomial = int(
-            self.hparams.get("num_subnets", config.num_subnets)
-        )
+        self.num_subnets_per_polynomial = int(config.num_subnets)
         effective_subnets = (len(self.ranks) + 1) * self.num_subnets_per_polynomial
         self.core = _NBMCore(
             nary=nary,
-            num_bases=self.hparams.get("num_bases", config.num_bases),
+            num_bases=config.num_bases,
             num_subnets=effective_subnets,
-            layer_sizes=self.hparams.get("layer_sizes", config.layer_sizes),
-            activation=self.hparams.get("activation", config.activation),
-            dropout=self.hparams.get("dropout", config.dropout),
-            bases_dropout=self.hparams.get("bases_dropout", config.bases_dropout),
-            norm=self.hparams.get("norm", config.norm),
-            use_glu=self.hparams.get("use_glu", config.use_glu),
-            skip_connections=self.hparams.get(
-                "skip_connections", config.skip_connections
-            ),
-            batch_norm=self.hparams.get("batch_norm", config.batch_norm),
-            layer_norm=self.hparams.get("layer_norm", config.layer_norm),
-            featurizer=self.hparams.get("featurizer", config.featurizer),
+            layer_sizes=config.layer_sizes,
+            activation=config.activation,
+            dropout=config.dropout,
+            bases_dropout=config.bases_dropout,
+            norm=config.norm,
+            use_glu=config.use_glu,
+            skip_connections=config.skip_connections,
+            batch_norm=config.batch_norm,
+            layer_norm=config.layer_norm,
+            featurizer=config.featurizer,
             sparse=False,
             nary_ignore_input=0.0,
         )
@@ -107,15 +88,13 @@ class NBMSPAM(BaseModel):
                     num_concepts=self.segment_width,
                     num_outputs=int(num_classes),
                     ranks=degree_ranks,
-                    dropout=self.hparams.get("spam_dropout", config.spam_dropout),
+                    dropout=config.spam_dropout,
                     ignore_unary=True,
-                    reg_order=self.hparams.get("reg_order", config.reg_order),
-                    lower_order_correction=self.hparams.get(
-                        "lower_order_correction", config.lower_order_correction
-                    ),
+                    reg_order=config.reg_order,
+                    lower_order_correction=config.lower_order_correction,
                     use_geometric_mean=False,
-                    orthogonal=self.hparams.get("orthogonal", config.orthogonal),
-                    proximal=self.hparams.get("proximal", config.proximal),
+                    orthogonal=config.orthogonal,
+                    proximal=config.proximal,
                     intercept=True,
                 )
             )
@@ -151,9 +130,7 @@ class NBMSPAM(BaseModel):
         linear_output = self.linear_head(segments[0])
         polynomial_outputs = [
             head(segment)
-            for head, segment in zip(
-                self.polynomial_heads, segments[1:], strict=True
-            )
+            for head, segment in zip(self.polynomial_heads, segments[1:], strict=True)
         ]
         output = linear_output
         for polynomial_output in polynomial_outputs:

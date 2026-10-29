@@ -1,5 +1,6 @@
 # regressor.py
-import warnings
+
+from copy import deepcopy
 
 import numpy as np
 from sklearn.metrics import mean_squared_error, r2_score
@@ -7,6 +8,7 @@ from sklearn.utils import RegressorTags
 
 from ..contracts import AdditivePrediction
 from ..neural.objectives import RegressionObjective
+from ..neural.prediction import split_output_components
 from ..neural.training import TrainingPlan
 from ._neural import NeuralEstimatorBase
 
@@ -16,20 +18,26 @@ class NeuralRegressor(NeuralEstimatorBase):
 
     _estimator_type = "regressor"
 
-    def __init__(self, model, config, **kwargs):
-        self._initialize_estimator_parameters(config, kwargs)
+    def __init__(
+        self,
+        model,
+        config_class,
+        *,
+        architecture_config=None,
+        objective=None,
+        training=None,
+        preprocessing=None,
+    ):
+        self._initialize_estimator_parameters(
+            config_class,
+            architecture_config=architecture_config,
+            objective=objective,
+            training=training,
+            preprocessing=preprocessing,
+        )
+        self.base_model = model
         self.model = None
         self.data_module = None
-
-        # Raise a warning if task is set to 'classification'
-        if self._provided_preprocessor_kwargs.get("task") == "classification":
-            warnings.warn(
-                "The task is set to 'classification'. The Regressor is designed for regression tasks.",
-                UserWarning,
-                stacklevel=2,
-            )
-
-        self.base_model = model
 
     def __sklearn_tags__(self):
         tags = super().__sklearn_tags__()
@@ -68,19 +76,21 @@ class NeuralRegressor(NeuralEstimatorBase):
                 )
 
         objective = RegressionObjective(
-            n_outputs, loss_fct=getattr(self, "_fit_loss_fct", None)
+            n_outputs, loss_fct=deepcopy(self.objective.loss_fct)
         )
 
         plan = TrainingPlan(objective=objective)
         return y, y_val, plan
 
-    def predict(self, X, *, batch_size=None):
-        output = self._predict(X, batch_size=batch_size)["output"]
+    def predict(self, X, *, batch_size=None, offset=None):
+        output = self._predict(X, batch_size=batch_size, offset=offset)["output"]
         return self.model.objective.transform(output).squeeze(-1).cpu().numpy()
 
-    def score(self, X, y, sample_weight=None):
+    def score(self, X, y, sample_weight=None, *, offset=None):
         """Return the coefficient of determination R^2 of the prediction."""
-        return float(r2_score(y, self.predict(X), sample_weight=sample_weight))
+        return float(
+            r2_score(y, self.predict(X, offset=offset), sample_weight=sample_weight)
+        )
 
     def predict_components(
         self,
@@ -89,7 +99,9 @@ class NeuralRegressor(NeuralEstimatorBase):
         center: bool = False,
         reference_X=None,
         reference_weight=None,
+        reference_offset=None,
         batch_size=None,
+        offset=None,
     ) -> AdditivePrediction:
         """Return per-term contributions as a backend-neutral result.
 
@@ -97,14 +109,14 @@ class NeuralRegressor(NeuralEstimatorBase):
         the feature networks unless the architecture emits an explicit
         ``"intercept"`` entry.
         """
-        pred_dict = self._predict(X, batch_size=batch_size)
+        pred_dict = self._predict(X, batch_size=batch_size, offset=offset)
         link = pred_dict["output"].squeeze(-1).cpu().numpy()
-        terms, intercept = self._split_output_components(pred_dict)
+        terms, intercept = split_output_components(pred_dict)
         prediction = AdditivePrediction(
-            response=link,
             link=link,
             terms=terms,
             intercept=intercept,
+            offset=0.0 if offset is None else offset,
             backend="neural",
         )
         return self._maybe_center_components(
@@ -112,6 +124,7 @@ class NeuralRegressor(NeuralEstimatorBase):
             center=center,
             reference_X=reference_X,
             reference_weight=reference_weight,
+            reference_offset=reference_offset,
         )
 
     def evaluate(self, X, y_true, metrics=None):

@@ -17,6 +17,10 @@ Predict a continuous response
 .. code-block:: python
 
 
+   from dataclasses import replace
+   from nampy.neural.configuration import GradientTrainingConfig
+   from nampy.neural.configuration import PreprocessingConfig
+
 
    X, y = make_regression(
        n_samples=400,
@@ -30,8 +34,8 @@ Predict a continuous response
        X, y, test_size=0.2, random_state=7
    )
 
-   model = NAMRegressor(numerical_preprocessing="standardization")
-   model.fit(X_train, y_train, max_epochs=20, batch_size=64, random_state=7)
+   model = NAMRegressor(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
+   model.set_params(training=replace(model.training or GradientTrainingConfig(), max_epochs=20, batch_size=64, random_state=7)).fit(X_train, y_train)
    predictions = model.predict(X_test)
    regression_preview = pd.DataFrame({"Prediction": predictions[:3]})
    effects = model.plot_terms(X_test, center=True, reference_X=X_train)
@@ -53,6 +57,10 @@ Predict class probabilities
 .. code-block:: python
 
 
+   from dataclasses import replace
+   from nampy.neural.configuration import GradientTrainingConfig
+   from nampy.neural.configuration import PreprocessingConfig
+
 
    X, y = make_classification(
        n_samples=400,
@@ -64,8 +72,8 @@ Predict class probabilities
        X, y, test_size=0.2, random_state=11, stratify=y
    )
 
-   model = NAMClassifier(numerical_preprocessing="standardization")
-   model.fit(X_train, y_train, max_epochs=20, batch_size=64, random_state=7)
+   model = NAMClassifier(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
+   model.set_params(training=replace(model.training or GradientTrainingConfig(), max_epochs=20, batch_size=64, random_state=7)).fit(X_train, y_train)
 
    labels = model.predict(X_test)
    probabilities = model.predict_proba(X_test)
@@ -85,6 +93,11 @@ Predict a response distribution
 .. code-block:: python
 
 
+   from dataclasses import replace
+   from nampy.neural.configuration import GradientTrainingConfig
+   from nampy.neural.configuration import ObjectiveConfig
+   from nampy.neural.configuration import PreprocessingConfig
+
 
    X, y = make_regression(
        n_samples=400, n_features=6, noise=2.0, random_state=13
@@ -94,16 +107,8 @@ Predict a response distribution
        X, y, test_size=0.2, random_state=13
    )
 
-   model = NAMLSS(
-       family="normal", numerical_preprocessing="standardization"
-   )
-   model.fit(
-       X_train,
-       y_train,
-       max_epochs=20,
-       batch_size=64,
-       random_state=7,
-   )
+   model = NAMLSS(objective=ObjectiveConfig(family='normal'), preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
+   model.set_params(training=replace(model.training or GradientTrainingConfig(), max_epochs=20, batch_size=64, random_state=7)).fit(X_train, y_train)
    distribution_parameters = model.predict(X_test)
    distribution_preview = pd.DataFrame(distribution_parameters[:3],
                                         columns=["mean", "scale"])
@@ -129,9 +134,13 @@ multi-column contributions.
 .. code-block:: python
 
 
+   from dataclasses import replace
+   from nampy.neural.configuration import GradientTrainingConfig
+   from nampy.neural.configuration import PreprocessingConfig
+
    y_multi = np.column_stack([regression_target, 0.5 * regression_target])
-   multi_model = NAMRegressor(numerical_preprocessing="standardization")
-   multi_model.fit(regression_train, y_multi, max_epochs=20, batch_size=64, random_state=7)
+   multi_model = NAMRegressor(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
+   multi_model.set_params(training=replace(multi_model.training or GradientTrainingConfig(), max_epochs=20, batch_size=64, random_state=7)).fit(regression_train, y_multi)
    multi_predictions = multi_model.predict(regression_test)
    components = multi_model.predict_components(regression_test)
    for name, contribution in components.terms.items():

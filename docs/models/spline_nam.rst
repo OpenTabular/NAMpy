@@ -28,14 +28,12 @@ Fit and inspect
 
 .. code-block:: python
 
+
+   from nampy.neural.configs.spline_nam_config import DefaultSplineNAMConfig
+   from nampy.neural.configuration import PreprocessingConfig
    from nampy.models import SplineNAMRegressor
 
-   model = SplineNAMRegressor(
-       n_knots=12,
-       learn_knots=False,
-       identify=True,
-       smoothing=1e-3,
-   ).fit(X_train, y_train)
+   model = SplineNAMRegressor(architecture_config=DefaultSplineNAMConfig(learn_knots=False, identify=True, smoothing=0.001), preprocessing=PreprocessingConfig(n_knots=12)).fit(X_train, y_train)
 
    prediction = model.predict(X_test)
    components = model.predict_components(X_test, center=True)

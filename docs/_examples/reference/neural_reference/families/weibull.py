@@ -2,7 +2,7 @@
 
 import numpy as np
 import torch
-from nampy.neural.distributions.distributions import WeibullDistribution
+from nampy.neural.families.continuous import WeibullDistribution
 
 family = WeibullDistribution()
 n = 8

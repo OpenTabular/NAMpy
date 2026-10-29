@@ -23,30 +23,21 @@ class EnsembleTreeNAM(BaseModel):
         num_feature_info,
         num_classes: int = 1,
         config: DefaultEnsembleTreeNAMConfig | None = None,
-        **kwargs,
     ):
         if config is None:
             config = DefaultEnsembleTreeNAMConfig()
-        super().__init__(**kwargs)
-        self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
-
-        self.lr = self.hparams.get("lr", config.lr)
-        self.lr_patience = self.hparams.get("lr_patience", config.lr_patience)
-        self.weight_decay = self.hparams.get("weight_decay", config.weight_decay)
-        self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
+        super().__init__()
 
         self.cat_feature_info = cat_feature_info
         self.num_feature_info = num_feature_info
         self._validate_features(num_feature_info, cat_feature_info)
         self.num_classes = num_classes
 
-        self.num_estimators = int(
-            self.hparams.get("num_estimators", config.num_estimators)
-        )
+        self.num_estimators = int(config.num_estimators)
         if self.num_estimators < 1:
             raise ValueError("num_estimators must be >= 1")
 
-        self.aggregation = self.hparams.get("aggregation", config.aggregation)
+        self.aggregation = config.aggregation
         if self.aggregation != "mean":
             raise ValueError(
                 f"Unsupported aggregation={self.aggregation!r}. "
@@ -60,7 +51,6 @@ class EnsembleTreeNAM(BaseModel):
                     num_feature_info=num_feature_info,
                     num_classes=num_classes,
                     config=config,
-                    **kwargs,
                 )
                 for _ in range(self.num_estimators)
             ]

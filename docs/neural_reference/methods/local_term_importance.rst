@@ -10,7 +10,7 @@ Signature
 
 .. code-block:: python
 
-   estimator.local_term_importance(self, X, *, target: 'int' = 0, top_k: 'int' = 10, batch_size: 'int | None' = None)
+   estimator.local_term_importance(self, X, *, target=0, top_k=10, batch_size=None)
 
 Available architecture hooks: :doc:`spam <../spam>`. Unsupported architectures raise ``NotImplementedError``; call after fitting. Native history and metadata retain their native-solver meaning.
 

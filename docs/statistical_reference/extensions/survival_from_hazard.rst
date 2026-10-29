@@ -6,7 +6,7 @@ Hazard integration and survival prediction
 Types, defaults and output shapes
 ---------------------------------
 
-.. autofunction:: nampy.gam.extensions.survival_from_hazard
+.. autofunction:: nampy.survival.survival_from_hazard
 
 
 

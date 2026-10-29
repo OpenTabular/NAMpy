@@ -27,13 +27,11 @@ Fit and inspect
 
 .. code-block:: python
 
+
+   from nampy.neural.configs.spam_config import DefaultSPAMConfig
    from nampy.models import SPAMRegressor
 
-   model = SPAMRegressor(
-       ranks=[64, 32],
-       ignore_unary=False,
-       lower_order_correction=True,
-   ).fit(X_train, y_train)
+   model = SPAMRegressor(architecture_config=DefaultSPAMConfig(ranks=[64, 32], ignore_unary=False, lower_order_correction=True)).fit(X_train, y_train)
 
    prediction = model.predict(X_test)
    components = model.predict_components(X_test, center=True)

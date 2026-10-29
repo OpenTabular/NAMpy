@@ -23,10 +23,6 @@ class FixedLinearDesignProvider(Protocol):
     """Optional architecture contract for exact fixed-design regression."""
 
     supports_fixed_linear_regression: bool
-    solver: str
-    ridge: float
-    cg_rtol: float
-    cg_max_iter: int | None
     intercept: torch.Tensor | None
 
     def linear_design(

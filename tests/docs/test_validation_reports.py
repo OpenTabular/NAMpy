@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def report_functions():
     """Load the actual notebook functions without training its models."""
-    from nampy.neural.distributions.registry import FAMILY_REGISTRY
+    from nampy.neural.families.registry import FAMILY_REGISTRY
     from nampy.neural.registry import architectures
 
     notebook = nbformat.read(

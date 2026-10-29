@@ -269,6 +269,34 @@ css = [
 ]
 
 [[package]]
+name = "cairocffi"
+version = "1.7.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cffi" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/70/c5/1a4dc131459e68a173cbdab5fad6b524f53f9c1ef7861b7698e998b837cc/cairocffi-1.7.1.tar.gz", hash = "sha256:2e48ee864884ec4a3a34bfa8c9ab9999f688286eb714a15a43ec9d068c36557b", size = 88096, upload-time = "2024-06-18T10:56:06.741Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/93/d8/ba13451aa6b745c49536e87b6bf8f629b950e84bd0e8308f7dc6883b67e2/cairocffi-1.7.1-py3-none-any.whl", hash = "sha256:9803a0e11f6c962f3b0ae2ec8ba6ae45e957a146a004697a1ac1bbf16b073b3f", size = 75611, upload-time = "2024-06-18T10:55:59.489Z" },
+]
+
+[[package]]
+name = "cairosvg"
+version = "2.9.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cairocffi" },
+    { name = "cssselect2" },
+    { name = "defusedxml" },
+    { name = "pillow" },
+    { name = "tinycss2" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c6/80/db62c0a96d2e55282c83524f6b1d02f09c7fd7f612e93bf83e30de1dc75c/cairosvg-2.9.1.tar.gz", hash = "sha256:861bc28ad97ce4f537d50eb3d6ee97a7afcccec9c61ac25c4e7d073fe409aec7", size = 41256, upload-time = "2026-09-07T10:35:09.563Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/41/51/8041c2e70649e5b7f2a0aedbbbd0609ac099cfaa0cbde2014279c9c05756/cairosvg-2.9.1-py3-none-any.whl", hash = "sha256:f91c5628e834be024a0ed4544d76261cd84016a4c73bcdf26c386495825c05a1", size = 46165, upload-time = "2026-09-07T10:35:07.952Z" },
+]
+
+[[package]]
 name = "certifi"
 version = "2026.7.22"
 source = { registry = "https://pypi.org/simple" }
@@ -282,7 +310,7 @@ name = "cffi"
 version = "2.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser" },
+    { name = "pycparser", marker = "implementation_name != 'PyPy'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/9e/ef/008a1939e372c06329a3fce4279c02f328488f3526744906eeec3da7ad5f/cffi-2.1.1.tar.gz", hash = "sha256:dd31f52ea1086513bb9df30f8fcee9b8918323ae067a3d5b78bc826a000712be", size = 530807, upload-time = "2026-08-03T21:21:18.939Z" }
 wheels = [
@@ -489,6 +517,19 @@ wheels = [
 [package.optional-dependencies]
 toml = [
     { name = "tomli", marker = "python_full_version <= '3.11'" },
+]
+
+[[package]]
+name = "cssselect2"
+version = "0.10.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "tinycss2" },
+    { name = "webencodings" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/06/00/2456b6b664c7a770989cbe3c352aac4eb962c938486f03a2e1255ae963c6/cssselect2-0.10.1.tar.gz", hash = "sha256:83b0d820ef589dabaf693289b647c2f5b410f76d285f56deba911ffa75a7b9d1", size = 35653, upload-time = "2026-08-31T21:57:42.59Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bd/59/6b1daa3b94de8970e2a2787ba73616c2d0675d2f948ef4cad8bef7f21bc6/cssselect2-0.10.1-py3-none-any.whl", hash = "sha256:25cc4494d55985d6a6da359be48da6ce98c28dcbafa2314c383ace3fc32ec868", size = 15489, upload-time = "2026-08-31T21:57:41.162Z" },
 ]
 
 [[package]]
@@ -1280,6 +1321,7 @@ dependencies = [
     { name = "lightning" },
     { name = "matplotlib" },
     { name = "numpy" },
+    { name = "osqp" },
     { name = "pandas" },
     { name = "pretab" },
     { name = "properscoring" },
@@ -1293,15 +1335,22 @@ dependencies = [
 benchmarks = [
     { name = "rtdl-num-embeddings" },
     { name = "tabm" },
+    { name = "tabulate" },
 ]
 dev = [
+    { name = "beautifulsoup4" },
     { name = "black" },
     { name = "isort" },
+    { name = "mpmath" },
     { name = "mypy" },
+    { name = "nbformat" },
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
+    { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "tabulate" },
 ]
 docs = [
     { name = "ipykernel" },
@@ -1315,23 +1364,28 @@ docs = [
     { name = "sphinx-autodoc-typehints", version = "3.13.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "sphinx-design" },
     { name = "sphinx-rtd-theme" },
+    { name = "sphinxcontrib-svg2pdfconverter", extra = ["cairosvg"] },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "abess", specifier = ">=0.4.5" },
+    { name = "beautifulsoup4", marker = "extra == 'dev'", specifier = ">=4.12,<5" },
     { name = "black", marker = "extra == 'dev'", specifier = ">=22.0" },
     { name = "ipykernel", marker = "extra == 'docs'" },
     { name = "isort", marker = "extra == 'dev'", specifier = ">=5.0" },
     { name = "joblib" },
     { name = "lightning" },
     { name = "matplotlib" },
+    { name = "mpmath", marker = "extra == 'dev'", specifier = ">=1.3,<2" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.0" },
     { name = "myst-parser", marker = "extra == 'docs'", specifier = ">=2.0.0" },
     { name = "nbclient", marker = "extra == 'docs'", specifier = ">=0.10.0" },
+    { name = "nbformat", marker = "extra == 'dev'", specifier = ">=5.10.0" },
     { name = "nbformat", marker = "extra == 'docs'", specifier = ">=5.10.0" },
     { name = "nbsphinx", marker = "extra == 'docs'", specifier = ">=0.9.0" },
     { name = "numpy", specifier = "<=1.26.4" },
+    { name = "osqp", specifier = ">=1.0,<2" },
     { name = "pandas" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.0" },
     { name = "pretab", specifier = "==0.0.3" },
@@ -1342,11 +1396,15 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
     { name = "scikit-learn" },
     { name = "scipy", specifier = ">=1.16" },
+    { name = "sphinx", marker = "extra == 'dev'", specifier = ">=5.0" },
     { name = "sphinx", marker = "extra == 'docs'", specifier = ">=5.0" },
     { name = "sphinx-autodoc-typehints", marker = "extra == 'docs'", specifier = ">=1.0" },
     { name = "sphinx-design", marker = "extra == 'docs'", specifier = ">=0.6.0" },
     { name = "sphinx-rtd-theme", marker = "extra == 'docs'", specifier = ">=3.0" },
+    { name = "sphinxcontrib-svg2pdfconverter", extras = ["cairosvg"], marker = "extra == 'docs'", specifier = ">=2.0,<3" },
     { name = "tabm", marker = "extra == 'benchmarks'", specifier = "==0.0.3" },
+    { name = "tabulate", marker = "extra == 'benchmarks'", specifier = ">=0.9" },
+    { name = "tabulate", marker = "extra == 'dev'", specifier = ">=0.9" },
     { name = "torch" },
     { name = "torchmetrics" },
 ]
@@ -1635,6 +1693,31 @@ source = { registry = "https://pypi.org/simple" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c2/f3/d86c845465a2723ad7e1e5c36dcd75ddb82898b3f53be47ebd429fb2fa5d/nvidia_nvtx-13.0.85-py3-none-manylinux1_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:4936d1d6780fbe68db454f5e72a42ff64d1fd6397df9f363ae786930fd5c1cd4", size = 148047, upload-time = "2025-09-04T08:29:01.761Z" },
     { url = "https://files.pythonhosted.org/packages/a8/64/3708a90d1ebe202ffdeb7185f878a3c84d15c2b2c31858da2ce0583e2def/nvidia_nvtx-13.0.85-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:cb7780edb6b14107373c835bf8b72e7a178bac7367e23da7acb108f973f157a6", size = 148878, upload-time = "2025-09-04T08:28:53.627Z" },
+]
+
+[[package]]
+name = "osqp"
+version = "1.1.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jinja2" },
+    { name = "joblib" },
+    { name = "numpy" },
+    { name = "scipy" },
+    { name = "setuptools" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b0/7f/b441062e4766851fdf1d066857134c4c3bcf7e0089e4a1d007b6114cecd5/osqp-1.1.3.tar.gz", hash = "sha256:48f53ef5ec89e6ce99ffa955bc6ea0cf2eec09ea3d40905f0c9fadc939609907", size = 57816, upload-time = "2026-06-12T16:59:27.208Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/99/66/f25cb13b72eedd74bcff17421761c520eabdade1b7166689d5b76f68d2b6/osqp-1.1.3-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:0a168153f6058075d017e713d20eb4214c5daeb957b497c3c31340d0e63e1288", size = 326215, upload-time = "2026-06-12T16:58:43.489Z" },
+    { url = "https://files.pythonhosted.org/packages/32/bb/95a38971abb93501e1870dcaa20c04877d19c59cb98bf9919ed85af32805/osqp-1.1.3-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:3fefecf59a4d84a63ff6fb34e24987f12d61c740e78cf7fb7864f427a3d1c74e", size = 308213, upload-time = "2026-06-12T16:58:44.784Z" },
+    { url = "https://files.pythonhosted.org/packages/14/49/b941c22530f24538dbeb3a2d5b56faab4f853100f47250f07aeab943e671/osqp-1.1.3-cp311-cp311-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:b2b12ea5bdcf3750703c1fc1ea5d678f3f0fdddc6513c9352439f8075ca07bf4", size = 326653, upload-time = "2026-06-12T16:58:45.965Z" },
+    { url = "https://files.pythonhosted.org/packages/18/b6/d569a65c4c371ee0ec866a17cafb21af2f1201390ac3aaa9c70672459fea/osqp-1.1.3-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:f6e6b384c356681b93c8698304b8910bd4a198e95664ab533cf5a422c126cd40", size = 351147, upload-time = "2026-06-12T16:58:47.352Z" },
+    { url = "https://files.pythonhosted.org/packages/ca/fe/4133eedbd73931a38fabb2ccae2a62e7f532e3d9e97ef51e0fcb04e668db/osqp-1.1.3-cp311-cp311-win_amd64.whl", hash = "sha256:fb3734923e7606d8a5c14e41e1e710352aa6696e9f3f94e770def85d4633abf4", size = 314758, upload-time = "2026-06-12T16:58:48.508Z" },
+    { url = "https://files.pythonhosted.org/packages/49/d2/f21ddf1b41ecc14784186129125c4e9c19d8f6f7ade0f2e0efd4a44dded6/osqp-1.1.3-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:2b59e8094fe29d928d568cad0156a42daa44257ce142fb7808400016a62dc28c", size = 328512, upload-time = "2026-06-12T16:58:49.796Z" },
+    { url = "https://files.pythonhosted.org/packages/de/45/1f99a9f25dc9534323b8ef9e578dc93acb33e2b762d5be267e1380b2dda5/osqp-1.1.3-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:e5620abbdb259190da6f0e5421b9fdfd9386b46690210ce82aea6102cc85c67f", size = 308891, upload-time = "2026-06-12T16:58:51.07Z" },
+    { url = "https://files.pythonhosted.org/packages/d5/25/176dbb33c3c3605367c0de8720945c6bdd8f9b0d411e0a94ef747085f034/osqp-1.1.3-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:e44ad08234cfbd6d9f2a823118547e683b038676887e096533935b9fcc15fd3c", size = 328135, upload-time = "2026-06-12T16:58:52.185Z" },
+    { url = "https://files.pythonhosted.org/packages/77/89/96e2e4de3b89e7363931c70eb58bded22656f5512bde18eb7a9272ce48d8/osqp-1.1.3-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:6ceef7fb4f332892b6e0bbc17323d5c9e028c3f9db726b62a15d876d0f81cc06", size = 354077, upload-time = "2026-06-12T16:58:53.379Z" },
+    { url = "https://files.pythonhosted.org/packages/c4/4b/6a1e4f5aa28117bc0a78be5e9f4071b6a11c00a33a01bc673c3faf2a0a65/osqp-1.1.3-cp312-cp312-win_amd64.whl", hash = "sha256:e7e9bd3939e47e726673218a7b04b9784ecbf9ef0b8bc69107d20cc659836ac1", size = 316733, upload-time = "2026-06-12T16:58:54.397Z" },
 ]
 
 [[package]]
@@ -2496,6 +2579,24 @@ wheels = [
 ]
 
 [[package]]
+name = "sphinxcontrib-svg2pdfconverter"
+version = "2.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b9/05/11b12853b6a0398bd19d5464b68cb97dde21c354265ff2c1929f92ae03a9/sphinxcontrib_svg2pdfconverter-2.1.0.tar.gz", hash = "sha256:9756e82d5f3bf11629ffcbafb1f8a1092d3bb4789e33494032cdce9a9c8459d3", size = 6805, upload-time = "2026-03-05T18:23:44.74Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ce/7d/9b6b1ef6fe13bac6455d002ca4a626fac325cf94b4183f31cafe9b1ed17c/sphinxcontrib_svg2pdfconverter-2.1.0-py3-none-any.whl", hash = "sha256:805635ac274583e1606b0ec7fb21f16b69ca8ff223dd7e237d91127015628b0c", size = 9259, upload-time = "2026-03-05T18:23:43.662Z" },
+]
+
+[package.optional-dependencies]
+cairosvg = [
+    { name = "cairosvg" },
+]
+
+[[package]]
 name = "stack-data"
 version = "0.6.3"
 source = { registry = "https://pypi.org/simple" }
@@ -2533,6 +2634,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/33/16/98a45414523c58d09cc1ab044d851a559744f338dcddf14d4e5f2bf3271c/tabm-0.0.3.tar.gz", hash = "sha256:1caaa70ccf7b31f57a133cac2216e2a52fea4ae8f5ad972163689bab7fab2bc1", size = 1024448, upload-time = "2025-08-14T16:14:13.833Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6c/4f/cce9db4b2505c1d5664f7131ea6c115446fe8425c61d7c75b12162a4f25d/tabm-0.0.3-py3-none-any.whl", hash = "sha256:6cabed3cb436fef5e8a45f46097fd745f51b3e16be16d555b9af16cffda7f944", size = 17347, upload-time = "2025-08-14T16:14:11.207Z" },
+]
+
+[[package]]
+name = "tabulate"
+version = "0.10.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/46/58/8c37dea7bbf769b20d58e7ace7e5edfe65b849442b00ffcdd56be88697c6/tabulate-0.10.0.tar.gz", hash = "sha256:e2cfde8f79420f6deeffdeda9aaec3b6bc5abce947655d17ac662b126e48a60d", size = 91754, upload-time = "2026-03-04T18:55:34.402Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/99/55/db07de81b5c630da5cbf5c7df646580ca26dfaefa593667fc6f2fe016d2e/tabulate-0.10.0-py3-none-any.whl", hash = "sha256:f0b0622e567335c8fabaaa659f1b33bcb6ddfe2e496071b743aa113f8774f2d3", size = 39814, upload-time = "2026-03-04T18:55:31.284Z" },
 ]
 
 [[package]]

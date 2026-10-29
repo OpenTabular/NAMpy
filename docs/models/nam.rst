@@ -30,13 +30,11 @@ Fit and inspect
 
 .. code-block:: python
 
+
+   from nampy.neural.configs.nam_config import DefaultNAMConfig
    from nampy.models import NAMRegressor
 
-   model = NAMRegressor(
-       layer_sizes=[128, 64, 32],
-       interaction_degree=2,
-       dropout=0.1,
-   ).fit(X_train, y_train)
+   model = NAMRegressor(architecture_config=DefaultNAMConfig(layer_sizes=[128, 64, 32], interaction_degree=2, dropout=0.1)).fit(X_train, y_train)
 
    prediction = model.predict(X_test)
    components = model.predict_components(X_test, center=True)

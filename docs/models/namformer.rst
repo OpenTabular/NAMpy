@@ -32,14 +32,11 @@ Fit and inspect
 
 .. code-block:: python
 
+
+   from nampy.neural.configs.namformer_config import DefaultNAMformerConfig
    from nampy.models import NAMformerRegressor
 
-   model = NAMformerRegressor(
-       d_model=64,
-       n_layers=4,
-       n_heads=4,
-       interaction_degree=2,
-   ).fit(X_train, y_train)
+   model = NAMformerRegressor(architecture_config=DefaultNAMformerConfig(d_model=64, n_layers=4, n_heads=4, interaction_degree=2)).fit(X_train, y_train)
 
    prediction = model.predict(X_test)
    components = model.predict_components(X_test, center=True)

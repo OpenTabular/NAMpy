@@ -6,5 +6,6 @@ _family = estimator_family("nam", module_name=__name__)
 NAMRegressor = _family.regressor
 NAMClassifier = _family.classifier
 NAMLSS = _family.lss
+NAMSurvival = _family.survival
 
-__all__ = ["NAMRegressor", "NAMClassifier", "NAMLSS"]
+__all__ = ["NAMRegressor", "NAMClassifier", "NAMLSS", "NAMSurvival"]

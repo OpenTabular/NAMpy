@@ -42,7 +42,7 @@ Target shape/encoding: ``(n,) floating scalar response; support follows the dist
 
 ``compute_loss`` and ``compute_loss_per_sample`` consume raw network outputs, not already transformed parameters. The scalar loss is averaged over observations. Lower loss is better. LSS scoring follows the shared estimator contract; response SD summarizes conditional variability, not estimation uncertainty. Distribution-specific moments that do not exist cannot be interpreted as finite uncertainty estimates.
 
-Implementation definitions: :mod:`nampy.neural.distributions.distributions`. See the source link on the runtime contract for the implemented transforms and objective.
+Implementation definitions: :mod:`nampy.neural.families`. See the source link on the runtime contract for the implemented transforms and objective.
 
 Neural distribution family for ``family='poisson'``. Configure its constructor through ``distributional_kwargs`` on an LSS estimator.
 

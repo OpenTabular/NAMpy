@@ -1,10 +1,32 @@
 import copy
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Callable
+from typing import Any, Callable, cast
 
 import numpy as np
 
+from ...distributions import (
+    BCCGLaw,
+    BCPELaw,
+    BCTLaw,
+    BetaBinomialLaw,
+    BetaLaw,
+    GammaLaw,
+    LogNormalLaw,
+    NegativeBinomialLaw,
+    NormalLaw,
+    StudentTLaw,
+    WeibullLaw,
+)
+from ...distributions.mixtures import INFLATED_BETA_LAW, ZERO_ADJUSTED_GAMMA_LAW
+from ..predict.distribution_adapter import (
+    beta_prediction,
+    gamma_prediction,
+    inflated_beta_adapter,
+    observation_prediction,
+    student_prediction,
+    zero_adjusted_gamma_adapter,
+)
 from .bcg import CensoredBoxCoxGaussianFamily
 from .betar import BetaRegressionFamily
 from .binomial import (
@@ -18,16 +40,27 @@ from .clog import CensoredLogisticFamily
 from .cnorm import CensoredNormalFamily
 from .cpois import CensoredPoissonFamily
 from .family_base import BaseFamily
+from .gamlss.bccg import BCCGLikelihood
+from .gamlss.betabinomial import BetaBinomialLocationPrecision
+from .gamlss.boxcox_tail import BCPELikelihood, BCTLikelihood
 from .gamlss.distributional import (
     BetaLocationPrecision,
     NegativeBinomialLocationDispersion,
     StudentLocationScale,
 )
-from .gamlss.gammals import gammals
-from .gamlss.gaulss import gaulss
+from .gamlss.gammals import GammalsFamily, gammals
+from .gamlss.gaulss import GaulssFamily, gaulss
 from .gamlss.gevlss import GevlssFamily
 from .gamlss.gumbls import GumblsFamily
+from .gamlss.inflated_beta import InflatedBeta
 from .gamlss.multinom import MultinomFamily
+from .gamlss.observations import (
+    LogNormalObservations,
+    NormalObservations,
+    WeibullObservations,
+)
+from .gamlss.positive import LogNormalLocationScale, WeibullLocationShape
+from .gamlss.semicontinuous import ZeroAdjustedGamma
 from .gamlss.shash import ShashFamily
 from .gamlss.twlss import TwlssFamily
 from .gamlss.ziplss import ZiplssFamily
@@ -68,20 +101,6 @@ _GAMMA_LINK_MAP = {
     "inverse": GammaInverseFamily,
 }
 
-_GENERAL_FAMILY_FACTORIES = {
-    "student_lss": (StudentLocationScale, {"df"}),
-    "beta_lss": (BetaLocationPrecision, set()),
-    "nb_lss": (NegativeBinomialLocationDispersion, set()),
-    "gaulss": (gaulss, {"link", "b"}),
-    "gammals": (gammals, {"link", "b"}),
-    "gumbls": (GumblsFamily, {"link", "b"}),
-    "ziplss": (ZiplssFamily, {"link"}),
-    "multinom": (MultinomFamily, {"K"}),
-    "gevlss": (GevlssFamily, {"link"}),
-    "shash": (ShashFamily, {"link", "b", "phi_pen", "phiPen"}),
-    "twlss": (TwlssFamily, {"link", "a", "b"}),
-}
-
 
 @dataclass(frozen=True)
 class GeneralFamilySpec:
@@ -91,19 +110,237 @@ class GeneralFamilySpec:
     factory: Callable[..., BaseFamily]
     options: frozenset[str]
     reference_group: str
+    family_type: type
+    law_factory: Callable | None = None
+    prediction_adapter: Callable | None = None
+    public_name: str | None = None
+    prediction_context_names: tuple[str, ...] = ()
+
+    @property
+    def supports_distribution_prediction(self):
+        return self.law_factory is not None or self.prediction_adapter is not None
 
 
 GENERAL_FAMILIES = MappingProxyType(
     {
-        name: GeneralFamilySpec(
-            name,
-            factory,
-            frozenset(options),
-            getattr(factory, "reference_group", "mgcv"),
+        spec.name: spec
+        for spec in (
+            *(
+                GeneralFamilySpec(
+                    name + "_lss", family, frozenset(),
+                    getattr(family, "reference_group", "mgcv"),
+                    family_type=family, law_factory=law, public_name=name,
+                )
+                for name, family, law in (
+                    ("bct", BCTLikelihood, BCTLaw),
+                    ("bcpe", BCPELikelihood, BCPELaw),
+                )
+            ),
+            *(
+                GeneralFamilySpec(
+                    name + "_lss", family, frozenset({"lower", "upper"}),
+                    getattr(family, "reference_group", "mgcv"),
+                    family_type=family, law_factory=lambda family=family: family().law,
+                    prediction_adapter=observation_prediction, public_name=name,
+                )
+                for name, family in (
+                    ("lognormal_observation", LogNormalObservations),
+                    ("weibull_observation", WeibullObservations),
+                )
+            ),
+            GeneralFamilySpec(
+                "normal_observation_lss",
+                NormalObservations,
+                frozenset({"lower", "upper"}),
+                getattr(NormalObservations, "reference_group", "mgcv"),
+                family_type=NormalObservations,
+                law_factory=NormalLaw,
+                prediction_adapter=observation_prediction,
+                public_name="normal_observation",
+            ),
+            GeneralFamilySpec(
+                "bccg_lss",
+                BCCGLikelihood,
+                frozenset(set()),
+                getattr(BCCGLikelihood, "reference_group", "mgcv"),
+                family_type=BCCGLikelihood,
+                law_factory=BCCGLaw,
+                public_name="bccg",
+            ),
+            GeneralFamilySpec(
+                "beinf_lss",
+                InflatedBeta,
+                frozenset(set()),
+                getattr(InflatedBeta, "reference_group", "mgcv"),
+                family_type=InflatedBeta,
+                law_factory=lambda: INFLATED_BETA_LAW,
+                prediction_adapter=inflated_beta_adapter,
+                public_name="beinf",
+            ),
+            GeneralFamilySpec(
+                "zaga_lss",
+                ZeroAdjustedGamma,
+                frozenset(set()),
+                getattr(ZeroAdjustedGamma, "reference_group", "mgcv"),
+                family_type=ZeroAdjustedGamma,
+                law_factory=lambda: ZERO_ADJUSTED_GAMMA_LAW,
+                prediction_adapter=zero_adjusted_gamma_adapter,
+                public_name="zaga",
+            ),
+            GeneralFamilySpec(
+                "betabinomial_lss",
+                BetaBinomialLocationPrecision,
+                frozenset(set()),
+                getattr(BetaBinomialLocationPrecision, "reference_group", "mgcv"),
+                family_type=BetaBinomialLocationPrecision,
+                law_factory=BetaBinomialLaw,
+                public_name="betabinomial",
+                prediction_context_names=("trials",),
+            ),
+            GeneralFamilySpec(
+                "student_lss",
+                StudentLocationScale,
+                frozenset({"df"}),
+                getattr(StudentLocationScale, "reference_group", "mgcv"),
+                family_type=StudentLocationScale,
+                law_factory=StudentTLaw,
+                prediction_adapter=student_prediction,
+                public_name="studentt",
+            ),
+            GeneralFamilySpec(
+                "beta_lss",
+                BetaLocationPrecision,
+                frozenset(set()),
+                getattr(BetaLocationPrecision, "reference_group", "mgcv"),
+                family_type=BetaLocationPrecision,
+                law_factory=BetaLaw,
+                prediction_adapter=beta_prediction,
+                public_name="beta",
+            ),
+            GeneralFamilySpec(
+                "nb_lss",
+                NegativeBinomialLocationDispersion,
+                frozenset(set()),
+                getattr(NegativeBinomialLocationDispersion, "reference_group", "mgcv"),
+                family_type=NegativeBinomialLocationDispersion,
+                law_factory=NegativeBinomialLaw,
+                public_name="negativebinom",
+            ),
+            GeneralFamilySpec(
+                "lognormal_lss",
+                LogNormalLocationScale,
+                frozenset(set()),
+                getattr(LogNormalLocationScale, "reference_group", "mgcv"),
+                family_type=LogNormalLocationScale,
+                law_factory=LogNormalLaw,
+                public_name="lognormal",
+            ),
+            GeneralFamilySpec(
+                "weibull_lss",
+                WeibullLocationShape,
+                frozenset(set()),
+                getattr(WeibullLocationShape, "reference_group", "mgcv"),
+                family_type=WeibullLocationShape,
+                law_factory=WeibullLaw,
+                public_name="weibull",
+            ),
+            GeneralFamilySpec(
+                "gaulss",
+                gaulss,
+                frozenset({"link", "b"}),
+                getattr(gaulss, "reference_group", "mgcv"),
+                family_type=GaulssFamily,
+                law_factory=NormalLaw,
+                public_name="normal",
+            ),
+            GeneralFamilySpec(
+                "gammals",
+                gammals,
+                frozenset({"link", "b"}),
+                getattr(gammals, "reference_group", "mgcv"),
+                family_type=GammalsFamily,
+                law_factory=GammaLaw,
+                prediction_adapter=gamma_prediction,
+                public_name="gamma",
+            ),
+            GeneralFamilySpec(
+                "gumbls",
+                GumblsFamily,
+                frozenset({"link", "b"}),
+                getattr(GumblsFamily, "reference_group", "mgcv"),
+                family_type=GumblsFamily,
+            ),
+            GeneralFamilySpec(
+                "ziplss",
+                ZiplssFamily,
+                frozenset({"link"}),
+                getattr(ZiplssFamily, "reference_group", "mgcv"),
+                family_type=ZiplssFamily,
+            ),
+            GeneralFamilySpec(
+                "multinom",
+                MultinomFamily,
+                frozenset({"K"}),
+                getattr(MultinomFamily, "reference_group", "mgcv"),
+                family_type=MultinomFamily,
+            ),
+            GeneralFamilySpec(
+                "gevlss",
+                GevlssFamily,
+                frozenset({"link"}),
+                getattr(GevlssFamily, "reference_group", "mgcv"),
+                family_type=GevlssFamily,
+            ),
+            GeneralFamilySpec(
+                "shash",
+                ShashFamily,
+                frozenset({"link", "b", "phi_pen", "phiPen"}),
+                getattr(ShashFamily, "reference_group", "mgcv"),
+                family_type=ShashFamily,
+            ),
+            GeneralFamilySpec(
+                "twlss",
+                TwlssFamily,
+                frozenset({"link", "a", "b"}),
+                getattr(TwlssFamily, "reference_group", "mgcv"),
+                family_type=TwlssFamily,
+            ),
         )
-        for name, (factory, options) in _GENERAL_FAMILY_FACTORIES.items()
     }
 )
+
+
+def family_spec_for_instance(family):
+    """Exact types only: custom subclasses do not inherit probability claims."""
+    return next(
+        (
+            spec
+            for spec in GENERAL_FAMILIES.values()
+            if type(family) is spec.family_type
+        ),
+        None,
+    )
+
+
+def make_distributional_family(family):
+    """Resolve ordinary distribution names for GAMLSS, keeping mgcv names intact."""
+    if isinstance(family, str):
+        key = family.lower()
+        if key == "gaussian":
+            key = "normal"
+        for spec in GENERAL_FAMILIES.values():
+            if spec.public_name == key:
+                return spec.factory()
+    elif isinstance(family, dict):
+        key = str(family.get("name", "")).lower()
+        if key == "gaussian":
+            key = "normal"
+        for spec in GENERAL_FAMILIES.values():
+            if spec.public_name == key:
+                return _make_general_family(
+                    spec.name, {k: v for k, v in family.items() if k != "name"}
+                )
+    return make_gam_family(family)
 
 
 def _make_general_family(name, options):
@@ -153,6 +390,7 @@ def _make_quasi_family(name, options):
 
 
 def make_gam_family(family):
+    cls: type[BaseFamily]
     if isinstance(family, BaseFamily):
         return clone_gam_family(family)
 
@@ -161,7 +399,7 @@ def make_gam_family(family):
 
     if isinstance(family, dict):
         name = str(family.get("name", "")).lower()
-        if name in _GENERAL_FAMILY_FACTORIES:
+        if name in GENERAL_FAMILIES:
             return _make_general_family(
                 name, {k: v for k, v in family.items() if k != "name"}
             )
@@ -298,7 +536,7 @@ def make_gam_family(family):
     if isinstance(family, tuple) and len(family) == 2:
         key = str(family[0]).lower()
         spec = family[1]
-        if key in _GENERAL_FAMILY_FACTORIES:
+        if key in GENERAL_FAMILIES:
             if not isinstance(spec, dict):
                 if key == "multinom":
                     spec = {"K": spec}
@@ -417,7 +655,7 @@ def make_gam_family(family):
                     link=str(spec.get("link", "identity")).lower(),
                 )
             if np.isscalar(spec):
-                return OrderedCategoricalFamily(R=int(spec))
+                return OrderedCategoricalFamily(R=int(cast(Any, spec)))
             return OrderedCategoricalFamily(theta=spec)
         if key in {"negbin", "negativebinomial", "negative_binomial"}:
             if isinstance(spec, dict):
@@ -434,7 +672,7 @@ def make_gam_family(family):
     key = str(family).lower()
     if key == "bcg":
         return CensoredBoxCoxGaussianFamily()
-    if key in _GENERAL_FAMILY_FACTORIES:
+    if key in GENERAL_FAMILIES:
         return _make_general_family(key, {})
     if key == "cpois":
         return CensoredPoissonFamily()

@@ -121,7 +121,7 @@ def test_gumbls_public_components_persistence(tmp_path):
     model = GAMLSS(formula=["y~s(x,bs='cr',k=5)+offset(o1)", "~s(z,bs='cr',k=4)+offset(o2)"], family=GumblsFamily(b=-3), optimize_smoothing=False, smoothing_params=[.4, .7]).fit(data)
     components = model.predict_components(data)
     components.validate_additive_reconstruction()
-    np.testing.assert_allclose(components.response, model.predict(data))
+    np.testing.assert_allclose(components.link, model.predict_link(data))
     assert model.standard_errors(data).shape == (len(data), 2)
     assert np.isfinite(model.score(data, data.y))
     path = tmp_path / "gumbls.pkl"

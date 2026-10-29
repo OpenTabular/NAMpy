@@ -6,10 +6,6 @@ from typing import Optional, Sequence
 class DefaultSplineNAMConfig:
     """Default configuration for spline-based neural additive models."""
 
-    lr: float = 1e-04
-    lr_patience: int = 10
-    weight_decay: float = 1e-06
-    lr_factor: float = 0.1
     dropout: float = 0.1
     interaction_degree: Optional[int] = None
     interactions: Optional[Sequence[tuple[str, ...]]] = None

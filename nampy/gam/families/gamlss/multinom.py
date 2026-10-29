@@ -31,11 +31,7 @@ class MultinomFamily(GamlssFamily):
         self.link_name = str(self.link_names)
         self.parameter_names = tuple(f"eta{k}" for k in range(1, self.K + 1))
         self.distribution_parameter_names = tuple(f"p{k}" for k in range(self.K + 1))
-        self.additive_predictor_indices = tuple(range(1, self.K + 1))
 
-    def additive_link_from_eta(self, eta):
-        eta = np.asarray(eta, float)
-        return np.column_stack([np.zeros(len(eta)), eta])
 
     def validate_y(self, y):
         y = np.asarray(y, float).ravel()

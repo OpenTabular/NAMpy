@@ -173,8 +173,15 @@ def family_pipeline(request):
 
 
 def test_general_registry_has_assigned_seven_stage_coverage():
+    inventory = json.loads(Path(__file__).with_name("seven_stage_coverage.json").read_text())
+    extensions = inventory["extension_family_test_modules"]
     assert set(GENERAL_FAMILIES) == EARLIER_GENERAL | {"gaulss", "gammals"} | set(
         JOINT_FAMILIES
+    ) | set(extensions)
+    assert set(extensions) == set(inventory["family_groups"]["gamlss_extensions"])
+    assert all(
+        modules and set(modules) <= set(inventory["test_modules"])
+        for modules in extensions.values()
     )
 
 
@@ -454,7 +461,7 @@ def test_history_inventory_accounts_for_registered_features():
         name for names in inventory["family_groups"].values() for name in names
     ]
     assert len(documented) == len(set(documented))
-    assert set(documented) == set(MGCV_FAMILIES + JOINT_FAMILIES) | set(
+    assert set(documented) == set(inventory["extension_family_test_modules"]) | set(MGCV_FAMILIES + JOINT_FAMILIES) | set(
         PRIOR_SOURCE_FAMILIES
     )
     # Include ordinary/extended constructors too: checking only the general

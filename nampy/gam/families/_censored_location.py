@@ -14,6 +14,8 @@ def unpack_censored(y):
 class CensoredLocationFamily(ExtendedFamily):
     """Common state only; subclasses supply source likelihood derivatives."""
 
+    pirls_curvature_mode = "observed"
+
     @property
     def estimate_theta(self):
         return self.n_theta > 0

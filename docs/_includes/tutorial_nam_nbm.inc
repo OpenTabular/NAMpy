@@ -20,17 +20,25 @@ feature networks and an NBM with shared learned bases.
 
 
    from nampy.models import NAMRegressor, NBMRegressor
+   from nampy.neural.configs.nam_config import DefaultNAMConfig
+   from nampy.neural.configs.nbm_config import DefaultNBMConfig
+   from nampy.neural.configuration import GradientTrainingConfig, PreprocessingConfig
+
+   training = GradientTrainingConfig(max_epochs=30, lr=1e-2, random_state=17)
+   preprocessing = PreprocessingConfig(numerical_preprocessing="minmax")
 
    nam = NAMRegressor(
-       layer_sizes=[24, 12], dropout=0.0,
-       numerical_preprocessing="minmax",
-   ).fit(X, y, max_epochs=30, lr=1e-2, random_state=17)
+       architecture_config=DefaultNAMConfig(layer_sizes=[24, 12], dropout=0.0),
+       preprocessing=preprocessing,
+       training=training,
+   ).fit(X, y)
 
    nbm = NBMRegressor(
-       layer_sizes=[16], num_bases=8, nary=[1],
-       dropout=0.0, bases_dropout=0.0,
-       numerical_preprocessing="minmax",
-   ).fit(X, y, max_epochs=30, lr=1e-2, random_state=17)
+       architecture_config=DefaultNBMConfig(layer_sizes=[16], num_bases=8, nary=[1],
+           dropout=0.0, bases_dropout=0.0),
+       preprocessing=preprocessing,
+       training=training,
+   ).fit(X, y)
 
    nam_effects = nam.explain_terms(X, center=True, max_bins=28)
    nbm_effects = nbm.explain_terms(X, center=True, max_bins=28)

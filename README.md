@@ -1,5 +1,11 @@
 # NAMpy — Statistical and Neural Additive Models in Python
 
+For the public API, start with estimators in `nampy.models`, probability queries in
+`nampy.distributions`, diagnostics in `nampy.diagnostics`, effects and importance
+in `nampy.inspection`, and rendering in `nampy.plotting`. See
+[API and family selection](docs/user_guide/api_and_families.rst) for the generated
+backend support table and prediction semantics.
+
 ![NAMpy — Statistical and Neural Additive Models in Python](docs/_static/logo.png)
 
 ![Python 3.11 | 3.12](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)
@@ -25,6 +31,17 @@ NAMpy supports Python 3.11 and 3.12. Install it with:
 ```bash
 pip install nampy
 ```
+
+Split conformal prediction intervals are available across the statistical and
+neural backends through `nampy.calibration`. Use a separate calibration cohort;
+see [prediction calibration](docs/user_guide/calibration.rst) for absolute-residual
+and quantile methods, fitted snapshots, and explicit coverage assumptions.
+
+Piecewise survival models accept complete start/stop covariate histories through
+`LongitudinalSurvivalTarget`, with explicit future-path prediction shared across
+both backends. `CoxGAM` adds static fixed/eligible automatic-smoothing partial likelihood; its
+unsupported smoothing and inference routes are documented in the
+[survival guide](docs/user_guide/survival.rst).
 
 ## Interpreting predictions
 
@@ -215,6 +232,11 @@ scoring, persistence, and term-inspection methods while retaining their own
 model structures and training procedures.
 
 ```python
+
+from dataclasses import replace
+from nampy.neural.configs.nam_config import DefaultNAMConfig
+from nampy.neural.configuration import GradientTrainingConfig
+from nampy.neural.configuration import PreprocessingConfig
 import numpy as np
 import pandas as pd
 
@@ -236,20 +258,8 @@ y = (
     + rng.normal(0.0, 0.3, n)
 )
 
-model = NAMRegressor(
-    layer_sizes=[48, 24],
-    dropout=0.0,
-    numerical_preprocessing="minmax",
-)
-model.fit(
-    X,
-    y,
-    max_epochs=100,
-    lr=0.005,
-    batch_size=128,
-    patience=12,
-    random_state=7,
-)
+model = NAMRegressor(architecture_config=DefaultNAMConfig(layer_sizes=[48, 24], dropout=0.0), preprocessing=PreprocessingConfig(numerical_preprocessing='minmax'))
+model.set_params(training=replace(model.training or GradientTrainingConfig(), max_epochs=100, lr=0.005, batch_size=128, patience=12, random_state=7)).fit(X, y)
 
 prediction = model.predict(X)
 components = model.predict_components(X, center=True, reference_X=X)
@@ -282,6 +292,12 @@ for axis, feature in zip(figures[0].axes, X.columns):
 Distributional estimators also expose family-aware point-and-spread plots:
 
 ```python
+
+from dataclasses import replace
+from nampy.neural.configs.nam_config import DefaultNAMConfig
+from nampy.neural.configuration import GradientTrainingConfig
+from nampy.neural.configuration import ObjectiveConfig
+from nampy.neural.configuration import PreprocessingConfig
 from nampy.models import NAMLSS
 
 rng_dist = np.random.default_rng(11)
@@ -296,20 +312,8 @@ location = (
 scale = 0.25 + 0.45 / (1.0 + np.exp(-(X_dist["median_income"] - 5.0)))
 y_dist = location + rng_dist.normal(0.0, scale, n)
 
-lss = NAMLSS(
-    family="normal",
-    layer_sizes=[48, 24],
-    dropout=0.0,
-    numerical_preprocessing="minmax",
-)
-lss.fit(
-    X_dist,
-    y_dist,
-    max_epochs=100,
-    batch_size=128,
-    patience=12,
-    random_state=11,
-)
+lss = NAMLSS(architecture_config=DefaultNAMConfig(layer_sizes=[48, 24], dropout=0.0), objective=ObjectiveConfig(family='normal'), preprocessing=PreprocessingConfig(numerical_preprocessing='minmax'))
+lss.set_params(training=replace(lss.training or GradientTrainingConfig(), max_epochs=100, batch_size=128, patience=12, random_state=11)).fit(X_dist, y_dist)
 figures = lss.plot_distributional_effects(
     X_dist,
     reference_X=X_dist,
@@ -362,14 +366,13 @@ the family owns output width, valid parameter transforms, loss, prediction,
 and metrics, while the registered architecture supplies additive predictors.
 
 ```python
+
+from dataclasses import replace
+from nampy.neural.configuration import GradientTrainingConfig
+from nampy.neural.configuration import ObjectiveConfig
 from nampy.models import NAMLSS
 
-model = NAMLSS(family="normal").fit(
-    X_train,
-    y_train,
-    max_epochs=150,
-    patience=15,
-)
+model = NAMLSS(objective=ObjectiveConfig(family='normal'), training=GradientTrainingConfig(max_epochs=150, patience=15)).fit(X_train, y_train)
 
 parameters = model.predict(X_test)
 mean_log_likelihood = model.score(X_test, y_test)
@@ -408,11 +411,9 @@ GAM estimators do not use these preprocessing options.
 High-level neural estimators accept preprocessing options directly:
 
 ```python
-model = NAMRegressor(
-    numerical_preprocessing="ple",
-    categorical_preprocessing="one-hot",
-    n_bins=32,
-)
+
+from nampy.neural.configuration import PreprocessingConfig
+model = NAMRegressor(preprocessing=PreprocessingConfig(numerical_preprocessing='ple', categorical_preprocessing='one-hot', n_bins=32))
 ```
 
 Gradient-trained models accept controls such as `max_epochs`, `max_steps`,  
@@ -426,15 +427,13 @@ and fixed-basis solvers retain their own hyperparameter meanings.
 optional bootstrapping and joblib parallelism:
 
 ```python
+
+from dataclasses import replace
+from nampy.neural.configs.nam_config import DefaultNAMConfig
+from nampy.neural.configuration import GradientTrainingConfig
 from nampy.models import NAMRegressor, NeuralEnsemble
 
-ensemble = NeuralEnsemble(
-    NAMRegressor(layer_sizes=[64, 32]),
-    n_estimators=5,
-    bootstrap=True,
-    n_jobs=2,
-    random_state=7,
-).fit(X_train, y_train, max_epochs=100)
+ensemble = NeuralEnsemble(NAMRegressor(architecture_config=DefaultNAMConfig(layer_sizes=[64, 32]), training=GradientTrainingConfig(max_epochs=100)), n_estimators=5, bootstrap=True, n_jobs=2, random_state=7).fit(X_train, y_train)
 
 mean_prediction = ensemble.predict(X_test)
 uncertainty = ensemble.predict_component_uncertainty(X_test)
@@ -460,3 +459,11 @@ terms; `constraints` and `smooth_con` expose homogeneous constraints and
 raw/absorbed construction for `cr/cs/cc/ps/cp`. See the
 [statistical GAM guide](docs/user_guide/statistical_gams.rst) for matrix ordering,
 supported compositions, and upstream validation limits.
+
+Recent modeling routes include subject-record longitudinal piecewise-exponential
+models across both engines, static fixed/eligible automatic-smoothing `CoxGAM`, fixed-bandwidth and
+fixed/adaptive `CalibratedQuantileGAM` inference, and joint
+`SemiStructuredRegressor`/`SemiStructuredLSS` spline–neural composition.
+These are scoped routes: stratified Newton Cox smoothing, adaptive qgam bandwidth and
+joint spline–neural REML/inference remain unsupported.
+See the survival, quantile-inference and semistructured user guides.

@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 import torch
 
-from nampy.neural.training import _training_tensor
+from nampy.neural.training.common import _training_tensor
 
 
 @pytest.mark.parametrize("shape", [(8,), (8, 2)])

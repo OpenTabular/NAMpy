@@ -36,7 +36,7 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
    * - ``k``
      - ``int``
      - ``-1``
-     - Requested basis dimension before identifiability constraints; not the effective degrees of freedom. Negative values select basis-specific automatic dimensions. Tensor terms may accept marginal dimensions.
+     - Default structured smooth basis dimension, overridden by explicit formula terms.
    * - ``m``
      - ``int | Sequence[int | float] | None``
      - ``None``

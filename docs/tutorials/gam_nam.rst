@@ -48,6 +48,11 @@ The GAM uses a cubic regression spline for each feature and selects smoothing st
 
 .. code-block:: python
 
+
+   from dataclasses import replace
+   from nampy.neural.configs.nam_config import DefaultNAMConfig
+   from nampy.neural.configuration import GradientTrainingConfig
+   from nampy.neural.configuration import PreprocessingConfig
    from nampy.models import GAMRegressor, NAMRegressor
 
    gam = GAMRegressor(
@@ -60,20 +65,8 @@ The GAM uses a cubic regression spline for each feature and selects smoothing st
        family="gaussian",
    ).fit(train)
 
-   nam = NAMRegressor(
-       layer_sizes=[48, 24],
-       dropout=0.0,
-       numerical_preprocessing="minmax",
-   )
-   nam.fit(
-       train[features],
-       train["value"],
-       max_epochs=60,
-       lr=5e-3,
-       batch_size=128,
-       patience=10,
-       random_state=41,
-   )
+   nam = NAMRegressor(architecture_config=DefaultNAMConfig(layer_sizes=[48, 24], dropout=0.0), preprocessing=PreprocessingConfig(numerical_preprocessing='minmax'))
+   nam.set_params(training=replace(nam.training or GradientTrainingConfig(), max_epochs=60, lr=0.005, batch_size=128, patience=10, random_state=41)).fit(train[features], train['value'])
 
 
 Compare test predictions

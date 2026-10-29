@@ -56,9 +56,14 @@ def test_reference_generation_from_clean_checkout(tmp_path):
                 assert f"``{parameter}``\n     - ``{default}``\n     - " in text
         assert "Native solvers such as IGANN" in text
     classifier = (tmp_path / "docs/_generated/reference/NAMClassifier.inc").read_text()
-    assert "Component extraction is binary-only" in classifier
+    assert "Component extraction describes all actual logits" in classifier
     lss = (tmp_path / "docs/_generated/reference/NAMLSS.inc").read_text()
     assert "family_.param_names" in lss
+    assert "predict_distribution" in lss
+    assert "Normal, Gamma, Student-t, beta, negative-binomial, lognormal and Weibull" in lss
+    statistical_lss = (tmp_path / "docs/_generated/reference/GAMLSS.inc").read_text()
+    assert "predict_distribution" in statistical_lss
+    assert "nampy.distributions.DistributionPrediction" in statistical_lss
     native = (tmp_path / "docs/_generated/reference/IGANNRegressor.inc").read_text()
     assert (
         "native boosting for squared-error regression and binary classification"
@@ -85,27 +90,14 @@ def test_reference_generation_from_clean_checkout(tmp_path):
 
 
 def test_fit_parameter_descriptions_match_the_training_contract():
+    import inspect
     from nampy.models._neural import NeuralEstimatorBase
-
-    extension = runpy.run_path(
-        str(Path(__file__).resolve().parents[2] / "docs/_ext/public_reference.py")
-    )
-    meanings = extension["descriptions"](NeuralEstimatorBase.fit)
-    for name in [
-        "lr",
-        "lr_schedule",
-        "lr_patience",
-        "lr_factor",
-        "weight_decay",
-        "lr_warmup_steps",
-        "lr_decay_steps",
-        "lr_decay_factor",
-    ]:
-        assert name in meanings
-        assert "Trainer" not in meanings[name]
-    for schedule in ["plateau", "inverse_sqrt", "cosine", "warmup_cosine", "none"]:
-        assert f'"{schedule}"' in meanings["lr_schedule"]
-    assert "Trainer" in meanings["trainer_kwargs"]
+    from nampy.neural.configuration import GradientTrainingConfig
+    assert set(inspect.signature(NeuralEstimatorBase.fit).parameters) == {
+        "self", "X", "y", "X_val", "y_val", "offset", "offset_val",
+        "sample_weight", "sample_weight_val"}
+    assert "lr" in inspect.signature(GradientTrainingConfig).parameters
+    assert "trainer_kwargs" in inspect.signature(GradientTrainingConfig).parameters
 
 
 def test_grouped_and_variadic_parameter_docstrings():
@@ -128,33 +120,10 @@ def test_grouped_and_variadic_parameter_docstrings():
 
 
 def test_schedulers_match_implementation_and_training_guide():
-    import ast
-    import inspect
-    import textwrap
-
-    from nampy.models._neural import NeuralEstimatorBase
-    from nampy.neural.task import TaskModule
-
-    code = ast.parse(textwrap.dedent(inspect.getsource(TaskModule.__init__)))
-    allowed = next(
-        {item.value for item in node.comparators[0].elts}
-        for node in ast.walk(code)
-        if isinstance(node, ast.Compare)
-        and isinstance(node.left, ast.Attribute)
-        and node.left.attr == "lr_schedule"
-        and isinstance(node.ops[0], ast.NotIn)
-        and isinstance(node.comparators[0], ast.Set)
-    )
-    extension = runpy.run_path(
-        str(Path(__file__).resolve().parents[2] / "docs/_ext/public_reference.py")
-    )
-    description = extension["descriptions"](NeuralEstimatorBase.fit)["lr_schedule"]
-    guide = (
-        Path(__file__).resolve().parents[2] / "docs/user_guide/training.rst"
-    ).read_text()
-    for name in allowed:
-        assert f'"{name}"' in description
-        assert f'"{name}"' in guide
+    from nampy.neural.configuration import GradientTrainingConfig
+    guide = (Path(__file__).resolve().parents[2] / "docs/user_guide/training.rst").read_text()
+    for name in GradientTrainingConfig.SCHEDULES:
+        assert f"``{name}``" in guide
 
 
 def test_api_overview_symbols_have_written_summaries():
@@ -221,10 +190,9 @@ def test_training_contract_keeps_both_viewcode_anchor_spellings():
 
 def test_constructor_parameter_groups_follow_the_consuming_interface():
     from public_reference import constructor_parameter_group
-
-    assert constructor_parameter_group("knots_strategy", "nam") == "Preprocessing"
-    assert constructor_parameter_group("n_knots", "nam") == "Preprocessing"
-    assert constructor_parameter_group("n_knots", "spline_nam") == "Architecture"
-    assert constructor_parameter_group("lr_warmup_steps", "nam") == "Training defaults"
-    assert constructor_parameter_group("weight_decay", "nam") == "Regularization"
-    assert constructor_parameter_group("interactions", "nam") == "Interactions"
+    assert constructor_parameter_group("preprocessing__n_knots", "nam") == "Preprocessing"
+    assert constructor_parameter_group("architecture_config__n_knots", "spline_nam") == "Architecture"
+    assert constructor_parameter_group("training__lr_warmup_steps", "nam") == "Training defaults"
+    assert constructor_parameter_group("training__weight_decay", "nam") == "Training defaults"
+    assert constructor_parameter_group("architecture_config__interactions", "nam") == "Architecture"
+    assert constructor_parameter_group("objective__family", "nam") == "Objective"

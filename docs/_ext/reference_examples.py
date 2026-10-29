@@ -154,9 +154,9 @@ def statistical_family_example(name):
         family = "family"
     if name == "quasi":
         family = "{'name': 'quasi', 'variance': 'mu^3', 'power': 0.5}"
-    from nampy.gam.families.registry import _GENERAL_FAMILY_FACTORIES, make_gam_family
+    from nampy.gam.families.registry import GENERAL_FAMILIES, make_gam_family
 
-    if name in _GENERAL_FAMILY_FACTORIES:
+    if name in GENERAL_FAMILIES:
         if name == "multinom":
             family = "{'name': 'multinom', 'K': 2}"
         f = make_gam_family({"name": name, "K": 2} if name == "multinom" else name)
@@ -264,18 +264,28 @@ def selection_example(name):
 
 
 def neural_family_example(name):
-    from nampy.neural.distributions.registry import FAMILY_REGISTRY
+    from nampy.neural.families.registry import FAMILY_REGISTRY
 
     spec = FAMILY_REGISTRY[name]
     cls = spec.distribution
-    kwargs = {}
+    kwargs = {"trials":10} if name=="betabinomial" else {}
+    if name in {"lognormal_observation", "weibull_observation"}:
+        kwargs.update(lower=0.2, upper=3.0)
     if name in {"categorical", "ordinal"}:
         kwargs["num_classes"] = 3
     if name in {"dirichlet", "mvnormdiag"}:
         kwargs["n_dim"] = 3
     kwargs_text = ", ".join(f"{key}={value!r}" for key, value in kwargs.items())
     code = f"import numpy as np\nimport torch\nfrom {cls.__module__} import {cls.__name__}\n\nfamily = {cls.__name__}({kwargs_text})\nn = 8\nraw = torch.zeros((n, family.param_count), dtype=torch.float32)\n"
-    if name in {"categorical", "ordinal"}:
+    if name in {"bct", "bcpe"}:
+        code += f"raw[:, 1] = -1\nraw[:, 2] = 1\nraw[:, 3] = np.log({5 if name == 'bct' else 2})\n"
+        target = "torch.linspace(1.1, 1.8, n)"
+    elif name in {"lognormal_observation", "weibull_observation"}:
+        code += "from nampy.distributions import ObservationTarget\nobservation = ObservationTarget([0.6, -np.inf, 1.5, 0.7] * 2, [0.6, 0.5, np.inf, 1.1] * 2)\n"
+        target = "family.encode_targets(observation)"
+    elif name == "normal_observation":
+        target = "torch.column_stack([torch.ones(n),torch.ones(n),torch.zeros(n)])"
+    elif name in {"categorical", "ordinal"}:
         target = "torch.arange(n) % 3"
     elif name == "dirichlet":
         target = "torch.full((n, 3), 1 / 3)"
@@ -298,10 +308,12 @@ print({key: tuple(value.shape) for key, value in result.items()})
 
 
 def neural_estimator_example(name, spec=None, task=None):
+    if task == "survival" or name.endswith("Survival"):
+        return survival_estimator_example(name)
     from nampy import models
 
     cls = getattr(models, name)
-    defaults = cls().get_params(deep=False)
+    defaults = vars(cls().architecture_config)
     options = {}
     for key, value in {
         "layer_sizes": [12, 8],
@@ -348,13 +360,30 @@ X = pd.DataFrame({'x': np.linspace(-1, 1, n), 'z': rng.uniform(-1, 1, n)})
         if task == "classification"
         else "y = np.sin(3 * X.x.to_numpy()) + rng.normal(0, 0.1, n)\n"
     )
+    from dataclasses import fields
+
+    from nampy.neural.configuration import GradientTrainingConfig
+
+    estimator = cls()
+    config_class = type(estimator.architecture_config)
+    route = estimator._resolved_training([0, 1])
+    route_class = type(route).__name__
+    code += f"from {config_class.__module__} import {config_class.__name__}\n"
+    code += f"from nampy.neural.configuration import {route_class}\n"
     arguments = ", ".join(f"{key}={value!r}" for key, value in options.items())
-    code += f"model = {name}({arguments})\n"
-    code += """with TemporaryDirectory() as directory:
-    model.fit(X, y, max_epochs=2, batch_size=32, random_state=7,
-              checkpoint_path=directory, logger=False, enable_progress_bar=False,
-              enable_model_summary=False)
-prediction = model.predict(X)
+    controls = "batch_size=32, random_state=7"
+    baseline = type(route)()
+    for field in fields(route):
+        if field.name not in {"batch_size", "random_state"} and getattr(route, field.name) != getattr(baseline, field.name):
+            controls += f", {field.name}={getattr(route, field.name)!r}"
+    if isinstance(route, GradientTrainingConfig):
+        controls += ", max_epochs=2, trainer_kwargs={'logger': False, 'enable_progress_bar': False, 'enable_model_summary': False}"
+    code += f"model = {name}(architecture_config={config_class.__name__}({arguments}), training={route_class}({controls}))\n"
+    code += "with TemporaryDirectory() as directory:\n"
+    if isinstance(route, GradientTrainingConfig):
+        code += "    model.set_params(training__checkpoint_path=directory)\n"
+    code += "    model.fit(X, y)\n"
+    code += """prediction = model.predict(X)
 assert np.asarray(prediction).shape[0] == n
 assert np.isfinite(prediction).all()
 result = {'prediction': prediction}
@@ -374,6 +403,29 @@ result['probabilities'] = probability
 
 
 def statistical_estimator_example(name):
+    if name == "CalibratedQuantileGAM":
+        return BASE.replace("rng.normal(0, 0.12, n)", "rng.normal(0, 0.4, n)") + """from nampy import CalibratedQuantileGAM
+model = CalibratedQuantileGAM(formula='~s(x,k=4)+z', level=.3,
+    bandwidth=.2, smoothing_params=[.5], log_scale_bounds=(-3,2)).fit(data[['x','z']], data.y)
+interval = model.predict_interval(data[['x','z']])
+result = {'prediction': model.predict(data[['x','z']]),
+          'interval': interval, 'components': model.predict_components(data[['x','z']])}
+print(interval.coverage, model.loss_scale_)
+"""
+    if name == "CoxGAM":
+        return BASE + """from nampy import CoxGAM
+from nampy.survival import SurvivalTarget
+record = np.arange(n)
+target = SurvivalTarget(.2+((record*13)%27)/10, record%4!=1)
+model = CoxGAM(formula='~x+z', tol=1e-8).fit(data[['x','z']], target)
+prediction = model.predict_distribution(data[['x','z']].iloc[:4])
+result = {'survival': prediction.survival([.5,1,2]),
+          'rmst': prediction.rmst(2),
+          'components': model.predict_components(data[['x','z']].iloc[:4])}
+print({key: type(value).__name__ for key,value in result.items()})
+"""
+    if name == "SurvivalGAM":
+        return survival_estimator_example(name)
     code = BASE + "from nampy.models import " + name + "\n"
     if name == "GAMLSS":
         code += "model = GAMLSS(family='gaulss', optimize_smoothing=False, k=6).fit(data[['x', 'z']], data.y)\nresult = {'natural_parameters': model.predict(data[['x', 'z']]), 'raw': model.predict(data[['x', 'z']], raw=True), 'point': model.predict_point(data[['x', 'z']])}\n"
@@ -384,6 +436,152 @@ def statistical_estimator_example(name):
         if name == "GAMClassifier":
             code += "result['probabilities'] = model.predict_proba(data[['x', 'z']])\n"
     code += "print({key: type(value).__name__ for key, value in result.items()})\n"
+    return code
+
+
+def survival_estimator_example(name):
+    code = f"""import numpy as np
+import pandas as pd
+from nampy.models import {name}
+from nampy.survival import (SurvivalTarget, CensoringDistribution, brier_score,
+                            concordance_index, survival_curve, survival_residuals,
+                            prepare_survival_effects, prepare_survival_curve_interval,
+                            prepare_survival_effect_interval, combine_survival_predictions,
+                            prepare_survival_hazard_interval, prepare_survival_rmst_interval,
+                            bootstrap_survival)
+
+X = pd.DataFrame({{'x': np.linspace(-1., 1., 30)}})
+target = SurvivalTarget(
+    time=np.r_[np.linspace(.1, .9, 15), np.linspace(1.1, 2.9, 15)],
+    event=np.tile([1, 0, 1], 10), entry=np.full(30, .02),
+)
+"""
+    if name == "SurvivalGAM":
+        code += "model = SurvivalGAM(cuts=[0, 1, 3], formula='~ x', optimize_smoothing=False)\n"
+    else:
+        code += "from nampy import GradientTrainingConfig, SurvivalObjectiveConfig\n"
+        extra = ""
+        if name == "NAMSurvival":
+            code += "from nampy.neural.configs.nam_config import DefaultNAMConfig\n"
+            extra = "architecture_config=DefaultNAMConfig(layer_sizes=[4], dropout=0), "
+        code += f"model = {name}({extra}objective=SurvivalObjectiveConfig(cuts=(0, 1, 3)), training=GradientTrainingConfig(max_epochs=2, batch_size=16, trainer_kwargs={{'logger': False, 'enable_progress_bar': False, 'enable_model_summary': False}}))\n"
+    code += """model.fit(X, target)
+prediction = model.predict_distribution(X)
+result = {'survival': prediction.survival([0, .5, 1, 2, 3]),
+          'hazard': prediction.hazard([.5, 2]), 'rmst': prediction.rmst(3),
+          'components': model.predict_components(X), 'log_likelihood': model.score(X, target)}
+assert result['survival'].shape == (30, 5)
+# Descriptive curves and residuals support entry. Evaluation below uses a
+# separate cohort without entry; censoring is supplied from training outcomes.
+result['residuals'] = survival_residuals(prediction, target)
+result['observed_curve'] = survival_curve(target)
+evaluation = SurvivalTarget(np.linspace(.15, 2.95, 30), np.tile([0, 1, 1], 10))
+censoring = CensoringDistribution.fit(SurvivalTarget([.1, 1., 4.], [1, 0, 1]))
+errors = brier_score(prediction, evaluation, [.5, 1., 2.], censoring=censoring)
+result['brier'] = errors.score
+result['integrated_brier'] = errors.integrated()
+result['concordance'] = concordance_index(
+    evaluation, -prediction.rmst(2), higher_risk=True)
+result['effects'] = prepare_survival_effects(model, X, times=[0, .5, 1, 2, 3])
+print({key: type(value).__name__ for key, value in result.items()})
+"""
+    if name == "SurvivalGAM":
+        code += "result['curve_interval'] = prepare_survival_curve_interval(model, X, times=[0, .5, 1, 2, 3], n_draws=64, seed=42)\n"
+        code += "result['simultaneous_band'] = prepare_survival_curve_interval(model, X, times=[0, .5, 1, 2, 3], n_draws=64, seed=42, interval='simultaneous')\n"
+        code += "result['effect_intervals'] = prepare_survival_effect_interval(model, X, times=[0, .5, 1, 2, 3], reference_X=X.iloc[::2], n_draws=64, seed=42, interval='simultaneous')\n"
+        code += "result['hazard_interval'] = prepare_survival_hazard_interval(model, X, times=[.5, 1, 2, 3], n_draws=64, seed=42, interval='simultaneous')\n"
+        code += "result['rmst_interval'] = prepare_survival_rmst_interval(model, X, horizons=[0, 1, 2, 3], n_draws=64, seed=42, interval='simultaneous')\n"
+        code += "bootstrap = bootstrap_survival(model, X, target, X.iloc[:4], resample_indices=np.stack([np.arange(30), np.r_[np.arange(29), 28]]), effects={'times': [0, .5, 1, 2, 3], 'reference_X': X.iloc[::2]})\n"
+        code += "result['subject_bootstrap'] = bootstrap.percentile_interval(grid=[0, .5, 1, 2, 3])\n"
+    else:
+        code += f"""# Independent replication is supplied explicitly, with its own fit seed.
+from dataclasses import replace
+replica = {name}({extra}objective=model.objective, training=replace(model.training, random_state=23)).fit(X, target)
+result['between_fits'] = combine_survival_predictions(
+    [prediction, replica.predict_distribution(X)], times=[0, .5, 1, 2, 3])
+try:
+    prepare_survival_effect_interval(model, X, times=[0, 1, 2])
+except NotImplementedError:
+    result['effect_coefficient_route'] = 'unsupported_single_fit_neural'
+for operation, grid in (
+        (prepare_survival_hazard_interval, {{'times': [.5, 1]}}),
+        (prepare_survival_rmst_interval, {{'horizons': [.5, 1]}})):
+    try:
+        operation(model, X, **grid)
+    except NotImplementedError:
+        result[operation.__name__] = 'unsupported_single_fit_neural'
+# Bootstrap refits need a fixed external validation cohort, not an automatic
+# split of duplicate subject occurrences. These IDs identify original people.
+bootstrap_target = SurvivalTarget(target.time, target.event, target.entry,
+    subject_id=[f'person-{{i}}' for i in range(len(target))])
+bootstrap_model = {name}({extra}objective=model.objective, training=model.training).fit(
+    X.iloc[:25], bootstrap_target.take(np.arange(25)),
+    X_val=X.iloc[25:], y_val=bootstrap_target.take(np.arange(25, 30)))
+bootstrap = bootstrap_survival(bootstrap_model, X.iloc[:25],
+    bootstrap_target.take(np.arange(25)), X.iloc[:4],
+    X_val=X.iloc[25:], y_val=bootstrap_target.take(np.arange(25, 30)),
+    resample_indices=np.stack([np.arange(25), np.r_[np.arange(24), 23]]),
+    effects={{'times': [0, .5, 1, 2, 3], 'reference_X': X.iloc[::2]}})
+result['subject_bootstrap'] = bootstrap.percentile_interval(grid=[0, .5, 1, 2, 3])
+"""
+    code += """
+# Two prescribed refits demonstrate the API; use a substantial resampling budget
+# for inference. Coverage here is joint only over the declared finite grid.
+result['bootstrap_band'] = bootstrap.simultaneous_interval(grid=[0, .5, 1, 2, 3])
+result['bootstrap_effects'] = bootstrap.effect_interval(interval='simultaneous')
+# The same observation contract supports censored parametric time laws.
+from tempfile import TemporaryDirectory
+from pathlib import Path
+for likelihood in ('weibull', 'lognormal'):
+"""
+    if name == "SurvivalGAM":
+        code += "    parametric = SurvivalGAM(likelihood=likelihood, formula='~ x', optimize_smoothing=False)\n"
+    else:
+        code += f"    parametric = {name}({extra}objective=SurvivalObjectiveConfig(likelihood=likelihood), training=model.training)\n"
+    code += """    parametric.fit(X, target)
+    latent = parametric.predict_distribution(X)
+    with TemporaryDirectory() as directory:
+        saved = parametric.save_model(Path(directory) / 'survival.nampy')
+        restored = type(parametric).load_model(saved)
+        assert np.array_equal(restored.predict_survival(X, times=[0, 1, 3]),
+                              latent.survival([0, 1, 3]))
+    result[likelihood] = {'survival': latent.survival([0, 1, 3]),
+                          'parameters': dict(latent.distribution.parameters),
+                          'rmst': latent.rmst(3),
+                          'remaining_rmst': latent.rmst(3, conditional_on=target.entry),
+                          'residuals': survival_residuals(latent, target),
+                          'log_likelihood': parametric.score(X, target)}
+"""
+    code += "    result[likelihood]['effects'] = prepare_survival_effects(parametric, X, times=[0, 1, 3])\n"
+    if name == "SurvivalGAM":
+        code += "    result[likelihood]['curve_interval'] = prepare_survival_curve_interval(parametric, X, times=[0, 1, 3], n_draws=64, seed=42)\n"
+        code += "    result[likelihood]['simultaneous_band'] = prepare_survival_curve_interval(parametric, X, times=[0, 1, 3], n_draws=64, seed=42, interval='simultaneous')\n"
+        code += "    result[likelihood]['effect_intervals'] = prepare_survival_effect_interval(parametric, X, times=[0, 1, 3], n_draws=64, seed=42, interval='simultaneous')\n"
+        code += "    result[likelihood]['hazard_interval'] = prepare_survival_hazard_interval(parametric, X, times=[.5, 1, 3], n_draws=64, seed=42, interval='simultaneous')\n"
+        code += "    # Small Monte Carlo budget/cohort keep this integration example quick.\n"
+        code += "    result[likelihood]['rmst_interval'] = prepare_survival_rmst_interval(parametric, X.iloc[:3], horizons=[0, 1, 3], conditional_on=target.entry[:3], n_draws=8, seed=42, interval='simultaneous')\n"
+    if name == "SurvivalGAM":
+        code += """    # Automatic joint REML uses the same observation and prediction contracts.
+    rng = np.random.default_rng(286)
+    x = rng.uniform(-1., 1., 180)
+    location = .3 + .65*np.sin(np.pi*x)
+    second = .12*np.cos(np.pi*x)
+    time = (np.exp(location)*rng.weibull(2.1*np.exp(second)) if likelihood == 'weibull'
+            else np.exp(location + .5*np.exp(second)*rng.normal(size=len(x))))
+    entry = rng.uniform(.03, .25, len(x))
+    entry[::5] = 0.
+    kept = time > entry
+    x, time, entry = x[kept], time[kept], entry[kept]
+    censor = rng.uniform(1.2, 2.8, len(x))
+    features = pd.DataFrame({'x': x})
+    observed = SurvivalTarget(np.minimum(time, censor), time <= censor, entry)
+    names = ('scale', 'shape') if likelihood == 'weibull' else ('loc', 'scale')
+    automatic = SurvivalGAM(likelihood=likelihood,
+        formula={names[0]: "~s(x,bs='cr',k=6)", names[1]: '~1'}).fit(features, observed)
+    result[likelihood]['automatic_survival'] = automatic.predict_survival(features, times=[0, .5, 1, 2, 4])
+    result[likelihood]['smoothing_parameters'] = np.asarray(automatic.gam_.smoothing_params)
+    assert automatic.parametric_.distribution_fit_status().eligible
+"""
     return code
 
 
@@ -408,6 +606,8 @@ def extension_example(name):
             "with TemporaryDirectory() as directory:",
             "model = NeuralEnsemble(base, n_estimators=2, random_state=7)\nwith TemporaryDirectory() as directory:",
         )
+        code = code.replace("model.set_params(training__checkpoint_path=directory)",
+                            "model.estimator.set_params(training__checkpoint_path=directory)")
         code += (
             "result['component_uncertainty'] = model.predict_component_uncertainty(X)\n"
         )
@@ -431,13 +631,7 @@ print(result)
         f"from nampy.models import {task}",
         f"from nampy.models import {name}\nfrom nampy.neural.architectures import NAM\nfrom nampy.neural.configs import DefaultNAMConfig",
     )
-    start = code.index("model = " + task + "(")
-    end = code.index("\nwith TemporaryDirectory()", start)
-    code = (
-        code[:start]
-        + f"model = {name}(model=NAM, config=DefaultNAMConfig, layer_sizes=[12, 8])"
-        + code[end:]
-    )
+    code = code.replace(f"model = {task}(", f"model = {name}(model=NAM, config_class=DefaultNAMConfig, ")
     return code
 
 
@@ -497,7 +691,7 @@ def example_rst(root, page, code):
                 else:
                     import numpy as np
 
-                    from nampy.neural.distributions.registry import FAMILY_REGISTRY
+                    from nampy.neural.families.registry import FAMILY_REGISTRY
 
                     # Match the standalone example's inferred target width.
                     family, _ = FAMILY_REGISTRY[name].instantiate(
@@ -507,12 +701,13 @@ def example_rst(root, page, code):
                         if name == "mvnormdiag"
                         else np.array([0, 1, 2])
                         if name in {"categorical", "ordinal"}
-                        else np.zeros(8)
+                        else np.zeros(8),
+                        {"trials":10} if name=="betabinomial" else {},
                     )
                     columns = (
                         [f"p{i}" for i in range(family.num_classes)]
                         if name == "ordinal"
-                        else family.param_names
+                        else ["mu","phi","pi0","pi1","pi_interior"] if name=="beinf" else family.param_names
                     )
                 for key in ("parameters", "natural", "natural_parameters"):
                     value = preview.get(key)

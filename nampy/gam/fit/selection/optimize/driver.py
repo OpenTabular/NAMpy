@@ -1417,6 +1417,9 @@ def optimize_smoothing_params(
         method,
         optimizer=optimizer,
     )
+    from ...capabilities import validate_family_smoothing_optimizer
+
+    validate_family_smoothing_optimizer(model.family, optimizer)
     if optimizer == "efs" and not transformed_coefficients:
         # mgcv/R/mgcv.r::estimate.gam forces EFS onto REML regardless of the
         # requested criterion.

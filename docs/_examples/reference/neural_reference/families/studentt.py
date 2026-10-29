@@ -2,7 +2,7 @@
 
 import numpy as np
 import torch
-from nampy.neural.distributions.distributions import StudentTDistribution
+from nampy.neural.families.continuous import StudentTDistribution
 
 family = StudentTDistribution()
 n = 8

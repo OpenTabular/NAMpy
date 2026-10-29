@@ -1,7 +1,7 @@
 """Runnable reference example: statistical_reference/extensions/joint_edf."""
 
 import numpy as np
-from nampy.gam.extensions import joint_edf
+from nampy.gam.inference.functionals import joint_edf
 information = np.array([[4.,1.3],[1.3,2.]])
 penalty = np.diag([.2,3.])
 edf, total, edf1 = joint_edf(information, penalty)

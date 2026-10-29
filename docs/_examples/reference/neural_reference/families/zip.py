@@ -2,7 +2,7 @@
 
 import numpy as np
 import torch
-from nampy.neural.distributions.distributions import ZeroInflatedPoissonDistribution
+from nampy.neural.families.counts import ZeroInflatedPoissonDistribution
 
 family = ZeroInflatedPoissonDistribution()
 n = 8

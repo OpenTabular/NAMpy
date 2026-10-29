@@ -2,7 +2,7 @@
 
 import numpy as np
 import torch
-from nampy.neural.distributions.distributions import TweedieDistribution
+from nampy.neural.families.counts import TweedieDistribution
 
 family = TweedieDistribution()
 n = 8

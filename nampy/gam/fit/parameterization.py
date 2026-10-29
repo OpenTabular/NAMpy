@@ -24,14 +24,10 @@ def prediction_parameterization_map(model) -> np.ndarray | None:
     compiled_model = _compiled_model(model)
     if compiled_model is None:
         return None
-    direct = getattr(compiled_model, "fit_to_prediction_parameterization_map", None)
-    if direct is not None:
-        return np.asarray(direct, dtype=np.float64)
-    metadata = dict(getattr(compiled_model, "metadata", {}) or {})
-    legacy = metadata.get("fit_to_prediction_parameterization_map", None)
-    if legacy is None:
+    mapping = getattr(compiled_model, "fit_to_prediction_parameterization_map", None)
+    if mapping is None:
         return None
-    return np.asarray(legacy, dtype=np.float64)
+    return np.asarray(mapping, dtype=np.float64)
 
 
 def _transform_covariance_to_prediction_space(

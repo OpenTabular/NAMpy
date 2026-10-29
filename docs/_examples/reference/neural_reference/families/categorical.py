@@ -2,7 +2,7 @@
 
 import numpy as np
 import torch
-from nampy.neural.distributions.distributions import CategoricalDistribution
+from nampy.neural.families.categorical import CategoricalDistribution
 
 family = CategoricalDistribution(num_classes=3)
 n = 8

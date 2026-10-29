@@ -6,7 +6,7 @@ Asymmetric fit result
 Types, defaults and output shapes
 ---------------------------------
 
-.. autoclass:: nampy.gam.extensions.LossFit
+.. autoclass:: nampy.gam.losses.LossFit
 
 
 

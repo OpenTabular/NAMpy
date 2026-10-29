@@ -38,9 +38,11 @@ For a neural estimator, name the interaction explicitly:
 
 .. code-block:: python
 
+
+   from nampy.neural.configs.nam_config import DefaultNAMConfig
    from nampy.models import NAMRegressor
 
-   model = NAMRegressor(interactions=[("x1", "x2")])
+   model = NAMRegressor(architecture_config=DefaultNAMConfig(interactions=[('x1', 'x2')]))
    model.fit(X_train, y_train)
    model.plot_interactions(X_test)
 

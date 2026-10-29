@@ -12,11 +12,17 @@ from .cnorm import CensoredNormalFamily
 from .cpois import CensoredPoissonFamily
 from .family_base import BaseFamily, ExtendedFamily, GeneralFamily, GLMFamily
 from .gamlss import (
+    BCCGLikelihood,
+    BetaBinomialLocationPrecision,
     GevlssFamily,
     GumblsFamily,
+    InflatedBeta,
+    LogNormalLocationScale,
     MultinomFamily,
     ShashFamily,
     TwlssFamily,
+    WeibullLocationShape,
+    ZeroAdjustedGamma,
     ZiplssFamily,
     gevlss,
     gumbls,
@@ -40,6 +46,11 @@ from .scat import ScaledTFamily
 from .zip import ZeroInflatedPoissonFamily
 
 __all__ = [
+    "BCCGLikelihood",
+    "InflatedBeta",
+    "ZeroAdjustedGamma",
+    "BetaBinomialLocationPrecision",
+    "LogNormalLocationScale", "WeibullLocationShape",
     "CensoredBoxCoxGaussianFamily",
     "CensoredPoissonFamily",
     "CensoredLogisticFamily",

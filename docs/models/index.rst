@@ -23,6 +23,8 @@ These are structural starting points, not performance rankings.
      - :doc:`NAM <nam>`
    * - Basis functions shared across features and interactions
      - :doc:`NBM <nbm>`
+   * - Joint identifiable spline and neural composition
+     - :doc:`SemiStructured <semistructured>`
    * - Sparse feature or term selection
      - :doc:`SNAM <snam>`
    * - Sparse interaction discovery
@@ -44,9 +46,9 @@ Neural architecture matrix
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The matrix below covers neural architectures; the statistical GAM reference
-is :doc:`gam`. Prediction-task support and component extraction are separate:
-multiclass probabilities can be available while component extraction is
-binary-only. Intervals and uncertainty require their own assumptions and
+is :doc:`gam`. Classification components describe actual additive logits;
+probabilities are queried separately. Dependence metadata distinguishes main,
+interaction, contextual and global contributions. Intervals and uncertainty require their own assumptions and
 calibration checks; this table is a structural chooser, not a leaderboard.
 
 SIAN's optional unrestricted residual network changes the dependence contract.
@@ -138,6 +140,7 @@ The :doc:`neural architecture comparison <../notebooks/03_neural_models>` compar
    namformer
    qnam
    spline_nam
+   semistructured
 
 References
 ----------

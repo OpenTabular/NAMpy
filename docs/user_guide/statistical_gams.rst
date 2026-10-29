@@ -181,3 +181,27 @@ versus simultaneous intervals, EDF and information criteria together. The
 summary, ANOVA, residuals, concurvity and basis checks. Numerical restrictions
 and validation conventions belong to their method and family pages and
 :doc:`/compatibility`.
+
+Fitted distributed-lag workflows
+--------------------------------
+
+``nampy.gam.structured.DistributedLagBasis`` fits exposure and lag marginal
+bases through the existing formula compiler. Histories have a fixed width and
+order: lag zero, lag one, through ``max_lag``. ``exposure_history`` constructs
+these rows without crossing contiguous group boundaries. ``complete_rows``
+identifies missing histories; missing lags are never replaced by zeros.
+
+Call ``fit`` on training histories and reuse ``transform`` for new histories.
+``save_model``/``load_model`` preserve the fitted marginal knots, identification
+maps and layout; transformation never refits on query rows. The exposure
+intercept is excluded and the lag intercept is retained. ``penalty`` returns
+the fixed tensor penalty in transformed column order. This transformer does
+not fit response coefficients or select smoothing parameters.
+
+``cumulative_contrast(exposure, reference)`` compares constant exposure paths
+across every lag on the link scale. Optional explicit ``coefficient_indices``
+and ``n_coefficients`` embed that matrix in full model coordinates. Pass it to
+``linear_functional_interval`` for pointwise or finite-grid simultaneous
+statistical intervals, retaining cross-lag covariance. Response-scale nonlinear
+contrasts need paired transformed draws; this does not supply neural coefficient
+uncertainty or establish a causal interpretation.

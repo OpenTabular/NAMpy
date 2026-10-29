@@ -35,6 +35,7 @@ version = nampy.__version__
 sys.path.insert(0, str(Path(__file__).parent / "_ext"))
 
 extensions = [
+    "family_support",
     "public_reference",
     "feature_reference",
     "site_integrity",

@@ -17,6 +17,7 @@ class ZeroInflatedPoissonFamily(ExtendedFamily):
     Solver fitted values are log intensity, not expected response counts.
     """
 
+    pirls_curvature_mode = "observed"
     name = "zip"
     canonical_link = False
     supports_pirls = True

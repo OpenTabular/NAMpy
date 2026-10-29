@@ -5,6 +5,8 @@ Save the fitted estimator together with any preprocessing performed outside it. 
 
 Neural estimators and statistical adapters (``GAMRegressor``,
 ``GAMClassifier``, and ``GAMLSS``) expose a versioned persistence interface.
+The current trusted-file header is version 5. Earlier headers are rejected before
+unpickling; the package-layout refactor provides no migration readers.
 For an already fitted ``NAMRegressor``:
 
 .. code-block:: python
@@ -46,3 +48,29 @@ alongside the estimator. Recompute neither medians nor category boundaries on
 new prediction rows. The :doc:`real-data classification workflow
 <../notebooks/05_real_data_classification>` saves these objects, verifies
 reloaded probabilities against the originals, and predicts on fresh rows.
+
+Calibrated predictors
+---------------------
+
+``ConformalPredictor`` uses the same trusted-file format and retains isolated
+fitted predictor snapshots plus calibration scores. It does not store calibration
+features/targets or training execution objects. Recalibrate explicitly for a
+new fit or coverage level; source-model refits cannot alter the stored snapshot.
+
+.. code-block:: python
+
+   from nampy.calibration import ConformalPredictor
+
+   calibrated.save_model("calibrated.nampy")
+   restored = ConformalPredictor.load_model("calibrated.nampy")
+   np.testing.assert_array_equal(
+       restored.predict_interval(X_test).lower,
+       calibrated.predict_interval(X_test).lower)
+
+See :doc:`../user_guide/calibration` for prediction context, offset handling and
+unsupported calibration routes.
+
+Current artifacts use format version 4. Older headers, including version 2,
+are rejected before payload loading. The version change makes the new fitted
+baseline representation and extended calibration state explicit; there are no
+legacy state repairs or compatibility readers. Files must still be trusted.

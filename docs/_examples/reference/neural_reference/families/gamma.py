@@ -2,7 +2,7 @@
 
 import numpy as np
 import torch
-from nampy.neural.distributions.distributions import GammaDistribution
+from nampy.neural.families.continuous import GammaDistribution
 
 family = GammaDistribution()
 n = 8

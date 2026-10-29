@@ -58,7 +58,7 @@ def compose_coefficient_maps(
     return np.asarray(result, dtype=np.float64)
 
 
-def compatibility_constructor_metadata(
+def build_constructor_metadata(
     *,
     runtime_transform_applied: bool,
     side_condition_policy: SideConditionPolicy,
@@ -105,7 +105,7 @@ __all__ = [
     "CoefficientMap",
     "SideConditionPolicy",
     "TermFeatureInfo",
-    "compatibility_constructor_metadata",
+    "build_constructor_metadata",
     "compose_coefficient_maps",
     "default_side_condition_policy",
 ]

@@ -210,33 +210,29 @@ def gaussian_smoothness_postprocess(
 
     sol = solve_gaussian_given_smoothing(model, y, sp)
 
-    X = np.asarray(sol["X"], dtype=np.float64)
-    beta = np.asarray(sol["coef_full"], dtype=np.float64).ravel()
-    mu = np.asarray(sol["mu"], dtype=np.float64).ravel()
-    A = np.asarray(sol["A"], dtype=np.float64)
-    A_inv = np.asarray(sol["A_inv"], dtype=np.float64)
-    XtWX = np.asarray(sol["XtWX"], dtype=np.float64)
-    P_tot = np.asarray(sol["penalty_matrix"], dtype=np.float64)
+    X = np.asarray(sol.fit_state.X, dtype=np.float64)
+    beta = np.asarray(sol.fit_result.coef_full, dtype=np.float64).ravel()
+    mu = np.asarray(sol.fit_result.mu, dtype=np.float64).ravel()
+    A = np.asarray(sol.fit_state.A, dtype=np.float64)
+    A_inv = np.asarray(sol.fit_state.A_inv, dtype=np.float64)
+    XtWX = np.asarray(sol.fit_state.XtWX, dtype=np.float64)
+    P_tot = np.asarray(sol.fit_state.penalty_matrix, dtype=np.float64)
 
     n_s = int(model.n_samples_)
-    w = prior_weights_diagonal_from_fit(sol, n_s)
+    w = prior_weights_diagonal_from_fit(sol.fit_state, n_s)
     yv = np.asarray(y, dtype=np.float64).ravel()
 
     dev = gaussian_weighted_residual_sum_squares(yv, mu, w)
     pen = quadratic_form_penalty(beta, P_tot)
 
-    H_coef = np.asarray(sol.get("coef_hat_matrix"), dtype=np.float64)
-    if H_coef.size and H_coef.shape == (X.shape[1], X.shape[1]):
-        tr_a = float(np.trace(H_coef))
-    else:
-        tr_a = float(np.trace(A_inv @ XtWX))
+    tr_a = float(np.trace(A_inv @ XtWX))
 
     pearson_chi2 = float(np.sum(w * (yv - mu) ** 2))
 
     nobs = float(n_s)
     scale_est = fam.estimate_dispersion(yv, mu, edf=tr_a, weights=w)
 
-    ldet_a = sol.get("log_det_XtWX_plus_penalty", None)
+    ldet_a = sol.fit_state.log_det_XtWX_plus_penalty
     if ldet_a is not None and np.isfinite(float(ldet_a)):
         log_det_xtwx_plus_penalty = float(ldet_a)
     else:

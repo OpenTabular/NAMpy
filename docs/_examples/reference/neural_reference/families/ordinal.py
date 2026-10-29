@@ -2,7 +2,7 @@
 
 import numpy as np
 import torch
-from nampy.neural.distributions.distributions import OrdinalCumulativeLogitDistribution
+from nampy.neural.families.categorical import OrdinalCumulativeLogitDistribution
 
 family = OrdinalCumulativeLogitDistribution(num_classes=3)
 n = 8

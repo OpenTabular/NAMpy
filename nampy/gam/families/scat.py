@@ -13,6 +13,7 @@ from .family_base import ExtendedFamily, JointOuterStrategy
 class ScaledTFamily(ExtendedFamily):
     """Location model with degrees of freedom and scale nuisance parameters."""
 
+    pirls_curvature_mode = "observed"
     name = "scat"
     canonical_link = False
     supports_pirls = True

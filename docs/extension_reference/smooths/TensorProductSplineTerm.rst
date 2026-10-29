@@ -36,7 +36,7 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
    * - ``basis``
      - ``str | Sequence[str]``
      - ``'cr'``
-     - Basis code; shared runtime classes require the explicit code for variants (for example basis='ts' or basis='cc'). Tensor terms use marginal basis codes.
+     - Default structured smooth basis type, overridden by explicit formula terms.
    * - ``m``
      - ``int | Sequence[int | float] | None``
      - ``None``

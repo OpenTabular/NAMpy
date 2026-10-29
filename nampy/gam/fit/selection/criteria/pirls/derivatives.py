@@ -89,7 +89,7 @@ def _fit3_gcv_ubre_kernel(model, y, log_sp, *, require_free=True):
             )
         sol = solve_pirls_given_smoothing(model, y, sp)
 
-    criterion_y = np.asarray(sol.get("criterion_response", y), dtype=np.float64)
+    criterion_y = np.asarray(sol.fit_state.criterion_response if sol.fit_state.criterion_response is not None else y, dtype=np.float64)
     kernel = _gdi1_kernel(model, criterion_y, sol, sp, method="GCV")
     return sol, kernel, free_mask
 
@@ -103,7 +103,7 @@ def _fit3_gcv_ubre_full_derivatives(model, y, log_sp, method):
     if kernel is None:
         empty = np.empty((0,), dtype=np.float64)
         return empty, np.empty((0, 0), dtype=np.float64), free_mask
-    _fit_workspace(model).pirls_outer_scale_est = float(sol["scale"])
+    _fit_workspace(model).pirls_outer_scale_est = float(sol.fit_result.scale)
 
     gamma = float(model.score_gamma)
     if not np.isfinite(gamma) or gamma <= 0.0:
@@ -118,7 +118,7 @@ def _fit3_gcv_ubre_full_derivatives(model, y, log_sp, method):
     trA = float(kernel.trA)
     trA1 = np.asarray(kernel.trA1, dtype=np.float64)
     trA2 = np.asarray(kernel.trA2, dtype=np.float64)
-    dev = float(sol.get("criterion_deviance", sol["deviance"]))
+    dev = float(sol.fit_state.criterion_deviance if sol.fit_state.criterion_deviance is not None else sol.fit_result.deviance)
 
     if method == "gcv":
         delta = nobs - gamma * trA
@@ -185,7 +185,7 @@ def _fit3_pearson_scale_factor(model, y, sol, mp):
     nobs = float(len(y))
     ntrue = float(getattr(model, "n_true_", nobs) or nobs)
     weights = _prior_weights(model, np.asarray(y, dtype=np.float64))
-    eta = np.asarray(sol.get("gdi1_eta", sol["eta"]), dtype=np.float64)
+    eta = np.asarray(sol.fit_state.gdi1_eta if sol.fit_state.gdi1_eta is not None else sol.fit_result.eta, dtype=np.float64)
     good = (weights > 0.0) & (np.asarray(model.family.mu_eta(eta)) != 0.0)
     # gdi.c divides P/P1/P2 by n_good-Mp; gam.fit3 subsequently
     # multiplies by (nobs-Mp)/(n.true-Mp), including zero prior weights.
@@ -213,7 +213,7 @@ def _fit3_p_ml_reml_full_derivatives(model, y, log_sp, method):
     ls = np.asarray(model.family.ls(y, weights, len(y), phi), dtype=np.float64)
     if nobs > 0.0 and ntrue != nobs:
         ls *= ntrue / nobs
-    dp = float(sol["deviance"]) + float(kernel.bSb)
+    dp = float(sol.fit_result.deviance) + float(kernel.bSb)
     dp1 = np.asarray(kernel.D1 + kernel.bSb1, dtype=np.float64)
     dp2 = np.asarray(kernel.D2 + kernel.bSb2, dtype=np.float64)
     reml_ind = 1.0 if method == "p-reml" else 0.0
@@ -311,20 +311,16 @@ def _gdi1_pearson_terms(model, y, sol, current, ift):
     """Port ``mgcv/src/gdi.c::pearson2`` to smoothing coordinates."""
     y = np.asarray(y, dtype=np.float64)
     transformed = has_transformed_observations(model)
-    mu = np.asarray(
-        sol.get("gdi1_mu", sol["mu"]) if transformed else sol["mu"], dtype=np.float64
-    )
+    mu = np.asarray((sol.fit_state.gdi1_mu if sol.fit_state.gdi1_mu is not None else sol.fit_result.mu) if transformed else sol.fit_result.mu, dtype=np.float64)
     weights = (
-        np.asarray(sol["working_weights"], dtype=np.float64)
+        np.asarray(sol.fit_state.working_weights, dtype=np.float64)
         if transformed
         else _prior_weights(model, y)
     )
     variance = np.asarray(model.family.variance(mu), dtype=np.float64)
     v1 = np.asarray(model.family.dvar(mu), dtype=np.float64) / variance
     v2 = np.asarray(model.family.d2var(mu), dtype=np.float64) / variance
-    eta = np.asarray(
-        sol.get("gdi1_eta", sol["eta"]) if transformed else sol["eta"], dtype=np.float64
-    )
+    eta = np.asarray((sol.fit_state.gdi1_eta if sol.fit_state.gdi1_eta is not None else sol.fit_result.eta) if transformed else sol.fit_result.eta, dtype=np.float64)
     g1 = 1.0 / np.asarray(model.family.mu_eta(eta), dtype=np.float64)
     # gam.fit3 supplies g2/g1 to pearson2, as for the other gdi1 kernels.
     g2 = np.asarray(model.family.d2link(mu), dtype=np.float64) / g1
@@ -652,21 +648,14 @@ def _gdi_pk_setup(model, sol, sp, *, deriv, rank_tol=None):
 
     Owns current-sp canonical reparameterization plus solver rank/drop metadata.
     """
-    X_source = np.asarray(
-        (
-            sol["X"]
-            if has_transformed_observations(model)
-            else _full_design_matrix(model)
-        ),
-        dtype=np.float64,
-    )
+    X_source = np.asarray(sol.fit_state.X if has_transformed_observations(model) else _full_design_matrix(model), dtype=np.float64)
     if X_source.ndim != 2:
         raise ValueError("mgcv setup design matrix must be two-dimensional.")
     canonical = build_penalty_reparameterization_state(model, X_source, sp, deriv=deriv)
     X = np.asarray(X_source, dtype=np.float64) @ np.asarray(
         canonical.T, dtype=np.float64
     )
-    W = np.asarray(sol["working_weights"], dtype=np.float64)
+    W = np.asarray(sol.fit_state.working_weights, dtype=np.float64)
     XtWX = X.T @ (W[:, None] * X)
     P = np.asarray(canonical.St, dtype=np.float64)
     A = XtWX + P
@@ -700,16 +689,16 @@ def _gdi_pk_setup(model, sol, sp, *, deriv, rank_tol=None):
     )
     if rank_tol is None:
         rank_tol = _MGCV_GAM_FIT3_RANK_TOL
-    working_response = sol.get("working_response", None)
+    working_response = sol.fit_state.working_response
     if working_response is None:
-        working_response = sol.get("z", None)
+        working_response = None
     if working_response is None:
         # Some direct low-level callers provide only the converged linear
         # predictor. `gdiPK` uses this vector for PK'z/rank-space staging; when
         # a working response is unavailable, the fitted predictor is the only
         # mgcv-shaped state present in the supplied solution.
-        working_response = sol["eta"]
-    if getattr(model.family, "name", "") in {"scat", "zip", "cnorm", "clog", "cpois", "bcg"}:
+        working_response = sol.fit_result.eta
+    if getattr(model.family, "pirls_curvature_mode", "glm") == "observed":
         # gam.fit4 replaces nonfinite z by zero before passing it to gdi2;
         # residual reporting retains the original undefined zero-weight rows.
         working_response = np.asarray(working_response, dtype=np.float64).copy()
@@ -873,8 +862,8 @@ def _gdi1_ift1_state(model, y, sol, sp, current, pk_state):
     """
     X = np.asarray(current.X, dtype=np.float64)
     beta = np.asarray(current.beta, dtype=np.float64)
-    eta = np.asarray(sol.get("gdi1_eta", sol["eta"]), dtype=np.float64)
-    mu = np.asarray(sol.get("gdi1_mu", sol["mu"]), dtype=np.float64)
+    eta = np.asarray(sol.fit_state.gdi1_eta if sol.fit_state.gdi1_eta is not None else sol.fit_result.eta, dtype=np.float64)
+    mu = np.asarray(sol.fit_state.gdi1_mu if sol.fit_state.gdi1_mu is not None else sol.fit_result.mu, dtype=np.float64)
     W = np.asarray(current.W, dtype=np.float64)
     n_sp = int(_n_smoothing_params(model) or 0)
     rank = int(beta.size)
@@ -899,8 +888,7 @@ def _gdi1_ift1_state(model, y, sol, sp, current, pk_state):
             Pj = np.zeros((rank, rank), dtype=np.float64)
         P_derivs.append(np.asarray(Pj, dtype=np.float64))
 
-    family_name = str(getattr(model.family, "name", "")).lower()
-    if family_name in {"negbin", "betar", "scat", "zip", "cnorm", "clog", "cpois", "bcg"}:
+    if getattr(model.family, "pirls_curvature_mode", "glm") in {"observed", "extended"}:
         dd = _family_ddeta_logtheta(
             model.family,
             y,
@@ -1016,9 +1004,9 @@ def _gdi1_ift1_state(model, y, sol, sp, current, pk_state):
 
 
 def _gdi1_deviance_terms(model, y, sol, current, ift):
-    eta = np.asarray(sol.get("gdi1_eta", sol["eta"]), dtype=np.float64)
-    mu = np.asarray(sol.get("gdi1_mu", sol["mu"]), dtype=np.float64)
-    if str(getattr(model.family, "name", "")).lower() in {"negbin", "betar", "scat", "zip", "cnorm", "clog", "cpois", "bcg"}:
+    eta = np.asarray(sol.fit_state.gdi1_eta if sol.fit_state.gdi1_eta is not None else sol.fit_result.eta, dtype=np.float64)
+    mu = np.asarray(sol.fit_state.gdi1_mu if sol.fit_state.gdi1_mu is not None else sol.fit_result.mu, dtype=np.float64)
+    if getattr(model.family, "pirls_curvature_mode", "glm") in {"observed", "extended"}:
         dd = _family_ddeta_logtheta(
             model.family,
             y,
@@ -1051,7 +1039,7 @@ def _gdi1_deviance_terms(model, y, sol, current, ift):
     mu1 = np.asarray(family.mu_eta(eta), dtype=np.float64)
     variance = np.asarray(family.variance(mu), dtype=np.float64)
     prior_weights = (
-        np.asarray(sol["working_weights"], dtype=np.float64)
+        np.asarray(sol.fit_state.working_weights, dtype=np.float64)
         if has_transformed_observations(model)
         else _prior_weights(model, y)
     )
@@ -1248,7 +1236,7 @@ def _gdi1_reml_penalty_terms(model, sp, current, ift, pk_state, *, method):
     Structured determinant penalty stage corresponding to `get_ddetXWXpS()`
     plus REML Schur-complement augmentation on current-sp canonical state.
     """
-    if model.family.name in {"scat", "zip", "cnorm", "clog", "cpois", "bcg"} and str(method).upper() == "REML":
+    if getattr(model.family, "pirls_curvature_mode", "glm") == "observed" and str(method).upper() == "REML":
         return _gdipk_reml_penalty_terms(
             model, sp, current, ift.dA, ift.d2A_mat, pk_state
         )
@@ -1480,9 +1468,9 @@ def _gdi1_fisher_trace_terms(model, sol, current, ift):
     derivatives use the second, expected-information factorization upstream.
     """
     family = model.family
-    eta = np.asarray(sol.get("gdi1_eta", sol["eta"]), dtype=np.float64)
-    mu = np.asarray(sol.get("gdi1_mu", sol["mu"]), dtype=np.float64)
-    wf = np.asarray(sol["fisher_weights"], dtype=np.float64)
+    eta = np.asarray(sol.fit_state.gdi1_eta if sol.fit_state.gdi1_eta is not None else sol.fit_result.eta, dtype=np.float64)
+    mu = np.asarray(sol.fit_state.gdi1_mu if sol.fit_state.gdi1_mu is not None else sol.fit_result.mu, dtype=np.float64)
+    wf = np.asarray(sol.fit_state.fisher_weights, dtype=np.float64)
     g1 = 1.0 / np.asarray(family.mu_eta(eta), dtype=np.float64)
     g2 = np.asarray(family.d2link(mu), dtype=np.float64) / g1
     g3 = np.asarray(family.d3link(mu), dtype=np.float64) / g1
@@ -1541,7 +1529,7 @@ def _gdi1_kernel(model, y, sol, sp, *, method, rank_tol=None):
     pk_state = setup.pk
     ift = _gdi1_ift1_state(model, y, sol, sp, current, pk_state)
     D1, D2 = _gdi1_deviance_terms(model, y, sol, current, ift)
-    if getattr(model.family, "name", "") in {"zip", "cnorm", "clog", "cpois", "bcg"}:
+    if not callable(getattr(model.family, "variance", None)):
         # These families have no GLM variance or Pearson-scale criterion.
         # Their gam.fit4/gdi2 route uses likelihood and determinant derivatives.
         nsp = len(ift.deta)
@@ -1583,7 +1571,7 @@ def _gdi1_kernel(model, y, sol, sp, *, method, rank_tol=None):
 
 
 def _gdi2_penalty_terms(model, sp, current, dA, d2A_mat, pk_state, *, n_theta, method):
-    if model.family.name in {"scat", "zip", "cnorm", "clog", "cpois", "bcg"} and str(method).upper() == "REML":
+    if getattr(model.family, "pirls_curvature_mode", "glm") == "observed" and str(method).upper() == "REML":
         return _gdipk_reml_penalty_terms(
             model, sp, current, dA, d2A_mat, pk_state, n_theta
         )
@@ -1664,7 +1652,7 @@ def _gdi2_ift2_state_theta(model, y, sol, sp, current, pk_state, *, include_thet
     """
     X = np.asarray(current.X, dtype=np.float64)
     beta = np.asarray(current.beta, dtype=np.float64)
-    mu = np.asarray(sol["mu"], dtype=np.float64)
+    mu = np.asarray(sol.fit_result.mu, dtype=np.float64)
     P_root = np.asarray(pk_state.P, dtype=np.float64)
     weights = _prior_weights(model, y)
     dd = _family_ddeta_logtheta(model.family, y, mu, weights, deriv=2)
@@ -1888,13 +1876,7 @@ def gdi2_theta_joint_kernel(model, y, sol, sp, *, method, need_hessian=True):
     current = setup.current
     pk_state = setup.pk
     ift = _gdi2_ift2_state_theta(model, y, sol, sp, current, pk_state)
-    dd = _family_ddeta_logtheta(
-        model.family,
-        y,
-        np.asarray(sol["mu"], dtype=np.float64),
-        _prior_weights(model, y),
-        deriv=2,
-    )
+    dd = _family_ddeta_logtheta(model.family, y, np.asarray(sol.fit_result.mu, dtype=np.float64), _prior_weights(model, y), deriv=2)
     D1, D2 = _gdi2_deviance_derivatives(
         current, ift, dd, include_theta=True, need_hessian=need_hessian
     )
@@ -1923,17 +1905,11 @@ def gdi2_theta_joint_kernel(model, y, sol, sp, *, method, need_hessian=True):
         method=method,
         rank_tol=_MGCV_GAM_FIT4_RANK_TOL,
     )
-    deviance = float(sol["deviance"])
+    deviance = float(sol.fit_result.deviance)
     if str(getattr(model.family, "name", "")).lower() in {"betar", "zip"}:
         # Extended postproc corrects the saturated likelihood for reporting;
         # gam.fit4's ML/REML objective uses the raw dev.resids sum.
-        deviance = float(
-            model.family.deviance(
-                np.asarray(y, dtype=np.float64),
-                np.asarray(sol["mu"], dtype=np.float64),
-                weights=_prior_weights(model, y),
-            )
-        )
+        deviance = float(model.family.deviance(np.asarray(y, dtype=np.float64), np.asarray(sol.fit_result.mu, dtype=np.float64), weights=_prior_weights(model, y)))
     theta_values = np.asarray(model.family.getTheta(False), dtype=np.float64).ravel()
     return _GDI2Kernel(
         gdi1=gdi1,
@@ -1953,6 +1929,7 @@ def gdi2_theta_joint_kernel(model, y, sol, sp, *, method, need_hessian=True):
 
 
 def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
+    family_name = str(getattr(model.family, "name", "")).lower()
     if not can_use_simple_ml_reml_structure(model):
         raise NotImplementedError(
             "Exact PIRLS ML/REML gradients are currently available only for "
@@ -1964,7 +1941,6 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
         raise NotImplementedError(
             f"Family {model.family.name!r} does not yet provide exact PIRLS first derivatives."
         )
-    family_name = str(getattr(model.family, "name", "")).lower()
     gamma = float(model.score_gamma)
     if not np.isfinite(gamma) or gamma <= 0.0:
         raise ValueError("score_gamma must be finite and positive.")
@@ -1993,7 +1969,7 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
     sp = expand_smoothing_params_from_log(model, log_sp)
     sol = solve_pirls_given_smoothing(model, y, sp)
     kernel = _gdi1_kernel(model, y, sol, sp, method=method)
-    scale = float(sol["scale"])
+    scale = float(sol.fit_result.scale)
 
     if getattr(model.family, "known_scale", None) is None and family_name in {
         "gamma",
@@ -2010,7 +1986,7 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
             "K": float(kernel.K),
             "K1": np.asarray(kernel.K1, dtype=np.float64),
             "phi": float(gdi2.phi),
-            "scale_est": float(sol["scale"]),
+            "scale_est": float(sol.fit_result.scale),
             "Dp": float(gdi2.Dp),
             "Dp1": np.asarray(gdi2.Dp1, dtype=np.float64),
         }
@@ -2025,6 +2001,7 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
 
 
 def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
+    family_name = str(getattr(model.family, "name", "")).lower()
     if not can_use_simple_ml_reml_structure(model):
         raise NotImplementedError(
             "Exact PIRLS ML/REML Hessians are currently available only for "
@@ -2038,7 +2015,6 @@ def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
         raise NotImplementedError(
             f"Family {model.family.name!r} does not yet provide exact PIRLS second derivatives."
         )
-    family_name = str(getattr(model.family, "name", "")).lower()
     gamma = float(model.score_gamma)
     if not np.isfinite(gamma) or gamma <= 0.0:
         raise ValueError("score_gamma must be finite and positive.")
@@ -2070,7 +2046,7 @@ def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
     sp = expand_smoothing_params_from_log(model, log_sp)
     sol = solve_pirls_given_smoothing(model, y, sp)
     kernel = _gdi1_kernel(model, y, sol, sp, method=method)
-    scale = float(sol["scale"])
+    scale = float(sol.fit_result.scale)
 
     detXWXS1 = detXWXS2 = None
     P1 = P2 = phi1 = phi2 = None
@@ -2093,7 +2069,7 @@ def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
             "K1": np.asarray(kernel.K1, dtype=np.float64),
             "K2": np.asarray(kernel.K2, dtype=np.float64),
             "phi": float(gdi2.phi),
-            "scale_est": float(sol["scale"]),
+            "scale_est": float(sol.fit_result.scale),
             "phi_curv": float(gdi2.phi_curv),
             "Dp": float(gdi2.Dp),
             "Dp1": np.asarray(gdi2.Dp1, dtype=np.float64),

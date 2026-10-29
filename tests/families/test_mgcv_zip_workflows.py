@@ -526,11 +526,11 @@ def test_zip_default_regressor_adapter():
     se = model.standard_errors(_newdata())
     components = model.predict_components(_newdata())
     components.validate_additive_reconstruction()
-    np.testing.assert_allclose(components.response, prediction, atol=1e-13, rtol=1e-13)
+    np.testing.assert_allclose(model.predict(_newdata()), prediction, atol=1e-13, rtol=1e-13)
     np.testing.assert_allclose(
-        components.link, reference["link_prediction"], atol=5e-5, rtol=5e-5
+        components.link[:, 0], reference["link_prediction"], atol=5e-5, rtol=5e-5
     )
-    assert not np.allclose(components.response, components.link)
+    assert not np.allclose(prediction, components.link[:, 0])
     np.testing.assert_allclose(
         prediction, reference["prediction"], atol=5e-5, rtol=5e-5
     )

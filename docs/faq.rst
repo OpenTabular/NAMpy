@@ -60,6 +60,9 @@ input format for mixed tabular data.
 
 .. code-block:: python
 
+
+   from dataclasses import replace
+   from nampy.neural.configuration import GradientTrainingConfig
    import pandas as pd
 
    from nampy.models import NAMRegressor
@@ -69,7 +72,7 @@ input format for mixed tabular data.
    y = data["target"]
 
    model = NAMRegressor()
-   model.fit(X, y, max_epochs=100)
+   model.set_params(training=replace(model.training or GradientTrainingConfig(), max_epochs=100)).fit(X, y)
 
 NumPy arrays are also accepted by the high-level neural estimators.
 

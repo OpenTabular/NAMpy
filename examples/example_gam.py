@@ -12,7 +12,7 @@ What this checks
 4. Recovery of smooth numeric effects.
 
 Run:
-    python examples/example_gam_classifier.py
+    python examples/example_gam.py
 """
 
 import os
@@ -103,7 +103,7 @@ def main():
     components = model.predict_components(X_val)
     feat_vals = dict(components.terms)
     feat_vals["output"] = components.link
-    feat_vals["response"] = components.response
+    feat_vals["response"] = model.predict(X_val)
     feat_vals["intercept"] = components.intercept
     print("\nReturned contribution keys:")
     print(list(feat_vals.keys()))
@@ -153,9 +153,20 @@ def main():
     age_val_s = (xv["age"].to_numpy() - age_raw.mean()) / age_raw.std()
     income_val_s = (xv["income"].to_numpy() - income_raw.mean()) / income_raw.std()
 
-    true_age_val = f_age(age_val_s)
-    true_income_val = f_income(income_val_s)
-    true_eta_val = intercept_true + true_age_val + true_income_val
+    age_train_s = (X_train["age"].to_numpy() - age_raw.mean()) / age_raw.std()
+    income_train_s = (
+        X_train["income"].to_numpy() - income_raw.mean()
+    ) / income_raw.std()
+
+    # As in the Gaussian example, fitted GAM smooths have mean zero over the
+    # training data. Center the known DGP terms the same way and transfer their
+    # constants to the reference intercept before comparing contributions.
+    true_age_mean = float(np.mean(f_age(age_train_s)))
+    true_income_mean = float(np.mean(f_income(income_train_s)))
+    true_age_val = f_age(age_val_s) - true_age_mean
+    true_income_val = f_income(income_val_s) - true_income_mean
+    true_intercept_centered = intercept_true + true_age_mean + true_income_mean
+    true_eta_val = true_intercept_centered + true_age_val + true_income_val
     true_prob_val = sigmoid(true_eta_val)
 
     def centered_corr(a, b):
@@ -242,7 +253,11 @@ def main():
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
 
     order_age = np.argsort(xv["age"].to_numpy())
-    axes[0].plot(xv["age"].to_numpy()[order_age], true_age_val[order_age], label="true")
+    axes[0].plot(
+        xv["age"].to_numpy()[order_age],
+        true_age_val[order_age],
+        label="true (centered)",
+    )
     if "age" in learned:
         axes[0].plot(
             xv["age"].to_numpy()[order_age], learned["age"][order_age], label="learned"
@@ -270,6 +285,7 @@ def main():
 
     print("\nInterpretation:")
     print("  - Additive reconstruction error on the link scale should be ~0.")
+    print("  - True smooth effects use the fitted terms' training-centered scale.")
     print("  - sigmoid(output) should match the returned response probabilities.")
     print("  - Accuracy / AUROC should be clearly better than chance.")
     print("  - age and income effect correlations should be clearly positive.")

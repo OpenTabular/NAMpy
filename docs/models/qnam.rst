@@ -29,6 +29,11 @@ Fit and inspect
 
 .. code-block:: python
 
+
+   from dataclasses import replace
+   from nampy.neural.configs.qnam_config import DefaultQNAMConfig
+   from nampy.neural.configuration import GradientTrainingConfig
+   from nampy.neural.configuration import ObjectiveConfig
    import numpy as np
    import pandas as pd
    from sklearn.model_selection import train_test_split
@@ -41,11 +46,7 @@ Fit and inspect
    import matplotlib.pyplot as plt
    from nampy.models import QNAMLSS
 
-   model = QNAMLSS(
-       layer_sizes=[16],
-       distributional_kwargs={"quantiles": [0.1, 0.5, 0.9]},
-       monotone_transform="softplus",
-   ).fit(X_train, y_train, max_epochs=20, random_state=7)
+   model = QNAMLSS(architecture_config=DefaultQNAMConfig(layer_sizes=[16], monotone_transform='softplus'), objective=ObjectiveConfig(distributional_kwargs={'quantiles': [0.1, 0.5, 0.9]})).set_params(training=replace(QNAMLSS(architecture_config=DefaultQNAMConfig(layer_sizes=[16], monotone_transform='softplus'), objective=ObjectiveConfig(distributional_kwargs={'quantiles': [0.1, 0.5, 0.9]})).training or GradientTrainingConfig(), max_epochs=20, random_state=7)).fit(X_train, y_train)
 
    quantiles = model.predict(X_test)
    components = model.predict_components(X_test, center=True)

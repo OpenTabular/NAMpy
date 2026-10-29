@@ -4,7 +4,6 @@ The literalinclude markers expose the same code that produces the outputs.
 Run from the repository root with the installed documentation environment.
 """
 from pathlib import Path
-import tempfile
 import logging
 import matplotlib
 matplotlib.use("Agg")
@@ -28,6 +27,8 @@ def training():
     from sklearn.model_selection import train_test_split
     from lightning.pytorch.loggers import CSVLogger
     from nampy.models import NAMRegressor
+    from nampy.neural.configs.nam_config import DefaultNAMConfig
+    from nampy.neural.configuration import GradientTrainingConfig, PreprocessingConfig
 
     rng = np.random.default_rng(61)
     X = pd.DataFrame({"x": rng.uniform(-1, 1, 480),
@@ -39,14 +40,18 @@ def training():
     )
     # TRAINING FIT
     with tempfile.TemporaryDirectory() as directory:
-        logger = CSVLogger(directory, name="losses")
-        model = NAMRegressor(layer_sizes=[16, 8], dropout=0.,
-                             numerical_preprocessing="minmax")
-        model.fit(X_train, y_train, X_val=X_val, y_val=y_val,
-                  max_epochs=200, patience=12, lr=.01, random_state=61,
-                  batch_size=64, logger=logger, log_every_n_steps=1,
-                  checkpoint_path=directory, enable_progress_bar=False,
-                  enable_model_summary=False)
+        logger = CSVLogger(directory, name="losses", version=0)
+        model = NAMRegressor(
+            architecture_config=DefaultNAMConfig(layer_sizes=[16, 8], dropout=0.),
+            preprocessing=PreprocessingConfig(numerical_preprocessing="minmax"),
+            training=GradientTrainingConfig(
+                max_epochs=200, patience=12, lr=.01, random_state=61, batch_size=64,
+                checkpoint_path=directory,
+                trainer_kwargs={"logger": logger, "log_every_n_steps": 1,
+                    "enable_progress_bar": False, "enable_model_summary": False},
+            ),
+        )
+        model.fit(X_train, y_train, X_val=X_val, y_val=y_val)
         losses = pd.read_csv(Path(logger.log_dir) / "metrics.csv")
         checkpoint = torch.load(model.best_model_path_, map_location="cpu", weights_only=False)
         retained_epoch = int(checkpoint["epoch"])
@@ -71,6 +76,8 @@ def preprocessing():
     import pandas as pd
     import matplotlib.pyplot as plt
     from nampy.models import NAMRegressor
+    from nampy.neural.configs.nam_config import DefaultNAMConfig
+    from nampy.neural.configuration import GradientTrainingConfig, PreprocessingConfig
 
     X_train = pd.DataFrame({"age": [20., 30., 40., 50., 60., 70.],
                             "group": ["A", "B", "A", "B", "A", "B"]})
@@ -78,17 +85,21 @@ def preprocessing():
     X_val = pd.DataFrame({"age": [35., 55.], "group": ["A", "B"]})
     y_val = np.array([1.6, 3.2])
     X_new = pd.DataFrame({"age": [45.], "group": ["B"]})
-    model = NAMRegressor(layer_sizes=[4], numerical_preprocessing="minmax",
-                         categorical_preprocessing="one-hot", cat_cutoff=0.)
     with tempfile.TemporaryDirectory() as directory:
-        model.fit(X_train, y_train, X_val=X_val, y_val=y_val,
-                  max_epochs=2, random_state=63,
-                  logger=False, enable_progress_bar=False, enable_model_summary=False,
-                  checkpoint_path=directory)
+        model = NAMRegressor(
+            architecture_config=DefaultNAMConfig(layer_sizes=[4]),
+            preprocessing=PreprocessingConfig(numerical_preprocessing="minmax",
+                categorical_preprocessing="one-hot", cat_cutoff=0.),
+            training=GradientTrainingConfig(max_epochs=2, random_state=63,
+                checkpoint_path=directory, trainer_kwargs={"logger": False,
+                    "enable_progress_bar": False, "enable_model_summary": False}),
+        )
+        model.fit(X_train, y_train, X_val=X_val, y_val=y_val)
     # All six training rows fit PreTab; validation and new rows reuse its state.
-    transformed = model.preprocessor.transform(pd.concat([X_train, X_new], ignore_index=True))
+    preprocessor = model.fitted_preprocessing_.preprocessor
+    transformed = preprocessor.transform(pd.concat([X_train, X_new], ignore_index=True))
     blocks = {name: np.asarray(block) for name, block in transformed.items()}
-    new_blocks = model.preprocessor.transform(X_new)
+    new_blocks = preprocessor.transform(X_new)
     for name, block in blocks.items():
         np.testing.assert_allclose(block[-1:], np.asarray(new_blocks[name]))
     matrix = np.column_stack(list(blocks.values()))

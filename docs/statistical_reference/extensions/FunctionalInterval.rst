@@ -6,7 +6,7 @@ Functional interval result
 Types, defaults and output shapes
 ---------------------------------
 
-.. autoclass:: nampy.gam.extensions.FunctionalInterval
+.. autoclass:: nampy.gam.inference.functionals.FunctionalInterval
 
 
 

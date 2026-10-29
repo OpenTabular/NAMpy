@@ -5,10 +5,10 @@ from __future__ import annotations
 import numpy as np
 from sklearn.base import BaseEstimator
 
-from ..contracts import AdditivePrediction, FeatureSchema
+from ..contracts import AdditivePrediction, AdditiveTermMetadata, FeatureSchema
 from ..gam import GAM
+from ..persistence import load_estimator, save_estimator
 from ._data import feature_frame
-from ._persistence import load_estimator, save_estimator
 
 _GAM_CONSTRUCTOR_PARAMS = (
     "k",
@@ -114,13 +114,13 @@ class _GAMAdapterBase(BaseEstimator):
             hparams["formula"] = self._resolved_formula()
         return GAM(family=self._resolved_family(), **hparams)
 
-    def _fit_gam(self, X, y, *, data=None, sample_weight=None, offset=None):
+    def _fit_gam(self, X, y, *, data=None, sample_weight=None, offset=None, context=None):
         if self.formula is not None:
             frame = data if data is not None else X
             self.schema_ = None
             self.gam_ = self._build_gam()
             self._validate_family_role(self.gam_.family)
-            self.gam_.fit(data=frame, y=y, sample_weight=sample_weight, offset=offset)
+            self.gam_.fit(data=frame, y=y, sample_weight=sample_weight, offset=offset, context=context)
         else:
             if X is None:
                 raise ValueError("X is required when no formula is given.")
@@ -129,7 +129,7 @@ class _GAMAdapterBase(BaseEstimator):
             )
             self.gam_ = self._build_gam()
             self._validate_family_role(self.gam_.family)
-            self.gam_.fit(X, y, sample_weight=sample_weight, offset=offset)
+            self.gam_.fit(X, y, sample_weight=sample_weight, offset=offset, context=context)
 
         self.n_features_in_ = (
             self.schema_.n_features if self.schema_ is not None else None
@@ -148,8 +148,9 @@ class _GAMAdapterBase(BaseEstimator):
             )
 
     def _validate_X(self, X):
-        if X is not None and getattr(self, "schema_", None) is not None:
-            self.schema_.validate(X if hasattr(X, "columns") else np.asarray(X))
+        schema = getattr(self, "schema_", None)
+        if X is not None and schema is not None:
+            schema.validate(X if hasattr(X, "columns") else np.asarray(X))
         return X
 
     # ------------------------------------------------------------------
@@ -200,10 +201,6 @@ class _GAMAdapterBase(BaseEstimator):
         )
 
         link = np.asarray(vals["output"], dtype=np.float64)
-        response = vals.get("response")
-        if response is None:
-            response = self.gam_.family.inverse_link(link)
-
         intercept_val = vals.get("intercept")
         if intercept_val is None:
             intercept: float | np.ndarray = 0.0
@@ -222,18 +219,30 @@ class _GAMAdapterBase(BaseEstimator):
         }
         offset_arr = vals.get("offset")
 
+        metadata = {}
+        compiled = self.gam_.gam_result_.require_compiled_model()
+        for term in compiled.compiled_terms:
+            key = label_map.get(str(term.term_id), str(term.term_id))
+            if key not in terms:
+                continue
+            features = tuple(term.metadata.get("source_variables", term.feature_info.feature_names))
+            by = term.by_variable_info.name
+            features = tuple(dict.fromkeys((*features, *((by,) if by else ()))))
+            metadata[key] = AdditiveTermMetadata(
+                features=features, kind="interaction" if len(features) > 1 else "main")
+
         return AdditivePrediction(
-            response=np.asarray(response, dtype=np.float64),
             link=link,
             terms=terms,
             intercept=intercept,
             backend="gam",
+            term_metadata=metadata,
             offset=None if offset_arr is None else np.asarray(offset_arr),
         )
 
     def explain_terms(self, X=None, *, max_bins: int = 64, offset=None):
         """Return a binned additive-term table shared with neural estimators."""
-        from ..explanations import explain_additive_prediction
+        from ..inspection.contributions import explain_additive_prediction
 
         if X is None:
             raise ValueError("X is required to construct an explanation table.")
@@ -243,7 +252,7 @@ class _GAMAdapterBase(BaseEstimator):
 
     def term_importance(self, X=None, *, offset=None):
         """Return mean absolute link-scale contribution by additive term."""
-        from ..explanations import term_importance_table
+        from ..inspection.contributions import term_importance_table
 
         return term_importance_table(self.predict_components(X, offset=offset))
 

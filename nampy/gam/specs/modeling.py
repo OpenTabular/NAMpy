@@ -152,7 +152,14 @@ def make_predictor_specs(model, feature_names, *, knots=None):
 
 
 def prepare_formula_inputs(
-    model, data, formula, y=None, knots=None, drop_intercept=None
+    model,
+    data,
+    formula,
+    y=None,
+    knots=None,
+    drop_intercept=None,
+    *,
+    response_required=True,
 ):
     # Formula compilation also accepts model-like objects without a fitting
     # family. Only the response boundary needs the optional family metadata.
@@ -184,6 +191,7 @@ def prepare_formula_inputs(
         default_basis=model.basis,
         default_select=model.select,
         response_infinite_bounds=family_name in {"cnorm", "clog", "cpois", "bcg"},
+        response_required=response_required,
     )
     # Specs remain component-owned; this metadata lets the compiler create
     # overlapping logical predictor index arrays without duplicating blocks.

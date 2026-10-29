@@ -203,6 +203,7 @@ PARAMETERS = {
     "optimize_smoothing": "Select smoothing parameters automatically; None at fit time preserves the constructor setting.",
     "smoothing_method": "Smoothing selection criterion; None at fit time preserves the configured choice.",
     "sample_weight": "Prior observation weights aligned with response rows; family-specific likelihood weight conventions apply.",
+    "context": "Explicit row-aligned observation context, separate from prior weights. betabinomial_lss requires {'trials': trials}; other families reject unsupported context.",
     "min_sp": "Optional lower bounds for penalty smoothing parameters.",
     "drop_intercept": "Optional per-predictor intercept removal policy for formula compilation.",
     "kwargs": "Additional options documented by the linked implementation; unknown options may be rejected.",
@@ -854,7 +855,7 @@ def generate_methods(root):
 def generate_neural(root):
     from public_reference import DEPENDENCE, FAMILY_MEANINGS
 
-    from nampy.neural.distributions.registry import FAMILY_REGISTRY
+    from nampy.neural.families.registry import FAMILY_REGISTRY
     from nampy.neural.registry import architectures, get_architecture
 
     architecture_entries = []
@@ -872,6 +873,7 @@ def generate_neural(root):
             ("regression", "Regressor"),
             ("classification", "Classifier"),
             ("distributional", "LSS"),
+            ("survival", "Survival"),
         ]:
             if not spec.supports(task):
                 continue
@@ -934,7 +936,7 @@ def generate_neural(root):
             if name in {"dirichlet", "mvnormdiag"}
             else np.array([0, 1, 2, 0, 1, 2])
         )
-        instance, _ = spec.instantiate(sample_y)
+        instance, _ = spec.instantiate(sample_y, {"trials":10} if name=="betabinomial" else {})
         text += table(
             ["Input / output", "Type", "Shape", "Meaning"],
             neural_family_returns(name, instance),
@@ -952,6 +954,7 @@ def generate_neural(root):
     )
     groups = {
         "Linear and feature networks": ["linreg", "nam", "snam", "spline_nam"],
+        "Structured and neural composition": ["semistructured"],
         "Basis and polynomial models": ["nbm", "nbm_spam", "spam"],
         "Kernel and boosting models": ["gpnam", "igann"],
         "Tree models": ["treenam", "ensemble_treenam", "nodegam"],
@@ -1213,7 +1216,7 @@ def statistical_estimator_exports():
     return {
         name: module
         for name, module in _EXPORT_MODULES.items()
-        if module in {".gam", ".gamlss", ".expectile", ".quantile"}
+        if module in {".gam", ".gamlss", ".expectile", ".quantile", ".survival", ".cox", ".calibrated_quantile"}
     }
 
 
@@ -1250,7 +1253,11 @@ def reference_targets():
     from nampy.gam import GAM
     from nampy.gam.basis_registry import basis_descriptors
     from nampy.gam.design import __all__ as design_symbols
-    from nampy.gam.extensions import __all__ as extension_symbols
+    from nampy.gam.inference.functionals import __all__ as inference_symbols
+    from nampy.gam.losses import __all__ as loss_symbols
+    from nampy.gam.structured import __all__ as structured_symbols
+    extension_symbols = [*loss_symbols, *inference_symbols, *structured_symbols]
+    extension_symbols += ["piecewise_exponential_data", "survival_from_hazard"]
     from nampy.gam.families.registry import GENERAL_FAMILIES
     from nampy.neural.registry import architectures
 
@@ -1273,6 +1280,7 @@ def reference_targets():
             ("regression", "Regressor"),
             ("classification", "Classifier"),
             ("distributional", "LSS"),
+            ("survival", "Survival"),
         ]:
             if spec.supports(task):
                 name = spec.estimator_prefix + suffix
@@ -1495,6 +1503,12 @@ NEURAL_EXTENSIONS = {
     "estimator_family": "Construct the supported estimator-class family for a registered neural architecture.",
 }
 NEURAL_EXTENSION_PARAMETERS = {
+    "survival": "Optional registered survival estimator class; None when the architecture has no validated survival task.",
+    "config_class": "Architecture configuration class used by a generic estimator.",
+    "architecture_config": "Architecture configuration instance; representation controls have no flat overrides.",
+    "objective": "ObjectiveConfig containing task-specific loss or distribution family settings.",
+    "training": "Route-specific gradient, fixed-design or architecture-native training record; None resolves the supported default.",
+    "preprocessing": "PreprocessingConfig containing feature transformation choices.",
     "model": "Custom PyTorch architecture class implementing the additive forward-output contract; see the custom-model guide.",
     "config": "Configuration class (for example DefaultNAMConfig, without parentheses). The estimator instantiates it using configuration overrides; passing an already constructed instance raises TypeError.",
     "kwargs": "Preprocessing and estimator configuration overrides accepted by the custom estimator. Architecture-specific controls come from its config.",
@@ -1502,7 +1516,7 @@ NEURAL_EXTENSION_PARAMETERS = {
     "distributional_kwargs": "Optional mapping of neural family constructor arguments. Use the family reference for domains and parameter ordering.",
     "estimator": "Unfitted neural regressor/classifier template; each ensemble member receives an independent sklearn clone. LSS aggregation is unsupported.",
     "n_estimators": "Positive number of independently fitted ensemble members; default five.",
-    "random_state": "Base training seed. Member i uses base_seed+i; fit-time random_state overrides this value.",
+    "random_state": "Base training seed; member i uses base_seed+i through its constructor training configuration.",
     "n_jobs": "Joblib parallel worker count, default one. Each worker trains its own member.",
     "bootstrap": "Whether to resample training rows with replacement independently per member. Supplied row weights and offsets are resampled with the same indices.",
     "regressor": "Optional estimator class for regression; None means that task is unavailable.",
@@ -1526,7 +1540,7 @@ def generate_neural_extensions(root):
         )
         text += heading("Returns and fitted outputs", "-")
         if name == "NeuralEnsemble":
-            text += "Construction returns an unfitted ensemble; ``fit(X, y, **fit_params)`` returns self and exposes ``estimators_``. Regression predict returns the mean member response, shaped like a member's predictions. Classification predict_proba averages probabilities in ``classes_`` order, and predict returns the most probable class. score returns R² or accuracy, respectively. ``predict_components`` returns ``AdditivePrediction`` containing the mean link-scale contributions. ``predict_component_uncertainty`` returns ``EnsembleAdditivePrediction`` containing mean components and between-member variation; missing selected terms contribute zero for that member. Variation across members measures training/selection variability and is not automatically a calibrated confidence interval.\n\n"
+            text += "Construction returns an unfitted ensemble; ``fit`` accepts data, explicit validation rows, offsets and weights, returns self and exposes ``estimators_``. Regression predict returns the mean member response, shaped like a member's predictions. Classification predict_proba averages probabilities in ``classes_`` order, and predict returns the most probable class. score returns R² or accuracy, respectively. ``predict_components`` returns ``AdditivePrediction`` containing the mean link-scale contributions. ``predict_component_uncertainty`` returns ``EnsembleAdditivePrediction`` containing mean components and between-member variation; missing selected terms contribute zero for that member. Variation across members measures training/selection variability and is not automatically a calibrated confidence interval.\n\n"
         elif name in {"NeuralEstimatorFamily", "estimator_family"}:
             text += "Returns a NeuralEstimatorFamily record containing task-specific estimator classes or None for unavailable tasks. This record contains no fitted predictions. Instantiate one of its available classes and call fit to obtain a model.\n\n"
         else:

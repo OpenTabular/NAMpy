@@ -6,7 +6,7 @@ Derivative bands and significant regions
 Types, defaults and output shapes
 ---------------------------------
 
-.. autofunction:: nampy.gam.extensions.derivative_interval
+.. autofunction:: nampy.gam.inference.functionals.derivative_interval
 
 Simultaneous intervals use joint coefficient deviations and the type-8 empirical quantile, matching gratia's simulation kernel. Coverage applies to the finite evaluation grid and the stated approximate coefficient distribution; it excludes new-response variation.
 

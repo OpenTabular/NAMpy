@@ -14,6 +14,12 @@ Run:
     python examples/example_qnam.py
 """
 
+from dataclasses import replace
+from nampy.neural.configs.qnam_config import DefaultQNAMConfig
+from nampy.neural.configuration import GradientTrainingConfig
+from nampy.neural.configuration import ObjectiveConfig
+from nampy.neural.configuration import PreprocessingConfig
+
 import os
 import tempfile
 
@@ -118,33 +124,10 @@ def main():
     # ------------------------------------------------------------------
     # Fit QNAM
     # ------------------------------------------------------------------
-    model = QNAMLSS(
-        layer_sizes=(128, 64),
-        dropout=0.05,
-        feature_dropout=0.0,
-        numerical_preprocessing="standardization",
-        categorical_preprocessing="one-hot",
-        cat_cutoff=0.0,
-        monotone_transform="softplus",
-        min_increment=0.0,
-        distributional_kwargs={"quantiles": quantiles},
-    )
+    model = QNAMLSS(architecture_config=DefaultQNAMConfig(layer_sizes=(128, 64), dropout=0.05, feature_dropout=0.0, monotone_transform='softplus', min_increment=0.0), objective=ObjectiveConfig(distributional_kwargs={'quantiles': quantiles}), preprocessing=PreprocessingConfig(numerical_preprocessing='standardization', categorical_preprocessing='one-hot', cat_cutoff=0.0))
 
     with tempfile.TemporaryDirectory() as ckpt_dir:
-        model.fit(
-            X_train,
-            y_train,
-            X_val=X_val,
-            y_val=y_val,
-            checkpoint_path=ckpt_dir,
-            max_epochs=180,
-            batch_size=64,
-            val_size=0.2,
-            patience=20,
-            logger=False,
-            enable_progress_bar=False,
-            random_state=42,
-        )
+        model.set_params(training=replace(model.training or GradientTrainingConfig(), checkpoint_path=ckpt_dir, max_epochs=180, batch_size=64, val_size=0.2, patience=20, random_state=42, trainer_kwargs={'logger': False, 'enable_progress_bar': False})).fit(X_train, y_train, X_val=X_val, y_val=y_val)
 
     # ------------------------------------------------------------------
     # Predictions
@@ -212,7 +195,7 @@ def main():
     components = model.predict_components(X_test)
     feat_vals = dict(components.terms)
     feat_vals["output"] = components.link
-    feat_vals["response"] = components.response
+    feat_vals["response"] = model.predict(X_test)
     feat_vals["intercept"] = components.intercept
     print("\nReturned contribution keys:")
     print(list(feat_vals.keys()))

@@ -26,13 +26,11 @@ Fit and inspect
 
 .. code-block:: python
 
+
+   from nampy.neural.configs.ensemble_treenam_config import DefaultEnsembleTreeNAMConfig
    from nampy.models import EnsembleTreeNAMRegressor
 
-   model = EnsembleTreeNAMRegressor(
-       num_estimators=5,
-       tree_depth=4,
-       interaction_degree=2,
-   ).fit(X_train, y_train)
+   model = EnsembleTreeNAMRegressor(architecture_config=DefaultEnsembleTreeNAMConfig(num_estimators=5, tree_depth=4, interaction_degree=2)).fit(X_train, y_train)
 
    prediction = model.predict(X_test)
    components = model.predict_components(X_test, center=True)

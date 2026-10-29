@@ -61,11 +61,13 @@ For a custom Lightning workflow, supply a PreTab instance to the data module:
 Accessing the preprocessor
 --------------------------
 
-After fitting a sklearn-style model, the preprocessor is available as ``model.preprocessor`` (the PreTab instance). You can use it to transform new data or inspect feature info:
+After fitting a sklearn-style model, the PreTab instance is available as
+``model.fitted_preprocessing_.preprocessor``. Use it to transform new data or
+inspect feature information:
 
 .. code-block:: python
 
-   preprocessor = model.preprocessor
+   preprocessor = model.fitted_preprocessing_.preprocessor
    X_transformed = preprocessor.transform(X_new)
    num_info, cat_info, emb_info = preprocessor.get_feature_info(verbose=False)
 

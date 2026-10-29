@@ -28,13 +28,11 @@ Fit and inspect
 
 .. code-block:: python
 
+
+   from nampy.neural.configs.sian_config import DefaultSIANConfig
    from nampy.models import SIANRegressor
 
-   model = SIANRegressor(
-       interaction_degree=3,
-       execution_mode="block_masked",
-       l1_regularization=5e-5,
-   ).fit(X_train, y_train)
+   model = SIANRegressor(architecture_config=DefaultSIANConfig(interaction_degree=3, execution_mode='block_masked', l1_regularization=5e-05)).fit(X_train, y_train)
 
    components = model.predict_components(X_test, center=True)
    effects = model.explain_terms(X_test)

@@ -48,7 +48,7 @@ Target shape/encoding: ``(n,) floating scalar response; support follows the dist
 
 ``compute_loss`` and ``compute_loss_per_sample`` consume raw network outputs, not already transformed parameters. The scalar loss is averaged over observations. Lower loss is better. LSS scoring follows the shared estimator contract; response SD summarizes conditional variability, not estimation uncertainty. Distribution-specific moments that do not exist cannot be interpreted as finite uncertainty estimates.
 
-Implementation definitions: :mod:`nampy.neural.distributions.distributions`. See the source link on the runtime contract for the implemented transforms and objective.
+Implementation definitions: :mod:`nampy.neural.families`. See the source link on the runtime contract for the implemented transforms and objective.
 
 Neural distribution family for ``family='hurdlenegativebinom'``. Configure its constructor through ``distributional_kwargs`` on an LSS estimator.
 
@@ -57,7 +57,7 @@ Signature
 
 .. code-block:: python
 
-   HurdleNegativeBinomialDistribution(name: str = 'HurdleNegativeBinomial', zero_prob_transform: Union[str, Callable] = nampy.neural.distributions.distributions._unit_interval_transform, mean_transform: Union[str, Callable] = 'positive', dispersion_transform: Union[str, Callable] = 'positive', eps: float = 1e-08)
+   HurdleNegativeBinomialDistribution(name: str = 'HurdleNegativeBinomial', zero_prob_transform: Union[str, Callable] = nampy.neural.families.counts._unit_interval_transform, mean_transform: Union[str, Callable] = 'positive', dispersion_transform: Union[str, Callable] = 'positive', eps: float = 1e-08)
 
 Parameters
 ----------
@@ -78,7 +78,7 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - Display label for this distribution; does not change its mathematical family.
    * - ``zero_prob_transform``
      - ``str | callable(torch.Tensor) -> torch.Tensor``
-     - ``nampy.neural.distributions.distributions._unit_interval_transform``
+     - ``nampy.neural.families.counts._unit_interval_transform``
      - Transform of the structural-zero or hurdle-zero probability; default maps raw values into (0,1).
    * - ``mean_transform``
      - ``str | callable(torch.Tensor) -> torch.Tensor``

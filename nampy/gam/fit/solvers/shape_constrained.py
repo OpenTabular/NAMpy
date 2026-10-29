@@ -486,9 +486,4 @@ def solve_transformed_coefficient_fit(
     return FitCoreSolution.from_dict(payload)
 
 
-def solve_shape_constrained_fit(*args, **kwargs):
-    """Compatibility alias for the generic transformed-coefficient solver."""
-    return solve_transformed_coefficient_fit(*args, **kwargs)
-
-
-__all__ = ["solve_shape_constrained_fit", "solve_transformed_coefficient_fit"]
+__all__ = ["solve_transformed_coefficient_fit"]

@@ -10,7 +10,7 @@ import pytest
 from numpy.testing import assert_allclose
 
 from nampy import GAMLSS
-from nampy.gam.extensions import joint_edf
+from nampy.gam.inference.functionals import joint_edf
 from nampy.gam.families.gamlss._taylor import Taylor
 from nampy.gam.families.registry import make_gam_family
 from nampy.gam.model_state import _coef_full, _compiled_model, _fit_result
@@ -47,6 +47,13 @@ def test_natural_parameters_density_and_mle_match_r_gamlss_dist(reference, name)
         atol=1e-5,
         rtol=0,
     )
+    distribution = model.predict_distribution(frame)
+    assert_allclose(
+        distribution.log_prob(y), expected["log_density"], atol=1e-5, rtol=0
+    )
+    assert np.isfinite(
+        distribution.quantile_residuals(y, random_state=7).residuals
+    ).all()
     components = model.predict_components(frame)
     assert components.link.shape == (len(y), 2)
     assert np.isfinite(model.score(frame, y))
@@ -222,7 +229,9 @@ def test_automatic_reml_fitting_route(reference, name):
     source = reference["inputs"]["families"]
     frame = pd.DataFrame({"x": source["x"], "y": source[name]})
     second = make_gam_family(name).parameter_names[1]
-    model = GAMLSS(family=name, formula={"mu": "y~s(x,k=5)", second: "~s(x,k=4)"}).fit(frame)
+    model = GAMLSS(family=name, formula={"mu": "y~s(x,k=5)", second: "~s(x,k=4)"}).fit(
+        frame
+    )
     assert _fit_result(model.gam_).converged
     assert np.all(np.isfinite(model.predict(frame)))
     assert np.all(np.asarray(model.gam_.smoothing_params) > 0)

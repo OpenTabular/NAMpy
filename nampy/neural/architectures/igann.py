@@ -12,6 +12,7 @@ import torch.nn.functional as F
 from sklearn.linear_model import Lasso, LogisticRegression
 
 from ..configs.igann_config import DefaultIGANNConfig
+from ..configuration import IGANNTrainingConfig
 from .components.base_model import BaseModel
 
 
@@ -25,6 +26,8 @@ class IGANN(BaseModel):
     """
 
     supports_native_training = True
+
+    native_training_config = IGANNTrainingConfig
     native_objective_kinds = frozenset({"regression", "binary"})
     estimator_fitted_attributes = (
         "n_estimators_",
@@ -38,18 +41,17 @@ class IGANN(BaseModel):
         num_feature_info,
         num_classes: int = 1,
         config: DefaultIGANNConfig | None = None,
-        **kwargs,
+        training=None,
     ):
         if config is None:
             config = DefaultIGANNConfig()
-        super().__init__(**kwargs)
-        self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
+        super().__init__()
 
-        self.lr = self.hparams.get("lr", config.lr)
-        self.lr_patience = self.hparams.get("lr_patience", config.lr_patience)
-        self.weight_decay = self.hparams.get("weight_decay", config.weight_decay)
-        self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
-
+        native = (
+            training
+            if isinstance(training, IGANNTrainingConfig)
+            else IGANNTrainingConfig()
+        )
         self.cat_feature_info = cat_feature_info
         self.num_feature_info = num_feature_info
         self._validate_features(num_feature_info, cat_feature_info)
@@ -59,29 +61,18 @@ class IGANN(BaseModel):
         self.num_classes = int(num_classes)
         self.n_num = len(self.num_feature_names)
 
-        self.n_hid = int(self.hparams.get("n_hid", config.n_hid))
-        self.n_estimators = int(
-            self.hparams.get("n_estimators", config.n_estimators)
-        )
-        self.boost_rate = float(self.hparams.get("boost_rate", config.boost_rate))
-        self.init_reg = float(self.hparams.get("init_reg", config.init_reg))
-        self.elm_scale = float(self.hparams.get("elm_scale", config.elm_scale))
-        self.elm_alpha = float(self.hparams.get("elm_alpha", config.elm_alpha))
-        self.early_stopping = int(
-            self.hparams.get("early_stopping", config.early_stopping)
-        )
-        self.elm_random_state = int(
-            self.hparams.get("elm_random_state", config.elm_random_state)
-        )
-        self.sparse = int(self.hparams.get("sparse", config.sparse))
-        self.native_device = str(self.hparams.get("device", config.device))
-        self.clip_predictions = float(
-            self.hparams.get("clip_predictions", config.clip_predictions)
-        )
-        self.activation_name = str(
-            self.hparams.get("activation", config.activation)
-        ).lower()
-        self.solver = str(self.hparams.get("solver", config.solver)).lower()
+        self.n_hid = int(config.n_hid)
+        self.n_estimators = int(config.n_estimators)
+        self.boost_rate = float(native.boost_rate)
+        self.init_reg = float(native.init_reg)
+        self.elm_scale = float(config.elm_scale)
+        self.elm_alpha = float(native.elm_alpha)
+        self.early_stopping = int(native.early_stopping)
+        self.elm_random_state = int(config.elm_random_state)
+        self.sparse = int(native.sparse)
+        self.native_device = str(native.device)
+        self.clip_predictions = float(native.clip_predictions)
+        self.activation_name = str(config.activation).lower()
         self._validate_configuration()
         self.activation = self._make_activation()
 
@@ -148,29 +139,13 @@ class IGANN(BaseModel):
             raise ValueError("clip_predictions must be finite and positive.")
         if self.activation_name not in {"elu", "relu"}:
             raise ValueError("activation must be 'elu' or 'relu'.")
-        if self.solver not in {"auto", "native", "gradient"}:
-            raise ValueError("solver must be 'auto', 'native', or 'gradient'.")
-
-    @classmethod
-    def uses_native_training(cls, objective, config) -> bool:
-        """Select native fitting only where the released updates are defined."""
-        solver = str(getattr(config, "solver", "auto")).lower()
-        objective_kind = str(getattr(objective, "kind", ""))
-        supported = objective_kind in cls.native_objective_kinds
-        if solver == "native" and not supported:
-            raise NotImplementedError(
-                "IGANN solver='native' supports squared-error regression and "
-                "binary classification only. Use solver='gradient' or 'auto' "
-                "for multiclass and distributional objectives."
-            )
-        return solver == "native" or (solver == "auto" and supported)
 
     def prepare_gradient_training(self) -> None:
         """Enable the shared objective engine over the complete fixed ELM basis."""
         if self.sparse > 0:
             raise NotImplementedError(
                 "IGANN-Sparse is defined for native training only; use sparse=0 "
-                "with solver='gradient'."
+                "with GradientTrainingConfig."
             )
         with torch.no_grad():
             self.n_estimators_fitted_tensor.fill_(self.n_estimators)
@@ -216,9 +191,7 @@ class IGANN(BaseModel):
             basis_start += self.n_hid
             atomic_names.append(name)
             atomic_sources.append(source_index)
-        for source_index, name in enumerate(
-            self.cat_feature_names, start=self.n_num
-        ):
+        for source_index, name in enumerate(self.cat_feature_names, start=self.n_num):
             cardinality = int(self.cat_feature_info[name].get("n_unique", 0))
             if cardinality < 1:
                 raise ValueError(
@@ -256,11 +229,14 @@ class IGANN(BaseModel):
             generator = torch.Generator().manual_seed(self.elm_random_state + stage)
             # Mirror upstream ELM_Regressor: draw the full masked matrix before
             # retaining its feature-specific diagonal blocks.
-            full = torch.randn(
-                self.n_num,
-                self.n_num * self.n_hid,
-                generator=generator,
-            ) * self.elm_scale
+            full = (
+                torch.randn(
+                    self.n_num,
+                    self.n_num * self.n_hid,
+                    generator=generator,
+                )
+                * self.elm_scale
+            )
             stages.append(
                 torch.stack(
                     [
@@ -338,8 +314,8 @@ class IGANN(BaseModel):
             import abess.linear
         except ImportError as error:
             raise ImportError(
-                "IGANN sparse>0 requires the optional 'abess' package. "
-                "Install abess>=0.4.5 to enable best-subset selection."
+                "IGANN sparse>0 requires the 'abess' dependency included with NAMpy. "
+                "Reinstall NAMpy with: pip install --upgrade nampy"
             ) from error
 
         basis = self._basis_for_stage(design, 0).detach().cpu().numpy()
@@ -364,9 +340,7 @@ class IGANN(BaseModel):
         coefficients = np.asarray(selector.coef_).reshape(-1)
         selected = torch.zeros_like(self.active_atomic_mask)
         for atomic_index, basis_slice in enumerate(self.atomic_basis_slices):
-            selected[atomic_index] = bool(
-                np.any(np.abs(coefficients[basis_slice]) > 0)
-            )
+            selected[atomic_index] = bool(np.any(np.abs(coefficients[basis_slice]) > 0))
         if not torch.any(selected):
             raise RuntimeError("IGANN-Sparse selected no usable feature blocks.")
         self.active_atomic_mask.copy_(selected)
@@ -539,12 +513,9 @@ class IGANN(BaseModel):
         for stage in range(self.n_estimators):
             if objective_kind == "binary":
                 full_prediction = prediction_train
-                hessian_sqrt = 0.5 / torch.cosh(
-                    0.5 * signed_targets * full_prediction
-                )
+                hessian_sqrt = 0.5 / torch.cosh(0.5 * signed_targets * full_prediction)
                 pseudo_target = math.sqrt(0.5) * (
-                    signed_targets
-                    / torch.exp(0.5 * signed_targets * full_prediction)
+                    signed_targets / torch.exp(0.5 * signed_targets * full_prediction)
                 )
                 multiplier = math.sqrt(0.5) * self.boost_rate * hessian_sqrt
             else:
@@ -682,7 +653,10 @@ class IGANN(BaseModel):
             for source_index, basis_slice in enumerate(self.source_basis_slices):
                 source_outputs[source_index] = source_outputs[source_index] + (
                     self.boost_rate
-                    * (basis[:, basis_slice] @ self.stage_coefficients[stage, basis_slice])
+                    * (
+                        basis[:, basis_slice]
+                        @ self.stage_coefficients[stage, basis_slice]
+                    )
                 )
         output = torch.stack(source_outputs, dim=1).sum(dim=1) + self.intercept
         result = {"output": output}

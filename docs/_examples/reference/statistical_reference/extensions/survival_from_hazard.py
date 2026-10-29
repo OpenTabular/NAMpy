@@ -3,7 +3,7 @@
 import numpy as np
 import pandas as pd
 from nampy import GAMRegressor
-from nampy.gam.extensions import piecewise_exponential_data, survival_from_hazard
+from nampy.survival import piecewise_exponential_data, survival_from_hazard
 
 rng = np.random.default_rng(24)
 x = rng.normal(size=100)

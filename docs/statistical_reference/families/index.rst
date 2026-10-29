@@ -66,6 +66,18 @@ Positive responses
      - Response support / interpretation
      - Natural distribution parameters (column order)
      - Interface
+   * - :doc:`bccg_lss <bccg_lss>`
+     - Positive scalar; Box-Cox Cole-Green mu/scale/power with log/log/identity links. Fixed and automatic joint REML; mu is not generally the response mean.
+     - ``mu``, ``sigma``, ``nu``
+     - GAMLSS / core GAM
+   * - :doc:`bcpe_lss <bcpe_lss>`
+     - Multi-parameter response family; see contract.
+     - ``mu``, ``sigma``, ``nu``, ``tau``
+     - GAMLSS / core GAM
+   * - :doc:`bct_lss <bct_lss>`
+     - Multi-parameter response family; see contract.
+     - ``mu``, ``sigma``, ``nu``, ``tau``
+     - GAMLSS / core GAM
    * - :doc:`gamma <gamma>`
      - Strictly positive continuous response. Links: inverse (default), identity and log. Dispersion is a scale parameter, not a second additive predictor.
      - ``mu``
@@ -78,6 +90,14 @@ Positive responses
      - Strictly positive continuous response. Default inverse-squared mean link; variance is proportional to the cube of the mean.
      - ``mu``
      - GAMRegressor / core GAM
+   * - :doc:`lognormal_lss <lognormal_lss>`
+     - Positive scalar; real log-location and positive log-SD, identity/log predictors.
+     - ``loc``, ``scale``
+     - GAMLSS / core GAM
+   * - :doc:`weibull_lss <weibull_lss>`
+     - Positive scalar; positive scale and shape, both log-linked (WEI convention).
+     - ``scale``, ``shape``
+     - GAMLSS / core GAM
 
 Nonnegative semicontinuous responses
 ------------------------------------
@@ -98,6 +118,10 @@ Nonnegative semicontinuous responses
      - Tweedie mean, power and dispersion regression with three predictors. Smoothing selection uses EFS because higher analytic likelihood derivatives are unavailable.
      - ``mu``, ``p``, ``phi``
      - GAMLSS / core GAM
+   * - :doc:`zaga_lss <zaga_lss>`
+     - Exact zeros with positive Gamma outcomes; positive-component mean/CV and zero probability, log/log/logit predictors.
+     - ``mu``, ``sigma``, ``pi0``
+     - GAMLSS / core GAM
 
 Proportions
 -----------
@@ -110,6 +134,10 @@ Proportions
      - Response support / interpretation
      - Natural distribution parameters (column order)
      - Interface
+   * - :doc:`beinf_lss <beinf_lss>`
+     - Proportions including zero/one atoms; interior mean/precision, coupled probabilities and four predictors/five natural outputs.
+     - ``mu``, ``phi``, ``pi0``, ``pi1``, ``pi_interior``
+     - GAMLSS / core GAM
    * - :doc:`beta_lss <beta_lss>`
      - Proportion strictly between zero and one, mean/precision predictors.
      - ``mu``, ``phi``
@@ -130,6 +158,10 @@ Counts
      - Response support / interpretation
      - Natural distribution parameters (column order)
      - Interface
+   * - :doc:`betabinomial_lss <betabinomial_lss>`
+     - Integer successes with explicit trials context; logit mean probability and log precision. Fixed smoothing and validated joint REML routes.
+     - ``mu``, ``kappa``
+     - GAMLSS / core GAM
    * - :doc:`nb <nb>`
      - Nonnegative counts with variance mu + mu**2/theta. The nb registry alias estimates theta by default; the class constructor alone defaults to fixed theta. A nonpositive registry theta requests estimation.
      - ``mu``
@@ -214,6 +246,18 @@ Censored responses
      - Censored Poisson counts with censoring bounds in the response encoding; default log link.
      - ``mu``
      - GAMRegressor / core GAM
+   * - :doc:`lognormal_observation_lss <lognormal_observation_lss>`
+     - Multi-parameter response family; see contract.
+     - ``loc``, ``scale``
+     - GAMLSS / core GAM
+   * - :doc:`normal_observation_lss <normal_observation_lss>`
+     - Multi-parameter response family; see contract.
+     - ``mean``, ``scale``
+     - GAMLSS / core GAM
+   * - :doc:`weibull_observation_lss <weibull_observation_lss>`
+     - Multi-parameter response family; see contract.
+     - ``scale``, ``shape``
+     - GAMLSS / core GAM
 
 .. toctree::
    :hidden:
@@ -246,6 +290,17 @@ Censored responses
    gevlss
    shash
    twlss
+   bct_lss
+   bcpe_lss
+   lognormal_observation_lss
+   weibull_observation_lss
+   normal_observation_lss
+   bccg_lss
+   beinf_lss
+   zaga_lss
+   betabinomial_lss
    student_lss
    beta_lss
    nb_lss
+   lognormal_lss
+   weibull_lss

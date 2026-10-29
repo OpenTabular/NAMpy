@@ -133,7 +133,7 @@ def criterion_ml_reml_pirls_tweedie_joint(
             scale=phi,
         )
         saturated_loglik = float(ls["ls"]) * _n_true_scale_factor(model, y)
-        penalty_deviance = float(sol["deviance"]) + float(kernel.bSb)
+        penalty_deviance = float(sol.fit_result.deviance) + float(kernel.bSb)
         score = (penalty_deviance / (2.0 * phi) - saturated_loglik) / gamma
         score += float(kernel.K)
         if method in {"REML", "LAML"}:
@@ -244,13 +244,7 @@ def _gdi2_tweedie_joint_kernel(
         pk_state,
         include_theta=include_theta,
     )
-    dd = _family_ddeta_logtheta(
-        model.family,
-        y,
-        np.asarray(sol["mu"], dtype=np.float64),
-        _prior_weights(model, y),
-        deriv=2,
-    )
+    dd = _family_ddeta_logtheta(model.family, y, np.asarray(sol.fit_result.mu, dtype=np.float64), _prior_weights(model, y), deriv=2)
     D1, D2 = _gdi2_deviance_derivatives(
         current,
         ift,
@@ -283,7 +277,7 @@ def _gdi2_tweedie_joint_kernel(
         method=method,
         rank_tol=_MGCV_GAM_FIT4_RANK_TOL,
     )
-    Dp = float(sol["deviance"]) + float(bSb)
+    Dp = float(sol.fit_result.deviance) + float(bSb)
     Dp1 = np.asarray(D1 + bSb1, dtype=np.float64)
     Dp2 = None if D2 is None else np.asarray(D2 + bSb2, dtype=np.float64)
     ls = model.family.ls(

@@ -11,12 +11,13 @@ rng = np.random.default_rng(7)
 n = 64
 X = pd.DataFrame({'x': np.linspace(-1, 1, n), 'z': rng.uniform(-1, 1, n)})
 y = np.sin(3 * X.x.to_numpy()) + rng.normal(0, 0.1, n)
-base = NAMRegressor(layer_sizes=[12, 8], n_knots=6, interactions=[])
+from nampy.neural.configs.nam_config import DefaultNAMConfig
+from nampy.neural.configuration import GradientTrainingConfig
+base = NAMRegressor(architecture_config=DefaultNAMConfig(layer_sizes=[12, 8], interactions=[]), training=GradientTrainingConfig(batch_size=32, random_state=7, max_epochs=2, trainer_kwargs={'logger': False, 'enable_progress_bar': False, 'enable_model_summary': False}))
 model = NeuralEnsemble(base, n_estimators=2, random_state=7)
 with TemporaryDirectory() as directory:
-    model.fit(X, y, max_epochs=2, batch_size=32, random_state=7,
-              checkpoint_path=directory, logger=False, enable_progress_bar=False,
-              enable_model_summary=False)
+    model.estimator.set_params(training__checkpoint_path=directory)
+    model.fit(X, y)
 prediction = model.predict(X)
 result = {'prediction': prediction}
 components = model.predict_components(X)

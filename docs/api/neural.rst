@@ -34,7 +34,6 @@ Training objectives
    MulticlassObjective
    DistributionObjective
    classification_objective
-   objective_from_legacy
 
 Training module
 ---------------

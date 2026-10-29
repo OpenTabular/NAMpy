@@ -183,7 +183,7 @@ def test_bcg_estimated_efs_public_components_persistence(tmp_path):
     model = GAMRegressor(formula=p["formula"], family=CensoredBoxCoxGaussianFamily(), smoothing_method="reml", smoothing_optimizer="efs").fit(data, sample_weight=data.w)
     components = model.predict_components(data)
     components.validate_additive_reconstruction()
-    np.testing.assert_allclose(components.response, model.predict(data))
+    np.testing.assert_allclose(components.link, model.predict_link(data)[:, None])
     assert model.gam_.family.n_theta == 2
     path = tmp_path / "bcg-estimated-efs.pkl"
     model.save_model(path)

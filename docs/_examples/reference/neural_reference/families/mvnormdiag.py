@@ -2,7 +2,7 @@
 
 import numpy as np
 import torch
-from nampy.neural.distributions.distributions import MultivariateNormalDiagDistribution
+from nampy.neural.families.multivariate import MultivariateNormalDiagDistribution
 
 family = MultivariateNormalDiagDistribution(n_dim=3)
 n = 8

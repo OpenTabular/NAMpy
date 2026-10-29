@@ -231,7 +231,7 @@ def test_adapter_matches_raw_gam_for_glm_families(family):
     # Components respect the family link on the response scale.
     components = adapter.predict_components(X)
     np.testing.assert_allclose(
-        components.response,
+        adapter.predict(X).reshape(-1, 1),
         adapter.gam_.family.inverse_link(components.link),
         atol=1e-10,
     )

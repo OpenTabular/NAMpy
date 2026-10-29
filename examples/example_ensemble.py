@@ -15,6 +15,12 @@ Run:
     python examples/example_ensemble_treenam.py
 """
 
+from dataclasses import replace
+from nampy.neural.configs.ensemble_treenam_config import DefaultEnsembleTreeNAMConfig
+from nampy.neural.configs.treenam_config import DefaultTreeNAMConfig
+from nampy.neural.configuration import GradientTrainingConfig
+from nampy.neural.configuration import PreprocessingConfig
+
 import os
 import tempfile
 
@@ -91,59 +97,14 @@ def main():
     # ------------------------------------------------------------------
     # Models
     # ------------------------------------------------------------------
-    single_model = TreeNAMRegressor(
-        tree_depth=6,
-        tree_lamda=0.0,
-        tree_temperature=0.15,
-        use_hard_routing_in_eval=True,
-        feature_dropout=0.0,
-        numerical_preprocessing="standardization",
-        categorical_preprocessing="one-hot",
-        cat_cutoff=0.0,
-    )
+    single_model = TreeNAMRegressor(architecture_config=DefaultTreeNAMConfig(tree_depth=6, tree_lamda=0.0, tree_temperature=0.15, use_hard_routing_in_eval=True, feature_dropout=0.0), preprocessing=PreprocessingConfig(numerical_preprocessing='standardization', categorical_preprocessing='one-hot', cat_cutoff=0.0))
 
-    ensemble_model = EnsembleTreeNAMRegressor(
-        num_estimators=5,
-        tree_depth=6,
-        tree_lamda=0.0,
-        tree_temperature=0.15,
-        use_hard_routing_in_eval=True,
-        feature_dropout=0.0,
-        numerical_preprocessing="standardization",
-        categorical_preprocessing="one-hot",
-        cat_cutoff=0.0,
-    )
+    ensemble_model = EnsembleTreeNAMRegressor(architecture_config=DefaultEnsembleTreeNAMConfig(num_estimators=5, tree_depth=6, tree_lamda=0.0, tree_temperature=0.15, use_hard_routing_in_eval=True, feature_dropout=0.0), preprocessing=PreprocessingConfig(numerical_preprocessing='standardization', categorical_preprocessing='one-hot', cat_cutoff=0.0))
 
     with tempfile.TemporaryDirectory() as ckpt_dir_single, tempfile.TemporaryDirectory() as ckpt_dir_ens:
-        single_model.fit(
-            X_train,
-            y_train,
-            X_val=X_val,
-            y_val=y_val,
-            checkpoint_path=ckpt_dir_single,
-            max_epochs=180,
-            batch_size=64,
-            val_size=0.2,
-            patience=20,
-            logger=False,
-            enable_progress_bar=False,
-            random_state=42,
-        )
+        single_model.set_params(training=replace(single_model.training or GradientTrainingConfig(), checkpoint_path=ckpt_dir_single, max_epochs=180, batch_size=64, val_size=0.2, patience=20, random_state=42, trainer_kwargs={'logger': False, 'enable_progress_bar': False})).fit(X_train, y_train, X_val=X_val, y_val=y_val)
 
-        ensemble_model.fit(
-            X_train,
-            y_train,
-            X_val=X_val,
-            y_val=y_val,
-            checkpoint_path=ckpt_dir_ens,
-            max_epochs=180,
-            batch_size=64,
-            val_size=0.2,
-            patience=20,
-            logger=False,
-            enable_progress_bar=False,
-            random_state=42,
-        )
+        ensemble_model.set_params(training=replace(ensemble_model.training or GradientTrainingConfig(), checkpoint_path=ckpt_dir_ens, max_epochs=180, batch_size=64, val_size=0.2, patience=20, random_state=42, trainer_kwargs={'logger': False, 'enable_progress_bar': False})).fit(X_train, y_train, X_val=X_val, y_val=y_val)
 
     # ------------------------------------------------------------------
     # Predictions / evaluation
@@ -171,7 +132,7 @@ def main():
     components = ensemble_model.predict_components(X_test)
     feat_vals = dict(components.terms)
     feat_vals["output"] = components.link
-    feat_vals["response"] = components.response
+    feat_vals["response"] = ensemble_model.predict(X_test)
     feat_vals["intercept"] = components.intercept
     print("\nReturned contribution keys:")
     print(list(feat_vals.keys()))

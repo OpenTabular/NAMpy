@@ -5,10 +5,10 @@ from ..configs.nam_config import DefaultNAMConfig
 from .components.base_model import BaseModel
 from .components.feature_metadata import ordered_feature_keys
 from .components.interactions import (
-    apply_feature_dropout,
     create_interaction_networks,
     interaction_forward,
     sum_feature_dims,
+    sum_term_outputs,
 )
 from .components.mlp import MLP
 from .components.module_dict import RawKeyModuleDict
@@ -49,7 +49,6 @@ class NAM(BaseModel):
         num_feature_info,
         num_classes: int = 1,
         config: DefaultNAMConfig | None = None,
-        **kwargs,
     ):
         """
         Initializes the Neural Additive Model (NAM) with the given configuration.
@@ -69,26 +68,17 @@ class NAM(BaseModel):
         """
         if config is None:
             config = DefaultNAMConfig()
-        super().__init__(**kwargs)
-        self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
+        super().__init__()
 
-        self.lr = self.hparams.get("lr", config.lr)
-        self.lr_patience = self.hparams.get("lr_patience", config.lr_patience)
-        self.weight_decay = self.hparams.get("weight_decay", config.weight_decay)
-        self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
         self.cat_feature_info = cat_feature_info
         self.num_feature_info = num_feature_info
-        self.feature_order = ordered_feature_keys(
-            num_feature_info, cat_feature_info
-        )
+        self.feature_order = ordered_feature_keys(num_feature_info, cat_feature_info)
         self._validate_features(num_feature_info, cat_feature_info)
         self.num_classes = num_classes
-        self.interaction_degree = self.hparams.get(
-            "interaction_degree", config.interaction_degree
-        )
-        self.interactions = self.hparams.get("interactions", config.interactions)
+        self.interaction_degree = config.interaction_degree
+        self.interactions = config.interactions
         self.intercept: nn.Parameter | None
-        if self.hparams.get("intercept", config.intercept):
+        if config.intercept:
             self.intercept = nn.Parameter(
                 torch.zeros(
                     num_classes,
@@ -97,13 +87,11 @@ class NAM(BaseModel):
         else:
             self.intercept = None
 
-        self.feature_dropout_p = self.hparams.get(
-            "feature_dropout", config.feature_dropout
-        )
+        self.feature_dropout_p = config.feature_dropout
 
         # Resolve architecture hyperparameters once, with kwargs overriding config
-        self.layer_sizes = self.hparams.get("layer_sizes", config.layer_sizes)
-        feature_layer = self.hparams.get("feature_layer", config.feature_layer)
+        self.layer_sizes = config.layer_sizes
+        feature_layer = config.feature_layer
         if not isinstance(feature_layer, str):
             raise TypeError("feature_layer must be a string.")
         self.feature_layer = feature_layer.lower()
@@ -112,48 +100,30 @@ class NAM(BaseModel):
                 "feature_layer must be 'linear', 'exu', or 'centered_relu'; "
                 f"got {feature_layer!r}."
             )
-        self.activation = self.hparams.get("activation", config.activation)
+        self.activation = config.activation
         if isinstance(self.activation, str):
             raise TypeError(
                 "activation must be a torch.nn.Module class or instance; use "
                 "feature_layer to select 'exu' or 'centered_relu'."
             )
-        self.norm = self.hparams.get("norm", config.norm)
-        self.use_glu = self.hparams.get("use_glu", config.use_glu)
-        self.skip_connections = self.hparams.get(
-            "skip_connections", config.skip_connections
-        )
-        self.batch_norm = self.hparams.get("batch_norm", config.batch_norm)
-        self.layer_norm = self.hparams.get("layer_norm", config.layer_norm)
-        self.dropout = self.hparams.get("dropout", config.dropout)
-        self.adaptive_width = self.hparams.get(
-            "adaptive_width", config.adaptive_width
-        )
-        self.num_basis_functions = int(
-            self.hparams.get("num_basis_functions", config.num_basis_functions)
-        )
-        self.units_multiplier = int(
-            self.hparams.get("units_multiplier", config.units_multiplier)
-        )
-        self.feature_widths = dict(
-            self.hparams.get("feature_widths", config.feature_widths)
-        )
-        self.feature_output_bias = bool(
-            self.hparams.get("feature_output_bias", config.feature_output_bias)
-        )
-        self.output_regularization = float(
-            self.hparams.get("output_regularization", config.output_regularization)
-        )
-        self.l2_regularization = float(
-            self.hparams.get("l2_regularization", config.l2_regularization)
-        )
-        self.regularize_interactions = bool(
-            self.hparams.get(
-                "regularize_interactions", config.regularize_interactions
-            )
-        )
+        self.norm = config.norm
+        self.use_glu = config.use_glu
+        self.skip_connections = config.skip_connections
+        self.batch_norm = config.batch_norm
+        self.layer_norm = config.layer_norm
+        self.dropout = config.dropout
+        self.adaptive_width = config.adaptive_width
+        self.num_basis_functions = int(config.num_basis_functions)
+        self.units_multiplier = int(config.units_multiplier)
+        self.feature_widths = dict(config.feature_widths)
+        self.feature_output_bias = bool(config.feature_output_bias)
+        self.output_regularization = float(config.output_regularization)
+        self.l2_regularization = float(config.l2_regularization)
+        self.regularize_interactions = bool(config.regularize_interactions)
         if self.num_basis_functions < 1 or self.units_multiplier < 1:
-            raise ValueError("num_basis_functions and units_multiplier must be positive.")
+            raise ValueError(
+                "num_basis_functions and units_multiplier must be positive."
+            )
         if self.output_regularization < 0 or self.l2_regularization < 0:
             raise ValueError("Regularization coefficients must be non-negative.")
 
@@ -272,29 +242,16 @@ class NAM(BaseModel):
             **num_outputs,
             **cat_outputs,
         }
-        all_outputs = [main_outputs[name] for _, name in self.feature_order]
-        all_outputs.extend(interaction_outputs.values())
-        concatenated = torch.cat(all_outputs, dim=1)
-        num_features_total = len(all_outputs)
-
-        shaped = concatenated.view(-1, num_features_total, self.num_classes)
-        shaped = apply_feature_dropout(shaped, self.feature_dropout_p, self.training)
-
-        x = shaped.sum(dim=1)  # [batch, num_classes]
-
-        # intercept
-        if self.intercept is not None:
-            x += self.intercept
-
-        # Combine the output tensor with the original feature values
-        result = {"output": x}
-        for _, name in self.feature_order:
-            result[name] = main_outputs[name]
-        result.update(interaction_outputs)
-        if self.intercept is not None:
-            result["intercept"] = self.intercept
+        terms = {name: main_outputs[name] for _, name in self.feature_order}
+        terms.update(interaction_outputs)
+        result = sum_term_outputs(
+            terms, self.intercept, p=self.feature_dropout_p, training=self.training
+        )
+        result["output"]
         if self.output_regularization > 0:
-            regularized_outputs = list(num_outputs.values()) + list(cat_outputs.values())
+            regularized_outputs = list(num_outputs.values()) + list(
+                cat_outputs.values()
+            )
             if self.regularize_interactions:
                 regularized_outputs.extend(interaction_outputs.values())
             if self.training:
@@ -319,9 +276,7 @@ class NAM(BaseModel):
                             cat_features,
                             lambda network, input_features: network(input_features),
                         )
-                        regularized_outputs.extend(
-                            deterministic_interactions.values()
-                        )
+                        regularized_outputs.extend(deterministic_interactions.values())
             result["output_regularizer"] = (
                 self.output_regularization
                 * mean_squared_term_outputs(regularized_outputs)

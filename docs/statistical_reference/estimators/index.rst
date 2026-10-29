@@ -8,6 +8,9 @@ Statistical estimators
 .. toctree::
    :maxdepth: 1
 
+   SurvivalGAM
+   CoxGAM
+   CalibratedQuantileGAM
    GAMRegressor
    GAMClassifier
    GAMLSS

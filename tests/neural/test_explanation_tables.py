@@ -4,11 +4,7 @@ import pandas as pd
 import pytest
 
 from nampy.contracts import AdditivePrediction
-from nampy.explanations import (
-    center_additive_prediction,
-    explain_additive_prediction,
-    term_importance_table,
-)
+from nampy.inspection.contributions import center_additive_prediction, explain_additive_prediction, term_importance_table
 from nampy.plotting import prepared_from_interactions, render_term_plots
 
 
@@ -18,7 +14,6 @@ def _prediction():
     terms = {"x": x, "x:z": x * z}
     link = 0.25 + terms["x"] + terms["x:z"]
     return AdditivePrediction(
-        response=link,
         link=link,
         terms=terms,
         intercept=0.25,
@@ -53,7 +48,6 @@ def test_explanation_table_preserves_arbitrary_order_feature_values():
     )
     contribution = X["x"].to_numpy() * X["z"].to_numpy() * X["w"].to_numpy()
     prediction = AdditivePrediction(
-        response=contribution,
         link=contribution,
         terms={"x:z:w": contribution},
         intercept=0.0,

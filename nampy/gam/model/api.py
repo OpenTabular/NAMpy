@@ -1,6 +1,5 @@
 """User-facing mgcv-aligned GAM model."""
 
-import pickle
 from numbers import Integral
 from pathlib import Path
 
@@ -365,23 +364,17 @@ class GAM:
         restore_gam_pickle_state(self, state)
 
     def save_model(self, path):
-        """Serialize the fitted model and return its destination ``Path``."""
-        destination = Path(path)
-        with destination.open("wb") as handle:
-            pickle.dump(self, handle)
-        return destination
+        """Persist current fitted state through the shared artifact format."""
+        from ...persistence import save_estimator
+        return save_estimator(self, path)
 
     @classmethod
-    def load_model(cls, path, device="cpu"):
-        source = Path(path)
-        with source.open("rb") as handle:
-            loaded = pickle.load(handle)
-        if not isinstance(loaded, cls):
-            raise TypeError(
-                f"{source} contains {type(loaded).__name__}, not {cls.__name__}."
-            )
-        loaded._device = device
-        return loaded
+    def load_model(cls, path):
+        from ...persistence import load_estimator
+        return load_estimator(path, cls)
+
+    def _artifact_state(self):
+        return gam_pickle_state(self)
 
     def get_device(self):
         return self._device
@@ -465,8 +458,14 @@ class GAM:
         min_sp=None,
         knots=None,
         drop_intercept=None,
+        context=None,
     ):
-        """Fit transactionally with fresh solver and mutable-family state."""
+        """Fit transactionally with fresh solver and mutable-family state.
+
+        context supplies explicit row-aligned observation metadata for families
+        that declare it (e.g. {'trials': trials} for betabinomial_lss). It is
+        separate from prior weights. Existing mgcv families reject context.
+        """
         session = FitSession.begin(self)
         session.working_model._fit_in_place(
             X=X,
@@ -480,6 +479,7 @@ class GAM:
             min_sp=min_sp,
             knots=knots,
             drop_intercept=drop_intercept,
+            context=context,
         )
         session.commit_to(self)
         return self
@@ -497,6 +497,7 @@ class GAM:
         min_sp=None,
         knots=None,
         drop_intercept=None,
+        context=None,
     ):
         self._apply_configured_scale()
         formula = self.formula if formula is None else formula
@@ -625,6 +626,14 @@ class GAM:
                     "sample_weight must have the same length as y "
                     f"({len(y_use)}), got {sw_use.shape[0]}."
                 )
+
+        bind_context = getattr(self.family, "bind_fit_context", None)
+        if callable(bind_context):
+            bind_context(context, len(y_use), weights=sw_use)
+        elif context is not None:
+            raise NotImplementedError(
+                f"{self.family.name} does not support explicit observation context."
+            )
 
         from ..compiler.constraint_controls import with_smooth_constraints
 

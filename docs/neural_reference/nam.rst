@@ -15,6 +15,7 @@ Constructor defaults and parameter descriptions below are resolved from the inst
    NAMRegressor <estimators/NAMRegressor>
    NAMClassifier <estimators/NAMClassifier>
    NAMLSS <estimators/NAMLSS>
+   NAMSurvival <estimators/NAMSurvival>
 
 Architecture configuration
 --------------------------
@@ -38,22 +39,6 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - Type / input shape
      - Default
      - Description
-   * - ``lr``
-     - ``float``
-     - ``0.0001``
-     - Learning rate for the optimizer.
-   * - ``lr_patience``
-     - ``int``
-     - ``10``
-     - Number of epochs with no improvement after which learning rate will be reduced.
-   * - ``weight_decay``
-     - ``float``
-     - ``1e-06``
-     - Weight decay (L2 penalty) for the optimizer.
-   * - ``lr_factor``
-     - ``float``
-     - ``0.1``
-     - Factor by which the learning rate will be reduced.
    * - ``layer_sizes``
      - ``Sequence[int]``
      - ``[128, 128, 32]``
@@ -105,7 +90,7 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
    * - ``feature_dropout``
      - ``float``
      - ``0.0``
-     - Dropout probability applied to contribution outputs; masking semantics depend on architecture.
+     - Probability of dropping a whole term per observation, sharing the mask across output columns; disabled during evaluation.
    * - ``adaptive_width``
      - ``bool``
      - ``False``
@@ -158,4 +143,4 @@ Example result
 
 .. raw:: html
 
-   <div class="example-result" aria-label="Example result"><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">components</span><span class="example-result-meta">AdditivePrediction · scalar record</span></summary><div class="example-result-body"><dl class="example-result-fields"><div><dt>backend<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">neural</span></dd></div><div><dt>intercept<span class="example-result-meta">float · scalar</span></dt><dd><span class="example-result-scalar">-0.00033086</span></dd></div></dl><p class="example-result-note">5 additional fields available on the returned object.</p></div></details><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">prediction</span><span class="example-result-meta">ndarray[float32] · 64</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.08445</span><span class="example-result-value">0.09308</span><span class="example-result-value">0.08865</span><span class="example-result-value">0.08655</span><span class="example-result-value">0.08972</span><span class="example-result-value">0.09339</span></div><p class="example-result-note">Showing 6 of 64 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
+   <div class="example-result" aria-label="Example result"><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">components</span><span class="example-result-meta">AdditivePrediction · scalar record</span></summary><div class="example-result-body"><dl class="example-result-fields"><div><dt>backend<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">neural</span></dd></div></dl><p class="example-result-note">6 additional fields available on the returned object.</p></div></details><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">prediction</span><span class="example-result-meta">ndarray[float32] · 64</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.08445</span><span class="example-result-value">0.09308</span><span class="example-result-value">0.08865</span><span class="example-result-value">0.08655</span><span class="example-result-value">0.08972</span><span class="example-result-value">0.09339</span></div><p class="example-result-note">Showing 6 of 64 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>

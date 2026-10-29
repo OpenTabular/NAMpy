@@ -6,7 +6,7 @@ import pytest
 
 from nampy.gam import GAM, gam_control, normalize_nei
 from nampy.gam.fit.selection.criteria import criterion_gradient, criterion_value
-from nampy.gam.observations import ar1_log_determinant_correction
+from nampy.gam.correlation import ar1_log_determinant_correction
 
 
 def _gaussian_data(seed=42, n=36):

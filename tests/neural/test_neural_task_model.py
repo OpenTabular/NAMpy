@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+from nampy.neural.configuration import GradientTrainingConfig
+from nampy.neural.objectives import RegressionObjective
+
+from dataclasses import replace
+from nampy.neural.configuration import GradientTrainingConfig
+from nampy.neural.configuration import PreprocessingConfig
+
 from types import SimpleNamespace
 
 import numpy as np
@@ -9,7 +16,7 @@ import torch
 import torch.nn as nn
 
 from nampy.models.linreg import LinRegRegressor
-from nampy.neural.distributions.distributions import NormalDistribution
+from nampy.neural.families import NormalDistribution
 from nampy.neural.objectives import DistributionObjective
 from nampy.neural.task import TaskModule
 
@@ -40,14 +47,7 @@ def _task_config():
 
 
 def test_task_model_keeps_regression_width_and_reports_unregularized_rmse():
-    task_model = TaskModule(
-        model_class=_PenalizedTwoOutputModel,
-        config=_task_config(),
-        cat_feature_info={},
-        num_feature_info={"x": {"dimension": 1}},
-        num_classes=2,
-        task="regression",
-    )
+    task_model = TaskModule(model_class=_PenalizedTwoOutputModel, config=_task_config(), cat_feature_info={}, num_feature_info={'x': {'dimension': 1}}, objective=RegressionObjective(2), training=GradientTrainingConfig())
     logged = {}
 
     def capture_log(name, value, **kwargs):
@@ -71,14 +71,7 @@ def test_task_model_keeps_regression_width_and_reports_unregularized_rmse():
 
 
 def test_task_model_applies_per_sample_weights_before_penalties():
-    task_model = TaskModule(
-        model_class=_PenalizedTwoOutputModel,
-        config=_task_config(),
-        cat_feature_info={},
-        num_feature_info={"x": {"dimension": 1}},
-        num_classes=1,
-        task="regression",
-    )
+    task_model = TaskModule(model_class=_PenalizedTwoOutputModel, config=_task_config(), cat_feature_info={}, num_feature_info={'x': {'dimension': 1}}, objective=RegressionObjective(1), training=GradientTrainingConfig())
     task_model.log = lambda *args, **kwargs: None
     batch = (
         {},
@@ -94,13 +87,7 @@ def test_task_model_applies_per_sample_weights_before_penalties():
 
 def test_distribution_objective_applies_per_sample_weights():
     family = NormalDistribution()
-    task_model = TaskModule(
-        model_class=_PenalizedTwoOutputModel,
-        config=_task_config(),
-        cat_feature_info={},
-        num_feature_info={"x": {"dimension": 1}},
-        objective=DistributionObjective(family),
-    )
+    task_model = TaskModule(model_class=_PenalizedTwoOutputModel, config=_task_config(), cat_feature_info={}, num_feature_info={'x': {'dimension': 1}}, objective=DistributionObjective(family), training=GradientTrainingConfig())
     predictions = torch.zeros((2, 2))
     targets = torch.tensor([[0.0], [2.0]])
     weights = torch.tensor([[1.0], [3.0]])
@@ -113,19 +100,7 @@ def test_distribution_objective_applies_per_sample_weights():
 
 
 def test_task_model_supports_generic_optimizer_and_step_scheduler():
-    task_model = TaskModule(
-        model_class=_PenalizedTwoOutputModel,
-        config=_task_config(),
-        cat_feature_info={},
-        num_feature_info={"x": {"dimension": 1}},
-        num_classes=2,
-        task="regression",
-        optimizer="adamw",
-        optimizer_kwargs={"amsgrad": True},
-        lr_warmup_steps=4,
-        lr_decay_steps=10,
-        lr_decay_factor=0.5,
-    )
+    task_model = TaskModule(model_class=_PenalizedTwoOutputModel, config=_task_config(), cat_feature_info={}, num_feature_info={'x': {'dimension': 1}}, objective=RegressionObjective(2), training=GradientTrainingConfig(optimizer='adamw', optimizer_kwargs={'amsgrad': True}, lr_warmup_steps=4, lr_decay_steps=10, lr_decay_factor=0.5))
     # The tiny test model has no parameters, so add one solely to exercise
     # optimizer construction without changing the model contract above.
     task_model.test_parameter = nn.Parameter(torch.ones(()))
@@ -140,15 +115,7 @@ def test_task_model_supports_generic_optimizer_and_step_scheduler():
 
 
 def test_task_model_supports_upstream_inverse_sqrt_epoch_schedule():
-    task_model = TaskModule(
-        model_class=_PenalizedTwoOutputModel,
-        config=_task_config(),
-        cat_feature_info={},
-        num_feature_info={"x": {"dimension": 1}},
-        num_classes=1,
-        task="regression",
-        lr_schedule="inverse_sqrt",
-    )
+    task_model = TaskModule(model_class=_PenalizedTwoOutputModel, config=_task_config(), cat_feature_info={}, num_feature_info={'x': {'dimension': 1}}, objective=RegressionObjective(1), training=GradientTrainingConfig(lr_schedule='inverse_sqrt'))
     task_model.test_parameter = nn.Parameter(torch.ones(()))
     configured = task_model.configure_optimizers()
     scheduler = configured["lr_scheduler"]
@@ -157,17 +124,7 @@ def test_task_model_supports_upstream_inverse_sqrt_epoch_schedule():
 
 
 def test_task_model_supports_warmup_cosine_step_schedule():
-    task_model = TaskModule(
-        model_class=_PenalizedTwoOutputModel,
-        config=_task_config(),
-        cat_feature_info={},
-        num_feature_info={"x": {"dimension": 1}},
-        num_classes=1,
-        task="regression",
-        lr_schedule="warmup_cosine",
-        lr_warmup_steps=2,
-        lr_decay_steps=6,
-    )
+    task_model = TaskModule(model_class=_PenalizedTwoOutputModel, config=_task_config(), cat_feature_info={}, num_feature_info={'x': {'dimension': 1}}, objective=RegressionObjective(1), training=GradientTrainingConfig(lr_schedule='warmup_cosine', lr_warmup_steps=2, lr_decay_steps=6))
     task_model.test_parameter = nn.Parameter(torch.ones(()))
     configured = task_model.configure_optimizers()
     scheduler = configured["lr_scheduler"]
@@ -184,23 +141,13 @@ def test_linreg_regressor_fits_and_predicts_multiple_targets(tmp_path):
     x = np.linspace(-1.0, 1.0, 40)
     data = pd.DataFrame({"x": x, "z": np.cos(x)})
     targets = np.column_stack((2.0 * x + 0.5, -x + 0.25 * np.cos(x)))
-    estimator = LinRegRegressor(numerical_preprocessing="standardization")
+    estimator = LinRegRegressor(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
 
-    fitted = estimator.fit(
-        data,
-        targets,
-        max_epochs=1,
-        batch_size=10,
-        checkpoint_path=tmp_path,
-        logger=False,
-        enable_progress_bar=False,
-        enable_model_summary=False,
-        num_sanity_val_steps=0,
-    )
+    fitted = estimator.set_params(training=replace(estimator.training or GradientTrainingConfig(), max_epochs=1, batch_size=10, checkpoint_path=tmp_path, trainer_kwargs={'logger': False, 'enable_progress_bar': False, 'enable_model_summary': False, 'num_sanity_val_steps': 0})).fit(data, targets)
     predictions = fitted.predict(data)
 
     assert fitted is estimator
-    assert fitted.model.task_kind == "regression"
-    assert fitted.model.output_dim == 2
+    assert fitted.model.objective.kind == "regression"
+    assert fitted.model.objective.output_dim == 2
     assert predictions.shape == targets.shape
     assert np.isfinite(predictions).all()

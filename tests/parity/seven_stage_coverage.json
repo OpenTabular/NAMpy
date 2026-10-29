@@ -140,6 +140,15 @@
       "gevlss",
       "shash",
       "twlss"
+    ],
+    "gamlss_extensions": [
+      "lognormal_lss",
+      "weibull_lss",
+      "betabinomial_lss",
+      "beinf_lss",
+      "zaga_lss",
+      "bccg_lss",
+      "normal_observation_lss"
     ]
   },
   "invariants": [
@@ -169,13 +178,47 @@
     "SCAM native lipl standard-error prediction has a dimension error. Its R constructor and fitted covariance supply the identified prediction operator for this case.",
     "student_lss, beta_lss and nb_lss have no equivalent smoothly varying two-parameter mgcv family. Independent SciPy penalized likelihood, information and criteria checks supplement existing R gamlss.dist density/MLE and torch fourth-order derivative tests.",
     "Undefined quasi likelihood/AIC/BIC must stay undefined, not receive synthetic finite comparisons.",
-    "mgcv leaves Vc in fit coordinates when a setup transformation G$P is present. The source probe applies G$P before evaluating its unconditional prediction kernel."
+    "mgcv leaves Vc in fit coordinates when a setup transformation G$P is present. The source probe applies G$P before evaluating its unconditional prediction kernel.",
+    "Additional GAMLSS families are assigned to their dedicated extension suites and shared compiler/adapter contracts. These are GAMLSS probability/likelihood and independent numerical checks, not claims of equivalent mgcv families; unsupported derivative, fitting and smoothing routes remain explicitly tested."
   ],
   "test_modules": [
     "tests/parity/test_registered_smooth_seven_stage_pipeline.py",
     "tests/parity/test_recent_family_seven_stage_pipeline.py",
     "tests/parity/test_gam_seven_stage_pipeline_contracts.py",
     "tests/parity/test_remaining_family_pipeline_contracts.py",
-    "tests/extensions/test_distributional.py"
-  ]
+    "tests/extensions/test_distributional.py",
+    "tests/extensions/test_positive_lss.py",
+    "tests/extensions/test_betabinomial_lss.py",
+    "tests/extensions/test_inflated_beta.py",
+    "tests/extensions/test_zero_adjusted_gamma.py",
+    "tests/extensions/test_bccg_fitting.py",
+    "tests/extensions/test_bccg_smoothing.py",
+    "tests/extensions/test_bccg_derivatives.py",
+    "tests/extensions/test_normal_observations.py"
+  ],
+  "extension_family_test_modules": {
+    "lognormal_lss": [
+      "tests/extensions/test_positive_lss.py"
+    ],
+    "weibull_lss": [
+      "tests/extensions/test_positive_lss.py"
+    ],
+    "betabinomial_lss": [
+      "tests/extensions/test_betabinomial_lss.py"
+    ],
+    "beinf_lss": [
+      "tests/extensions/test_inflated_beta.py"
+    ],
+    "zaga_lss": [
+      "tests/extensions/test_zero_adjusted_gamma.py"
+    ],
+    "bccg_lss": [
+      "tests/extensions/test_bccg_fitting.py",
+      "tests/extensions/test_bccg_smoothing.py",
+      "tests/extensions/test_bccg_derivatives.py"
+    ],
+    "normal_observation_lss": [
+      "tests/extensions/test_normal_observations.py"
+    ]
+  }
 }

@@ -25,11 +25,13 @@ class NAMpyDataset(Dataset):
         num_keys=None,
         offsets=None,
         sample_weights=None,
+        target_dtype=torch.float32,
     ):
         self.cat_features_list = cat_features_list  # Categorical features tensors
         self.num_features_list = num_features_list  # Numerical features tensors
 
         self.regression = regression
+        self.target_dtype = target_dtype
         self.cat_keys = cat_keys
         self.num_keys = num_keys
         # Per-sample additive offsets on the prediction scale ([N, 1] float32
@@ -77,7 +79,7 @@ class NAMpyDataset(Dataset):
 
         label = self.labels[idx]
         if self.regression:
-            label = label.clone().detach().to(torch.float32)
+            label = label.clone().detach().to(self.target_dtype)
         elif self.num_classes == 1:
             label = label.clone().detach().to(torch.float32)
         else:

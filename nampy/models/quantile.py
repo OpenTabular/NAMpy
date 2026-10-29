@@ -1,6 +1,6 @@
 """Public additive quantile estimator."""
 
-from nampy.gam.extensions.objectives import _pinball_loss, fit_quantile
+from nampy.gam.losses.objectives import _pinball_loss, fit_quantile
 
 from ._loss_gam import _LossGAMBase
 

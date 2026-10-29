@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ..coefficients import IdentityCoefficientTransform
-from ..observations import IdentityObservationTransform
+from ..correlation import IdentityObservationTransform
 
 
 def coefficient_transform(model):
@@ -156,3 +156,17 @@ def coerce_general_family_smoothing_method(model, method, optimizer=None):
     if family_class == "general" and (method != "reml" or optimizer == "efs"):
         return "reml"
     return method
+
+
+def validate_family_smoothing_optimizer(family, optimizer):
+    """Apply explicit family route declarations after optimizer resolution.
+
+    Families without a restriction retain the existing mgcv route dispatch.
+    Likelihood derivative availability alone does not validate every optimizer.
+    """
+    supported = getattr(family, "supported_smoothing_optimizers", None)
+    if supported is not None and optimizer not in supported:
+        raise NotImplementedError(
+            f"{family.name} has no validated smoothing route for optimizer={optimizer!r}; "
+            f"supported smoothing optimizers are {sorted(supported)}."
+        )

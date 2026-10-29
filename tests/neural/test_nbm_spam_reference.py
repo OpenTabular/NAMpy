@@ -13,6 +13,7 @@ import pytest
 import torch
 
 from nampy.models.nbm import NBMRegressor
+from nampy.neural.architectures.components.normalization import BatchNorm
 from nampy.neural.architectures.nbm import NBM
 from nampy.neural.architectures.nbm_spam import NBMSPAM
 from nampy.neural.architectures.spam import SPAM
@@ -143,10 +144,27 @@ def test_nbm_defaults_use_published_pretab_block_contract():
     assert config.sparse is False
 
     estimator = NBMRegressor()
-    params = estimator.get_params(deep=False)
+    params = estimator.preprocessing.parameters
     assert params["numerical_preprocessing"] == "none"
     assert params["categorical_preprocessing"] == "one-hot"
     assert params["scaling_strategy"] == "minmax"
+
+
+def test_nbm_batch_norm_running_state_does_not_retain_batch_graphs():
+    normalization = BatchNorm(3)
+    running_mean = normalization.running_mean
+    running_var = normalization.running_var
+
+    for step in range(5):
+        values = torch.arange(12, dtype=torch.float32).reshape(4, 3)
+        values = (values + step).requires_grad_()
+        normalization(values).square().mean().backward()
+
+        assert normalization.running_mean is running_mean
+        assert normalization.running_var is running_var
+        assert normalization.running_mean.grad_fn is None
+        assert normalization.running_var.grad_fn is None
+        assert values.grad is not None
 
 
 def test_nbm_flattens_published_pretab_grouped_blocks_to_atomic_concepts():
@@ -592,7 +610,7 @@ def test_nbm_spam_hybrid_matches_upstream_block_assembly():
 
 
 def test_nbm_spam_rejects_preexpanded_nary_terms():
-    with pytest.raises(ValueError, match="unary NBM terms"):
+    with pytest.raises(TypeError, match="unexpected keyword"):
         NBMSPAM(
             {},
             _info(3),

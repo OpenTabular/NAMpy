@@ -1,6 +1,6 @@
 """Public additive expectile estimator."""
 
-from nampy.gam.extensions.objectives import _expectile_loss, fit_expectile
+from nampy.gam.losses.objectives import _expectile_loss, fit_expectile
 
 from ._loss_gam import _LossGAMBase
 

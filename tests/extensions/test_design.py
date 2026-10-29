@@ -15,7 +15,7 @@ from nampy.gam import GAM, compile_design
 
 
 def test_compiled_design_fit_newdata_penalty_and_edf_match_live_r_snapshot():
-    from nampy.gam.extensions import joint_edf
+    from nampy.gam.inference.functionals import joint_edf
 
     fixture = json.loads(
         (

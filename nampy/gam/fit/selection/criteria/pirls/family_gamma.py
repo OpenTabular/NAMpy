@@ -79,7 +79,7 @@ def _gamma_joint_kernel_state(model, y, log_sp, method, *, phi):
         method=method,
         rank_tol=_MGCV_GAM_FIT4_RANK_TOL,
     )
-    Dp = float(sol["deviance"]) + float(kernel.bSb)
+    Dp = float(sol.fit_result.deviance) + float(kernel.bSb)
     Dp1 = np.asarray(kernel.D1 + kernel.bSb1, dtype=np.float64)
     Dp2 = np.asarray(kernel.D2 + kernel.bSb2, dtype=np.float64)
     mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
@@ -97,7 +97,7 @@ def _gamma_joint_kernel_state(model, y, log_sp, method, *, phi):
         "K2": kernel.K2,
         "phi": float(phi),
         "phi_curv": phi_curv,
-        "scale_est": float(sol["scale"]),
+        "scale_est": float(sol.fit_result.scale),
         "Dp": Dp,
         "Dp1": Dp1,
         "Dp2": Dp2,
@@ -199,15 +199,8 @@ def gdi2_gamma_joint_kernel(model, y, sol, sp, *, method, need_hessian):
         rank_tol=_MGCV_GAM_FIT4_RANK_TOL,
     )
     mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
-    Dp = float(sol["deviance"]) + float(gdi1.bSb)
-    phi = _solve_gamma_profile_scale(
-        model,
-        y,
-        Dp,
-        mp,
-        method=method,
-        init_scale=float(sol["scale"]),
-    )
+    Dp = float(sol.fit_result.deviance) + float(gdi1.bSb)
+    phi = _solve_gamma_profile_scale(model, y, Dp, mp, method=method, init_scale=float(sol.fit_result.scale))
     if not np.isfinite(phi) or phi <= 0.0:
         raise RuntimeError(
             "Gamma exact PIRLS derivatives require positive profile scale."
@@ -274,11 +267,11 @@ def criterion_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, method):
     try:
         if use_exact_logdet:
             kernel = _gdi1_kernel(model, y, sol, sp, method=method)
-            Dp = float(sol["deviance"]) + float(kernel.bSb)
+            Dp = float(sol.fit_result.deviance) + float(kernel.bSb)
             det_term = float(kernel.K)
         else:
-            penalty_quad = float(sol["penalty_quadratic"] or 0.0)
-            Dp = float(sol["deviance"]) + penalty_quad
+            penalty_quad = float(sol.fit_result.penalty_quadratic or 0.0)
+            Dp = float(sol.fit_result.deviance) + penalty_quad
             det_term = (
                 _pirls_tensor_coefficient_space_logdet_term(model, y, sol, sp, method)
                 if model._has_tensor_terms()

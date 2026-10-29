@@ -41,6 +41,7 @@ class NeuralArchitecture:
             "regression",
             "classification",
             "distributional",
+            "survival",
             "additive_components",
             "interactions",
             "masked_pretraining",
@@ -140,8 +141,8 @@ _WITH_INTERACTIONS = _STANDARD | {"interactions"}
 
 def _register_builtins() -> None:
     definitions = (
-        ("linreg", "LinReg", "LinReg", "DefaultLinRegConfig", _STANDARD),
-        ("nam", "NAM", "NAM", "DefaultNAMConfig", _WITH_INTERACTIONS),
+        ("linreg", "LinReg", "LinReg", "DefaultLinRegConfig", _STANDARD | {"survival"}),
+        ("nam", "NAM", "NAM", "DefaultNAMConfig", _WITH_INTERACTIONS | {"survival"}),
         (
             "sian",
             "SIAN",
@@ -150,6 +151,8 @@ def _register_builtins() -> None:
             _WITH_INTERACTIONS | {"interaction_selection"},
         ),
         ("snam", "SNAM", "SNAM", "DefaultSNAMConfig", _WITH_INTERACTIONS),
+        ("semistructured", "SemiStructured", "SemiStructured", "DefaultSemiStructuredConfig",
+         frozenset({"regression","classification","distributional","additive_components","native_training"})),
         (
             "gpnam",
             "GPNAM",
@@ -232,7 +235,7 @@ def _register_builtins() -> None:
         ),
     )
     for name, estimator_prefix, module_name, config_name, capabilities in definitions:
-        kwargs = {}
+        kwargs: dict[str, Any] = {}
         if name == "nam":
             kwargs = {
                 "preprocessor_defaults": {
@@ -245,6 +248,11 @@ def _register_builtins() -> None:
                     "categorical": "one-hot columns stay grouped by source feature",
                 },
             }
+        elif name == "semistructured":
+            kwargs = {"preprocessor_defaults":{
+                "numerical_preprocessing":"none","categorical_preprocessing":"one-hot"},
+                "input_requirements":{"numerical":"scalar numerical blocks; fitted structured formula plus joint neural representation",
+                                      "categorical":"fitted one-hot blocks; unknown categories rejected"}}
         elif name == "qnam":
             kwargs = {
                 "default_family": "quantile",

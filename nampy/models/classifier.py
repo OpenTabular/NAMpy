@@ -1,14 +1,13 @@
 # classifier.py
-import warnings
 
 import numpy as np
-import torch
 from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils import ClassifierTags
 
 from ..contracts import AdditivePrediction
 from ..neural.objectives import classification_objective
+from ..neural.prediction import split_output_components
 from ..neural.training import TrainingPlan
 from ._neural import NeuralEstimatorBase
 
@@ -18,21 +17,26 @@ class NeuralClassifier(NeuralEstimatorBase):
 
     _estimator_type = "classifier"
 
-    def __init__(self, model, config, **kwargs):
-        requested_task = kwargs.get("task")
-        kwargs.setdefault("task", "classification")
-        self._initialize_estimator_parameters(config, kwargs)
+    def __init__(
+        self,
+        model,
+        config_class,
+        *,
+        architecture_config=None,
+        objective=None,
+        training=None,
+        preprocessing=None,
+    ):
+        self._initialize_estimator_parameters(
+            config_class,
+            architecture_config=architecture_config,
+            objective=objective,
+            training=training,
+            preprocessing=preprocessing,
+        )
+        self.base_model = model
         self.model = None
         self.data_module = None
-
-        if requested_task == "regression":
-            warnings.warn(
-                "The task is set to 'regression'. The Classifier is designed for classification tasks.",
-                UserWarning,
-                stacklevel=2,
-            )
-
-        self.base_model = model
 
     def __sklearn_tags__(self):
         tags = super().__sklearn_tags__()
@@ -42,10 +46,8 @@ class NeuralClassifier(NeuralEstimatorBase):
         return tags
 
     def _build_training_plan(self, y, y_val):
-        if getattr(self, "_fit_loss_fct", None) is not None:
-            raise ValueError(
-                "Custom loss_fct is only supported for regression tasks."
-            )
+        if self.objective.loss_fct is not None:
+            raise ValueError("Custom loss_fct is only supported for regression tasks.")
         y = np.asarray(y).ravel()
         self._label_encoder = LabelEncoder().fit(y)
         self.classes_ = self._label_encoder.classes_
@@ -67,12 +69,12 @@ class NeuralClassifier(NeuralEstimatorBase):
         )
         return y_encoded, y_val_encoded, plan
 
-    def predict(self, X, *, batch_size=None):
-        probabilities = self.predict_proba(X, batch_size=batch_size)
+    def predict(self, X, *, batch_size=None, offset=None):
+        probabilities = self.predict_proba(X, batch_size=batch_size, offset=offset)
         indices = np.argmax(probabilities, axis=1)
         return self.classes_[indices]
 
-    def predict_proba(self, X, *, batch_size=None):
+    def predict_proba(self, X, *, batch_size=None, offset=None):
         """
         Predict class probabilities for the given input samples.
 
@@ -86,13 +88,15 @@ class NeuralClassifier(NeuralEstimatorBase):
         probabilities : ndarray of shape (n_samples, n_classes)
             Predicted class probabilities; columns follow ``self.classes_``.
         """
-        output = self._predict(X, batch_size=batch_size)["output"]
+        output = self._predict(X, batch_size=batch_size, offset=offset)["output"]
         return self.model.objective.transform(output).cpu().numpy()
 
-    def score(self, X, y, sample_weight=None):
+    def score(self, X, y, sample_weight=None, *, offset=None):
         """Return the mean accuracy on the given test data and labels."""
         return float(
-            accuracy_score(y, self.predict(X), sample_weight=sample_weight)
+            accuracy_score(
+                y, self.predict(X, offset=offset), sample_weight=sample_weight
+            )
         )
 
     def predict_components(
@@ -102,24 +106,20 @@ class NeuralClassifier(NeuralEstimatorBase):
         center: bool = False,
         reference_X=None,
         reference_weight=None,
+        reference_offset=None,
         batch_size=None,
+        offset=None,
     ) -> AdditivePrediction:
         """Return per-term logit-scale contributions (binary tasks only)."""
-        pred_dict = self._predict(X, batch_size=batch_size)
+        pred_dict = self._predict(X, batch_size=batch_size, offset=offset)
         output = pred_dict["output"]
-        if output.shape[1] != 1:
-            raise NotImplementedError(
-                "predict_components supports binary classifiers only; "
-                "multiclass outputs have one logit column per class."
-            )
-        link = output.squeeze(-1).cpu().numpy()
-        response = torch.sigmoid(output).squeeze(-1).cpu().numpy()
-        terms, intercept = self._split_output_components(pred_dict)
+        link = output.cpu().numpy()
+        terms, intercept = split_output_components(pred_dict)
         prediction = AdditivePrediction(
-            response=response,
             link=link,
             terms=terms,
             intercept=intercept,
+            offset=0.0 if offset is None else offset,
             backend="neural",
         )
         return self._maybe_center_components(
@@ -127,6 +127,7 @@ class NeuralClassifier(NeuralEstimatorBase):
             center=center,
             reference_X=reference_X,
             reference_weight=reference_weight,
+            reference_offset=reference_offset,
         )
 
     def _plot_series_labels(self, n_series: int):

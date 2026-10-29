@@ -41,7 +41,7 @@ def _gaussian_joint_kernel_state(model, y, log_sp, method, *, phi):
             ls *= n_true / nobs
 
     state = {
-        "Dp": float(sol["deviance"]) + float(kernel.bSb),
+        "Dp": float(sol.fit_result.deviance) + float(kernel.bSb),
         "Dp1": np.asarray(kernel.D1 + kernel.bSb1, dtype=np.float64),
         "Dp2": np.asarray(kernel.D2 + kernel.bSb2, dtype=np.float64),
         "K1": np.asarray(kernel.K1, dtype=np.float64),
@@ -133,7 +133,7 @@ def gdi2_gaussian_joint_kernel(model, y, sol, sp, *, method, need_hessian):
     )
     gamma = float(model.score_gamma)
     mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
-    Dp = float(sol["deviance"]) + float(gdi1.bSb)
+    Dp = float(sol.fit_result.deviance) + float(gdi1.bSb)
     nobs = float(len(np.asarray(y)))
     n_eff = nobs
     n_true = getattr(model, "n_true_", None)
@@ -209,7 +209,7 @@ def criterion_ml_reml_pirls_gaussian_joint(model, y, log_sp, log_phi, method):
         if np.isfinite(n_true) and n_true > 0.0 and nobs > 0.0:
             ls *= n_true / nobs
 
-    dp = float(sol["deviance"]) + float(kernel.bSb)
+    dp = float(sol.fit_result.deviance) + float(kernel.bSb)
     mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     reml_ind = 1.0 if method == "REML" else 0.0
     objective = (dp / (2.0 * phi) - float(ls[0])) / gamma + float(kernel.K)

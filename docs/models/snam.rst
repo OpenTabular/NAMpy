@@ -26,6 +26,10 @@ Fit and inspect
 
 .. code-block:: python
 
+
+   from dataclasses import replace
+   from nampy.neural.configs.snam_config import DefaultSNAMConfig
+   from nampy.neural.configuration import GradientTrainingConfig
    import numpy as np
    import pandas as pd
    from sklearn.model_selection import train_test_split
@@ -37,12 +41,7 @@ Fit and inspect
 
    from nampy.models import SNAMRegressor
 
-   model = SNAMRegressor(
-       layer_sizes=[16],
-       group_lasso_lambda=1e-3,
-       group_lasso_include_interactions=True,
-       interaction_degree=2,
-   ).fit(X_train, y_train, max_epochs=20, random_state=7)
+   model = SNAMRegressor(architecture_config=DefaultSNAMConfig(layer_sizes=[16], group_lasso_lambda=0.001, group_lasso_include_interactions=True, interaction_degree=2)).set_params(training=replace(SNAMRegressor(architecture_config=DefaultSNAMConfig(layer_sizes=[16], group_lasso_lambda=0.001, group_lasso_include_interactions=True, interaction_degree=2)).training or GradientTrainingConfig(), max_epochs=20, random_state=7)).fit(X_train, y_train)
 
    components = model.predict_components(X_test, center=True)
    group_norms = model.group_norms()

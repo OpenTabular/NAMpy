@@ -6,6 +6,14 @@ from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
 _EXPORT_MODULES = {
+    "SurvivalGAM": ".survival",
+    "CoxGAM": ".cox",
+    "CalibratedQuantileGAM": ".calibrated_quantile",
+    "SemiStructuredRegressor": ".semistructured",
+    "SemiStructuredLSS": ".semistructured",
+    "SemiStructuredClassifier": ".semistructured",
+    "NAMSurvival": ".nam",
+    "LinRegSurvival": ".linreg",
     "GAMRegressor": ".gam",
     "GAMClassifier": ".gam",
     "GAMLSS": ".gamlss",

@@ -5,6 +5,69 @@ from inspect import cleandoc
 from reference_theory import block
 
 FAMILIES = {
+    "normal_observation_lss": block(
+        "Normal location-scale predictions may be conditioned on fixed truncation bounds. ObservationTarget separately records exact, left/right-censored and interval observations.",
+        r"\ell=\log f_N(y)-\log Z\text{ (exact)},\quad\ell=\log\{F_N(b)-F_N(a)\}-\log Z\text{ (censored)}.",
+        "Truncation changes the response law; censoring changes the observed likelihood. Statistical fitting uses the existing joint adapter and analytic fourth-order derivatives. Neural fitting uses a differentiable normalized loss. Bounds are observation metadata, not weights. Source-specific mgcv cnorm behavior is unchanged. Variable truncation bounds and discrete/mixed observation compositions are unsupported.",
+    ),
+    "bct_lss": block(
+        "BCT models positive responses through a Box-Cox transformation with a normalized Student-t latent law. Four predictors describe mu, sigma, power nu and Student degrees of freedom tau; mu is not generally the response mean.",
+        r"\eta=(\log\mu,\log\sigma,\nu,\log\tau),\quad f_Y(y)=f_{t_\tau}(z)\frac{(y/\mu)^\nu}{\sigma y F_{t_\tau}(1/(\sigma|\nu|))}.",
+        "The Jacobian and support probability are both fitted. The Student law is retained above the upstream density-only Gaussian-switch threshold. Statistical fitting uses the existing joint solver with exact first and second observed derivatives and fixed smoothing. Automatic smoothing is guarded until higher derivatives are validated. Neural normalizer gradients use checked vector CPU quadrature and support first-order autograd. At nu=0, BCT requires tau greater than the requested derivative order. Response moments may diverge and are checked separately by the prediction law.",
+    ),
+    "bcpe_lss": block(
+        "BCPE replaces the Box-Cox Gaussian latent law with a variance-one power exponential. Four predictors describe mu, sigma, power nu and shape tau. Shape two is BCCG; larger shapes have lighter latent tails.",
+        r"\eta=(\log\mu,\log\sigma,\nu,\log\tau),\quad f_{PE}(z)=\frac{\tau e^{-(|z|/\alpha)^\tau}}{2\alpha\Gamma(1/\tau)},\quad\alpha^2=\frac{\Gamma(1/\tau)}{\Gamma(3/\tau)}.",
+        "The response likelihood includes the transformation Jacobian and positive-support normalizer. Statistical fitting uses the existing joint solver with exact gradient and Hessian and fixed smoothing. Automatic smoothing is guarded. Varying shape need not admit a Hessian at y=mu, so that statistical surface is explicit. Neural fitting allows the first derivative there only for tau>1. Neural support-normalizer scores use checked vector CPU quadrature; higher autograd derivatives are unsupported. Mu need not equal the response mean, and existence-checked moments remain prediction operations.",
+    ),
+    "bccg_lss": block(
+        """Box-Cox Cole-Green regression models positive responses with three
+        predictors for mu, sigma and a real transformation power nu. Mu is
+        generally neither the response mean nor its exact median.""",
+        r"\eta_\mu=\log\mu,\quad\eta_\sigma=\log\sigma,\quad\eta_\nu=\nu.",
+        """The response Jacobian and positive-support normalizer are both
+        part of the likelihood. At nu=0 the response is lognormal; analytic
+        removable limits retain its power score and mixed curvature. Fixed
+        smoothing uses the existing joint mgcv-style solver with observed
+        second derivatives and exact higher derivatives for validated joint REML. Neural fitting uses the normalized density. Negative powers can give divergent response moments;
+        natural-parameter standard errors do not assert that response moments
+        exist. This family is distinct from the censored mgcv bcg family.""",
+    ),
+    "beinf_lss": block(
+        """Inflated beta regression models exact zeros and ones separately
+        from continuous proportions inside the unit interval. Mu and phi
+        describe the interior component, not the whole-response mean.""",
+        r"(\pi_0,\pi_1,\pi_I)=\frac{(e^{\eta_0},e^{\eta_1},1)}{1+e^{\eta_0}+e^{\eta_1}},\qquad E[Y]=\pi_1+\pi_I\mu.",
+        """Both atom probabilities depend on both atom predictors. Their
+        errors therefore need cross-predictor covariance. The interior
+        category is the reference: it has a derived probability and no independent fifth predictor.
+        Fitting requires observations from every component and distinct
+        interior responses. Absent components have no validated finite statistical fit; normalized probability queries allow boundary weights.""",
+    ),
+    "zaga_lss": block(
+        """Zero-adjusted Gamma regression separates exact zeros from positive
+        continuous outcomes. The Gamma component cannot generate zeros, so
+        the atom probability is identifiable from the zero indicator.""",
+        r"P(Y=0)=\pi_0,\qquad Y\mid Y>0\sim\mathrm{Gamma}(\sigma^{-2},\mathrm{scale}=\mu\sigma^2).",
+        """Mu is the positive-component mean and sigma its coefficient of
+        variation. Whole-response means combine both mechanisms. Fitting uses
+        log/log/logit predictors and requires observed zeros plus distinct
+        positive responses. Absent components have no finite-logit fit here.
+        Fixed smoothing and validated joint REML routes are supported;
+        this does not imply gamlss RS/backfitting parity or parity of optimization paths. Neural fitting uses the normalized likelihood.""",
+    ),
+    "betabinomial_lss": block(
+        """Beta-binomial regression mixes binomial success probabilities with
+        a beta law. It describes counts with a known denominator and additional
+        variation relative to a binomial model.""",
+        r"P\sim\mathrm{Beta}(\mu\kappa,(1-\mu)\kappa),\qquad Y\mid P,m\sim\mathrm{Binomial}(m,P).",
+        """Mu is a success probability; the response mean is trials times mu.
+        Kappa is precision, so increasing it approaches the binomial law.
+        Trials are observation context and remain separate from frequency
+        weights. With a single trial the law is Bernoulli regardless of kappa,
+        making dispersion unidentified. Fixed smoothing and joint REML with
+        Newton, BFGS and EFS are validated; neural fitting supports an explicitly fixed trial count >=2.""",
+    ),
     "normal": block(
         """A Gaussian model describes symmetric variation around a conditional
         location. Its negative log density separates standardized squared error
@@ -266,7 +329,24 @@ FAMILIES = {
     ),
 }
 
+for _name, _description in (
+    ("lognormal", "lognormal log-location and log standard deviation"),
+    ("weibull", "positive Weibull scale and shape"),
+):
+    FAMILIES[_name + "_observation_lss"] = block(
+        f"Explicit observation targets compose {_description} with exact, left/right-censored and interval observations and optional fixed truncation. The natural parameters describe the latent law.",
+        r"Z=F(U)-F(L),\quad\ell=\log f(y)-\log Z\text{ (exact)},\quad\ell=\log\{F(b)-F(a)\}-\log Z\text{ (censored)}.",
+        "Truncation conditions the prediction law; censoring records which interval was observed. ObservationTarget is separate from weights and predictors. Statistical likelihood derivatives through order four support fixed and validated Newton/BFGS REML fitting; neural losses are differentiable. The default point summary is the conditional median. Generic conditional means and variances are unsupported for these laws. Variable truncation bounds and discrete/mixed compositions are unsupported.",
+    )
+
 ALIASES = {
+    "bct": "bct_lss", "bcpe": "bcpe_lss",
+    "lognormal_observation": "lognormal_observation_lss",
+    "weibull_observation": "weibull_observation_lss",
+    "bccg":"bccg_lss", "beinf":"beinf_lss", "zaga":"zaga_lss",
+    "betabinomial":"betabinomial_lss", "normal_observation":"normal_observation_lss",
+    "lognormal_lss": "lognormal",
+    "weibull_lss": "weibull",
     "gaussian": "normal",
     "gaulss": "normal",
     "gammals": "gamma",

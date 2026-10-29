@@ -1,5 +1,13 @@
 """Regression coverage for user-visible decomposition and extension contracts."""
 
+from dataclasses import replace
+from nampy.neural.configuration import ObjectiveConfig
+from nampy.neural.configs.namformer_config import DefaultNAMformerConfig
+from nampy.neural.configs.nam_config import DefaultNAMConfig
+from nampy.neural.configs.snam_config import DefaultSNAMConfig
+from nampy.neural.configuration import GradientTrainingConfig
+from nampy.neural.configuration import PreprocessingConfig
+
 import re
 from pathlib import Path
 
@@ -9,11 +17,7 @@ import pytest
 import torch
 
 from nampy.contracts import AdditivePrediction, AdditiveTermMetadata
-from nampy.explanations import (
-    center_additive_prediction,
-    explain_additive_prediction,
-    term_importance_table,
-)
+from nampy.inspection.contributions import center_additive_prediction, explain_additive_prediction, term_importance_table
 from nampy.models import GAMLSS
 from nampy.neural.architectures.namformer import NAMformer
 
@@ -25,12 +29,9 @@ def test_namformer_reports_complete_global_contribution(outputs, explicit):
         {},
         {"x": {"dimension": 1}, "z": {"dimension": 1}},
         num_classes=outputs,
-        d_model=8,
-        n_heads=2,
-        n_layers=1,
-        head_layer_sizes=[8],
-        interactions=[("x", "z")] if explicit else None,
-        feature_dropout=0.0,
+        config=DefaultNAMformerConfig(d_model=8, n_heads=2, n_layers=1,
+            head_layer_sizes=[8], interactions=[("x", "z")] if explicit else None,
+            feature_dropout=0.0),
     )
     model.eval()
     inputs = {"x": torch.randn(5, 1), "z": torch.randn(5, 1)}
@@ -71,7 +72,6 @@ def test_parameter_identity_is_not_an_interaction():
 def test_global_term_is_not_presented_as_a_marginal_curve():
     values = np.arange(6.0)
     parts = AdditivePrediction(
-        values,
         values,
         {"global_transformer": values},
         0.0,
@@ -156,16 +156,8 @@ def test_lss_evaluation_accepts_pandas_targets(tmp_path):
 
     X = pd.DataFrame({"x": np.linspace(-1, 1, 40)})
     y = pd.Series(X.x.to_numpy() + 0.1 * np.sin(5 * X.x.to_numpy()))
-    model = NAMLSS(layer_sizes=[4], dropout=0.0, numerical_preprocessing="minmax")
-    model.fit(
-        X,
-        y,
-        max_epochs=2,
-        logger=False,
-        enable_progress_bar=False,
-        enable_model_summary=False,
-        checkpoint_path=tmp_path,
-    )
+    model = NAMLSS(architecture_config=DefaultNAMConfig(layer_sizes=[4], dropout=0.0), preprocessing=PreprocessingConfig(numerical_preprocessing='minmax'))
+    model.set_params(training=replace(model.training or GradientTrainingConfig(), max_epochs=2, checkpoint_path=tmp_path, trainer_kwargs={'logger': False, 'enable_progress_bar': False, 'enable_model_summary': False})).fit(X, y)
     series_score = model.evaluate(X, y, metrics={})
     array_score = model.evaluate(X, y.to_numpy(), metrics={})
     assert series_score["NLL"] == pytest.approx(array_score["NLL"])
@@ -176,19 +168,11 @@ def test_group_norms_public_surface(tmp_path):
 
     from nampy.models import SNAMRegressor
 
-    model = SNAMRegressor(layer_sizes=[4], numerical_preprocessing="minmax")
+    model = SNAMRegressor(architecture_config=DefaultSNAMConfig(layer_sizes=[4]), preprocessing=PreprocessingConfig(numerical_preprocessing='minmax'))
     with pytest.raises(NotFittedError):
         model.group_norms()
     X = pd.DataFrame({"x": np.linspace(-1, 1, 30)})
-    model.fit(
-        X,
-        X.x.to_numpy(),
-        max_epochs=2,
-        logger=False,
-        enable_progress_bar=False,
-        enable_model_summary=False,
-        checkpoint_path=tmp_path,
-    )
+    model.set_params(training=replace(model.training or GradientTrainingConfig(), max_epochs=2, checkpoint_path=tmp_path, trainer_kwargs={'logger': False, 'enable_progress_bar': False, 'enable_model_summary': False})).fit(X, X.x.to_numpy())
     assert model.group_norms() == model.model.model.get_group_norms()
 
 
@@ -199,20 +183,7 @@ def test_quantile_evaluation_reports_pinball_loss(estimator_name, tmp_path):
     levels = np.asarray([0.1, 0.5, 0.9])
     X = pd.DataFrame({"x": np.linspace(-1, 1, 40)})
     y = X.x.to_numpy() + 0.1 * np.sin(5 * X.x.to_numpy())
-    model = getattr(models, estimator_name)(
-        family="quantile",
-        layer_sizes=[4],
-        dropout=0.0,
-        distributional_kwargs={"quantiles": levels.tolist()},
-    ).fit(
-        X,
-        y,
-        max_epochs=2,
-        logger=False,
-        enable_progress_bar=False,
-        enable_model_summary=False,
-        checkpoint_path=tmp_path,
-    )
+    model = getattr(models, estimator_name)(architecture_config=replace(getattr(models, estimator_name)().architecture_config, layer_sizes=[4], dropout=0.0), objective=ObjectiveConfig(family='quantile', distributional_kwargs={'quantiles': levels.tolist()})).set_params(training=replace(getattr(models, estimator_name)(architecture_config=replace(getattr(models, estimator_name)().architecture_config, layer_sizes=[4], dropout=0.0), objective=ObjectiveConfig(family='quantile', distributional_kwargs={'quantiles': levels.tolist()})).training or GradientTrainingConfig(), max_epochs=2, checkpoint_path=tmp_path, trainer_kwargs={'logger': False, 'enable_progress_bar': False, 'enable_model_summary': False})).fit(X, y)
     prediction = model.predict(X)
     residual = y[:, None] - prediction
     expected = np.maximum(levels * residual, (levels - 1) * residual).sum(axis=1).mean()

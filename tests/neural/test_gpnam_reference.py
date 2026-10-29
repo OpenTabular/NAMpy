@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 
 import numpy as np
 import pandas as pd
@@ -12,6 +13,7 @@ import torch
 from nampy.models.gpnam import GPNAMRegressor
 from nampy.neural.architectures.gpnam import GPNAM
 from nampy.neural.configs.gpnam_config import DefaultGPNAMConfig
+from nampy.neural.configuration import FixedDesignTrainingConfig, PreprocessingConfig
 
 
 def _architecture(config, n_features=2, n_outputs=1):
@@ -29,18 +31,16 @@ def _architecture(config, n_features=2, n_outputs=1):
 
 def test_gpnam_estimator_owns_reference_input_defaults():
     estimator = GPNAMRegressor()
-    params = estimator.get_params(deep=False)
+    params = estimator.preprocessing.parameters
     assert params["numerical_preprocessing"] == "none"
     assert params["categorical_preprocessing"] == "one-hot"
     assert params["scaling_strategy"] is None
 
-    explicit = GPNAMRegressor(
-        numerical_preprocessing="standardization", scaling_strategy="minmax"
-    )
-    assert explicit.get_params(deep=False)["numerical_preprocessing"] == (
+    explicit = GPNAMRegressor(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization', scaling_strategy='minmax'))
+    assert explicit.preprocessing.parameters["numerical_preprocessing"] == (
         "standardization"
     )
-    assert explicit.get_params(deep=False)["scaling_strategy"] == "minmax"
+    assert explicit.preprocessing.parameters["scaling_strategy"] == "minmax"
 
 
 def test_quasi_random_rff_uses_inverse_normal_and_per_feature_phase_grids():
@@ -125,25 +125,15 @@ def test_cg_regression_matches_weighted_ridge_normal_equations():
     y = np.column_stack(
         [np.sin(2 * np.pi * x) + offset, x**2 - 0.5 * offset]
     )
+    offset = np.column_stack([offset, -0.5 * offset])
     weights = np.linspace(0.5, 2.0, len(X))
     ridge = 0.05
-    estimator = GPNAMRegressor(
-        kernel_width=0.4,
-        rff_num_feat=12,
-        rff_random_state=9,
-        ridge=ridge,
-    )
-    estimator.fit(
-        X,
-        y,
-        offset=offset,
-        sample_weight=weights,
-        random_state=4,
-    )
+    estimator = GPNAMRegressor(architecture_config=DefaultGPNAMConfig(kernel_width=0.4, rff_num_feat=12, rff_random_state=9), training=FixedDesignTrainingConfig(ridge=ridge))
+    estimator.set_params(training=replace(estimator.training or FixedDesignTrainingConfig(), random_state=4)).fit(X, y, offset=offset, sample_weight=weights)
 
     basis = estimator.basis_transform(X, batch_size=7)
     design = np.column_stack([basis, np.ones(len(X))])
-    target = y - offset[:, None]
+    target = y - offset
     weighted_design = design * np.sqrt(weights)[:, None]
     weighted_target = target * np.sqrt(weights)[:, None]
     normal = weighted_design.T @ weighted_design
@@ -158,6 +148,14 @@ def test_cg_regression_matches_weighted_ridge_normal_equations():
         atol=2e-5,
         rtol=2e-5,
     )
+    np.testing.assert_allclose(
+        estimator.predict(X, batch_size=5, offset=offset),
+        design @ expected + offset,
+        atol=2e-5,
+        rtol=2e-5,
+    )
+    with pytest.raises(ValueError, match="no predictor broadcasting"):
+        estimator.predict(X, offset=offset[:, 0])
     assert estimator.linear_solver_info_["n_rows"] == len(X)
     assert estimator.linear_solver_info_["solver"] == "cg"
     assert estimator.kernel_widths_.shape == (2,)
@@ -173,8 +171,8 @@ def test_gpnam_rff_seed_and_batched_predictions_are_reproducible():
     )
     y = X["x"].to_numpy() + X["z"].to_numpy()
     kwargs = {"kernel_width": 0.3, "rff_num_feat": 10, "rff_random_state": 12}
-    first = GPNAMRegressor(**kwargs).fit(X, y, random_state=8)
-    second = GPNAMRegressor(**kwargs).fit(X, y, random_state=99)
+    first = GPNAMRegressor(architecture_config=DefaultGPNAMConfig(**kwargs), training=FixedDesignTrainingConfig(random_state=8)).fit(X, y)
+    second = GPNAMRegressor(architecture_config=DefaultGPNAMConfig(**kwargs), training=FixedDesignTrainingConfig(random_state=99)).fit(X, y)
 
     np.testing.assert_array_equal(
         first.basis_metadata()["phases"], second.basis_metadata()["phases"]

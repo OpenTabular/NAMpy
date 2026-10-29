@@ -420,10 +420,6 @@ def compile_model(
             for term in predictor.compiled_terms
         )
         metadata = dict(getattr(predictor, "metadata", {}) or {})
-        if pred_param_map is not None:
-            metadata["fit_to_prediction_parameterization_map"] = np.asarray(
-                pred_param_map, dtype=np.float64
-            )
         return CompiledModel(
             predictors=(predictor,),
             design_matrix=np.asarray(predictor.design_matrix, dtype=np.float64),
@@ -604,18 +600,7 @@ def compile_model(
         ),
         compiled_terms=tuple(global_terms),
         compiled_penalties=tuple(global_penalties),
-        metadata={
-            "s_id_to_sp_indices": combined_map,
-            **(
-                {}
-                if pred_param_map is None
-                else {
-                    "fit_to_prediction_parameterization_map": np.asarray(
-                        pred_param_map, dtype=np.float64
-                    )
-                }
-            ),
-        },
+        metadata={"s_id_to_sp_indices": combined_map},
         n_coef=coef_shift,
         n_smoothing_params=sp_shift,
         predictor_full_slices=tuple(predictor_full_slices),

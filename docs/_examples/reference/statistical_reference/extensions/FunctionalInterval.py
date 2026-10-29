@@ -11,5 +11,5 @@ data['y'] = 0.4 + np.sin(3 * data.x) + 0.3 * data.z + rng.normal(0, 0.12, n)
 model = GAM(formula="y ~ s(x, bs='ps', k=7) + s(z, bs='cr', k=6)",
             optimize_smoothing=True, smoothing_method='reml').fit(data=data)
 
-from nampy.gam.extensions import linear_functional_interval
+from nampy.gam.inference.functionals import linear_functional_interval
 result = linear_functional_interval(model, model.lpmatrix(data), interval='pointwise')

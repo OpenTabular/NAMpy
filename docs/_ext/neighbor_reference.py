@@ -21,7 +21,7 @@ result = {{'prediction': prediction, 'components': components, 'fit': model.fit_
 """
 
 LINEAR = """import numpy as np
-from nampy.gam.extensions import {name}
+from nampy.gam.losses.objectives import {name}
 
 x = np.linspace(-1, 1, 40)
 design = np.column_stack([np.ones(len(x)), x, x**2])
@@ -33,7 +33,7 @@ result = {call}
 SURVIVAL = """import numpy as np
 import pandas as pd
 from nampy import GAMRegressor
-from nampy.gam.extensions import piecewise_exponential_data, survival_from_hazard
+from nampy.survival import piecewise_exponential_data, survival_from_hazard
 
 rng = np.random.default_rng(24)
 x = rng.normal(size=100)
@@ -55,7 +55,7 @@ result = {'expanded': ped, 'hazard': hazard, **curves}
 LAGS = """import numpy as np
 import pandas as pd
 from nampy import GAMRegressor
-from nampy.gam.extensions import exposure_history, cross_basis, cumulative_lag_matrix
+from nampy.gam.structured.lags import exposure_history, cross_basis, cumulative_lag_matrix
 
 rng = np.random.default_rng(42)
 exposure = rng.normal(size=100)
@@ -75,6 +75,7 @@ result = {'history': history, 'basis': basis, 'predictions': model.predict(data)
 """
 
 FUNCTIONS = {
+    "DistributedLagBasis": ("Fitted distributed-lag bases", "import numpy as np\nfrom nampy.gam.structured import DistributedLagBasis\nhistory = np.random.default_rng(4).normal(size=(30,4))\nbasis = DistributedLagBasis(max_lag=3, exposure_formula='~exposure',lag_formula='~lag').fit(history)\nresult = {'matrix': basis.transform(history), 'penalty': basis.penalty(), 'contrast': basis.cumulative_contrast([0.,1.],0.)}\nassert result['matrix'].shape == (30,2)\n"),
     "fit_expectile": (
         "LAWS expectile solver",
         LINEAR.format(
@@ -99,29 +100,29 @@ FUNCTIONS = {
         "Joint coefficient simulation",
         BASE
         + MODEL
-        + "\nfrom nampy.gam.extensions import coefficient_draws\nresult = coefficient_draws(model, n_draws=2000, seed=4)\nassert result.ndim == 2\n",
+        + "\nfrom nampy.gam.inference.functionals import coefficient_draws\nresult = coefficient_draws(model, n_draws=2000, seed=4)\nassert result.ndim == 2\n",
     ),
     "linear_functional_interval": (
         "Simultaneous bands and contrasts",
         BASE
         + MODEL
-        + "\nfrom nampy.gam.extensions import linear_functional_interval\nleft = data.copy()\nright = data.copy()\nleft['x'] = .2\nright['x'] = .8\ncontrast = model.lpmatrix(right) - model.lpmatrix(left)\nresult = linear_functional_interval(model, contrast, n_draws=2000, seed=4)\n",
+        + "\nfrom nampy.gam.inference.functionals import linear_functional_interval\nleft = data.copy()\nright = data.copy()\nleft['x'] = .2\nright['x'] = .8\ncontrast = model.lpmatrix(right) - model.lpmatrix(left)\nresult = linear_functional_interval(model, contrast, n_draws=2000, seed=4)\n",
     ),
     "derivative_interval": (
         "Derivative bands and significant regions",
         BASE
         + MODEL
-        + "\nfrom nampy.gam.extensions import derivative_interval\nresult = derivative_interval(model, data, 'x', n_draws=2000, seed=4)\nassert result.significant.shape == (n,)\n",
+        + "\nfrom nampy.gam.inference.functionals import derivative_interval\nresult = derivative_interval(model, data, 'x', n_draws=2000, seed=4)\nassert result.significant.shape == (n,)\n",
     ),
     "FunctionalInterval": (
         "Functional interval result",
         BASE
         + MODEL
-        + "\nfrom nampy.gam.extensions import linear_functional_interval\nresult = linear_functional_interval(model, model.lpmatrix(data), interval='pointwise')\n",
+        + "\nfrom nampy.gam.inference.functionals import linear_functional_interval\nresult = linear_functional_interval(model, model.lpmatrix(data), interval='pointwise')\n",
     ),
     "joint_edf": (
         "Joint effective degrees of freedom",
-        "import numpy as np\nfrom nampy.gam.extensions import joint_edf\ninformation = np.array([[4.,1.3],[1.3,2.]])\npenalty = np.diag([.2,3.])\nedf, total, edf1 = joint_edf(information, penalty)\nresult = {'edf': edf, 'total': total, 'edf1': edf1}\nassert total < 2\n",
+        "import numpy as np\nfrom nampy.gam.inference.functionals import joint_edf\ninformation = np.array([[4.,1.3],[1.3,2.]])\npenalty = np.diag([.2,3.])\nedf, total, edf1 = joint_edf(information, penalty)\nresult = {'edf': edf, 'total': total, 'edf1': edf1}\nassert total < 2\n",
     ),
     "piecewise_exponential_data": ("Piecewise exponential survival data", SURVIVAL),
     "survival_from_hazard": ("Hazard integration and survival prediction", SURVIVAL),
@@ -130,16 +131,46 @@ FUNCTIONS = {
     "cumulative_lag_matrix": ("Cumulative lag contrasts", LAGS),
     "cross_basis_penalty": (
         "Distributed-lag tensor penalties",
-        "import numpy as np\nfrom nampy.gam.extensions import cross_basis_penalty\nresult = cross_basis_penalty(np.diag([0.,1.]), np.diag([0.,1.,1.]), exposure_weight=.1, lag_weight=.5)\nassert result.shape == (6,6)\n",
+        "import numpy as np\nfrom nampy.gam.structured.lags import cross_basis_penalty\nresult = cross_basis_penalty(np.diag([0.,1.]), np.diag([0.,1.,1.]), exposure_weight=.1, lag_weight=.5)\nassert result.shape == (6,6)\n",
     ),
 }
 
 # Authored example data only; runtime classes/parameter names come from the registry.
 FAMILY_RESPONSES = {
+    "bct_lss": "np.exp(.3+.2*x)*DistributionPrediction(BCTLaw(), {'mu': [1.], 'sigma': [.7], 'nu': [1.2], 'tau': [4.]}).quantile(rng.permutation((np.arange(n)+.5)/n))[0]",
+    "bcpe_lss": "np.exp(.3+.2*x)*DistributionPrediction(BCPELaw(), {'mu': [1.], 'sigma': [.7], 'nu': [1.2], 'tau': [1.4]}).quantile(rng.permutation((np.arange(n)+.5)/n))[0]",
+    "lognormal_observation_lss": "np.exp(rng.normal(.2+.3*x,.4,n))",
+    "weibull_observation_lss": "np.exp(.2+.3*x)*rng.weibull(1.8,n)",
+    "normal_observation_lss": "rng.normal(.3+.4*x,.4,n)",
+    "bccg_lss": "DistributionPrediction(BCCGLaw(), {'mu': np.exp(.2+.3*x), 'sigma': np.full(n,.25), 'nu': np.ones(n)}).sample(1, random_state=rng)[0]",
+    "beinf_lss": "np.where(rng.uniform(size=n)<.2, 0., np.where(rng.uniform(size=n)<.25, 1., rng.beta(3,5,n)))",
+    "zaga_lss": "np.where(rng.uniform(size=n)<.3, 0., rng.gamma(4, np.exp(.3+.4*x)/4))",
+    "betabinomial_lss": "rng.binomial(10, rng.beta(2,3,n))",
     "student_lss": "rng.standard_t(5, n)*np.exp(-.5+.2*x)+.3+.5*x",
     "beta_lss": "rng.beta(3,6,n)",
     "nb_lss": "rng.negative_binomial(3,1/(1+np.exp(.3+.5*x)/3))",
+    "lognormal_lss": "rng.lognormal(-.2+.5*x, .35, n)",
+    "weibull_lss": "np.exp(.2+.3*x)*rng.weibull(1.8,n)",
 }
+
+# Observation recipes are authored alongside response recipes, never inferred
+# from predictor count or a general promise of context support.
+FAMILY_CONTEXT = {"betabinomial_lss": "{'trials': np.full(n,10)}"}
+FAMILY_FORMULAS = {"bccg_lss": "{'mu': 'y ~ s(x,k=5)', 'sigma': '~1', 'nu': '~1'}"}
+FAMILY_IMPORTS = {"normal_observation_lss":"\nfrom nampy.distributions import ObservationTarget","bccg_lss": "\nfrom nampy.distributions import BCCGLaw, DistributionPrediction"}
+FAMILY_FIT_OPTIONS = {"bccg_lss": "smoothing_optimizer='outer_newton'"}
+
+for _name, _law in (("bct_lss", "BCTLaw"), ("bcpe_lss", "BCPELaw")):
+    FAMILY_FORMULAS[_name] = "{'mu': 'y~x', 'sigma': '~1', 'nu': '~1', 'tau': '~1'}"
+    FAMILY_IMPORTS[_name] = f"\nfrom nampy.distributions import {_law}, DistributionPrediction"
+    FAMILY_FIT_OPTIONS[_name] = "optimize_smoothing=False"
+for _name, _parameters in (
+    ("lognormal_observation_lss", ("loc", "scale")),
+    ("weibull_observation_lss", ("scale", "shape")),
+):
+    FAMILY_FORMULAS[_name] = repr(dict(zip(_parameters, ("~x", "~1"), strict=True)))
+    FAMILY_IMPORTS[_name] = "\nfrom nampy.distributions import ObservationTarget"
+    FAMILY_FIT_OPTIONS[_name] = "optimize_smoothing=False"
 
 DESIGN_EXAMPLE = (
     BASE
@@ -177,7 +208,11 @@ def generate(root):
 
     from nampy import models
     from nampy.gam.design import __all__ as design_symbols
-    from nampy.gam.extensions import __all__ as extension_symbols
+    from nampy.gam.inference.functionals import __all__ as inference_symbols
+    from nampy.gam.losses import __all__ as loss_symbols
+    from nampy.gam.structured import __all__ as structured_symbols
+    survival_symbols = ["piecewise_exponential_data", "survival_from_hazard"]
+    extension_symbols = [*loss_symbols, *inference_symbols, *structured_symbols, *survival_symbols]
     from nampy.gam.families.registry import GENERAL_FAMILIES
 
     root = Path(root)
@@ -279,7 +314,8 @@ def generate(root):
             for key, kind, _, description in parameters
         ]
         text += heading("Constructor parameter details", "-") + table(
-            ["Parameter", "Type", "Default", "Meaning"], parameters
+            ["Parameter", "Type", "Default", "Meaning"],
+            [(f"``{key}``", kind, default, meaning) for key, kind, default, meaning in parameters]
         )
         text += "The coefficient vector includes the intercept. The objective is a **sum** of observation losses plus half the coefficient penalty; changing weights changes the effective regularization. Independent levels can cross. Neither Gaussian standard errors nor calibrated qgam intervals are supplied.\n\n"
         text += "For smoothing selection, use ``sklearn.model_selection.GridSearchCV`` with ``param_grid={'smoothing_params': [[.01], [.1], [1.]]}`` and these estimators' negative-loss ``score``. The basis is fitted inside each fold.\n\n"
@@ -302,6 +338,7 @@ def generate(root):
             "autoclass"
             if name
             in {
+                "DistributedLagBasis",
                 "LossFit",
                 "FunctionalInterval",
                 "CompiledDesign",
@@ -310,7 +347,11 @@ def generate(root):
             }
             else "autofunction"
         )
-        module = "nampy.gam" if name in design_symbols else "nampy.gam.extensions"
+        module = ("nampy.gam" if name in design_symbols else
+                  "nampy.gam.losses" if name in loss_symbols else
+                  "nampy.gam.structured" if name in structured_symbols else
+                  "nampy.survival" if name in survival_symbols else
+                  "nampy.gam.inference.functionals")
         text = (
             heading(title)
             + f"Types, defaults and output shapes\n---------------------------------\n\n.. {directive}:: {module}.{name}\n\n"
@@ -341,36 +382,62 @@ def generate(root):
     )
     for name, spec in families.items():
         cls = spec.factory.__name__
-        second = spec.factory.parameter_names[1]
+        names = tuple(spec.factory.parameter_names)
+        natural_names = tuple(getattr(spec.factory, "distribution_parameter_names", ()) or names)
+        formulas = "{" + ",".join(f"{parameter!r}:" + repr("y ~ s(x,k=5)" if k == 0 else "~x") for k, parameter in enumerate(names)) + "}"
+        formulas = FAMILY_FORMULAS.get(name, formulas)
         response = FAMILY_RESPONSES[name]
+        context = ", context=" + FAMILY_CONTEXT[name] if name in FAMILY_CONTEXT else ""
+        fit_options = FAMILY_FIT_OPTIONS.get(name, "optimize_smoothing=False, smoothing_params=[.2]")
         page = "statistical_reference/families/" + name
         code = f"""import numpy as np
 import pandas as pd
-from nampy import GAMLSS
+from nampy import GAMLSS{FAMILY_IMPORTS.get(name, '')}
 
 rng = np.random.default_rng(17)
 n = 120
 x = np.linspace(-1,1,n)
 data = pd.DataFrame({{'x': x, 'y': {response}}})
-model = GAMLSS(family={name!r}, formula={{'mu':'y ~ s(x,k=5)',{second!r}:'~x'}},
-               optimize_smoothing=False, smoothing_params=[.2]).fit(data)
+model = GAMLSS(family={name!r}, formula={formulas},
+               {fit_options}).fit(data{context})
 parameters = model.predict(data)
-point = model.predict_point(data)
-assert parameters.shape == (n,2)
+point = model.predict_point(data{context})
+assert parameters.shape == (n,{len(natural_names)})
 result = {{'parameters': parameters, 'point': point, 'components': model.predict_components(data)}}
 """
+        if name in {"bct_lss", "bcpe_lss"}:
+            # Balanced quantiles make the four-parameter example reproducible
+            # without relying on a lucky small-sample tail realization.
+            code = code.replace("default_rng(17)", "default_rng(41)").replace("n = 120", "n = 160")
+        if name == "normal_observation_lss":
+            code = code.replace("model = GAMLSS", "target = ObservationTarget(np.where(data.y<0,-np.inf,data.y),data.y)\nmodel = GAMLSS").replace(".fit(data)", ".fit(data,target)")
+        elif name in {"lognormal_observation_lss", "weibull_observation_lss"}:
+            # Select a fixed truncated response population, then record censoring
+            # explicitly in the shared target contract supplied to fit.
+            code = code.replace(
+                "model = GAMLSS",
+                "data = data.loc[(data.y>0.2) & (data.y<3)].copy()\n"
+                "n = len(data)\n"
+                "target = ObservationTarget(\n"
+                "    np.where(data.y<0.7, -np.inf, np.minimum(data.y, 1.8)),\n"
+                "    np.where(data.y>1.8, np.inf, np.maximum(data.y, 0.7)))\n"
+                "model = GAMLSS",
+            ).replace(f"family={name!r}", f"family={{'name': {name!r}, 'lower': 0.2, 'upper': 3.0}}")
+            code = code.replace(".fit(data)", ".fit(data[['x']], target)")
         text = heading(name)
         from family_contracts import mathematical_contract
 
         text += mathematical_contract(name, "statistical")
         text += heading("Types, defaults and output shapes", "-")
-        text += f".. autoclass:: nampy.gam.families.gamlss.distributional.{cls}\n\n"
+        text += f".. autoclass:: {spec.factory.__module__}.{cls}\n\n"
         text += (
             "Pass ``{'name': 'student_lss', 'df': 5.0}`` to configure fixed degrees of freedom; df must be finite and >2.\n\n"
             if name == "student_lss"
-            else f"Pass ``GAMLSS(family={name!r})``; this family has no constructor options.\n\n"
+            else f"Use family={{'name': {name!r}, 'lower': L, 'upper': U}} for fixed truncation and supply ObservationTarget to fit. Defaults leave both tails untruncated.\n\n" if name.endswith("_observation_lss") else f"Pass ``GAMLSS(family={name!r})``; this family has no constructor options.\n\n"
         )
-        text += "``predict(X)`` returns natural parameters as a float ``(n,2)`` array, ``predict(X, raw=True)`` returns link predictors ``(n,2)``, ``predict_point(X)`` returns the conditional mean ``(n,)``, and ``predict_components(X)`` returns an AdditivePrediction whose link and each term are ``(n,2)``. ``X`` is a DataFrame or numeric ``(n,d)`` array, consistent with formula mode.\n\n"
-        text += "Likelihood derivatives through order four are analytic, including mixed derivatives; fixed smoothing and joint Laplace ML/REML derivatives are tested. Response and Pearson residuals are available. Deviance residuals and null deviance are not defined by this implementation; use explicit response/Pearson diagnostics rather than the default deviance-residual plotting workflow.\n\n"
+        point_summary = "conditional median" if name in {"lognormal_observation_lss", "weibull_observation_lss"} else "conditional mean"
+        text += f"``predict(X)`` returns natural parameters as a float ``(n,{len(natural_names)})`` array, ``predict(X, raw=True)`` returns link predictors ``(n,{len(names)})``, ``predict_point(X)`` returns the {point_summary} ``(n,)``, and ``predict_components(X)`` returns an AdditivePrediction whose link and each term are ``(n,{len(names)})``. ``X`` is a DataFrame or numeric ``(n,d)`` array, consistent with formula mode.\n\n"
+        derivative_order = {2: 'two', 3: 'three', 4: 'four'}[spec.factory.max_derivative_order]
+        text += f"Likelihood derivatives through order {derivative_order} are analytic, including mixed derivatives. Fixed smoothing is tested; automatic smoothing requires an enabled runtime capability and route-specific evidence. Residual availability follows the observation contract; ordinary response/Pearson residuals are unavailable for censored targets. Deviance residuals and null deviance are not defined by this implementation; use explicit response/Pearson diagnostics or shared distribution quantile residuals rather than the default deviance-residual plotting workflow.\n\n"
         text += example_rst(root, page, code)
         write(root, page + ".rst", text)

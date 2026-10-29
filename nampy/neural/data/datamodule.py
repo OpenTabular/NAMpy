@@ -65,6 +65,8 @@ class NAMpyDataModule(pl.LightningDataModule):
         val_size=0.2,
         random_state=101,
         sampling_strategy=None,
+        preprocessing_targets=None,
+        target_dtype=None,
         **dataloader_kwargs,
     ):
         """
@@ -83,6 +85,7 @@ class NAMpyDataModule(pl.LightningDataModule):
         """
         super().__init__()
         self.preprocessor = preprocessor
+        self.preprocessing_targets = preprocessing_targets
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.cat_feature_info = None
@@ -98,7 +101,7 @@ class NAMpyDataModule(pl.LightningDataModule):
             raise ValueError("Balanced sampling is only available for classification.")
         self.sampling_strategy = sampling_strategy
         if self.regression:
-            self.labels_dtype = torch.float32
+            self.labels_dtype = torch.float32 if target_dtype is None else target_dtype
         else:
             self.labels_dtype = torch.long
 
@@ -298,7 +301,9 @@ class NAMpyDataModule(pl.LightningDataModule):
         # Delegate to an external preprocessor (e.g. pretab) that
         # exposes get_feature_info(verbose=...) and returns
         # (num_feature_info, cat_feature_info, emb_feature_info).
-        self.preprocessor.fit(X_fit, np.asarray(self.y_train))
+        preprocessing_y = (self.y_train if self.preprocessing_targets is None
+                           else self.preprocessing_targets(self.y_train))
+        self.preprocessor.fit(X_fit, None if preprocessing_y is None else np.asarray(preprocessing_y))
         _configure_unknown_category_encoding(self.preprocessor)
         num_info, cat_info, _ = self.preprocessor.get_feature_info(verbose=False)
         self._train_preprocessed_data = self.preprocessor.transform(X_fit)
@@ -373,6 +378,7 @@ class NAMpyDataModule(pl.LightningDataModule):
                 train_num_tensors,
                 train_labels,
                 regression=self.regression,
+                target_dtype=self.labels_dtype,
                 cat_keys=cat_keys,
                 num_keys=num_keys,
                 offsets=self._to_offset_tensor(self.offset_train),
@@ -383,6 +389,7 @@ class NAMpyDataModule(pl.LightningDataModule):
                 val_num_tensors,
                 val_labels,
                 regression=self.regression,
+                target_dtype=self.labels_dtype,
                 cat_keys=cat_keys,
                 num_keys=num_keys,
                 offsets=self._to_offset_tensor(self.offset_val),
@@ -404,32 +411,9 @@ class NAMpyDataModule(pl.LightningDataModule):
             )
 
     def preprocess_tensors(self, X):
-        """Transform arbitrary rows into architecture input dictionaries."""
-        preprocessed = self.preprocessor.transform(X)
-        cat_tensors = {}
-        num_tensors = {}
-
-        for key, info in self.cat_feature_info.items():
-            transformed_key = "cat_" + key
-            if transformed_key not in preprocessed:
-                continue
-            array = self._as_dense_array(preprocessed[transformed_key])
-            is_onehot = "onehot" in info.get("preprocessing", "").lower() or (
-                info.get("dimension", 1) > 1
-            )
-            if not is_onehot and array.dtype.kind == "f":
-                array = array.astype("int64")
-            dtype = torch.float32 if is_onehot else torch.long
-            cat_tensors[key] = torch.tensor(array, dtype=dtype)
-
-        for key in self.num_feature_info:
-            transformed_key = "num_" + key
-            if transformed_key in preprocessed:
-                num_tensors[key] = torch.tensor(
-                    self._as_dense_array(preprocessed[transformed_key]),
-                    dtype=torch.float32,
-                )
-        return cat_tensors, num_tensors
+        """Apply the same fitted transformation used for prediction."""
+        from ..fitted import preprocess_tensors
+        return preprocess_tensors(self.preprocessor, self.cat_feature_info, self.num_feature_info, X)
 
     def preprocess_test_data(self, X):
         test_preprocessed_data = self.preprocessor.transform(X)

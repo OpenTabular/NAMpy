@@ -1,16 +1,16 @@
 {
   "api/generated/nampy.contracts.AdditivePrediction": {
     "fields": {
-      "backend": "gam",
-      "intercept": 0.5
+      "backend": "gam"
     },
     "kind": "AdditivePrediction",
     "omitted_fields": [
-      "response",
       "link",
       "terms",
+      "intercept",
       "offset",
-      "term_metadata"
+      "term_metadata",
+      "predictor_names"
     ]
   },
   "api/generated/nampy.contracts.AdditiveTermMetadata": {
@@ -31,7 +31,6 @@
     "kind": "EnsembleAdditivePrediction",
     "omitted_fields": [
       "mean",
-      "response_std",
       "link_std",
       "term_std"
     ]
@@ -42,76 +41,6 @@
     "omitted_fields": [
       "feature_names",
       "dtypes"
-    ]
-  },
-  "api/generated/nampy.explanations.center_additive_prediction": {
-    "fields": {
-      "backend": "gam",
-      "intercept": 1.1101596574919927
-    },
-    "kind": "AdditivePrediction",
-    "omitted_fields": [
-      "response",
-      "link",
-      "terms",
-      "offset",
-      "term_metadata"
-    ]
-  },
-  "api/generated/nampy.explanations.explain_additive_prediction": {
-    "columns": [
-      "term",
-      "term_type",
-      "output",
-      "value"
-    ],
-    "kind": "table",
-    "omitted_by_axis": [
-      4,
-      3
-    ],
-    "shape": [
-      6,
-      7
-    ],
-    "values": [
-      [
-        "x",
-        "main",
-        0,
-        0.083
-      ],
-      [
-        "x",
-        "main",
-        0,
-        0.25
-      ]
-    ]
-  },
-  "api/generated/nampy.explanations.term_importance_table": {
-    "columns": [
-      "term",
-      "term_type",
-      "output",
-      "importance"
-    ],
-    "kind": "table",
-    "omitted_by_axis": [
-      0,
-      0
-    ],
-    "shape": [
-      1,
-      4
-    ],
-    "values": [
-      [
-        "x",
-        "main",
-        0,
-        0.6101596574919926
-      ]
     ]
   },
   "api/generated/nampy.gam.formula.ExtractedParametricTerm": {
@@ -279,8 +208,8 @@
   "api/generated/nampy.gam.formula.strip_offset_wrapper": "exposure",
   "api/generated/nampy.gam.results.FitResult": {
     "fields": {
-      "deviance": 1.38791579712156,
-      "edf": 6.0206286015213095,
+      "deviance": 1.3879157971215599,
+      "edf": 6.02062860152131,
       "intercept": 1.2117033510481068,
       "rss": 1.38791579712156
     },
@@ -318,7 +247,7 @@
   "api/generated/nampy.gam.results.GAMFitResult": {
     "fields": {
       "criterion_name": "reml",
-      "criterion_value": -52.71527837790031,
+      "criterion_value": -52.715278377900326,
       "family_name": "gaussian",
       "link_name": "identity"
     },
@@ -359,25 +288,110 @@
       "metadata"
     ]
   },
-  "api/generated/nampy.plotting.DistributionalEffects": {
-    "fields": {},
+  "api/generated/nampy.inspection.DistributionalEffects": {
+    "fields": {
+      "point_summary": "family_point"
+    },
     "kind": "DistributionalEffects",
     "omitted_fields": [
       "feature_values",
       "point_effects",
       "conditional_sd"
+    ]
+  },
+  "api/generated/nampy.inspection.center_additive_prediction": {
+    "fields": {
+      "backend": "gam"
+    },
+    "kind": "AdditivePrediction",
+    "omitted_fields": [
+      "link",
+      "terms",
+      "intercept",
+      "offset",
+      "term_metadata",
+      "predictor_names"
+    ]
+  },
+  "api/generated/nampy.inspection.combine_distributional_effects": {
+    "fields": {
+      "point_summary": "family_point"
+    },
+    "kind": "DistributionalEffects",
+    "omitted_fields": [
+      "feature_values",
+      "point_effects",
+      "conditional_sd"
+    ]
+  },
+  "api/generated/nampy.inspection.explain_additive_prediction": {
+    "columns": [
+      "term",
+      "term_type",
+      "output",
+      "value"
+    ],
+    "kind": "table",
+    "omitted_by_axis": [
+      4,
+      3
+    ],
+    "shape": [
+      6,
+      7
+    ],
+    "values": [
+      [
+        "x",
+        "main",
+        0,
+        0.083
+      ],
+      [
+        "x",
+        "main",
+        0,
+        0.25
+      ]
+    ]
+  },
+  "api/generated/nampy.inspection.prepare_distributional_effects": {
+    "fields": {
+      "point_summary": "mean"
+    },
+    "kind": "DistributionalEffects",
+    "omitted_fields": [
+      "feature_values",
+      "point_effects",
+      "conditional_sd"
+    ]
+  },
+  "api/generated/nampy.inspection.term_importance_table": {
+    "columns": [
+      "term",
+      "term_type",
+      "output",
+      "importance"
+    ],
+    "kind": "table",
+    "omitted_by_axis": [
+      0,
+      0
+    ],
+    "shape": [
+      1,
+      4
+    ],
+    "values": [
+      [
+        "x",
+        "main",
+        0,
+        0.6101596574919926
+      ]
     ]
   },
   "api/generated/nampy.plotting.add_density_shading": null,
-  "api/generated/nampy.plotting.combine_distributional_effects": {
-    "fields": {},
-    "kind": "DistributionalEffects",
-    "omitted_fields": [
-      "feature_values",
-      "point_effects",
-      "conditional_sd"
-    ]
-  },
   "api/generated/nampy.plotting.plot_distributional_effects": {
     "items": [
       "Figure"
@@ -385,15 +399,6 @@
     "kind": "list",
     "length": 1,
     "omitted": 0
-  },
-  "api/generated/nampy.plotting.prepare_distributional_effects": {
-    "fields": {},
-    "kind": "DistributionalEffects",
-    "omitted_fields": [
-      "feature_values",
-      "point_effects",
-      "conditional_sd"
-    ]
   },
   "api/generated/nampy.plotting.prepared_from_contributions": {
     "by_resids": false,
@@ -540,16 +545,16 @@
   "api/neural_training": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.0003308632876724005
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -750,16 +755,16 @@
   "neural_reference/ensemble_treenam": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": 0.003969249315559864
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -771,28 +776,28 @@
         64
       ],
       "values": [
-        -0.4336499869823456,
-        -0.34237000346183777,
-        -0.40658000111579895,
-        -0.46386000514030457,
-        -0.4408000111579895,
-        -0.31106001138687134
+        -0.4589200019836426,
+        -0.37209999561309814,
+        -0.43373000621795654,
+        -0.4807699918746948,
+        -0.46074000000953674,
+        -0.3438799977302551
       ]
     }
   },
   "neural_reference/estimators/EnsembleTreeNAMClassifier": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": 0.0036243589129298925
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -824,12 +829,12 @@
       ],
       "values": [
         [
-          0.6028100252151489,
-          0.39719000458717346
+          0.6074699759483337,
+          0.39252999424934387
         ],
         [
-          0.5856500267982483,
-          0.4143500030040741
+          0.5912799835205078,
+          0.4087199866771698
         ]
       ]
     }
@@ -841,12 +846,12 @@
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
         "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "point": {
@@ -858,12 +863,12 @@
         64
       ],
       "values": [
-        0.06800000369548798,
-        0.006260000169277191,
-        0.0589199997484684,
-        0.10304000228643417,
-        0.06312999874353409,
-        0.008009999990463257
+        0.0832500010728836,
+        0.023900000378489494,
+        0.0751200020313263,
+        0.11522000283002853,
+        0.07686000317335129,
+        0.026590000838041306
       ]
     },
     "prediction": {
@@ -878,12 +883,12 @@
       ],
       "values": [
         [
-          0.06800000369548798,
-          0.7261599898338318
+          0.0832500010728836,
+          0.7309600114822388
         ],
         [
-          0.006260000169277191,
-          0.7431399822235107
+          0.023900000378489494,
+          0.74822998046875
         ]
       ]
     },
@@ -899,12 +904,12 @@
       ],
       "values": [
         [
-          0.06800000369548798,
-          0.064970001578331
+          0.0832500010728836,
+          0.0742499977350235
         ],
         [
-          0.006260000169277191,
-          0.0976099967956543
+          0.023900000378489494,
+          0.10728000104427338
         ]
       ]
     }
@@ -912,16 +917,16 @@
   "neural_reference/estimators/EnsembleTreeNAMRegressor": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": 0.003969249315559864
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -933,28 +938,28 @@
         64
       ],
       "values": [
-        -0.4336499869823456,
-        -0.34237000346183777,
-        -0.40658000111579895,
-        -0.46386000514030457,
-        -0.4408000111579895,
-        -0.31106001138687134
+        -0.4589200019836426,
+        -0.37209999561309814,
+        -0.43373000621795654,
+        -0.4807699918746948,
+        -0.46074000000953674,
+        -0.3438799977302551
       ]
     }
   },
   "neural_reference/estimators/GPNAMClassifier": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.008069289848208427
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -1003,12 +1008,12 @@
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
         "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "point": {
@@ -1074,16 +1079,16 @@
   "neural_reference/estimators/GPNAMRegressor": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.00957536231726408
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -1107,16 +1112,16 @@
   "neural_reference/estimators/IGANNClassifier": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": 0.0
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -1165,12 +1170,12 @@
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
         "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "point": {
@@ -1236,16 +1241,16 @@
   "neural_reference/estimators/IGANNRegressor": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": 0.013236097060143948
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -1269,16 +1274,16 @@
   "neural_reference/estimators/LinRegClassifier": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.0003562194760888815
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -1327,12 +1332,12 @@
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
         "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "point": {
@@ -1398,16 +1403,16 @@
   "neural_reference/estimators/LinRegRegressor": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.0003927270881831646
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -1428,19 +1433,116 @@
       ]
     }
   },
-  "neural_reference/estimators/NAMClassifier": {
+  "neural_reference/estimators/LinRegSurvival": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.00012299901572987437
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
+      ]
+    },
+    "hazard": {
+      "kind": "array",
+      "omitted_by_axis": [
+        28,
+        0
+      ],
+      "shape": [
+        30,
+        2
+      ],
+      "values": [
+        [
+          0.808,
+          2.39511
+        ],
+        [
+          0.77502,
+          2.37868
+        ]
+      ]
+    },
+    "omitted_fields": [
+      "log_likelihood",
+      "residuals",
+      "observed_curve",
+      "brier",
+      "integrated_brier",
+      "concordance",
+      "effects",
+      "between_fits",
+      "effect_coefficient_route",
+      "prepare_survival_hazard_interval",
+      "prepare_survival_rmst_interval",
+      "subject_bootstrap",
+      "bootstrap_band",
+      "bootstrap_effects",
+      "weibull",
+      "lognormal"
+    ],
+    "rmst": {
+      "kind": "array",
+      "omitted_by_axis": [
+        24
+      ],
+      "shape": [
+        30
+      ],
+      "values": [
+        0.87052,
+        0.88788,
+        0.90505,
+        0.92204,
+        0.93882,
+        0.9554
+      ]
+    },
+    "survival": {
+      "kind": "array",
+      "omitted_by_axis": [
+        28,
+        1
+      ],
+      "shape": [
+        30,
+        5
+      ],
+      "values": [
+        [
+          1.0,
+          0.66764,
+          0.44575,
+          0.04064
+        ],
+        [
+          1.0,
+          0.67875,
+          0.4607,
+          0.04269
+        ]
+      ]
+    }
+  },
+  "neural_reference/estimators/NAMClassifier": {
+    "components": {
+      "fields": {
+        "backend": "neural"
+      },
+      "kind": "AdditivePrediction",
+      "omitted_fields": [
+        "link",
+        "terms",
+        "intercept",
+        "offset",
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -1489,12 +1591,12 @@
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
         "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "point": {
@@ -1560,16 +1662,16 @@
   "neural_reference/estimators/NAMRegressor": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.0003308632876724005
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -1590,19 +1692,116 @@
       ]
     }
   },
-  "neural_reference/estimators/NAMformerClassifier": {
+  "neural_reference/estimators/NAMSurvival": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.00018632451246958226
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
+      ]
+    },
+    "hazard": {
+      "kind": "array",
+      "omitted_by_axis": [
+        28,
+        0
+      ],
+      "shape": [
+        30,
+        2
+      ],
+      "values": [
+        [
+          1.17898,
+          1.40986
+        ],
+        [
+          1.18388,
+          1.38414
+        ]
+      ]
+    },
+    "omitted_fields": [
+      "log_likelihood",
+      "residuals",
+      "observed_curve",
+      "brier",
+      "integrated_brier",
+      "concordance",
+      "effects",
+      "between_fits",
+      "effect_coefficient_route",
+      "prepare_survival_hazard_interval",
+      "prepare_survival_rmst_interval",
+      "subject_bootstrap",
+      "bootstrap_band",
+      "bootstrap_effects",
+      "weibull",
+      "lognormal"
+    ],
+    "rmst": {
+      "kind": "array",
+      "omitted_by_axis": [
+        24
+      ],
+      "shape": [
+        30
+      ],
+      "values": [
+        0.79246,
+        0.79339,
+        0.79432,
+        0.79523,
+        0.79613,
+        0.79762
+      ]
+    },
+    "survival": {
+      "kind": "array",
+      "omitted_by_axis": [
+        28,
+        1
+      ],
+      "shape": [
+        30,
+        5
+      ],
+      "values": [
+        [
+          1.0,
+          0.55461,
+          0.30759,
+          0.07511
+        ],
+        [
+          1.0,
+          0.55325,
+          0.30609,
+          0.07669
+        ]
+      ]
+    }
+  },
+  "neural_reference/estimators/NAMformerClassifier": {
+    "components": {
+      "fields": {
+        "backend": "neural"
+      },
+      "kind": "AdditivePrediction",
+      "omitted_fields": [
+        "link",
+        "terms",
+        "intercept",
+        "offset",
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -1634,12 +1833,12 @@
       ],
       "values": [
         [
-          0.6533100008964539,
-          0.34668999910354614
+          0.6548200249671936,
+          0.3451800048351288
         ],
         [
-          0.6404799818992615,
-          0.35951998829841614
+          0.6418499946594238,
+          0.35815000534057617
         ]
       ]
     }
@@ -1651,12 +1850,12 @@
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
         "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "point": {
@@ -1668,12 +1867,12 @@
         64
       ],
       "values": [
-        -0.5572199821472168,
-        -0.3412100076675415,
-        -0.35315999388694763,
-        -0.9884700179100037,
-        -0.9995099902153015,
-        -0.3901199996471405
+        -0.564740002155304,
+        -0.34700000286102295,
+        -0.3590399920940399,
+        -0.9998599886894226,
+        -1.0104600191116333,
+        -0.39447999000549316
       ]
     },
     "prediction": {
@@ -1688,12 +1887,12 @@
       ],
       "values": [
         [
-          -0.5572199821472168,
-          0.7727599740028381
+          -0.564740002155304,
+          0.7757899761199951
         ],
         [
-          -0.3412100076675415,
-          0.9065499901771545
+          -0.34700000286102295,
+          0.9112100005149841
         ]
       ]
     },
@@ -1709,12 +1908,12 @@
       ],
       "values": [
         [
-          -0.5572199821472168,
-          0.15334999561309814
+          -0.564740002155304,
+          0.15897999703884125
         ],
         [
-          -0.3412100076675415,
-          0.38916999101638794
+          -0.34700000286102295,
+          0.39699000120162964
         ]
       ]
     }
@@ -1722,16 +1921,16 @@
   "neural_reference/estimators/NAMformerRegressor": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.0003191577270627022
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -1743,28 +1942,28 @@
         64
       ],
       "values": [
-        -0.77183997631073,
-        -0.5229399800300598,
-        -0.5940200090408325,
-        -1.0779099464416504,
-        -0.05982000008225441,
-        0.0025500000920146704
+        -0.7800499796867371,
+        -0.5291799902915955,
+        -0.6011499762535095,
+        -1.087399959564209,
+        -0.0603800006210804,
+        -7.999999797903001e-05
       ]
     }
   },
   "neural_reference/estimators/NATTClassifier": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.00017381500219926238
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -1796,12 +1995,12 @@
       ],
       "values": [
         [
-          0.3822999894618988,
-          0.6176999807357788
+          0.37806999683380127,
+          0.6219300031661987
         ],
         [
-          0.38853999972343445,
-          0.6114599704742432
+          0.3844900131225586,
+          0.6155099868774414
         ]
       ]
     }
@@ -1813,12 +2012,12 @@
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
         "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "point": {
@@ -1830,12 +2029,12 @@
         64
       ],
       "values": [
-        0.36765000224113464,
-        0.3085800111293793,
-        0.2828100025653839,
-        0.2547299861907959,
-        0.13106000423431396,
-        0.20062999427318573
+        0.38245999813079834,
+        0.3172999918460846,
+        0.2943800091743469,
+        0.2613300085067749,
+        0.13336999714374542,
+        0.20521999895572662
       ]
     },
     "prediction": {
@@ -1850,12 +2049,12 @@
       ],
       "values": [
         [
-          0.36765000224113464,
-          0.7691100239753723
+          0.38245999813079834,
+          0.7671499848365784
         ],
         [
-          0.3085800111293793,
-          0.7771499752998352
+          0.3172999918460846,
+          0.7746800184249878
         ]
       ]
     },
@@ -1871,12 +2070,12 @@
       ],
       "values": [
         [
-          0.36765000224113464,
-          0.14655999839305878
+          0.38245999813079834,
+          0.1429000049829483
         ],
         [
-          0.3085800111293793,
-          0.16148999333381653
+          0.3172999918460846,
+          0.1569100022315979
         ]
       ]
     }
@@ -1884,16 +2083,16 @@
   "neural_reference/estimators/NATTRegressor": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.00038127542939037085
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -1905,28 +2104,28 @@
         64
       ],
       "values": [
-        0.5080900192260742,
-        0.38677000999450684,
-        0.49608999490737915,
-        0.23430000245571136,
-        0.16541999578475952,
-        0.268310010433197
+        0.5273600220680237,
+        0.40095001459121704,
+        0.5151399970054626,
+        0.2412099987268448,
+        0.16899000108242035,
+        0.2779400050640106
       ]
     }
   },
   "neural_reference/estimators/NBMClassifier": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": 0.08881925046443939
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -1958,12 +2157,12 @@
       ],
       "values": [
         [
-          0.4801099896430969,
-          0.5198900103569031
+          0.4800899922847748,
+          0.5199099779129028
         ],
         [
-          0.4797300100326538,
-          0.5202699899673462
+          0.47971001267433167,
+          0.5202900171279907
         ]
       ]
     }
@@ -1975,12 +2174,12 @@
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
         "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "point": {
@@ -1992,12 +2191,12 @@
         64
       ],
       "values": [
-        -0.416159987449646,
-        -0.4177899956703186,
-        -0.4145500063896179,
-        -0.42225998640060425,
-        -0.42045000195503235,
-        -0.41721001267433167
+        -0.416020005941391,
+        -0.4176500141620636,
+        -0.4144200086593628,
+        -0.42212000489234924,
+        -0.42030999064445496,
+        -0.417059987783432
       ]
     },
     "prediction": {
@@ -2012,12 +2211,12 @@
       ],
       "values": [
         [
-          -0.416159987449646,
-          0.7074599862098694
+          -0.416020005941391,
+          0.7074000239372253
         ],
         [
-          -0.4177899956703186,
-          0.7076600193977356
+          -0.4176500141620636,
+          0.7075899839401245
         ]
       ]
     },
@@ -2033,12 +2232,12 @@
       ],
       "values": [
         [
-          -0.416159987449646,
-          0.028429999947547913
+          -0.416020005941391,
+          0.028310000896453857
         ],
         [
-          -0.4177899956703186,
-          0.02881000004708767
+          -0.4176500141620636,
+          0.028689999133348465
         ]
       ]
     }
@@ -2046,16 +2245,16 @@
   "neural_reference/estimators/NBMRegressor": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": 0.08881674706935883
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -2067,28 +2266,28 @@
         64
       ],
       "values": [
-        0.07960999757051468,
-        0.08129999786615372,
-        0.08178000152111053,
-        0.07605999708175659,
-        0.07673999667167664,
-        0.08172000199556351
+        0.07968000322580338,
+        0.08135999739170074,
+        0.08184999972581863,
+        0.07613000273704529,
+        0.0768200010061264,
+        0.08178000152111053
       ]
     }
   },
   "neural_reference/estimators/NBMSPAMClassifier": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.4925481379032135
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -2120,12 +2319,12 @@
       ],
       "values": [
         [
-          0.5957900285720825,
-          0.40421000123023987
+          0.5957800149917603,
+          0.40422001481056213
         ],
         [
-          0.5963500142097473,
-          0.4036499857902527
+          0.596340000629425,
+          0.40365999937057495
         ]
       ]
     }
@@ -2137,12 +2336,12 @@
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
         "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "point": {
@@ -2154,12 +2353,12 @@
         64
       ],
       "values": [
-        0.4972499907016754,
-        0.4960800111293793,
-        0.4970499873161316,
-        0.49529001116752625,
-        0.4950000047683716,
-        0.4949600100517273
+        0.49685001373291016,
+        0.49557000398635864,
+        0.4966599941253662,
+        0.4948500096797943,
+        0.4945499897003174,
+        0.4943999946117401
       ]
     },
     "prediction": {
@@ -2174,12 +2373,12 @@
       ],
       "values": [
         [
-          0.4972499907016754,
-          0.5519099831581116
+          0.49685001373291016,
+          0.5522300004959106
         ],
         [
-          0.4960800111293793,
-          0.5519999861717224
+          0.49557000398635864,
+          0.5523099899291992
         ]
       ]
     },
@@ -2195,12 +2394,12 @@
       ],
       "values": [
         [
-          0.4972499907016754,
-          -0.305759996175766
+          0.49685001373291016,
+          -0.30500999093055725
         ],
         [
-          0.4960800111293793,
-          -0.30553001165390015
+          0.49557000398635864,
+          -0.3048200011253357
         ]
       ]
     }
@@ -2208,16 +2407,16 @@
   "neural_reference/estimators/NBMSPAMRegressor": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.4915044605731964
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -2229,28 +2428,28 @@
         64
       ],
       "values": [
-        -0.3806999921798706,
-        -0.38308998942375183,
-        -0.38025999069213867,
-        -0.38422998785972595,
-        -0.3842099905014038,
-        -0.3847000002861023
+        -0.38016000390052795,
+        -0.38266998529434204,
+        -0.37981998920440674,
+        -0.3839299976825714,
+        -0.38385000824928284,
+        -0.3842700123786926
       ]
     }
   },
   "neural_reference/estimators/NodeGAMClassifier": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.0001385351934004575
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -2299,12 +2498,12 @@
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
         "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "point": {
@@ -2370,16 +2569,16 @@
   "neural_reference/estimators/NodeGAMRegressor": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.00016809190856292844
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -2407,12 +2606,12 @@
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
         "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "point": {
@@ -2482,16 +2681,16 @@
   "neural_reference/estimators/SIANClassifier": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.0026317297015339136
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -2540,12 +2739,12 @@
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
         "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "point": {
@@ -2611,16 +2810,16 @@
   "neural_reference/estimators/SIANRegressor": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.011172452941536903
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -2644,16 +2843,16 @@
   "neural_reference/estimators/SNAMClassifier": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.00014750054106116295
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -2702,12 +2901,12 @@
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
         "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "point": {
@@ -2773,16 +2972,16 @@
   "neural_reference/estimators/SNAMRegressor": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.0003735359641723335
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -2806,16 +3005,16 @@
   "neural_reference/estimators/SPAMClassifier": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.03370014205574989
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -2864,12 +3063,12 @@
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
         "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "point": {
@@ -2935,16 +3134,16 @@
   "neural_reference/estimators/SPAMRegressor": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.03205570578575134
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -2965,19 +3164,181 @@
       ]
     }
   },
-  "neural_reference/estimators/SplineNAMRegressor": {
+  "neural_reference/estimators/SemiStructuredClassifier": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": 0.0003995297010987997
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
+      ]
+    },
+    "prediction": {
+      "kind": "array",
+      "omitted_by_axis": [
+        58
+      ],
+      "shape": [
+        64
+      ],
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "probabilities": {
+      "kind": "array",
+      "omitted_by_axis": [
+        62,
+        0
+      ],
+      "shape": [
+        64,
+        2
+      ],
+      "values": [
+        [
+          0.50612,
+          0.49388
+        ],
+        [
+          0.50751,
+          0.49249
+        ]
+      ]
+    }
+  },
+  "neural_reference/estimators/SemiStructuredLSS": {
+    "components": {
+      "fields": {
+        "backend": "neural"
+      },
+      "kind": "AdditivePrediction",
+      "omitted_fields": [
+        "link",
+        "terms",
+        "intercept",
+        "offset",
+        "term_metadata",
+        "predictor_names"
+      ]
+    },
+    "point": {
+      "kind": "array",
+      "omitted_by_axis": [
+        58
+      ],
+      "shape": [
+        64
+      ],
+      "values": [
+        0.5785099864006042,
+        0.5106899738311768,
+        0.3723599910736084,
+        -0.329039990901947,
+        -0.35853999853134155,
+        -0.017249999567866325
+      ]
+    },
+    "prediction": {
+      "kind": "array",
+      "omitted_by_axis": [
+        62,
+        0
+      ],
+      "shape": [
+        64,
+        2
+      ],
+      "values": [
+        [
+          0.5785099864006042,
+          3.1159698963165283
+        ],
+        [
+          0.5106899738311768,
+          3.3877100944519043
+        ]
+      ]
+    },
+    "raw": {
+      "kind": "array",
+      "omitted_by_axis": [
+        62,
+        0
+      ],
+      "shape": [
+        64,
+        2
+      ],
+      "values": [
+        [
+          0.57851,
+          3.07062
+        ],
+        [
+          0.51069,
+          3.35334
+        ]
+      ]
+    }
+  },
+  "neural_reference/estimators/SemiStructuredRegressor": {
+    "components": {
+      "fields": {
+        "backend": "neural"
+      },
+      "kind": "AdditivePrediction",
+      "omitted_fields": [
+        "link",
+        "terms",
+        "intercept",
+        "offset",
+        "term_metadata",
+        "predictor_names"
+      ]
+    },
+    "prediction": {
+      "kind": "array",
+      "omitted_by_axis": [
+        58
+      ],
+      "shape": [
+        64
+      ],
+      "values": [
+        -0.01366,
+        -0.16525,
+        -0.27147,
+        -0.21508,
+        -0.33463,
+        -0.54273
+      ]
+    }
+  },
+  "neural_reference/estimators/SplineNAMRegressor": {
+    "components": {
+      "fields": {
+        "backend": "neural"
+      },
+      "kind": "AdditivePrediction",
+      "omitted_fields": [
+        "link",
+        "terms",
+        "intercept",
+        "offset",
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -3001,16 +3362,16 @@
   "neural_reference/estimators/TreeNAMClassifier": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": 0.003880105447024107
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -3059,12 +3420,12 @@
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
         "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "point": {
@@ -3130,16 +3491,16 @@
   "neural_reference/estimators/TreeNAMRegressor": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": 0.003992617130279541
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -3163,16 +3524,16 @@
   "neural_reference/extensions/NeuralClassifier": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.00014750054106116295
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -3223,23 +3584,22 @@
       "kind": "EnsembleAdditivePrediction",
       "omitted_fields": [
         "mean",
-        "response_std",
         "link_std",
         "term_std"
       ]
     },
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.0001109596123569645
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -3266,7 +3626,8 @@
     "omitted_fields": [
       "regressor",
       "classifier",
-      "lss"
+      "lss",
+      "survival"
     ]
   },
   "neural_reference/extensions/NeuralLSS": {
@@ -3276,12 +3637,12 @@
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
         "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "point": {
@@ -3347,16 +3708,16 @@
   "neural_reference/extensions/NeuralRegressor": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.0003735359641723335
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -3383,8 +3744,331 @@
     "omitted_fields": [
       "regressor",
       "classifier",
-      "lss"
+      "lss",
+      "survival"
     ]
+  },
+  "neural_reference/families/bccg": {
+    "loss": 0.9189385771751404,
+    "parameters": {
+      "columns": [
+        "mu",
+        "sigma",
+        "nu"
+      ],
+      "kind": "array",
+      "omitted_by_axis": [
+        6,
+        0
+      ],
+      "shape": [
+        8,
+        3
+      ],
+      "values": [
+        [
+          1.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    "point": {
+      "kind": "array",
+      "omitted_by_axis": [
+        2
+      ],
+      "shape": [
+        8
+      ],
+      "values": [
+        1.6487200260162354,
+        1.6487200260162354,
+        1.6487200260162354,
+        1.6487200260162354,
+        1.6487200260162354,
+        1.6487200260162354
+      ]
+    },
+    "raw": {
+      "columns": [
+        "mu",
+        "sigma",
+        "nu"
+      ],
+      "kind": "array",
+      "omitted_by_axis": [
+        6,
+        0
+      ],
+      "shape": [
+        8,
+        3
+      ],
+      "values": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    }
+  },
+  "neural_reference/families/bcpe": {
+    "loss": 0.857756495475769,
+    "parameters": {
+      "columns": [
+        "mu",
+        "sigma",
+        "nu",
+        "tau"
+      ],
+      "kind": "array",
+      "omitted_by_axis": [
+        6,
+        0
+      ],
+      "shape": [
+        8,
+        4
+      ],
+      "values": [
+        [
+          1.0,
+          0.3678799867630005,
+          1.0,
+          2.0
+        ],
+        [
+          1.0,
+          0.3678799867630005,
+          1.0,
+          2.0
+        ]
+      ]
+    },
+    "point": {
+      "kind": "array",
+      "omitted_by_axis": [
+        2
+      ],
+      "shape": [
+        8
+      ],
+      "values": [
+        1.003659963607788,
+        1.003659963607788,
+        1.003659963607788,
+        1.003659963607788,
+        1.003659963607788,
+        1.003659963607788
+      ]
+    },
+    "raw": {
+      "columns": [
+        "mu",
+        "sigma",
+        "nu",
+        "tau"
+      ],
+      "kind": "array",
+      "omitted_by_axis": [
+        6,
+        0
+      ],
+      "shape": [
+        8,
+        4
+      ],
+      "values": [
+        [
+          0.0,
+          -1.0,
+          1.0,
+          0.693149983882904
+        ],
+        [
+          0.0,
+          -1.0,
+          1.0,
+          0.693149983882904
+        ]
+      ]
+    }
+  },
+  "neural_reference/families/bct": {
+    "loss": 0.8326935768127441,
+    "parameters": {
+      "columns": [
+        "mu",
+        "sigma",
+        "nu",
+        "tau"
+      ],
+      "kind": "array",
+      "omitted_by_axis": [
+        6,
+        0
+      ],
+      "shape": [
+        8,
+        4
+      ],
+      "values": [
+        [
+          1.0,
+          0.3678799867630005,
+          1.0,
+          5.0
+        ],
+        [
+          1.0,
+          0.3678799867630005,
+          1.0,
+          5.0
+        ]
+      ]
+    },
+    "point": {
+      "kind": "array",
+      "omitted_by_axis": [
+        2
+      ],
+      "shape": [
+        8
+      ],
+      "values": [
+        1.029039978981018,
+        1.029039978981018,
+        1.029039978981018,
+        1.029039978981018,
+        1.029039978981018,
+        1.029039978981018
+      ]
+    },
+    "raw": {
+      "columns": [
+        "mu",
+        "sigma",
+        "nu",
+        "tau"
+      ],
+      "kind": "array",
+      "omitted_by_axis": [
+        6,
+        0
+      ],
+      "shape": [
+        8,
+        4
+      ],
+      "values": [
+        [
+          0.0,
+          -1.0,
+          1.0,
+          1.6094399690628052
+        ],
+        [
+          0.0,
+          -1.0,
+          1.0,
+          1.6094399690628052
+        ]
+      ]
+    }
+  },
+  "neural_reference/families/beinf": {
+    "loss": 1.0986122886681098,
+    "parameters": {
+      "columns": [
+        "class_0",
+        "class_1",
+        "class_2",
+        "class_3"
+      ],
+      "kind": "array",
+      "omitted_by_axis": [
+        6,
+        1
+      ],
+      "shape": [
+        8,
+        5
+      ],
+      "values": [
+        [
+          0.5,
+          1.0,
+          0.33333,
+          0.33333
+        ],
+        [
+          0.5,
+          1.0,
+          0.33333,
+          0.33333
+        ]
+      ]
+    },
+    "point": {
+      "kind": "array",
+      "omitted_by_axis": [
+        2
+      ],
+      "shape": [
+        8
+      ],
+      "values": [
+        0.5,
+        0.5,
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    "raw": {
+      "columns": [
+        "mu",
+        "phi",
+        "pi0",
+        "pi1"
+      ],
+      "kind": "array",
+      "omitted_by_axis": [
+        6,
+        0
+      ],
+      "shape": [
+        8,
+        4
+      ],
+      "values": [
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    }
   },
   "neural_reference/families/beta": {
     "loss": 0.2193497270345688,
@@ -3434,6 +4118,76 @@
       "columns": [
         "alpha",
         "beta"
+      ],
+      "kind": "array",
+      "omitted_by_axis": [
+        6,
+        0
+      ],
+      "shape": [
+        8,
+        2
+      ],
+      "values": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ]
+      ]
+    }
+  },
+  "neural_reference/families/betabinomial": {
+    "loss": 2.3780062198638916,
+    "parameters": {
+      "columns": [
+        "mu",
+        "kappa"
+      ],
+      "kind": "array",
+      "omitted_by_axis": [
+        6,
+        0
+      ],
+      "shape": [
+        8,
+        2
+      ],
+      "values": [
+        [
+          0.5,
+          1.0
+        ],
+        [
+          0.5,
+          1.0
+        ]
+      ]
+    },
+    "point": {
+      "kind": "array",
+      "omitted_by_axis": [
+        2
+      ],
+      "shape": [
+        8
+      ],
+      "values": [
+        5.0,
+        5.0,
+        5.0,
+        5.0,
+        5.0,
+        5.0
+      ]
+    },
+    "raw": {
+      "columns": [
+        "mu",
+        "kappa"
       ],
       "kind": "array",
       "omitted_by_axis": [
@@ -4040,6 +4794,76 @@
       ]
     }
   },
+  "neural_reference/families/lognormal_observation": {
+    "loss": 1.1657087802886963,
+    "parameters": {
+      "columns": [
+        "loc",
+        "scale"
+      ],
+      "kind": "array",
+      "omitted_by_axis": [
+        6,
+        0
+      ],
+      "shape": [
+        8,
+        2
+      ],
+      "values": [
+        [
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          1.0
+        ]
+      ]
+    },
+    "point": {
+      "kind": "array",
+      "omitted_by_axis": [
+        2
+      ],
+      "shape": [
+        8
+      ],
+      "values": [
+        0.9019299745559692,
+        0.9019299745559692,
+        0.9019299745559692,
+        0.9019299745559692,
+        0.9019299745559692,
+        0.9019299745559692
+      ]
+    },
+    "raw": {
+      "columns": [
+        "loc",
+        "scale"
+      ],
+      "kind": "array",
+      "omitted_by_axis": [
+        6,
+        0
+      ],
+      "shape": [
+        8,
+        2
+      ],
+      "values": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ]
+      ]
+    }
+  },
   "neural_reference/families/mvnormdiag": {
     "loss": 4.779330730438232,
     "parameters": {
@@ -4222,6 +5046,76 @@
         [
           0.0,
           0.693149983882904
+        ]
+      ]
+    },
+    "point": {
+      "kind": "array",
+      "omitted_by_axis": [
+        2
+      ],
+      "shape": [
+        8
+      ],
+      "values": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "raw": {
+      "columns": [
+        "mean",
+        "scale"
+      ],
+      "kind": "array",
+      "omitted_by_axis": [
+        6,
+        0
+      ],
+      "shape": [
+        8,
+        2
+      ],
+      "values": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ]
+      ]
+    }
+  },
+  "neural_reference/families/normal_observation": {
+    "loss": 1.4189385175704956,
+    "parameters": {
+      "columns": [
+        "mean",
+        "scale"
+      ],
+      "kind": "array",
+      "omitted_by_axis": [
+        6,
+        0
+      ],
+      "shape": [
+        8,
+        2
+      ],
+      "values": [
+        [
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          1.0
         ]
       ]
     },
@@ -4764,6 +5658,152 @@
       ]
     }
   },
+  "neural_reference/families/weibull_observation": {
+    "loss": 1.1653478145599365,
+    "parameters": {
+      "columns": [
+        "scale",
+        "shape"
+      ],
+      "kind": "array",
+      "omitted_by_axis": [
+        6,
+        0
+      ],
+      "shape": [
+        8,
+        2
+      ],
+      "values": [
+        [
+          1.0,
+          1.0
+        ],
+        [
+          1.0,
+          1.0
+        ]
+      ]
+    },
+    "point": {
+      "kind": "array",
+      "omitted_by_axis": [
+        2
+      ],
+      "shape": [
+        8
+      ],
+      "values": [
+        0.8341100215911865,
+        0.8341100215911865,
+        0.8341100215911865,
+        0.8341100215911865,
+        0.8341100215911865,
+        0.8341100215911865
+      ]
+    },
+    "raw": {
+      "columns": [
+        "scale",
+        "shape"
+      ],
+      "kind": "array",
+      "omitted_by_axis": [
+        6,
+        0
+      ],
+      "shape": [
+        8,
+        2
+      ],
+      "values": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ]
+      ]
+    }
+  },
+  "neural_reference/families/zaga": {
+    "loss": 1.6931474208831787,
+    "parameters": {
+      "columns": [
+        "mu",
+        "sigma",
+        "pi0"
+      ],
+      "kind": "array",
+      "omitted_by_axis": [
+        6,
+        0
+      ],
+      "shape": [
+        8,
+        3
+      ],
+      "values": [
+        [
+          1.0,
+          1.0,
+          0.5
+        ],
+        [
+          1.0,
+          1.0,
+          0.5
+        ]
+      ]
+    },
+    "point": {
+      "kind": "array",
+      "omitted_by_axis": [
+        2
+      ],
+      "shape": [
+        8
+      ],
+      "values": [
+        0.5,
+        0.5,
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    "raw": {
+      "columns": [
+        "mu",
+        "sigma",
+        "pi0"
+      ],
+      "kind": "array",
+      "omitted_by_axis": [
+        6,
+        0
+      ],
+      "shape": [
+        8,
+        3
+      ],
+      "values": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    }
+  },
   "neural_reference/families/zinb": {
     "loss": 2.0180470943450928,
     "parameters": {
@@ -4913,16 +5953,16 @@
   "neural_reference/gpnam": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.00957536231726408
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -4946,16 +5986,16 @@
   "neural_reference/igann": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": 0.013236097060143948
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -4979,16 +6019,16 @@
   "neural_reference/linreg": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.0003927270881831646
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -5071,16 +6111,16 @@
   },
   "neural_reference/methods/center_components": {
     "fields": {
-      "backend": "neural",
-      "intercept": 0.11880259308964014
+      "backend": "neural"
     },
     "kind": "AdditivePrediction",
     "omitted_fields": [
-      "response",
       "link",
       "terms",
+      "intercept",
       "offset",
-      "term_metadata"
+      "term_metadata",
+      "predictor_names"
     ]
   },
   "neural_reference/methods/explain_terms": {
@@ -5115,49 +6155,91 @@
     ]
   },
   "neural_reference/methods/get_params": {
-    "activation": "type",
-    "adaptive_width": false,
-    "batch_norm": false,
-    "dropout": 0.1,
-    "omitted_fields": [
-      "feature_dropout",
-      "feature_layer",
-      "feature_output_bias",
-      "feature_widths",
-      "interaction_degree",
-      "interactions",
-      "intercept",
-      "l2_regularization",
-      "layer_norm",
-      "layer_sizes",
-      "lr",
-      "lr_factor",
-      "lr_patience",
-      "norm",
-      "num_basis_functions",
-      "output_regularization",
-      "regularize_interactions",
-      "skip_connections",
-      "units_multiplier",
-      "use_glu",
-      "weight_decay",
-      "feature_preprocessing",
-      "n_bins",
-      "numerical_preprocessing",
-      "categorical_preprocessing",
-      "use_decision_tree_bins",
-      "binning_strategy",
-      "task",
-      "cat_cutoff",
-      "treat_all_integers_as_numerical",
-      "degree",
-      "scaling_strategy",
-      "n_knots",
-      "use_decision_tree_knots",
-      "knots_strategy",
-      "spline_implementation",
-      "min_unique_vals"
-    ]
+    "architecture_config": {
+      "fields": {
+        "dropout": 0.1,
+        "feature_layer": "linear",
+        "skip_connections": false,
+        "use_glu": false
+      },
+      "kind": "DefaultNAMConfig",
+      "omitted_fields": [
+        "layer_sizes",
+        "activation",
+        "norm",
+        "batch_norm",
+        "layer_norm",
+        "interaction_degree",
+        "interactions",
+        "intercept",
+        "feature_dropout",
+        "adaptive_width",
+        "num_basis_functions",
+        "units_multiplier",
+        "feature_widths",
+        "feature_output_bias",
+        "output_regularization",
+        "l2_regularization",
+        "regularize_interactions"
+      ]
+    },
+    "objective": {
+      "fields": {},
+      "kind": "ObjectiveConfig",
+      "omitted_fields": [
+        "family",
+        "distributional_kwargs",
+        "loss_fct",
+        "class_weight",
+        "sampling_strategy"
+      ]
+    },
+    "preprocessing": {
+      "fields": {},
+      "kind": "PreprocessingConfig",
+      "omitted_fields": [
+        "parameters"
+      ]
+    },
+    "training": {
+      "fields": {
+        "batch_size": 32,
+        "random_state": 7,
+        "shuffle": true,
+        "val_size": 0.2
+      },
+      "kind": "GradientTrainingConfig",
+      "omitted_fields": [
+        "dataloader_kwargs",
+        "max_epochs",
+        "max_steps",
+        "max_time",
+        "patience",
+        "early_stopping_steps",
+        "monitor",
+        "mode",
+        "lr",
+        "lr_patience",
+        "lr_factor",
+        "lr_schedule",
+        "lr_warmup_steps",
+        "lr_decay_steps",
+        "lr_decay_factor",
+        "weight_decay",
+        "optimizer",
+        "optimizer_kwargs",
+        "warm_start",
+        "average_checkpoints",
+        "n_last_checkpoints",
+        "pretrain_epochs",
+        "pretrain_max_steps",
+        "pretraining_ratio",
+        "pretraining_noise",
+        "pretraining_feature_mask",
+        "checkpoint_path",
+        "trainer_kwargs"
+      ]
+    }
   },
   "neural_reference/methods/group_norms": {
     "x": 2.6964309215545654,
@@ -5232,7 +6314,14 @@
     "trainable_parameters": 275
   },
   "neural_reference/methods/plot": null,
-  "neural_reference/methods/plot_interactions": null,
+  "neural_reference/methods/plot_interactions": {
+    "items": [
+      "Figure"
+    ],
+    "kind": "list",
+    "length": 1,
+    "omitted": 0
+  },
   "neural_reference/methods/plot_terms": {
     "items": [
       "Figure"
@@ -5297,16 +6386,16 @@
   "neural_reference/nam": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.0003308632876724005
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -5330,16 +6419,16 @@
   "neural_reference/namformer": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.0003191577270627022
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -5351,28 +6440,28 @@
         64
       ],
       "values": [
-        -0.77183997631073,
-        -0.5229399800300598,
-        -0.5940200090408325,
-        -1.0779099464416504,
-        -0.05982000008225441,
-        0.0025500000920146704
+        -0.7800499796867371,
+        -0.5291799902915955,
+        -0.6011499762535095,
+        -1.087399959564209,
+        -0.0603800006210804,
+        -7.999999797903001e-05
       ]
     }
   },
   "neural_reference/natt": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.00038127542939037085
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -5384,28 +6473,28 @@
         64
       ],
       "values": [
-        0.5080900192260742,
-        0.38677000999450684,
-        0.49608999490737915,
-        0.23430000245571136,
-        0.16541999578475952,
-        0.268310010433197
+        0.5273600220680237,
+        0.40095001459121704,
+        0.5151399970054626,
+        0.2412099987268448,
+        0.16899000108242035,
+        0.2779400050640106
       ]
     }
   },
   "neural_reference/nbm": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": 0.08881674706935883
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -5417,28 +6506,28 @@
         64
       ],
       "values": [
-        0.07960999757051468,
-        0.08129999786615372,
-        0.08178000152111053,
-        0.07605999708175659,
-        0.07673999667167664,
-        0.08172000199556351
+        0.07968000322580338,
+        0.08135999739170074,
+        0.08184999972581863,
+        0.07613000273704529,
+        0.0768200010061264,
+        0.08178000152111053
       ]
     }
   },
   "neural_reference/nbm_spam": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.4915044605731964
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -5450,28 +6539,28 @@
         64
       ],
       "values": [
-        -0.3806999921798706,
-        -0.38308998942375183,
-        -0.38025999069213867,
-        -0.38422998785972595,
-        -0.3842099905014038,
-        -0.3847000002861023
+        -0.38016000390052795,
+        -0.38266998529434204,
+        -0.37981998920440674,
+        -0.3839299976825714,
+        -0.38385000824928284,
+        -0.3842700123786926
       ]
     }
   },
   "neural_reference/nodegam": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.00016809190856292844
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -5499,12 +6588,12 @@
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
         "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "point": {
@@ -5571,19 +6660,52 @@
       ]
     }
   },
-  "neural_reference/sian": {
+  "neural_reference/semistructured": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.011172452941536903
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
+      ]
+    },
+    "prediction": {
+      "kind": "array",
+      "omitted_by_axis": [
+        58
+      ],
+      "shape": [
+        64
+      ],
+      "values": [
+        -0.01366,
+        -0.16525,
+        -0.27147,
+        -0.21508,
+        -0.33463,
+        -0.54273
+      ]
+    }
+  },
+  "neural_reference/sian": {
+    "components": {
+      "fields": {
+        "backend": "neural"
+      },
+      "kind": "AdditivePrediction",
+      "omitted_fields": [
+        "link",
+        "terms",
+        "intercept",
+        "offset",
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -5607,16 +6729,16 @@
   "neural_reference/snam": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.0003735359641723335
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -5640,16 +6762,16 @@
   "neural_reference/spam": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": -0.03205570578575134
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -5673,16 +6795,16 @@
   "neural_reference/spline_nam": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": 0.0003995297010987997
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -5706,16 +6828,16 @@
   "neural_reference/treenam": {
     "components": {
       "fields": {
-        "backend": "neural",
-        "intercept": 0.003992617130279541
+        "backend": "neural"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -5946,19 +7068,121 @@
   "statistical_reference/controls/trace": {
     "trace": false
   },
-  "statistical_reference/estimators/ExpectileGAM": {
+  "statistical_reference/estimators/CalibratedQuantileGAM": {
     "components": {
       "fields": {
-        "backend": "gam",
-        "intercept": 0.12988151000231135
+        "backend": "gam"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
+      ]
+    },
+    "interval": {
+      "fields": {
+        "coverage": "approximate_pointwise_fixed_smoothing",
+        "level": 0.95,
+        "quantile_level": 0.3,
+        "uncertainty_kind": "calFast_calibrated_quantile_function"
+      },
+      "kind": "QuantileFunctionInterval",
+      "omitted_fields": [
+        "estimate",
+        "standard_error",
+        "lower",
+        "upper"
+      ]
+    },
+    "prediction": {
+      "kind": "array",
+      "omitted_by_axis": [
+        90
+      ],
+      "shape": [
+        96
+      ],
+      "values": [
+        0.99451,
+        0.77047,
+        0.83441,
+        0.65848,
+        1.13341,
+        0.91233
+      ]
+    }
+  },
+  "statistical_reference/estimators/CoxGAM": {
+    "components": {
+      "fields": {
+        "backend": "gam"
+      },
+      "kind": "AdditivePrediction",
+      "omitted_fields": [
+        "link",
+        "terms",
+        "intercept",
+        "offset",
+        "term_metadata",
+        "predictor_names"
+      ]
+    },
+    "rmst": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0
+      ],
+      "shape": [
+        4
+      ],
+      "values": [
+        1.63187,
+        1.61624,
+        1.65013,
+        1.56157
+      ]
+    },
+    "survival": {
+      "kind": "array",
+      "omitted_by_axis": [
+        2,
+        0
+      ],
+      "shape": [
+        4,
+        3
+      ],
+      "values": [
+        [
+          0.92945,
+          0.82618,
+          0.53725
+        ],
+        [
+          0.92597,
+          0.81814,
+          0.52043
+        ]
+      ]
+    }
+  },
+  "statistical_reference/estimators/ExpectileGAM": {
+    "components": {
+      "fields": {
+        "backend": "gam"
+      },
+      "kind": "AdditivePrediction",
+      "omitted_fields": [
+        "link",
+        "terms",
+        "intercept",
+        "offset",
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "fit": {
@@ -5995,16 +7219,16 @@
   "statistical_reference/estimators/GAMClassifier": {
     "components": {
       "fields": {
-        "backend": "gam",
-        "intercept": -0.0004794935947434809
+        "backend": "gam"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -6110,16 +7334,16 @@
   "statistical_reference/estimators/GAMRegressor": {
     "components": {
       "fields": {
-        "backend": "gam",
-        "intercept": 1.2117033510481057
+        "backend": "gam"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "prediction": {
@@ -6143,16 +7367,16 @@
   "statistical_reference/estimators/QuantileGAM": {
     "components": {
       "fields": {
-        "backend": "gam",
-        "intercept": 0.2231726057374658
+        "backend": "gam"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "fit": {
@@ -6189,16 +7413,16 @@
   "statistical_reference/estimators/QuantileGAM_smooth": {
     "components": {
       "fields": {
-        "backend": "gam",
-        "intercept": 0.25147634390777696
+        "backend": "gam"
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
+        "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "fit": {
@@ -6229,6 +7453,100 @@
         -0.27934,
         -0.32533,
         -0.36991
+      ]
+    }
+  },
+  "statistical_reference/estimators/SurvivalGAM": {
+    "components": {
+      "fields": {},
+      "kind": "SurvivalComponents",
+      "omitted_fields": [
+        "prediction",
+        "subject_index",
+        "interval",
+        "evaluation_time"
+      ]
+    },
+    "hazard": {
+      "kind": "array",
+      "omitted_by_axis": [
+        28,
+        0
+      ],
+      "shape": [
+        30,
+        2
+      ],
+      "values": [
+        [
+          6.01925,
+          81.47299
+        ],
+        [
+          4.8803,
+          66.05693
+        ]
+      ]
+    },
+    "omitted_fields": [
+      "log_likelihood",
+      "residuals",
+      "observed_curve",
+      "brier",
+      "integrated_brier",
+      "concordance",
+      "effects",
+      "curve_interval",
+      "simultaneous_band",
+      "effect_intervals",
+      "hazard_interval",
+      "rmst_interval",
+      "subject_bootstrap",
+      "bootstrap_band",
+      "bootstrap_effects",
+      "weibull",
+      "lognormal"
+    ],
+    "rmst": {
+      "kind": "array",
+      "omitted_by_axis": [
+        24
+      ],
+      "shape": [
+        30
+      ],
+      "values": [
+        0.16576,
+        0.20346,
+        0.24825,
+        0.30003,
+        0.35803,
+        0.42087
+      ]
+    },
+    "survival": {
+      "kind": "array",
+      "omitted_by_axis": [
+        28,
+        1
+      ],
+      "shape": [
+        30,
+        5
+      ],
+      "values": [
+        [
+          1.0,
+          0.04931,
+          0.00243,
+          0.0
+        ],
+        [
+          1.0,
+          0.08715,
+          0.00759,
+          0.0
+        ]
       ]
     }
   },
@@ -6419,6 +7737,58 @@
         0.96715,
         0.65776
       ]
+    }
+  },
+  "statistical_reference/extensions/DistributedLagBasis": {
+    "contrast": {
+      "kind": "array",
+      "omitted_by_axis": [
+        0,
+        0
+      ],
+      "shape": [
+        2,
+        2
+      ],
+      "values": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          4.0,
+          6.0
+        ]
+      ]
+    },
+    "matrix": {
+      "kind": "array",
+      "omitted_by_axis": [
+        28,
+        0
+      ],
+      "shape": [
+        30,
+        2
+      ],
+      "values": [
+        [
+          1.49636,
+          5.13017
+        ],
+        [
+          -2.12143,
+          -0.80624
+        ]
+      ]
+    },
+    "penalty": {
+      "kind": "array",
+      "shape": [
+        2,
+        2
+      ],
+      "values": "omitted; see shape contract"
     }
   },
   "statistical_reference/extensions/FunctionalInterval": {
@@ -6665,7 +8035,7 @@
   },
   "statistical_reference/extensions/derivative_interval": {
     "fields": {
-      "critical_value": 2.8433224775068675
+      "critical_value": 2.8433224775068706
     },
     "kind": "FunctionalInterval",
     "omitted_fields": [
@@ -6808,7 +8178,7 @@
   },
   "statistical_reference/extensions/linear_functional_interval": {
     "fields": {
-      "critical_value": 1.8777571376221196
+      "critical_value": 1.8777571376221245
     },
     "kind": "FunctionalInterval",
     "omitted_fields": [
@@ -7001,6 +8371,62 @@
       ]
     }
   },
+  "statistical_reference/families/bccg_lss": {
+    "components": {
+      "fields": {
+        "backend": "gam"
+      },
+      "kind": "AdditivePrediction",
+      "omitted_fields": [
+        "link",
+        "terms",
+        "intercept",
+        "offset",
+        "term_metadata",
+        "predictor_names"
+      ]
+    },
+    "parameters": {
+      "kind": "array",
+      "omitted_by_axis": [
+        118,
+        0
+      ],
+      "shape": [
+        120,
+        3
+      ],
+      "values": [
+        [
+          0.89045,
+          0.23566,
+          1.22069
+        ],
+        [
+          0.89487,
+          0.23566,
+          1.22069
+        ]
+      ]
+    },
+    "point": {
+      "kind": "array",
+      "omitted_by_axis": [
+        114
+      ],
+      "shape": [
+        120
+      ],
+      "values": [
+        0.88486,
+        0.88925,
+        0.89367,
+        0.89811,
+        0.90257,
+        0.90705
+      ]
+    }
+  },
   "statistical_reference/families/bcg": {
     "link_prediction": {
       "kind": "array",
@@ -7037,6 +8463,180 @@
       ]
     }
   },
+  "statistical_reference/families/bcpe_lss": {
+    "components": {
+      "fields": {
+        "backend": "gam"
+      },
+      "kind": "AdditivePrediction",
+      "omitted_fields": [
+        "link",
+        "terms",
+        "intercept",
+        "offset",
+        "term_metadata",
+        "predictor_names"
+      ]
+    },
+    "parameters": {
+      "kind": "array",
+      "omitted_by_axis": [
+        158,
+        0
+      ],
+      "shape": [
+        160,
+        4
+      ],
+      "values": [
+        [
+          1.03815,
+          0.69941,
+          1.22897,
+          1.39102
+        ],
+        [
+          1.0416,
+          0.69941,
+          1.22897,
+          1.39102
+        ]
+      ]
+    },
+    "point": {
+      "kind": "array",
+      "omitted_by_axis": [
+        154
+      ],
+      "shape": [
+        160
+      ],
+      "values": [
+        1.15987,
+        1.16373,
+        1.16761,
+        1.17149,
+        1.1754,
+        1.17931
+      ]
+    }
+  },
+  "statistical_reference/families/bct_lss": {
+    "components": {
+      "fields": {
+        "backend": "gam"
+      },
+      "kind": "AdditivePrediction",
+      "omitted_fields": [
+        "link",
+        "terms",
+        "intercept",
+        "offset",
+        "term_metadata",
+        "predictor_names"
+      ]
+    },
+    "parameters": {
+      "kind": "array",
+      "omitted_by_axis": [
+        158,
+        0
+      ],
+      "shape": [
+        160,
+        4
+      ],
+      "values": [
+        [
+          0.99936,
+          0.78377,
+          1.27907,
+          4.22068
+        ],
+        [
+          1.00258,
+          0.78377,
+          1.27907,
+          4.22068
+        ]
+      ]
+    },
+    "point": {
+      "kind": "array",
+      "omitted_by_axis": [
+        154
+      ],
+      "shape": [
+        160
+      ],
+      "values": [
+        1.26736,
+        1.27144,
+        1.27554,
+        1.27966,
+        1.28378,
+        1.28792
+      ]
+    }
+  },
+  "statistical_reference/families/beinf_lss": {
+    "components": {
+      "fields": {
+        "backend": "gam"
+      },
+      "kind": "AdditivePrediction",
+      "omitted_fields": [
+        "link",
+        "terms",
+        "intercept",
+        "offset",
+        "term_metadata",
+        "predictor_names"
+      ]
+    },
+    "parameters": {
+      "kind": "array",
+      "omitted_by_axis": [
+        118,
+        1
+      ],
+      "shape": [
+        120,
+        5
+      ],
+      "values": [
+        [
+          0.38311,
+          11.99893,
+          0.21028,
+          0.14779
+        ],
+        [
+          0.38332,
+          11.93905,
+          0.20983,
+          0.14865
+        ]
+      ]
+    },
+    "point": {
+      "kind": "array",
+      "omitted_by_axis": [
+        114
+      ],
+      "shape": [
+        120
+      ],
+      "values": [
+        0.39372,
+        0.39456,
+        0.39539,
+        0.39623,
+        0.39707,
+        0.39791
+      ]
+    }
+  },
   "statistical_reference/families/beta_lss": {
     "components": {
       "fields": {
@@ -7044,12 +8644,12 @@
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
         "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "parameters": {
@@ -7088,6 +8688,60 @@
         0.33233,
         0.33432,
         0.33632
+      ]
+    }
+  },
+  "statistical_reference/families/betabinomial_lss": {
+    "components": {
+      "fields": {
+        "backend": "gam"
+      },
+      "kind": "AdditivePrediction",
+      "omitted_fields": [
+        "link",
+        "terms",
+        "intercept",
+        "offset",
+        "term_metadata",
+        "predictor_names"
+      ]
+    },
+    "parameters": {
+      "kind": "array",
+      "omitted_by_axis": [
+        118,
+        0
+      ],
+      "shape": [
+        120,
+        2
+      ],
+      "values": [
+        [
+          0.45121,
+          6.11878
+        ],
+        [
+          0.45215,
+          6.1072
+        ]
+      ]
+    },
+    "point": {
+      "kind": "array",
+      "omitted_by_axis": [
+        114
+      ],
+      "shape": [
+        120
+      ],
+      "values": [
+        4.51205,
+        4.52148,
+        4.53091,
+        4.54032,
+        4.54968,
+        4.55898
       ]
     }
   },
@@ -7645,6 +9299,114 @@
       ]
     }
   },
+  "statistical_reference/families/lognormal_lss": {
+    "components": {
+      "fields": {
+        "backend": "gam"
+      },
+      "kind": "AdditivePrediction",
+      "omitted_fields": [
+        "link",
+        "terms",
+        "intercept",
+        "offset",
+        "term_metadata",
+        "predictor_names"
+      ]
+    },
+    "parameters": {
+      "kind": "array",
+      "omitted_by_axis": [
+        118,
+        0
+      ],
+      "shape": [
+        120,
+        2
+      ],
+      "values": [
+        [
+          -0.80382,
+          0.40031
+        ],
+        [
+          -0.79222,
+          0.39964
+        ]
+      ]
+    },
+    "point": {
+      "kind": "array",
+      "omitted_by_axis": [
+        114
+      ],
+      "shape": [
+        120
+      ],
+      "values": [
+        0.48496,
+        0.49048,
+        0.49607,
+        0.50172,
+        0.50741,
+        0.51315
+      ]
+    }
+  },
+  "statistical_reference/families/lognormal_observation_lss": {
+    "components": {
+      "fields": {
+        "backend": "gam"
+      },
+      "kind": "AdditivePrediction",
+      "omitted_fields": [
+        "link",
+        "terms",
+        "intercept",
+        "offset",
+        "term_metadata",
+        "predictor_names"
+      ]
+    },
+    "parameters": {
+      "kind": "array",
+      "omitted_by_axis": [
+        115,
+        0
+      ],
+      "shape": [
+        117,
+        2
+      ],
+      "values": [
+        [
+          -0.23716,
+          0.42739
+        ],
+        [
+          -0.23014,
+          0.42739
+        ]
+      ]
+    },
+    "point": {
+      "kind": "array",
+      "omitted_by_axis": [
+        111
+      ],
+      "shape": [
+        117
+      ],
+      "values": [
+        0.78877,
+        0.79429,
+        0.79985,
+        0.80545,
+        0.81109,
+        0.81677
+      ]
+    }
+  },
   "statistical_reference/families/multinom": {
     "link_predictors": {
       "kind": "array",
@@ -7757,12 +9519,12 @@
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
         "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "parameters": {
@@ -7837,6 +9599,60 @@
         0.64145,
         0.86418,
         2.55815
+      ]
+    }
+  },
+  "statistical_reference/families/normal_observation_lss": {
+    "components": {
+      "fields": {
+        "backend": "gam"
+      },
+      "kind": "AdditivePrediction",
+      "omitted_fields": [
+        "link",
+        "terms",
+        "intercept",
+        "offset",
+        "term_metadata",
+        "predictor_names"
+      ]
+    },
+    "parameters": {
+      "kind": "array",
+      "omitted_by_axis": [
+        118,
+        0
+      ],
+      "shape": [
+        120,
+        2
+      ],
+      "values": [
+        [
+          -0.72238,
+          0.9289
+        ],
+        [
+          -0.70478,
+          0.9216
+        ]
+      ]
+    },
+    "point": {
+      "kind": "array",
+      "omitted_by_axis": [
+        114
+      ],
+      "shape": [
+        120
+      ],
+      "values": [
+        -0.72238,
+        -0.70478,
+        -0.6872,
+        -0.66963,
+        -0.65209,
+        -0.63461
       ]
     }
   },
@@ -8146,12 +9962,12 @@
       },
       "kind": "AdditivePrediction",
       "omitted_fields": [
-        "response",
         "link",
         "terms",
         "intercept",
         "offset",
-        "term_metadata"
+        "term_metadata",
+        "predictor_names"
       ]
     },
     "parameters": {
@@ -8297,6 +10113,170 @@
           -1.11199,
           -0.55684
         ]
+      ]
+    }
+  },
+  "statistical_reference/families/weibull_lss": {
+    "components": {
+      "fields": {
+        "backend": "gam"
+      },
+      "kind": "AdditivePrediction",
+      "omitted_fields": [
+        "link",
+        "terms",
+        "intercept",
+        "offset",
+        "term_metadata",
+        "predictor_names"
+      ]
+    },
+    "parameters": {
+      "kind": "array",
+      "omitted_by_axis": [
+        118,
+        0
+      ],
+      "shape": [
+        120,
+        2
+      ],
+      "values": [
+        [
+          0.63575,
+          1.70544
+        ],
+        [
+          0.64792,
+          1.70652
+        ]
+      ]
+    },
+    "point": {
+      "kind": "array",
+      "omitted_by_axis": [
+        114
+      ],
+      "shape": [
+        120
+      ],
+      "values": [
+        0.56712,
+        0.57796,
+        0.58899,
+        0.60023,
+        0.61166,
+        0.62328
+      ]
+    }
+  },
+  "statistical_reference/families/weibull_observation_lss": {
+    "components": {
+      "fields": {
+        "backend": "gam"
+      },
+      "kind": "AdditivePrediction",
+      "omitted_fields": [
+        "link",
+        "terms",
+        "intercept",
+        "offset",
+        "term_metadata",
+        "predictor_names"
+      ]
+    },
+    "parameters": {
+      "kind": "array",
+      "omitted_by_axis": [
+        107,
+        0
+      ],
+      "shape": [
+        109,
+        2
+      ],
+      "values": [
+        [
+          0.78555,
+          1.91395
+        ],
+        [
+          0.79606,
+          1.91395
+        ]
+      ]
+    },
+    "point": {
+      "kind": "array",
+      "omitted_by_axis": [
+        103
+      ],
+      "shape": [
+        109
+      ],
+      "values": [
+        0.68344,
+        0.69172,
+        0.69591,
+        0.70012,
+        0.70437,
+        0.70864
+      ]
+    }
+  },
+  "statistical_reference/families/zaga_lss": {
+    "components": {
+      "fields": {
+        "backend": "gam"
+      },
+      "kind": "AdditivePrediction",
+      "omitted_fields": [
+        "link",
+        "terms",
+        "intercept",
+        "offset",
+        "term_metadata",
+        "predictor_names"
+      ]
+    },
+    "parameters": {
+      "kind": "array",
+      "omitted_by_axis": [
+        118,
+        0
+      ],
+      "shape": [
+        120,
+        3
+      ],
+      "values": [
+        [
+          0.94653,
+          0.34872,
+          0.33977
+        ],
+        [
+          0.95227,
+          0.34981,
+          0.33907
+        ]
+      ]
+    },
+    "point": {
+      "kind": "array",
+      "omitted_by_axis": [
+        114
+      ],
+      "shape": [
+        120
+      ],
+      "values": [
+        0.62492,
+        0.62938,
+        0.63387,
+        0.63838,
+        0.6429,
+        0.64743
       ]
     }
   },
@@ -8985,7 +10965,7 @@
       ]
     }
   },
-  "statistical_reference/methods/aic": -119.92581008934738,
+  "statistical_reference/methods/aic": -119.92581008934735,
   "statistical_reference/methods/anova": {
     "fields": {
       "covariance": "bayes",
@@ -9017,7 +10997,7 @@
       0.02006
     ]
   },
-  "statistical_reference/methods/bic": -101.53134154679483,
+  "statistical_reference/methods/bic": -101.53134154679475,
   "statistical_reference/methods/concurvity": {
     "labels": {
       "items": [
@@ -9142,7 +11122,7 @@
   "statistical_reference/methods/fit_result": {
     "fields": {
       "criterion_name": "reml",
-      "criterion_value": -52.71527837790031,
+      "criterion_value": -52.715278377900326,
       "family_name": "gaussian",
       "link_name": "identity"
     },
@@ -9176,14 +11156,14 @@
         "values": [
           [
             6.0,
-            4.020579707819975,
-            1.1235005940607536,
+            4.020579707819976,
+            1.1235005940607539,
             1.0
           ],
           [
             5.0,
             1.000048893701336,
-            0.8218281859488787,
+            0.8218281859488793,
             0.1
           ]
         ]
@@ -9257,7 +11237,7 @@
         [
           0.00178,
           0.0,
-          3.763035988729964e+91
+          3.763035846095363e+91
         ]
       ]
     }
@@ -9282,14 +11262,14 @@
     "values": [
       [
         6.0,
-        4.020579707819975,
-        1.1235005940607536,
+        4.020579707819976,
+        1.1235005940607539,
         1.0
       ],
       [
         5.0,
         1.000048893701336,
-        0.8218281859488787,
+        0.8218281859488793,
         0.1
       ]
     ]
@@ -9315,7 +11295,7 @@
       ],
       "values": [
         0.91012,
-        12416993.79903
+        12416993.79908
       ]
     },
     "proposed_smoothing": {
@@ -9328,7 +11308,7 @@
       ],
       "values": [
         1.85987,
-        1.4253072605375285e+19,
+        1.4253072605386627e+19,
         1.03864
       ]
     }
@@ -9336,7 +11316,7 @@
   "statistical_reference/methods/parity_snapshot": {
     "fit": {
       "criterion_name": "reml",
-      "criterion_value": -52.71527837790031,
+      "criterion_value": -52.715278377900326,
       "family_name": "gaussian",
       "link_name": "identity",
       "omitted_fields": [
@@ -9368,8 +11348,8 @@
           "joint_log_sigma2"
         ],
         "recomputed_criterion_source": "smoothing_score",
-        "recomputed_criterion_value": -52.71527837790031,
-        "stored_criterion_value": -52.71527837790031
+        "recomputed_criterion_value": -52.715278377900326,
+        "stored_criterion_value": -52.715278377900326
       },
       "diagnostics": {
         "omitted_fields": [
@@ -9464,8 +11444,8 @@
     "predictions": {
       "link": {
         "items": [
-          1.3479291457229738,
-          0.9662065267399479
+          1.3479291457229736,
+          0.9662065267399476
         ],
         "kind": "list",
         "length": 96,
@@ -9486,8 +11466,8 @@
       ],
       "response": {
         "items": [
-          1.3479291457229738,
-          0.9662065267399479
+          1.3479291457229736,
+          0.9662065267399476
         ],
         "kind": "list",
         "length": 96,
@@ -9495,8 +11475,8 @@
       },
       "terms": {
         "items": [
-          0.28193942789790044,
-          -0.2029423403077168
+          0.2819394278979004,
+          -0.2029423403077169
         ],
         "kind": "list",
         "length": 192,
@@ -9635,8 +11615,8 @@
     },
     "ylim": {
       "items": [
-        -0.8174257720786204,
-        0.34582408483846444
+        -0.8174257720786209,
+        0.3458240848384644
       ],
       "kind": "tuple",
       "length": 2,
@@ -10178,24 +12158,7 @@
     }
   },
   "statistical_reference/methods/predict_terms": {
-    "45bdcbb157f6": {
-      "kind": "array",
-      "omitted_by_axis": [
-        90
-      ],
-      "shape": [
-        96
-      ],
-      "values": [
-        0.28194,
-        -0.20294,
-        0.08988,
-        -0.0463,
-        0.10676,
-        -0.13891
-      ]
-    },
-    "e81f23cf4be4": {
+    "3c5c7fba5805": {
       "kind": "array",
       "omitted_by_axis": [
         90
@@ -10210,6 +12173,23 @@
         -0.11667,
         0.13433,
         0.04235
+      ]
+    },
+    "a5349f011e1f": {
+      "kind": "array",
+      "omitted_by_axis": [
+        90
+      ],
+      "shape": [
+        96
+      ],
+      "values": [
+        0.28194,
+        -0.20294,
+        0.08988,
+        -0.0463,
+        0.10676,
+        -0.13891
       ]
     },
     "intercept": 1.2117033510481068,

@@ -39,7 +39,7 @@ def _ocat_score_from_kernel(model, y, sol, kernel, method):
     if not np.isfinite(gamma) or gamma <= 0.0:
         return np.inf
     score = (
-        float(sol["deviance"]) + float(kernel.bSb)
+        float(sol.fit_result.deviance) + float(kernel.bSb)
     ) / (2.0 * gamma) + float(kernel.K)
     if str(method).upper() == "REML":
         mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))

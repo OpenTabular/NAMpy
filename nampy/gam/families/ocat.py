@@ -65,6 +65,7 @@ def _abcd(x, level):
 class OrderedCategoricalFamily(ExtendedFamily):
     """Ordered categorical family matching ``mgcv::ocat``."""
 
+    pirls_curvature_mode = "ordinal"
     name = "ocat"
     link_name = "identity"
     family_class = "extended"

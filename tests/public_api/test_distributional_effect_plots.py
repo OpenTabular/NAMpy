@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+from nampy.neural.configuration import GradientTrainingConfig
+from nampy.neural.configuration import ObjectiveConfig
+from nampy.neural.configuration import PreprocessingConfig
+
 from types import SimpleNamespace
 
 import matplotlib
@@ -15,15 +20,10 @@ import pytest
 import torch
 
 from nampy.contracts import AdditivePrediction
-from nampy.neural.distributions.distributions import (
-    NormalDistribution,
-    StudentTDistribution,
-)
+from nampy.neural.families import NormalDistribution, StudentTDistribution
+from nampy.inspection.effects import DistributionalEffects, combine_distributional_effects, prepare_distributional_effects
 from nampy.plotting import (
-    DistributionalEffects,
-    combine_distributional_effects,
     plot_distributional_effects,
-    prepare_distributional_effects,
     render_distributional_effects,
 )
 
@@ -46,11 +46,16 @@ class _FakeDistributionalEstimator:
         model.objective = SimpleNamespace(family=_GenericFamily())
         self.model = model
 
+    def summarize_predictors(self, predictors):
+        raw = torch.as_tensor(predictors, dtype=torch.float32)
+        family = self.model.objective.family
+        return (family.predict_point(raw).numpy(), family.predict_spread(raw).numpy())
+
     def predict_components(
         self, X, *, center=False, reference_X=None, reference_weight=None
     ):
         del reference_X, reference_weight
-        assert center
+        assert not center
         x = np.asarray(X["x"], dtype=np.float64)
         z = np.asarray(X["z"], dtype=np.float64)
         terms = {
@@ -60,7 +65,6 @@ class _FakeDistributionalEstimator:
         intercept = np.array([0.2, -0.3])
         link = intercept + terms["x"] + terms["z"]
         return AdditivePrediction(
-            response=link,
             link=link,
             terms=terms,
             intercept=intercept,
@@ -74,9 +78,9 @@ def test_prepare_distributional_effects_uses_family_contract():
         _FakeDistributionalEstimator(), X, response_scale=2.0
     )
 
-    baseline = np.tanh(0.2)
-    expected_point = (np.tanh(0.2 + 0.4 * X["x"]) - baseline) * 2.0
-    expected_spread = np.exp(-0.3 + 0.1 * X["x"]) * 2.0
+    baseline = np.tanh(0.2 - 0.2 * X["z"].mean())
+    expected_point = (np.tanh(0.2 - 0.2 * X["z"].mean() + 0.4 * X["x"]) - baseline) * 2.0
+    expected_spread = np.exp(-0.3 + 0.05 * X["z"].mean() + 0.1 * X["x"]) * 2.0
     np.testing.assert_allclose(
         effects.point_effects["x"][:, 0], expected_point, rtol=1e-5
     )
@@ -133,19 +137,7 @@ def test_lss_estimator_exposes_distributional_effect_plot(tmp_path):
     rng = np.random.default_rng(4)
     X = pd.DataFrame({"x": rng.normal(size=48), "z": rng.normal(size=48)})
     y = 1.5 * X["x"].to_numpy() + rng.normal(scale=0.2, size=len(X))
-    estimator = LinRegLSS(
-        family="normal", numerical_preprocessing="standardization"
-    ).fit(
-        X,
-        y,
-        max_epochs=2,
-        patience=1,
-        checkpoint_path=str(tmp_path),
-        logger=False,
-        enable_progress_bar=False,
-        enable_model_summary=False,
-        num_sanity_val_steps=0,
-    )
+    estimator = LinRegLSS(objective=ObjectiveConfig(family='normal'), preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'), training=GradientTrainingConfig(max_epochs=2, patience=1, checkpoint_path=str(tmp_path), trainer_kwargs={'logger': False, 'enable_progress_bar': False, 'enable_model_summary': False, 'num_sanity_val_steps': 0})).fit(X, y)
     figures = estimator.plot_distributional_effects(
         X, reference_X=X, feature_names=["x"]
     )

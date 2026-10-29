@@ -38,26 +38,6 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - Type / input shape
      - Default
      - Description
-   * - ``lr``
-     - ``float``
-     - ``0.01``
-     - Learning rate for the optimizer.
-   * - ``lr_patience``
-     - ``int``
-     - ``10``
-     - Number of epochs with no improvement after which learning rate will be reduced.
-   * - ``weight_decay``
-     - ``float``
-     - ``0.0``
-     - Weight decay (L2 penalty) for the optimizer.
-   * - ``lr_factor``
-     - ``float``
-     - ``0.1``
-     - Factor by which the learning rate will be reduced.
-   * - ``lr_schedule``
-     - ``str``
-     - ``'inverse_sqrt'``
-     - Learning-rate schedule used by gradient training; see the shared training contract.
    * - ``kernel_width``
      - ``float | Literal['auto']``
      - ``'auto'``
@@ -82,22 +62,6 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``bool``
      - ``True``
      - Include a trainable predictor intercept.
-   * - ``solver``
-     - ``str``
-     - ``'cg'``
-     - Architecture-native solver choice; cg uses a regularized fixed-design solve for supported GPNAM regression.
-   * - ``ridge``
-     - ``float``
-     - ``0.05``
-     - Nonnegative ridge penalty in the fixed linear-design solve.
-   * - ``cg_rtol``
-     - ``float``
-     - ``1e-06``
-     - Relative convergence tolerance for the conjugate-gradient solver.
-   * - ``cg_max_iter``
-     - ``int | None``
-     - ``None``
-     - Maximum conjugate-gradient iterations; None uses the solver default.
    * - ``interaction_degree``
      - ``int | None``
      - ``None``
@@ -126,4 +90,4 @@ Example result
 
 .. raw:: html
 
-   <div class="example-result" aria-label="Example result"><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">components</span><span class="example-result-meta">AdditivePrediction · scalar record</span></summary><div class="example-result-body"><dl class="example-result-fields"><div><dt>backend<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">neural</span></dd></div><div><dt>intercept<span class="example-result-meta">float · scalar</span></dt><dd><span class="example-result-scalar">-0.0095754</span></dd></div></dl><p class="example-result-note">5 additional fields available on the returned object.</p></div></details><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">prediction</span><span class="example-result-meta">ndarray[float32] · 64</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">-0.20163</span><span class="example-result-value">-0.26152</span><span class="example-result-value">-0.31344</span><span class="example-result-value">-0.34429</span><span class="example-result-value">-0.3904</span><span class="example-result-value">-0.66124</span></div><p class="example-result-note">Showing 6 of 64 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
+   <div class="example-result" aria-label="Example result"><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">components</span><span class="example-result-meta">AdditivePrediction · scalar record</span></summary><div class="example-result-body"><dl class="example-result-fields"><div><dt>backend<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">neural</span></dd></div></dl><p class="example-result-note">6 additional fields available on the returned object.</p></div></details><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">prediction</span><span class="example-result-meta">ndarray[float32] · 64</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">-0.20163</span><span class="example-result-value">-0.26152</span><span class="example-result-value">-0.31344</span><span class="example-result-value">-0.34429</span><span class="example-result-value">-0.3904</span><span class="example-result-value">-0.66124</span></div><p class="example-result-note">Showing 6 of 64 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>

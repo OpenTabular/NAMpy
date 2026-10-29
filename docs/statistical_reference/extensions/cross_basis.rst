@@ -6,7 +6,7 @@ Distributed-lag nonlinear cross-basis
 Types, defaults and output shapes
 ---------------------------------
 
-.. autofunction:: nampy.gam.extensions.cross_basis
+.. autofunction:: nampy.gam.structured.cross_basis
 
 
 

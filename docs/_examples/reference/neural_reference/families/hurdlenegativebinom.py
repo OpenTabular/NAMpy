@@ -2,7 +2,7 @@
 
 import numpy as np
 import torch
-from nampy.neural.distributions.distributions import HurdleNegativeBinomialDistribution
+from nampy.neural.families.counts import HurdleNegativeBinomialDistribution
 
 family = HurdleNegativeBinomialDistribution()
 n = 8

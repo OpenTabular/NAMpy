@@ -5,7 +5,7 @@ import pytest
 import torch
 
 from nampy.models._registered import estimator_family, registered_estimator_class
-from nampy.neural.distributions.registry import FAMILY_REGISTRY, resolve_family
+from nampy.neural.families.registry import FAMILY_REGISTRY, resolve_family
 from nampy.neural.registry import architectures, get_architecture
 
 
@@ -26,9 +26,12 @@ def test_builtin_architectures_are_registered_once_with_explicit_capabilities():
         "nodegam",
         "qnam",
         "spline_nam",
+        "semistructured",
         "spam",
     }
     assert set(architectures()) == expected
+    assert get_architecture("semistructured").supports("native_training")
+    assert get_architecture("semistructured").supports("classification")
     assert get_architecture("nam").supports("distributional")
     assert get_architecture("nam").supports("interactions")
     assert get_architecture("nam").preprocessor_defaults == {
@@ -113,6 +116,22 @@ _POSITIVE = np.array([0.2, 0.7, 1.3, 2.0], dtype=np.float32)
 _COUNT = np.array([0.0, 1.0, 2.0, 3.0], dtype=np.float32)
 _REAL = np.array([-1.0, 0.0, 0.5, 2.0], dtype=np.float32)
 _FAMILY_CASES = {
+    "bccg": (_POSITIVE, {}),
+    "beinf": (np.array([0.0, 0.3, 0.6, 1.0], dtype=np.float32), {}),
+    "betabinomial": (_COUNT, {"trials": 8}),
+    "normal_observation": (
+        np.array(
+            [
+                [-1.0, -1.0, 0.0],
+                [0.0, 0.0, -1.0],
+                [0.5, 0.5, 1.0],
+                [1.0, 2.0, 2.0],
+            ],
+            dtype=np.float64,
+        ),
+        {},
+    ),
+    "zaga": (np.array([0.0, 0.7, 1.3, 2.0], dtype=np.float32), {}),
     "normal": (_REAL, {}),
     "poisson": (_COUNT, {}),
     "gamma": (_POSITIVE, {}),

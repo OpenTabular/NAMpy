@@ -8,6 +8,7 @@ Asymmetric objectives, joint uncertainty and EDF, then structured survival and e
 .. toctree::
    :maxdepth: 1
 
+   DistributedLagBasis
    fit_expectile
    fit_quantile
    LossFit

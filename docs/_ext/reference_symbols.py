@@ -14,17 +14,13 @@ SYMBOLS = {
         "AdditivePrediction",
         "EnsembleAdditivePrediction",
     ],
-    "nampy.explanations": [
-        "center_additive_prediction",
-        "explain_additive_prediction",
-        "term_importance_table",
+    "nampy.inspection": [
+        "center_additive_prediction", "explain_additive_prediction", "term_importance_table",
+        "DistributionalEffects", "combine_distributional_effects", "prepare_distributional_effects",
     ],
     "nampy.plotting": [
-        "DistributionalEffects",
         "add_density_shading",
-        "combine_distributional_effects",
         "plot_distributional_effects",
-        "prepare_distributional_effects",
         "prepared_from_contributions",
         "prepared_from_interactions",
         "render_distributional_effects",
@@ -40,22 +36,22 @@ MEANINGS = {
     "features": "Source features on which a term depends; empty tuple means no declared source feature.",
     "parameter": "Distribution parameter identified by this term, or None for a single-output/non-parameter-specific contribution.",
     "kind": "Dependence kind: main, interaction, global or contextual. Reconstruction alone does not prove unary dependence.",
-    "response": "Response-scale predictions, shape (n,) or (n,q). Must have the same shape as link in AdditivePrediction.",
-    "link": "Additive predictor values, shape (n,) or (n,q). Contributions plus intercept and offset reconstruct this scale.",
+    "link": "Additive predictor values, normalized to shape (n,K), independently of natural parameter or response widths.",
     "terms": "Mapping from unique term labels to contribution arrays with n rows. A scalar contribution may use (n,), (n,1), or compatible output width (n,q).",
-    "intercept": "Scalar or broadcast-compatible fitted intercept: (), (q,), (n,) or (n,q), subject to the response shape.",
+    "intercept": "Predictor constants of shape (K,) or rowwise intercepts of shape (n,K).",
     "backend": "Backend label: gam or neural.",
     "offset": "Optional known predictor offsets, broadcast-compatible with link. None omits the offset.",
     "term_metadata": "Mapping from term label to AdditiveTermMetadata, describing source dependence and distribution-parameter identity.",
     "prediction": "AdditivePrediction whose contributions are summarized or centered; no estimator is refitted.",
     "reference": "Optional AdditivePrediction for the reference population. Its term set and trailing output dimensions must match prediction.",
     "mean": "Mean AdditivePrediction across independently fitted ensemble members.",
-    "response_std": "Between-member response standard deviations, matching mean.response shape.",
+    "predictor_names": "Ordered names of the K actual additive predictors, independent of natural parameters.",
     "link_std": "Between-member link standard deviations, matching mean.link shape.",
     "term_std": "Between-member standard-deviation arrays per term, aligned with mean.terms.",
     "intercept_std": "Between-member intercept standard deviation, scalar or broadcast-compatible with the mean intercept.",
     "n_estimators": "Positive number of independent ensemble members represented by the result.",
     "feature_values": "Mapping from feature name to observed feature values, one row per effect observation.",
+    "point_summary": "Name of the family-defined point functional, distinct from conditional SD and between-fit variability.",
     "point_effects": "Mapping from feature name to point-functional effect curves, shape (n_feature,) or (n_feature,n_members).",
     "conditional_sd": "Mapping from feature name to conditional response SD values, matching the corresponding point-effect curve dimensions.",
     "ax": "Matplotlib Axes modified in place by density shading.",
@@ -66,7 +62,7 @@ MEANINGS = {
     "max_alpha": "Maximum opacity for the most populated density bin; must be compatible with min_alpha.",
     "label": "Optional legend label for the density shading.",
     "effects": "Prepared DistributionalEffects object; combine_distributional_effects takes a nonempty sequence of compatible objects and stacks member curve columns.",
-    "estimator": "Fitted neural distributional estimator providing centered predict_components and its neural family point/spread hooks. Statistical GAMLSS does not currently implement this complete renderer protocol.",
+    "estimator": "Fitted distributional estimator providing predict_components and summarize_predictors; numerical family evaluation remains backend-owned.",
     "kwargs": "Additional preparation/rendering keyword arguments. The combined plotting entry point separates the supported preparation options from renderer options.",
     "num_bins": "Number of equally spaced heatmap edges per displayed interaction feature; at least three.",
     "slice_bins": "Quantile bins used to condition additional numeric interaction features.",
@@ -121,11 +117,11 @@ TYPES = {
     "prediction": "AdditivePrediction",
     "reference": "AdditivePrediction | None",
     "mean": "AdditivePrediction",
-    "response_std": "numpy.ndarray",
     "link_std": "numpy.ndarray",
     "term_std": "dict[str, numpy.ndarray]",
     "intercept_std": "float | numpy.ndarray",
     "feature_values": "Mapping[str, numpy.ndarray]",
+    "point_summary": "str",
     "point_effects": "Mapping[str, numpy.ndarray]",
     "conditional_sd": "Mapping[str, numpy.ndarray]",
     "ax": "matplotlib.axes.Axes",
@@ -146,19 +142,19 @@ TYPES = {
 CONTRACT_SETUP = """import numpy as np
 import pandas as pd
 from nampy.contracts import AdditivePrediction, AdditiveTermMetadata, EnsembleAdditivePrediction, FeatureSchema
-from nampy.explanations import center_additive_prediction, explain_additive_prediction, term_importance_table
+from nampy.inspection import center_additive_prediction, explain_additive_prediction, term_importance_table
 
 n = 12
 X = pd.DataFrame({'x': np.linspace(0, 1, n)})
 term = np.sin(3 * X.x.to_numpy())
 link = 0.5 + term
-prediction = AdditivePrediction(response=link.copy(), link=link,
+prediction = AdditivePrediction(link=link,
                                terms={'x': term}, intercept=0.5, backend='gam',
                                term_metadata={'x': AdditiveTermMetadata(features=('x',))})
 prediction.validate_additive_reconstruction()
 """
 DIST_SETUP = """import numpy as np
-from nampy.plotting import DistributionalEffects
+from nampy.inspection import DistributionalEffects
 
 n = 24
 x = np.linspace(0, 1, n)
@@ -169,12 +165,12 @@ effects = DistributionalEffects(feature_values={'x': x},
 
 
 def example(module, name):
-    if module in {"nampy.contracts", "nampy.explanations"}:
+    if module == "nampy.contracts" or name in {"center_additive_prediction", "explain_additive_prediction", "term_importance_table"}:
         calls = {
             "FeatureSchema": "FeatureSchema.from_data(X)",
             "AdditiveTermMetadata": "AdditiveTermMetadata(features=('x',), kind='main')",
             "AdditivePrediction": "prediction",
-            "EnsembleAdditivePrediction": "EnsembleAdditivePrediction(mean=prediction, response_std=np.zeros(n), link_std=np.zeros(n), term_std={'x': np.zeros(n)}, intercept_std=0., n_estimators=2)",
+            "EnsembleAdditivePrediction": "EnsembleAdditivePrediction(mean=prediction, link_std=np.zeros((n,1)), term_std={'x': np.zeros((n,1))}, intercept_std=0., n_estimators=2)",
             "center_additive_prediction": "center_additive_prediction(prediction)",
             "explain_additive_prediction": "explain_additive_prediction(X, prediction, max_bins=6)",
             "term_importance_table": "term_importance_table(prediction)",
@@ -194,7 +190,7 @@ def example(module, name):
         }[name]
         return (
             DIST_SETUP
-            + f"from nampy.plotting import {name}\nresult = {call}\nprint(type(result).__name__)\n"
+            + f"from {module} import {name}\nresult = {call}\nprint(type(result).__name__)\n"
         )
     if name == "add_density_shading":
         return (
@@ -213,7 +209,7 @@ assert result is None
 
         return (
             neural_estimator_example("NAMLSS")
-            + f"from nampy.plotting import {name}\nresult = {name}(model, X)\nprint(type(result).__name__)\n"
+            + f"from {module} import {name}\nresult = {name}(model, X)\nprint(type(result).__name__)\n"
         )
     if name == "prepared_from_interactions":
         return (CONTRACT_SETUP
@@ -253,7 +249,7 @@ def return_description(module, name):
     }:
         return f"``{name}`` record. Its fields retain the types and dimensions listed in the parameter table; construction validates the declared shape contract."
     if name == "center_additive_prediction":
-        return "``AdditivePrediction`` with the same response/link shape as the input; only term centering and intercept allocation change."
+        return "``AdditivePrediction`` with the same (n,K) predictor coordinates as the input; only term centering and intercept allocation change."
     if name == "explain_additive_prediction":
         return "``pandas.DataFrame`` with one row per retained feature/term/output/bin group. Columns include term identity, term type, output index, feature value, contribution, count and importance; exact columns are listed by the executable example below."
     if name == "term_importance_table":
@@ -294,10 +290,8 @@ def generate(root):
             }
             items = list(inspect.signature(obj).parameters.items())
             if module == "nampy.plotting" and name == "plot_distributional_effects":
-                from nampy.plotting import (
-                    prepare_distributional_effects,
-                    render_distributional_effects,
-                )
+                from nampy.inspection import prepare_distributional_effects
+                from nampy.plotting import render_distributional_effects
 
                 items = [
                     (key, p)

@@ -10,7 +10,7 @@ Checks:
 5. Learned smooth effects correlate with the true DGP.
 
 Run:
-    python examples/example_gam_smoothing.py
+    python examples/example_gam2.py
 """
 
 import os
@@ -51,7 +51,7 @@ def summarize_model(name, model, X_val, y_val, true_x1, true_x2, true_total):
 
     feat_vals["output"] = components.link
 
-    feat_vals["response"] = components.response
+    feat_vals["response"] = model.predict(X_val)
 
     feat_vals["intercept"] = components.intercept
 
@@ -135,9 +135,17 @@ def main():
     )
 
     xv = X_val.reset_index(drop=True)
-    true_x1 = f1(xv["x1"].to_numpy())
-    true_x2 = f2(xv["x2"].to_numpy())
-    true_total = intercept_true + true_x1 + true_x2
+
+    # GAM smooths are identifiable only up to an additive constant. With an
+    # intercept, each fitted smooth is constrained to have mean zero over the
+    # training data and the removed constants are absorbed by the intercept.
+    # Put the known DGP in that same parameterization before comparing terms.
+    true_x1_mean = float(np.mean(f1(X_train["x1"].to_numpy())))
+    true_x2_mean = float(np.mean(f2(X_train["x2"].to_numpy())))
+    true_x1 = f1(xv["x1"].to_numpy()) - true_x1_mean
+    true_x2 = f2(xv["x2"].to_numpy()) - true_x2_mean
+    true_intercept_centered = intercept_true + true_x1_mean + true_x2_mean
+    true_total = true_intercept_centered + true_x1 + true_x2
 
     # ------------------------------------------------------------------
     # 1) Fixed smoothing
@@ -235,34 +243,34 @@ def main():
     order2 = np.argsort(x2_val)
 
     # Fixed
-    axes[0].plot(x1_val[order1], true_x1[order1], label="true")
+    axes[0].plot(x1_val[order1], true_x1[order1], label="true (centered)")
     axes[0].plot(x1_val[order1], learned_fixed["x1"][order1], label="fixed")
     axes[0].set_title("x1 effect — fixed")
     axes[0].legend()
 
-    axes[1].plot(x2_val[order2], true_x2[order2], label="true")
+    axes[1].plot(x2_val[order2], true_x2[order2], label="true (centered)")
     axes[1].plot(x2_val[order2], learned_fixed["x2"][order2], label="fixed")
     axes[1].set_title("x2 effect — fixed")
     axes[1].legend()
 
     # GCV
-    axes[2].plot(x1_val[order1], true_x1[order1], label="true")
+    axes[2].plot(x1_val[order1], true_x1[order1], label="true (centered)")
     axes[2].plot(x1_val[order1], learned_gcv["x1"][order1], label="gcv")
     axes[2].set_title("x1 effect — GCV")
     axes[2].legend()
 
-    axes[3].plot(x2_val[order2], true_x2[order2], label="true")
+    axes[3].plot(x2_val[order2], true_x2[order2], label="true (centered)")
     axes[3].plot(x2_val[order2], learned_gcv["x2"][order2], label="gcv")
     axes[3].set_title("x2 effect — GCV")
     axes[3].legend()
 
     # REML
-    axes[4].plot(x1_val[order1], true_x1[order1], label="true")
+    axes[4].plot(x1_val[order1], true_x1[order1], label="true (centered)")
     axes[4].plot(x1_val[order1], learned_reml["x1"][order1], label="reml")
     axes[4].set_title("x1 effect — REML")
     axes[4].legend()
 
-    axes[5].plot(x2_val[order2], true_x2[order2], label="true")
+    axes[5].plot(x2_val[order2], true_x2[order2], label="true (centered)")
     axes[5].plot(x2_val[order2], learned_reml["x2"][order2], label="reml")
     axes[5].set_title("x2 effect — REML")
     axes[5].legend()
@@ -279,6 +287,7 @@ def main():
 
     print("\nInterpretation:")
     print("  - Additive reconstruction error should be ~0 for all models.")
+    print("  - True smooth effects use the fitted terms' training-centered scale.")
     print("  - GCV and REML should produce finite positive smoothing parameters.")
     print("  - EDFs should be sensible (not exploding, not all collapsed).")
     print("  - Learned x1/x2 effects should correlate strongly with the true DGP.")

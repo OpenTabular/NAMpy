@@ -1,7 +1,7 @@
 """Runnable reference example: statistical_reference/extensions/fit_expectile."""
 
 import numpy as np
-from nampy.gam.extensions import fit_expectile
+from nampy.gam.losses.objectives import fit_expectile
 
 x = np.linspace(-1, 1, 40)
 design = np.column_stack([np.ones(len(x)), x, x**2])

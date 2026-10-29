@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from types import SimpleNamespace
 
 import numpy as np
@@ -12,7 +13,9 @@ import torch.nn as nn
 from pretab.preprocessor import Preprocessor
 
 from nampy.models.linreg import LinRegRegressor
+from nampy.neural.configuration import GradientTrainingConfig, PreprocessingConfig
 from nampy.neural.data.datamodule import NAMpyDataModule
+from nampy.neural.objectives import DistributionObjective, RegressionObjective
 from nampy.neural.task import TaskModule
 
 
@@ -34,14 +37,7 @@ def _task_config():
 
 
 def _regression_task_model():
-    task_model = TaskModule(
-        model_class=_ZeroOutputModel,
-        config=_task_config(),
-        cat_feature_info={},
-        num_feature_info={"x": {"dimension": 1}},
-        num_classes=1,
-        task="regression",
-    )
+    task_model = TaskModule(model_class=_ZeroOutputModel, config=_task_config(), cat_feature_info={}, num_feature_info={'x': {'dimension': 1}}, objective=RegressionObjective(1), training=GradientTrainingConfig())
     task_model.log = lambda *args, **kwargs: None
     return task_model
 
@@ -67,20 +63,12 @@ def test_offset_shifts_regression_loss_exactly():
     assert loss == pytest.approx(0.0)
 
 
-def test_lss_rejects_nonzero_offsets():
+def test_lss_offsets_require_exact_predictor_width():
     family = SimpleNamespace(
         param_count=2,
         compute_loss=lambda preds, y, reduction="none": preds.sum() * 0.0,
     )
-    task_model = TaskModule(
-        model_class=_ZeroOutputModel,
-        config=_task_config(),
-        cat_feature_info={},
-        num_feature_info={"x": {"dimension": 1}},
-        num_classes=2,
-        lss=True,
-        family=family,
-    )
+    task_model = TaskModule(model_class=_ZeroOutputModel, config=_task_config(), cat_feature_info={}, num_feature_info={'x': {'dimension': 1}}, objective=DistributionObjective(family), training=GradientTrainingConfig())
     task_model.log = lambda *args, **kwargs: None
     features = {"x": torch.tensor([[0.0], [1.0]])}
     labels = torch.ones((2, 1))
@@ -88,8 +76,66 @@ def test_lss_rejects_nonzero_offsets():
     # Zero offsets pass through.
     task_model.test_step(({}, features, labels, torch.zeros((2, 1))), 0)
 
-    with pytest.raises(RuntimeError, match="not supported for distributional"):
+    task_model.test_step(({}, features, labels, torch.ones((2, 2))), 0)
+    with pytest.raises(ValueError, match="no predictor broadcasting"):
         task_model.test_step(({}, features, labels, torch.ones((2, 1))), 0)
+
+
+@pytest.mark.parametrize("longitudinal", [False, True])
+@pytest.mark.parametrize("column_offset", [False, True])
+def test_piecewise_subject_offsets_match_interval_likelihood(longitudinal, column_offset):
+    from nampy.neural.survival import (
+        LongitudinalPiecewiseObjective,
+        PiecewiseExponentialObjective,
+    )
+
+    exposure = np.array([[1.0, 0.5], [0.5, 0.0], [1.0, 1.0], [1.0, 0.2]])
+    events = np.array([[0.0, 1.0], [1.0, 0.0], [0.0, 1.0], [0.0, 0.0]])
+    allocation = np.full(4, 0.5) if longitudinal else np.ones(4)
+    targets = np.column_stack([exposure, events])
+    if longitudinal:
+        targets = np.column_stack([targets, allocation])
+    train_offset = np.array([-0.2, 0.1, 0.3, -0.1])
+    val_offset = np.array([0.4, -0.3])
+    train_weight = np.array([1.0, 2.0, 0.5, 0.0])
+    data = SimpleNamespace(
+        y_train=targets,
+        y_val=targets[:2],
+        offset_train=train_offset[:, None] if column_offset else train_offset,
+        offset_val=val_offset[:, None] if column_offset else val_offset,
+        sample_weight_train=train_weight,
+        sample_weight_val=np.ones(2),
+    )
+    cls = LongitudinalPiecewiseObjective if longitudinal else PiecewiseExponentialObjective
+    objective = cls(2)
+    objective.configure_data(data)
+    task_model = TaskModule(
+        model_class=_ZeroOutputModel,
+        config=_task_config(),
+        cat_feature_info={},
+        num_feature_info={"x": {"dimension": 1}},
+        objective=objective,
+        training=GradientTrainingConfig(),
+    )
+    task_model.log = lambda *args, **kwargs: None
+
+    for stage, offsets, weights in (
+        ("train", train_offset, train_weight),
+        ("val", val_offset, np.ones(2)),
+    ):
+        expanded = getattr(data, f"offset_{stage}")
+        np.testing.assert_array_equal(expanded, np.repeat(offsets[:, None], 2, axis=1))
+        n = len(offsets)
+        batch = (
+            {}, {"x": torch.zeros(n, 1)}, torch.tensor(targets[:n]),
+            torch.tensor(expanded), torch.tensor(weights),
+        )
+        actual = task_model._shared_step(batch, 0, stage)
+        row_losses = (
+            exposure[:n] * np.exp(offsets[:, None]) - events[:n] * offsets[:, None]
+        ).sum(axis=1)
+        expected = np.sum(weights * row_losses) / np.sum(weights * allocation[:n])
+        assert actual.item() == pytest.approx(expected, rel=2e-7)
 
 
 def test_datamodule_splits_offset_alongside_features():
@@ -141,21 +187,8 @@ def test_gaussian_offset_shifts_fitted_solution(tmp_path):
 
     def _fit(offset):
         torch.manual_seed(0)
-        estimator = LinRegRegressor(numerical_preprocessing="standardization")
-        estimator.fit(
-            X,
-            y,
-            offset=offset,
-            max_epochs=60,
-            patience=60,
-            lr=5e-2,
-            batch_size=64,
-            checkpoint_path=str(tmp_path),
-            logger=False,
-            enable_progress_bar=False,
-            enable_model_summary=False,
-            num_sanity_val_steps=0,
-        )
+        estimator = LinRegRegressor(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
+        estimator.set_params(training=replace(estimator.training or GradientTrainingConfig(), max_epochs=60, patience=60, lr=0.05, batch_size=64, checkpoint_path=str(tmp_path), trainer_kwargs={'logger': False, 'enable_progress_bar': False, 'enable_model_summary': False, 'num_sanity_val_steps': 0})).fit(X, y, offset=offset)
         return float(np.mean(estimator.predict(X)))
 
     mean_without_offset = _fit(None)
@@ -171,21 +204,11 @@ def test_custom_loss_fct_reaches_task_module(tmp_path):
     y = np.exp(0.5 * X["x"].to_numpy())
 
     loss = nn.PoissonNLLLoss(log_input=True)
-    estimator = LinRegRegressor(numerical_preprocessing="standardization")
-    estimator.fit(
-        X,
-        y,
-        loss_fct=loss,
-        max_epochs=1,
-        patience=1,
-        checkpoint_path=str(tmp_path),
-        logger=False,
-        enable_progress_bar=False,
-        enable_model_summary=False,
-        num_sanity_val_steps=0,
-    )
+    estimator = LinRegRegressor(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
+    estimator.set_params(training=replace(estimator.training or GradientTrainingConfig(), max_epochs=1, patience=1, checkpoint_path=str(tmp_path), trainer_kwargs={'logger': False, 'enable_progress_bar': False, 'enable_model_summary': False, 'num_sanity_val_steps': 0}), objective=replace(estimator.objective, loss_fct=loss)).fit(X, y)
 
-    assert estimator.model.objective.loss_fct is loss
+    assert estimator.model.objective.loss_fct is not loss
+    assert type(estimator.model.objective.loss_fct) is type(loss)
 
 
 def test_custom_loss_fct_rejected_outside_regression():
@@ -193,7 +216,7 @@ def test_custom_loss_fct_rejected_outside_regression():
     from nampy.models.linreg import LinRegClassifier
 
     assert issubclass(LinRegClassifier, NeuralClassifier)
-    estimator = LinRegClassifier(numerical_preprocessing="standardization")
-    estimator._fit_loss_fct = nn.MSELoss()
+    estimator = LinRegClassifier(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
+    estimator.set_params(objective=replace(estimator.objective, loss_fct=nn.MSELoss()))
     with pytest.raises(ValueError, match="only supported for regression"):
         estimator._build_training_plan(np.array([0, 1, 0, 1]), None)

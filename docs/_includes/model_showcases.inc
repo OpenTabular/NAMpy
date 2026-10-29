@@ -135,6 +135,10 @@ nonlinear contribution; the names do not identify a real housing study.
 
 .. code-block:: python
 
+   from dataclasses import replace
+   from nampy.neural.configs.nam_config import DefaultNAMConfig
+   from nampy.neural.configuration import GradientTrainingConfig
+   from nampy.neural.configuration import PreprocessingConfig
    import numpy as np
    import pandas as pd
 
@@ -156,20 +160,8 @@ nonlinear contribution; the names do not identify a real housing study.
        + rng.normal(0.0, 0.3, n)
    )
 
-   model = NAMRegressor(
-       layer_sizes=[48, 24],
-       dropout=0.0,
-       numerical_preprocessing="minmax",
-   )
-   model.fit(
-       X,
-       y,
-       max_epochs=100,
-       lr=0.005,
-       batch_size=128,
-       patience=12,
-       random_state=7,
-   )
+   model = NAMRegressor(architecture_config=DefaultNAMConfig(layer_sizes=[48, 24], dropout=0.0), preprocessing=PreprocessingConfig(numerical_preprocessing='minmax'))
+   model.set_params(training=replace(model.training or GradientTrainingConfig(), max_epochs=100, lr=0.005, batch_size=128, patience=12, random_state=7)).fit(X, y)
 
    prediction = model.predict(X)
    components = model.predict_components(X, center=True, reference_X=X)
@@ -218,6 +210,8 @@ Neural LSS estimators also provide point-and-spread effect plots:
 .. code-block:: python
 
    from nampy.models import NAMLSS
+   from nampy.neural.configs.nam_config import DefaultNAMConfig
+   from nampy.neural.configuration import GradientTrainingConfig, ObjectiveConfig, PreprocessingConfig
 
    rng_dist = np.random.default_rng(11)
    X_dist = pd.DataFrame({
@@ -232,18 +226,16 @@ Neural LSS estimators also provide point-and-spread effect plots:
    y_dist = location + rng_dist.normal(0.0, scale, n)
 
    lss = NAMLSS(
-       family="normal",
-       layer_sizes=[48, 24],
-       dropout=0.0,
-       numerical_preprocessing="minmax",
+       objective=ObjectiveConfig(family="normal"),
+       architecture_config=DefaultNAMConfig(layer_sizes=[48, 24], dropout=0.0),
+       preprocessing=PreprocessingConfig(numerical_preprocessing="minmax"),
+       training=GradientTrainingConfig(
+           max_epochs=100, batch_size=128, patience=12, random_state=11,
+       ),
    )
    lss.fit(
        X_dist,
        y_dist,
-       max_epochs=100,
-       batch_size=128,
-       patience=12,
-       random_state=11,
    )
    figures = lss.plot_distributional_effects(
        X_dist,

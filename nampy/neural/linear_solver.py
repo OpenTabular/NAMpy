@@ -15,6 +15,7 @@ def solve_fixed_linear_regression(
     num_features,
     cat_features,
     targets,
+    training,
     sample_weight=None,
     offset=None,
 ) -> dict:
@@ -63,7 +64,7 @@ def solve_fixed_linear_regression(
     normal = weighted_design.T @ weighted_design
     rhs = weighted_design.T @ weighted_response
 
-    penalty = np.full(normal.shape[0], float(model.ridge), dtype=np.float64)
+    penalty = np.full(normal.shape[0], float(training.ridge), dtype=np.float64)
     if model.intercept is not None:
         penalty[-1] = 0.0
     normal[np.diag_indices_from(normal)] += penalty
@@ -80,9 +81,9 @@ def solve_fixed_linear_regression(
         solution, info = cg(
             normal,
             rhs[:, output],
-            rtol=float(model.cg_rtol),
+            rtol=float(training.cg_rtol),
             atol=0.0,
-            maxiter=model.cg_max_iter,
+            maxiter=training.cg_max_iter,
             callback=count_iteration,
         )
         if info != 0:
@@ -114,7 +115,7 @@ def solve_fixed_linear_regression(
     residual = design @ coefficients - response
     return {
         "solver": "cg",
-        "ridge": float(model.ridge),
+        "ridge": float(training.ridge),
         "iterations": tuple(iterations),
         "weighted_mse": float(
             np.sum(weights[:, None] * residual**2)

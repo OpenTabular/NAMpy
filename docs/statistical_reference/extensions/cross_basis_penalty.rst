@@ -6,7 +6,7 @@ Distributed-lag tensor penalties
 Types, defaults and output shapes
 ---------------------------------
 
-.. autofunction:: nampy.gam.extensions.cross_basis_penalty
+.. autofunction:: nampy.gam.structured.cross_basis_penalty
 
 
 

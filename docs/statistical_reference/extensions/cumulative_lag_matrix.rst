@@ -6,7 +6,7 @@ Cumulative lag contrasts
 Types, defaults and output shapes
 ---------------------------------
 
-.. autofunction:: nampy.gam.extensions.cumulative_lag_matrix
+.. autofunction:: nampy.gam.structured.cumulative_lag_matrix
 
 
 

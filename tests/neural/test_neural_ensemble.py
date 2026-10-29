@@ -1,20 +1,24 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 from sklearn.base import BaseEstimator
 
 import nampy
 from nampy import models
-from nampy.contracts import AdditivePrediction
+from nampy.contracts import AdditivePrediction, AdditiveTermMetadata
 from nampy.models.ensemble import NeuralEnsemble
 
 
 class _SeededAdditiveRegressor(BaseEstimator):
     _estimator_type = "regressor"
 
-    def fit(self, X, y, random_state=0, **kwargs):
+    def __init__(self, random_state=0):
+        self.random_state = random_state
+
+    def fit(self, X, y, **kwargs):
         del X, y, kwargs
-        self.intercept_ = float(random_state)
+        self.intercept_ = float(self.random_state)
         return self
 
     def predict(self, X):
@@ -33,7 +37,6 @@ class _SeededAdditiveRegressor(BaseEstimator):
         values = np.asarray(X)[:, 0]
         prediction = self.predict(X)
         return AdditivePrediction(
-            response=prediction,
             link=prediction,
             terms={"x": values},
             intercept=self.intercept_,
@@ -74,6 +77,62 @@ def test_independent_ensemble_averages_components_and_reports_uncertainty():
     np.testing.assert_allclose(uncertainty.term_std["x"], 0.0)
     assert models.NeuralEnsemble is NeuralEnsemble
     assert nampy.NeuralEnsemble is NeuralEnsemble
+
+
+def test_ensemble_aligns_sparse_member_terms_over_their_union():
+    components = [
+        AdditivePrediction(
+            link=np.array([5.0, 7.0]),
+            terms={"x": np.array([1.0, 2.0]), "x:y": np.array([3.0, 4.0])},
+            intercept=1.0,
+            backend="neural",
+        ),
+        AdditivePrediction(
+            link=np.array([14.0, 16.0]),
+            terms={"y": np.array([5.0, 6.0]), "x": np.array([7.0, 8.0])},
+            intercept=2.0,
+            backend="neural",
+        ),
+    ]
+
+    uncertainty = NeuralEnsemble._aggregate_components(components)
+
+    assert tuple(uncertainty.mean.terms) == ("x", "x:y", "y")
+    np.testing.assert_allclose(uncertainty.mean.terms["x:y"][:, 0], [1.5, 2.0])
+    np.testing.assert_allclose(uncertainty.mean.terms["y"][:, 0], [2.5, 3.0])
+    np.testing.assert_allclose(uncertainty.term_std["x:y"][:, 0], [1.5, 2.0])
+    np.testing.assert_allclose(uncertainty.term_std["y"][:, 0], [2.5, 3.0])
+    uncertainty.mean.validate_additive_reconstruction()
+
+
+def test_ensemble_combines_constant_and_rowwise_predictor_intercepts():
+    constant = np.array([1.0, 2.0])
+    rowwise = np.array([[2.0, 3.0], [3.0, 4.0], [4.0, 5.0]])
+    parts = [
+        AdditivePrediction(
+            link=np.broadcast_to(constant, rowwise.shape), terms={},
+            intercept=constant, backend="neural",
+        ),
+        AdditivePrediction(
+            link=rowwise, terms={}, intercept=rowwise, backend="neural",
+        ),
+    ]
+    result = NeuralEnsemble._aggregate_components(parts)
+    np.testing.assert_allclose(result.mean.intercept, (constant + rowwise) / 2)
+    result.mean.validate_additive_reconstruction()
+
+
+def test_sparse_ensemble_rejects_conflicting_term_meanings():
+    parts = [AdditivePrediction(
+        link=np.zeros(3), terms={}, intercept=0, backend="neural",
+    )]
+    for feature in ("x", "z"):
+        parts.append(AdditivePrediction(
+            link=np.ones(3), terms={"term": np.ones(3)}, intercept=0,
+            backend="neural", term_metadata={"term": AdditiveTermMetadata((feature,))},
+        ))
+    with pytest.raises(ValueError, match="inconsistent metadata"):
+        NeuralEnsemble._aggregate_components(parts)
 
 
 def test_generic_ensemble_bootstraps_rows_and_aligned_fit_channels():

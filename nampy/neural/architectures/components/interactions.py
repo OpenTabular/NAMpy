@@ -7,10 +7,8 @@ the same gather loop in ``forward``. The architecture-specific pieces (how a
 subnetwork is built for an interaction, and how its raw output is produced or
 post-processed) stay with each model and are passed in as callables.
 
-NATT and NAMformer deliberately keep their own interaction code: their
-``feature_dropout`` is a plain elementwise ``nn.Dropout`` over concatenated
-term outputs, not the term-mask dropout in :func:`apply_feature_dropout`, and
-NAMformer feeds transformer embeddings rather than raw feature tensors.
+All additive architectures use the same whole-term dropout convention, including
+multi-output heads. Returned contributions describe the actual masked forward pass.
 """
 
 from __future__ import annotations
@@ -72,9 +70,7 @@ def resolve_interactions(
     if len(positions) != len(feature_names):
         raise ValueError("Feature names must be unique when resolving interactions.")
     if interactions is not None and interaction_degree not in {None, 1}:
-        raise ValueError(
-            "Specify either interactions or interaction_degree, not both."
-        )
+        raise ValueError("Specify either interactions or interaction_degree, not both.")
     if interactions is None:
         if interaction_degree is None or interaction_degree < 2:
             return []
@@ -142,6 +138,8 @@ def apply_feature_dropout(
     the whole output dimension, so entire term contributions are dropped
     consistently (preserving e.g. QNAM's within-term monotonicity).
     """
+    if not 0 <= p <= 1:
+        raise ValueError("feature_dropout must be in [0, 1].")
     if p > 0.0 and training:
         mask = torch.ones(
             term_outputs.shape[0],
@@ -153,3 +151,20 @@ def apply_feature_dropout(
         mask = nn.functional.dropout(mask, p=p, training=True)
         term_outputs = term_outputs * mask
     return term_outputs
+
+
+def sum_term_outputs(terms, intercept=None, *, p=0.0, training=False):
+    """Return the actual additive forward decomposition after whole-term dropout."""
+    if not terms:
+        raise ValueError("An additive forward pass requires at least one term.")
+    stacked = torch.stack(
+        [value.reshape(value.shape[0], -1) for value in terms.values()], dim=1
+    )
+    stacked = apply_feature_dropout(stacked, p, training)
+    result = dict(zip(terms, stacked.unbind(dim=1), strict=True))
+    output = stacked.sum(dim=1)
+    if intercept is not None:
+        output = output + intercept
+        result["intercept"] = intercept
+    result["output"] = output
+    return result

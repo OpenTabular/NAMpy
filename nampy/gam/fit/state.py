@@ -28,7 +28,11 @@ class FitState:
     A: np.ndarray | None = None
     A_inv: np.ndarray | None = None
     XtWX: np.ndarray | None = None
-    P: np.ndarray | None = None
+    # The unconstrained working-system penalty is unavailable for mapped
+    # coefficients (for example shape-constrained fits). Keep it distinct
+    # from the coefficient penalty retained for criterion/inference bookkeeping.
+    # Each producing kernel retains its original coefficient coordinates.
+    working_penalty: np.ndarray | None = None
     penalty_matrix: np.ndarray | None = None
     working_weights: np.ndarray | None = None
     fisher_weights: np.ndarray | None = None
@@ -42,7 +46,6 @@ class FitState:
     log_det_XtWX_plus_penalty: float | None = None
     penalized_system_rank: int | None = None
     dropped_column_indices: np.ndarray | None = None
-    scale: float | None = None
 
 
 @dataclass(frozen=True)
@@ -55,29 +58,6 @@ class FitCoreSolution:
 
     fit_result: FitResult
     fit_state: FitState
-
-    def _delegate_objects(self):
-        state = object.__getattribute__(self, "__dict__")
-        return tuple(
-            state[name] for name in ("fit_result", "fit_state") if name in state
-        )
-
-    def __getitem__(self, key):
-        return self.get(key)
-
-    def get(self, key, default=None):
-        state = object.__getattribute__(self, "__dict__")
-        for obj in self._delegate_objects():
-            if hasattr(obj, key):
-                value = getattr(obj, key)
-                return default if value is None and key not in state else value
-        return default
-
-    def __getattr__(self, key):
-        for obj in self._delegate_objects():
-            if hasattr(obj, key):
-                return getattr(obj, key)
-        raise AttributeError(key)
 
     def with_fit_result(self, **changes) -> "FitCoreSolution":
         return replace(self, fit_result=replace(self.fit_result, **changes))
@@ -178,11 +158,7 @@ class FitCoreSolution:
                 if data.get("XtWX", None) is None
                 else np.asarray(data["XtWX"], dtype=np.float64)
             ),
-            P=(
-                None
-                if data.get("P", None) is None
-                else np.asarray(data["P"], dtype=np.float64)
-            ),
+            working_penalty=(None if data.get("P") is None else np.asarray(data["P"], dtype=np.float64)),
             penalty_matrix=(
                 None
                 if data.get("penalty_matrix", None) is None
@@ -248,7 +224,6 @@ class FitCoreSolution:
                 if data.get("dropped_column_indices", None) is None
                 else np.asarray(data["dropped_column_indices"], dtype=np.int64)
             ),
-            scale=float(data["scale"]),
         )
         return cls(fit_result=fit_result, fit_state=fit_state)
 
@@ -293,7 +268,6 @@ def assign_fit_solution(model, sol: FitCoreSolution):
         if fit_result.cov_freq is None
         else np.asarray(fit_result.cov_freq, dtype=np.float64)
     )
-    fit_state = replace(fit_state, scale=float(scale_post))
     fit_result = replace(
         fit_result,
         trace_H=float(trace_H_post),

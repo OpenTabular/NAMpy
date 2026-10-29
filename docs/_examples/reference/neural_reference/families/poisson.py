@@ -2,7 +2,7 @@
 
 import numpy as np
 import torch
-from nampy.neural.distributions.distributions import PoissonDistribution
+from nampy.neural.families.counts import PoissonDistribution
 
 family = PoissonDistribution()
 n = 8

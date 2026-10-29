@@ -3,7 +3,7 @@
 import numpy as np
 import pandas as pd
 from nampy import GAMRegressor
-from nampy.gam.extensions import exposure_history, cross_basis, cumulative_lag_matrix
+from nampy.gam.structured.lags import exposure_history, cross_basis, cumulative_lag_matrix
 
 rng = np.random.default_rng(42)
 exposure = rng.normal(size=100)

@@ -57,15 +57,13 @@ def test_feature_schema_rejects_feature_name_and_count_mismatches():
 
 
 def test_additive_prediction_preserves_link_scale_components():
-    response = np.asarray([0.25, 0.75], dtype=np.float64)
-    link = np.asarray([-1.1, 1.1], dtype=np.float64)
+    link = np.asarray([-1.0, 1.2], dtype=np.float64)
     terms = {
         "x0": np.asarray([-0.8, 0.8], dtype=np.float64),
         "x1": np.asarray([-0.3, 0.3], dtype=np.float64),
     }
     offset = np.asarray([0.1, 0.1], dtype=np.float64)
     prediction = AdditivePrediction(
-        response=response,
         link=link,
         terms=terms,
         intercept=0.0,
@@ -73,11 +71,26 @@ def test_additive_prediction_preserves_link_scale_components():
         offset=offset,
     )
 
-    assert prediction.response is response
-    assert prediction.link is link
-    assert prediction.terms is terms
+    np.testing.assert_array_equal(prediction.link, link[:, None])
+    np.testing.assert_array_equal(prediction.terms["x0"], terms["x0"][:, None])
     assert prediction.intercept == 0.0
     assert prediction.backend == "gam"
-    assert prediction.offset is offset
+    np.testing.assert_array_equal(prediction.offset, offset[:, None])
     with pytest.raises(FrozenInstanceError):
         prediction.backend = "neural"  # type: ignore[misc]
+
+
+def test_additive_contract_rejects_incomplete_predictors_at_construction():
+    with pytest.raises(ValueError, match="not reconstructed"):
+        AdditivePrediction(
+            link=np.ones((3, 2)), terms={}, intercept=0, backend="gam"
+        )
+
+
+@pytest.mark.parametrize("names", [("mu", "mu"), ("mu", 2), ("mu", "")])
+def test_additive_contract_requires_unique_string_predictor_names(names):
+    with pytest.raises(ValueError, match="predictor_names"):
+        AdditivePrediction(
+            link=np.zeros((3, 2)), terms={}, intercept=0,
+            backend="gam", predictor_names=names,
+        )

@@ -85,8 +85,8 @@ def criterion_value_transformed(model, y, log_sp, method="gcv") -> float:
     state = _transformed_criterion_state(model, y, log_sp)
     solution = state["solution"]
     n = float(model.n_samples_)
-    deviance = float(solution["deviance"])
-    trace = float(solution["trace_H"])
+    deviance = float(solution.fit_result.deviance)
+    trace = float(solution.fit_result.trace_H)
     gamma = float(model.score_gamma)
     if method == "gcv":
         denominator = n - gamma * trace
@@ -111,11 +111,11 @@ def criterion_gradient_transformed(model, y, log_sp, method="gcv") -> np.ndarray
     state = _transformed_criterion_state(model, y, log_sp)
     sp = state["sp"]
     solution = state["solution"]
-    beta = np.asarray(solution["coef_optimization"], dtype=np.float64)
-    eta = np.asarray(solution["eta"], dtype=np.float64)
-    mu = np.asarray(solution["mu"], dtype=np.float64)
-    X = np.asarray(solution["X"], dtype=np.float64)
-    hessian_inv = np.asarray(solution["A_inv"], dtype=np.float64)
+    beta = np.asarray(solution.fit_result.coef_optimization, dtype=np.float64)
+    eta = np.asarray(solution.fit_result.eta, dtype=np.float64)
+    mu = np.asarray(solution.fit_result.mu, dtype=np.float64)
+    X = np.asarray(solution.fit_state.X, dtype=np.float64)
+    hessian_inv = np.asarray(solution.fit_state.A_inv, dtype=np.float64)
     prior = (
         np.ones_like(mu)
         if getattr(model, "prior_weights_", None) is None
@@ -164,8 +164,8 @@ def criterion_gradient_transformed(model, y, log_sp, method="gcv") -> np.ndarray
     )
     free_indices = np.flatnonzero(~fixed_mask)
     deviance_gradient_beta = X1.T @ (-2.0 * residual / (variance * g_deriv))
-    trace = float(solution["trace_H"])
-    deviance = float(solution["deviance"])
+    trace = float(solution.fit_result.trace_H)
+    deviance = float(solution.fit_result.deviance)
     n = float(model.n_samples_)
     gamma = float(model.score_gamma)
     gradient = np.empty(free_indices.size, dtype=np.float64)

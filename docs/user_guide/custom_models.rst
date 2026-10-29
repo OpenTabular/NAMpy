@@ -50,13 +50,9 @@ Define the configuration
 
 .. code-block:: python
 
-   # Optimizer and architecture settings
+   # Architecture settings
    @dataclass
    class AttentiveMLPConfig:
-       lr: float = 1e-4
-       lr_patience: int = 10
-       weight_decay: float = 1e-6
-       lr_factor: float = 0.1
        hidden_size: int = 128
        num_heads: int = 4
        dropout: float = 0.3
@@ -75,10 +71,8 @@ Implement the architecture
            num_feature_info,
            num_classes: int = 1,
            config=None,
-           **kwargs,
        ):
-           super().__init__(**kwargs)
-           self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
+           super().__init__()
 
            if config is None:
                config = AttentiveMLPConfig()
@@ -172,13 +166,15 @@ Fit the generated estimator
    y = np.sin(3 * X["x"]) + 0.2 * X["z"] + rng.normal(0, 0.1, len(X))
    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=7)
 
+   from nampy import GradientTrainingConfig, PreprocessingConfig
+
    model = AttentiveMLPRegressor(
-       numerical_preprocessing="standardization",
-       hidden_size=64,
-       num_heads=4
+       architecture_config=AttentiveMLPConfig(hidden_size=64, num_heads=4),
+       preprocessing=PreprocessingConfig(numerical_preprocessing="standardization"),
+       training=GradientTrainingConfig(max_epochs=20, lr=1e-3, random_state=7),
    )
 
-   model.fit(X_train, y_train, max_epochs=20, lr=1e-3, random_state=7)
+   model.fit(X_train, y_train)
    predictions = model.predict(X_test)
 
 Important Notes

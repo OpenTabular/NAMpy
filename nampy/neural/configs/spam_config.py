@@ -13,10 +13,6 @@ class DefaultSPAMConfig:
     practical quadratic model while preserving the upstream degree mapping.
     """
 
-    lr: float = 1e-3
-    lr_patience: int = 10
-    weight_decay: float = 0.0
-    lr_factor: float = 0.1
     ranks: List[int] = field(default_factory=lambda: [100])
     dropout: float = 0.0
     ignore_unary: bool = False

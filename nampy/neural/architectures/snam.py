@@ -26,7 +26,6 @@ class SNAM(NAM):
         num_feature_info,
         num_classes: int = 1,
         config: DefaultSNAMConfig | None = None,
-        **kwargs,
     ):
         if config is None:
             config = DefaultSNAMConfig()
@@ -35,21 +34,11 @@ class SNAM(NAM):
             num_feature_info=num_feature_info,
             num_classes=num_classes,
             config=config,
-            **kwargs,
         )
 
-        # Pull SNAM-specific args from kwargs first, then hparams/config.
-        self.group_lasso_lambda = kwargs.get(
-            "group_lasso_lambda",
-            self.hparams.get("group_lasso_lambda", config.group_lasso_lambda),
-        )
-        self.group_lasso_include_interactions = kwargs.get(
-            "group_lasso_include_interactions",
-            self.hparams.get(
-                "group_lasso_include_interactions",
-                config.group_lasso_include_interactions,
-            ),
-        )
+        # Representation and regularization controls have one configuration owner.
+        self.group_lasso_lambda = config.group_lasso_lambda
+        self.group_lasso_include_interactions = config.group_lasso_include_interactions
 
     def _iter_grouped_subnetworks(self):
         """Yield (name, module) pairs for all subnet groups included in the penalty."""

@@ -96,64 +96,96 @@ class AdditiveTermMetadata:
 
 @dataclass(frozen=True)
 class AdditivePrediction:
-    """Prediction outputs and additive contributions on the link scale."""
+    """Additive predictors, independent of response and parameter dimensions.
 
-    response: np.ndarray
+    Link and term arrays are normalized to ``(n_samples, n_predictors)``.
+    Intercepts may be predictor constants or rowwise values; offsets are
+    rowwise predictor arrays. Names identify actual additive predictors.
+    """
+
     link: np.ndarray
     terms: dict[str, np.ndarray]
     intercept: float | np.ndarray
     backend: Literal["gam", "neural"]
     offset: np.ndarray | None = None
     term_metadata: dict[str, AdditiveTermMetadata] = field(default_factory=dict)
+    predictor_names: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.backend not in {"gam", "neural"}:
             raise ValueError("backend must be 'gam' or 'neural'.")
-
-        response = np.asarray(self.response)
         link = np.asarray(self.link)
-        if response.ndim not in {1, 2} or link.shape != response.shape:
-            raise ValueError("response and link must have matching 1D or 2D shapes.")
-        n_samples = response.shape[0]
-        for name, value in self.terms.items():
-            shape = np.asarray(value).shape
-            if not shape or shape[0] != n_samples:
-                raise ValueError(f"Term {name!r} has an incompatible sample shape.")
-            if response.ndim == 2 and shape[1:] not in {(), (1,), response.shape[1:]}:
-                raise ValueError(f"Term {name!r} has an incompatible output shape.")
+        if link.ndim == 1:
+            link = link[:, None]
+        if link.ndim != 2 or link.shape[1] < 1:
+            raise ValueError("link must have shape (n_samples, n_predictors).")
+        n, k = link.shape
+        names = tuple(self.predictor_names) or tuple(f"eta{i + 1}" for i in range(k))
+        if (
+            len(names) != k
+            or any(not isinstance(name, str) or not name for name in names)
+            or len(set(names)) != k
+        ):
+            raise ValueError("predictor_names must uniquely name every predictor.")
 
-        scalar_inputs: tuple[tuple[str, float | np.ndarray | None], ...] = (
-            ("intercept", self.intercept),
-            ("offset", self.offset),
+        def row_array(value, name):
+            array = np.asarray(value)
+            if array.shape == (n,):
+                array = array[:, None]
+            try:
+                return np.broadcast_to(array, (n, k))
+            except ValueError as error:
+                raise ValueError(
+                    f"{name} has an incompatible shape {array.shape}."
+                ) from error
+
+        terms = {}
+        for name, value in self.terms.items():
+            array = np.asarray(value)
+            if array.shape == (n,):
+                array = array[:, None]
+            if array.shape != (n, k):
+                raise ValueError(f"Term {name!r} must match link shape {(n, k)}.")
+            terms[name] = array
+        intercept = np.asarray(self.intercept)
+        if intercept.ndim == 0:
+            intercept = np.full(k, intercept.item())
+        elif intercept.shape != (k,):
+            intercept = row_array(intercept, "intercept")
+        if set(self.term_metadata) - set(terms):
+            raise ValueError("term_metadata contains unknown terms.")
+        object.__setattr__(self, "link", link)
+        object.__setattr__(self, "terms", terms)
+        object.__setattr__(self, "intercept", intercept)
+        object.__setattr__(self, "predictor_names", names)
+        if self.offset is not None:
+            object.__setattr__(self, "offset", row_array(self.offset, "offset"))
+        # Neural decompositions can contain float32 rounding from independent
+        # term batches. Validate at their stored precision without modifying
+        # any predictions or imposing float32 tolerance on statistical fits.
+        arrays = [link, intercept, *terms.values()]
+        if self.offset is not None:
+            arrays.append(self.offset)
+        precision = max(
+            (
+                np.finfo(array.dtype).eps
+                for array in arrays
+                if np.issubdtype(array.dtype, np.inexact)
+            ),
+            default=0.0,
         )
-        for name, scalar_value in scalar_inputs:
-            if scalar_value is None:
-                continue
-            shape = np.asarray(scalar_value).shape
-            compatible = {(), (n_samples,), response.shape}
-            if response.ndim == 2:
-                compatible.add((response.shape[1],))
-            if shape not in compatible:
-                raise ValueError(f"{name} has an incompatible shape {shape}.")
+        self.validate_additive_reconstruction(
+            rtol=max(1e-7, 16 * precision), atol=max(1e-9, 16 * precision)
+        )
 
     def validate_additive_reconstruction(self, *, rtol=1e-7, atol=1e-9) -> None:
-        """Validate the link-scale additive decomposition for this result."""
-        link = np.asarray(self.link)
-
-        def aligned(value):
-            array = np.asarray(value, dtype=float)
-            if link.ndim == 1 and array.shape == (link.shape[0], 1):
-                return array[:, 0]
-            if link.ndim == 2 and array.shape == (link.shape[0],):
-                return array[:, None]
-            return array
-
-        expected = aligned(self.intercept)
+        """Validate reconstruction in predictor coordinates, preserving NA rows."""
+        expected = np.broadcast_to(self.intercept, self.link.shape).copy()
         for term in self.terms.values():
-            expected = expected + aligned(term)
+            expected = expected + term
         if self.offset is not None:
-            expected = expected + aligned(self.offset)
-        if not np.allclose(link, expected, rtol=rtol, atol=atol, equal_nan=True):
+            expected = expected + self.offset
+        if not np.allclose(self.link, expected, rtol=rtol, atol=atol, equal_nan=True):
             raise ValueError(
                 "link is not reconstructed by intercept, terms, and offset."
             )
@@ -164,7 +196,6 @@ class EnsembleAdditivePrediction:
     """Mean additive prediction and between-estimator standard deviations."""
 
     mean: AdditivePrediction
-    response_std: np.ndarray
     link_std: np.ndarray
     term_std: dict[str, np.ndarray]
     intercept_std: float | np.ndarray
@@ -173,8 +204,6 @@ class EnsembleAdditivePrediction:
     def __post_init__(self) -> None:
         if self.n_estimators < 1:
             raise ValueError("n_estimators must be positive.")
-        if np.asarray(self.response_std).shape != np.asarray(self.mean.response).shape:
-            raise ValueError("response_std must match the mean response shape.")
         if np.asarray(self.link_std).shape != np.asarray(self.mean.link).shape:
             raise ValueError("link_std must match the mean link shape.")
         if set(self.term_std) != set(self.mean.terms):

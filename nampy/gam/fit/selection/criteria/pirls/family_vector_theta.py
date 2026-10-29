@@ -40,7 +40,7 @@ def _score(model, y, sol, kernel, saturation, method):
     scale = float(model.family.known_scale)
     # gam.fit4 optimizes raw dev.resids; ziP reporting deviance subtracts a
     # theta-dependent saturated likelihood only after fitting.
-    deviance = model.family.deviance(y, sol["mu"], weights=_prior_weights(model, y))
+    deviance = model.family.deviance(y, sol.fit_result.mu, weights=_prior_weights(model, y))
     score = (
         (float(deviance) + float(kernel.bSb)) / (2 * scale) - float(saturation["ls"])
     ) / gamma + float(kernel.K)
@@ -56,7 +56,7 @@ def criterion_ml_reml_pirls_vector_theta(model, y, log_sp, method):
     sol = solve_pirls_given_smoothing(
         model, y, sp, scale_reference=float(model.family.known_scale)
     )
-    _fit_workspace(model).pirls_outer_scale_est = float(sol["scale"])
+    _fit_workspace(model).pirls_outer_scale_est = float(sol.fit_result.scale)
     kernel = _gdi1_kernel(
         model, y, sol, sp, method=method, rank_tol=_MGCV_GAM_FIT4_RANK_TOL
     )
@@ -69,7 +69,7 @@ def _joint(model, y, log_sp, method):
     sol = solve_pirls_given_smoothing(
         model, y, sp, scale_reference=float(model.family.known_scale)
     )
-    _fit_workspace(model).pirls_outer_scale_est = float(sol["scale"])
+    _fit_workspace(model).pirls_outer_scale_est = float(sol.fit_result.scale)
     kernel = gdi2_theta_joint_kernel(
         model, y, sol, sp, method=method, need_hessian=True
     )

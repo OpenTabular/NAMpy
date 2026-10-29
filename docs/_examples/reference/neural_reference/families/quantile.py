@@ -2,7 +2,7 @@
 
 import numpy as np
 import torch
-from nampy.neural.distributions.distributions import Quantile
+from nampy.neural.objectives.quantile import Quantile
 
 family = Quantile()
 n = 8

@@ -11,11 +11,11 @@ rng = np.random.default_rng(7)
 n = 64
 X = pd.DataFrame({'x': np.linspace(-1, 1, n), 'z': rng.uniform(-1, 1, n)})
 y = (np.arange(n) % 2).astype(int)
-model = IGANNClassifier(n_estimators=2, n_knots=6)
+from nampy.neural.configs.igann_config import DefaultIGANNConfig
+from nampy.neural.configuration import IGANNTrainingConfig
+model = IGANNClassifier(architecture_config=DefaultIGANNConfig(n_estimators=2), training=IGANNTrainingConfig(batch_size=32, random_state=7))
 with TemporaryDirectory() as directory:
-    model.fit(X, y, max_epochs=2, batch_size=32, random_state=7,
-              checkpoint_path=directory, logger=False, enable_progress_bar=False,
-              enable_model_summary=False)
+    model.fit(X, y)
 prediction = model.predict(X)
 result = {'prediction': prediction}
 probability = model.predict_proba(X)

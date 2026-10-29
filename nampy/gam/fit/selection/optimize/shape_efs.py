@@ -33,8 +33,8 @@ def optimize_shape_efs(objective, x0, *, lspmax=15.0, efs_tol=0.1, max_iter=200)
     max_iter = int(max_iter)
     for iteration in range(1, max_iter + 1):
         dev1, tau1, solution = _derivatives(objective, x)
-        dev = float(solution["deviance"])
-        tr_a = float(solution["trace_H"])
+        dev = float(solution.fit_result.deviance)
+        tr_a = float(solution.fit_result.trace_H)
         n = float(objective.model.n_samples_)
         gamma = float(objective.model.score_gamma)
         scale = getattr(objective.model.family, "known_scale", None)
@@ -87,7 +87,7 @@ def optimize_shape_efs(objective, x0, *, lspmax=15.0, efs_tol=0.1, max_iter=200)
         current_state = _fit_workspace(objective.model).get(
             "transformed_gcv_ubre_state", None
         )
-        current_dev = float(current_state["solution"]["deviance"])
+        current_dev = float(current_state["solution"].fit_result.deviance)
         if (
             iteration > 3
             and max_step < 0.05

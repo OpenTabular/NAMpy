@@ -5,6 +5,8 @@ import torch.nn as nn
 
 from .normalization import (
     BatchNorm,
+    GroupNorm,
+    InstanceNorm,
     LayerNorm,
     LearnableLayerScaling,
     RMSNorm,
@@ -28,9 +30,8 @@ def make_norm(norm: Optional[str], size: int) -> Optional[nn.Module]:
         "RMSNorm": lambda: RMSNorm(size),
         "LayerNorm": lambda: LayerNorm(size),
         "BatchNorm": lambda: BatchNorm(size),
-        # These two use native PyTorch modules for tabular [N, D] inputs.
-        "InstanceNorm": lambda: nn.InstanceNorm1d(size),
-        "GroupNorm": lambda: nn.GroupNorm(1, size),
+        "InstanceNorm": lambda: InstanceNorm(size),
+        "GroupNorm": lambda: GroupNorm(1, size),
         "LearnableLayerScaling": lambda: LearnableLayerScaling(size),
     }
 

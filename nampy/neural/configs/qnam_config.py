@@ -11,15 +11,6 @@ class DefaultQNAMConfig:
 
     Parameters
     ----------
-    lr : float
-        Learning rate for the optimizer.
-    lr_patience : int
-        Number of epochs with no validation improvement before reducing the learning rate.
-    weight_decay : float
-        Weight decay (L2 penalty) for the optimizer.
-    lr_factor : float
-        Multiplicative factor used by the learning-rate scheduler.
-
     layer_sizes : list of int
         Hidden-layer widths for each feature subnet.
 
@@ -64,11 +55,6 @@ class DefaultQNAMConfig:
     min_increment : float
         Minimum increment for the monotone transform. Only used if `monotone_transform` is "softplus".
     """
-
-    lr: float = 1e-4
-    lr_patience: int = 10
-    weight_decay: float = 1e-6
-    lr_factor: float = 0.1
 
     layer_sizes: List[int] = field(default_factory=lambda: [128, 128, 32])
     activation: type = nn.ReLU

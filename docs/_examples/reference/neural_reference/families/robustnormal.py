@@ -2,7 +2,7 @@
 
 import numpy as np
 import torch
-from nampy.neural.distributions.distributions import RobustNormalDistribution
+from nampy.neural.families.continuous import RobustNormalDistribution
 
 family = RobustNormalDistribution()
 n = 8

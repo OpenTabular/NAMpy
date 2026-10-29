@@ -1,7 +1,7 @@
 """Runnable reference example: api/generated/nampy.plotting.add_density_shading."""
 
 import numpy as np
-from nampy.plotting import DistributionalEffects
+from nampy.inspection import DistributionalEffects
 
 n = 24
 x = np.linspace(0, 1, n)

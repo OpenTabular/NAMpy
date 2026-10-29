@@ -28,14 +28,11 @@ Fit and inspect
 
 .. code-block:: python
 
+
+   from nampy.neural.configs.nbm_spam_config import DefaultNBMSPAMConfig
    from nampy.models import NBMSPAMRegressor
 
-   model = NBMSPAMRegressor(
-       num_bases=100,
-       ranks=[64, 32],
-       output_penalty=1e-4,
-       regularization_scale=1e-4,
-   ).fit(X_train, y_train)
+   model = NBMSPAMRegressor(architecture_config=DefaultNBMSPAMConfig(num_bases=100, ranks=[64, 32], output_penalty=0.0001, regularization_scale=0.0001)).fit(X_train, y_train)
 
    prediction = model.predict(X_test)
    components = model.predict_components(X_test, center=True)

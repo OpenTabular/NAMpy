@@ -10,7 +10,7 @@ Signature
 
 .. code-block:: python
 
-   NeuralRegressor(model, config, **kwargs)
+   NeuralRegressor(model, config_class, *, architecture_config=None, objective=None, training=None, preprocessing=None)
 
 Parameters
 ----------
@@ -29,14 +29,26 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
      - ``type[torch.nn.Module]``
      - Required
      - Custom PyTorch architecture class implementing the additive forward-output contract; see the custom-model guide.
-   * - ``config``
-     - ``type[dataclass configuration]``
+   * - ``config_class``
+     - ``type``
      - Required
-     - Configuration class (for example DefaultNAMConfig, without parentheses). The estimator instantiates it using configuration overrides; passing an already constructed instance raises TypeError.
-   * - ``kwargs``
-     - ``keyword arguments``
-     - Variable arguments
-     - Preprocessing and estimator configuration overrides accepted by the custom estimator. Architecture-specific controls come from its config.
+     - Architecture configuration class used by a generic estimator.
+   * - ``architecture_config``
+     - ``architecture configuration dataclass | None``
+     - ``None``
+     - Architecture configuration instance; representation controls have no flat overrides.
+   * - ``objective``
+     - ``ObjectiveConfig | None``
+     - ``None``
+     - ObjectiveConfig containing task-specific loss or distribution family settings.
+   * - ``training``
+     - ``GradientTrainingConfig | FixedDesignTrainingConfig | NativeTrainingConfig | None``
+     - ``None``
+     - Route-specific gradient, fixed-design or architecture-native training record; None resolves the supported default.
+   * - ``preprocessing``
+     - ``PreprocessingConfig | None``
+     - ``None``
+     - PreprocessingConfig containing feature transformation choices.
 
 Returns and fitted outputs
 --------------------------
@@ -63,4 +75,4 @@ Example result
 
 .. raw:: html
 
-   <div class="example-result" aria-label="Example result"><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">components</span><span class="example-result-meta">AdditivePrediction · scalar record</span></summary><div class="example-result-body"><dl class="example-result-fields"><div><dt>backend<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">neural</span></dd></div><div><dt>intercept<span class="example-result-meta">float · scalar</span></dt><dd><span class="example-result-scalar">-0.00037354</span></dd></div></dl><p class="example-result-note">5 additional fields available on the returned object.</p></div></details><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">prediction</span><span class="example-result-meta">ndarray[float32] · 64</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.23162</span><span class="example-result-value">0.18921</span><span class="example-result-value">0.19828</span><span class="example-result-value">0.14824</span><span class="example-result-value">0.13827</span><span class="example-result-value">0.16714</span></div><p class="example-result-note">Showing 6 of 64 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>
+   <div class="example-result" aria-label="Example result"><details class="example-result-item"><summary class="example-result-heading"><span class="example-result-label">components</span><span class="example-result-meta">AdditivePrediction · scalar record</span></summary><div class="example-result-body"><dl class="example-result-fields"><div><dt>backend<span class="example-result-meta">str · scalar</span></dt><dd><span class="example-result-scalar">neural</span></dd></div></dl><p class="example-result-note">6 additional fields available on the returned object.</p></div></details><section class="example-result-item"><div class="example-result-heading"><span class="example-result-label">prediction</span><span class="example-result-meta">ndarray[float32] · 64</span></div><div class="example-result-body"><div class="example-result-values"><span class="example-result-value">0.23162</span><span class="example-result-value">0.18921</span><span class="example-result-value">0.19828</span><span class="example-result-value">0.14824</span><span class="example-result-value">0.13827</span><span class="example-result-value">0.16714</span></div><p class="example-result-note">Showing 6 of 64 values.</p></div></section><p class="example-result-footnote">Sample values are rounded for display.</p></div>

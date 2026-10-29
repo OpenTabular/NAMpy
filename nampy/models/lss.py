@@ -1,16 +1,17 @@
 # lss.py
-import warnings
+from copy import deepcopy
+from typing import Literal
 
+import numpy as np
 import pandas as pd
 import torch
 
-from ..neural.distributions.registry import (
-    FAMILY_REGISTRY,
-    family_name_for_instance,
-    resolve_family,
-)
+from ..distributions.contracts import DistributionFitStatus
+from ..neural.families.registry import family_name_for_instance, resolve_family
 from ..neural.objectives import DistributionObjective
-from ..neural.training import TrainingPlan, _training_tensor
+from ..neural.prediction import split_output_components
+from ..neural.training import TrainingPlan
+from ..neural.training.common import _training_tensor
 from ._neural import NeuralEstimatorBase
 
 
@@ -20,43 +21,23 @@ class NeuralLSS(NeuralEstimatorBase):
     def __init__(
         self,
         model,
-        config,
-        family="normal",
-        distributional_kwargs=None,
-        **kwargs,
+        config_class,
+        *,
+        architecture_config=None,
+        objective=None,
+        training=None,
+        preprocessing=None,
     ):
-        self.family = family
-        self.distributional_kwargs = distributional_kwargs
-        self.family_ = None
-        self.distributional_kwargs_ = None
-        self._initialize_estimator_parameters(config, kwargs)
+        self._initialize_estimator_parameters(
+            config_class,
+            architecture_config=architecture_config,
+            objective=objective,
+            training=training,
+            preprocessing=preprocessing,
+        )
+        self.base_model = model
         self.model = None
         self.data_module = None
-
-        # Raise a warning if task is set to 'classification'
-        if self._provided_preprocessor_kwargs.get("task") == "classification":
-            warnings.warn(
-                "The task is set to 'classification'. Be aware of your preferred distribution, that this might lead to unsatisfactory results.",
-                UserWarning,
-                stacklevel=2,
-            )
-
-        self.base_model = model
-
-    def get_params(self, deep=True):
-        params = super().get_params(deep=deep)
-        params["family"] = self.family
-        params["distributional_kwargs"] = self.distributional_kwargs
-        return params
-
-    def set_params(self, **parameters):
-        if "family" in parameters:
-            self.family = parameters.pop("family")
-            self.family_ = None
-        if "distributional_kwargs" in parameters:
-            self.distributional_kwargs = parameters.pop("distributional_kwargs")
-            self.distributional_kwargs_ = None
-        return super().set_params(**parameters)
 
     def __sklearn_tags__(self):
         # Distribution-parameter output: neither a classifier nor a regressor.
@@ -64,45 +45,81 @@ class NeuralLSS(NeuralEstimatorBase):
         tags.target_tags.required = True
         return tags
 
-    def fit(self, X, y, **fit_params):
-        """
-        Train the configured distributional regression model.
+    def _prepare_fit(self, y):
+        self.training_completion_ = None
+        self._distribution_fit_status_ = DistributionFitStatus(
+            "neural", "unknown", "Training has not completed."
+        )
+        family = self.objective.family
+        if family is None:
+            architecture = getattr(type(self), "architecture_name", None)
+            if architecture is not None:
+                from ..neural.registry import get_architecture
 
-        Parameters
-        ----------
-        X : DataFrame or array-like, shape (n_samples, n_features)
-            The training input samples.
-        y : array-like, shape (n_samples,) or (n_samples, n_targets)
-            The target values.
-        **fit_params
-            Training parameters accepted by :meth:`NeuralEstimatorBase.fit`.
-            ``family`` and ``distributional_kwargs`` are estimator constructor
-            parameters so sklearn can clone and tune them.
+                family = get_architecture(architecture).default_family
+        self.family_, self.distributional_kwargs_ = resolve_family(
+            family or "normal"
+        ).instantiate(y, deepcopy(self.objective.distributional_kwargs))
+
+    def _finish_fit(self):
+        completion = self.training_completion_
+        if completion is None:
+            native = getattr(self, "native_training_info_", None) or {}
+            if (
+                native.get("finished") is True
+                and native.get("optimizer_steps", 0) > 0
+                and np.isfinite(native.get("best_val_loss", np.nan))
+            ):
+                self._distribution_fit_status_ = DistributionFitStatus(
+                    "neural",
+                    "completed",
+                    "Native full-cohort training completed; this is not statistical convergence.",
+                )
+            return
+        if completion is not None:
+            state: Literal["failed", "completed"]
+            if not completion["finished"] or completion["interrupted"]:
+                state, message = "failed", "Training was interrupted or did not finish."
+            elif getattr(self, "n_optimizer_steps_", 0) < 1:
+                state, message = (
+                    "failed",
+                    "Training finished without an optimizer step.",
+                )
+            elif any(
+                not np.isfinite(value)
+                for key, value in self.final_training_metrics_.items()
+                if key in {"train_loss", "train_loss_epoch", "val_loss"}
+            ):
+                state, message = "failed", "Training reported a nonfinite loss."
+            else:
+                state, message = (
+                    "completed",
+                    "Training completed; this is not a statistical convergence claim.",
+                )
+            self._distribution_fit_status_ = DistributionFitStatus(
+                "neural", state, message
+            )
+
+    def distribution_fit_status(self):
+        """Report training completion for shared candidate-family comparison.
 
         Returns
         -------
-        self : object
-            The fitted model.
+        nampy.distributions.DistributionFitStatus
+            Completed training is distinct from statistical convergence.
+            Unfitted estimators and training routes without completion metadata
+            remain unknown, and are excluded from automatic ranking.
         """
-        moved = {"family", "distributional_kwargs"} & set(fit_params)
-        if moved:
-            names = ", ".join(sorted(moved))
-            raise TypeError(
-                f"{names} must be configured on the LSS estimator constructor, "
-                "not passed to fit()."
-            )
-
-        fam = str(self.family).lower()
-        if fam not in FAMILY_REGISTRY:
-            raise ValueError(f"Unsupported family: {self.family}")
-        self.family_, self.distributional_kwargs_ = resolve_family(fam).instantiate(
-            y, self.distributional_kwargs
+        return getattr(
+            self,
+            "_distribution_fit_status_",
+            DistributionFitStatus(
+                "neural", "unknown", "No training-completion evidence is available."
+            ),
         )
 
-        return super().fit(X, y, **fit_params)
-
     def _build_training_plan(self, y, y_val):
-        if getattr(self, "_fit_loss_fct", None) is not None:
+        if self.objective.loss_fct is not None:
             raise ValueError(
                 "Custom loss_fct is only supported for regression tasks; "
                 "LSS losses come from the distribution family."
@@ -112,16 +129,21 @@ class NeuralLSS(NeuralEstimatorBase):
         if isinstance(y_val, pd.Series):
             y_val = y_val.values
 
+        encoder = getattr(self.family_, "encode_targets", None)
+        if encoder is not None:
+            y = encoder(y)
+            y_val = None if y_val is None else encoder(y_val)
         plan = TrainingPlan(objective=DistributionObjective(self.family_))
         return y, y_val, plan
 
-    def predict(self, X, raw=False, *, batch_size=None):
-        predictions = self._predict(X, batch_size=batch_size)["output"]
+    def predict(self, X, raw=False, *, batch_size=None, offset=None):
+        predictions = self._predict(X, batch_size=batch_size, offset=offset)["output"]
 
         if not raw:
             # Some distribution transforms depend on learned family parameters
             # (for example ordinal cutpoints), so their result can require a
             # gradient even though the backbone prediction path is in eval mode.
+            assert self.model is not None
             with torch.no_grad():
                 transformed = self.model.objective.transform(predictions)
             return transformed.cpu().numpy()
@@ -130,25 +152,89 @@ class NeuralLSS(NeuralEstimatorBase):
         else:
             return predictions.cpu().numpy()
 
-    def predict_point(self, X, *, batch_size=None):
+    def predict_distribution(self, X, *, batch_size=None, offset=None):
+        """Return conditional distributions for supported scalar neural LSS.
+
+        Parameters
+        ----------
+        X : DataFrame or ndarray
+            Prediction rows, using the fitted feature schema.
+        batch_size : int, optional
+            Number of rows per inference batch, as in ``predict``.
+
+        Returns
+        -------
+        nampy.distributions.DistributionPrediction
+            NumPy inference for normal, gamma, studentt, beta, negativebinom,
+            lognormal and weibull
+            on detached natural parameters. Clamped negative-binomial regimes
+            are explicitly unsupported. Other
+            families raise ``NotImplementedError``; their training, prediction
+            and scoring remain available. Draws exclude training uncertainty.
+        """
+        from ..neural.families.distribution_adapter import distribution_prediction
+
+        parameters = self.predict(X, batch_size=batch_size, offset=offset)
+        return distribution_prediction(self.family_, parameters)
+
+    def predict_quantiles(self, X, probabilities, *, batch_size=None, offset=None):
+        """Return (n,q) response quantiles without requiring a complete density.
+
+        Quantile-loss families expose only their explicitly fitted levels;
+        interpolation, extrapolation and crossing repair are unsupported. Other
+        families delegate to their shared probability law's quantile operation.
+        Requested levels retain their supplied order, including duplicates.
+        """
+        from ..neural.families.distribution_adapter import distribution_prediction
+        from ..neural.objectives.quantile import Quantile
+
+        probs = np.atleast_1d(np.asarray(probabilities, dtype=float))
+        if (
+            probs.ndim != 1
+            or not np.isfinite(probs).all()
+            or np.any((probs < 0) | (probs > 1))
+        ):
+            raise ValueError("probabilities must be a finite vector in [0,1].")
+        parameters = self.predict(X, batch_size=batch_size, offset=offset)
+        if isinstance(self.family_, Quantile):
+            fitted = np.asarray(self.family_.quantiles)
+            indices = []
+            for probability in probs:
+                match = np.flatnonzero(
+                    np.isclose(
+                        fitted, probability, rtol=float(8 * np.finfo(float).eps), atol=0
+                    )
+                )
+                if len(match) != 1:
+                    raise NotImplementedError(
+                        "Quantile predictions require an unambiguous explicitly fitted level; interpolation is unsupported."
+                    )
+                indices.append(int(match[0]))
+            return parameters[:, indices]
+        return distribution_prediction(self.family_, parameters).quantile(probs)
+
+    def predict_point(self, X, *, batch_size=None, offset=None):
         """Return the family-defined conditional point prediction."""
-        predictions = self._predict(X, batch_size=batch_size)["output"]
+        predictions = self._predict(X, batch_size=batch_size, offset=offset)["output"]
         with torch.no_grad():
             point = self.family_.predict_point(predictions, transformed=False)
         return point.cpu().numpy()
 
-    def score(self, X, y, sample_weight=None):
+    def score(self, X, y, sample_weight=None, *, offset=None):
         """Return the negative mean family loss for ``y``.
 
         Higher is better, so sklearn model-selection utilities can rank fits.
         Quantile families sum pinball loss over requested levels and average
         over rows; likelihood families use NLL.
         """
-        raw_pred = self._predict(X)["output"]
+        raw_pred = self._predict(X, offset=offset)["output"]
         if isinstance(y, pd.Series):
             y = y.to_numpy(copy=True)
         if isinstance(sample_weight, pd.Series):
             sample_weight = sample_weight.to_numpy()
+        encoder = getattr(self.family_, "encode_targets", None)
+        if encoder is not None:
+            y = encoder(y)
         with torch.no_grad():
             y_tensor = torch.as_tensor(y, device=raw_pred.device)
             weight_tensor = (
@@ -156,6 +242,7 @@ class NeuralLSS(NeuralEstimatorBase):
                 if sample_weight is None
                 else torch.as_tensor(sample_weight, device=raw_pred.device)
             )
+            assert self.model is not None
             nll = self.model.objective.compute_loss(
                 raw_pred, y_tensor, sample_weight=weight_tensor
             )
@@ -174,27 +261,27 @@ class NeuralLSS(NeuralEstimatorBase):
         center: bool = False,
         reference_X=None,
         reference_weight=None,
+        reference_offset=None,
         batch_size=None,
+        offset=None,
     ):
         """Per-term contributions on the raw parameter scale.
 
-        ``link`` holds the raw multi-column network output (one column per
-        distribution parameter), ``response`` the family-transformed
-        parameters, and each term a matching multi-column contribution;
+        ``link`` holds the raw multi-column network output, and each term
+        a matching multi-column contribution;
         additivity holds on the raw (link) scale.
         """
         from ..contracts import AdditivePrediction
 
-        pred_dict = self._predict(X, batch_size=batch_size)
+        pred_dict = self._predict(X, batch_size=batch_size, offset=offset)
         raw = pred_dict["output"]
-        with torch.no_grad():
-            response = self.model.objective.transform(raw).cpu().numpy()
-        terms, intercept = self._split_output_components(pred_dict)
+        terms, intercept = split_output_components(pred_dict)
         prediction = AdditivePrediction(
-            response=response,
             link=raw.cpu().numpy(),
+            predictor_names=tuple(self.family_.param_names),
             terms=terms,
             intercept=intercept,
+            offset=0.0 if offset is None else offset,
             backend="neural",
         )
         return self._maybe_center_components(
@@ -202,7 +289,32 @@ class NeuralLSS(NeuralEstimatorBase):
             center=center,
             reference_X=reference_X,
             reference_weight=reference_weight,
+            reference_offset=reference_offset,
         )
+
+    @property
+    def predictor_point_summary(self):
+        self._require_neural_fit()
+        return self.family_.point_summary
+
+    def summarize_predictors(self, predictors):
+        """Evaluate family-defined point and conditional SD in raw coordinates."""
+        if self.model is None:
+            raise ValueError("Fit the estimator before summarizing predictors.")
+        family = self.model.objective.family
+        device = next(self.model.parameters()).device
+        raw = torch.as_tensor(
+            np.asarray(predictors), dtype=torch.float32, device=device
+        )
+        with torch.no_grad():
+            point = family.predict_point(raw, transformed=False)
+            try:
+                spread = family.predict_spread(raw, transformed=False)
+            except NotImplementedError as error:
+                raise NotImplementedError(
+                    f"{type(family).__name__} does not provide a conditional standard deviation."
+                ) from error
+        return point.cpu().numpy().reshape(-1), spread.cpu().numpy().reshape(-1)
 
     def plot_distributional_effects(
         self,
@@ -270,7 +382,7 @@ class NeuralLSS(NeuralEstimatorBase):
             ``NLL`` for likelihood families.
         """
         # Basic fitted check
-        if self.model is None or self.data_module is None:
+        if self.model is None or getattr(self, "fitted_preprocessing_", None) is None:
             raise ValueError("The model or data module has not been fitted yet.")
         if getattr(self, "family_", None) is None:
             raise ValueError(
@@ -325,7 +437,7 @@ class NeuralLSS(NeuralEstimatorBase):
 
     def get_default_metrics(self, distribution_family):
         """Return metrics declared by the resolved distribution family."""
-        from ..neural.distributions.default_metrics import default_metrics_for
+        from ..neural.families.default_metrics import default_metrics_for
 
         metadata = resolve_family(distribution_family)
         return default_metrics_for(metadata.metric_profile, self.family_)

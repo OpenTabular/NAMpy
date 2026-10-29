@@ -6,7 +6,7 @@ Penalized quantile solver
 Types, defaults and output shapes
 ---------------------------------
 
-.. autofunction:: nampy.gam.extensions.fit_quantile
+.. autofunction:: nampy.gam.losses.fit_quantile
 
 
 

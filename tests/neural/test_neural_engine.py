@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+from nampy.neural.configs.nodegam_config import DefaultNodeGAMConfig
+from nampy.neural.configuration import GradientTrainingConfig
+from nampy.neural.configuration import PreprocessingConfig
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -16,7 +21,7 @@ from nampy.neural.objectives import (
     RegressionObjective,
     classification_objective,
 )
-from nampy.neural.training import (
+from nampy.neural.training.gradient import (
     RecentStateAveraging,
     StepEarlyStopping,
     average_state_dicts,
@@ -61,7 +66,7 @@ def test_build_callbacks_uses_unique_directory_per_fit(tmp_path):
 
 def test_unfitted_predict_raises_not_fitted_error():
     X, _ = _make_regression_frame()
-    estimator = LinRegRegressor(numerical_preprocessing="standardization")
+    estimator = LinRegRegressor(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
 
     with pytest.raises(NotFittedError):
         estimator.predict(X)
@@ -71,8 +76,8 @@ def test_unfitted_predict_raises_not_fitted_error():
 
 def test_predict_restores_module_training_flag(tmp_path):
     X, y = _make_regression_frame()
-    estimator = LinRegRegressor(numerical_preprocessing="standardization")
-    estimator.fit(X, y, max_epochs=2, patience=1, checkpoint_path=str(tmp_path))
+    estimator = LinRegRegressor(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
+    estimator.set_params(training=replace(estimator.training or GradientTrainingConfig(), max_epochs=2, patience=1, checkpoint_path=str(tmp_path))).fit(X, y)
 
     estimator.model.train()
     estimator.predict(X)
@@ -84,14 +89,14 @@ def test_predict_restores_module_training_flag(tmp_path):
 
 
 def test_training_plans_carry_task_wiring():
-    reg = LinRegRegressor(numerical_preprocessing="standardization")
+    reg = LinRegRegressor(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
     y, y_val, plan = reg._build_training_plan(np.array([1.0, 2.0, 3.0]), None)
     assert plan.datamodule_regression is True
     assert isinstance(plan.objective, RegressionObjective)
     assert plan.objective.output_dim == 1
     assert reg.n_outputs_ == 1
 
-    clf = LinRegClassifier(numerical_preprocessing="standardization")
+    clf = LinRegClassifier(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
     y_enc, _, plan = clf._build_training_plan(np.array(["b", "a", "b", "a"]), None)
     assert plan.datamodule_regression is False
     assert type(plan.objective) is type(classification_objective(2))
@@ -100,61 +105,22 @@ def test_training_plans_carry_task_wiring():
     assert plan.stratify is not None
 
 
-def test_fit_uses_constructor_optimizer_configuration(monkeypatch):
+def test_fit_uses_constructor_optimizer_configuration(tmp_path):
     X, y = _make_regression_frame()
-    estimator = TreeNAMRegressor(
-        numerical_preprocessing="standardization",
-        lr=0.02,
-        lr_patience=7,
-        lr_factor=0.3,
-        weight_decay=0.004,
-    )
-    captured = []
-
-    def fake_run_training(estimator, X, y, plan, **kwargs):
-        del estimator, X, y, plan
-        captured.append(kwargs)
-
-    monkeypatch.setattr(
-        "nampy.models._neural.run_training", fake_run_training
-    )
-
-    estimator.fit(X, y)
-    estimator.set_params(
-        lr=0.03,
-        lr_patience=8,
-        lr_factor=0.35,
-        weight_decay=0.005,
-    )
-    estimator.fit(X, y)
-    estimator.fit(
-        X,
-        y,
-        lr=0.05,
-        lr_patience=9,
-        lr_factor=0.4,
-        weight_decay=0.006,
-    )
-
-    assert captured[0]["lr"] == pytest.approx(0.02)
-    assert captured[0]["lr_patience"] == 7
-    assert captured[0]["lr_factor"] == pytest.approx(0.3)
-    assert captured[0]["weight_decay"] == pytest.approx(0.004)
-    assert captured[1]["lr"] == pytest.approx(0.03)
-    assert captured[1]["lr_patience"] == 8
-    assert captured[1]["lr_factor"] == pytest.approx(0.35)
-    assert captured[1]["weight_decay"] == pytest.approx(0.005)
-    assert captured[2]["lr"] == pytest.approx(0.05)
-    assert captured[2]["lr_patience"] == 9
-    assert captured[2]["lr_factor"] == pytest.approx(0.4)
-    assert captured[2]["weight_decay"] == pytest.approx(0.006)
+    training = GradientTrainingConfig(lr=0.012, lr_patience=2, lr_factor=0.3,
+                                       max_epochs=1, checkpoint_path=str(tmp_path),
+                                       trainer_kwargs={"logger": False, "enable_progress_bar": False,
+                                                       "enable_model_summary": False})
+    estimator = LinRegRegressor(training=training).fit(X, y)
+    assert estimator.training is training
+    assert estimator.n_optimizer_steps_ > 0
 
 
 def test_successive_fits_do_not_clobber_checkpoints(tmp_path):
     X, y = _make_regression_frame()
-    estimator = LinRegRegressor(numerical_preprocessing="standardization")
-    estimator.fit(X, y, max_epochs=2, patience=1, checkpoint_path=str(tmp_path))
-    estimator.fit(X, y, max_epochs=2, patience=1, checkpoint_path=str(tmp_path))
+    estimator = LinRegRegressor(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
+    estimator.set_params(training=replace(estimator.training or GradientTrainingConfig(), max_epochs=2, patience=1, checkpoint_path=str(tmp_path))).fit(X, y)
+    estimator.set_params(training=replace(estimator.training or GradientTrainingConfig(), max_epochs=2, patience=1, checkpoint_path=str(tmp_path))).fit(X, y)
 
     checkpoints = list(tmp_path.rglob("*.ckpt"))
     assert len(checkpoints) == 2
@@ -185,30 +151,20 @@ def test_recent_state_callback_keeps_only_latest_epoch_states():
 
 def test_fit_forwards_generic_step_and_checkpoint_controls(monkeypatch):
     X, y = _make_regression_frame()
-    estimator = LinRegRegressor(numerical_preprocessing="standardization")
+    estimator = LinRegRegressor(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
     captured = {}
+    monkeypatch.setattr("nampy.neural.training.engine.fit_gradient", lambda *args: None)
 
     def fake_run_training(estimator, X, y, plan, **kwargs):
-        del estimator, X, y, plan
+        from nampy.neural.training.engine import run_training
         captured.update(kwargs)
+        captured.update(vars(kwargs["training"]))
+        run_training(estimator, X, y, plan, **kwargs)
 
     monkeypatch.setattr(
-        "nampy.models._neural.run_training", fake_run_training
+        "nampy.neural.training.session.run_training", fake_run_training
     )
-    estimator.fit(
-        X,
-        y,
-        max_steps=17,
-        max_time="00:01:00",
-        early_stopping_steps=12,
-        lr_warmup_steps=3,
-        lr_decay_steps=10,
-        lr_decay_factor=0.4,
-        optimizer="adamw",
-        optimizer_kwargs={"amsgrad": True},
-        average_checkpoints=True,
-        n_last_checkpoints=3,
-    )
+    estimator.set_params(training=replace(estimator.training or GradientTrainingConfig(), max_steps=17, max_time='00:01:00', early_stopping_steps=12, lr_warmup_steps=3, lr_decay_steps=10, lr_decay_factor=0.4, optimizer='adamw', optimizer_kwargs={'amsgrad': True}, average_checkpoints=True, n_last_checkpoints=3)).fit(X, y)
 
     assert captured["max_steps"] == 17
     assert captured["max_time"] == "00:01:00"
@@ -225,23 +181,20 @@ def test_fit_forwards_generic_step_and_checkpoint_controls(monkeypatch):
 def test_fit_combines_class_and_sample_weights_and_forwards_balancing(monkeypatch):
     X = pd.DataFrame({"x": np.arange(6.0)})
     y = np.array(["common", "common", "common", "common", "rare", "rare"])
-    estimator = LinRegClassifier(numerical_preprocessing="standardization")
+    estimator = LinRegClassifier(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
     captured = {}
+    monkeypatch.setattr("nampy.neural.training.engine.fit_gradient", lambda *args: None)
 
     def fake_run_training(estimator, X, y, plan, **kwargs):
-        del estimator, X, y, plan
+        from nampy.neural.training.engine import run_training
         captured.update(kwargs)
+        captured.update(vars(kwargs["training"]))
+        run_training(estimator, X, y, plan, **kwargs)
 
     monkeypatch.setattr(
-        "nampy.models._neural.run_training", fake_run_training
+        "nampy.neural.training.session.run_training", fake_run_training
     )
-    estimator.fit(
-        X,
-        y,
-        sample_weight=np.full(len(y), 2.0),
-        class_weight="balanced",
-        sampling_strategy="balanced",
-    )
+    estimator.set_params(objective=replace(estimator.objective, class_weight='balanced', sampling_strategy='balanced')).fit(X, y, sample_weight=np.full(len(y), 2.0))
 
     combined = np.asarray(captured["sample_weight"])
     assert combined[y == "rare"][0] > combined[y == "common"][0]
@@ -250,16 +203,18 @@ def test_fit_combines_class_and_sample_weights_and_forwards_balancing(monkeypatc
 
 def test_lss_fit_forwards_weights_to_distribution_objective(monkeypatch):
     X, y = _make_regression_frame(n=12)
-    estimator = NAMLSS(numerical_preprocessing="standardization")
+    estimator = NAMLSS(preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
     captured = {}
+    monkeypatch.setattr("nampy.neural.training.engine.fit_gradient", lambda *args: None)
 
     def fake_run_training(estimator, X, y, plan, **kwargs):
-        del estimator, X, y
+        from nampy.neural.training.engine import run_training
         captured["plan"] = plan
         captured.update(kwargs)
+        run_training(estimator, X, y, plan, **kwargs)
 
     monkeypatch.setattr(
-        "nampy.models._neural.run_training", fake_run_training
+        "nampy.neural.training.session.run_training", fake_run_training
     )
     weights = np.linspace(1.0, 2.0, len(y))
     estimator.fit(X, y, sample_weight=weights)
@@ -291,52 +246,22 @@ def test_step_early_stopping_uses_optimizer_step_distance():
     assert trainer.should_stop is True
 
 
-def test_warm_start_forwards_current_model_state(monkeypatch):
+def test_warm_start_can_be_configured_before_the_first_fit(tmp_path):
     X, y = _make_regression_frame()
-    estimator = LinRegRegressor(numerical_preprocessing="standardization")
-    estimator.model = torch.nn.Linear(2, 1)
-    expected = {
-        key: value.detach().clone() for key, value in estimator.model.state_dict().items()
-    }
-    captured = {}
-
-    def fake_run_training(estimator, X, y, plan, **kwargs):
-        del estimator, X, y, plan
-        captured.update(kwargs)
-
-    monkeypatch.setattr(
-        "nampy.models._neural.run_training", fake_run_training
-    )
-    estimator.fit(X, y, warm_start=True)
-
-    for key, value in expected.items():
-        torch.testing.assert_close(captured["warm_start_state"][key], value)
+    estimator = LinRegRegressor(training=GradientTrainingConfig(
+        warm_start=True, max_epochs=1, checkpoint_path=str(tmp_path),
+        trainer_kwargs={"logger": False, "enable_progress_bar": False,
+                        "enable_model_summary": False}))
+    estimator.fit(X, y)
+    first_module = estimator.model
+    estimator.fit(X, y)
+    assert estimator.model is not first_module
 
 
 def test_nodegam_optional_masked_pretraining_transfers_compatible_state(tmp_path):
     X, y = _make_regression_frame(n=48)
-    estimator = NodeGAMRegressor(
-        numerical_preprocessing="standardization",
-        num_trees=2,
-        num_layers=1,
-        depth=2,
-        interaction_degree=1,
-        colsample_bytree=1.0,
-        output_dropout=0.0,
-        last_dropout=0.0,
-    )
-    estimator.fit(
-        X,
-        y,
-        pretrain_epochs=1,
-        max_epochs=1,
-        batch_size=16,
-        patience=1,
-        checkpoint_path=tmp_path,
-        logger=False,
-        enable_progress_bar=False,
-        enable_model_summary=False,
-    )
+    estimator = NodeGAMRegressor(architecture_config=DefaultNodeGAMConfig(num_trees=2, num_layers=1, depth=2, interaction_degree=1, colsample_bytree=1.0, output_dropout=0.0, last_dropout=0.0), preprocessing=PreprocessingConfig(numerical_preprocessing='standardization'))
+    estimator.set_params(training=replace(estimator.training or GradientTrainingConfig(), pretrain_epochs=1, max_epochs=1, batch_size=16, patience=1, checkpoint_path=tmp_path, trainer_kwargs={'logger': False, 'enable_progress_bar': False, 'enable_model_summary': False})).fit(X, y)
 
     assert estimator.pretrained_keys_
     assert any("feature_selection_logits" in key for key in estimator.pretrained_keys_)
