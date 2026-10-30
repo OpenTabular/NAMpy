@@ -122,8 +122,18 @@ def main():
             reference = next(item for item in sections if item["title"] == "Reference")
             assert reference["items"] == [
                 "Statistical models", "Neural models", "Predictions and explanations",
-                "Plotting", "Extension APIs", "Compatibility and limitations",
+                "Plotting", "Extension APIs", "Research references",
+                "Compatibility and limitations",
             ], reference
+            page.get_by_role("link", name="Research references", exact=True).click()
+            page.wait_for_url(f"{origin}/references.html")
+            assert page.locator("h1").inner_text().startswith("Research references")
+            assert page.locator(
+                ".wy-menu-vertical li.current > a.current"
+            ).evaluate_all("links => links.map(a => new URL(a.href).pathname)") == [
+                "/references.html"
+            ]
+            page.go_back(wait_until="domcontentloaded")
             assert "Statistical Reference" not in [section["title"] for section in sections]
             assert "Neural Reference" not in [section["title"] for section in sections]
             page.evaluate("""() => sessionStorage.setItem('nampy-sidebar-navigation',
