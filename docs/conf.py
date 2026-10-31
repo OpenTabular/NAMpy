@@ -199,8 +199,8 @@ latex_documents = [
 # (source start file, name, description, authors, manual section).
 man_pages = [(master_doc, "nampy", "NAMpy Documentation", [author], 1)]
 
-# Include rendered notebook pages in EPUB while omitting their raw source files.
-epub_exclude_files = [
+# Include rendered pages and figures, but omit raw sources and figure metadata.
+epub_exclude_files = ["_static/features/results.json"] + [
     path.relative_to(Path(__file__).parent).as_posix()
     for folder in ("notebooks", "development/notebooks")
     for path in (Path(__file__).parent / folder).glob("*.ipynb")
