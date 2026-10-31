@@ -31,11 +31,18 @@ def test_fit_evidence_and_quantile_capabilities(automatic):
     assert calibration["function_evaluations"] > 0
     assert calibration["optimality"] is None  # bounded solver has no score residual
     matrix = model.design_.matrix
-    score = model.penalty_ @ model.coef_ - matrix.T @ (
+    observation_score = (
         (model.level - 1 + expit((data.y.to_numpy() - model.predict(X)) / model.bandwidth_))
         / model.loss_scale_
     )
-    assert_allclose(coefficient["optimality"], np.max(np.abs(score)), rtol=1e-5, atol=1e-13)
+    penalty_score = model.penalty_ @ model.coef_
+    score = penalty_score - matrix.T @ observation_score
+    # The solver scales the score after subtraction; this recomputation scales
+    # each term first. Near convergence their cancellation exposes roundoff.
+    roundoff = 32 * np.finfo(float).eps * np.max(
+        np.abs(penalty_score) + np.abs(matrix).T @ np.abs(observation_score)
+    )
+    assert_allclose(coefficient["optimality"], np.max(np.abs(score)), rtol=1e-5, atol=roundoff)
     assert_allclose(model.fit_result_.optimality, coefficient["optimality"])
     if automatic:
         core = model.gam_.fit_result().core
