@@ -60,15 +60,23 @@ The Makefile also supports a targeted test selection:
 make test TEST=tests/neural/test_neural_sklearn_contracts.py
 ```
 
-Run the relevant static checks:
+Run the same static quality gates used by CI and release verification:
 
 ```bash
-ruff check nampy tests
-mypy nampy
+make quality
 ```
 
-`make quality` runs the configured static checks and repository-hygiene check.
-It does not run the test suite.
+This runs `make lint` (Ruff over `nampy`, `tests`, and `examples`),
+`make type-check`, and `make hygiene`. Type checking enforces the three stable
+contract files: `nampy/contracts.py`, `nampy/neural/contracts.py`, and
+`nampy/gam/fit/state.py`, with `--follow-imports=skip`. Pre-commit invokes the
+same underlying type-checking and hygiene commands directly, so the hooks do
+not require Make. Without Make, run `pre-commit run --all-files` for the same
+enforced checks. `make quality` does not run the test suite.
+
+For a broader diagnostic of the package-wide annotation backlog, run
+`make type-check-all`. That command may report errors outside the enforced CI
+scope; it is not an additional acceptance gate.
 
 Report the checks you ran in the pull request. The full test suite is not the
 default local development step.

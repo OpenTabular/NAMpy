@@ -72,7 +72,6 @@ def provenance(app):
 
 
 def setup(app):
-    app.connect("builder-inited", disable_search)
     app.connect("build-finished", remove_unused_utility_pages, priority=100)
     app.connect("html-collect-pages", pages)
     app.connect("html-page-context", navigation_context)
@@ -143,15 +142,10 @@ def paginate_notebook_outputs(app, doctree, docname):
         block.replace_self(parts)
 
 
-def disable_search(app):
-    if app.builder.format == "html":
-        app.builder.search = False
-
-
 def remove_unused_utility_pages(app, exception):
-    """Clean previous builds when the removed utility pages are no longer emitted."""
+    """Remove disabled general/module indexes while preserving Sphinx search."""
     if exception is None and app.builder.format == "html":
-        for filename in ("genindex.html", "py-modindex.html", "search.html", "searchindex.js"):
+        for filename in ("genindex.html", "py-modindex.html"):
             (Path(app.outdir) / filename).unlink(missing_ok=True)
 
 

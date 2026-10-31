@@ -203,7 +203,7 @@ def _assert_matrix_space_equal(actual, expected, *, atol=1e-10):
 def _assert_sl_block_parity(actual, expected, *, s_atol=5e-12):
     assert actual.start == int(expected["start"])
     assert actual.stop == int(expected["stop"])
-    assert actual.repara is bool(expected["repara"])
+    assert actual.reparameterize is bool(expected["repara"])
     assert actual.linear is bool(expected["linear"])
     if expected.get("rank", None) is None:
         assert actual.rank is None
@@ -401,7 +401,7 @@ def _assert_general_fit5_setup_parity(
         rtol=0.0,
         atol=1e-9,
     )
-    assert int(actual.Mp) == int(expected["Mp"])
+    assert int(actual.penalty_null_dim) == int(expected["Mp"])
     assert str(actual.score_type) == str(expected["score_type"])
     _assert_sl_setup_parity(actual.Sl, expected["Sl"], s_atol=s_block_atol)
 
@@ -558,7 +558,7 @@ def test_nonreparameterized_general_family_sl_matches_mgcv(select):
         compare_x_space_only=True,
     )
     np.testing.assert_allclose(actual.X_initial, actual.X_full, atol=0.0, rtol=0.0)
-    assert all(not block.repara for block in actual.Sl)
+    assert all(not block.reparameterize for block in actual.Sl)
 
     ldet = _sl_ldetS(
         actual.Sl,
@@ -573,7 +573,7 @@ def test_nonreparameterized_general_family_sl_matches_mgcv(select):
     np.testing.assert_allclose(
         ldet["S"], expected["ldet_Stot"], atol=1e-9, rtol=0.0
     )
-    assert all(not item["repara"] for item in ldet["rp"])
+    assert all(not item["reparameterize"] for item in ldet["rp"])
 
 
 @pytest.mark.parametrize(
@@ -592,7 +592,7 @@ def test_nonreparameterized_general_family_sl_runs_full_fit(
         data, formula, "gaulss", sp, select=select
     )
 
-    monkeypatch.setattr(CubicSplineTerm, "repara", False)
+    monkeypatch.setattr(CubicSplineTerm, "reparameterize", False)
     actual = _fit_nampy_model_fixed_sp(
         data, formula, "gaulss", sp, select=select
     )
@@ -646,7 +646,7 @@ def test_gammals_select_true_initial_spg_matches_mgcv(monkeypatch):
     penalty_setup = build_estimate_gam_setup_state(gam)
     for actual_S, source_S in zip(penalty_setup.S, expected["S"], strict=True):
         np.testing.assert_allclose(actual_S, source_S, atol=1e-10, rtol=0.0)
-    _assert_root_gram_equal(penalty_setup.Eb, expected["Eb"], atol=1e-10)
+    _assert_root_gram_equal(penalty_setup.rank_penalty_root, expected["Eb"], atol=1e-10)
     # Sl.initial.repara eigenvectors can change sign across LAPACK builds.
     # initial.spg nevertheless evaluates this X against the original Eb/S,
     # so even mean(log(sp)) is not invariant. Pin the representation rather

@@ -35,7 +35,7 @@ def _prior_weights_vector(weights, n: int) -> np.ndarray:
     return w
 
 
-def _gaussian_fit3_gdi_beta_full(
+def _solve_gaussian_canonical_coefficients(
     model,
     X,
     smoothing_params,
@@ -45,7 +45,9 @@ def _gaussian_fit3_gdi_beta_full(
     return_hat_matrix=False,
 ):
     """
-    Mirror `mgcv::gam.fit3()` post-loop `gdi1()` coefficient overwrite for Gaussian.
+    Solve Gaussian coefficients in the current canonical penalty coordinates.
+
+    Mirrors `mgcv::gam.fit3()` post-loop `gdi1()` coefficient overwrite.
 
     `gdi1()` works on the current `gam.fit3` reparameterized system, not on the
     raw prediction-parameterization `sqrt(P)` solve.
@@ -62,7 +64,7 @@ def _gaussian_fit3_gdi_beta_full(
         X @ np.asarray(canonical.T, dtype=np.float64), dtype=np.float64
     )
     q_full = int(X_canon.shape[1])
-    q_range = int(q_full - int(canonical.Mp))
+    q_range = int(q_full - int(canonical.penalty_null_dim))
     n_sp = int(_n_smoothing_params(model) or 0)
 
     root_blocks = []
@@ -85,7 +87,7 @@ def _gaussian_fit3_gdi_beta_full(
         z_work,
         w,
         penalty_sqrt_E=np.asarray(canonical.Sr, dtype=np.float64),
-        penalty_rank_Es=np.asarray(canonical.Eb, dtype=np.float64),
+        penalty_rank_Es=np.asarray(canonical.rank_penalty_root, dtype=np.float64),
         rS=rS,
         rank_tol=np.finfo(np.float64).eps * 100.0,
         reml=True,
@@ -128,7 +130,7 @@ def _gaussian_fit3_gdi_beta_full(
     return coef_full, eta_fit, rV_full, H_coef
 
 
-def _gaussian_fit3_pls_current_eta(model, X, smoothing_params, z_work, w):
+def _solve_gaussian_working_predictor(model, X, smoothing_params, z_work, w):
     """
     Mirror `mgcv::gam.fit3()` inner-loop `eta <- x %*% start` on current-sp state.
 
@@ -152,7 +154,7 @@ def _gaussian_fit3_pls_current_eta(model, X, smoothing_params, z_work, w):
         w,
         w * z_work,
         penalty_sqrt_E=np.asarray(canonical.Sr, dtype=np.float64),
-        penalty_rank_Es=np.asarray(canonical.Eb, dtype=np.float64),
+        penalty_rank_Es=np.asarray(canonical.rank_penalty_root, dtype=np.float64),
         rank_tol=np.finfo(np.float64).eps * 100.0,
     )
     return np.asarray(X_canon @ coef_canon, dtype=np.float64)
@@ -231,14 +233,14 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
     # Mirror gam.fit3's unconditional current-sp `pls_fit1()` state followed by
     # the post-loop `gdi1()` coefficient/covariance overwrite. Upstream does not
     # select this path from a condition number or from the model's term types.
-    eta_dev = _gaussian_fit3_pls_current_eta(
+    eta_dev = _solve_gaussian_working_predictor(
         model,
         X,
         smoothing_params,
         sol["working_response"],
         w,
     )
-    coef_full, eta_fit, gdi_rank_root, H_coef = _gaussian_fit3_gdi_beta_full(
+    coef_full, eta_fit, gdi_rank_root, H_coef = _solve_gaussian_canonical_coefficients(
         model,
         X,
         smoothing_params,

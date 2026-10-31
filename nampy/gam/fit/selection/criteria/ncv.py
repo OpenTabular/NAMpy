@@ -17,7 +17,7 @@ import numpy as np
 
 from ....model_state import _n_smoothing_params
 from .pirls.common import _prior_weights
-from .pirls.derivatives import _fit3_gcv_ubre_kernel
+from .pirls.derivatives import _gcv_ubre_derivative_state
 
 
 def normalize_nei(nei, n: int, *, index_base=None) -> dict:
@@ -104,7 +104,7 @@ def _deviance_contributions(family, y, mu, weights):
 def _ncv_state(model, y, log_sp, *, qapprox=False):
     # The criterion remains defined with fixed penalties or no penalties.
     # Only its smoothing-parameter gradient is empty in those cases.
-    sol, kernel, free_mask = _fit3_gcv_ubre_kernel(
+    sol, kernel, free_mask = _gcv_ubre_derivative_state(
         model, y, log_sp, require_free=False
     )
     nei = normalize_nei(getattr(model, "nei", None), int(model.n_samples_))

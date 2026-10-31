@@ -19,6 +19,8 @@ Use ``GAMRegressor`` for a scalar regression response and a scikit-learn
 interface. ``GAMClassifier`` models binary labels; ``GAMLSS`` models multiple
 distribution parameters. The core ``GAM`` exposes the full statistical engine.
 Compare their :doc:`estimator contracts </statistical_reference/estimators/index>`.
+For conditional quantiles or expectiles rather than a mean response, first
+:ref:`choose the response summary <choose-response-summary>`.
 
 Here is reproducible data for the complete workflow:
 
@@ -119,6 +121,16 @@ choices with fitted plots. Criteria, optimizers and tolerances have separate
 roles; their contracts are in :doc:`/statistical_reference/selection/index`
 and :doc:`/statistical_reference/controls/index`.
 
+If a supported ML/REML/LAML fit supplies smoothing covariance,
+:doc:`GAM.one_se_rule </statistical_reference/methods/one_se_rule>` proposes a
+smoother alternative using fitted criterion uncertainty. It leaves the fitted
+model unchanged. Inspect the proposal and refit explicitly before evaluating
+it; this is not a held-out cross-validation one-standard-error calculation.
+The reference explains the source-specific joint Gaussian return convention,
+which can include an additional joint-covariance coordinate and must not be passed
+blindly as a smoothing vector. See the :doc:`smoothness tutorial
+</notebooks/smoothness_selection>` for the original fitting choices.
+
 5. Predict held-out observations
 --------------------------------
 
@@ -181,6 +193,16 @@ versus simultaneous intervals, EDF and information criteria together. The
 summary, ANOVA, residuals, concurvity and basis checks. Numerical restrictions
 and validation conventions belong to their method and family pages and
 :doc:`/compatibility`.
+
+For partially pooled group effects, :doc:`GAM.gam_vcomp
+</statistical_reference/methods/gam_vcomp>` reports supported variance-component
+standard deviations. For ordinary random intercepts these are on the additive
+predictor scale; random slopes also depend on covariate units. They are not a
+generic response SD. Confidence limits require available likelihood-based
+curvature; inspect the returned rank and finite bounds. No estimated smoothing
+parameters means there is no variance-component report. See the
+:doc:`partial-pooling tutorial </notebooks/group_smooths>` and
+:doc:`penalty conventions </statistical_reference/penalties>`.
 
 Fitted distributed-lag workflows
 --------------------------------

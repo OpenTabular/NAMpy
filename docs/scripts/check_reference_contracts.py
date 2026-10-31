@@ -114,6 +114,7 @@ def main():
             ) or path.name in {
                 "inference.rst",
                 "asymmetric_fitting.rst",
+                "quantile_calibration.rst",
                 "penalties.rst",
                 "theory.rst",
             }:

@@ -1,4 +1,4 @@
-"""Runnable reference example: user_guide/gamlss."""
+"""Runnable reference example: user_guide/distributional_comparison."""
 
 import numpy as np
 import pandas as pd

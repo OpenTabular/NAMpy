@@ -397,10 +397,11 @@ def irls_core(
             return float(family.loglik(family_y, mu_curr, scale=scale_curr))
         return None
 
-    def _estimate_gam_fit3_scale(
+    def _estimate_dispersion_scale(
         mu_curr: np.ndarray,
         edf_curr: float,
     ) -> float:
+        """Return known dispersion or estimate it with the configured method."""
         # Mirrors mgcv/R/gam.fit3.r::gam.fit3 default
         # gam.control(scale.est="fletcher") scale calculation.
         known_scale = getattr(family, "known_scale", None)
@@ -990,7 +991,7 @@ def irls_core(
     )
     edf = trace_H
 
-    scale = _estimate_gam_fit3_scale(mu, edf)
+    scale = _estimate_dispersion_scale(mu, edf)
     raw_deviance = (
         float(dev_new)
         if efs_theta_updates and callable(getattr(family, "update_theta_efs", None))
@@ -1137,7 +1138,7 @@ def fit_irls_from_model(
         max_step_halving=int(getattr(model, "max_step_halving", 25)),
         null_coef=null_coef,
         penalty_sqrt_E=np.asarray(canonical.Sr, dtype=np.float64),
-        penalty_rank_rows=np.asarray(canonical.Eb, dtype=np.float64),
+        penalty_rank_rows=np.asarray(canonical.rank_penalty_root, dtype=np.float64),
         scale_est_method=str(
             getattr(getattr(model, "control", None), "scale_est", "fletcher")
         ),

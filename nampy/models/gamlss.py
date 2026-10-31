@@ -340,7 +340,13 @@ class GAMLSS(_GAMAdapterBase):
     def score(self, X, y, sample_weight=None, *, context=None, offset=None):
         """Return weighted mean log likelihood (higher is better)."""
         self._check_fitted()
-        if getattr(self.gam_.family, "context_names", ()) or context is not None:
+        from ..distributions import ObservationTarget, observation_log_prob
+
+        if isinstance(y, ObservationTarget):
+            logpdf = observation_log_prob(
+                self.predict_distribution(X, context=context, offset=offset), y
+            )
+        elif getattr(self.gam_.family, "context_names", ()) or context is not None:
             logpdf = self.predict_distribution(X, context=context, offset=offset).log_prob(y)
         else:
             logpdf = self.gam_.family.logpdf_from_parameters(y, self.predict_parameters(X, offset=offset))
@@ -366,16 +372,20 @@ class GAMLSS(_GAMAdapterBase):
 
         return distribution_fit_status(getattr(self, "gam_", None))
 
-    def evaluate(self, X, y_true, metrics=None, *, context=None):
-        """Evaluate natural parameters (default: mean negative log likelihood)."""
-        parameters = self.predict_parameters(X)
-        distribution = None
-        if getattr(self.gam_.family, "context_names", ()) or context is not None:
-            distribution = self.predict_distribution(X, context=context)
+    def evaluate(
+        self, X, y_true, metrics=None, *, context=None, offset=None, sample_weight=None
+    ):
+        """Evaluate natural parameters (default: weighted negative log likelihood).
+
+        Observation targets use their supplied censoring bounds. Custom metrics
+        receive the target and natural parameters; scoring weights apply to the
+        default likelihood metric.
+        """
         if metrics is None:
-            logpdf = (distribution.log_prob(y_true) if distribution is not None
-                      else self.gam_.family.logpdf_from_parameters(y_true, parameters))
-            return {"Negative Log-Likelihood": float(-np.mean(logpdf))}
+            return {"Negative Log-Likelihood": -self.score(
+                X, y_true, sample_weight=sample_weight, context=context, offset=offset
+            )}
+        parameters = self.predict_parameters(X, offset=offset)
         return {
             metric_name: metric_func(y_true, parameters)
             for metric_name, metric_func in metrics.items()

@@ -20,3 +20,4 @@ Choose an estimator, specify its formula, smooth terms and response family, then
    Fitted result objects </api/gam_results>
    Statistical extensions <extensions/index>
    Inference conventions <inference>
+   Survival API </api/survival>

@@ -31,7 +31,7 @@ from .optimize import (
 )
 from .postfit import gam_vcomp, one_se_rule, optimizer_endpoint_diagnostics, sp_vcov
 from .reparam import (
-    SlBlock,
+    PenaltyReparameterizationBlock,
     build_gaussian_reparameterized_system,
     build_penalty_reparameterized_system,
     can_use_exact_gaussian_ml_reml,
@@ -61,7 +61,7 @@ __all__ = [
     "gam_vcomp",
     "one_se_rule",
     "optimizer_endpoint_diagnostics",
-    "SlBlock",
+    "PenaltyReparameterizationBlock",
     "reparameterize_smooth",
     "can_use_simple_ml_reml_structure",
     "can_use_exact_gaussian_ml_reml",

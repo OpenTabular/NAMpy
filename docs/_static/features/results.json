@@ -1,0 +1,87 @@
+{
+  "survival": {
+    "training_subjects": 320,
+    "test_subjects": 160,
+    "test_censored_fraction": 0.33125,
+    "brier": [
+      0.12375026553138022,
+      0.2245993689453539,
+      0.1931319964447534,
+      0.17003201079738306
+    ],
+    "integrated_brier": 0.18820750118482965,
+    "harrell_concordance": 0.6687929956222639,
+    "profile_survival_at_2": [
+      0.6481543193166466,
+      0.30708695895425436,
+      0.04017712954129772
+    ]
+  },
+  "quantile": {
+    "train_calibration_test": [
+      300,
+      150,
+      150
+    ],
+    "quantile_function_mean_width": 0.30422513221791414,
+    "conformal_coverage": 0.88,
+    "conformal_width": 2.076155447265386,
+    "uncalibrated_coverage": 0.5533333333333333,
+    "uncalibrated_width": 1.0,
+    "loss_scale": 0.24218209001664406,
+    "quantile_function_coverage_metadata": "approximate_pointwise_fixed_smoothing"
+  },
+  "semistructured": {
+    "training_validation_test": [
+      160,
+      40,
+      40
+    ],
+    "training_orthogonality_error": 5.1736392947532295e-14,
+    "test_rmse": 0.28165126159168224,
+    "neural_slice_range": [
+      -0.934248187516924,
+      0.7979972133668065
+    ],
+    "batch_invariance_max_error": 1.9984014443252818e-15
+  },
+  "distributions": {
+    "lognormal_parameters": [
+      [
+        -0.2518512242585834,
+        0.2828395340009177
+      ],
+      [
+        0.32809682679995555,
+        0.43940032288824354
+      ],
+      [
+        0.9080448778584945,
+        0.6826225493415862
+      ]
+    ],
+    "mixed_parameters": [
+      [
+        0.40732983178346444,
+        14.081403303298243,
+        0.48108915373629496,
+        0.023997272651125095,
+        0.4949135736125799
+      ],
+      [
+        0.5495761651273853,
+        14.081403303298243,
+        0.22772861980147416,
+        0.10104417969874604,
+        0.6712272004997797
+      ],
+      [
+        0.6841547023616654,
+        14.081403303298243,
+        0.07467221512574197,
+        0.29472032784075136,
+        0.6306074570335066
+      ]
+    ]
+  }
+}

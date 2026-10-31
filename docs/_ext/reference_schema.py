@@ -500,8 +500,8 @@ METHOD_RETURNS = {
         (
             "smoothing",
             "numpy.ndarray[float64]",
-            "(n_penalties,)",
-            "Candidate smoothing strengths; the model is not automatically refitted.",
+            "(n_smoothing_parameters,) or (n_joint,)",
+            "Candidate strengths, or the source-specific full joint smoothing/scale proposal for joint Gaussian fits when candidate_indices is omitted. Inspect the shape before refitting; no model state is changed.",
         )
     ],
     "anova": [

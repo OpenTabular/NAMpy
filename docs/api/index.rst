@@ -13,3 +13,5 @@ look up its predictions or use the extension interfaces to implement a feature.
 * :doc:`Plotting <plotting>`: plotting inputs, outputs and rendering options.
 * :doc:`Extension APIs </extension_reference/index>`: runtime terms, registries and custom implementations.
 * :doc:`Compatibility and limitations </compatibility>`: supported combinations and differences.
+
+* :doc:`Survival prediction and uncertainty <survival>`: shared targets, curves, metrics and intervals.

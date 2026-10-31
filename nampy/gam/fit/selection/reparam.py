@@ -50,7 +50,7 @@ class ReparamState:
     X_fix: Optional[np.ndarray]
     Z_rand: Optional[np.ndarray]
     ZtZ_rand: Optional[np.ndarray]
-    sl_blocks: Optional[List["SlBlock"]]
+    sl_blocks: Optional[List["PenaltyReparameterizationBlock"]]
     penalty_range_basis: Optional[np.ndarray] = None
     penalty_null_basis: Optional[np.ndarray] = None
     penalty_range_roots: Optional[List[np.ndarray]] = None
@@ -68,16 +68,23 @@ class DynamicReparamDesign:
 
 @dataclass
 class PenaltyReparameterizationState:
+    """Penalty geometry in the current fitting coordinates.
+
+    ``range_penalty_roots`` are column roots projected into the penalty range;
+    ``rank_penalty_root`` is a row root used for numerical rank detection.
+    ``penalty_null_dim`` counts all unpenalized coefficient directions.
+    """
+
     Y: np.ndarray
     Z: np.ndarray
     U1: np.ndarray
-    UrS: list[np.ndarray]
+    range_penalty_roots: list[np.ndarray]
     rp: dict[str, Any]
     T: np.ndarray
     St: np.ndarray
     Sr: np.ndarray
-    Eb: np.ndarray
-    Mp: int
+    rank_penalty_root: np.ndarray
+    penalty_null_dim: int
     X_range: np.ndarray
     X_fix: np.ndarray
     Z_rand: np.ndarray
@@ -111,21 +118,23 @@ class PreOptimizationSetupState:
     Y: np.ndarray
     Z: np.ndarray
     E: np.ndarray
-    Eb: np.ndarray
+    rank_penalty_root: np.ndarray
     U1: np.ndarray
-    UrS: list[np.ndarray]
-    Mp: int
+    range_penalty_roots: list[np.ndarray]
+    penalty_null_dim: int
 
 
 @dataclass
-class SlBlock:
+class PenaltyReparameterizationBlock:
+    """A term's coefficient block in the fixed/random-effect decomposition."""
+
     term_index: int
-    repara: bool
+    reparameterize: bool
     smoothing_index: Optional[int]
     start: int
     stop: int
     ncol: int
-    blockSize: int
+    block_size: int
     lambda_scaling: float = 1.0
     kind: str = "smooth"
     is_null_space_penalty: bool = False
@@ -158,7 +167,7 @@ def assign_exact_reparam_state(
 
 def iter_sl_random_blocks(state: ReparamState):
     for sl_block in list(state.sl_blocks or []):
-        if sl_block.repara:
+        if sl_block.reparameterize:
             yield sl_block
 
 
@@ -494,9 +503,9 @@ def build_estimate_gam_setup_state(
         H=H_full,
     )
     U1 = np.column_stack([Y, Z]) if p_full > 0 else np.empty((0, 0), dtype=np.float64)
-    UrS = [np.asarray(Y.T @ root, dtype=np.float64) for root in roots]
+    range_penalty_roots = [np.asarray(Y.T @ root, dtype=np.float64) for root in roots]
     if H_full is not None:
-        UrS.append(np.asarray(Y.T @ _mroot_chol(H_full), dtype=np.float64))
+        range_penalty_roots.append(np.asarray(Y.T @ _mroot_chol(H_full), dtype=np.float64))
 
     return PreOptimizationSetupState(
         X=np.asarray(X_full, dtype=np.float64),
@@ -516,10 +525,10 @@ def build_estimate_gam_setup_state(
         Y=np.asarray(Y, dtype=np.float64),
         Z=np.asarray(Z, dtype=np.float64),
         E=np.asarray(E, dtype=np.float64),
-        Eb=np.asarray(E, dtype=np.float64),
+        rank_penalty_root=np.asarray(E, dtype=np.float64),
         U1=np.asarray(U1, dtype=np.float64),
-        UrS=UrS,
-        Mp=int(Z.shape[1]),
+        range_penalty_roots=range_penalty_roots,
+        penalty_null_dim=int(Z.shape[1]),
     )
 
 
@@ -545,7 +554,7 @@ def _group_exact_setup_roots_by_smoothing_parameter(
     for pb, root_full, root_range in zip(
         penalty_blocks,
         list(setup.rS),
-        list(setup.UrS[: len(penalty_blocks)]),
+        list(setup.range_penalty_roots[: len(penalty_blocks)]),
         strict=True,
     ):
         sp_idx = int(pb.smoothing_index)
@@ -564,7 +573,7 @@ def _group_exact_setup_roots_by_smoothing_parameter(
             S_groups[sp_idx] = range_roots[sp_idx] @ range_roots[sp_idx].T
 
     range_roots_with_fixed = list(range_roots)
-    for root_range in list(setup.UrS[len(penalty_blocks) :]):
+    for root_range in list(setup.range_penalty_roots[len(penalty_blocks) :]):
         range_roots_with_fixed.append(np.asarray(root_range, dtype=np.float64))
 
     return roots, range_roots, range_roots_with_fixed, S_groups
@@ -620,17 +629,17 @@ def _grouped_penalties(model) -> list[_GroupedPenalty]:
     return out
 
 
-def gam_reparam(range_roots, lsp, deriv=2):
+def gam_reparam(range_roots, log_smoothing_params, deriv=2):
     """
     Python port of ``mgcv/R/gam.fit3.r::gam.reparam`` using canonical range roots.
 
     ``range_roots[i]`` corresponds to ``UrS[[i]]`` in the upstream fit setup.
     The smoothing input is on the log scale, matching upstream ``lsp``.
     """
-    lsp = np.asarray(lsp, dtype=np.float64).ravel()
-    M = int(lsp.size)
+    log_smoothing_params = np.asarray(log_smoothing_params, dtype=np.float64).ravel()
+    M = int(log_smoothing_params.size)
     with np.errstate(over="raise", invalid="raise"):
-        sp = np.exp(lsp)
+        sp = np.exp(log_smoothing_params)
     roots = [np.asarray(r, dtype=np.float64).copy() for r in range_roots]
     q = 0 if not roots else int(roots[0].shape[0])
     Mf = len(roots)
@@ -825,10 +834,10 @@ def _canonical_penalty_space(model, *, tol=1e-10) -> dict[str, Any]:
     n_pen = len(penalty_blocks)
     roots = [np.asarray(root, dtype=np.float64) for root in list(setup.rS)]
     range_roots = [
-        np.asarray(root, dtype=np.float64) for root in list(setup.UrS[:n_pen])
+        np.asarray(root, dtype=np.float64) for root in list(setup.range_penalty_roots[:n_pen])
     ]
     range_roots_with_fixed = [
-        np.asarray(root, dtype=np.float64) for root in list(setup.UrS)
+        np.asarray(root, dtype=np.float64) for root in list(setup.range_penalty_roots)
     ]
     S_groups = [root @ root.T for root in range_roots]
 
@@ -836,8 +845,8 @@ def _canonical_penalty_space(model, *, tol=1e-10) -> dict[str, Any]:
         "estimate_setup": setup,
         "Y": np.asarray(setup.Y, dtype=np.float64),
         "Z": np.asarray(setup.Z, dtype=np.float64),
-        "E": np.asarray(setup.Eb, dtype=np.float64),
-        "Mp": int(setup.Mp),
+        "E": np.asarray(setup.rank_penalty_root, dtype=np.float64),
+        "penalty_null_dim": int(setup.penalty_null_dim),
         "grouped_penalties": grouped,
         "roots": roots,
         "range_roots": range_roots,
@@ -869,7 +878,7 @@ def _penalty_log_smoothing_map(
     n_sp = int(_n_smoothing_params(model) or sp.size)
     if sp.shape != (n_sp,):
         raise ValueError(f"Expected smoothing parameter vector of shape ({n_sp},).")
-    if len(setup.UrS) < n_pen:
+    if len(setup.range_penalty_roots) < n_pen:
         raise RuntimeError("estimate.gam setup has fewer UrS roots than penalties.")
 
     from ...penalty_maps import penalty_log_sp_map
@@ -897,24 +906,24 @@ def _penalty_log_smoothing_map(
                 "Identity smoothing-parameter map is inconsistent with "
                 "the number of penalty blocks."
             )
-        lsp = free_log_sp + lsp0
+        log_smoothing_params = free_log_sp + lsp0
     else:
         L = np.asarray(setup.L, dtype=np.float64)
         if L.shape != (n_pen, free_log_sp.size):
             raise RuntimeError("estimate.gam L shape is inconsistent with sp.")
-        lsp = np.asarray(L @ free_log_sp + lsp0, dtype=np.float64)
+        log_smoothing_params = np.asarray(L @ free_log_sp + lsp0, dtype=np.float64)
 
     roots = [
         np.asarray(root, dtype=np.float64)
-        for root in list(setup.UrS[:n_pen]) + list(setup.UrS[n_pen:])
+        for root in list(setup.range_penalty_roots[:n_pen]) + list(setup.range_penalty_roots[n_pen:])
     ]
-    return roots, np.asarray(lsp, dtype=np.float64), L_full
+    return roots, np.asarray(log_smoothing_params, dtype=np.float64), L_full
 
 
 def _static_penalty_null_dim(model, *, tol=1e-10):
     cache = _canonical_penalty_space(model, tol=tol)
     if "estimate_setup" in cache:
-        return max(int(cache["Mp"]) - _coef_column_offset(model), 0)
+        return max(int(cache["penalty_null_dim"]) - _coef_column_offset(model), 0)
     return max(
         int(np.asarray(cache["Z"], dtype=np.float64).shape[1])
         - _coef_column_offset(model),
@@ -933,8 +942,8 @@ def build_penalty_reparameterization_state(
     setup = cache["estimate_setup"]
     Y = np.asarray(setup.Y, dtype=np.float64)
     Z = np.asarray(setup.Z, dtype=np.float64)
-    UrS, lsp, _L_full = _penalty_log_smoothing_map(model, setup, sp)
-    rp = gam_reparam(UrS, lsp, deriv=deriv)
+    range_penalty_roots, log_smoothing_params, _L_full = _penalty_log_smoothing_map(model, setup, sp)
+    rp = gam_reparam(range_penalty_roots, log_smoothing_params, deriv=deriv)
     _roots_grouped, UrS_grouped, UrS_grouped_with_fixed, _S_groups = (
         _group_exact_setup_roots_by_smoothing_parameter(model, setup)
     )
@@ -950,7 +959,7 @@ def build_penalty_reparameterization_state(
         raise ValueError(
             "Full design width does not match the compiled estimate.gam setup."
         )
-    Mp = int(setup.Mp)
+    penalty_null_dim = int(setup.penalty_null_dim)
     U1 = np.asarray(setup.U1, dtype=np.float64)
 
     T_small = np.eye(q_full, dtype=np.float64)
@@ -966,7 +975,7 @@ def build_penalty_reparameterization_state(
     if q_range > 0:
         Sr[:, :q_range] = np.asarray(rp["E"], dtype=np.float64)
 
-    Eb = np.asarray(setup.Eb, dtype=np.float64) @ T
+    rank_penalty_root = np.asarray(setup.rank_penalty_root, dtype=np.float64) @ T
 
     X_trans = X_full @ T
     X_range = np.asarray(X_trans[:, :q_range], dtype=np.float64)
@@ -986,13 +995,13 @@ def build_penalty_reparameterization_state(
         Y=Y,
         Z=Z,
         U1=U1,
-        UrS=UrS_public,
+        range_penalty_roots=UrS_public,
         rp=rp,
         T=T,
         St=St,
         Sr=Sr,
-        Eb=Eb,
-        Mp=Mp,
+        rank_penalty_root=rank_penalty_root,
+        penalty_null_dim=penalty_null_dim,
         X_range=X_range,
         X_fix=X_fix,
         Z_rand=Z_rand,
@@ -1013,7 +1022,7 @@ def _static_fixed_and_random_designs(model, X_full, sp, *, tol=1e-10):
         Zr,
         {
             "rank": int(np.asarray(state.Y, dtype=np.float64).shape[1]),
-            "null_dim": max(int(state.Mp) - _coef_column_offset(model), 0),
+            "null_dim": max(int(state.penalty_null_dim) - _coef_column_offset(model), 0),
             "logdet_plus": logdet_plus,
         },
     )
@@ -1047,8 +1056,8 @@ def _stable_penalty_logdet_derivatives(model, sp, *, tol=1e-10, order=2):
         return 0.0, grad, hess
 
     setup = cache["estimate_setup"]
-    UrS, lsp, L_full = _penalty_log_smoothing_map(model, setup, sp)
-    rp = gam_reparam(UrS, lsp, deriv=min(int(order), 2))
+    range_penalty_roots, log_smoothing_params, L_full = _penalty_log_smoothing_map(model, setup, sp)
+    rp = gam_reparam(range_penalty_roots, log_smoothing_params, deriv=min(int(order), 2))
     logdet = float(rp["det"])
     if not np.isfinite(logdet):
         return np.inf, np.full(n_sp, np.nan), np.full((n_sp, n_sp), np.nan)
@@ -1125,7 +1134,7 @@ def build_penalty_reparameterized_system(model):
             fix_blocks.append(X_null)
 
     rand_blocks = []
-    sl_blocks: list[SlBlock] = []
+    sl_blocks: list[PenaltyReparameterizationBlock] = []
     rand_start = 0
 
     if Y.shape[1] > 0 and penalty_blocks:
@@ -1177,14 +1186,14 @@ def build_penalty_reparameterized_system(model):
                         term_index = i
                         break
             sl_blocks.append(
-                SlBlock(
+                PenaltyReparameterizationBlock(
                     term_index=term_index,
-                    repara=True,
+                    reparameterize=True,
                     smoothing_index=int(pb.smoothing_index),
                     start=int(block_slice.start),
                     stop=int(block_slice.stop),
                     ncol=int(p),
-                    blockSize=int(Z_block.shape[1]),
+                    block_size=int(Z_block.shape[1]),
                     lambda_scaling=float(norm_val),
                     kind=str(getattr(pb, "kind", "smooth")),
                     is_null_space_penalty=bool(

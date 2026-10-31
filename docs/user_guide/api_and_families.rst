@@ -42,6 +42,13 @@ uncertainty, variation across refits and calibrated future-observation coverage.
 Quantile-loss models return selected conditional quantiles; those values do not
 supply a complete density or CDF.
 
+A full response distribution is not required when only a particular summary is
+needed. ``ExpectileGAM`` fits a conditional expectile by weighted asymmetric
+least squares; level ``0.5`` targets the mean, whereas a level-``0.5`` quantile
+targets the median. These are distinct from calibrated quantile-function
+intervals and from response distributions. See
+:ref:`choose-response-summary` for the choices and fixed-penalty restrictions.
+
 Choose a family
 ---------------
 

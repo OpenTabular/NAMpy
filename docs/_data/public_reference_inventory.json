@@ -4371,11 +4371,11 @@
         "default": "None"
       }
     ],
-    "page": "user_guide/gamlss",
-    "example": "user_guide/gamlss",
-    "input_contract": "user_guide/gamlss",
-    "return_schema": "_examples/reference/output_schemas.json#user_guide/gamlss",
-    "restrictions": "user_guide/gamlss",
+    "page": "user_guide/distributional_comparison",
+    "example": "user_guide/distributional_comparison",
+    "input_contract": "user_guide/distributional_comparison",
+    "return_schema": "_examples/reference/output_schemas.json#user_guide/distributional_comparison",
+    "restrictions": "user_guide/distributional_comparison",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -4395,11 +4395,11 @@
         "default": "None"
       }
     ],
-    "page": "user_guide/gamlss",
-    "example": "user_guide/gamlss",
-    "input_contract": "user_guide/gamlss",
-    "return_schema": "_examples/reference/output_schemas.json#user_guide/gamlss",
-    "restrictions": "user_guide/gamlss",
+    "page": "user_guide/distributional_comparison",
+    "example": "user_guide/distributional_comparison",
+    "input_contract": "user_guide/distributional_comparison",
+    "return_schema": "_examples/reference/output_schemas.json#user_guide/distributional_comparison",
+    "restrictions": "user_guide/distributional_comparison",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -4495,11 +4495,11 @@
         "default": "None"
       }
     ],
-    "page": "user_guide/gamlss",
-    "example": "user_guide/gamlss",
-    "input_contract": "user_guide/gamlss",
-    "return_schema": "_examples/reference/output_schemas.json#user_guide/gamlss",
-    "restrictions": "user_guide/gamlss",
+    "page": "user_guide/distributional_comparison",
+    "example": "user_guide/distributional_comparison",
+    "input_contract": "user_guide/distributional_comparison",
+    "return_schema": "_examples/reference/output_schemas.json#user_guide/distributional_comparison",
+    "restrictions": "user_guide/distributional_comparison",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -4747,11 +4747,11 @@
         "default": "None"
       }
     ],
-    "page": "user_guide/gamlss",
-    "example": "user_guide/gamlss",
-    "input_contract": "user_guide/gamlss",
-    "return_schema": "_examples/reference/output_schemas.json#user_guide/gamlss",
-    "restrictions": "user_guide/gamlss",
+    "page": "user_guide/distributional_comparison",
+    "example": "user_guide/distributional_comparison",
+    "input_contract": "user_guide/distributional_comparison",
+    "return_schema": "_examples/reference/output_schemas.json#user_guide/distributional_comparison",
+    "restrictions": "user_guide/distributional_comparison",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -10217,7 +10217,7 @@
     "kind": "statistical_extension",
     "symbol": "LossFit",
     "public_import": "nampy.gam.losses.objectives.LossFit",
-    "signature": "(coefficients: numpy.ndarray, fitted: numpy.ndarray, objective: float, iterations: int, converged: bool, optimality: float) -> None",
+    "signature": "(coefficients: numpy.ndarray, fitted: numpy.ndarray, objective: float, iterations: int | None, converged: bool, optimality: float | None, function_evaluations: int | None = None) -> None",
     "parameters": [
       {
         "name": "coefficients",
@@ -10242,6 +10242,10 @@
       {
         "name": "optimality",
         "default": "required"
+      },
+      {
+        "name": "function_evaluations",
+        "default": "None"
       }
     ],
     "page": "statistical_reference/extensions/LossFit",

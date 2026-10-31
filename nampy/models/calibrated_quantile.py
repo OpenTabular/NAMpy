@@ -30,6 +30,12 @@ class CalibratedQuantileGAM(_LossGAMBase):
     simultaneous bands and classical likelihood/AIC are unsupported.
     """
 
+    def capabilities(self):
+        """Declare calibrated quantile-function inference separately from loss fitting."""
+        from ..gam.capabilities import estimator_capabilities
+
+        return estimator_capabilities(self, task="calibrated_quantile")
+
     def __init__(
         self,
         formula=None,
@@ -236,6 +242,16 @@ class CalibratedQuantileGAM(_LossGAMBase):
         return models
 
     def _publish_calibration(self, result):
+        self.fit_diagnostics_ = {
+            "coefficients": {
+                "converged": result.solution.converged,
+                "iterations": result.solution.iterations,
+                "function_evaluations": result.solution.function_evaluations,
+                "optimality": result.solution.optimality,
+            },
+            "smoothing": result.smoothing_diagnostics,
+            "calibration": result.calibration_diagnostics,
+        }
         self.loss_scale_ = result.loss_scale
         self.posterior_covariance_ = result.posterior_covariance
         self.sandwich_covariance_ = result.sandwich_covariance
@@ -255,12 +271,13 @@ class CalibratedQuantileGAM(_LossGAMBase):
             tol=self.tol,
             calibration_tol=self.calibration_tol,
         )
-        self._publish_calibration(result)
-        return replace(
+        result = replace(result, solution=replace(
             result.solution,
             objective=result.solution.objective / result.loss_scale,
             optimality=result.solution.optimality / result.loss_scale,
-        )
+        ))
+        self._publish_calibration(result)
+        return result.solution
 
     def _loss(self, residual):
         return _pinball_loss(residual, self.level)
@@ -294,6 +311,6 @@ class CalibratedQuantileGAM(_LossGAMBase):
                 interval,
                 coverage="approximate_pointwise_conditional_on_selected_smoothing",
             )
-            if self.optimize_smoothing
+            if self.fit_diagnostics_["smoothing"] is not None
             else interval
         )

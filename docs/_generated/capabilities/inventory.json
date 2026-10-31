@@ -1,0 +1,2301 @@
+{
+  "families": [
+    {
+      "backend": "statistical",
+      "conditions": [],
+      "family": "bccg_lss",
+      "fitting_route": "Registered statistical family",
+      "observation_type": "continuous",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": [
+        {
+          "scope": "Selected BCCG likelihood fits",
+          "test_module": "tests/extensions/test_bccg_fitting.py"
+        }
+      ]
+    },
+    {
+      "backend": "statistical",
+      "conditions": [],
+      "family": "bcpe_lss",
+      "fitting_route": "Registered statistical family",
+      "observation_type": "continuous",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": [
+        {
+          "scope": "Selected fixed-smoothing BCT/BCPE fits and likelihood derivatives",
+          "test_module": "tests/extensions/test_boxcox_tail_fitting.py"
+        }
+      ]
+    },
+    {
+      "backend": "statistical",
+      "conditions": [],
+      "family": "bct_lss",
+      "fitting_route": "Registered statistical family",
+      "observation_type": "continuous",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": [
+        {
+          "scope": "Selected fixed-smoothing BCT/BCPE fits and likelihood derivatives",
+          "test_module": "tests/extensions/test_boxcox_tail_fitting.py"
+        }
+      ]
+    },
+    {
+      "backend": "statistical",
+      "conditions": [],
+      "family": "beinf_lss",
+      "fitting_route": "Registered statistical family",
+      "observation_type": "mixed",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": [
+        {
+          "scope": "Selected inflated-beta likelihood and atom cases",
+          "test_module": "tests/extensions/test_inflated_beta.py"
+        }
+      ]
+    },
+    {
+      "backend": "statistical",
+      "conditions": [],
+      "family": "beta_lss",
+      "fitting_route": "Registered statistical family",
+      "observation_type": "continuous",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "statistical",
+      "conditions": [
+        "trials"
+      ],
+      "family": "betabinomial_lss",
+      "fitting_route": "Registered statistical family",
+      "observation_type": "discrete",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": [
+        {
+          "scope": "Selected beta-binomial likelihood and trial-context cases",
+          "test_module": "tests/extensions/test_betabinomial_lss.py"
+        }
+      ]
+    },
+    {
+      "backend": "statistical",
+      "conditions": [],
+      "family": "gammals",
+      "fitting_route": "Registered statistical family",
+      "observation_type": "continuous",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "statistical",
+      "conditions": [],
+      "family": "gaulss",
+      "fitting_route": "Registered statistical family",
+      "observation_type": "continuous",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "statistical",
+      "conditions": [],
+      "family": "gevlss",
+      "fitting_route": "Registered statistical family",
+      "observation_type": "Family-specific; no shared probability law declared",
+      "probability_operations": [],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "statistical",
+      "conditions": [],
+      "family": "gumbls",
+      "fitting_route": "Registered statistical family",
+      "observation_type": "Family-specific; no shared probability law declared",
+      "probability_operations": [],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "statistical",
+      "conditions": [],
+      "family": "lognormal_lss",
+      "fitting_route": "Registered statistical family",
+      "observation_type": "continuous",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "statistical",
+      "conditions": [],
+      "family": "lognormal_observation_lss",
+      "fitting_route": "Registered statistical family",
+      "observation_type": "Exact/censored observations with configured truncation",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "quantile",
+        "sample",
+        "survival"
+      ],
+      "smoothing_selection": [
+        "bfgs",
+        "outer_newton"
+      ],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": [
+        {
+          "scope": "Selected censored/truncated positive likelihood cases",
+          "test_module": "tests/extensions/test_positive_observations.py"
+        }
+      ]
+    },
+    {
+      "backend": "statistical",
+      "conditions": [],
+      "family": "multinom",
+      "fitting_route": "Registered statistical family",
+      "observation_type": "Family-specific; no shared probability law declared",
+      "probability_operations": [],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "statistical",
+      "conditions": [],
+      "family": "nb_lss",
+      "fitting_route": "Registered statistical family",
+      "observation_type": "discrete",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "statistical",
+      "conditions": [],
+      "family": "normal_observation_lss",
+      "fitting_route": "Registered statistical family",
+      "observation_type": "Exact/censored observations with configured truncation",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [
+        "bfgs",
+        "outer_newton"
+      ],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": [
+        {
+          "scope": "Selected exact/censored/truncated normal likelihood cases",
+          "test_module": "tests/extensions/test_normal_observations.py"
+        }
+      ]
+    },
+    {
+      "backend": "statistical",
+      "conditions": [],
+      "family": "shash",
+      "fitting_route": "Registered statistical family",
+      "observation_type": "Family-specific; no shared probability law declared",
+      "probability_operations": [],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "statistical",
+      "conditions": [],
+      "family": "student_lss",
+      "fitting_route": "Registered statistical family",
+      "observation_type": "continuous",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "statistical",
+      "conditions": [],
+      "family": "twlss",
+      "fitting_route": "Registered statistical family",
+      "observation_type": "Family-specific; no shared probability law declared",
+      "probability_operations": [],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "statistical",
+      "conditions": [],
+      "family": "weibull_lss",
+      "fitting_route": "Registered statistical family",
+      "observation_type": "continuous",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "statistical",
+      "conditions": [],
+      "family": "weibull_observation_lss",
+      "fitting_route": "Registered statistical family",
+      "observation_type": "Exact/censored observations with configured truncation",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "quantile",
+        "sample",
+        "survival"
+      ],
+      "smoothing_selection": [
+        "bfgs",
+        "outer_newton"
+      ],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": [
+        {
+          "scope": "Selected censored/truncated positive likelihood cases",
+          "test_module": "tests/extensions/test_positive_observations.py"
+        }
+      ]
+    },
+    {
+      "backend": "statistical",
+      "conditions": [],
+      "family": "zaga_lss",
+      "fitting_route": "Registered statistical family",
+      "observation_type": "mixed",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": [
+        {
+          "scope": "Selected zero-adjusted Gamma fits and atom cases",
+          "test_module": "tests/extensions/test_zero_adjusted_gamma.py"
+        }
+      ]
+    },
+    {
+      "backend": "statistical",
+      "conditions": [],
+      "family": "ziplss",
+      "fitting_route": "Registered statistical family",
+      "observation_type": "Family-specific; no shared probability law declared",
+      "probability_operations": [],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "bccg",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "continuous",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "bcpe",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "continuous",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": [
+        {
+          "scope": "Selected neural BCT/BCPE densities and autograd cases",
+          "test_module": "tests/neural/test_boxcox_tail_objectives.py"
+        }
+      ]
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "bct",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "continuous",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": [
+        {
+          "scope": "Selected neural BCT/BCPE densities and autograd cases",
+          "test_module": "tests/neural/test_boxcox_tail_objectives.py"
+        }
+      ]
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "beinf",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "mixed",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "beta",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "continuous",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [
+        "trials"
+      ],
+      "family": "betabinomial",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "discrete",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "categorical",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "Family-specific; no shared probability law declared",
+      "probability_operations": [],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "dirichlet",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "Family-specific; no shared probability law declared",
+      "probability_operations": [],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "gamma",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "continuous",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "hurdlenegativebinom",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "Family-specific; no shared probability law declared",
+      "probability_operations": [],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "hurdlepoisson",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "Family-specific; no shared probability law declared",
+      "probability_operations": [],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "inversegamma",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "Family-specific; no shared probability law declared",
+      "probability_operations": [],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "loglogistic",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "Family-specific; no shared probability law declared",
+      "probability_operations": [],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "lognormal",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "continuous",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "lognormal_observation",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "Exact/censored observations with configured truncation",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "quantile",
+        "sample",
+        "survival"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": [
+        {
+          "scope": "Selected neural positive observation losses and fits",
+          "test_module": "tests/extensions/test_positive_observations.py"
+        }
+      ]
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "mvnormdiag",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "Family-specific; no shared probability law declared",
+      "probability_operations": [],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "negativebinom",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "discrete",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "normal",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "continuous",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "normal_observation",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "Exact/censored observations with configured truncation",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": [
+        {
+          "scope": "Selected neural normal observation losses and fits",
+          "test_module": "tests/extensions/test_normal_observations.py"
+        }
+      ]
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "ordinal",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "Family-specific; no shared probability law declared",
+      "probability_operations": [],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "poisson",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "Family-specific; no shared probability law declared",
+      "probability_operations": [],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "quantile",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "Family-specific; no shared probability law declared",
+      "probability_operations": [],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "robustnormal",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "Family-specific; no shared probability law declared",
+      "probability_operations": [],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "studentt",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "continuous",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "tweedie",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "Family-specific; no shared probability law declared",
+      "probability_operations": [],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "weibull",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "continuous",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "weibull_observation",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "Exact/censored observations with configured truncation",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "quantile",
+        "sample",
+        "survival"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": [
+        {
+          "scope": "Selected neural positive observation losses and fits",
+          "test_module": "tests/extensions/test_positive_observations.py"
+        }
+      ]
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "zaga",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "mixed",
+      "probability_operations": [
+        "cdf",
+        "cdf_left",
+        "log_cdf",
+        "log_prob",
+        "log_survival",
+        "mean",
+        "quantile",
+        "sample",
+        "survival",
+        "variance"
+      ],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "zinb",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "Family-specific; no shared probability law declared",
+      "probability_operations": [],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    },
+    {
+      "backend": "neural",
+      "conditions": [],
+      "family": "zip",
+      "fitting_route": "Registered neural objective",
+      "observation_type": "Family-specific; no shared probability law declared",
+      "probability_operations": [],
+      "smoothing_selection": [],
+      "uncertainty_methods": "Use configured/fitted model.capabilities(); not implied by probability operations",
+      "validation_evidence": []
+    }
+  ],
+  "models": [
+    {
+      "conditions": [
+        "available_covariance",
+        "fitted_model"
+      ],
+      "fitting_route": "Statistical penalized fitting",
+      "model": "GAMRegressor",
+      "observation_type": "Exact scalar response",
+      "probability_operations": {
+        "predict_components": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_distribution": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "predict_link": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_parameters": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "predict_quantiles": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.bootstrap": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.curves": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.hazard": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.intervals": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        }
+      },
+      "smoothing_selection": "Configured statistical criterion",
+      "uncertainty_methods": {
+        "fisher.exact": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "fisher.negative_hessian": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "fisher.score_outer_product": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "uncertainty.coefficients": {
+          "conditions": [
+            "fitted_model",
+            "available_covariance"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "uncertainty.quantile_function": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        }
+      },
+      "validation_evidence": [
+        {
+          "scope": "Selected Gaussian/binomial interface and prediction cases",
+          "test_module": "tests/public_api/test_gam_adapters.py"
+        }
+      ]
+    },
+    {
+      "conditions": [
+        "available_covariance",
+        "fitted_model"
+      ],
+      "fitting_route": "Statistical penalized fitting",
+      "model": "GAMClassifier",
+      "observation_type": "Binary or grouped binomial",
+      "probability_operations": {
+        "predict_components": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_distribution": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "predict_link": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_parameters": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "predict_quantiles": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.bootstrap": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.curves": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.hazard": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.intervals": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        }
+      },
+      "smoothing_selection": "Configured statistical criterion",
+      "uncertainty_methods": {
+        "fisher.exact": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "fisher.negative_hessian": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "fisher.score_outer_product": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "uncertainty.coefficients": {
+          "conditions": [
+            "fitted_model",
+            "available_covariance"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "uncertainty.quantile_function": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        }
+      },
+      "validation_evidence": [
+        {
+          "scope": "Selected Gaussian/binomial interface and prediction cases",
+          "test_module": "tests/public_api/test_gam_adapters.py"
+        }
+      ]
+    },
+    {
+      "conditions": [
+        "available_covariance",
+        "fitted_model"
+      ],
+      "fitting_route": "Joint statistical likelihood",
+      "model": "GAMLSS",
+      "observation_type": "Family-dependent",
+      "probability_operations": {
+        "distribution.cdf": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "distribution.cdf_left": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "distribution.log_cdf": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "distribution.log_prob": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "distribution.log_survival": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "distribution.mean": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "distribution.quantile": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "distribution.sample": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "distribution.survival": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "distribution.variance": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_components": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_distribution": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_link": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_parameters": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_quantiles": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "survival.bootstrap": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.curves": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.hazard": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.intervals": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        }
+      },
+      "smoothing_selection": "Family-declared criteria/optimizers",
+      "uncertainty_methods": {
+        "fisher.exact": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "fisher.negative_hessian": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "fisher.score_outer_product": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "uncertainty.coefficients": {
+          "conditions": [
+            "fitted_model",
+            "available_covariance"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "uncertainty.quantile_function": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        }
+      },
+      "validation_evidence": [
+        {
+          "scope": "Selected Student-t, beta and negative-binomial joint likelihood fits",
+          "test_module": "tests/extensions/test_distributional.py"
+        }
+      ]
+    },
+    {
+      "conditions": [
+        "fitted_model"
+      ],
+      "fitting_route": "Asymmetric least squares (LAWS)",
+      "model": "ExpectileGAM",
+      "observation_type": "Exact scalar response; optional observation weights",
+      "probability_operations": {
+        "predict_components": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_distribution": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "predict_link": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_parameters": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "predict_quantiles": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.bootstrap": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.curves": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.hazard": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.intervals": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        }
+      },
+      "smoothing_selection": "Supplied penalties; no automatic selection",
+      "uncertainty_methods": {
+        "fisher.exact": {
+          "conditions": [],
+          "reason": "This task has no declared Fisher observation experiment.",
+          "status": "unsupported"
+        },
+        "fisher.negative_hessian": {
+          "conditions": [],
+          "reason": "This task has no declared Fisher observation experiment.",
+          "status": "unsupported"
+        },
+        "fisher.score_outer_product": {
+          "conditions": [],
+          "reason": "This task has no declared Fisher observation experiment.",
+          "status": "unsupported"
+        },
+        "uncertainty.coefficients": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "uncertainty.quantile_function": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        }
+      },
+      "validation_evidence": [
+        {
+          "scope": "Selected weighted expectile fits and conditional-mean limit checks",
+          "test_module": "tests/extensions/test_neighbors.py"
+        }
+      ]
+    },
+    {
+      "conditions": [
+        "fitted_model"
+      ],
+      "fitting_route": "Quantile loss",
+      "model": "QuantileGAM",
+      "observation_type": "Exact scalar response",
+      "probability_operations": {
+        "predict_components": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_distribution": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "predict_link": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_parameters": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "predict_quantiles": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.bootstrap": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.curves": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.hazard": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.intervals": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        }
+      },
+      "smoothing_selection": "Supplied penalties",
+      "uncertainty_methods": {
+        "fisher.exact": {
+          "conditions": [],
+          "reason": "This task has no declared Fisher observation experiment.",
+          "status": "unsupported"
+        },
+        "fisher.negative_hessian": {
+          "conditions": [],
+          "reason": "This task has no declared Fisher observation experiment.",
+          "status": "unsupported"
+        },
+        "fisher.score_outer_product": {
+          "conditions": [],
+          "reason": "This task has no declared Fisher observation experiment.",
+          "status": "unsupported"
+        },
+        "uncertainty.coefficients": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "uncertainty.quantile_function": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        }
+      },
+      "validation_evidence": [
+        {
+          "scope": "Selected fixed-penalty scalar quantile loss fits",
+          "test_module": "tests/extensions/test_neighbors.py"
+        }
+      ]
+    },
+    {
+      "conditions": [
+        "calibrated_covariance",
+        "fitted_model"
+      ],
+      "fitting_route": "ELF and scalar calFast calibration",
+      "model": "CalibratedQuantileGAM",
+      "observation_type": "Exact scalar response",
+      "probability_operations": {
+        "predict_components": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_distribution": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "predict_link": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_parameters": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "predict_quantiles": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.bootstrap": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.curves": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.hazard": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.intervals": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        }
+      },
+      "smoothing_selection": "Supplied penalties or REML at each scale",
+      "uncertainty_methods": {
+        "fisher.exact": {
+          "conditions": [],
+          "reason": "This task has no declared Fisher observation experiment.",
+          "status": "unsupported"
+        },
+        "fisher.negative_hessian": {
+          "conditions": [],
+          "reason": "This task has no declared Fisher observation experiment.",
+          "status": "unsupported"
+        },
+        "fisher.score_outer_product": {
+          "conditions": [],
+          "reason": "This task has no declared Fisher observation experiment.",
+          "status": "unsupported"
+        },
+        "uncertainty.coefficients": {
+          "conditions": [
+            "fitted_model",
+            "calibrated_covariance"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "uncertainty.quantile_function": {
+          "conditions": [
+            "fitted_model",
+            "calibrated_covariance"
+          ],
+          "reason": "",
+          "status": "conditional"
+        }
+      },
+      "validation_evidence": [
+        {
+          "scope": "qgam fixed-penalty profiles, endpoints and a specified coverage simulation",
+          "test_module": "tests/extensions/test_calibrated_quantile.py"
+        },
+        {
+          "scope": "Selected SHASH bandwidth and automatic-smoothing fixtures",
+          "test_module": "tests/extensions/test_quantile_bandwidth.py"
+        }
+      ]
+    },
+    {
+      "conditions": [
+        "available_covariance",
+        "fitted_model",
+        "valid_subject_resampling"
+      ],
+      "fitting_route": "Piecewise-exponential full likelihood",
+      "model": "SurvivalGAM",
+      "observation_type": "Right-censored; delayed entry",
+      "probability_operations": {
+        "predict_components": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_distribution": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_link": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_parameters": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "predict_quantiles": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.bootstrap": {
+          "conditions": [
+            "fitted_model",
+            "valid_subject_resampling"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "survival.curves": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "survival.hazard": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "survival.intervals": {
+          "conditions": [
+            "fitted_model",
+            "available_covariance"
+          ],
+          "reason": "",
+          "status": "conditional"
+        }
+      },
+      "smoothing_selection": "Poisson statistical engine",
+      "uncertainty_methods": {
+        "fisher.exact": {
+          "conditions": [],
+          "reason": "This task has no declared Fisher observation experiment.",
+          "status": "unsupported"
+        },
+        "fisher.negative_hessian": {
+          "conditions": [],
+          "reason": "This task has no declared Fisher observation experiment.",
+          "status": "unsupported"
+        },
+        "fisher.score_outer_product": {
+          "conditions": [],
+          "reason": "This task has no declared Fisher observation experiment.",
+          "status": "unsupported"
+        },
+        "uncertainty.coefficients": {
+          "conditions": [
+            "fitted_model",
+            "available_covariance"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "uncertainty.quantile_function": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        }
+      },
+      "validation_evidence": [
+        {
+          "scope": "Selected piecewise-exponential statistical fits",
+          "test_module": "tests/survival/test_statistical.py"
+        }
+      ]
+    },
+    {
+      "conditions": [
+        "available_covariance",
+        "fitted_model",
+        "valid_subject_resampling"
+      ],
+      "fitting_route": "Parametric full likelihood (Weibull shown)",
+      "model": "SurvivalGAM",
+      "observation_type": "Right-censored; delayed entry",
+      "probability_operations": {
+        "predict_components": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_distribution": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_link": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_parameters": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "predict_quantiles": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.bootstrap": {
+          "conditions": [
+            "fitted_model",
+            "valid_subject_resampling"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "survival.curves": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "survival.hazard": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "survival.intervals": {
+          "conditions": [
+            "fitted_model",
+            "available_covariance"
+          ],
+          "reason": "",
+          "status": "conditional"
+        }
+      },
+      "smoothing_selection": "Fixed or eligible joint REML",
+      "uncertainty_methods": {
+        "fisher.exact": {
+          "conditions": [],
+          "reason": "This task has no declared Fisher observation experiment.",
+          "status": "unsupported"
+        },
+        "fisher.negative_hessian": {
+          "conditions": [],
+          "reason": "This task has no declared Fisher observation experiment.",
+          "status": "unsupported"
+        },
+        "fisher.score_outer_product": {
+          "conditions": [],
+          "reason": "This task has no declared Fisher observation experiment.",
+          "status": "unsupported"
+        },
+        "uncertainty.coefficients": {
+          "conditions": [
+            "fitted_model",
+            "available_covariance"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "uncertainty.quantile_function": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        }
+      },
+      "validation_evidence": [
+        {
+          "scope": "Selected censored parametric statistical fits",
+          "test_module": "tests/survival/test_censored_fitting.py"
+        }
+      ]
+    },
+    {
+      "conditions": [
+        "available_covariance",
+        "fitted_model",
+        "valid_subject_resampling"
+      ],
+      "fitting_route": "Breslow partial likelihood",
+      "model": "CoxGAM",
+      "observation_type": "Static right-censored; optional strata",
+      "probability_operations": {
+        "predict_components": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_distribution": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_link": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_parameters": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "predict_quantiles": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.bootstrap": {
+          "conditions": [
+            "fitted_model",
+            "valid_subject_resampling"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "survival.curves": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "survival.hazard": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        },
+        "survival.intervals": {
+          "conditions": [
+            "fitted_model",
+            "available_covariance"
+          ],
+          "reason": "",
+          "status": "conditional"
+        }
+      },
+      "smoothing_selection": "Fixed or eligible REML; stratified automatic requires BFGS",
+      "uncertainty_methods": {
+        "fisher.exact": {
+          "conditions": [],
+          "reason": "This task has no declared Fisher observation experiment.",
+          "status": "unsupported"
+        },
+        "fisher.negative_hessian": {
+          "conditions": [],
+          "reason": "This task has no declared Fisher observation experiment.",
+          "status": "unsupported"
+        },
+        "fisher.score_outer_product": {
+          "conditions": [],
+          "reason": "This task has no declared Fisher observation experiment.",
+          "status": "unsupported"
+        },
+        "uncertainty.coefficients": {
+          "conditions": [
+            "fitted_model",
+            "available_covariance"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "uncertainty.quantile_function": {
+          "conditions": [],
+          "reason": "This modeling task does not declare this operation.",
+          "status": "unsupported"
+        }
+      },
+      "validation_evidence": [
+        {
+          "scope": "Selected Cox likelihood, coefficients, covariance and survival fixtures",
+          "test_module": "tests/survival/test_cox_fixed.py"
+        },
+        {
+          "scope": "Selected supported automatic-smoothing Cox fits",
+          "test_module": "tests/survival/test_cox_smoothing.py"
+        }
+      ]
+    },
+    {
+      "conditions": [
+        "fitted_model",
+        "valid_subject_resampling"
+      ],
+      "fitting_route": "Neural survival objective",
+      "model": "NAMSurvival",
+      "observation_type": "Right-censored; full-likelihood route",
+      "probability_operations": {
+        "predict_components": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_distribution": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_link": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_parameters": {
+          "conditions": [],
+          "reason": "This task has no declared operation.",
+          "status": "unsupported"
+        },
+        "predict_quantiles": {
+          "conditions": [],
+          "reason": "This task has no declared operation.",
+          "status": "unsupported"
+        },
+        "survival.bootstrap": {
+          "conditions": [
+            "fitted_model",
+            "valid_subject_resampling"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "survival.curves": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "survival.hazard": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "survival.intervals": {
+          "conditions": [],
+          "reason": "This task has no declared operation.",
+          "status": "unsupported"
+        }
+      },
+      "smoothing_selection": "Gradient training",
+      "uncertainty_methods": {
+        "fisher.exact": {
+          "conditions": [],
+          "reason": "No normalized independent-response Fisher likelihood is declared.",
+          "status": "unsupported"
+        },
+        "fisher.negative_hessian": {
+          "conditions": [],
+          "reason": "No normalized independent-response Fisher likelihood is declared.",
+          "status": "unsupported"
+        },
+        "fisher.score_outer_product": {
+          "conditions": [],
+          "reason": "No normalized independent-response Fisher likelihood is declared.",
+          "status": "unsupported"
+        },
+        "uncertainty.coefficients": {
+          "conditions": [],
+          "reason": "This task has no declared operation.",
+          "status": "unsupported"
+        }
+      },
+      "validation_evidence": [
+        {
+          "scope": "Selected neural full-likelihood survival cases",
+          "test_module": "tests/survival/test_neural.py"
+        }
+      ]
+    },
+    {
+      "conditions": [
+        "fitted_model",
+        "valid_subject_resampling"
+      ],
+      "fitting_route": "Neural Breslow partial likelihood",
+      "model": "NAMSurvival",
+      "observation_type": "Static right-censored, one stratum",
+      "probability_operations": {
+        "predict_components": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_distribution": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_link": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_parameters": {
+          "conditions": [],
+          "reason": "This task has no declared operation.",
+          "status": "unsupported"
+        },
+        "predict_quantiles": {
+          "conditions": [],
+          "reason": "This task has no declared operation.",
+          "status": "unsupported"
+        },
+        "survival.bootstrap": {
+          "conditions": [
+            "fitted_model",
+            "valid_subject_resampling"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "survival.curves": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "survival.hazard": {
+          "conditions": [],
+          "reason": "This task has no declared operation.",
+          "status": "unsupported"
+        },
+        "survival.intervals": {
+          "conditions": [],
+          "reason": "This task has no declared operation.",
+          "status": "unsupported"
+        }
+      },
+      "smoothing_selection": "Gradient training on full cohort",
+      "uncertainty_methods": {
+        "fisher.exact": {
+          "conditions": [],
+          "reason": "No normalized independent-response Fisher likelihood is declared.",
+          "status": "unsupported"
+        },
+        "fisher.negative_hessian": {
+          "conditions": [],
+          "reason": "No normalized independent-response Fisher likelihood is declared.",
+          "status": "unsupported"
+        },
+        "fisher.score_outer_product": {
+          "conditions": [],
+          "reason": "No normalized independent-response Fisher likelihood is declared.",
+          "status": "unsupported"
+        },
+        "uncertainty.coefficients": {
+          "conditions": [],
+          "reason": "This task has no declared operation.",
+          "status": "unsupported"
+        }
+      },
+      "validation_evidence": [
+        {
+          "scope": "Selected neural Cox loss, fitting and prediction cases",
+          "test_module": "tests/survival/test_neural_cox.py"
+        }
+      ]
+    },
+    {
+      "conditions": [
+        "fitted_model",
+        "regression_scale"
+      ],
+      "fitting_route": "Identified spline and neural composition",
+      "model": "SemiStructuredRegressor",
+      "observation_type": "Exact scalar response",
+      "probability_operations": {
+        "predict_components": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_distribution": {
+          "conditions": [],
+          "reason": "This task has no declared operation.",
+          "status": "unsupported"
+        },
+        "predict_link": {
+          "conditions": [
+            "fitted_model"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "predict_parameters": {
+          "conditions": [],
+          "reason": "This task has no declared operation.",
+          "status": "unsupported"
+        },
+        "predict_quantiles": {
+          "conditions": [],
+          "reason": "This task has no declared operation.",
+          "status": "unsupported"
+        },
+        "survival.bootstrap": {
+          "conditions": [],
+          "reason": "This task has no declared operation.",
+          "status": "unsupported"
+        },
+        "survival.curves": {
+          "conditions": [],
+          "reason": "This task has no declared operation.",
+          "status": "unsupported"
+        },
+        "survival.hazard": {
+          "conditions": [],
+          "reason": "This task has no declared operation.",
+          "status": "unsupported"
+        },
+        "survival.intervals": {
+          "conditions": [],
+          "reason": "This task has no declared operation.",
+          "status": "unsupported"
+        }
+      },
+      "smoothing_selection": "Configured penalties and gradient training",
+      "uncertainty_methods": {
+        "fisher.exact": {
+          "conditions": [
+            "fitted_model",
+            "regression_scale"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "fisher.negative_hessian": {
+          "conditions": [],
+          "reason": "Architecture does not declare smooth Hessian Fisher support.",
+          "status": "unsupported"
+        },
+        "fisher.score_outer_product": {
+          "conditions": [
+            "fitted_model",
+            "regression_scale"
+          ],
+          "reason": "",
+          "status": "conditional"
+        },
+        "uncertainty.coefficients": {
+          "conditions": [],
+          "reason": "This task has no declared operation.",
+          "status": "unsupported"
+        }
+      },
+      "validation_evidence": [
+        {
+          "scope": "Selected spline/neural orthogonality and prediction cases",
+          "test_module": "tests/neural/test_semistructured.py"
+        }
+      ]
+    }
+  ]
+}

@@ -33,7 +33,7 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
 Returns
 -------
 
-NumPy smoothing-parameter vector suggested by the one-standard-error rule. Inspect/refit explicitly before using it for predictions.
+NumPy proposal based on fitted smoothing covariance; the model is not refitted. Usually this follows the model's smoothing-parameter vector. With no candidate_indices, a joint Gaussian smoothing/scale fit can instead return the full joint covariance dimension, following the upstream recycling convention. The additional coordinate is not another penalty or a standalone scale estimate. Inspect the dimension and use explicit smoothing indices where needed before constructing a refit.
 
 .. list-table::
    :header-rows: 1
@@ -45,8 +45,8 @@ NumPy smoothing-parameter vector suggested by the one-standard-error rule. Inspe
      - Meaning
    * - smoothing
      - numpy.ndarray[float64]
-     - (n_penalties,)
-     - Candidate smoothing strengths; the model is not automatically refitted.
+     - (n_smoothing_parameters,) or (n_joint,)
+     - Candidate strengths, or the source-specific full joint smoothing/scale proposal for joint Gaussian fits when candidate_indices is omitted. Inspect the shape before refitting; no model state is changed.
 
 
 

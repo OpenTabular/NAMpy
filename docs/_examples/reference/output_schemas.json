@@ -14486,6 +14486,11 @@
       "result['fit'].optimality",
       "builtins.float",
       "()"
+    ],
+    [
+      "result['fit'].function_evaluations",
+      "builtins.NoneType",
+      "not applicable"
     ]
   ],
   "statistical_reference/estimators/GAMClassifier": [
@@ -14769,6 +14774,11 @@
       "result['fit'].optimality",
       "builtins.float",
       "()"
+    ],
+    [
+      "result['fit'].function_evaluations",
+      "builtins.NoneType",
+      "not applicable"
     ]
   ],
   "statistical_reference/estimators/QuantileGAM_smooth": [
@@ -14871,6 +14881,11 @@
       "result['fit'].optimality",
       "builtins.float",
       "()"
+    ],
+    [
+      "result['fit'].function_evaluations",
+      "builtins.NoneType",
+      "not applicable"
     ]
   ],
   "statistical_reference/estimators/SurvivalGAM": [
@@ -16885,6 +16900,11 @@
       "result.optimality",
       "builtins.float",
       "()"
+    ],
+    [
+      "result.function_evaluations",
+      "builtins.NoneType",
+      "not applicable"
     ]
   ],
   "statistical_reference/extensions/coefficient_draws": [
@@ -17121,6 +17141,11 @@
       "result.optimality",
       "builtins.float",
       "()"
+    ],
+    [
+      "result.function_evaluations",
+      "builtins.NoneType",
+      "not applicable"
     ]
   ],
   "statistical_reference/extensions/fit_quantile": [
@@ -17165,6 +17190,11 @@
       "()"
     ],
     [
+      "result['exact'].function_evaluations",
+      "builtins.NoneType",
+      "not applicable"
+    ],
+    [
       "result['smooth']",
       "nampy.gam.losses.objectives.LossFit",
       "scalar record"
@@ -17198,6 +17228,11 @@
       "result['smooth'].optimality",
       "builtins.float",
       "()"
+    ],
+    [
+      "result['smooth'].function_evaluations",
+      "builtins.NoneType",
+      "not applicable"
     ]
   ],
   "statistical_reference/extensions/joint_edf": [
@@ -21790,12 +21825,12 @@
       "(96,)"
     ],
     [
-      "result['4c4ff6bff287']",
+      "result['c98ba98a06b6']",
       "numpy.ndarray[float64]",
       "(96,)"
     ],
     [
-      "result['955308fe164a']",
+      "result['196264d2c01d']",
       "numpy.ndarray[float64]",
       "(96,)"
     ],
@@ -24155,7 +24190,7 @@
       "(8, 8)"
     ]
   ],
-  "user_guide/gamlss": [
+  "user_guide/distributional_comparison": [
     [
       "result",
       "nampy.models.comparison.DistributionComparison",

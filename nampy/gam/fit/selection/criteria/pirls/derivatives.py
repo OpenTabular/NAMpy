@@ -59,7 +59,7 @@ def _free_smoothing_mask(model) -> np.ndarray:
     return ~fixed_mask
 
 
-def _fit3_gcv_ubre_kernel(model, y, log_sp, *, require_free=True):
+def _gcv_ubre_derivative_state(model, y, log_sp, *, require_free=True):
     """
     Build the `gam.fit3` derivative state used by GCV/UBRE/AIC.
 
@@ -94,12 +94,12 @@ def _fit3_gcv_ubre_kernel(model, y, log_sp, *, require_free=True):
     return sol, kernel, free_mask
 
 
-def _fit3_gcv_ubre_full_derivatives(model, y, log_sp, method):
+def _gcv_ubre_full_derivatives(model, y, log_sp, method):
     method = str(method).lower()
     if method not in {"gcv", "gacv", "ubre", "aic", "ubreaic"}:
         raise ValueError(f"Unsupported gam.fit3 GCV/UBRE method {method!r}.")
 
-    sol, kernel, free_mask = _fit3_gcv_ubre_kernel(model, y, log_sp)
+    sol, kernel, free_mask = _gcv_ubre_derivative_state(model, y, log_sp)
     if kernel is None:
         empty = np.empty((0,), dtype=np.float64)
         return empty, np.empty((0, 0), dtype=np.float64), free_mask
@@ -170,17 +170,17 @@ def _fit3_gcv_ubre_full_derivatives(model, y, log_sp, method):
 
 
 def criterion_gradient_gcv_ubre_pirls_exact(model, y, log_sp, method):
-    grad, _hess, free_mask = _fit3_gcv_ubre_full_derivatives(model, y, log_sp, method)
+    grad, _hess, free_mask = _gcv_ubre_full_derivatives(model, y, log_sp, method)
     return np.asarray(grad[free_mask], dtype=np.float64)
 
 
 def criterion_hessian_gcv_ubre_pirls_exact(model, y, log_sp, method):
-    _grad, hess, free_mask = _fit3_gcv_ubre_full_derivatives(model, y, log_sp, method)
+    _grad, hess, free_mask = _gcv_ubre_full_derivatives(model, y, log_sp, method)
     free_idx = np.flatnonzero(free_mask)
     return np.asarray(hess[np.ix_(free_idx, free_idx)], dtype=np.float64)
 
 
-def _fit3_pearson_scale_factor(model, y, sol, mp):
+def _pearson_scale_factor(model, y, sol, mp):
     """Undo gdi1's good-row normalization exactly as gam.fit3 does."""
     nobs = float(len(y))
     ntrue = float(getattr(model, "n_true_", nobs) or nobs)
@@ -193,7 +193,7 @@ def _fit3_pearson_scale_factor(model, y, sol, mp):
     return (nobs - mp) / denom if denom > 0.0 else np.nan
 
 
-def _fit3_p_ml_reml_full_derivatives(model, y, log_sp, method):
+def _pearson_ml_reml_full_derivatives(model, y, log_sp, method):
     """Exact Pearson-Laplace derivatives from ``gam.fit3``."""
     method = str(method).lower()
     branch = "ML" if method == "p-ml" else "REML"
@@ -204,7 +204,7 @@ def _fit3_p_ml_reml_full_derivatives(model, y, log_sp, method):
     mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     nobs = float(len(np.asarray(y)))
     ntrue = float(getattr(model, "n_true_", nobs) or nobs)
-    factor = _fit3_pearson_scale_factor(model, y, sol, mp)
+    factor = _pearson_scale_factor(model, y, sol, mp)
     phi = float(kernel.P * factor)
     _fit_workspace(model).pirls_outer_scale_est = phi
     phi1 = np.asarray(kernel.P1, dtype=np.float64) * factor
@@ -234,12 +234,12 @@ def _fit3_p_ml_reml_full_derivatives(model, y, log_sp, method):
 
 
 def criterion_gradient_p_ml_reml_pirls_exact(model, y, log_sp, method):
-    grad, _hess, free_mask = _fit3_p_ml_reml_full_derivatives(model, y, log_sp, method)
+    grad, _hess, free_mask = _pearson_ml_reml_full_derivatives(model, y, log_sp, method)
     return np.asarray(grad[free_mask], dtype=np.float64)
 
 
 def criterion_hessian_p_ml_reml_pirls_exact(model, y, log_sp, method):
-    _grad, hess, free_mask = _fit3_p_ml_reml_full_derivatives(model, y, log_sp, method)
+    _grad, hess, free_mask = _pearson_ml_reml_full_derivatives(model, y, log_sp, method)
     idx = np.flatnonzero(free_mask)
     return np.asarray(hess[np.ix_(idx, idx)], dtype=np.float64)
 
@@ -660,13 +660,13 @@ def _gdi_pk_setup(model, sol, sp, *, deriv, rank_tol=None):
     P = np.asarray(canonical.St, dtype=np.float64)
     A = XtWX + P
     q_total_full = int(np.asarray(A, dtype=np.float64).shape[0])
-    q_null_full = int(canonical.Mp)
+    q_null_full = int(canonical.penalty_null_dim)
     q_range_full = int(q_total_full - q_null_full)
     # Mirror `mgcv::gdiPK()` exactly here: use the canonical total-penalty roots
     # produced by the current `gam.fit3/gam.fit4` reparameterization state,
     # rather than rebuilding a fresh dense square root from `St`.
     penalty_sqrt = np.asarray(canonical.Sr, dtype=np.float64)
-    penalty_rank_rows = np.asarray(canonical.Eb, dtype=np.float64)
+    penalty_rank_rows = np.asarray(canonical.rank_penalty_root, dtype=np.float64)
     root_cols = []
     rSncol = []
     roots = _reparam_roots_by_smoothing_parameter(
@@ -839,7 +839,7 @@ def _reparam_roots_by_smoothing_parameter(model, roots, n_sp):
 
 def _canonical_penalty_derivative_matrices(model, canonical, sp, n_sp):
     q = int(np.asarray(canonical.St, dtype=np.float64).shape[0])
-    rows_e = q - int(canonical.Mp)
+    rows_e = q - int(canonical.penalty_null_dim)
     mats = [np.zeros((q, q), dtype=np.float64) for _ in range(int(n_sp))]
     roots = _reparam_roots_by_smoothing_parameter(
         model, canonical.rp.get("rS", []), int(n_sp)

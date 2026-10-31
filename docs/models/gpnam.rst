@@ -38,6 +38,17 @@ Fit and inspect
    prediction = model.predict(X_test)
    components = model.predict_components(X_test, center=True)
    figures = model.plot_terms(X_test, center=True)
+   basis = model.basis_transform(X_test)
+   basis_info = model.basis_metadata()
+   complexity = model.model_complexity()
+
+``basis`` contains the fitted fixed-design features for the new rows;
+``basis_info`` describes their fitted blocks and kernel settings. These are
+representation diagnostics, not coefficient uncertainty. ``complexity`` separates
+total and trainable parameter counts. See :doc:`basis_transform
+</neural_reference/methods/basis_transform>` and :doc:`basis_metadata
+</neural_reference/methods/basis_metadata>`; these optional hooks are not universal
+across neural architectures.
 
 Interpretation and limits
 -------------------------

@@ -48,7 +48,7 @@ _DYNAMIC_FIT_STATE = {
     "_gaussian_reml_last_scale_est_",
     "_gaussian_reml_sigma2_opt_",
     "_general_family_outer_derivative_info",
-    "_general_family_outer_use_fit5_hessian_",
+    "_general_family_outer_use_joint_hessian_",
     "_null_deviance_",
     "_summary_R_",
     "coefficient_transform",

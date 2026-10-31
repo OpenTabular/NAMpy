@@ -32,7 +32,7 @@ _MGCV_GAM_FIT4_RANK_TOL = float(np.finfo(np.float64).eps**0.75)
 
 def _canonical_penalty_root_stack(model, canonical, q_full):
     """Pack current-sp roots as expected by mgcv/src/gdi.c::gdiPK()."""
-    q_range = int(q_full - int(canonical.Mp))
+    q_range = int(q_full - int(canonical.penalty_null_dim))
     roots = []
     for root in list(canonical.rp.get("rS", []))[
         : int(_n_smoothing_params(model) or 0)
@@ -97,7 +97,7 @@ def _pirls_gdi_report_state(
         working_response[good],
         working_weights[good],
         penalty_sqrt_E=np.asarray(canonical.Sr, dtype=np.float64),
-        penalty_rank_Es=np.asarray(canonical.Eb, dtype=np.float64),
+        penalty_rank_Es=np.asarray(canonical.rank_penalty_root, dtype=np.float64),
         rS=_canonical_penalty_root_stack(model, canonical, q_full),
         rank_tol=rank_tol,
         reml=True,
@@ -310,7 +310,7 @@ def solve_pirls_fit(
             etastart=etastart,
             mustart=mustart,
             penalty_sqrt_E=np.asarray(canonical.Sr, dtype=np.float64),
-            penalty_rank_rows=np.asarray(canonical.Eb, dtype=np.float64),
+            penalty_rank_rows=np.asarray(canonical.rank_penalty_root, dtype=np.float64),
             # `mgcv/R/gam.fit3.r::gam.fit3` uses its `scale` argument in the
             # PIRLS convergence test. Joint scale objectives must therefore
             # supply the current outer scale, rather than using an estimated

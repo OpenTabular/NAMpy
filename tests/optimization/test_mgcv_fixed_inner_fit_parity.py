@@ -27,7 +27,7 @@ from nampy.gam.fit.solvers.general_family import newton as general_newton
 from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
     build_general_family_setup_state,
     run_general_family_fixed_smoothing,
-    sl_initial_repara,
+    transform_initial_penalty_coordinates,
 )
 from nampy.gam.linalg.reindexing import permute_rows, restore_dropped_rows
 from tests._paths import PARITY_DIR, REPO_ROOT
@@ -439,7 +439,7 @@ def test_gaulss_gam_fit5_fixed_sp_inner_state_matches_mgcv():
     fit = run["fit"]
     setup = run["setup"]
     actual_coef_full = np.asarray(
-        sl_initial_repara(
+        transform_initial_penalty_coordinates(
             setup.Sl,
             np.asarray(fit["coef"], dtype=np.float64),
             inverse=True,
@@ -453,7 +453,7 @@ def test_gaulss_gam_fit5_fixed_sp_inner_state_matches_mgcv():
     actual_db_drho_full = np.column_stack(
         [
             np.asarray(
-                sl_initial_repara(
+                transform_initial_penalty_coordinates(
                     setup.Sl,
                     np.asarray(fit["db_drho"], dtype=np.float64)[:, i],
                     inverse=True,

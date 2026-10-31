@@ -21,6 +21,7 @@ import pandas as pd
 from sklearn.base import BaseEstimator
 from sklearn.exceptions import NotFittedError
 
+from .._data import prepare_fit_features, prepare_predict_features
 from ..persistence import load_estimator, save_estimator
 from ..survival import (
     PiecewiseExponentialDesign,
@@ -36,7 +37,6 @@ from ..survival.likelihood import (
     validate_parametric_fit,
 )
 from ..survival.longitudinal import LongitudinalSurvivalTarget, subject_weight_sum
-from ._data import prepare_fit_features, prepare_predict_features
 from .gam import GAMRegressor
 
 

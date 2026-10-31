@@ -31,7 +31,7 @@ from nampy.gam.fit.selection.optimize.newton_strict import (
     _optimize_outer_newton_strict,
 )
 from nampy.gam.fit.selection.reparam import (
-    SlBlock,
+    PenaltyReparameterizationBlock,
     build_estimate_gam_setup_state,
     build_penalty_reparameterization_state,
     build_penalty_reparameterized_system,
@@ -639,8 +639,8 @@ def test_gdi_pk_setup_and_ift1_match_signed_weight_inverse_root(monkeypatch):
         T=np.eye(X.shape[1], dtype=np.float64),
         St=P.copy(),
         Sr=E.copy(),
-        Eb=Es.copy(),
-        Mp=0,
+        rank_penalty_root=Es.copy(),
+        penalty_null_dim=0,
         rp={"rS": [E.T.copy()]},
     )
     monkeypatch.setattr(
@@ -764,8 +764,8 @@ def test_gaussian_fit3_gdi_beta_full_matches_signed_weight_stacked_qr(monkeypatc
     canonical = SimpleNamespace(
         T=np.eye(X.shape[1], dtype=np.float64),
         Sr=E.copy(),
-        Eb=Es.copy(),
-        Mp=0,
+        rank_penalty_root=Es.copy(),
+        penalty_null_dim=0,
         rp={"rS": [E.T.copy()]},
     )
     monkeypatch.setattr(
@@ -782,7 +782,7 @@ def test_gaussian_fit3_gdi_beta_full_matches_signed_weight_stacked_qr(monkeypatc
         )
     )
     coef_full, eta_fit, _rank_root = (
-        gaussian_exact_module._gaussian_fit3_gdi_beta_full(model, X, sp, y, w)
+        gaussian_exact_module._solve_gaussian_canonical_coefficients(model, X, sp, y, w)
     )
     out = solve_gaussian_penalized_ls_stacked_qr(
         X,
@@ -1717,23 +1717,23 @@ def test_disjoint_multi_penalty_term_is_accepted_and_reparameterized():
     assert model.sl_blocks_ == state.sl_blocks
     assert state.Z_rand.shape[1] == 4
     assert len(state.sl_blocks) == 2
-    assert state.sl_blocks[0] == SlBlock(
+    assert state.sl_blocks[0] == PenaltyReparameterizationBlock(
         term_index=0,
-        repara=True,
+        reparameterize=True,
         smoothing_index=0,
         start=0,
         stop=2,
         ncol=4,
-        blockSize=2,
+        block_size=2,
     )
-    assert state.sl_blocks[1] == SlBlock(
+    assert state.sl_blocks[1] == PenaltyReparameterizationBlock(
         term_index=0,
-        repara=True,
+        reparameterize=True,
         smoothing_index=1,
         start=2,
         stop=4,
         ncol=4,
-        blockSize=2,
+        block_size=2,
     )
     groups = sl_group_indices(state)
     assert set(groups.keys()) == {0, 1}
@@ -1797,7 +1797,7 @@ def test_overlapping_null_space_penalties_on_one_term_are_accepted():
     assert state.Z_rand.shape[1] == 6
     assert len(state.sl_blocks) == 3
     assert [b.smoothing_index for b in state.sl_blocks] == [0, 1, 2]
-    assert [b.blockSize for b in state.sl_blocks] == [2, 2, 2]
+    assert [b.block_size for b in state.sl_blocks] == [2, 2, 2]
     groups = sl_group_indices(state)
     assert set(groups.keys()) == {0, 1, 2}
     np.testing.assert_array_equal(groups[0], np.array([0, 1], dtype=np.int64))
@@ -1913,7 +1913,7 @@ def test_canonical_gam_reparam_state_matches_dynamic_design():
     assert canonical.T.shape == (5, 5)
     assert canonical.St.shape == (5, 5)
     assert canonical.Sr.shape[1] == 5
-    assert canonical.Mp == 1
+    assert canonical.penalty_null_dim == 1
     np.testing.assert_allclose(canonical.X_fix, dynamic.X_fix, rtol=0.0, atol=1e-12)
     np.testing.assert_allclose(canonical.Z_rand, dynamic.Z_rand, rtol=0.0, atol=1e-12)
 
@@ -1949,15 +1949,15 @@ def test_gam_fit3_state_groups_shared_id_from_exact_estimate_setup():
     assert len(penalty_blocks) == 2
     assert {int(pb.smoothing_index) for pb in penalty_blocks} == {0}
     grouped_gram = (
-        np.asarray(state.UrS[0], dtype=np.float64)
-        @ np.asarray(state.UrS[0], dtype=np.float64).T
+        np.asarray(state.range_penalty_roots[0], dtype=np.float64)
+        @ np.asarray(state.range_penalty_roots[0], dtype=np.float64).T
     )
     exact_block_gram = sum(
         np.asarray(root, dtype=np.float64) @ np.asarray(root, dtype=np.float64).T
-        for root in estimate.UrS[: len(penalty_blocks)]
+        for root in estimate.range_penalty_roots[: len(penalty_blocks)]
     )
 
-    assert state.Mp == estimate.Mp
+    assert state.penalty_null_dim == estimate.penalty_null_dim
     np.testing.assert_allclose(grouped_gram, exact_block_gram, rtol=0.0, atol=1e-12)
     np.testing.assert_allclose(state.X_fix, dynamic.X_fix, rtol=0.0, atol=1e-12)
     np.testing.assert_allclose(state.Z_rand, dynamic.Z_rand, rtol=0.0, atol=1e-12)
@@ -2266,7 +2266,7 @@ def test_pirls_iterations_use_current_sp_canonical_reparameterization(monkeypatc
         )
         np.testing.assert_allclose(
             np.asarray(kwargs["penalty_rank_rows"], dtype=np.float64),
-            np.asarray(canonical.Eb, dtype=np.float64),
+            np.asarray(canonical.rank_penalty_root, dtype=np.float64),
             rtol=0.0,
             atol=1e-13,
         )

@@ -242,7 +242,7 @@ def test_general_fit5_run_uses_canonical_penalty_logdet_derivatives(monkeypatch)
     assert block.start == 1
     assert block.stop == 3
     assert block.linear is True
-    assert block.repara is True
+    assert block.reparameterize is True
     assert block.rank == 3
     np.testing.assert_allclose(
         block.S[0],
@@ -300,7 +300,7 @@ def test_general_fit5_run_uses_canonical_penalty_logdet_derivatives(monkeypatch)
     np.testing.assert_allclose(
         setup.log_sp, np.log(np.array([2.0])), rtol=0.0, atol=0.0
     )
-    assert setup.Mp == 0
+    assert setup.penalty_null_dim == 0
     assert setup.score_type == "REML"
     assert len(setup.jj) == 1
     np.testing.assert_array_equal(setup.jj[0], np.array([0, 1, 2], dtype=int))
@@ -318,7 +318,7 @@ def test_general_fit5_run_uses_canonical_penalty_logdet_derivatives(monkeypatch)
     assert recorded["Sl"] is run["setup"].Sl
     np.testing.assert_allclose(run["setup"].St, setup.St, rtol=0.0, atol=0.0)
     np.testing.assert_allclose(run["setup"].log_sp, setup.log_sp, rtol=0.0, atol=0.0)
-    assert run["setup"].Mp == setup.Mp
+    assert run["setup"].penalty_null_dim == setup.penalty_null_dim
 
 
 def test_general_fit5_penalty_logdet_derivatives_match_finite_difference():

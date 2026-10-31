@@ -3,6 +3,9 @@ Tutorials
 
 The tutorials work through complete modeling examples, from fitting a first additive model to interpreting interactions, response distributions, and uncertainty. Start with your first additive models, or choose an example that matches your data.
 
+Start here
+----------
+
 .. grid:: 1 1 2 2
    :gutter: 2
 
@@ -30,13 +33,11 @@ The tutorials work through complete modeling examples, from fitting a first addi
 
       :notebook-download:`first_gam`
 
-   .. grid-item-card:: Fit group-specific curves with partial pooling
-      :link: ../notebooks/group_smooths
-      :link-type: doc
+Understand and improve a fit
+----------------------------
 
-      Compare group shifts, separate curves, and partial pooling when groups have unequal sample sizes.
-
-      :download:`Download notebook <../notebooks/group_smooths.ipynb>`
+.. grid:: 1 1 2 2
+   :gutter: 2
 
    .. grid-item-card:: Choose smoothness and shrink unnecessary terms
       :link: ../notebooks/smoothness_selection
@@ -46,14 +47,6 @@ The tutorials work through complete modeling examples, from fitting a first addi
 
       :download:`Download notebook <../notebooks/smoothness_selection.ipynb>`
 
-   .. grid-item-card:: Estimate rates of change and differences between predictions
-      :link: ../notebooks/derivatives_contrasts
-      :link-type: doc
-
-      Calculate derivatives and prediction contrasts with pointwise covariance-based uncertainty.
-
-      :download:`Download notebook <../notebooks/derivatives_contrasts.ipynb>`
-
    .. grid-item-card:: Use GAM diagnostics to improve a model
       :link: ../notebooks/gam_diagnostics
       :link-type: doc
@@ -61,6 +54,14 @@ The tutorials work through complete modeling examples, from fitting a first addi
       Refit after capacity and interaction checks, and examine ambiguity among correlated effects.
 
       :download:`Download notebook <../notebooks/gam_diagnostics.ipynb>`
+
+   .. grid-item-card:: Estimate rates of change and differences between predictions
+      :link: ../notebooks/derivatives_contrasts
+      :link-type: doc
+
+      Calculate derivatives and prediction contrasts with pointwise covariance-based uncertainty.
+
+      :download:`Download notebook <../notebooks/derivatives_contrasts.ipynb>`
 
    .. grid-item-card:: Model interactions with tensor-product smooths
       :link: ../notebooks/tensor_interactions
@@ -70,29 +71,19 @@ The tutorials work through complete modeling examples, from fitting a first addi
 
       :download:`Download notebook <../notebooks/tensor_interactions.ipynb>`
 
-   .. grid-item-card:: Compare GAM and NAM feature effects
-      :link: gam_nam
+   .. grid-item-card:: Fit group-specific curves with partial pooling
+      :link: ../notebooks/group_smooths
       :link-type: doc
 
-      Compare spline and neural representations on a synthetic dataset with known feature effects.
+      Compare group shifts, separate curves, and partial pooling when groups have unequal sample sizes.
 
-      :notebook-download:`gam_nam`
+      :download:`Download notebook <../notebooks/group_smooths.ipynb>`
 
-   .. grid-item-card:: Compare neural additive architectures
-      :link: ../notebooks/03_neural_models
-      :link-type: doc
+Model different responses
+-------------------------
 
-      Compare independent feature networks with shared bases, then examine a model that also includes a global transformer contribution.
-
-      :download:`Download notebook <../notebooks/03_neural_models.ipynb>`
-
-   .. grid-item-card:: Select interactions from validation data
-      :link: interaction_selection
-      :link-type: doc
-
-      Inspect validation residuals, select joint effects, and compare predictions on held-out test rows.
-
-      :notebook-download:`interaction_selection`
+.. grid:: 1 1 2 2
+   :gutter: 2
 
    .. grid-item-card:: Model counts and changing variance
       :link: ../notebooks/02_statistical_gams
@@ -142,6 +133,12 @@ The tutorials work through complete modeling examples, from fitting a first addi
 
       :download:`Download notebook <../notebooks/ordered_response.ipynb>`
 
+Model distributions and uncertainty
+-----------------------------------
+
+.. grid:: 1 1 2 2
+   :gutter: 2
+
    .. grid-item-card:: Model changing mean and dispersion in positive responses
       :link: ../notebooks/gamma_location_scale
       :link-type: doc
@@ -149,14 +146,6 @@ The tutorials work through complete modeling examples, from fitting a first addi
       Separate the Gamma mean, coefficient of variation, and conditional standard deviation.
 
       :download:`Download notebook <../notebooks/gamma_location_scale.ipynb>`
-
-   .. grid-item-card:: Compare distributions, quantiles, and ensemble spread
-      :link: ../notebooks/04_distributional_models
-      :link-type: doc
-
-      Compare prediction intervals from a normal model and a quantile model, and distinguish them from disagreement between fitted models.
-
-      :download:`Download notebook <../notebooks/04_distributional_models.ipynb>`
 
    .. grid-item-card:: Fit and assess conditional quantiles
       :link: ../in_depth/quantile_calibration
@@ -166,6 +155,66 @@ The tutorials work through complete modeling examples, from fitting a first addi
 
       :notebook-download:`../in_depth/quantile_calibration`
 
+   .. grid-item-card:: Estimate a conditional quantile and quantify its uncertainty
+      :link: ../notebooks/quantile_uncertainty
+      :link-type: doc
+
+      Distinguish quantile estimates, calibrated quantile-function confidence intervals and conformal future-response intervals.
+
+      :download:`Download notebook <../notebooks/quantile_uncertainty.ipynb>`
+
+   .. grid-item-card:: Compare distributions, quantiles, and ensemble spread
+      :link: ../notebooks/04_distributional_models
+      :link-type: doc
+
+      Compare prediction intervals from a normal model and a quantile model, and distinguish them from disagreement between fitted models.
+
+      :download:`Download notebook <../notebooks/04_distributional_models.ipynb>`
+
+Time-to-event outcomes
+----------------------
+
+.. grid:: 1 1 2 2
+   :gutter: 2
+
+   .. grid-item-card:: Model time to an event with censoring
+      :link: ../notebooks/survival_censoring
+      :link-type: doc
+
+      Split subjects, fit one survival model, distinguish hazard from survival, and evaluate held-out censored follow-up.
+
+      :download:`Download notebook <../notebooks/survival_censoring.ipynb>`
+
+Neural representations
+----------------------
+
+.. grid:: 1 1 2 2
+   :gutter: 2
+
+   .. grid-item-card:: Compare GAM and NAM feature effects
+      :link: gam_nam
+      :link-type: doc
+
+      Compare spline and neural representations on a synthetic dataset with known feature effects.
+
+      :notebook-download:`gam_nam`
+
+   .. grid-item-card:: Compare neural additive architectures
+      :link: ../notebooks/03_neural_models
+      :link-type: doc
+
+      Compare independent feature networks with shared bases, then examine a model that also includes a global transformer contribution.
+
+      :download:`Download notebook <../notebooks/03_neural_models.ipynb>`
+
+   .. grid-item-card:: Select interactions from validation data
+      :link: interaction_selection
+      :link-type: doc
+
+      Inspect validation residuals, select joint effects, and compare predictions on held-out test rows.
+
+      :notebook-download:`interaction_selection`
+
    .. grid-item-card:: Recover step-shaped effects with additive trees
       :link: ../in_depth/tree_effects
       :link-type: doc
@@ -173,6 +222,20 @@ The tutorials work through complete modeling examples, from fitting a first addi
       Compare a single additive tree with a jointly trained ensemble on numerical thresholds and categorical shifts.
 
       :notebook-download:`../in_depth/tree_effects`
+
+   .. grid-item-card:: Combine structured effects with a neural remainder
+      :link: ../notebooks/semistructured_remainder
+      :link-type: doc
+
+      Fit an identified decomposition, inspect its contributions and verify predictions for new rows.
+
+      :download:`Download notebook <../notebooks/semistructured_remainder.ipynb>`
+
+Specialized data and smooths
+----------------------------
+
+.. grid:: 1 1 2 2
+   :gutter: 2
 
    .. grid-item-card:: Smooth responses over neighboring regions
       :link: ../notebooks/regional_smoothing
@@ -237,14 +300,11 @@ The tutorials work through complete modeling examples, from fitting a first addi
    Your first additive models <../notebooks/01_getting_started>
    Classification with missing values and categorical features <../notebooks/05_real_data_classification>
    Fit and diagnose a GAM <first_gam>
-   Fit group-specific curves with partial pooling <../notebooks/group_smooths>
    Choose smoothness and shrink unnecessary terms <../notebooks/smoothness_selection>
-   Estimate rates of change and differences between predictions <../notebooks/derivatives_contrasts>
    Use GAM diagnostics to improve a model <../notebooks/gam_diagnostics>
+   Estimate rates of change and differences between predictions <../notebooks/derivatives_contrasts>
    Model interactions with tensor-product smooths <../notebooks/tensor_interactions>
-   Compare GAM and NAM feature effects <gam_nam>
-   Compare neural additive architectures <../notebooks/03_neural_models>
-   Select interactions from validation data <interaction_selection>
+   Fit group-specific curves with partial pooling <../notebooks/group_smooths>
    Model counts and changing variance <../notebooks/02_statistical_gams>
    Model overdispersed counts <../notebooks/overdispersed_counts>
    Model positive right-skewed responses <../notebooks/gamma_response>
@@ -252,9 +312,15 @@ The tutorials work through complete modeling examples, from fitting a first addi
    Model zero and positive continuous responses <../notebooks/tweedie_response>
    Predict ordered class probabilities <../notebooks/ordered_response>
    Model changing mean and dispersion in positive responses <../notebooks/gamma_location_scale>
-   Compare distributions, quantiles, and ensemble spread <../notebooks/04_distributional_models>
    Fit and assess conditional quantiles <../in_depth/quantile_calibration>
+   Estimate a conditional quantile and quantify its uncertainty <../notebooks/quantile_uncertainty>
+   Compare distributions, quantiles, and ensemble spread <../notebooks/04_distributional_models>
+   Model time to an event with censoring <../notebooks/survival_censoring>
+   Compare GAM and NAM feature effects <gam_nam>
+   Compare neural additive architectures <../notebooks/03_neural_models>
+   Select interactions from validation data <interaction_selection>
    Recover step-shaped effects with additive trees <../in_depth/tree_effects>
+   Combine structured effects with a neural remainder <../notebooks/semistructured_remainder>
    Smooth responses over neighboring regions <../notebooks/regional_smoothing>
    Fit a GAM with correlated Gaussian errors <../notebooks/correlated_errors>
    Choose smoothness with neighborhood cross-validation <../notebooks/neighborhood_cv>

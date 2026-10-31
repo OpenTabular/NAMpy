@@ -39,6 +39,50 @@ from the architecture and actual objective, including the observed class count.
     model.fit(X, y, X_val=X_validation, y_val=y_validation,
               sample_weight=training_weights)
 
+Weighted and imbalanced classification
+---------------------------------------
+
+Observation weights, class weights and resampling change different parts of
+training. ``sample_weight`` weights individual rows in the loss. For classifiers,
+``ObjectiveConfig(class_weight="balanced")`` derives inverse-frequency class
+weights from the supplied training labels; a mapping can specify them explicitly.
+When both are supplied, class weights multiply observation weights.
+
+This small gradient-training example keeps validation rows and their weights
+explicit. Validation selects the retained epoch; use a separate test cohort for
+final assessment.
+
+.. code-block:: python
+
+   import numpy as np
+   import pandas as pd
+   from nampy import NAMClassifier, ObjectiveConfig, GradientTrainingConfig
+   from nampy.neural.configs import DefaultNAMConfig
+
+   rng = np.random.default_rng(7)
+   X = pd.DataFrame(rng.normal(size=(120, 2)), columns=["x", "z"])
+   y = (X.x.to_numpy() + 0.2 * X.z.to_numpy() > 0.8).astype(int)
+   weights = np.linspace(0.5, 1.5, len(X))
+   model = NAMClassifier(
+       architecture_config=DefaultNAMConfig(layer_sizes=[8]),
+       objective=ObjectiveConfig(class_weight="balanced"),
+       training=GradientTrainingConfig(max_epochs=5, batch_size=32, random_state=7),
+   ).fit(
+       X.iloc[:80], y[:80], sample_weight=weights[:80],
+       X_val=X.iloc[80:], y_val=y[80:], sample_weight_val=weights[80:],
+   )
+
+``sample_weight_val`` controls validation loss and requires an explicit validation
+cohort. Training class weights are not automatically applied to that cohort.
+For balanced minibatch draws instead, use
+``ObjectiveConfig(sampling_strategy="balanced")``: this samples training rows
+with replacement using inverse class frequencies. It leaves validation rows
+unchanged and requires ``GradientTrainingConfig``; native/fixed-design routes
+reject resampling. Combining balanced sampling with class weights applies both
+changes, so choose that combination deliberately. These class controls are not
+available for regression, LSS or survival objectives. See
+:doc:`/neural_reference/estimators/NAMClassifier` for the parameter contracts.
+
 Gradient training
 -----------------
 
@@ -78,6 +122,8 @@ model's previous training/evaluation state is restored after prediction.
 Masked reconstruction uses ``pretrain_epochs``, ``pretrain_max_steps``,
 ``pretraining_ratio``, ``pretraining_noise`` and ``pretraining_feature_mask``.
 Architectures without the required capability reject pretraining explicitly.
+See the :ref:`NodeGAM pretraining recipe <nodegam-masked-pretraining>` for a
+supported fit and the meaning of transferred state.
 
 Fixed designs and native fitting
 --------------------------------

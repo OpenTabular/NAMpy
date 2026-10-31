@@ -27,6 +27,8 @@ class CoxGAM(BaseEstimator):
     Delayed entry, case weights, neural Cox and continuous hazard density are
     unsupported. Survival SE includes baseline and coefficient uncertainty;
     subject bootstrap re-estimates both and supports RMST intervals.
+    Baseline hazards and their covariance are stored at each stratum's fitted
+    ``baseline_reference_`` predictor; predictions use that same reference.
     ``score`` is per-subject partial likelihood, not a full event-time density.
     """
 
@@ -183,11 +185,18 @@ class CoxGAM(BaseEstimator):
                 max_iter=self.max_iter,
                 tol=self.tol,
             )
+        eta = matrix @ solution.coefficients + known
+        # Balance positive risk exponents against inverse-risk baseline variance.
+        reference = {
+            int(code): float(0.5 * np.min(eta[codes == code]) + 0.5 * np.max(eta[codes == code]))
+            for code in np.unique(codes)
+        }
+        baseline_offset = known - np.array([reference[int(code)] for code in codes])
         baseline = cox_baseline(
-            matrix, solution.coefficients, y.time, y.event, codes, known
+            matrix, solution.coefficients, y.time, y.event, codes, baseline_offset
         )
         baseline_uncertainty = cox_baseline_uncertainty(
-            matrix, solution.coefficients, y.time, y.event, codes, known
+            matrix, solution.coefficients, y.time, y.event, codes, baseline_offset
         )
         # Publish only after successful likelihood, covariance and baseline work.
         self.design_ = design
@@ -202,6 +211,7 @@ class CoxGAM(BaseEstimator):
         self.coef_ = solution.coefficients
         self.covariance_ = solution.covariance
         self.strata_ = levels
+        self.baseline_reference_ = reference
         self.baseline_ = baseline
         self.baseline_uncertainty_ = baseline_uncertainty
         self.predictor_names_ = ("log_relative_hazard",)
@@ -285,7 +295,7 @@ class CoxGAM(BaseEstimator):
                 times, baseline = self.baseline_[code]
                 values[row] = baseline[
                     np.searchsorted(times, cuts, side="right") - 1
-                ] * np.exp(eta[row])
+                ] * np.exp(eta[row] - self.baseline_reference_[code])
         return SurvivalPrediction(
             cuts=cuts, cumulative_hazard_steps=values, backend="gam"
         )
@@ -309,7 +319,9 @@ class CoxGAM(BaseEstimator):
         from ..gam.inference.cox import prediction_standard_error
 
         return prediction_standard_error(
-            matrix, eta, prediction.survival(grid), grid, labels, self.strata_,
+            matrix,
+            eta - np.array([self.baseline_reference_[self.strata_.index(label)] for label in labels]),
+            prediction.survival(grid), grid, labels, self.strata_,
             self.baseline_, self.baseline_uncertainty_, self.covariance_,
         )
 
@@ -357,7 +369,7 @@ class CoxGAM(BaseEstimator):
             self.coef_,
             y,
             codes,
-            evaluation.offset,
+            evaluation.offset - np.array([self.baseline_reference_[int(code)] for code in codes]),
             self.baseline_,
         )
 

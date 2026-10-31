@@ -35,7 +35,10 @@ from ...postprocess.unconditional_covariance import (
     _covariance_from_cholesky_derivatives,
     _differentiate_cholesky_factor,
 )
-from .sl_transforms import sl_inirep, sl_initial_repara
+from .penalty_transforms import (
+    apply_initial_penalty_transform,
+    transform_initial_penalty_coordinates,
+)
 
 # ---------------------------------------------------------------------------
 # Control parameters  (mgcv: gam.control)
@@ -90,7 +93,7 @@ def solve_general_newton_fit(
     X: np.ndarray,
     y: np.ndarray,
     jj: list[np.ndarray],
-    lsp: np.ndarray,
+    log_smoothing_params: np.ndarray,
     St: np.ndarray,
     S_blocks: list[np.ndarray],
     ldetS: float,
@@ -103,7 +106,7 @@ def solve_general_newton_fit(
     deriv: int = 2,
     score_type: str = "REML",
     control: GeneralNewtonControl | None = None,
-    Mp: int = -1,
+    penalty_null_dim: int = -1,
     start: np.ndarray | None = None,
     gamma: float = 1.0,
     Sl: Any | None = None,
@@ -149,10 +152,10 @@ def solve_general_newton_fit(
 
     X = np.asarray(X, dtype=np.float64)
     y = np.asarray(y, dtype=np.float64).ravel()
-    lsp = np.asarray(lsp, dtype=np.float64).ravel()
+    log_smoothing_params = np.asarray(log_smoothing_params, dtype=np.float64).ravel()
     n, p = X.shape
     q = p
-    nSp = len(lsp)
+    nSp = len(log_smoothing_params)
     warn: list[str] = []
 
     if weights is None:
@@ -167,7 +170,7 @@ def solve_general_newton_fit(
     if use_exact_sl:
         rp_state = _sl_ldetS(
             Sl,
-            rho=lsp,
+            rho=log_smoothing_params,
             fixed=np.zeros(nSp, dtype=bool),
             np_=q,
             root=True,
@@ -444,7 +447,7 @@ def solve_general_newton_fit(
     if deriv > 0 and nSp > 0 and rank_eff > 0:
         m = nSp
         d1b = np.zeros((rank_eff, m), dtype=np.float64)
-        sp = np.exp(lsp)
+        sp = np.exp(log_smoothing_params)
 
         if use_exact_sl and rp_state is not None:
             Sib = _sl_term_mult(rp_state["Sl"], fcoef, full=True)
@@ -775,7 +778,7 @@ def solve_general_newton_fit(
     ll_val = float(ll["l"])
     bSb = 0.5 * float(fcoef @ St_full @ fcoef)
     score_name = str(score_type).upper()
-    score_const = Mp * np.log(2.0 * np.pi) / 2.0 - np.log(max(gamma, 1e-300)) / 2.0
+    score_const = penalty_null_dim * np.log(2.0 * np.pi) / 2.0 - np.log(max(gamma, 1e-300)) / 2.0
     score = -((ll_val - bSb) / gamma + float(ldetS) / 2.0 - ldetHp / 2.0 + score_const)
     REML = float(score)
 
@@ -1004,7 +1007,7 @@ def postprocess_general_newton_fit(
                 db_drho_k = db_full
             if Sl is not None and _sl_length(Sl) > 0:
                 db_drho_k = np.asarray(
-                    _sl_inirep_local(Sl, db_drho_k, l=1, r=0), dtype=np.float64
+                    _apply_initial_penalty_transform(Sl, db_drho_k, l=1, r=0), dtype=np.float64
                 )
 
             evals, evecs = np.linalg.eigh(Hsp_k)
@@ -1037,9 +1040,9 @@ def postprocess_general_newton_fit(
 
     if Sl is not None and _sl_length(Sl) > 0:
         Vb = _sl_repara(fit.get("rp", []), Vb, inverse=True)
-        Vb = _sl_initial_repara_local(Sl, Vb, inverse=True)
+        Vb = _transform_initial_penalty_coordinates(Sl, Vb, inverse=True)
         R = _sl_repa(fit.get("rp", []), R, r=1)
-        R = _sl_initial_repara_local(
+        R = _transform_initial_penalty_coordinates(
             Sl,
             R,
             inverse=True,
@@ -1265,12 +1268,12 @@ def _sl_param_location(sl_blocks: list[Any], k: int) -> tuple[Any | None, int | 
     return None, None
 
 
-def _sl_initial_repara_local(Sl: Any, X: np.ndarray, **kwargs) -> np.ndarray:
-    return sl_initial_repara(Sl, X, **kwargs)
+def _transform_initial_penalty_coordinates(Sl: Any, X: np.ndarray, **kwargs) -> np.ndarray:
+    return transform_initial_penalty_coordinates(Sl, X, **kwargs)
 
 
-def _sl_inirep_local(Sl: Any, X: np.ndarray, **kwargs) -> np.ndarray:
-    return sl_inirep(Sl, X, **kwargs)
+def _apply_initial_penalty_transform(Sl: Any, X: np.ndarray, **kwargs) -> np.ndarray:
+    return apply_initial_penalty_transform(Sl, X, **kwargs)
 
 
 def _vb_corr_root(
@@ -1417,7 +1420,7 @@ def _sl_repara(
     if inverse:
         if is_matrix:
             for item in rp:
-                if not bool(item.get("repara", False)):
+                if not bool(item.get("reparameterize", False)):
                     continue
                 ind = np.asarray(item["ind"], dtype=int)
                 if both_sides:
@@ -1433,7 +1436,7 @@ def _sl_repara(
                 )
         else:
             for item in rp:
-                if not bool(item.get("repara", False)):
+                if not bool(item.get("reparameterize", False)):
                     continue
                 ind = np.asarray(item["ind"], dtype=int)
                 X_arr[ind] = (
@@ -1444,7 +1447,7 @@ def _sl_repara(
     else:
         if is_matrix:
             for item in rp:
-                if not bool(item.get("repara", False)):
+                if not bool(item.get("reparameterize", False)):
                     continue
                 ind = np.asarray(item["ind"], dtype=int)
                 X_arr[:, ind] = (
@@ -1454,7 +1457,7 @@ def _sl_repara(
                 )
         else:
             for item in rp:
-                if not bool(item.get("repara", False)):
+                if not bool(item.get("reparameterize", False)):
                     continue
                 ind = np.asarray(item["ind"], dtype=int)
                 X_arr[ind] = (
@@ -1479,7 +1482,7 @@ def _sl_repa(
 
     is_matrix = X_arr.ndim == 2
     for item in rp:
-        if not bool(item.get("repara", False)):
+        if not bool(item.get("reparameterize", False)):
             continue
         ind = np.asarray(item["ind"], dtype=int)
         if l:
@@ -1556,12 +1559,12 @@ def _sl_term_mult(
         if len(block.S) == 1:
             ind = (
                 base_ind[np.asarray(block.ind, dtype=bool)]
-                if bool(block.repara)
+                if bool(block.reparameterize)
                 else base_ind
             )
             lam = float(np.asarray(block.lambda_, dtype=np.float64).ravel()[0])
             local = lam * A_arr[ind, ...]
-            if not bool(block.repara):
+            if not bool(block.reparameterize):
                 local = lam * (
                     np.asarray(block.S[0], dtype=np.float64) @ A_arr[ind, ...]
                 )
@@ -1575,12 +1578,12 @@ def _sl_term_mult(
 
         ind = (
             base_ind[np.asarray(block.ind, dtype=bool)]
-            if bool(block.repara)
+            if bool(block.reparameterize)
             else base_ind
         )
         srp = getattr(block, "Srp", None)
         for i in range(len(block.S)):
-            if srp is None or not bool(block.repara):
+            if srp is None or not bool(block.reparameterize):
                 local_mat = float(
                     np.asarray(block.lambda_, dtype=np.float64)[i]
                 ) * np.asarray(block.S[i], dtype=np.float64)
@@ -1616,7 +1619,7 @@ def _sl_mult(
                 out[base_ind, ...] = _sl_block_as(block, A_arr[base_ind, ...])
                 continue
             if len(block.S) == 1:
-                if bool(block.repara):
+                if bool(block.reparameterize):
                     ind = base_ind[np.asarray(block.ind, dtype=bool)]
                     lam = float(np.asarray(block.lambda_, dtype=np.float64).ravel()[0])
                     out[ind, ...] = lam * A_arr[ind, ...]
@@ -1628,7 +1631,7 @@ def _sl_mult(
             else:
                 ind = (
                     base_ind[np.asarray(block.ind, dtype=bool)]
-                    if bool(block.repara)
+                    if bool(block.reparameterize)
                     else base_ind
                 )
                 out[ind, ...] = np.asarray(block.St, dtype=np.float64) @ A_arr[ind, ...]
@@ -1651,7 +1654,7 @@ def _sl_mult(
                 return np.asarray(local, dtype=np.float64)
 
             if len(block.S) == 1:
-                if bool(block.repara):
+                if bool(block.reparameterize):
                     ind = base_ind[np.asarray(block.ind, dtype=bool)]
                     lam = float(np.asarray(block.lambda_, dtype=np.float64).ravel()[0])
                     local = lam * A_arr[ind, ...]
@@ -1672,11 +1675,11 @@ def _sl_mult(
 
             ind = (
                 base_ind[np.asarray(block.ind, dtype=bool)]
-                if bool(block.repara)
+                if bool(block.reparameterize)
                 else base_ind
             )
             srp = getattr(block, "Srp", None)
-            if srp is None or not bool(block.repara):
+            if srp is None or not bool(block.reparameterize):
                 local_mat = float(
                     np.asarray(block.lambda_, dtype=np.float64)[i]
                 ) * np.asarray(block.S[i], dtype=np.float64)
@@ -1819,7 +1822,7 @@ def _sl_ldetS(
                 d1[k_deriv] = rank
                 k_deriv += 1
 
-            if bool(block.repara):
+            if bool(block.reparameterize):
                 active = np.arange(int(block.start) - 1, int(block.stop), dtype=int)[
                     np.asarray(block.ind, dtype=bool)
                 ]
@@ -1878,10 +1881,10 @@ def _sl_ldetS(
                 "block": b_idx,
                 "ind": np.asarray(active, dtype=int),
                 "Qs": np.asarray(grp["Qs"], dtype=np.float64),
-                "repara": bool(block.repara),
+                "reparameterize": bool(block.reparameterize),
             }
         )
-        if bool(block.repara):
+        if bool(block.reparameterize):
             block.St = np.asarray(grp["S"], dtype=np.float64)
             if E is not None:
                 grp_E = np.asarray(grp["E"], dtype=np.float64)

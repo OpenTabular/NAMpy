@@ -29,8 +29,10 @@ from ...parameterization import (
 from ...smoothing_params import expand_smoothing_params_from_log
 from ...state import FitCoreSolution
 from . import newton as general_newton
-from .sl_transforms import sl_inirep as sl_inirep
-from .sl_transforms import sl_initial_repara
+from .penalty_transforms import (
+    apply_initial_penalty_transform as apply_initial_penalty_transform,
+)
+from .penalty_transforms import transform_initial_penalty_coordinates
 
 
 @dataclass
@@ -53,7 +55,7 @@ class GeneralPenaltyBlock:
     stop: int
     S: list[np.ndarray]
     lambda_: np.ndarray
-    repara: bool
+    reparameterize: bool
     linear: bool
     rank: int | None = None
     ldet: float = 0.0
@@ -137,7 +139,7 @@ class GeneralFamilySetupState:
     ldetS: float
     ldetS1: np.ndarray
     ldetS2: np.ndarray
-    Mp: int
+    penalty_null_dim: int
     score_type: str
 
     @property
@@ -200,7 +202,7 @@ def _sl_single_penalty_block(
     start: int,
     stop: int,
     rank: int | None,
-    repara: bool,
+    reparameterize: bool,
     penalty_indices: tuple[int, ...] = (),
 ) -> GeneralPenaltyBlock:
     S_local = symmetrize_matrix(S_local)
@@ -219,7 +221,7 @@ def _sl_single_penalty_block(
             rank=rank_use,
             S=[S_local],
             lambda_=np.array([1.0], dtype=np.float64),
-            repara=bool(repara),
+            reparameterize=bool(reparameterize),
             linear=True,
             ldet=0.0,
             ind=ind,
@@ -251,7 +253,7 @@ def _sl_single_penalty_block(
         rank=int(rank_use),
         S=[S_local],
         lambda_=np.array([1.0], dtype=np.float64),
-        repara=bool(repara),
+        reparameterize=bool(reparameterize),
         linear=True,
         ldet=0.0,
         ind=ind,
@@ -267,7 +269,7 @@ def _sl_multi_penalty_block(
     start: int,
     stop: int,
     rank: int | None,
-    repara: bool,
+    reparameterize: bool,
     penalty_indices: tuple[int, ...] = (),
 ) -> GeneralPenaltyBlock:
     S_work = [symmetrize_matrix(Si) for Si in S_local]
@@ -298,7 +300,7 @@ def _sl_multi_penalty_block(
         transformed.append(np.asarray(bob, dtype=np.float64))
         roots.append(_mroot_chol_local(bob, rank=int(rank_use)))
 
-    block_penalties = transformed if repara else S_work
+    block_penalties = transformed if reparameterize else S_work
     St = np.zeros_like(block_penalties[0], dtype=np.float64)
     for Si in block_penalties:
         S_norm = r_matrix_norm_one(Si)
@@ -315,7 +317,7 @@ def _sl_multi_penalty_block(
         rank=int(rank_use),
         S=[np.asarray(Si, dtype=np.float64) for Si in block_penalties],
         lambda_=np.ones(len(block_penalties), dtype=np.float64),
-        repara=bool(repara),
+        reparameterize=bool(reparameterize),
         linear=True,
         ldet=0.0,
         ind=ind,
@@ -374,7 +376,7 @@ def _coerce_general_family_nonlinear_sl_block(
                 spec.get("lambda_", np.zeros(int(spec.get("n_sp", n_sp)))),
                 dtype=np.float64,
             ).copy(),
-            repara=bool(spec.get("repara", False)),
+            reparameterize=bool(spec.get("reparameterize", False)),
             linear=False,
             rank=spec.get("rank", None),
             ldet=float(spec.get("ldet", 0.0)),
@@ -410,7 +412,7 @@ def _coerce_general_family_nonlinear_sl_block(
         block.start = int(start)
         block.stop = int(stop)
         block.linear = False
-        block.repara = bool(getattr(block, "repara", False))
+        block.reparameterize = bool(getattr(block, "reparameterize", False))
         block.penalty_indices = tuple(int(v) for v in penalty_indices)
         block.smoothing_indices = tuple(int(v) for v in smoothing_indices)
         if getattr(block, "n_sp", None) is None:
@@ -424,7 +426,7 @@ def _coerce_general_family_nonlinear_sl_block(
         else:
             block.S = [np.asarray(Si, dtype=np.float64) for Si in block.S]
 
-    if bool(getattr(block, "repara", False)):
+    if bool(getattr(block, "reparameterize", False)):
         raise NotImplementedError(
             "Reparameterized nonlinear general-family Sl blocks are unsupported."
         )
@@ -512,7 +514,7 @@ def _materialize_sl_attrs(
             lambda_values.extend(np.asarray(block.lambda_, dtype=np.float64).tolist())
             continue
         if len(block.S) == 1:
-            if not block.repara:
+            if not block.reparameterize:
                 root = general_newton._sl_single_original_root(block)
                 # R's default matrix ``norm()`` is type "O": maximum
                 # absolute column sum. The row/column distinction matters for
@@ -630,7 +632,7 @@ def build_general_penalty_setup(
             continue
         used_penalties.update(term_penalty_idx)
         start, stop = _term_block_start_stop(term_penalty_idx)
-        repara = _term_general_family_sl_repara(term)
+        reparameterize = _term_general_family_sl_repara(term)
         local_penalties = [
             symmetrize_matrix(np.asarray(penalty_blocks[i].matrix, dtype=np.float64))
             for i in term_penalty_idx
@@ -650,7 +652,7 @@ def build_general_penalty_setup(
                     start=start,
                     stop=stop,
                     rank=local_ranks[0],
-                    repara=repara,
+                    reparameterize=reparameterize,
                     penalty_indices=(int(term_penalty_idx[0]),),
                 )
             )
@@ -699,7 +701,7 @@ def build_general_penalty_setup(
                         start=start + sb_start[j],
                         stop=start + sb_stop[j],
                         rank=local_ranks[j],
-                        repara=repara,
+                        reparameterize=reparameterize,
                         penalty_indices=(int(term_penalty_idx[j]),),
                     )
                 )
@@ -710,7 +712,7 @@ def build_general_penalty_setup(
                     start=start,
                     stop=stop,
                     rank=None,
-                    repara=repara,
+                    reparameterize=reparameterize,
                     penalty_indices=tuple(int(v) for v in term_penalty_idx),
                 )
             )
@@ -738,7 +740,7 @@ def build_general_penalty_setup(
                         np.linalg.matrix_rank(np.asarray(pb.matrix, dtype=np.float64))
                     )
                 ),
-                repara=True,
+                reparameterize=True,
                 penalty_indices=(int(i),),
             )
         )
@@ -901,7 +903,7 @@ def build_general_family_setup_state(
 ) -> GeneralFamilySetupState:
     layout = _build_general_predictor_layout(model)
     sl = build_general_penalty_setup(model, layout)
-    X_initial = sl_initial_repara(sl, layout.X_full, both_sides=False)
+    X_initial = transform_initial_penalty_coordinates(sl, layout.X_full, both_sides=False)
     smoothing_params = np.asarray(smoothing_params, dtype=np.float64).ravel()
     log_sp = np.log(np.clip(smoothing_params, 1e-300, None))
     nonlinear_penalties = _nonlinear_penalty_indices(sl)
@@ -959,7 +961,7 @@ def build_general_family_setup_state(
         ldetS=float(ldet_state["ldetS"]),
         ldetS1=np.asarray(ldet_state["ldet1"], dtype=np.float64),
         ldetS2=np.asarray(ldet_state["ldet2"], dtype=np.float64),
-        Mp=_general_penalty_null_dim(St),
+        penalty_null_dim=_general_penalty_null_dim(St),
         score_type=score_name,
     )
 
@@ -1105,7 +1107,7 @@ def run_general_family_fixed_smoothing(
         deriv=deriv,
         score_type=setup.score_type,
         control=ctl,
-        Mp=setup.Mp,
+        penalty_null_dim=setup.penalty_null_dim,
         Sl=setup.Sl,
         start=start_coef,
     )
@@ -1271,7 +1273,7 @@ def solve_general_family_fit(model, y, smoothing_params, weights=None):
     coef_full = np.asarray(fit["coef"], dtype=np.float64)
     if len(setup.Sl) > 0:
         coef_full = np.asarray(
-            sl_initial_repara(
+            transform_initial_penalty_coordinates(
                 setup.Sl,
                 coef_full,
                 inverse=True,

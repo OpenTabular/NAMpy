@@ -30,9 +30,10 @@ class LossFit:
     coefficients: np.ndarray
     fitted: np.ndarray
     objective: float
-    iterations: int
+    iterations: int | None
     converged: bool
-    optimality: float
+    optimality: float | None
+    function_evaluations: int | None = None
 
 
 def _expectile_loss(residual, level):

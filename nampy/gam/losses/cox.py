@@ -19,16 +19,19 @@ import numpy as np
 
 def cox_partial_likelihood(beta, matrix, time, event, strata, offset):
     eta = matrix @ beta + offset
-    with np.errstate(over="raise", invalid="raise"):
-        gamma = np.exp(eta)
-    if np.any(gamma == 0) or not np.isfinite(gamma).all():
-        raise FloatingPointError("Cox risk weights exceed finite numerical range.")
+    if not np.isfinite(eta).all():
+        raise FloatingPointError("Cox predictors must be finite.")
     p = matrix.shape[1]
     value, gradient, hessian = 0.0, np.zeros(p), np.zeros((p, p))
     for label in np.unique(strata):
         rows = np.flatnonzero(strata == label)
         rows = rows[np.argsort(-time[rows], kind="stable")]
         total, first, second = 0.0, np.zeros(p), np.zeros((p, p))
+        # Retain ordinary-scale accumulation until rescaling is needed. This
+        # avoids gratuitous rounding changes at tightly converged source fits;
+        # the half-log range leaves headroom for cumulative risk moments.
+        reference = 0.0
+        log_limit = 0.5 * np.log(np.finfo(float).max)
         j = 0
         while j < len(rows):
             stop = j + 1
@@ -36,17 +39,24 @@ def cox_partial_likelihood(beta, matrix, time, event, strata, offset):
                 stop += 1
             current = rows[j:stop]
             for row in current:
-                total += gamma[row]
-                first += gamma[row] * matrix[row]
-                second += gamma[row] * np.outer(matrix[row], matrix[row])
+                difference = eta[row] - reference
+                if difference > log_limit or (total == 0 and difference < -log_limit):
+                    rescale = 0.0 if total == 0 else np.exp(reference - eta[row])
+                    total *= rescale
+                    first *= rescale
+                    second *= rescale
+                    reference = eta[row]
+                weight = np.exp(eta[row] - reference)
+                total += weight
+                first += weight * matrix[row]
+                second += weight * np.outer(matrix[row], matrix[row])
             deaths = current[event[current]]
             d = len(deaths)
             if d:
-                value += eta[deaths].sum() - d * np.log(total)
+                value += (eta[deaths] - reference).sum() - d * np.log(total)
+                mean = first / total
                 gradient += matrix[deaths].sum(axis=0) - d / total * first
-                hessian += -d * second / total + d * np.outer(first, first) / (
-                    total * total
-                )
+                hessian += -d * second / total + d * np.outer(mean, mean)
             j = stop
     return value, gradient, hessian
 
@@ -70,15 +80,15 @@ def cox_higher_derivatives(beta, matrix, time, event, strata, offset, *, order=4
     p = matrix.shape[1]
     third = np.zeros((p, p, p))
     fourth = np.zeros((p, p, p, p)) if order == 4 else None
-    with np.errstate(over="raise", invalid="raise"):
-        risk_weight = np.exp(matrix @ beta + offset)
-    if np.any(risk_weight <= 0) or not np.isfinite(risk_weight).all():
-        raise FloatingPointError("Cox risk weights exceed finite numerical range.")
+    eta = matrix @ beta + offset
+    if not np.isfinite(eta).all():
+        raise FloatingPointError("Cox predictors must be finite.")
     for label in np.unique(strata):
         for t in np.unique(time[(strata == label) & event]):
             risk = (strata == label) & (time >= t)
             deaths = np.sum((strata == label) & (time == t) & event)
-            probability = risk_weight[risk] / np.sum(risk_weight[risk])
+            probability = np.exp(eta[risk] - np.max(eta[risk]))
+            probability /= probability.sum()
             centered = matrix[risk] - probability @ matrix[risk]
             third -= deaths * np.einsum(
                 "n,na,nb,nc->abc", probability, centered, centered, centered
@@ -117,7 +127,8 @@ def cox_baseline_uncertainty(matrix, beta, time, event, strata, offset):
             total = np.sum(gamma[risk])
             increment = (deaths / total) / total
             q.append(increment)
-            a.append((matrix[risk].T @ gamma[risk]) * increment)
+            mean = matrix[risk].T @ (gamma[risk] / total)
+            a.append(mean * (deaths / total))
         result[int(label)] = (
             np.r_[0.0, times],
             np.r_[0.0, np.cumsum(q)],

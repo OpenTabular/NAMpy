@@ -10,6 +10,13 @@ combine a registered architecture with an objective and delegate training to
 ``nampy.neural``. The statistical engine uses mgcv and scam as behavioral
 references. They are not runtime dependencies or additional NAMpy backends.
 
+Internal functions and state fields describe their mathematical responsibilities,
+rather than upstream solver numbers. For example, canonical Gaussian coefficient
+solving and penalty-coordinate transforms have explicit names. Upstream symbols
+such as ``gam.fit3`` remain in provenance comments and validation fixtures so the
+reference algorithms can still be traced. Conventional local matrix notation
+such as ``X``, ``Q`` and ``R`` is retained where it clarifies the algebra.
+
 The public task packages are ``distributions`` (probability queries),
 ``diagnostics`` (residuals, centiles, effects, importance and Fisher information),
 ``plotting`` (rendering), ``calibration`` and ``survival``. Shared distribution
@@ -20,13 +27,16 @@ imports and the generated backend support table.
 ``models/comparison.py`` owns candidate fitting and held-out ranking.
 Probability laws have no fitting or diagnostics dependency; residuals consume
 probability predictions through ``nampy.diagnostics``. Neutral table adaptation
-and offset validation live in ``_data.py`` and ``_offsets.py``. Statistical
-prediction covariance calculations remain in ``gam/inference``.
+and offset validation live in ``_data.py`` and ``_offsets.py``. Fitted feature-schema
+preparation also lives in ``_data.py``; backend training imports this neutral owner.
+Statistical prediction covariance calculations remain in ``gam/inference``.
 
 ``model.capabilities()`` composes existing family and architecture declarations
 with fitted-state validators. It reports supported, conditional or unsupported
 operations without evaluating predictions or differentiating the fitted model.
-See :doc:`user_guide/model_workflow` for the shared task contracts.
+See :doc:`user_guide/model_workflow` for the shared task contracts and
+:doc:`capabilities` for generated declarations alongside separately scoped
+validation evidence.
 
 Training families are named by their owner: ``gam/families`` supplies statistical
 likelihood derivatives and ``neural/families`` supplies Torch losses. Their

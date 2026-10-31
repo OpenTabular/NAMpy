@@ -704,7 +704,7 @@ METHOD_OUTPUTS = {
     ),
     "one_se_rule": (
         "Choose smoother penalty strengths using the fitted criterion uncertainty.",
-        "NumPy smoothing-parameter vector suggested by the one-standard-error rule. Inspect/refit explicitly before using it for predictions.",
+        "NumPy proposal based on fitted smoothing covariance; the model is not refitted. Usually this follows the model's smoothing-parameter vector. With no candidate_indices, a joint Gaussian smoothing/scale fit can instead return the full joint covariance dimension, following the upstream recycling convention. The additional coordinate is not another penalty or a standalone scale estimate. Inspect the dimension and use explicit smoothing indices where needed before constructing a refit.",
     ),
     "anova": (
         "Report within-model term tests or compare fitted models.",
@@ -1048,7 +1048,7 @@ assert len(result.ranking) == 2
 print(result.to_frame()[['name', 'status', 'mean_log_prob']])
 """
     write(root, "_generated/reference/comparison.inc",
-          example_rst(root, "user_guide/gamlss", comparison_code))
+          example_rst(root, "user_guide/distributional_comparison", comparison_code))
     pages = (
         generate_smooths(root)
         + generate_statistical_families(root)
@@ -1083,6 +1083,7 @@ print(result.to_frame()[['name', 'status', 'mean_log_prob']])
                 "Fitted result objects </api/gam_results>",
                 "Statistical extensions <extensions/index>",
                 "Inference conventions <inference>",
+                "Survival API </api/survival>",
             ],
             "Choose an estimator, specify its formula, smooth terms and response family, then configure fitting and inspect predictions, inference and diagnostics. Extension APIs come last. Implemented scope and unsupported combinations are documented in :doc:`/compatibility`.",
             related_links=False,
@@ -1300,7 +1301,10 @@ def reference_targets():
         for name in statistical_estimator_exports()
     }
     targets["GAM"] = "statistical_reference/GAM"
-    targets.update({name: "user_guide/gamlss" for name in ("DistributionCandidate", "DistributionComparison", "DistributionComparisonRow", "compare_distributions")})
+    targets.update(dict.fromkeys(
+        ("DistributionCandidate", "DistributionComparison", "DistributionComparisonRow", "compare_distributions"),
+        "user_guide/distributional_comparison",
+    ))
     targets.update(
         {
             name: f"statistical_reference/extensions/{name}"

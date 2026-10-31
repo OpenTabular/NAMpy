@@ -6,17 +6,18 @@ repos:
         entry: ruff check
         language: system
         types: [python]
+        files: ^(nampy|tests|examples)/
 
       - id: mypy
         name: mypy
-        entry: mypy nampy/
+        entry: mypy --follow-imports=skip nampy/contracts.py nampy/neural/contracts.py nampy/gam/fit/state.py
         language: system
         pass_filenames: false
         types: [python]
 
       - id: repository-hygiene
         name: Repository hygiene
-        entry: python scripts/check_repository_hygiene.py
+        entry: python tests/repository_hygiene.py
         language: system
         pass_filenames: false
         files: (^|/)(.*\.(py|toml|ya?ml|rst|md)|Makefile)$

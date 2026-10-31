@@ -173,7 +173,7 @@ def test_sl_ldetS_supports_nonreparameterized_single_penalty_blocks():
         rank=2,
         S=[np.eye(2, dtype=np.float64)],
         lambda_=np.zeros(1, dtype=np.float64),
-        repara=False,
+        reparameterize=False,
         linear=True,
         ldet=0.0,
         ind=np.array([True, True], dtype=bool),
@@ -206,7 +206,7 @@ def test_sl_ldetS_supports_nonreparameterized_multi_penalty_blocks():
         rank=2,
         S=[root, root],
         lambda_=np.zeros(2, dtype=np.float64),
-        repara=False,
+        reparameterize=False,
         linear=True,
         ldet=0.0,
         ind=np.array([True, True], dtype=bool),
@@ -235,7 +235,7 @@ def test_sl_ldetS_supports_nonreparameterized_multi_penalty_blocks():
     np.testing.assert_allclose(state["S"], total * np.eye(2))
     np.testing.assert_allclose(state["Sl"][0].St, total * np.eye(2))
     assert len(state["rp"]) == 1
-    assert state["rp"][0]["repara"] is False
+    assert state["rp"][0]["reparameterize"] is False
 
 
 def test_predict_general_terms_rejects_raw_prediction_basis(monkeypatch):

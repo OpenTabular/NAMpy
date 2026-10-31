@@ -7282,7 +7282,8 @@
       "kind": "LossFit",
       "omitted_fields": [
         "coefficients",
-        "fitted"
+        "fitted",
+        "function_evaluations"
       ]
     },
     "prediction": {
@@ -7476,7 +7477,8 @@
       "kind": "LossFit",
       "omitted_fields": [
         "coefficients",
-        "fitted"
+        "fitted",
+        "function_evaluations"
       ]
     },
     "prediction": {
@@ -7522,7 +7524,8 @@
       "kind": "LossFit",
       "omitted_fields": [
         "coefficients",
-        "fitted"
+        "fitted",
+        "function_evaluations"
       ]
     },
     "prediction": {
@@ -7901,7 +7904,8 @@
     "kind": "LossFit",
     "omitted_fields": [
       "coefficients",
-      "fitted"
+      "fitted",
+      "function_evaluations"
     ]
   },
   "statistical_reference/extensions/coefficient_draws": {
@@ -8203,7 +8207,8 @@
     "kind": "LossFit",
     "omitted_fields": [
       "coefficients",
-      "fitted"
+      "fitted",
+      "function_evaluations"
     ]
   },
   "statistical_reference/extensions/fit_quantile": {
@@ -8217,7 +8222,8 @@
       "kind": "LossFit",
       "omitted_fields": [
         "coefficients",
-        "fitted"
+        "fitted",
+        "function_evaluations"
       ]
     },
     "smooth": {
@@ -8230,7 +8236,8 @@
       "kind": "LossFit",
       "omitted_fields": [
         "coefficients",
-        "fitted"
+        "fitted",
+        "function_evaluations"
       ]
     }
   },
@@ -12275,24 +12282,7 @@
     }
   },
   "statistical_reference/methods/predict_terms": {
-    "4c4ff6bff287": {
-      "kind": "array",
-      "omitted_by_axis": [
-        90
-      ],
-      "shape": [
-        96
-      ],
-      "values": [
-        0.28194,
-        -0.20294,
-        0.08988,
-        -0.0463,
-        0.10676,
-        -0.13891
-      ]
-    },
-    "955308fe164a": {
+    "196264d2c01d": {
       "kind": "array",
       "omitted_by_axis": [
         90
@@ -12307,6 +12297,23 @@
         -0.11667,
         0.13433,
         0.04235
+      ]
+    },
+    "c98ba98a06b6": {
+      "kind": "array",
+      "omitted_by_axis": [
+        90
+      ],
+      "shape": [
+        96
+      ],
+      "values": [
+        0.28194,
+        -0.20294,
+        0.08988,
+        -0.0463,
+        0.10676,
+        -0.13891
       ]
     },
     "intercept": 1.2117033510481068,
@@ -16043,7 +16050,7 @@
       ]
     }
   },
-  "user_guide/gamlss": {
+  "user_guide/distributional_comparison": {
     "fields": {},
     "kind": "DistributionComparison",
     "omitted_fields": [

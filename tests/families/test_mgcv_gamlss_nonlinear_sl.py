@@ -33,7 +33,7 @@ class _NonlinearSlBlock:
     start: int = 1
     stop: int = 2
     linear: bool = False
-    repara: bool = False
+    reparameterize: bool = False
     n_sp: int = 2
     S: list[np.ndarray] = field(
         default_factory=lambda: [
@@ -147,7 +147,7 @@ class _CoupledNonlinearSlBlock:
     start: int = 2
     stop: int = 4
     linear: bool = False
-    repara: bool = False
+    reparameterize: bool = False
     n_sp: int = 2
     S: list[np.ndarray] = field(
         default_factory=lambda: [
@@ -580,7 +580,7 @@ def test_solve_general_newton_fit_accepts_nonlinear_sl_blocks():
         offset=None,
         deriv=2,
         control=GeneralNewtonControl(maxit=50, epsilon=1e-12, trace=False),
-        Mp=0,
+        penalty_null_dim=0,
         Sl=_nonlinear_sl(),
     )
 

@@ -5,7 +5,7 @@ from copy import deepcopy
 import numpy as np
 from sklearn.utils.class_weight import compute_sample_weight
 
-from ...models._data import prepare_fit_features, prepare_predict_features
+from ..._data import prepare_fit_features, prepare_predict_features
 from .common import seed_neural_runtime
 from .engine import run_training
 

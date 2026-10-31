@@ -185,7 +185,7 @@ def _general_family_term_active_indices(sl_blocks):
             continue
         active = (
             base_ind[np.asarray(block.ind, dtype=bool)]
-            if bool(getattr(block, "repara", False))
+            if bool(getattr(block, "reparameterize", False))
             else base_ind
         )
         for _ in range(len(getattr(block, "S", ()))):

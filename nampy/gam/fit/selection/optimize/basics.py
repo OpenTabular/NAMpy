@@ -204,14 +204,14 @@ def _initial_smoothing_params_from_packed_penalties(
 
     if L is not None:
         L = np.asarray(L, dtype=np.float64)
-        lsp = np.log(np.maximum(def_sp, 1e-300))
+        log_smoothing_params = np.log(np.maximum(def_sp, 1e-300))
         if lsp0 is None:
             lsp0 = np.zeros(L.shape[0], dtype=np.float64)
         else:
             lsp0 = np.asarray(lsp0, dtype=np.float64).ravel()
         if lsp0.shape != (L.shape[0],):
             return None
-        rhs = np.asarray(lsp - lsp0, dtype=np.float64)
+        rhs = np.asarray(log_smoothing_params - lsp0, dtype=np.float64)
         if source_lm:
             from scipy.linalg import solve_triangular
 
@@ -371,14 +371,14 @@ def _initial_smoothing_params_from_design(model, y):
                 coef[~np.isfinite(coef)] = 0.0
                 return coef
 
-            fit5_setup = build_general_family_setup_state(
+            general_family_setup = build_general_family_setup_state(
                 model,
                 np.ones(n_sp, dtype=np.float64),
                 score_type="REML",
             )
             exact_setup = build_estimate_gam_setup_state(model)
-            X = np.asarray(fit5_setup.X_initial, dtype=np.float64).copy()
-            E_init = np.asarray(exact_setup.Eb, dtype=np.float64).copy()
+            X = np.asarray(general_family_setup.X_initial, dtype=np.float64).copy()
+            E_init = np.asarray(exact_setup.rank_penalty_root, dtype=np.float64).copy()
             weights = (
                 np.ones_like(np.asarray(y, dtype=np.float64).ravel(), dtype=np.float64)
                 if getattr(model, "prior_weights_", None) is None
@@ -388,28 +388,28 @@ def _initial_smoothing_params_from_design(model, y):
 
             if str(getattr(model.family, "name", "")).lower() == "gaulss":
                 start = np.zeros(X.shape[1], dtype=np.float64)
-                X1 = np.asarray(X[:, fit5_setup.jj[0]], dtype=np.float64)
-                E1 = np.asarray(E_init[:, fit5_setup.jj[0]], dtype=np.float64)
+                X1 = np.asarray(X[:, general_family_setup.jj[0]], dtype=np.float64)
+                E1 = np.asarray(E_init[:, general_family_setup.jj[0]], dtype=np.float64)
                 yt1 = yv.copy()
                 start1 = _pen_reg_initial_spg(X1, E1, yt1)
-                start[np.asarray(fit5_setup.jj[0], dtype=int)] = start1
+                start[np.asarray(general_family_setup.jj[0], dtype=int)] = start1
 
                 mu_init = np.asarray(
                     model.family.linfo[0].linkinv(X1 @ start1),
                     dtype=np.float64,
                 )
                 lres1 = np.log(np.maximum(np.abs(yv - mu_init), 1e-300))
-                X2 = np.asarray(X[:, fit5_setup.jj[1]], dtype=np.float64)
-                E2 = np.asarray(E_init[:, fit5_setup.jj[1]], dtype=np.float64)
+                X2 = np.asarray(X[:, general_family_setup.jj[1]], dtype=np.float64)
+                E2 = np.asarray(E_init[:, general_family_setup.jj[1]], dtype=np.float64)
                 start2 = _pen_reg_initial_spg(X2, E2, lres1)
-                start[np.asarray(fit5_setup.jj[1], dtype=int)] = start2
+                start[np.asarray(general_family_setup.jj[1], dtype=int)] = start2
             else:
                 start = np.asarray(
                     model.family.initialize(
                         yv,
                         X,
-                        fit5_setup.jj,
-                        offset=fit5_setup.offset_list,
+                        general_family_setup.jj,
+                        offset=general_family_setup.offset_list,
                         weights=weights,
                         E=E_init,
                     ),
@@ -419,10 +419,10 @@ def _initial_smoothing_params_from_design(model, y):
                 model.family.ll(
                     yv,
                     X,
-                    fit5_setup.jj,
+                    general_family_setup.jj,
                     start,
                     weights,
-                    offset=fit5_setup.offset_list,
+                    offset=general_family_setup.offset_list,
                     deriv=1,
                 )["lbb"],
                 dtype=np.float64,
@@ -468,8 +468,8 @@ def _initial_smoothing_params_from_design(model, y):
             if exact_setup.L is not None:
                 L = np.asarray(exact_setup.L, dtype=np.float64)
                 lsp0 = np.asarray(exact_setup.lsp0, dtype=np.float64).ravel()
-                lsp = np.log(np.maximum(def_sp, 1e-300))
-                rhs = np.asarray(lsp - lsp0, dtype=np.float64)
+                log_smoothing_params = np.log(np.maximum(def_sp, 1e-300))
+                rhs = np.asarray(log_smoothing_params - lsp0, dtype=np.float64)
                 coef, *_ = np.linalg.lstsq(L, rhs, rcond=None)
                 def_sp = np.exp(np.asarray(coef, dtype=np.float64))
             return np.maximum(def_sp, 1e-12)

@@ -382,7 +382,7 @@ def test_penalty_coordinate_evaluations_preserve_underlying_state(monkeypatch):
         def fail(*args, **kwargs):
             raise RuntimeError("inner fit failure")
 
-        patch.setattr(gaussian_exact, "_gaussian_fit3_pls_current_eta", fail)
+        patch.setattr(gaussian_exact, "_solve_gaussian_working_predictor", fail)
         with pytest.raises(RuntimeError, match="inner fit failure"):
             solve_gaussian_given_smoothing(model, data.y.to_numpy(), sp)
     assert model.gam_result_ is result and _compiled_model(model) is compiled

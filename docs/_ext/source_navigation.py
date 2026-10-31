@@ -1,13 +1,6 @@
-"""Browse Sphinx's generated source pages alongside the authored document tree."""
+"""Keep detailed source browsing on its Development landing page."""
 
 import html
-
-GROUP_NAMES = {
-    "gam": "Statistical engine",
-    "neural": "Neural engine",
-    "models": "Estimator interfaces",
-    "plotting": "Plotting",
-}
 
 
 def module_tree(modules):
@@ -31,16 +24,14 @@ def source_page(name):
     return "_modules/" + name.replace(".", "/")
 
 
-def source_menu(tree, pagename, uri, *, article=False):
+def source_menu(tree, pagename, uri):
     def render(nodes):
         items = []
-        for short, node in nodes.items():
+        for node in nodes.values():
             name = node["name"]
             target = source_page(name)
             active = pagename == target
-            ancestor = active or pagename.startswith(target + "/")
-            label = name if article else GROUP_NAMES.get(short, short)
-            text = html.escape(label)
+            text = html.escape(name)
             anchor = "package-" + name.replace(".", "-")
             if node["source"]:
                 text = (
@@ -50,13 +41,7 @@ def source_menu(tree, pagename, uri, *, article=False):
                 )
             if node["children"]:
                 children = render(node["children"])
-                if article:
-                    text = f'<span id="{anchor}">{text}</span><ul>{children}</ul>'
-                else:
-                    text = (
-                        "<details" + (" open" if ancestor else "") + ">"
-                        f"<summary>{text}</summary><ul>{children}</ul></details>"
-                    )
+                text = f'<span id="{anchor}">{text}</span><ul>{children}</ul>'
             items.append(f"<li>{text}</li>")
         return "".join(items)
 
@@ -65,23 +50,16 @@ def source_menu(tree, pagename, uri, *, article=False):
 
 
 def page_context(app, pagename, templatename, context, doctree):
+    if pagename != "development/source_code":
+        return
     tree = module_tree(getattr(app.env, "_viewcode_modules", {}))
     if not tree:
         return
-    uri = app.builder.get_relative_uri
-    context["module_navigation"] = source_menu(tree, pagename, uri)
-    context["module_index_uri"] = uri(pagename, "_modules/index")
-    context["module_index_active"] = pagename == "_modules/index"
-    if pagename == "_modules/index":
-        context["title"] = "Module code"
-        context["body"] = (
-            "<h1>Module code</h1>"
-            "<p>Browse the implementation by package. Source pages link back to "
-            "the corresponding API documentation through their [docs] links.</p>"
-            '<ul class="module-source-index">'
-            + source_menu(tree, pagename, uri, article=True)
-            + "</ul>"
-        )
+    context["body"] += (
+        '<ul class="module-source-index">'
+        + source_menu(tree, pagename, app.builder.get_relative_uri)
+        + "</ul>"
+    )
 
 
 def setup(app):

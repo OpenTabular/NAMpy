@@ -400,8 +400,9 @@ The separate ``CoxGAM`` estimator supports static right-censored fixed and
 eligible automatic REML partial likelihood, validated against mgcv. Stratified
 automatic fitting requires BFGS; strict stratified Newton remains unavailable.
 Baseline-aware survival SE/pointwise intervals and bootstrap survival/RMST
-uncertainty are supported. Delayed entry and longitudinal/neural Cox remain
-unsupported. See :doc:`user_guide/survival` for source diagnostic quirks.
+uncertainty are supported. Neural LinReg/NAM Cox training is implemented for
+static, unstratified right-censored cohorts. Delayed-entry and longitudinal Cox
+remain unsupported. See :doc:`user_guide/survival` for source diagnostic quirks.
 ``mvn`` and ``gfam`` remain outside this task's scope.
 
 General-family unconditional covariance requires the outer derivative state
@@ -523,3 +524,8 @@ projection is fitted on training rows and reused for all queries. Scalar numeric
 classification, scalar LSS and exact predictor-width offsets are supported.
 Vector inputs/responses, joint REML and neural covariance intervals remain unsupported.
 See :doc:`user_guide/semistructured`.
+
+.. toctree::
+   :maxdepth: 1
+
+   Capability inventory <capabilities>

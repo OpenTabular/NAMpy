@@ -256,7 +256,7 @@ jobs:
         ruff check nampy tests examples
 
     - name: Check repository hygiene
-      run: python tests/repository_hygiene.py
+      run: make hygiene
 
   type-check:
     name: Type Check Stable Contracts
@@ -285,11 +285,7 @@ jobs:
       # The package-wide annotation backlog is tracked separately. Keep this
       # gate honest by checking the stable typed boundary without recursively
       # importing modules that have not yet adopted the contract.
-      run: >-
-        mypy --follow-imports=skip
-        nampy/contracts.py
-        nampy/neural/contracts.py
-        nampy/gam/fit/state.py
+      run: make type-check
 
   build:
     name: Build Distribution

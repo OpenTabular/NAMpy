@@ -1,4 +1,4 @@
-"""Shared ``mgcv`` Sl initial-reparameterization transforms."""
+"""Initial penalty-coordinate transforms for general-family fitting."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import Any
 import numpy as np
 
 
-def sl_initial_repara(
+def transform_initial_penalty_coordinates(
     Sl: Any,
     X: np.ndarray,
     *,
@@ -15,14 +15,17 @@ def sl_initial_repara(
     both_sides: bool = True,
     cov: bool = True,
 ) -> np.ndarray:
-    """Mirror ``mgcv::Sl.initial.repara`` for implemented linear Sl blocks."""
+    """Transform coefficients, designs or covariance through penalty blocks.
+
+    Implements ``mgcv::Sl.initial.repara`` for supported linear blocks.
+    """
     X_arr = np.asarray(X, dtype=np.float64).copy()
     if len(Sl) == 0:
         return X_arr
 
     is_matrix = X_arr.ndim == 2
     for block in Sl:
-        if not block.repara:
+        if not block.reparameterize:
             continue
         ind = np.arange(block.start0, block.stop0, dtype=int)
         D = np.asarray(block.D, dtype=np.float64)
@@ -86,21 +89,24 @@ def _r_recycle_matrix_assign(rhs: np.ndarray, shape: tuple[int, ...]) -> np.ndar
     return np.resize(flat, shape[0] * shape[1]).reshape(shape, order="F")
 
 
-def sl_inirep(
+def apply_initial_penalty_transform(
     Sl: Any,
     X: np.ndarray,
     *,
     l: int = 0,  # noqa: E741
     r: int = 0,
 ) -> np.ndarray:
-    """Mirror ``mgcv::Sl.inirep`` for implemented linear Sl blocks."""
+    """Apply selected left/right initial penalty-coordinate transformations.
+
+    Implements ``mgcv::Sl.inirep`` for supported linear blocks.
+    """
     X_arr = np.asarray(X, dtype=np.float64).copy()
     if len(Sl) == 0 or (not l and not r):
         return X_arr
 
     is_matrix = X_arr.ndim == 2
     for block in Sl:
-        if not block.repara:
+        if not block.reparameterize:
             continue
         ind = np.arange(block.start0, block.stop0, dtype=int)
         D = np.asarray(block.D, dtype=np.float64)
@@ -152,4 +158,4 @@ def sl_inirep(
     return np.asarray(X_arr, dtype=np.float64)
 
 
-__all__ = ["sl_inirep", "sl_initial_repara"]
+__all__ = ["apply_initial_penalty_transform", "transform_initial_penalty_coordinates"]

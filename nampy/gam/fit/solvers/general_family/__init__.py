@@ -4,15 +4,15 @@ from .fixed_smoothing import (
     GeneralFamilySetupState,
     GeneralPenaltyBlock,
     GeneralPenaltySetup,
+    apply_initial_penalty_transform,
     build_general_family_setup_state,
     build_general_penalty_setup,
     criterion_gradient_ml_reml_general_family,
     criterion_hessian_ml_reml_general_family,
     criterion_ml_reml_general_family,
     run_general_family_fixed_smoothing,
-    sl_inirep,
-    sl_initial_repara,
     solve_general_family_fit,
+    transform_initial_penalty_coordinates,
 )
 from .newton import (
     GeneralNewtonControl,
@@ -44,8 +44,8 @@ __all__ = [
     "criterion_ml_reml_general_family",
     "postprocess_general_newton_fit",
     "run_general_family_fixed_smoothing",
-    "sl_inirep",
-    "sl_initial_repara",
+    "apply_initial_penalty_transform",
+    "transform_initial_penalty_coordinates",
     "solve_general_family_fit",
     "solve_general_newton_fit",
 ]

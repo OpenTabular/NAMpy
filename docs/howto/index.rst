@@ -23,17 +23,29 @@ Prepare and fit
 
       Choose fitting controls, validation strategy, and hyperparameters.
 
-   .. grid-item-card:: Statistical GAM guide
+   .. grid-item-card:: Fit and diagnose a GAM
       :link: /user_guide/statistical_gams
       :link-type: doc
 
       Choose bases and smoothing penalties, then inspect residuals, inference, and diagnostics.
 
-   .. grid-item-card:: Distributional GAM guide
+   .. grid-item-card:: Estimate a mean, quantile or expectile
+      :link: choose-response-summary
+      :link-type: ref
+
+      Choose a response summary and distinguish asymmetric losses from full-distribution fitting.
+
+   .. grid-item-card:: Model a conditional distribution
       :link: /user_guide/gamlss
       :link-type: doc
 
       Choose distribution parameters, their links, formulas, and prediction scales.
+
+   .. grid-item-card:: Fit a survival model
+      :link: /user_guide/survival
+      :link-type: doc
+
+      Represent censored follow-up, choose a survival model, and predict survival curves.
 
 Control the model structure
 ---------------------------
@@ -59,11 +71,29 @@ Control the model structure
 
       Include a known predictor contribution during fitting and prediction.
 
+   .. grid-item-card:: Combine structured and neural effects
+      :link: /user_guide/semistructured
+      :link-type: doc
+
+      Fit spline and neural contributions jointly and inspect their identified decomposition.
+
 Inspect predictions and reuse a fit
 -----------------------------------
 
 .. grid:: 1 1 2 2
    :gutter: 2
+
+   .. grid-item-card:: Calibrate prediction intervals
+      :link: /user_guide/calibration
+      :link-type: doc
+
+      Use a separate calibration sample to construct intervals for future responses and assess their coverage.
+
+   .. grid-item-card:: Quantify uncertainty in a conditional quantile
+      :link: /user_guide/quantile_inference
+      :link-type: doc
+
+      Estimate confidence intervals for a fitted quantile function and understand their assumptions.
 
    .. grid-item-card:: Interpret and plot effects
       :link: /user_guide/interpretability

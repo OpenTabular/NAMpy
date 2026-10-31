@@ -11,6 +11,7 @@ from pretab.preprocessor import Preprocessor
 from sklearn.base import BaseEstimator
 from sklearn.exceptions import NotFittedError
 
+from .._data import prepare_predict_features
 from ..neural.configuration import (
     FixedDesignTrainingConfig,
     GradientTrainingConfig,
@@ -19,7 +20,6 @@ from ..neural.configuration import (
     PreprocessingConfig,
 )
 from ..persistence import load_estimator, save_estimator
-from ._data import prepare_predict_features
 
 
 class NeuralEstimatorBase(BaseEstimator):

@@ -137,7 +137,7 @@ def test_gam_fit5_simple_convergence():
 
     # No penalty for this test
     St = np.zeros((p, p), dtype=np.float64)
-    lsp = np.array([], dtype=np.float64)
+    log_smoothing_params = np.array([], dtype=np.float64)
     S_blocks: list = []
 
     ctl = GeneralNewtonControl(maxit=100, epsilon=1e-8, trace=False)
@@ -145,7 +145,7 @@ def test_gam_fit5_simple_convergence():
         X,
         y,
         jj,
-        lsp,
+        log_smoothing_params,
         St,
         S_blocks,
         ldetS=0.0,

@@ -6,6 +6,21 @@ The models differ in how they represent feature effects, select interactions,
 and estimate their parameters. Use the table below to choose an appropriate
 starting point.
 
+Choose the response summary
+---------------------------
+
+For a conditional mean, start with :doc:`GAMRegressor
+</statistical_reference/estimators/GAMRegressor>` and an appropriate response
+family. :doc:`QuantileGAM </statistical_reference/estimators/QuantileGAM>`
+estimates a conditional quantile; level ``0.5`` targets the median.
+:doc:`ExpectileGAM </statistical_reference/estimators/ExpectileGAM>` estimates an
+expectile using asymmetric squared error; level ``0.5`` targets the mean.
+Expectile fitting supports observation weights and fixed smoothing strengths;
+choose those strengths using held-out loss. These loss estimators do not imply
+a complete response distribution. See :ref:`choose-response-summary` for the
+choice and :doc:`/user_guide/quantile_inference` for calibrated quantile-function
+uncertainty.
+
 Where to begin
 --------------
 

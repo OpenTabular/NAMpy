@@ -122,8 +122,8 @@ def test_cox_rejects_partial_trainer_limits():
         estimator.fit(X, SurvivalTarget([1, 2, 3], [1, 0, 1]))
 
 
-@pytest.mark.parametrize("predictors", [[-1000., 0.], [np.nan, 0.], [710., 0.], [709.7, 709.7]])
-def test_cox_baseline_rejects_nonrepresentable_risk_weights_and_totals(predictors):
+@pytest.mark.parametrize("predictors", [[-1000., 0.], [np.nan, 0.]])
+def test_cox_baseline_rejects_nonrepresentable_hazards_or_predictors(predictors):
     with pytest.raises(FloatingPointError):
         baseline_from_predictors(np.array(predictors), np.array([2., 1.]),
                                  np.array([1, 1]), np.zeros(2))
@@ -136,3 +136,18 @@ def test_neural_cox_rejects_custom_ties_and_strata():
     with pytest.raises(TypeError, match="strata"):
         estimator.fit(pd.DataFrame({"x": [0., 1.]}),
                       SurvivalTarget([1., 2.], [1, 1]), strata=[0, 1])
+
+
+@pytest.mark.parametrize("predictors", [[710., 0.], [709.7, 709.7]])
+def test_cox_baseline_avoids_overflow_when_hazard_is_representable(predictors):
+    # Raw exp(eta), or its risk sum, overflows even though d / risk is finite.
+    from scipy.special import logsumexp
+
+    eta = np.asarray(predictors)
+    times, baseline = baseline_from_predictors(
+        eta, np.array([2., 1.]), np.ones(2, dtype=bool), np.zeros(2)
+    )[0]
+    expected = np.exp(np.array([-logsumexp(eta), -eta[0]]))
+    assert_array_equal(times, [0., 1., 2.])
+    assert_allclose(baseline[1:], np.cumsum(expected), rtol=1e-12, atol=0)
+    assert (baseline[1:] > 0).all()

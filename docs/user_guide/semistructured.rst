@@ -12,6 +12,21 @@ component extraction and persistence.
 .. literalinclude:: /../examples/example_semistructured.py
    :language: python
 
+Inspect the fitted decomposition
+--------------------------------
+
+.. figure:: /_static/features/semistructured_components.png
+   :alt: Structured contribution, projected neural remainder and their total along a new fixed-z predictor slice, compared with the simulated true mean.
+   :width: 100%
+
+   The held-out RMSE is 0.282. Along the illustrated z=0.8 slice, the
+   neural contribution ranges from approximately -0.93 to 0.80. The total
+   follows the main pattern but still misses part of the true mean near
+   the boundaries.
+
+The :doc:`complete tutorial </notebooks/semistructured_remainder>` shows the
+subject split and provides optional decomposition checks.
+
 Training-space identification
 -----------------------------
 

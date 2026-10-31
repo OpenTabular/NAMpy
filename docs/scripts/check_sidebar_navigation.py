@@ -51,21 +51,14 @@ def main():
                 "li.querySelector(':scope > a')?.textContent.trim())}))"
             )
             titles = [section["title"] for section in sections]
-            assert titles.index("Module code") < titles.index("Development")
-            assert page.locator("#rtd-search-form").count() == 0
-            fonts = page.evaluate("""() => {
-                const properties = ['fontFamily', 'fontSize', 'fontWeight', 'lineHeight'];
-                const read = element => properties.map(key => getComputedStyle(element)[key]);
-                return {
-                    reference: read(document.querySelector('.wy-menu-vertical .toctree-l1 > a')),
-                    groups: Array.from(document.querySelectorAll('.module-code-navigation summary'), read)
-                };
-            }""")
-            assert fonts["groups"] and all(font == fonts["reference"] for font in fonts["groups"]), fonts
+            assert "Module code" not in titles
+            assert page.locator(".module-code-navigation").count() == 0
+            assert page.locator("#rtd-search-form input[name=q]").is_visible()
             assert "Tutorials" not in [section["title"] for section in sections]
             development = next(section for section in sections if section["title"] == "Development")
             assert development["items"] == [
-                "Contributing to NAMpy", "Architecture and validation", "Validation reports", "License"
+                "Contributing to NAMpy", "Architecture and validation", "Validation reports",
+                "Browse source code", "License"
             ], development
             reference = next(section for section in sections if section["title"] == "Reference")
             assert "Compatibility and limitations" in reference["items"], reference
@@ -183,14 +176,11 @@ def main():
                 "notebooks/01_getting_started.html",
                 "notebooks/05_real_data_classification.html",
                 "tutorials/first_gam.html",
-                "notebooks/group_smooths.html",
                 "notebooks/smoothness_selection.html",
-                "notebooks/derivatives_contrasts.html",
                 "notebooks/gam_diagnostics.html",
+                "notebooks/derivatives_contrasts.html",
                 "notebooks/tensor_interactions.html",
-                "tutorials/gam_nam.html",
-                "notebooks/03_neural_models.html",
-                "tutorials/interaction_selection.html",
+                "notebooks/group_smooths.html",
                 "notebooks/02_statistical_gams.html",
                 "notebooks/overdispersed_counts.html",
                 "notebooks/gamma_response.html",
@@ -198,9 +188,15 @@ def main():
                 "notebooks/tweedie_response.html",
                 "notebooks/ordered_response.html",
                 "notebooks/gamma_location_scale.html",
-                "notebooks/04_distributional_models.html",
                 "in_depth/quantile_calibration.html",
+                "notebooks/quantile_uncertainty.html",
+                "notebooks/04_distributional_models.html",
+                "notebooks/survival_censoring.html",
+                "tutorials/gam_nam.html",
+                "notebooks/03_neural_models.html",
+                "tutorials/interaction_selection.html",
                 "in_depth/tree_effects.html",
+                "notebooks/semistructured_remainder.html",
                 "notebooks/regional_smoothing.html",
                 "notebooks/correlated_errors.html",
                 "notebooks/neighborhood_cv.html",
@@ -224,9 +220,44 @@ def main():
                 assert event.value.suggested_filename.endswith(".ipynb")
             page.goto(f"{origin}/in_depth/index.html", wait_until="domcontentloaded")
             page.wait_for_url(f"{origin}/tutorials/index.html")
+            # Search must retrieve model names and modeling concepts locally.
+            for query, expected_path in (
+                ("GAMLSS", "statistical_reference/estimators/GAMLSS.html"),
+                ("ExpectileGAM", "statistical_reference/estimators/ExpectileGAM.html"),
+                ("censoring", "survival"),
+                ("offset", "offset"),
+                ("quantile", "quantile"),
+            ):
+                page.goto(f"{origin}/index.html", wait_until="domcontentloaded")
+                page.locator("#rtd-search-form input[name=q]").fill(query)
+                page.locator("#rtd-search-form input[name=q]").press("Enter")
+                page.wait_for_url(re.compile(r"/search\.html\?.*"))
+                page.wait_for_function(
+                    "expected => Array.from(document.querySelectorAll('#search-results li a'))"
+                    ".some(link => link.getAttribute('href').includes(expected))",
+                    arg=expected_path,
+                )
+                results = page.locator("#search-results li a").evaluate_all(
+                    "links => links.map(link => link.getAttribute('href'))"
+                )
+                assert any(expected_path in href for href in results), (query, results)
+
+            # A narrow page keeps its section navigation available and usable.
+            for width in (900, 390):
+                page.set_viewport_size({"width": width, "height": 900})
+                page.goto(f"{origin}/user_guide/gamlss.html", wait_until="domcontentloaded")
+                mobile = page.locator("details.page-navigation-mobile")
+                assert mobile.is_visible()
+                mobile.locator("summary").click()
+                section = mobile.locator("nav a").first
+                section.click()
+                assert "#" in page.url
+            page.set_viewport_size({"width": 1400, "height": 900})
+            assert not mobile.is_visible()
+            assert page.locator("aside.page-navigation").is_visible()
             browser.close()
             print(
-                "PASS: repeated sidebar clicks, reloads, history, legacy state, and asset versions"
+                "PASS: navigation, search results, tutorial downloads, responsive page contents, and asset versions"
             )
     finally:
         server.shutdown()

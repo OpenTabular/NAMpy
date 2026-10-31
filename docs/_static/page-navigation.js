@@ -39,6 +39,23 @@
       return link;
     });
     panel.querySelector('nav').appendChild(list);
+
+    // Keep the same sections available without the desktop right-hand column.
+    const mobile = document.createElement('details');
+    mobile.className = 'page-navigation-mobile';
+    const summary = document.createElement('summary');
+    summary.id = 'page-navigation-mobile-title';
+    summary.textContent = 'On this page';
+    const mobileNavigation = document.createElement('nav');
+    mobileNavigation.setAttribute('aria-labelledby', summary.id);
+    const mobileList = list.cloneNode(true);
+    mobileNavigation.appendChild(mobileList);
+    mobile.append(summary, mobileNavigation);
+    const title = article.querySelector('h1');
+    if (title) title.insertAdjacentElement('afterend', mobile);
+    else article.prepend(mobile);
+    const mobileLinks = Array.from(mobileList.querySelectorAll('a'));
+
     panel.hidden = false;
     panel.parentElement.classList.add('has-page-navigation');
 
@@ -53,8 +70,10 @@
         current = sections.length - 1;
       }
       links.forEach((link, index) => {
-        if (index === current) link.setAttribute('aria-current', 'location');
-        else link.removeAttribute('aria-current');
+        [link, mobileLinks[index]].forEach((item) => {
+          if (index === current) item.setAttribute('aria-current', 'location');
+          else item.removeAttribute('aria-current');
+        });
       });
       scheduled = false;
     }

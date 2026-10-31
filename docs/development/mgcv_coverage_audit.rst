@@ -54,7 +54,7 @@ normal dispatcher; it should be classified before adding numerical scenarios.
      - 43.3 percent
      - Line-search expansion/interpolation, step halving, curvature-condition
        failures, nonfinite objectives and stopping paths.
-   * - ``fit/solvers/general_family/sl_transforms.py``
+   * - ``fit/solvers/general_family/penalty_transforms.py``
      - 47.6 percent
      - Inverse/one-sided/two-sided transformations, vector versus matrix
        inputs and diagonal versus dense penalty-block transforms.

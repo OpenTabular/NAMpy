@@ -89,7 +89,8 @@ for index, block in enumerate(blocks[:3]):
         )
 
         (OUTPUT / "home_gam.inc").write_text(text.rstrip() + "\n")
-        fig, axes = plt.subplots(1, 2, figsize=(9, 3.5))
+        gam_figure, gam_axes = plt.subplots(1, 3, figsize=(13.5, 3.5))
+        axes = gam_axes
         term = next(values for name, values in components.terms.items() if "x" in name)
         axes[0].plot(x, np.asarray(term).reshape(-1), color="#237f75")
         axes[0].set(xlabel="x", ylabel="Contribution", title="Smooth effect of x")
@@ -99,7 +100,6 @@ for index, block in enumerate(blocks[:3]):
             axes[1].plot(x, model.predict(grid), color=color, label=f"Group {group}")
         axes[1].set(xlabel="x", ylabel="y", title="Fitted response")
         axes[1].legend(frameon=False)
-        save(fig, "home_gam")
     elif index == 1:
         test = namespace["X_test"]["x"].to_numpy()
         pred = np.asarray(namespace["prediction"]).reshape(-1)
@@ -108,20 +108,20 @@ for index, block in enumerate(blocks[:3]):
         (OUTPUT / "home_gam_adapter.inc").write_text(
             table("Held-out predictions — first five observations", frame.head())
         )
-        fig, ax = plt.subplots(figsize=(8, 3.5))
+        ax = gam_axes[2]
         ax.scatter(data.x, data.y, s=9, alpha=0.3, color="gray", label="Observed")
         ax.plot(test, pred, color="#237f75", label="Prediction")
         ax.fill_between(
             test,
-            pred - 1.96 * se,
-            pred + 1.96 * se,
+            namespace["lower"],
+            namespace["upper"],
             color="#237f75",
             alpha=0.2,
             label="95% pointwise confidence interval",
         )
-        ax.set(xlabel="x", ylabel="y")
-        ax.legend(frameon=False)
-        save(fig, "home_gam_adapter")
+        ax.set(xlabel="x", ylabel="y", title="Prediction on new rows")
+        ax.legend(frameon=False, loc="upper right", fontsize=8)
+        save(gam_figure, "home_gam")
     else:
         data = namespace["data_dist"]
         x = data["x"].to_numpy()
@@ -142,7 +142,7 @@ for index, block in enumerate(blocks[:3]):
                 frame.head(),
             )
         )
-        fig, axes = plt.subplots(1, 2, figsize=(9, 3.5))
+        fig, axes = plt.subplots(1, 3, figsize=(13.5, 3.5))
         axes[0].scatter(x, data.y, s=8, alpha=0.3, color="gray")
         for group, color in [("a", "#237f75"), ("b", "#c17c30")]:
             values = np.asarray(model.predict_parameters(pd.DataFrame({"x": x, "group": group})))
@@ -151,5 +151,11 @@ for index, block in enumerate(blocks[:3]):
         axes[0].legend(frameon=False)
         axes[1].plot(x, params[:, 1], color="#237f75")
         axes[1].set(xlabel="x", ylabel="sigma", title="Conditional standard deviation")
+        for (value, density), color in zip(
+            namespace["density_curves"].items(), ["#237f75", "#c17c30", "#7859a6"], strict=True
+        ):
+            axes[2].plot(namespace["density_y"], density, color=color, label=f"x = {value:g}")
+        axes[2].set(xlabel="y", ylabel="Conditional density", title="Response distributions (group a)")
+        axes[2].legend(frameon=False)
         save(fig, "home_gamlss")
-print("Generated three plots and example output tables.")
+print("Generated two three-panel plots and example output tables.")

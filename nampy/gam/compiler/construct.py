@@ -254,7 +254,7 @@ def construct_smooth(
         n_constraints_absorbed=n_constraints_absorbed,
         predict_map_source=predict_map_source,
     )
-    constructor_metadata["sl_repara"] = bool(getattr(runtime, "repara", True))
+    constructor_metadata["sl_repara"] = bool(getattr(runtime, "reparameterize", True))
 
     if null_space_penalty:
         raise NotImplementedError(

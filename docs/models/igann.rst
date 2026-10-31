@@ -38,6 +38,18 @@ Fit and inspect
    prediction = model.predict(X_test)
    components = model.predict_components(X_test, center=True)
    figures = model.plot_terms(X_test, center=True)
+   history = model.training_history()
+   basis_info = model.basis_metadata()
+   complexity = model.model_complexity()
+
+``history`` records the native boosting loss path, rather than Lightning epochs.
+``basis_info`` describes the retained hidden-feature basis; ``complexity`` reports
+parameter counts and native quantities such as the fitted boosting-stage count.
+These hooks describe the fitted representation and optimization, not inferential
+coverage. See :doc:`training_history </neural_reference/methods/training_history>`
+and :doc:`model_complexity </neural_reference/methods/model_complexity>` for their
+outputs and architecture eligibility. The loss-path entries are populated by
+native boosting; they do not log generic gradient training.
 
 Interpretation and limits
 -------------------------

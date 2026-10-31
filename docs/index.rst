@@ -7,13 +7,16 @@ NAMpy: Interpretable Additive Models
    :align: center
    :width: 100%
 
-NAMpy combines statistical and neural additive models in one Python workflow.
-Fit nonlinear feature effects, inspect their contributions, and model changing
-response distributions through a scikit-learn-style estimator interface.
-
-Its statistical engine reimplements a broad range of mgcv methods in Python,
-including smoothness selection, inference, and diagnostics, alongside
-SCAM-style shape constraints. Fitting and prediction do not require R.
+NAMpy brings serious statistical additive modeling (`mgcv <https://cran.r-project.org/package=mgcv>`_,
+`scam <https://cran.r-project.org/package=scam>`_,
+`gamlss <https://www.gamlss.com/>`_,
+`qgam <https://mfasiolo.github.io/qgam/>`_) and deep learning interpretability
+(`NAM <https://neural-additive-models.github.io/>`_,
+`NBM <https://arxiv.org/abs/2205.14120>`_,
+`NodeGAM <https://arxiv.org/abs/2106.01613>`_ etc) into a unified
+scikit-learn workflow. Fit complex
+non-linear curves, model full response distributions, and run rigorous GAM
+diagnostics, all in Python.
 
 :doc:`Coming from R’s mgcv or scam? See compatibility and interface differences. <compatibility>`
 
@@ -68,6 +71,10 @@ inputs. Contributions add on each predictor's link scale.
 More modeling examples
 ----------------------
 
+For censored time-to-event outcomes, :doc:`model survival with censoring
+<notebooks/survival_censoring>` and interpret fitted survival curves alongside
+observed follow-up.
+
 .. grid:: 1 1 2 2
    :gutter: 2
 
@@ -119,47 +126,41 @@ look up a specific method.
    :gutter: 2
    :class-container: documentation-navigation
 
-   .. grid-item-card:: Learn with examples
+   .. grid-item-card:: Work through an example
       :link: tutorials/index
       :link-type: doc
 
-      Follow complete analyses with runnable code, fitted plots,
-      and explanations of the results.
+      Follow a complete analysis, from preparing data to interpreting predictions.
 
    .. grid-item-card:: Choose a model
       :link: models/index
       :link-type: doc
 
-      Compare statistical and neural architectures by their supported
-      tasks, interactions, and interpretation.
+      Compare modeling approaches and find one suited to your response and scientific question.
 
-   .. grid-item-card:: Build a GAM formula
+   .. grid-item-card:: Specify smooths and interactions
       :link: user_guide/formula_visual_reference
       :link-type: doc
 
-      See how smooths, group effects, interactions, and offsets
-      translate modeling assumptions into formulas.
+      Build formulas with smooth terms, group effects, interactions, and constraints.
 
-   .. grid-item-card:: Interpret fitted effects
+   .. grid-item-card:: Understand fitted effects
       :link: user_guide/interpretability
       :link-type: doc
 
-      Extract and plot contributions, choose a centering reference,
-      and understand what each display represents.
+      Read additive contributions, distinguish prediction scales, and interpret uncertainty.
 
-   .. grid-item-card:: Solve a specific task
+   .. grid-item-card:: Complete a specific task
       :link: howto/index
       :link-type: doc
 
-      Find focused instructions for preprocessing, training,
-      constraints, prediction, and saving models.
+      Find focused instructions for fitting, calibration, prediction, and persistence.
 
-   .. grid-item-card:: Browse the API
+   .. grid-item-card:: Look up the API
       :link: api/index
       :link-type: doc
 
-      Look up estimator classes, method arguments, return values,
-      and statistical and neural interfaces.
+      Check parameters, return values, supported methods, and examples.
 
 .. toctree::
    :caption: Getting Started
@@ -218,4 +219,5 @@ look up a specific method.
    contributing
    architecture
    Validation reports <development/index>
+   Browse source code <development/source_code>
    license

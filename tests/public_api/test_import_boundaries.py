@@ -86,6 +86,7 @@ for name in (
     "nampy.survival.diagnostics",
     "nampy.gam.extensions",
     "nampy.models._persistence",
+    "nampy.models._data",
     "nampy.neural.families.distributions",
     "nampy.neural.distributions",
     "nampy.neural.families.prediction",
@@ -130,6 +131,32 @@ for name in ("get", "__getitem__", "__getattr__"):
     assert not hasattr(FitCoreSolution, name)
 for name in ("DistributionalEffects", "prepare_distributional_effects", "combine_distributional_effects"):
     assert not hasattr(plotting, name)
+"""
+    completed = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True,
+    )
+    assert completed.returncode == 0, completed.stderr
+
+
+@pytest.mark.parametrize("module", ["nampy._data", "nampy.neural.training.session"])
+def test_shared_preparation_and_neural_training_import_without_estimator_facades(module):
+    code = f"""
+import importlib
+import importlib.abc
+import sys
+import nampy
+
+class NoEstimatorFacades(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname.startswith('nampy.models.'):
+            raise AssertionError('Backend imported estimator facade: ' + fullname)
+
+sys.meta_path.insert(0, NoEstimatorFacades())
+importlib.import_module({module!r})
+assert not any(name.startswith('nampy.models.') for name in sys.modules)
+if {module!r} == 'nampy._data':
+    assert 'torch' not in sys.modules
+    assert 'lightning' not in sys.modules
 """
     completed = subprocess.run(
         [sys.executable, "-c", code], capture_output=True, text=True,

@@ -177,7 +177,7 @@ def criterion_ml_reml_pirls(model, y, log_sp, method):
 
 def criterion_p_ml_reml_pirls(model, y, log_sp, method):
     """Pearson-scale Laplace ML/REML from ``gam.fit3``."""
-    from .derivatives import _fit3_pearson_scale_factor, _gdi1_kernel
+    from .derivatives import _gdi1_kernel, _pearson_scale_factor
 
     method = str(method).upper()
     if method not in {"P-ML", "P-REML"}:
@@ -193,7 +193,7 @@ def criterion_p_ml_reml_pirls(model, y, log_sp, method):
     mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     nobs = float(len(np.asarray(y)))
     ntrue = float(getattr(model, "n_true_", nobs) or nobs)
-    factor = _fit3_pearson_scale_factor(model, y, sol, mp)
+    factor = _pearson_scale_factor(model, y, sol, mp)
     phi = float(kernel.P * factor)
     if not np.isfinite(phi) or phi <= 0.0:
         return np.inf

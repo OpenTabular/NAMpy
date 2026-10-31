@@ -82,17 +82,17 @@ def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
     Pq = float(kernel.bSb)
     F = float(dev) + float(Pq)
     nobs = float(model.n_samples_)
-    Mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
+    penalty_null_dim = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     n_eff = getattr(model, "n_true_", None)
     nu, _sum_log_scaled = gaussian_reml_weighted_degrees_and_log_weight_term(
-        w1, nobs, Mp, n_effective_total=n_eff
+        w1, nobs, penalty_null_dim, n_effective_total=n_eff
     )
     gamma = float(model.score_gamma)
-    n_weighted = float(nu + Mp)
+    n_weighted = float(nu + penalty_null_dim)
     reml_ind = 1.0 if method_u in {"REML", "LAML"} else 0.0
     # Mirror `mgcv/R/gam.fit3.r` `scoreType %in c("REML","ML")` branch:
     # profiled Gaussian scale solves F / (n_w - gamma * remlInd * Mp).
-    prof_df = n_weighted - gamma * reml_ind * Mp
+    prof_df = n_weighted - gamma * reml_ind * penalty_null_dim
     coeff = prof_df / gamma if gamma > 0.0 else np.nan
     scale = F / prof_df if prof_df > 0.0 else np.nan
     if (
@@ -172,11 +172,11 @@ def criterion_ml_reml_gaussian_dynamic_joint(
     sol = solve_gaussian_given_smoothing(model, y, sp)
     _cache_gaussian_reml_scale_est(model, sol)
     nobs = float(model.n_samples_)
-    Mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
+    penalty_null_dim = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     n_eff = getattr(model, "n_true_", None)
     w1 = prior_weights_diagonal_from_fit(sol.fit_state, int(nobs))
     nu, sum_log_scaled = gaussian_reml_weighted_degrees_and_log_weight_term(
-        w1, nobs, Mp, n_effective_total=n_eff
+        w1, nobs, penalty_null_dim, n_effective_total=n_eff
     )
     gamma = float(model.score_gamma)
     if not np.isfinite(gamma) or gamma <= 0.0:
@@ -207,7 +207,7 @@ def criterion_ml_reml_gaussian_dynamic_joint(
     return (
         (rss_bSb / (2.0 * sigma2) - ls0) / gamma
         + det_term
-        - reml_ind * (Mp / 2.0) * (np.log(2.0 * np.pi * sigma2) - np.log(gamma))
+        - reml_ind * (penalty_null_dim / 2.0) * (np.log(2.0 * np.pi * sigma2) - np.log(gamma))
         + ar1_log_determinant_correction(model)
     )
 
@@ -235,15 +235,15 @@ def criterion_ml_reml_gaussian_dynamic_profiled(model, y, log_sp_free, method="R
     _cache_gaussian_reml_scale_est(model, sol)
 
     nobs = float(model.n_samples_)
-    Mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
+    penalty_null_dim = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     n_eff = getattr(model, "n_true_", None)
     w1 = prior_weights_diagonal_from_fit(sol.fit_state, int(nobs))
     nu, _sum_log_scaled = gaussian_reml_weighted_degrees_and_log_weight_term(
-        w1, nobs, Mp, n_effective_total=n_eff
+        w1, nobs, penalty_null_dim, n_effective_total=n_eff
     )
     gamma = float(model.score_gamma)
     reml_ind = 1.0 if method_u in {"REML", "LAML"} else 0.0
-    prof_df = float(nu + Mp - gamma * reml_ind * Mp)
+    prof_df = float(nu + penalty_null_dim - gamma * reml_ind * penalty_null_dim)
     if (
         not np.isfinite(gamma)
         or gamma <= 0.0
@@ -292,15 +292,15 @@ def criterion_gradient_ml_reml_gaussian_dynamic_joint(
     w1 = prior_weights_diagonal_from_fit(sol.fit_state, int(nobs))
     dev = _gaussian_dynamic_deviance(sol, y, w1)
     F = float(dev) + float(kernel.bSb)
-    Mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
+    penalty_null_dim = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     n_eff = getattr(model, "n_true_", None)
     nu, _sum_log_scaled = gaussian_reml_weighted_degrees_and_log_weight_term(
-        w1, nobs, Mp, n_effective_total=n_eff
+        w1, nobs, penalty_null_dim, n_effective_total=n_eff
     )
     gamma = float(model.score_gamma)
-    n_weighted = float(nu + Mp)
+    n_weighted = float(nu + penalty_null_dim)
     reml_ind = 1.0 if method_u in {"REML", "LAML"} else 0.0
-    coeff = n_weighted / gamma - reml_ind * Mp if gamma > 0.0 else np.nan
+    coeff = n_weighted / gamma - reml_ind * penalty_null_dim if gamma > 0.0 else np.nan
     if not np.isfinite(F) or abs(F) < LOG_GUARD_MIN:
         return None
     sigma2 = float(np.exp(float(log_sigma2)))
@@ -351,14 +351,14 @@ def criterion_hessian_ml_reml_gaussian_dynamic_joint(
     w1 = prior_weights_diagonal_from_fit(sol.fit_state, int(nobs))
     dev = _gaussian_dynamic_deviance(sol, y, w1)
     F = float(dev) + float(kernel.bSb)
-    Mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
+    penalty_null_dim = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     n_eff = getattr(model, "n_true_", None)
     nu, _sum_log_scaled = gaussian_reml_weighted_degrees_and_log_weight_term(
-        w1, nobs, Mp, n_effective_total=n_eff
+        w1, nobs, penalty_null_dim, n_effective_total=n_eff
     )
-    n_weighted = float(nu + Mp)
+    n_weighted = float(nu + penalty_null_dim)
     reml_ind = 1.0 if method_u in {"REML", "LAML"} else 0.0
-    coeff = n_weighted / gamma - reml_ind * Mp if gamma > 0.0 else np.nan
+    coeff = n_weighted / gamma - reml_ind * penalty_null_dim if gamma > 0.0 else np.nan
     if not np.isfinite(F) or F <= 0.0:
         return None
     if not np.isfinite(coeff):

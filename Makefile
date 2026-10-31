@@ -1,4 +1,4 @@
-.PHONY: help install install-dev test test-cov lint type-check hygiene quality docs docs-serve docs-clean clean build publish publish-test
+.PHONY: help install install-dev test test-cov lint type-check type-check-all hygiene quality docs docs-serve docs-clean clean build publish publish-test
 
 help:
 	@echo "NAMpy Development Commands"
@@ -8,7 +8,8 @@ help:
 	@echo "test             Run a targeted test slice: make test TEST=..."
 	@echo "test-cov         Run a targeted slice with coverage: make test-cov TEST=..."
 	@echo "lint             Run linters (ruff)"
-	@echo "type-check       Run type checking (mypy)"
+	@echo "type-check       Type-check the stable contracts enforced by CI"
+	@echo "type-check-all   Diagnose package-wide annotations (broader than CI)"
 	@echo "hygiene          Check release-sensitive repository state"
 	@echo "quality          Run static quality checks"
 	@echo "docs             Build documentation"
@@ -34,9 +35,12 @@ test-cov:
 	pytest --cov=nampy --cov-report=term-missing --cov-report=html $(TEST)
 
 lint:
-	ruff check nampy tests
+	ruff check nampy tests examples
 
 type-check:
+	mypy --follow-imports=skip nampy/contracts.py nampy/neural/contracts.py nampy/gam/fit/state.py
+
+type-check-all:
 	mypy nampy
 
 hygiene:

@@ -15,7 +15,7 @@ def estimator_capabilities(estimator, *, task):
     ready = (
         fitted is not None
         or (task == "cox" and hasattr(estimator, "coef_"))
-        or (task in {"quantile", "expectile"} and hasattr(estimator, "design_"))
+        or (task in {"quantile", "expectile", "calibrated_quantile"} and hasattr(estimator, "design_"))
     )
 
     def available(*conditions):
@@ -34,6 +34,7 @@ def estimator_capabilities(estimator, *, task):
         "predict_distribution": no,
         "predict_quantiles": no,
         "uncertainty.coefficients": available("available_covariance"),
+        "uncertainty.quantile_function": no,
         "survival.curves": no,
         "survival.hazard": no,
         "survival.intervals": no,
@@ -66,9 +67,14 @@ def estimator_capabilities(estimator, *, task):
             except NotImplementedError as error:
                 result["survival.intervals"] = CapabilityStatus("unsupported", str(error))
         family = getattr(fitted, "family", None)
-    elif task in {"quantile", "expectile"}:
+    elif task in {"quantile", "expectile", "calibrated_quantile"}:
         family = None
         result["uncertainty.coefficients"] = no
+        if task == "calibrated_quantile":
+            conditions = (() if ready and getattr(estimator, "posterior_covariance_", None) is not None
+                          else ("calibrated_covariance",))
+            result["uncertainty.coefficients"] = available(*conditions)
+            result["uncertainty.quantile_function"] = available(*conditions)
     else:
         family = fitted.family if fitted is not None else estimator._build_gam().family
         if task == "distributional":

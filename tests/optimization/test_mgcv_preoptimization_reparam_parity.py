@@ -196,11 +196,11 @@ def _assert_setup_reparam_surface(
     expected_U1 = np.asarray(expected["U1"], dtype=np.float64)
     expected_UrS = _as_matrix_list(expected.get("UrS", []))
 
-    assert int(actual.Mp) == int(expected["Mp"])
+    assert int(actual.penalty_null_dim) == int(expected["Mp"])
     assert actual.E.shape == expected_E.shape
-    assert actual.Eb.shape == expected_Eb.shape
+    assert actual.rank_penalty_root.shape == expected_Eb.shape
     assert actual.U1.shape == expected_U1.shape
-    assert len(actual.UrS) == len(expected_UrS)
+    assert len(actual.range_penalty_roots) == len(expected_UrS)
 
     _assert_u1_subspaces_equal(
         actual.U1, expected_U1, q_range=expected_E.shape[0], atol=atol
@@ -213,15 +213,15 @@ def _assert_setup_reparam_surface(
             atol=atol,
         )
         np.testing.assert_allclose(
-            normalize_penalty_scale(actual.Eb.T @ actual.Eb),
+            normalize_penalty_scale(actual.rank_penalty_root.T @ actual.rank_penalty_root),
             normalize_penalty_scale(expected_Eb.T @ expected_Eb),
             rtol=0.0,
             atol=atol,
         )
     else:
         _assert_root_gram_equal(actual.E, expected_E, atol=atol)
-        _assert_root_gram_equal(actual.Eb, expected_Eb, atol=atol)
-    for a_root, e_root in zip(actual.UrS, expected_UrS, strict=True):
+        _assert_root_gram_equal(actual.rank_penalty_root, expected_Eb, atol=atol)
+    for a_root, e_root in zip(actual.range_penalty_roots, expected_UrS, strict=True):
         if normalize_penalty_scales:
             np.testing.assert_allclose(
                 normalize_penalty_scale(a_root.T @ a_root),
@@ -339,7 +339,7 @@ def test_preoptimization_reparameterization_matches_mgcv(
     )
 
     actual_rp = gam_reparam(
-        [np.asarray(root, dtype=np.float64) for root in actual_setup.UrS],
+        [np.asarray(root, dtype=np.float64) for root in actual_setup.range_penalty_roots],
         _current_log_sp_full(gam, actual_setup),
         deriv=2,
     )

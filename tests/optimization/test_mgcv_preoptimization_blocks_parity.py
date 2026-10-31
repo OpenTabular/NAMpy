@@ -751,9 +751,9 @@ def _assert_preoptimization_parity(
     assert actual.Y.shape == expected_Y.shape
     assert actual.Z.shape == expected_Z.shape
     assert actual.E.shape == expected_E.shape
-    assert actual.Eb.shape == expected_Eb.shape
+    assert actual.rank_penalty_root.shape == expected_Eb.shape
     assert actual.U1.shape == expected_U1.shape
-    assert actual.Mp == int(expected["Mp"])
+    assert actual.penalty_null_dim == int(expected["Mp"])
 
     _assert_u1_subspaces_equal(
         actual.U1,
@@ -772,19 +772,19 @@ def _assert_preoptimization_parity(
                 atol=penalty_atol,
             )
             _assert_dominant_penalty_spectrum_close(
-                np.asarray(actual.Eb, dtype=np.float64).T
-                @ np.asarray(actual.Eb, dtype=np.float64),
+                np.asarray(actual.rank_penalty_root, dtype=np.float64).T
+                @ np.asarray(actual.rank_penalty_root, dtype=np.float64),
                 expected_Eb.T @ expected_Eb,
                 atol=penalty_atol,
             )
         else:
             _assert_root_gram_equal(actual.E, expected_E)
-            _assert_root_gram_equal(actual.Eb, expected_Eb)
+            _assert_root_gram_equal(actual.rank_penalty_root, expected_Eb)
 
     expected_UrS = _as_matrix_list(expected.get("UrS", []))
-    assert len(actual.UrS) == len(expected_UrS)
+    assert len(actual.range_penalty_roots) == len(expected_UrS)
     if compare_range_root_repr:
-        for a_UrS, e_UrS in zip(actual.UrS, expected_UrS, strict=True):
+        for a_UrS, e_UrS in zip(actual.range_penalty_roots, expected_UrS, strict=True):
             assert a_UrS.shape == e_UrS.shape
             if compare_dominant_penalty_spectrum:
                 _assert_dominant_penalty_spectrum_close(

@@ -264,6 +264,19 @@ model.set_params(training=replace(model.training or GradientTrainingConfig(), ma
 prediction = model.predict(X)
 components = model.predict_components(X, center=True, reference_X=X)
 importance = model.term_importance(X, center=True, reference_X=X)
+
+from nampy import FisherDiagnostics
+fisher = model.fisher_information(
+    X.iloc[:32],
+    config=FisherDiagnostics(
+        estimator="exact", regression_scale=0.3, group_by="term", n_inputs=32,
+    ),
+)
+fisher_per_parameter = {
+    group.name: group.mean_diagonal
+    for group in fisher.groups if group.name in X.columns
+}
+
 figures = model.plot_terms(X, center=True, reference_X=X, pages=1)
 ```
 
@@ -461,9 +474,9 @@ raw/absorbed construction for `cr/cs/cc/ps/cp`. See the
 supported compositions, and upstream validation limits.
 
 Recent modeling routes include subject-record longitudinal piecewise-exponential
-models across both engines, static fixed/eligible automatic-smoothing `CoxGAM`, fixed-bandwidth and
-fixed/adaptive `CalibratedQuantileGAM` inference, and joint
+models across both engines, static fixed/eligible automatic-smoothing `CoxGAM`, calibrated quantile inference
+with supplied or adaptive bandwidth and fixed or selected smoothing, and joint
 `SemiStructuredRegressor`/`SemiStructuredLSS` spline–neural composition.
-These are scoped routes: stratified Newton Cox smoothing, adaptive qgam bandwidth and
-joint spline–neural REML/inference remain unsupported.
+Adaptive qgam bandwidth is available with `bandwidth=None`. Stratified Newton
+Cox smoothing and joint spline–neural REML/inference remain unsupported.
 See the survival, quantile-inference and semistructured user guides.

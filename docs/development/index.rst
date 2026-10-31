@@ -4,6 +4,8 @@ Validation reports
 These reports distinguish interface execution from numerical agreement.
 Finite outputs alone do not establish convergence, calibration or parity.
 Each report states its inputs, acceptance conditions and remaining limits.
+The :doc:`capability inventory </capabilities>` indexes implementation declarations
+and selected evidence separately; support is not a blanket validation claim.
 
 .. list-table:: Report purposes
    :header-rows: 1

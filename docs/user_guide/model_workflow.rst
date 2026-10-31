@@ -6,6 +6,28 @@ regression or survival. Statistical and neural estimators own their fitting
 algorithms; shared prediction records and diagnostics support both engines.
 GAMLSS describes distributional regression, rather than a third fitting engine.
 
+.. _choose-response-summary:
+
+Choose a response summary
+-------------------------
+
+A conditional mean, quantile and expectile answer different questions.
+``GAMRegressor`` estimates a family-defined mean response; ``QuantileGAM``
+estimates a conditional quantile, with level ``0.5`` targeting the median.
+``ExpectileGAM`` uses asymmetric squared error to estimate an expectile, with
+level ``0.5`` targeting the mean. Away from ``0.5``, expectiles respond to the
+magnitudes of tail residuals, whereas quantiles describe cumulative probability.
+
+``ExpectileGAM`` accepts observation weights and ordinary spline designs with
+fixed nonnegative smoothing penalties. Choose penalty strengths with held-out
+expectile loss; Gaussian REML selection and automatic confidence intervals are
+not supplied for this route. Scaling all training weights changes their balance
+with the fixed penalty. Neither expectile nor quantile loss alone defines a
+normalized response density. See the :doc:`expectile contract
+</statistical_reference/estimators/ExpectileGAM>` and :doc:`fitting conventions
+</statistical_reference/estimators/asymmetric_fitting>` for the exact losses and
+supported fitting controls.
+
 Predict the quantity you need
 -----------------------------
 

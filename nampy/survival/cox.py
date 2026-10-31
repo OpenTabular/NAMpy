@@ -12,14 +12,19 @@ References
 """
 
 import numpy as np
+from scipy.special import logsumexp
 
 
 def baseline_from_predictors(predictors, time, event, strata):
-    """Return right-continuous cumulative baseline hazards by integer stratum."""
-    with np.errstate(over="raise", invalid="raise"):
-        gamma = np.exp(predictors)
-    if np.any(gamma <= 0) or not np.isfinite(gamma).all():
-        raise FloatingPointError("Cox risk weights exceed finite numerical range.")
+    """Return right-continuous cumulative hazards in the supplied predictor frame.
+
+    Callers must use the same predictor reference when combining these hazards
+    with new risks. Fitted estimators center within each stratum before calling
+    this primitive, so harmless common shifts do not overflow baseline storage.
+    """
+    predictors = np.asarray(predictors, dtype=float)
+    if not np.isfinite(predictors).all():
+        raise FloatingPointError("Cox predictors must be finite.")
     result = {}
     for label in np.unique(strata):
         take = strata == label
@@ -27,10 +32,9 @@ def baseline_from_predictors(predictors, time, event, strata):
         increments = []
         for t in times:
             with np.errstate(over="raise", invalid="raise", divide="raise"):
-                total = np.sum(gamma[take & (time >= t)])
-                if not np.isfinite(total) or total <= 0:
-                    raise FloatingPointError("Cox risk totals exceed finite positive numerical range.")
-                increments.append(np.sum(event[take & (time == t)]) / total)
+                deaths = np.sum(event[take & (time == t)])
+                log_total = logsumexp(predictors[take & (time >= t)])
+                increments.append(0.0 if deaths == 0 else np.exp(np.log(deaths) - log_total))
         with np.errstate(over="raise", invalid="raise"):
             result[int(label)] = (np.r_[0.0, times], np.r_[0.0, np.cumsum(increments)])
     return result

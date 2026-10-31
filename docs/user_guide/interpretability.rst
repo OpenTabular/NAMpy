@@ -26,7 +26,10 @@ link scale; applying a nonlinear inverse link to each term separately and
 summing the results does not reconstruct the response prediction.
 
 The :class:`nampy.contracts.AdditivePrediction` object stores ``link``,
-``response``, ``terms``, ``intercept``, and ``offset``.
+``terms``, ``intercept``, ``offset`` and predictor/term metadata. It describes
+additive predictors. Obtain response values or probabilities through the
+estimator's task-specific prediction methods; distributional models expose
+``predict_point`` and ``predict_distribution`` for those queries.
 ``validate_additive_reconstruction()`` checks the accounting identity above.
 It does not establish that each term is uniquely determined or reliably
 estimated.
@@ -102,6 +105,27 @@ add those constants to the intercept. This is an explicit re-expression of
 the fitted statistical components, not a refit or a change to the exposure.
 The neural estimator API performs the analogous shift through ``center=True``
 and ``reference_X``.
+
+For either backend, the shared helper also accepts a separate reference cohort
+and weights defining that cohort's centering distribution:
+
+.. code-block:: python
+
+   from nampy.diagnostics import center_additive_prediction
+
+   query_components = model.predict_components(X_test)
+   reference_components = model.predict_components(X_reference)
+   centered = center_additive_prediction(
+       query_components,
+       reference=reference_components,
+       sample_weight=reference_weights,
+   )
+
+``reference_weights`` has one finite nonnegative entry per reference row and a
+positive total. Each term's weighted reference mean is subtracted from that
+term on every query row and added to the intercept. Link predictions and fitted
+coefficients are preserved. Supply any required offsets separately for each
+component query.
 
 .. literalinclude:: ../scripts/generate_howto_assets.py
    :language: python

@@ -6,28 +6,6 @@
   padding: 0;
 }
 
-.wy-menu-vertical .module-code-navigation ul {
-  display: block;
-  margin-left: 0.75rem;
-}
-
-.module-code-navigation summary {
-  cursor: pointer;
-  font-size: 90%;
-  font-weight: 400;
-  line-height: 18px;
-  padding: 0.3rem 0.75rem;
-  overflow-wrap: anywhere;
-}
-
-.module-code-navigation details > ul {
-  border-left: 1px solid #d9e2e7;
-}
-
-.wy-menu-vertical .module-code-navigation a {
-  overflow-wrap: anywhere;
-}
-
 .module-source-index a,
 .module-source-index span {
   overflow-wrap: anywhere;
@@ -42,12 +20,6 @@
 }
 
 .module-source-index span[id] {
-  font-weight: 600;
-}
-
-.wy-menu-vertical .module-code-navigation a[aria-current="page"] {
-  background: #e3edf3;
-  color: #234d66;
   font-weight: 600;
 }
 
@@ -74,9 +46,62 @@
   }
 }
 
+/* Roomier fixed limits, with responsive sizing on smaller screens. */
+.wy-nav-content {
+  width: 100%;
+  max-width: 1040px;
+}
+
+/* Long display equations scroll locally instead of widening small screens. */
+.rst-content div.math {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 /* Keep page navigation separate from the site-wide document tree. */
-.page-navigation {
+.page-navigation,
+.page-navigation-mobile {
   display: none;
+}
+
+@media screen and (max-width: 1199px) {
+  .page-navigation-mobile {
+    display: block;
+    border: 1px solid #e1e6e9;
+    border-radius: 4px;
+    margin: 1rem 0 1.5rem;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  .page-navigation-mobile summary {
+    cursor: pointer;
+    color: #374957;
+    font-weight: 600;
+  }
+
+  .page-navigation-mobile nav {
+    margin-top: 0.75rem;
+  }
+
+  .rst-content .page-navigation-mobile ul {
+    list-style: none;
+    margin: 0;
+  }
+
+  .rst-content .page-navigation-mobile ul ul {
+    margin-left: 1rem;
+  }
+
+  .page-navigation-mobile a {
+    display: block;
+    overflow-wrap: anywhere;
+    padding: 0.3rem 0;
+  }
+
+  .page-navigation-mobile a[aria-current="location"] {
+    font-weight: 600;
+  }
 }
 
 .rst-content h2,
@@ -87,9 +112,9 @@
 @media screen and (min-width: 1200px) {
   .wy-nav-content.has-page-navigation {
     display: grid;
-    grid-template-columns: minmax(0, 800px) 210px;
+    grid-template-columns: minmax(0, 1040px) 210px;
     gap: 3rem;
-    max-width: 1200px;
+    max-width: 1560px;
   }
 
   .has-page-navigation > .rst-content {

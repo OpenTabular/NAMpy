@@ -51,6 +51,16 @@ from full-penalty standard deviations and uses the accepted REML variance for
 Gaussian fits. Rescaling parametric variance components remains guarded where
 the required scale metadata is unavailable.
 
+For ordinary partially pooled group intercepts, ``GAM.gam_vcomp()`` reports
+component standard deviations on the additive predictor scale; random-slope
+units also reflect the covariate scaling. Available confidence limits depend
+on the fitted likelihood and outer curvature, and should be read with the
+returned rank and finite-bound information. A fixed-penalty fit with no free
+smoothing parameters returns ``None``. The :doc:`method reference
+<methods/gam_vcomp>` specifies the output fields; use the
+:doc:`group-smooth tutorial </notebooks/group_smooths>` to connect these
+components to partial pooling.
+
 ``constraints={1: C}`` replaces the first smooth's default centering with
 ``C @ beta_raw = 0``. A unique smooth label may replace the one-based index.
 Fitting supports ``cr``, ``cc``, ``ps``, ``cp`` and ``bs`` without ``by``,

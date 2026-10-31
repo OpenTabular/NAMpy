@@ -34,6 +34,41 @@ Fit and inspect
    components = model.predict_components(X_test, center=True)
    figures = model.plot_terms(X_test, center=True)
 
+.. _nodegam-masked-pretraining:
+
+Optional masked reconstruction
+-------------------------------
+
+NodeGAM can first reconstruct masked transformed inputs, then transfer compatible
+representation weights into supervised fitting. Configure both stages through
+``GradientTrainingConfig``; preprocessing is fitted on training rows and reused
+for validation. This is an initialization strategy, not additional labeled data
+or a guarantee of better held-out predictions.
+
+.. code-block:: python
+
+   from nampy import GradientTrainingConfig
+
+   pretrained = NodeGAMRegressor(
+       architecture_config=DefaultNodeGAMConfig(
+           num_trees=8, num_layers=1, depth=2,
+       ),
+       training=GradientTrainingConfig(
+           pretrain_epochs=1, pretrain_max_steps=5,
+           pretraining_ratio=0.15, pretraining_noise=0.1,
+           max_epochs=10, batch_size=32, random_state=7,
+       ),
+   ).fit(X_train, y_train, X_val=X_validation, y_val=y_validation)
+   transferred_keys = pretrained.pretrained_keys_
+   prediction = pretrained.predict(X_test)
+
+``pretrain_max_steps`` caps reconstruction updates independently of supervised
+``max_epochs``. Pretraining uses main-effect structure; only compatible state is
+transferred, recorded in ``pretrained_keys_``. The reconstruction head is not a
+supervised prediction head. Other architectures must explicitly declare masked
+pretraining support; unsupported requests raise rather than silently skipping it.
+See :doc:`/user_guide/training` for checkpoint and validation controls.
+
 Interpretation and limits
 -------------------------
 

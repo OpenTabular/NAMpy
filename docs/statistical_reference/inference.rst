@@ -63,6 +63,25 @@ it is not a simultaneous band over an entire curve. Use
 Conditional response SD (for example Gaussian sigma) describes variability of
 new observations and is distinct from either coefficient or fitted-mean SE.
 
+Joint draws for derived quantities
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use :doc:`extensions/coefficient_draws` for approximate joint coefficient draws
+in supported fitted coordinates. It accepts Bayesian covariance conditional on
+smoothing, frequentist sampling covariance, or an available smoothing-adjusted
+covariance. Unlike ``vcov(unconditional=True)``, requesting unavailable
+``covariance="unconditional"`` here raises rather than substituting a matrix.
+
+For a nonlinear derived quantity, evaluate all required predictors and natural
+parameter transformations on each shared coefficient draw, include the new
+rows' known offsets, and then summarize the resulting functional draws. This
+retains cross-predictor and cross-row dependence; drawing parameters or rows
+independently would discard it. The linked runnable example demonstrates the
+sampler and its explicit covariance choice. These are local approximations to
+coefficient uncertainty, not response draws, a refit bootstrap, or guaranteed
+coverage for an arbitrary nonlinear functional. For supported linear contrasts
+and finite-grid bands, use :doc:`extensions/linear_functional_interval` directly.
+
 Effective degrees of freedom
 ----------------------------
 

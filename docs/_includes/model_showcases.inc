@@ -49,10 +49,6 @@ measure held-out prediction quality. In the component table, adding the
 intercept, smooth contribution, and group contribution reconstructs the
 prediction for that row.
 
-.. image:: /_static/home_gam.png
-   :alt: GAM smooth effect and fitted response by group
-   :class: homepage-demo scientific-figure
-
 Without a formula, the adapter creates one smooth main effect per input column:
 
 .. showcase-gam-adapter-start
@@ -66,19 +62,20 @@ Without a formula, the adapter creates one smooth main effect per input column:
    model = GAMRegressor(k=10, basis="tp").fit(X_train, y_train)
    prediction = model.predict(X_test)
    standard_error = model.standard_errors(X_test)
+   lower = prediction - 1.96 * standard_error
+   upper = prediction + 1.96 * standard_error
 
 .. showcase-gam-adapter-end
 
 .. include:: /_generated/home_gam_adapter.inc
 
-.. image:: /_static/home_gam_adapter.png
-   :alt: Held-out GAM predictions with pointwise uncertainty
+.. image:: /_static/home_gam.png
+   :alt: Three equal panels showing the GAM smooth effect, fitted response by group, and held-out predictions with pointwise mean uncertainty
    :class: homepage-demo scientific-figure
 
-This numeric single-column adapter example predicts alternating held-out
-rows. The standard-error column and pointwise band concern the fitted mean,
-conditional on the statistical model and smoothing convention; they do not
-represent the scatter of future observations.
+The first two panels show the formula fit; the third shows the numeric adapter
+on alternating held-out rows. Its 95% pointwise band describes uncertainty in
+the fitted mean, not the scatter of future observations.
 
 Distributional GAM (GAMLSS)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -112,18 +109,28 @@ Fit separate predictors for the conditional mean and standard deviation:
    point_prediction = model.predict(data_dist)
    raw_predictors = model.predict_link(data_dist)
 
+   profiles = pd.DataFrame({"x": [0.15, 0.5, 0.85], "group": "a"})
+   limits = model.predict_distribution(profiles).quantile([0.001, 0.999])
+   density_y = np.linspace(limits[:, 0].min(), limits[:, 1].max(), 300)
+   density_curves = {}
+   for value in profiles.x:
+       query = pd.DataFrame({"x": np.full(len(density_y), value), "group": "a"})
+       density_curves[value] = np.exp(model.predict_distribution(query).log_prob(density_y))
+
 .. showcase-gamlss-end
 
 .. include:: /_generated/home_gamlss.inc
 
 .. image:: /_static/home_gamlss.png
-   :alt: GAMLSS fitted conditional mean and standard deviation
+   :alt: Three equal panels showing the GAMLSS conditional mean, standard deviation, and fitted density slices at three predictor values
    :class: homepage-demo scientific-figure
 
 The displayed natural columns are ``mu`` (conditional mean) and ``sigma``
 (conditional standard deviation). ``predict_link`` returns the predictors before
 the family transforms; its scale predictor is not the natural ``sigma``.
-The scale formula has no group term, so its group curves coincide.
+The scale formula has no group term, so its group curves coincide. The third
+panel evaluates the fitted density as ``exp(log_prob(y))`` at x = 0.15, 0.5
+and 0.85, with group a fixed; the shared y grid spans their 0.1%–99.9% quantiles.
 
 Neural Additive Model (NAM)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -166,6 +173,19 @@ nonlinear contribution; the names do not identify a real housing study.
    prediction = model.predict(X)
    components = model.predict_components(X, center=True, reference_X=X)
    importance = model.term_importance(X, center=True, reference_X=X)
+
+   from nampy import FisherDiagnostics
+   fisher = model.fisher_information(
+       X.iloc[:32],
+       config=FisherDiagnostics(
+           estimator="exact", regression_scale=0.3, group_by="term", n_inputs=32,
+       ),
+   )
+   fisher_per_parameter = {
+       group.name: group.mean_diagonal
+       for group in fisher.groups if group.name in X.columns
+   }
+
    figures = model.plot_terms(X, center=True, reference_X=X, pages=1)
    truth_functions = {
        "median_income": lambda x: 2.2*np.tanh((x-5)/1.7),
@@ -182,23 +202,20 @@ nonlinear contribution; the names do not identify a real housing study.
 
 .. showcase-nam-end
 
-.. image:: /_static/homepage_demo_light.png
-   :alt: Centered NAM feature effects for the four input features
+.. image:: /_static/home_nam.png
+   :alt: Six equal panels showing four centered NAM feature effects, feature importance, and term-group Fisher information
    :class: homepage-demo scientific-figure
    :align: center
 
-Effects are centered against the training input rows ``X``: their averages
-are transferred to the intercept. Red background shading shows feature
-density, not an uncertainty band. Dashed curves show the known synthetic
-effects centered against the same rows; discrepancies indicate incomplete
-recovery, including in sparsely observed ranges.
+The four curves use centered feature contributions; dashed lines show the known
+synthetic effects and red shading shows predictor density. Importance is the
+mean absolute centered contribution. After fitting, ``fisher_information`` uses
+the exact Gaussian likelihood with the known simulation noise SD of 0.3 on the
+first 32 input rows, holding the fitted weights fixed. Each Fisher bar is the
+network's information trace divided by its parameter count (``mean_diagonal``);
+it measures parameter sensitivity, not effect size or a confidence interval.
 
 .. include:: /_generated/home_nam.inc
-
-.. image:: /_static/home_nam_importance.png
-   :alt: NAM feature importance measured by mean absolute centered contribution
-   :class: homepage-demo scientific-figure
-   :align: center
 
 Neural distributional regression
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -318,7 +318,7 @@ def _optimize_outer_bfgs_strict(
             model=getattr(objective, "model", None),
         )
         initial_lsp = x0.copy()
-        lsp = x0.copy()
+        log_smoothing_params = x0.copy()
         ilsp = x0.copy()
         score_hist = np.full(int(max_step) + 1, np.nan, dtype=np.float64)
         score_hist[0] = float(initial["score"])
@@ -456,7 +456,7 @@ def _optimize_outer_bfgs_strict(
                 prev = initial.copy()
                 deriv = 1
                 while True:
-                    lsp = _project_to_bounds(ilsp + alpha * step, bounds)
+                    log_smoothing_params = _project_to_bounds(ilsp + alpha * step, bounds)
                     (
                         score_val,
                         grad_val,
@@ -468,7 +468,7 @@ def _optimize_outer_bfgs_strict(
                         scale_trial,
                     ) = _eval_objective_at(
                         objective,
-                        lsp,
+                        log_smoothing_params,
                         start_coef=prev["start"],
                         start_eta=prev["eta"],
                         start_mu=prev["mustart"],
@@ -509,7 +509,7 @@ def _optimize_outer_bfgs_strict(
                             scale_now,
                         ) = _eval_objective_at(
                             objective,
-                            lsp,
+                            log_smoothing_params,
                             start_coef=trial["start"],
                             start_eta=trial["eta"],
                             start_mu=trial["mustart"],
@@ -534,7 +534,7 @@ def _optimize_outer_bfgs_strict(
                     alpha = min(float(prev["alpha"]) * 1.3, float(alpha_max))
 
                 if trial is None:
-                    lsp = ilsp.copy()
+                    log_smoothing_params = ilsp.copy()
                     (
                         score_curr,
                         grad_curr,
@@ -593,7 +593,7 @@ def _optimize_outer_bfgs_strict(
                         )
 
                     score_hist[i] = float(trial["score"])
-                    lsp = ilsp = ilsp + step
+                    log_smoothing_params = ilsp = ilsp + step
                     converged = True
                     score_scale = _bfgs_score_scale(
                         score_type,
@@ -624,8 +624,8 @@ def _optimize_outer_bfgs_strict(
                     counter = 0
                     uconv0 = uconv.copy()
                     while np.any(~uconv0) and counter < 5:
-                        lsp[~uconv0] = (
-                            lsp[~uconv0] * 0.8 + initial_lsp[~uconv0] * 0.2
+                        log_smoothing_params[~uconv0] = (
+                            log_smoothing_params[~uconv0] * 0.8 + initial_lsp[~uconv0] * 0.2
                         )
                         (
                             score_rb,
@@ -638,7 +638,7 @@ def _optimize_outer_bfgs_strict(
                             scale_rb,
                         ) = _eval_objective_at(
                             objective,
-                            lsp,
+                            log_smoothing_params,
                             start_coef=trial["start"],
                             start_eta=trial["eta"],
                             start_mu=trial["mustart"],
@@ -657,7 +657,7 @@ def _optimize_outer_bfgs_strict(
                         uconv0 = _apply_dvkk_signal(uconv0, trial["dVkk"], 20.0)
                         uconv0 = uconv0 | uconv
                     uconv = np.ones_like(uconv, dtype=bool)
-                    ilsp = lsp.copy()
+                    ilsp = log_smoothing_params.copy()
             step_norm = 0.0
             if len(iter_trace) > 0:
                 prev_lsp = np.asarray(iter_trace[-1]["log_sp"], dtype=np.float64)
@@ -683,7 +683,7 @@ def _optimize_outer_bfgs_strict(
 
         if trial is None:
             ct = "step failed"
-            lsp = ilsp.copy()
+            log_smoothing_params = ilsp.copy()
             trial = initial.copy()
         elif i == int(max_step):
             ct = "iteration limit reached"
@@ -692,7 +692,7 @@ def _optimize_outer_bfgs_strict(
 
         score_f, grad_f, _, _, coef_f, eta_f, mu_f, _ = _eval_objective_at(
             objective,
-            lsp,
+            log_smoothing_params,
             start_coef=trial["start"],
             start_eta=trial["eta"],
             start_mu=trial["mustart"],
@@ -708,7 +708,7 @@ def _optimize_outer_bfgs_strict(
         hess_approx = _invert_inverse_hessian(B)
         success = ct == "full convergence"
         result = OptimizeResult(
-            x=np.asarray(lsp, dtype=np.float64),
+            x=np.asarray(log_smoothing_params, dtype=np.float64),
             fun=float(score_f),
             jac=np.asarray(grad_f, dtype=np.float64),
             hess=np.asarray(hess_approx, dtype=np.float64),

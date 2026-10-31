@@ -20,11 +20,16 @@ Implemented scope
   calibration, calibrated uncertainty, automatic qgam smoothing selection,
   or jointly noncrossing quantiles. Smooth ELF fits have approximation bias
   controlled by their explicit response-scale bandwidth.
+  This restriction applies to ``QuantileGAM``; the separate
+  :doc:`CalibratedQuantileGAM workflow </user_guide/quantile_inference>` implements
+  calibrated quantile-function intervals, adaptive bandwidth and eligible REML
+  smoothing selection.
   Exact fitting uses a sparse epigraph formulation: HiGHS for unpenalized
   linear programs and OSQP for penalized convex quadratic programs. Constraint
   storage grows with observations times basis width, rather than observations
   squared. Stopping tolerances and KKT residuals are explicit; no artificial
   penalty is added to make the Hessian positive definite.
+
 * ``student_lss``, ``beta_lss`` and ``nb_lss``: two jointly fitted distributional
   predictors with analytic mixed derivatives through order four. These extend
   the existing GAMLSS engine. They support fixed smoothing and joint Laplace

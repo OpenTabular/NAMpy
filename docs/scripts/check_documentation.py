@@ -182,7 +182,9 @@ def main():
                 target /= "index.html"
             sidebar_pages.add(target)
         for path, page in pages.items():
-            if not page.redirect and path not in sidebar_pages:
+            relative = path.relative_to(build)
+            utility = relative.as_posix() == "search.html" or relative.parts[0] == "_modules"
+            if not page.redirect and not utility and path not in sidebar_pages:
                 errors.append(
                     f"{path.relative_to(build)}: page has no place in the sidebar"
                 )
@@ -195,9 +197,15 @@ def main():
         page = pages.get(path)
         if page is None or not page.redirect or "noindex" not in page.robots:
             errors.append(f"{old}: redirect missing or indexable")
-    for filename in ("genindex.html", "py-modindex.html", "search.html", "searchindex.js"):
+    for filename in ("genindex.html", "py-modindex.html"):
         if (build / filename).exists():
-            errors.append(f"{filename}: removed utility page or search index remains")
+            errors.append(f"{filename}: removed utility page remains")
+    for filename in ("search.html", "searchindex.js"):
+        path = build / filename
+        if not path.is_file() or not path.stat().st_size:
+            errors.append(f"{filename}: search page or index missing")
+    if homepage is not None and 'id="rtd-search-form"' not in (build / "index.html").read_text():
+        errors.append("index.html: visible search form missing")
     for path in [
         *(ROOT / "docs/notebooks").glob("*.ipynb"),
         *(ROOT / "docs/development/notebooks").glob("*.ipynb"),

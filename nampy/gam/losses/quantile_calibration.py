@@ -48,6 +48,22 @@ class QuantileCalibrationFit:
     sandwich_covariance: np.ndarray
     calibration_loss: float
     profile: np.ndarray
+    calibration_diagnostics: dict
+    smoothing_diagnostics: dict | None
+
+
+def _optimizer_diagnostics(result):
+    """Keep reported optimizer evidence; a missing derivative is not zero."""
+    if result is None:
+        return None
+    jac = getattr(result, "jac", None)
+    return {
+        "converged": bool(result.success),
+        "iterations": getattr(result, "nit", None),
+        "function_evaluations": getattr(result, "nfev", None),
+        "optimality": None if jac is None else float(np.max(np.abs(jac))),
+        "message": str(result.message),
+    }
 
 
 def _fit_elf_root(matrix, response, penalty, *, level, bandwidth, max_iter, tol):
@@ -94,7 +110,8 @@ def _fit_elf_root(matrix, response, penalty, *, level, bandwidth, max_iter, tol)
         + 0.5 * result.x @ S @ result.x
     )
     return LossFit(
-        result.x, X @ result.x, objective, int(result.nfev), converged, optimality
+        result.x, X @ result.x, objective, None, converged, optimality,
+        function_evaluations=int(result.nfev),
     )
 
 
@@ -223,7 +240,10 @@ def fit_calibrated_quantile(
         )
     fitted, sigma, posterior, sandwich, loss = cache[optimized.x]
     profile = np.array([[x, value[-1]] for x, value in cache.items()])
-    return QuantileCalibrationFit(fitted, sigma, posterior, sandwich, loss, profile)
+    return QuantileCalibrationFit(
+        fitted, sigma, posterior, sandwich, loss, profile,
+        _optimizer_diagnostics(optimized), None,
+    )
 
 
 def fit_calibrated_quantile_auto(
@@ -289,8 +309,16 @@ def fit_calibrated_quantile_auto(
                 )
             design = CompiledDesign.from_fitted_gam(gam, X, offset=offset)
             coef = gam.fit_result().coef_full
+            core = gam.fit_result().core
+            fitted_values = design.matrix @ coef
+            residual = np.asarray(response) - design.training_offset - fitted_values
+            score = design.penalty @ coef - design.matrix.T @ (
+                (level - 1 + expit(residual / bandwidth)) / sigma
+            )
             fitted = LossFit(
-                coef, design.matrix @ coef, float(-gam.loglik()), 0, True, 0.0
+                coef, fitted_values, float(-gam.loglik()), core.iter,
+                bool(core.converged and not core.failed_step),
+                float(np.max(np.abs(score))),
             )
             V, VS, loss = _calibration_covariances(
                 design.matrix,
@@ -318,4 +346,8 @@ def fit_calibrated_quantile_auto(
         )
     fitted, sigma, V, VS, loss, design, gam = cache[optimized.x]
     profile = np.array([[x, value[4]] for x, value in cache.items()])
-    return QuantileCalibrationFit(fitted, sigma, V, VS, loss, profile), design, gam
+    return QuantileCalibrationFit(
+        fitted, sigma, V, VS, loss, profile,
+        _optimizer_diagnostics(optimized),
+        _optimizer_diagnostics(gam._optim_result),
+    ), design, gam
