@@ -3,6 +3,7 @@
 import json
 import posixpath
 import subprocess
+import sys
 from pathlib import Path
 
 REDIRECTS = {
@@ -58,6 +59,10 @@ REDIRECTS.update(
         (Path(__file__).parents[1] / "_data/legacy_documentation.json").read_text()
     )
 )
+# Tests execute this file directly, without the Sphinx extension path.
+_EXTENSIONS = Path(__file__).resolve().parent
+if str(_EXTENSIONS) not in sys.path:
+    sys.path.insert(0, str(_EXTENSIONS))
 from howto_groups import page_redirects
 
 REDIRECTS.update(page_redirects())
