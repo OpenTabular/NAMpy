@@ -8314,6 +8314,34 @@
   },
   {
     "kind": "shared",
+    "symbol": "centile_calibration",
+    "public_import": "nampy.diagnostics.centile_calibration",
+    "signature": "(distribution: 'DistributionPrediction', y, *, probs=(0.05, 0.5, 0.95)) -> 'CentileCalibration'",
+    "parameters": [
+      {
+        "name": "distribution",
+        "default": "required"
+      },
+      {
+        "name": "y",
+        "default": "required"
+      },
+      {
+        "name": "probs",
+        "default": "(0.05, 0.5, 0.95)"
+      }
+    ],
+    "page": "api/generated/nampy.diagnostics.centile_calibration",
+    "example": "api/generated/nampy.diagnostics.centile_calibration",
+    "input_contract": "api/generated/nampy.diagnostics.centile_calibration",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.diagnostics.centile_calibration",
+    "restrictions": "api/generated/nampy.diagnostics.centile_calibration",
+    "tests": [
+      "tests/docs/test_feature_reference.py"
+    ]
+  },
+  {
+    "kind": "shared",
     "symbol": "combine_distributional_effects",
     "public_import": "nampy.diagnostics.combine_distributional_effects",
     "signature": "(effects: 'Sequence[DistributionalEffects]') -> 'DistributionalEffects'",
@@ -8466,6 +8494,50 @@
   },
   {
     "kind": "shared",
+    "symbol": "plot_centiles",
+    "public_import": "nampy.plotting.diagnostics.plot_centiles",
+    "signature": "(distribution, x, *, probs=(0.05, 0.5, 0.95), ax=None, xlabel='Covariate', ylabel='Response', title='Conditional centiles')",
+    "parameters": [
+      {
+        "name": "distribution",
+        "default": "required"
+      },
+      {
+        "name": "x",
+        "default": "required"
+      },
+      {
+        "name": "probs",
+        "default": "(0.05, 0.5, 0.95)"
+      },
+      {
+        "name": "ax",
+        "default": "None"
+      },
+      {
+        "name": "xlabel",
+        "default": "'Covariate'"
+      },
+      {
+        "name": "ylabel",
+        "default": "'Response'"
+      },
+      {
+        "name": "title",
+        "default": "'Conditional centiles'"
+      }
+    ],
+    "page": "api/generated/nampy.plotting.plot_centiles",
+    "example": "api/generated/nampy.plotting.plot_centiles",
+    "input_contract": "api/generated/nampy.plotting.plot_centiles",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.plotting.plot_centiles",
+    "restrictions": "api/generated/nampy.plotting.plot_centiles",
+    "tests": [
+      "tests/docs/test_feature_reference.py"
+    ]
+  },
+  {
+    "kind": "shared",
     "symbol": "plot_distributional_effects",
     "public_import": "nampy.plotting.effects.plot_distributional_effects",
     "signature": "(estimator, X, **kwargs)",
@@ -8488,6 +8560,86 @@
     "input_contract": "api/generated/nampy.plotting.plot_distributional_effects",
     "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.plotting.plot_distributional_effects",
     "restrictions": "api/generated/nampy.plotting.plot_distributional_effects",
+    "tests": [
+      "tests/docs/test_feature_reference.py"
+    ]
+  },
+  {
+    "kind": "shared",
+    "symbol": "plot_worm",
+    "public_import": "nampy.plotting.diagnostics.plot_worm",
+    "signature": "(residuals, *, groups=None, x=None, n_bins=4, breaks=None, fit_cubic=True, reference_level=0.95, columns=2, figsize=None)",
+    "parameters": [
+      {
+        "name": "residuals",
+        "default": "required"
+      },
+      {
+        "name": "groups",
+        "default": "None"
+      },
+      {
+        "name": "x",
+        "default": "None"
+      },
+      {
+        "name": "n_bins",
+        "default": "4"
+      },
+      {
+        "name": "breaks",
+        "default": "None"
+      },
+      {
+        "name": "fit_cubic",
+        "default": "True"
+      },
+      {
+        "name": "reference_level",
+        "default": "0.95"
+      },
+      {
+        "name": "columns",
+        "default": "2"
+      },
+      {
+        "name": "figsize",
+        "default": "None"
+      }
+    ],
+    "page": "api/generated/nampy.plotting.plot_worm",
+    "example": "api/generated/nampy.plotting.plot_worm",
+    "input_contract": "api/generated/nampy.plotting.plot_worm",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.plotting.plot_worm",
+    "restrictions": "api/generated/nampy.plotting.plot_worm",
+    "tests": [
+      "tests/docs/test_feature_reference.py"
+    ]
+  },
+  {
+    "kind": "shared",
+    "symbol": "prepare_centiles",
+    "public_import": "nampy.diagnostics.prepare_centiles",
+    "signature": "(distribution: 'DistributionPrediction', x, *, probs=(0.05, 0.5, 0.95)) -> 'CentileCurves'",
+    "parameters": [
+      {
+        "name": "distribution",
+        "default": "required"
+      },
+      {
+        "name": "x",
+        "default": "required"
+      },
+      {
+        "name": "probs",
+        "default": "(0.05, 0.5, 0.95)"
+      }
+    ],
+    "page": "api/generated/nampy.diagnostics.prepare_centiles",
+    "example": "api/generated/nampy.diagnostics.prepare_centiles",
+    "input_contract": "api/generated/nampy.diagnostics.prepare_centiles",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.diagnostics.prepare_centiles",
+    "restrictions": "api/generated/nampy.diagnostics.prepare_centiles",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -8528,6 +8680,50 @@
     "input_contract": "api/generated/nampy.diagnostics.prepare_distributional_effects",
     "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.diagnostics.prepare_distributional_effects",
     "restrictions": "api/generated/nampy.diagnostics.prepare_distributional_effects",
+    "tests": [
+      "tests/docs/test_feature_reference.py"
+    ]
+  },
+  {
+    "kind": "shared",
+    "symbol": "prepare_worm_plot",
+    "public_import": "nampy.diagnostics.prepare_worm_plot",
+    "signature": "(residuals, *, groups=None, x=None, n_bins=4, breaks=None, fit_cubic=True, reference_level=0.95) -> 'WormPlotData'",
+    "parameters": [
+      {
+        "name": "residuals",
+        "default": "required"
+      },
+      {
+        "name": "groups",
+        "default": "None"
+      },
+      {
+        "name": "x",
+        "default": "None"
+      },
+      {
+        "name": "n_bins",
+        "default": "4"
+      },
+      {
+        "name": "breaks",
+        "default": "None"
+      },
+      {
+        "name": "fit_cubic",
+        "default": "True"
+      },
+      {
+        "name": "reference_level",
+        "default": "0.95"
+      }
+    ],
+    "page": "api/generated/nampy.diagnostics.prepare_worm_plot",
+    "example": "api/generated/nampy.diagnostics.prepare_worm_plot",
+    "input_contract": "api/generated/nampy.diagnostics.prepare_worm_plot",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.diagnostics.prepare_worm_plot",
+    "restrictions": "api/generated/nampy.diagnostics.prepare_worm_plot",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -8604,6 +8800,78 @@
     "input_contract": "api/generated/nampy.plotting.prepared_from_interactions",
     "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.plotting.prepared_from_interactions",
     "restrictions": "api/generated/nampy.plotting.prepared_from_interactions",
+    "tests": [
+      "tests/docs/test_feature_reference.py"
+    ]
+  },
+  {
+    "kind": "shared",
+    "symbol": "quantile_residuals",
+    "public_import": "nampy.diagnostics.quantile_residuals",
+    "signature": "(distribution: 'DistributionPrediction', y, *, random_state=None, uniforms=None, clip=None) -> 'QuantileResiduals'",
+    "parameters": [
+      {
+        "name": "distribution",
+        "default": "required"
+      },
+      {
+        "name": "y",
+        "default": "required"
+      },
+      {
+        "name": "random_state",
+        "default": "None"
+      },
+      {
+        "name": "uniforms",
+        "default": "None"
+      },
+      {
+        "name": "clip",
+        "default": "None"
+      }
+    ],
+    "page": "api/generated/nampy.diagnostics.quantile_residuals",
+    "example": "api/generated/nampy.diagnostics.quantile_residuals",
+    "input_contract": "api/generated/nampy.diagnostics.quantile_residuals",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.diagnostics.quantile_residuals",
+    "restrictions": "api/generated/nampy.diagnostics.quantile_residuals",
+    "tests": [
+      "tests/docs/test_feature_reference.py"
+    ]
+  },
+  {
+    "kind": "shared",
+    "symbol": "render_centiles",
+    "public_import": "nampy.plotting.diagnostics.render_centiles",
+    "signature": "(data, *, ax=None, xlabel='Covariate', ylabel='Response', title='Conditional centiles')",
+    "parameters": [
+      {
+        "name": "data",
+        "default": "required"
+      },
+      {
+        "name": "ax",
+        "default": "None"
+      },
+      {
+        "name": "xlabel",
+        "default": "'Covariate'"
+      },
+      {
+        "name": "ylabel",
+        "default": "'Response'"
+      },
+      {
+        "name": "title",
+        "default": "'Conditional centiles'"
+      }
+    ],
+    "page": "api/generated/nampy.plotting.render_centiles",
+    "example": "api/generated/nampy.plotting.render_centiles",
+    "input_contract": "api/generated/nampy.plotting.render_centiles",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.plotting.render_centiles",
+    "restrictions": "api/generated/nampy.plotting.render_centiles",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]
@@ -8844,6 +9112,34 @@
     "input_contract": "api/generated/nampy.plotting.render_term_plots",
     "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.plotting.render_term_plots",
     "restrictions": "api/generated/nampy.plotting.render_term_plots",
+    "tests": [
+      "tests/docs/test_feature_reference.py"
+    ]
+  },
+  {
+    "kind": "shared",
+    "symbol": "render_worm_plot",
+    "public_import": "nampy.plotting.diagnostics.render_worm_plot",
+    "signature": "(data, *, columns=2, figsize=None)",
+    "parameters": [
+      {
+        "name": "data",
+        "default": "required"
+      },
+      {
+        "name": "columns",
+        "default": "2"
+      },
+      {
+        "name": "figsize",
+        "default": "None"
+      }
+    ],
+    "page": "api/generated/nampy.plotting.render_worm_plot",
+    "example": "api/generated/nampy.plotting.render_worm_plot",
+    "input_contract": "api/generated/nampy.plotting.render_worm_plot",
+    "return_schema": "_examples/reference/output_schemas.json#api/generated/nampy.plotting.render_worm_plot",
+    "restrictions": "api/generated/nampy.plotting.render_worm_plot",
     "tests": [
       "tests/docs/test_feature_reference.py"
     ]

@@ -71,6 +71,12 @@
     "sha256": "40df7abfac858678cf39aeb3ddb515b36bf357591cdf95934730d15f08c5e97d",
     "status": "passed"
   },
+  "api/generated/nampy.diagnostics.centile_calibration": {
+    "implementation_sha256": "081a292e5b46315b235f8d7274ffbd47ee82fda95e841168007ebad6c0a5e287",
+    "preview_version": 2,
+    "sha256": "fac868643c94398b81433aa02f637a88e73527d75688ecfe7ad8f7ac9fdbc181",
+    "status": "passed"
+  },
   "api/generated/nampy.diagnostics.combine_distributional_effects": {
     "implementation_sha256": "081a292e5b46315b235f8d7274ffbd47ee82fda95e841168007ebad6c0a5e287",
     "preview_version": 2,
@@ -83,10 +89,28 @@
     "sha256": "033fc32ac4813132ebbf734ae6bf044851eea8a50140e6c083992908560d5ff8",
     "status": "passed"
   },
+  "api/generated/nampy.diagnostics.prepare_centiles": {
+    "implementation_sha256": "081a292e5b46315b235f8d7274ffbd47ee82fda95e841168007ebad6c0a5e287",
+    "preview_version": 2,
+    "sha256": "0cddc4639caef2147dd5634235427954504338bb5642b5c1797f14d268f2d292",
+    "status": "passed"
+  },
   "api/generated/nampy.diagnostics.prepare_distributional_effects": {
     "implementation_sha256": "081a292e5b46315b235f8d7274ffbd47ee82fda95e841168007ebad6c0a5e287",
     "preview_version": 2,
     "sha256": "b833f48d7ce3b2b63b4d6a5dcf7bf3cf1319bddc91efc01af1bf7cf508ab9ce9",
+    "status": "passed"
+  },
+  "api/generated/nampy.diagnostics.prepare_worm_plot": {
+    "implementation_sha256": "081a292e5b46315b235f8d7274ffbd47ee82fda95e841168007ebad6c0a5e287",
+    "preview_version": 2,
+    "sha256": "c0e15ce0130907774e9cefd0ada814b9f1a716dcd6d590894ab5cd60c5550542",
+    "status": "passed"
+  },
+  "api/generated/nampy.diagnostics.quantile_residuals": {
+    "implementation_sha256": "081a292e5b46315b235f8d7274ffbd47ee82fda95e841168007ebad6c0a5e287",
+    "preview_version": 2,
+    "sha256": "7b035f26e166f8e5697d9b9aa8d2b8c25ae68d3884c29678d42244643d34993b",
     "status": "passed"
   },
   "api/generated/nampy.diagnostics.term_importance_table": {
@@ -203,10 +227,22 @@
     "sha256": "2c9f7d785ef470e667c46b9c69d81509314b49940d63cece5db66bfeb45f3837",
     "status": "passed"
   },
+  "api/generated/nampy.plotting.plot_centiles": {
+    "implementation_sha256": "081a292e5b46315b235f8d7274ffbd47ee82fda95e841168007ebad6c0a5e287",
+    "preview_version": 2,
+    "sha256": "1d8d0ac585dd32d4eca6fcff2e5ed280803726151a4b6273dc8abf323c5c7f46",
+    "status": "passed"
+  },
   "api/generated/nampy.plotting.plot_distributional_effects": {
     "implementation_sha256": "081a292e5b46315b235f8d7274ffbd47ee82fda95e841168007ebad6c0a5e287",
     "preview_version": 2,
     "sha256": "15af52291b1bca5c3a6187c7539d44873eff8bdaac49a7e4c83a725c6329a82a",
+    "status": "passed"
+  },
+  "api/generated/nampy.plotting.plot_worm": {
+    "implementation_sha256": "081a292e5b46315b235f8d7274ffbd47ee82fda95e841168007ebad6c0a5e287",
+    "preview_version": 2,
+    "sha256": "d2e527649d032f36ce4039d6f2d3dadc378ba5d25be967535f63465371137d70",
     "status": "passed"
   },
   "api/generated/nampy.plotting.prepared_from_contributions": {
@@ -219,6 +255,12 @@
     "implementation_sha256": "081a292e5b46315b235f8d7274ffbd47ee82fda95e841168007ebad6c0a5e287",
     "preview_version": 2,
     "sha256": "50f5622d2adf5a6750e11bab037a0813212246d2719bf3a2cb57e29bec6d7c71",
+    "status": "passed"
+  },
+  "api/generated/nampy.plotting.render_centiles": {
+    "implementation_sha256": "081a292e5b46315b235f8d7274ffbd47ee82fda95e841168007ebad6c0a5e287",
+    "preview_version": 2,
+    "sha256": "6f6014fa18458b4d27f931a606f53df0025e2ec96780aaf2d7db41129c8e325f",
     "status": "passed"
   },
   "api/generated/nampy.plotting.render_distributional_effects": {
@@ -249,6 +291,12 @@
     "implementation_sha256": "081a292e5b46315b235f8d7274ffbd47ee82fda95e841168007ebad6c0a5e287",
     "preview_version": 2,
     "sha256": "d16bd9dd1f87521d87c8f5486e4df316a63c7c7758d2c4a21ff8f268e7154578",
+    "status": "passed"
+  },
+  "api/generated/nampy.plotting.render_worm_plot": {
+    "implementation_sha256": "081a292e5b46315b235f8d7274ffbd47ee82fda95e841168007ebad6c0a5e287",
+    "preview_version": 2,
+    "sha256": "46da922007becccf5b7671e88b25e4219408817d9daac05da2bd33792a8abda4",
     "status": "passed"
   },
   "api/neural_training": {

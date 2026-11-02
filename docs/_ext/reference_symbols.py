@@ -20,6 +20,7 @@ SYMBOLS = {
         "FisherDiagnostics", "FisherInformationResult", "FisherGroupSummary", "FisherSnapshot",
         "center_additive_prediction", "explain_additive_prediction", "term_importance_table",
         "DistributionalEffects", "combine_distributional_effects", "prepare_distributional_effects",
+        "quantile_residuals", "prepare_worm_plot", "prepare_centiles", "centile_calibration",
     ],
     "nampy.plotting": [
         "add_density_shading",
@@ -31,6 +32,10 @@ SYMBOLS = {
         "render_model_check",
         "render_qq",
         "render_prediction_surface",
+        "render_centiles",
+        "render_worm_plot",
+        "plot_centiles",
+        "plot_worm",
     ],
 }
 FISHER_MEANINGS = {
@@ -208,6 +213,150 @@ effects = DistributionalEffects(feature_values={'x': x},
                                point_effects={'x': np.sin(3*x)},
                                conditional_sd={'x': 0.1 + 0.2*x})
 """
+DIAG_SETUP = """import numpy as np
+from nampy.distributions import DistributionPrediction, NormalLaw
+
+n = 24
+x = np.linspace(0, 1, n)
+distribution = DistributionPrediction(
+    NormalLaw(), {'loc': 0.4 + np.sin(3 * x), 'scale': np.full(n, 0.2)})
+y = 0.4 + np.sin(3 * x) + 0.05 * np.cos(np.arange(n))
+"""
+DIAGNOSTIC_EXAMPLES = {
+    "quantile_residuals": "from nampy.diagnostics import quantile_residuals\n\nresult = quantile_residuals(distribution, y, random_state=7)\nprint(type(result).__name__)\n",
+    "prepare_worm_plot": "from nampy.diagnostics import prepare_worm_plot, quantile_residuals\n\nresiduals = quantile_residuals(distribution, y, random_state=7)\nresult = prepare_worm_plot(residuals, x=x, n_bins=4)\nprint(type(result).__name__)\n",
+    "prepare_centiles": "from nampy.diagnostics import prepare_centiles\n\nresult = prepare_centiles(distribution, x, probs=(0.05, 0.5, 0.95))\nprint(result.quantiles.shape)\n",
+    "centile_calibration": "from nampy.diagnostics import centile_calibration\n\nresult = centile_calibration(distribution, y, probs=(0.05, 0.5, 0.95))\nprint(type(result).__name__)\n",
+    "render_worm_plot": "from nampy.diagnostics import prepare_worm_plot, quantile_residuals\nfrom nampy.plotting import render_worm_plot\n\ndata = prepare_worm_plot(quantile_residuals(distribution, y, random_state=7), x=x, n_bins=4)\nresult = render_worm_plot(data, columns=2)\nprint(type(result).__name__)\n",
+    "plot_worm": "from nampy.diagnostics import quantile_residuals\nfrom nampy.plotting import plot_worm\n\nresult = plot_worm(quantile_residuals(distribution, y, random_state=7), x=x, n_bins=4)\nprint(type(result).__name__)\n",
+    "render_centiles": "from nampy.diagnostics import prepare_centiles\nfrom nampy.plotting import render_centiles\n\ndata = prepare_centiles(distribution, x)\nresult = render_centiles(data, xlabel='x', ylabel='y')\nprint(type(result).__name__)\n",
+    "plot_centiles": "from nampy.plotting import plot_centiles\n\nresult = plot_centiles(distribution, x, xlabel='x', ylabel='y')\nprint(type(result).__name__)\n",
+}
+_RESPONSE = "array-like, shape (n,)"
+_COVARIATE = "array-like, shape (n,)"
+_PROBS = "array-like, shape (n_probs,)"
+_WORM_DATA = "WormPlotData"
+_CENTILE_DATA = "CentileCurves"
+DIAGNOSTIC_PARAMETER_TYPES = {
+    "quantile_residuals": {
+        "distribution": "DistributionPrediction",
+        "y": _RESPONSE,
+        "random_state": "int | numpy.random.Generator | None",
+        "uniforms": "array-like, shape (n,) | None",
+        "clip": "float | None",
+    },
+    "prepare_worm_plot": {
+        "residuals": "array-like, shape (n,) | QuantileResiduals",
+        "groups": "array-like, shape (n,) | None",
+        "x": _COVARIATE + " | None",
+        "n_bins": "int",
+        "breaks": "array-like, shape (n_edges,) | None",
+        "fit_cubic": "bool",
+        "reference_level": "float",
+    },
+    "prepare_centiles": {
+        "distribution": "DistributionPrediction",
+        "x": _COVARIATE,
+        "probs": _PROBS,
+    },
+    "centile_calibration": {
+        "distribution": "DistributionPrediction",
+        "y": _RESPONSE,
+        "probs": _PROBS,
+    },
+    "render_worm_plot": {
+        "data": _WORM_DATA,
+        "columns": "int",
+        "figsize": "tuple[float, float] | None",
+    },
+    "plot_worm": {
+        "residuals": "array-like, shape (n,) | QuantileResiduals",
+        "groups": "array-like, shape (n,) | None",
+        "x": _COVARIATE + " | None",
+        "n_bins": "int",
+        "breaks": "array-like, shape (n_edges,) | None",
+        "fit_cubic": "bool",
+        "reference_level": "float",
+        "columns": "int",
+        "figsize": "tuple[float, float] | None",
+    },
+    "render_centiles": {
+        "data": _CENTILE_DATA,
+        "ax": "matplotlib.axes.Axes | None",
+        "xlabel": "str",
+        "ylabel": "str",
+        "title": "str",
+    },
+    "plot_centiles": {
+        "distribution": "DistributionPrediction",
+        "x": _COVARIATE,
+        "probs": _PROBS,
+        "ax": "matplotlib.axes.Axes | None",
+        "xlabel": "str",
+        "ylabel": "str",
+        "title": "str",
+    },
+}
+DIAGNOSTIC_PARAMETER_MEANINGS = {
+    "quantile_residuals": {
+        "distribution": "Conditional laws on the same rows as the observed responses. No estimator is refitted.",
+        "y": "Observed responses, shape (n,), with NaN allowed for missing rows. Values must lie in the law's observation support; responses are not clipped.",
+        "random_state": "Generator seed for probability-integral randomization on CDF jumps only. Continuous rows consume no random numbers. Mutually exclusive with uniforms.",
+        "uniforms": "Explicit finite values in [0, 1], shape (n,), used on CDF-jump rows. Mutually exclusive with random_state; continuous rows ignore these values.",
+        "clip": "Optional PIT clipping level. When set, probabilities are clipped to [clip, 1-clip] with 0 < clip < 0.5. None preserves infinite residuals from zero or one CDFs.",
+    },
+    "prepare_worm_plot": {
+        "residuals": "Residual vector of shape (n,), or a QuantileResiduals record. Missing and infinite values are counted and excluded from the QQ fit.",
+        "groups": "Optional string or finite numeric labels, shape (n,). None and NaN labels are counted as ungrouped. Mutually exclusive with x.",
+        "x": "Optional numeric covariate, shape (n,), used to bin panels. Mutually exclusive with groups. Nonfinite values are counted as ungrouped.",
+        "n_bins": "Positive number of quantile bins for x when breaks is omitted. Duplicate quantile edges collapse.",
+        "breaks": "Optional finite, strictly increasing bin edges covering every finite x. Bins are left-closed and the last bin is right-closed.",
+        "fit_cubic": "Fit a cubic deviation trend when a panel has at least four finite residuals.",
+        "reference_level": "Pointwise normal-envelope level in (0, 1). This is not an estimation-adjusted or simultaneous confidence band.",
+    },
+    "prepare_centiles": {
+        "distribution": "Conditional laws evaluated on the supplied covariate rows. No averaging, interpolation or refitting is performed.",
+        "x": "Covariate values aligned with distribution rows, shape (n,). Nonfinite rows are excluded and counted.",
+        "probs": "Strictly increasing conditional-quantile probabilities inside (0, 1). Endpoint probabilities 0 and 1 are rejected.",
+    },
+    "centile_calibration": {
+        "distribution": "Held-out or cross-fitted conditional laws aligned with y. This function does not train a model.",
+        "y": "Observed responses aligned with distribution, shape (n,). Missing or nonfinite rows are excluded per probability.",
+        "probs": "Strictly increasing conditional-quantile probabilities inside (0, 1) at which coverage is evaluated.",
+    },
+    "render_worm_plot": {
+        "data": "Prepared WormPlotData. Empty and small panels remain visible, including their missing and infinite counts.",
+        "columns": "Positive number of subplot columns. The renderer uses fewer columns when there are fewer panels.",
+        "figsize": "Optional Matplotlib figure size in inches, as (width, height). None uses a size based on the panel grid.",
+    },
+    "plot_worm": {
+        "residuals": "Residual vector of shape (n,), or a QuantileResiduals record passed through to preparation.",
+        "groups": "Optional grouping labels, shape (n,), passed through to worm-plot preparation.",
+        "x": "Optional numeric binning covariate, shape (n,), passed through to worm-plot preparation.",
+        "n_bins": "Positive quantile-bin count used when x is supplied and breaks is omitted.",
+        "breaks": "Optional explicit bin edges for x, passed through to worm-plot preparation.",
+        "fit_cubic": "Whether preparation fits a cubic deviation trend on panels with enough finite residuals.",
+        "reference_level": "Pointwise normal-envelope level passed through to preparation.",
+        "columns": "Positive number of subplot columns for the rendered panels.",
+        "figsize": "Optional Matplotlib figure size in inches, as (width, height).",
+    },
+    "render_centiles": {
+        "data": "Prepared CentileCurves. Curves are conditional outcome quantiles, not confidence bands.",
+        "ax": "Optional Matplotlib Axes. None creates a new figure and axes.",
+        "xlabel": "Horizontal-axis label for the supplied covariate.",
+        "ylabel": "Vertical-axis label for the conditional quantile curves.",
+        "title": "Figure title. Discrete responses are drawn as steps; continuous responses use ordinary lines.",
+    },
+    "plot_centiles": {
+        "distribution": "Conditional laws on the rows where centiles are requested. No model is refitted.",
+        "x": "Covariate values aligned with distribution, shape (n,).",
+        "probs": "Strictly increasing conditional-quantile probabilities inside (0, 1).",
+        "ax": "Optional Matplotlib Axes. None creates a new figure and axes.",
+        "xlabel": "Horizontal-axis label for the supplied covariate.",
+        "ylabel": "Vertical-axis label for the conditional quantile curves.",
+        "title": "Figure title passed through to the centile renderer.",
+    },
+}
 
 
 def example(module, name):
@@ -279,6 +428,8 @@ assert result is None
     if name == "prepared_from_interactions":
         return (CONTRACT_SETUP
                 + "from nampy.plotting import prepared_from_interactions\nX['z'] = np.cos(np.arange(n))\nterms = {'x:z': (X.x * X.z).to_numpy()}\nresult = prepared_from_interactions(X, terms, num_bins=4)\nprint(type(result).__name__)\n")
+    if name in DIAGNOSTIC_EXAMPLES:
+        return DIAG_SETUP + DIAGNOSTIC_EXAMPLES[name]
     if name in {"prepared_from_contributions", "render_term_plots"}:
         code = (
             CONTRACT_SETUP
@@ -329,6 +480,18 @@ def return_description(module, name):
         return "``DistributionalEffects``. Per-feature point/spread arrays use one row per feature observation and one curve column per represented member. The feature-value arrays preserve the corresponding row order."
     if name in {"prepared_from_contributions", "prepared_from_interactions"}:
         return "``dict[str, object]`` with ``pd`` (list of term plotting payloads), transformation/shift/selection settings and rendering defaults. Each effect and raw-value array has one entry per corresponding feature observation."
+    if name == "quantile_residuals":
+        return "``QuantileResiduals``. ``residuals``, ``pit``, ``cdf_lower`` and ``cdf_upper`` have shape (n,); ``randomized`` and ``clipped`` are boolean flags of shape (n,). Missing rows stay NaN and are not flagged. These are conditional diagnostics, not a claim of independent normal fitted residuals."
+    if name == "prepare_worm_plot":
+        return "``WormPlotData``. ``panels`` contains one ``WormPanel`` per requested group or bin. Theoretical quantiles, deviations and envelope arrays have one entry per finite residual in that panel. Envelopes are pointwise normal references and do not adjust for parameter estimation."
+    if name == "prepare_centiles":
+        return "``CentileCurves``. ``x`` and ``row_indices`` contain the finite covariate rows, stably sorted by x. ``quantiles`` has shape (n_finite, n_probs). These are conditional outcome quantiles, not confidence bands or marginal quantiles."
+    if name == "centile_calibration":
+        return "``CentileCalibration``. ``probabilities``, ``observed``, ``model_probability`` and ``n_used`` each have one entry per requested probability. Compare observed coverage with ``model_probability``; for discrete responses F(q_p) can exceed p."
+    if name in {"render_worm_plot", "plot_worm"}:
+        return "``matplotlib.figure.Figure``. One panel per prepared group, showing residual-minus-quantile deviations and a pointwise normal reference envelope. The renderer does not refit a model."
+    if name in {"render_centiles", "plot_centiles"}:
+        return "``matplotlib.figure.Figure``. One curve per requested conditional quantile, in the supplied probability order. Discrete responses use a step display. No uncertainty shading is added."
     return "``list[matplotlib.figure.Figure]``, one figure per requested page/panel arrangement. Renderers consume prepared values and do not refit a model; conditional-SD envelopes and coefficient-SE bands retain their separate meanings."
 
 
@@ -356,6 +519,7 @@ def generate(root):
             docs = {
                 **(MEANINGS if module.startswith("nampy.gam.") else SHARED_MEANINGS),
                 **descriptions(obj),
+                **DIAGNOSTIC_PARAMETER_MEANINGS.get(name, {}),
             }
             fisher_record = name in {"FisherDiagnostics", "FisherInformationResult", "FisherGroupSummary", "FisherSnapshot"}
             if fisher_record:
@@ -399,7 +563,10 @@ def generate(root):
                     raise ValueError(
                         f"Missing shared symbol parameter description: {module}.{name}.{key}"
                     )
-                if module.startswith("nampy.gam."):
+                diagnostic_type = DIAGNOSTIC_PARAMETER_TYPES.get(name, {}).get(key)
+                if diagnostic_type:
+                    typ = diagnostic_type
+                elif module.startswith("nampy.gam."):
                     typ = (
                         str(p.annotation)
                         .replace("typing.", "")

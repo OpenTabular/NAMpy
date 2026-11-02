@@ -913,6 +913,33 @@
       "()"
     ]
   ],
+  "api/generated/nampy.diagnostics.centile_calibration": [
+    [
+      "result",
+      "nampy.diagnostics.distribution.CentileCalibration",
+      "scalar record"
+    ],
+    [
+      "result.probabilities",
+      "numpy.ndarray[float64]",
+      "(3,)"
+    ],
+    [
+      "result.observed",
+      "numpy.ndarray[float64]",
+      "(3,)"
+    ],
+    [
+      "result.model_probability",
+      "numpy.ndarray[float64]",
+      "(3,)"
+    ],
+    [
+      "result.n_used",
+      "numpy.ndarray[int64]",
+      "(3,)"
+    ]
+  ],
   "api/generated/nampy.diagnostics.combine_distributional_effects": [
     [
       "result",
@@ -997,6 +1024,43 @@
       "(6,)"
     ]
   ],
+  "api/generated/nampy.diagnostics.prepare_centiles": [
+    [
+      "result",
+      "nampy.diagnostics.distribution.CentileCurves",
+      "scalar record"
+    ],
+    [
+      "result.x",
+      "numpy.ndarray[float64]",
+      "(24,)"
+    ],
+    [
+      "result.probabilities",
+      "numpy.ndarray[float64]",
+      "(3,)"
+    ],
+    [
+      "result.quantiles",
+      "numpy.ndarray[float64]",
+      "(24, 3)"
+    ],
+    [
+      "result.row_indices",
+      "numpy.ndarray[int64]",
+      "(24,)"
+    ],
+    [
+      "result.n_excluded_x",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.response_kind",
+      "builtins.str",
+      "()"
+    ]
+  ],
   "api/generated/nampy.diagnostics.prepare_distributional_effects": [
     [
       "result",
@@ -1052,6 +1116,235 @@
       "result.point_summary",
       "builtins.str",
       "()"
+    ]
+  ],
+  "api/generated/nampy.diagnostics.prepare_worm_plot": [
+    [
+      "result",
+      "nampy.diagnostics.distribution.WormPlotData",
+      "scalar record"
+    ],
+    [
+      "result.panels",
+      "tuple",
+      "length 4"
+    ],
+    [
+      "result.panels[0]",
+      "nampy.diagnostics.distribution.WormPanel",
+      "scalar record"
+    ],
+    [
+      "result.panels[0].label",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.panels[0].row_indices",
+      "numpy.ndarray[int64]",
+      "(6,)"
+    ],
+    [
+      "result.panels[0].theoretical",
+      "numpy.ndarray[float64]",
+      "(6,)"
+    ],
+    [
+      "result.panels[0].deviation",
+      "numpy.ndarray[float64]",
+      "(6,)"
+    ],
+    [
+      "result.panels[0].envelope_lower",
+      "numpy.ndarray[float64]",
+      "(6,)"
+    ],
+    [
+      "result.panels[0].envelope_upper",
+      "numpy.ndarray[float64]",
+      "(6,)"
+    ],
+    [
+      "result.panels[0].cubic_coefficients",
+      "numpy.ndarray[float64]",
+      "(4,)"
+    ],
+    [
+      "result.panels[0].n_total",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.panels[0].n_missing",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.panels[0].n_infinite",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.panels[1]",
+      "nampy.diagnostics.distribution.WormPanel",
+      "scalar record"
+    ],
+    [
+      "result.panels[1].label",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.panels[1].row_indices",
+      "numpy.ndarray[int64]",
+      "(6,)"
+    ],
+    [
+      "result.panels[1].theoretical",
+      "numpy.ndarray[float64]",
+      "(6,)"
+    ],
+    [
+      "result.panels[1].deviation",
+      "numpy.ndarray[float64]",
+      "(6,)"
+    ],
+    [
+      "result.panels[1].envelope_lower",
+      "numpy.ndarray[float64]",
+      "(6,)"
+    ],
+    [
+      "result.panels[1].envelope_upper",
+      "numpy.ndarray[float64]",
+      "(6,)"
+    ],
+    [
+      "result.panels[1].cubic_coefficients",
+      "numpy.ndarray[float64]",
+      "(4,)"
+    ],
+    [
+      "result.panels[1].n_total",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.panels[1].n_missing",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.panels[1].n_infinite",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.panels[2]",
+      "nampy.diagnostics.distribution.WormPanel",
+      "scalar record"
+    ],
+    [
+      "result.panels[2].label",
+      "builtins.str",
+      "()"
+    ],
+    [
+      "result.panels[2].row_indices",
+      "numpy.ndarray[int64]",
+      "(6,)"
+    ],
+    [
+      "result.panels[2].theoretical",
+      "numpy.ndarray[float64]",
+      "(6,)"
+    ],
+    [
+      "result.panels[2].deviation",
+      "numpy.ndarray[float64]",
+      "(6,)"
+    ],
+    [
+      "result.panels[2].envelope_lower",
+      "numpy.ndarray[float64]",
+      "(6,)"
+    ],
+    [
+      "result.panels[2].envelope_upper",
+      "numpy.ndarray[float64]",
+      "(6,)"
+    ],
+    [
+      "result.panels[2].cubic_coefficients",
+      "numpy.ndarray[float64]",
+      "(4,)"
+    ],
+    [
+      "result.panels[2].n_total",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.panels[2].n_missing",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.panels[2].n_infinite",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.reference_level",
+      "builtins.float",
+      "()"
+    ],
+    [
+      "result.n_ungrouped",
+      "builtins.int",
+      "()"
+    ],
+    [
+      "result.bin_edges",
+      "numpy.ndarray[float64]",
+      "(5,)"
+    ]
+  ],
+  "api/generated/nampy.diagnostics.quantile_residuals": [
+    [
+      "result",
+      "nampy.diagnostics.distribution.QuantileResiduals",
+      "scalar record"
+    ],
+    [
+      "result.residuals",
+      "numpy.ndarray[float64]",
+      "(24,)"
+    ],
+    [
+      "result.pit",
+      "numpy.ndarray[float64]",
+      "(24,)"
+    ],
+    [
+      "result.cdf_lower",
+      "numpy.ndarray[float64]",
+      "(24,)"
+    ],
+    [
+      "result.cdf_upper",
+      "numpy.ndarray[float64]",
+      "(24,)"
+    ],
+    [
+      "result.randomized",
+      "numpy.ndarray[bool]",
+      "(24,)"
+    ],
+    [
+      "result.clipped",
+      "numpy.ndarray[bool]",
+      "(24,)"
     ]
   ],
   "api/generated/nampy.diagnostics.term_importance_table": [
@@ -3512,6 +3805,13 @@
       "not applicable"
     ]
   ],
+  "api/generated/nampy.plotting.plot_centiles": [
+    [
+      "result",
+      "matplotlib.figure.Figure",
+      "scalar object"
+    ]
+  ],
   "api/generated/nampy.plotting.plot_distributional_effects": [
     [
       "result",
@@ -3520,6 +3820,13 @@
     ],
     [
       "result[0]",
+      "matplotlib.figure.Figure",
+      "scalar object"
+    ]
+  ],
+  "api/generated/nampy.plotting.plot_worm": [
+    [
+      "result",
       "matplotlib.figure.Figure",
       "scalar object"
     ]
@@ -3758,6 +4065,13 @@
       "()"
     ]
   ],
+  "api/generated/nampy.plotting.render_centiles": [
+    [
+      "result",
+      "matplotlib.figure.Figure",
+      "scalar object"
+    ]
+  ],
   "api/generated/nampy.plotting.render_distributional_effects": [
     [
       "result",
@@ -3814,6 +4128,13 @@
     ],
     [
       "result[0]",
+      "matplotlib.figure.Figure",
+      "scalar object"
+    ]
+  ],
+  "api/generated/nampy.plotting.render_worm_plot": [
+    [
+      "result",
       "matplotlib.figure.Figure",
       "scalar object"
     ]
