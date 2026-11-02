@@ -166,8 +166,18 @@ def main():
             page.go_forward(wait_until="domcontentloaded")
             check("families/index.html")
             # Existing runnable examples must enter the same central hierarchy.
+            # The example now lives in a closed how-to dropdown, so the code
+            # link is in the page but not visible until that section is opened.
             page.goto(f"{origin}/examples/fit_models.html", wait_until="domcontentloaded")
-            page.locator("a.api-code-link").filter(has_text=re.compile("^NAMRegressor$")).first.click()
+            page.wait_for_url(re.compile(r"/howto/fit_first_model\.html"))
+            example = page.locator("a.api-code-link").filter(
+                has_text=re.compile("^NAMRegressor$")
+            ).first
+            example.evaluate(
+                "node => { const folded = node.closest('details');"
+                " if (folded) folded.open = true; }"
+            )
+            example.click()
             page.wait_for_url(f"{origin}/neural_reference/estimators/NAMRegressor.html")
             active = page.locator(".wy-menu-vertical li.current > a.current")
             assert active.evaluate_all("links => links.map(a => new URL(a.href).pathname)") == ["/neural_reference/estimators/NAMRegressor.html"]
