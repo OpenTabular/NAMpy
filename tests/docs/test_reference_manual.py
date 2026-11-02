@@ -48,6 +48,27 @@ def _topics(page, found):
             _topics(item, found)
 
 
+def test_reference_pdf_is_compiled_into_its_output_directory(tmp_path, monkeypatch):
+    manual = load_manual()
+    tex = tmp_path / "NAMpy-reference.tex"
+    tex.write_text("source")
+    calls = []
+
+    def run(command, cwd, check):
+        calls.append((command, Path(cwd), check))
+        (Path(cwd) / "NAMpy-reference.pdf").write_bytes(b"%PDF")
+
+    monkeypatch.setattr(manual.shutil, "which", lambda name: "/usr/bin/latexmk")
+    monkeypatch.setattr(manual.subprocess, "run", run)
+    pdf = manual.compile_manual(tex)
+    command, cwd, check = calls[0]
+    assert check is True
+    assert cwd == tmp_path.resolve()
+    assert f"-outdir={tmp_path.resolve()}" in command
+    assert pdf == tmp_path.resolve() / "NAMpy-reference.pdf"
+    assert pdf.is_file()
+
+
 def test_clean_checkout_materializes_reference_fragments(tmp_path, monkeypatch):
     manual = load_manual()
     docs = tmp_path / "docs"

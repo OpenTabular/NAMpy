@@ -1130,19 +1130,25 @@ def compile_manual(tex_path: Path) -> Path:
             "latexmk is not installed. The TeX source was written; install "
             "LuaLaTeX and latexmk, then rerun this script."
         )
+    # cwd is already the manual directory. A relative -outdir is resolved again
+    # from there, so the PDF would land in a nested docs/_build tree.
+    outdir = tex_path.parent.resolve()
     subprocess.run(
         [
             engine,
             "-lualatex",
             "-interaction=nonstopmode",
             "-halt-on-error",
-            f"-outdir={tex_path.parent}",
+            f"-outdir={outdir}",
             tex_path.name,
         ],
-        cwd=tex_path.parent,
+        cwd=outdir,
         check=True,
     )
-    return tex_path.with_suffix(".pdf")
+    pdf = outdir / tex_path.with_suffix(".pdf").name
+    if not pdf.is_file():
+        raise RuntimeError(f"LuaLaTeX did not write {pdf}")
+    return pdf
 
 
 def main() -> None:
