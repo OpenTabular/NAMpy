@@ -376,7 +376,37 @@ def _remember(page: Page) -> Page:
     return page
 
 
+def ensure_generated_fragments() -> None:
+    """Write the reference fragments Sphinx creates when a builder starts.
+
+    Those fragments are not checked in. The manual test runs before the docs
+    build, so a clean checkout does not have them yet.
+    """
+    directory = DOCS / "_generated" / "reference"
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "_ext"))
+    statistical = (
+        "SurvivalGAM.inc",
+        "CoxGAM.inc",
+        "CalibratedQuantileGAM.inc",
+        "GAMRegressor.inc",
+        "GAMClassifier.inc",
+        "GAMLSS.inc",
+    )
+    if any(not (directory / name).is_file() for name in statistical):
+        from public_reference import generate
+
+        generate(DOCS.parent)
+    if any(
+        not (directory / name).is_file()
+        for name in ("GAM_core_parameters.inc", "neural_fit_contract.inc")
+    ):
+        from feature_reference import generate_core_contract
+
+        generate_core_contract(DOCS)
+
+
 def build_manual() -> list[Page]:
+    ensure_generated_fragments()
     seen: set[Path] = set()
     DOC_PAGES.clear()
     pages = []

@@ -48,6 +48,21 @@ def _topics(page, found):
             _topics(item, found)
 
 
+def test_clean_checkout_materializes_reference_fragments(tmp_path, monkeypatch):
+    manual = load_manual()
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    monkeypatch.setattr(manual, "DOCS", docs)
+    manual.ensure_generated_fragments()
+    for name in (
+        "GAMRegressor.inc",
+        "SurvivalGAM.inc",
+        "GAM_core_parameters.inc",
+        "neural_fit_contract.inc",
+    ):
+        assert (docs / "_generated" / "reference" / name).is_file()
+
+
 def test_predict_topic_has_usage_arguments_value_and_example():
     manual = load_manual()
     found = []
