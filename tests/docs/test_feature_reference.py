@@ -22,6 +22,30 @@ def builder():
     )
 
 
+def test_folded_guide_names_link_to_the_howto_section():
+    from sphinx.errors import NoUri
+
+    def get_relative_uri(source, target):
+        if target.startswith("user_guide/"):
+            raise NoUri(target, None)
+        return posixpath.relpath(target + ".html", posixpath.dirname(source) or ".")
+
+    tree = new_document("links")
+    paragraph = nodes.paragraph()
+    paragraph += nodes.literal("", "compare_distributions")
+    tree += paragraph
+    reference.link_references(
+        SimpleNamespace(builder=SimpleNamespace(get_relative_uri=get_relative_uri)),
+        tree,
+        "statistical_reference/families/lognormal_lss",
+    )
+    link = next(tree.findall(nodes.reference))
+    assert link["refuri"] == (
+        "../../howto/location_and_spread.html"
+        "#howto-user-guide-distributional-comparison"
+    )
+
+
 def test_inline_names_and_existing_roles_share_central_destination():
     tree = new_document("links")
     paragraph = nodes.paragraph()

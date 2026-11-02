@@ -1393,8 +1393,20 @@ def reference_targets():
 
 
 def relative_reference_uri(builder, source, target):
-    """Give Sphinx a document path; append the feature fragment afterwards."""
+    """Give Sphinx a document path; append the feature fragment afterwards.
+
+    Folded guides are not documents in their own right. LaTeX refuses a URI
+    for them, so the link goes to the how-to section that contains the guide.
+    """
+    from howto_groups import page_redirects
+
     page, separator, anchor = target.partition("#")
+    folded = page_redirects().get(page)
+    if folded:
+        folded_page, folded_separator, folded_anchor = folded.partition("#")
+        page = folded_page
+        if not separator:
+            separator, anchor = folded_separator, folded_anchor
     uri = builder.get_relative_uri(source, page)
     return uri + ("#" + anchor if separator else "")
 
