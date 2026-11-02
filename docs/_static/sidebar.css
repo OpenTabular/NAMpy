@@ -46,12 +46,6 @@
   }
 }
 
-/* Roomier fixed limits, with responsive sizing on smaller screens. */
-.wy-nav-content {
-  width: 100%;
-  max-width: 1040px;
-}
-
 /* Long display equations scroll locally instead of widening small screens. */
 .rst-content div.math {
   max-width: 100%;
@@ -112,9 +106,9 @@
 @media screen and (min-width: 1200px) {
   .wy-nav-content.has-page-navigation {
     display: grid;
-    grid-template-columns: minmax(0, 1040px) 210px;
+    grid-template-columns: minmax(0, 800px) 210px;
     gap: 3rem;
-    max-width: 1560px;
+    max-width: 1200px;
   }
 
   .has-page-navigation > .rst-content {

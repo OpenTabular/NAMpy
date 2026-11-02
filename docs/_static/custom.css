@@ -22,12 +22,6 @@ body,
   max-width: 860px;
 }
 
-/* Give the landing page enough room for capability cards and fitted-effect
-   figures while retaining the narrower reading measure on guides. */
-#content:has(> #nampy-statistical-and-neural-additive-models-in-python) {
-  max-width: 1040px;
-}
-
 #content p {
   color: var(--nampy-text);
   line-height: 1.7;
