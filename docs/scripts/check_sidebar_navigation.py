@@ -273,9 +273,11 @@ def main():
                 assert any(expected_path in href for href in results), (query, results)
 
             # A narrow page keeps its section navigation available and usable.
+            # The old GAMLSS guide is folded into a how-to, which has no
+            # section list of its own. The FAQ still publishes one.
             for width in (900, 390):
                 page.set_viewport_size({"width": width, "height": 900})
-                page.goto(f"{origin}/user_guide/gamlss.html", wait_until="domcontentloaded")
+                page.goto(f"{origin}/faq.html", wait_until="domcontentloaded")
                 mobile = page.locator("details.page-navigation-mobile")
                 assert mobile.is_visible()
                 mobile.locator("summary").click()
