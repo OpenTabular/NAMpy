@@ -71,8 +71,8 @@ jobs:
       - name: Install system dependencies
         run: >-
           sudo apt-get update && sudo apt-get install -y --no-install-recommends
-          pandoc libcairo2 latexmk texlive-luatex texlive-latex-extra
-          texlive-fonts-recommended fonts-freefont-otf xindy
+          pandoc libcairo2 librsvg2-bin latexmk texlive-luatex texlive-latex-extra
+          texlive-science texlive-fonts-recommended fonts-freefont-otf xindy
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -123,12 +123,15 @@ jobs:
         run: |
           python -m sphinx -b epub -d docs/_build/ebook-doctrees docs docs/_build/epub -W --keep-going
           python -m sphinx -M latexpdf docs docs/_build/pdf -d docs/_build/ebook-doctrees -W --keep-going
+          python docs/scripts/build_reference_manual.py --output docs/_build/reference-manual
 
       - name: Upload PDF manual
         uses: actions/upload-artifact@v4
         with:
           name: docs-pdf
-          path: docs/_build/pdf/latex/NAMpy.pdf
+          path: |
+            docs/_build/pdf/latex/NAMpy.pdf
+            docs/_build/reference-manual/NAMpy-reference.pdf
           if-no-files-found: error
           retention-days: 90
           compression-level: 0
@@ -139,21 +142,24 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           pdf=docs/_build/pdf/latex/NAMpy.pdf
+          reference=docs/_build/reference-manual/NAMpy-reference.pdf
           epub=$(find docs/_build/epub -maxdepth 1 -name '*.epub' -print -quit)
           test -f "$pdf"
+          test -f "$reference"
           test -n "$epub"
           manual=$(mktemp -d)
           cp "$pdf" "$manual/NAMpy.pdf"
+          cp "$reference" "$manual/NAMpy-reference.pdf"
           cp "$epub" "$manual/NAMpy.epub"
           if gh release view docs-latest >/dev/null 2>&1; then
-            gh release upload docs-latest --clobber "$manual/NAMpy.pdf" "$manual/NAMpy.epub"
+            gh release upload docs-latest --clobber "$manual/NAMpy.pdf" "$manual/NAMpy-reference.pdf" "$manual/NAMpy.epub"
           else
             gh release create docs-latest \
               --title "Current documentation" \
               --notes "PDF and EPUB for the documentation on main. Replaced when that documentation is published." \
               --target "$GITHUB_SHA" \
               --latest=false \
-              "$manual/NAMpy.pdf" "$manual/NAMpy.epub"
+              "$manual/NAMpy.pdf" "$manual/NAMpy-reference.pdf" "$manual/NAMpy.epub"
           fi
 
       - name: Check published visual content and source provenance

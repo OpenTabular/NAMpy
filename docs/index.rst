@@ -25,7 +25,8 @@ For Python compatibility, installation checks, and GPU setup, see the :doc:`FAQ 
 
 .. _download-the-manual:
 
-`Download the PDF manual <https://github.com/OpenTabular/NAMpy/releases/download/docs-latest/NAMpy.pdf>`__
+`Download the reference manual (PDF) <https://github.com/OpenTabular/NAMpy/releases/download/docs-latest/NAMpy-reference.pdf>`__,
+`the full PDF manual <https://github.com/OpenTabular/NAMpy/releases/download/docs-latest/NAMpy.pdf>`__,
 or
 `the EPUB manual <https://github.com/OpenTabular/NAMpy/releases/download/docs-latest/NAMpy.epub>`__.
 

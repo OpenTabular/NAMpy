@@ -1,4 +1,4 @@
-.PHONY: help install install-dev test test-cov lint type-check type-check-all hygiene quality docs docs-serve docs-clean clean build publish publish-test
+.PHONY: help install install-dev test test-cov lint type-check type-check-all hygiene quality docs reference-pdf docs-serve docs-clean clean build publish publish-test
 
 help:
 	@echo "NAMpy Development Commands"
@@ -13,6 +13,7 @@ help:
 	@echo "hygiene          Check release-sensitive repository state"
 	@echo "quality          Run static quality checks"
 	@echo "docs             Build documentation"
+	@echo "reference-pdf    Build the function reference manual PDF"
 	@echo "docs-serve       Build and serve documentation locally"
 	@echo "docs-clean       Clean documentation build"
 	@echo "clean            Clean build artifacts"
@@ -53,6 +54,9 @@ docs:
 	sphinx-build -E -W --keep-going -b html docs docs/_build/html
 	@echo "Documentation built successfully!"
 	@echo "Open docs/_build/html/index.html in your browser"
+
+reference-pdf:
+	python docs/scripts/build_reference_manual.py
 
 docs-serve: docs
 	@echo "Serving documentation on http://localhost:8000"

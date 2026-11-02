@@ -96,7 +96,7 @@ def main():
                 "Coming from R",
             ], getting_started
             page.goto(f"{origin}/index.html", wait_until="domcontentloaded")
-            for manual in ("NAMpy.pdf", "NAMpy.epub"):
+            for manual in ("NAMpy-reference.pdf", "NAMpy.pdf", "NAMpy.epub"):
                 link = page.locator(
                     f'a[href="https://github.com/OpenTabular/NAMpy/releases/download/docs-latest/{manual}"]'
                 )

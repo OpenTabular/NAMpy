@@ -148,6 +148,8 @@ python -m pip install -e ".[dev,docs]"
 make docs
 ```
 
+`make reference-pdf` builds the function reference manual, `docs/_build/reference-manual/NAMpy-reference.pdf`. It follows the public reference pages rather than the tutorial book. The build needs LuaLaTeX, latexmk, and `rsvg-convert` or cairosvg to place the SVG logo on the title page.
+
 The documentation build treats warnings as errors. Run checks appropriate to
 the change; the following commands cover contracts, example execution, strict
 HTML, structural integrity, and browser navigation:
