@@ -11,10 +11,13 @@ from __future__ import annotations
 import posixpath
 import re
 from pathlib import Path
+from urllib.parse import unquote
 
 from docutils import nodes
 from docutils.nodes import make_id
 from docutils.statemachine import StringList
+from docutils.transforms import Transform
+from sphinx import addnodes
 from sphinx.util.docutils import SphinxDirective
 
 # Page -> source documents, in reading order. Titles come from each source.
@@ -89,6 +92,51 @@ _DOC_ROLE = re.compile(r":doc:`([^`]+)`", re.DOTALL)
 
 def dropdown_name(docname: str) -> str:
     return "howto-" + docname.replace("/", "-").replace("_", "-")
+
+
+def folded_guide_target(docname: str, refuri: str) -> str | None:
+    """Return the how-to anchor for a link to an excluded guide source.
+
+    Notebooks link to the original ``.rst`` path. Those sources are excluded
+    from the document set, so nbsphinx would copy the raw file into the build.
+    EPUB has no media type for ``.rst`` and rejects that copy.
+    """
+    if not refuri or "://" in refuri or refuri.startswith(("mailto:", "#")):
+        return None
+    path = unquote(refuri.partition("#")[0])
+    if not path.endswith(".rst"):
+        return None
+    base = posixpath.dirname(docname)
+    resolved = posixpath.normpath(path if not base else posixpath.join(base, path))
+    source = resolved[: -len(".rst")]
+    if source not in _DOC_TO_PAGE:
+        return None
+    return dropdown_name(source)
+
+
+class RewriteFoldedGuideLinks(Transform):
+    """Point links at folded guides to the how-to section that contains them."""
+
+    # After anonymous hyperlinks (440) and before nbsphinx copies local files.
+    default_priority = 480
+
+    def apply(self) -> None:
+        docname = self.document.settings.env.docname
+        for node in list(self.document.findall(nodes.reference)):
+            target = folded_guide_target(docname, node.get("refuri", ""))
+            if target is None:
+                continue
+            xref = addnodes.pending_xref(
+                "",
+                reftype="ref",
+                reftarget=target,
+                refdomain="std",
+                refwarn=True,
+                refexplicit=True,
+                refdoc=docname,
+            )
+            xref += nodes.Text(node.astext())
+            node.replace_self(xref)
 
 
 def page_redirects() -> dict[str, str]:
@@ -293,6 +341,7 @@ class HowToDropdown(SphinxDirective):
 
 def setup(app):
     app.add_directive("howto-dropdown", HowToDropdown)
+    app.add_transform(RewriteFoldedGuideLinks)
     return {"parallel_read_safe": True, "parallel_write_safe": True}
 
 
