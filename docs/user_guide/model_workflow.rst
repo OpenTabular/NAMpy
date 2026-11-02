@@ -97,14 +97,14 @@ Both engines report mean information per reference row and exclude penalties.
 estimators and input-sampling designs carry their own estimation uncertainty;
 this is separate from coefficient uncertainty and predictive intervals.
 Quasi-likelihood and other undeclared response experiments are rejected.
-See :doc:`fisher_diagnostics` for supported estimators and assumptions.
+See :ref:`howto-user-guide-fisher-diagnostics` for supported estimators and assumptions.
 
 ``nampy.models.compare_distributions`` fits explicit candidate templates and
 compares held-out normalized likelihoods. ``DistributionFitStatus`` is a neutral
 record in ``nampy.contracts``. Probability laws themselves do not orchestrate
 fitting or diagnostics.
 
-Continue with :doc:`gamlss`, :doc:`survival`, :doc:`interpretability` and
-:doc:`calibration` for complete task workflows. Calibration uses separate data
+Continue with :ref:`howto-user-guide-gamlss`, :ref:`howto-user-guide-survival`, :ref:`howto-user-guide-interpretability` and
+:ref:`howto-user-guide-calibration` for complete task workflows. Calibration uses separate data
 and owns its calibrated predictor state; it is distinct from Fisher estimation
 and from conditional response spread.

@@ -1,16 +1,16 @@
 Distribution parameters and probability contracts
 =================================================
 
-This reference complements :doc:`gamlss` with backend parameter mappings and
+This reference complements :ref:`howto-user-guide-gamlss` with backend parameter mappings and
 numerical restrictions.
 
 The snapshot uses explicit probability-law parameter names, which can differ
 from the estimator's existing prediction columns. The table below explains
 selected mappings. The registry-generated family table in
-:doc:`api_and_families` lists all declared adapters and their probability
-operations; the :doc:`Box--Cox <distributional_boxcox>`,
-:doc:`discrete/mixed <distributional_families>` and
-:doc:`observation <distributional_observations>` guides cover their additional
+:ref:`howto-user-guide-api-and-families` lists all declared adapters and their probability
+operations; the :ref:`Box--Cox <howto-user-guide-distributional-boxcox>`,
+:ref:`discrete/mixed <howto-user-guide-distributional-families>` and
+:ref:`observation <howto-user-guide-distributional-observations>` guides cover their additional
 parameterizations and conditions.
 
 .. list-table:: Selected parameter mappings
@@ -92,7 +92,7 @@ a distributional family's name. Families and subclasses without a declared
 adapter raise ``NotImplementedError`` from ``predict_distribution``; their
 existing fitting, prediction and scoring remain available. Vector events and
 inference bands for centile estimates are not added by this interface. Censoring and truncation use the separate
-:doc:`distributional_observations` contract. A quantile loss does not define a normalized probability law.
+:ref:`howto-user-guide-distributional-observations` contract. A quantile loss does not define a normalized probability law.
 
 To add a law, implement the structural ``nampy.distributions.DistributionLaw``
 protocol and construct ``DistributionPrediction(law, parameters)``. Its

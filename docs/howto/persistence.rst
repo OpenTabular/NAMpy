@@ -68,7 +68,7 @@ new fit or coverage level; source-model refits cannot alter the stored snapshot.
        restored.predict_interval(X_test).lower,
        calibrated.predict_interval(X_test).lower)
 
-See :doc:`../user_guide/calibration` for prediction context, offset handling and
+See :ref:`howto-user-guide-calibration` for prediction context, offset handling and
 unsupported calibration routes.
 
 Calibrated predictors use this same version-7 format. Files must still be trusted.

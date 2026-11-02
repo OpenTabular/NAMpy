@@ -1,7 +1,7 @@
 """Execute documented notebook sources from clean kernels and record provenance.
 
 Usage: python docs/scripts/execute_notebooks.py [notebook paths ...]
-No paths executes the teaching notebooks. Pass validation reports explicitly.
+No paths executes the teaching notebooks. Pass notebook paths to execute others.
 """
 
 import argparse

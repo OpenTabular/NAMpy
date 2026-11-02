@@ -336,7 +336,7 @@ def generate_smooths(root):
         text = heading(smooth_title(name, description)) + description + "\n\n"
         text += smooth_theory(name)
         if "shape" in cls.__module__:
-            text += "This is a SCAM-style shape-constrained basis. See :doc:`/user_guide/shape_constrained_gams` for its inequalities and supported fitting routes.\n\n"
+            text += "This is a SCAM-style shape-constrained basis. See :ref:`howto-user-guide-shape-constrained-gams` for its inequalities and supported fitting routes.\n\n"
         text += (
             heading("Formula interface", "-")
             + f'.. code-block:: python\n\n   formula = "y ~ {formula}"\n\n'
@@ -630,7 +630,7 @@ def generate_statistical_families(root):
             text += ".. include:: /_includes/gaulss_reference.inc\n\n"
         text += module_notes(cls)
         text += f".. autoclass:: {cls.__module__}.{cls.__name__}\n   :no-index:\n   :members: distribution_parameters_from_eta, distribution_parameter_jacobian\n   :no-inherited-members:\n\n"
-        text += ":doc:`Family overview and boundaries </api/gam_families>` · :doc:`Distributional modeling </user_guide/gamlss>`\n"
+        text += ":doc:`Family overview and boundaries </api/gam_families>` · :ref:`Distributional modeling <howto-user-guide-gamlss>`\n"
         write(root, f"statistical_reference/families/{name}.rst", text)
     entries.extend(name for name in GENERAL_FAMILIES if name in extensions)
     write(
@@ -802,7 +802,7 @@ def generate_methods(root):
         if name == "gam_check":
             text += "For raw outer-gradient, Hessian and boundary diagnostics, see :doc:`optimizer_endpoint_diagnostics </extension_reference/statistical/optimizer_endpoint_diagnostics>`. Coefficient convergence and smoothing-endpoint stationarity are separate checks.\n\n"
         if name == "fisher_information":
-            text += "Separate fit-time offsets must be supplied again, aligned with the evaluated rows. Formula and smooth offsets follow the existing prediction contract. ``X=None`` evaluates the fitted training rows. See :doc:`/user_guide/fisher_diagnostics` for estimator, nuisance-parameter and sampling assumptions.\n\n"
+            text += "Separate fit-time offsets must be supplied again, aligned with the evaluated rows. Formula and smooth offsets follow the existing prediction contract. ``X=None`` evaluates the fitted training rows. See :ref:`howto-user-guide-fisher-diagnostics` for estimator, nuisance-parameter and sampling assumptions.\n\n"
         if name in {"plot", "vis"}:
             text += "For direct construction of a normalized prediction-grid mask, see :doc:`exclude_too_far </extension_reference/statistical/exclude_too_far>`. Its True entries indicate excluded grid nodes.\n\n"
         if name == "plot":
@@ -815,7 +815,7 @@ def generate_methods(root):
             root, f"statistical_reference/methods/{name}", method_example(name)
         )
         text += f".. automethod:: nampy.gam.GAM.{name}\n   :no-index:\n\n"
-        text += ":doc:`Statistical modeling guide </user_guide/statistical_gams>` · :doc:`Prediction output guide </howto/prediction_outputs>`\n"
+        text += ":ref:`Statistical modeling guide <howto-user-guide-statistical-gams>` · :ref:`Prediction output guide <howto-howto-prediction-outputs>`\n"
         write(root, f"statistical_reference/methods/{name}.rst", text)
     groups = {
         "Fit and predict": ["fit", "predict", "predict_terms", "lpmatrix"],
@@ -1083,9 +1083,10 @@ print(result.to_frame()[['name', 'status', 'mean_log_prob']])
                 "Fitted result objects </api/gam_results>",
                 "Statistical extensions <extensions/index>",
                 "Inference conventions <inference>",
+                "Calibrated quantile calculations <quantile_calibration>",
                 "Survival API </api/survival>",
             ],
-            "Choose an estimator, specify its formula, smooth terms and response family, then configure fitting and inspect predictions, inference and diagnostics. Extension APIs come last. Implemented scope and unsupported combinations are documented in :doc:`/compatibility`.",
+            "Choose an estimator, specify its formula, smooth terms and response family, then configure fitting and inspect predictions, inference and diagnostics. Extension APIs come last.",
             related_links=False,
         ),
     )
@@ -1221,7 +1222,7 @@ def generate_controls_selection(root):
         )
         text += (
             heading("Outputs and restrictions", "-")
-            + "``fit`` returns the estimator. Its ``gam_`` records the fitted coefficients and smoothing parameters. ``predict`` returns response predictions. The chosen criterion and outer optimizer are separate choices; a named criterion does not establish support for every family, tensor or coefficient transform. Consult the :doc:`fitting support matrix </api/gam_advanced>` and :doc:`compatibility boundaries </compatibility>`.\n\n"
+            + "``fit`` returns the estimator. Its ``gam_`` records the fitted coefficients and smoothing parameters. ``predict`` returns response predictions. The chosen criterion and outer optimizer are separate choices; a named criterion does not establish support for every family, tensor or coefficient transform. Consult the :doc:`fitting support matrix </api/gam_advanced>`.\n\n"
         )
         if name in {"ncv", "qncv"}:
             text += ".. include:: /_includes/ncv_reference.inc\n\n"
@@ -1584,7 +1585,7 @@ def generate_neural_extensions(root):
             text += "Returns a NeuralEstimatorFamily record containing task-specific estimator classes or None for unavailable tasks. This record contains no fitted predictions. Instantiate one of its available classes and call fit to obtain a model.\n\n"
         else:
             text += "Construction returns an unfitted estimator and fit returns self. NeuralRegressor.predict returns response predictions; NeuralClassifier.predict returns labels and predict_proba returns class probabilities. NeuralLSS.predict returns the family point summary, predict_parameters returns natural parameters and predict_link returns additive predictors. Quantile-loss models return fitted quantiles. Additive components describe the link scale under the architecture's declared dependence contract.\n\n"
-        text += ":doc:`Custom architecture contract </user_guide/custom_models>` · :doc:`All training arguments </api/neural_training>` · :doc:`Neural distributions <../families/index>`\n"
+        text += ":ref:`Custom architecture contract <howto-user-guide-custom-models>` · :doc:`All training arguments </api/neural_training>` · :doc:`Neural distributions <../families/index>`\n"
         text += example_rst(
             root, f"neural_reference/extensions/{name}", extension_example(name)
         )

@@ -47,7 +47,7 @@ Returns and fitted outputs
 
 Returns a NeuralEstimatorFamily record containing task-specific estimator classes or None for unavailable tasks. This record contains no fitted predictions. Instantiate one of its available classes and call fit to obtain a model.
 
-:doc:`Custom architecture contract </user_guide/custom_models>` · :doc:`All training arguments </api/neural_training>` · :doc:`Neural distributions <../families/index>`
+:ref:`Custom architecture contract <howto-user-guide-custom-models>` · :doc:`All training arguments </api/neural_training>` · :doc:`Neural distributions <../families/index>`
 
 
 Runnable example

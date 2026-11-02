@@ -86,7 +86,7 @@ Configuration
 Outputs and restrictions
 ------------------------
 
-``fit`` returns the estimator. Its ``gam_`` records the fitted coefficients and smoothing parameters. ``predict`` returns response predictions. The chosen criterion and outer optimizer are separate choices; a named criterion does not establish support for every family, tensor or coefficient transform. Consult the :doc:`fitting support matrix </api/gam_advanced>` and :doc:`compatibility boundaries </compatibility>`.
+``fit`` returns the estimator. Its ``gam_`` records the fitted coefficients and smoothing parameters. ``predict`` returns response predictions. The chosen criterion and outer optimizer are separate choices; a named criterion does not establish support for every family, tensor or coefficient transform. Consult the :doc:`fitting support matrix </api/gam_advanced>`.
 
 
 

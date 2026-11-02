@@ -57,11 +57,11 @@ def main():
             assert "Tutorials" not in [section["title"] for section in sections]
             development = next(section for section in sections if section["title"] == "Development")
             assert development["items"] == [
-                "Contributing to NAMpy", "Architecture and validation", "Validation reports",
+                "Contributing to NAMpy", "Architecture and validation",
                 "Browse source code", "License"
             ], development
             reference = next(section for section in sections if section["title"] == "Reference")
-            assert "Compatibility and limitations" in reference["items"], reference
+            assert "Compatibility and limitations" not in reference["items"], reference
             # Links in shared Markdown must not leave a local/versioned build.
             linked_page = browser.new_page()
             linked_page.route("https://**/*", lambda route: route.abort())
@@ -76,10 +76,10 @@ def main():
 
             outline = sidebar_outline()
             for _ in range(2):
-                linked_page.get_by_role("link", name="compatibility page", exact=True).click()
-                linked_page.wait_for_url(f"{origin}/compatibility.html")
+                linked_page.get_by_role("link", name="architecture page", exact=True).click()
+                linked_page.wait_for_url(f"{origin}/architecture.html")
                 assert sidebar_outline() == outline
-                assert linked_page.locator("h1").inner_text().startswith("Compatibility")
+                assert linked_page.locator("h1").inner_text().startswith("Architecture")
                 linked_page.reload(wait_until="domcontentloaded")
                 assert sidebar_outline() == outline
                 linked_page.go_back(wait_until="domcontentloaded")
@@ -93,34 +93,38 @@ def main():
                 "Tutorials",
                 "Model guide",
                 "Frequently Asked Questions",
-                "Download documentation",
+                "Coming from R",
             ], getting_started
-            page.get_by_role("link", name="Download documentation", exact=True).click()
-            page.wait_for_url(f"{origin}/downloads.html")
-            assert page.locator("h1").inner_text().startswith("Download documentation")
-            assert page.locator(
-                ".wy-menu-vertical li.current > a.current"
-            ).evaluate_all("links => links.map(a => new URL(a.href).pathname)") == [
-                "/downloads.html"
-            ]
-            assert page.get_by_role("link", name=re.compile(r"^Docs workflow")).get_attribute(
-                "href"
-            ) == "https://github.com/OpenTabular/NAMpy/actions/workflows/docs.yml"
+            page.goto(f"{origin}/index.html", wait_until="domcontentloaded")
+            for manual in ("NAMpy.pdf", "NAMpy.epub"):
+                link = page.locator(
+                    f'a[href="https://github.com/OpenTabular/NAMpy/releases/download/docs-latest/{manual}"]'
+                )
+                assert link.count() == 1, manual
+            assert page.locator('a[href="downloads.html"]').count() == 0
             page.go_back(wait_until="domcontentloaded")
             assert "Concepts" not in [section["title"] for section in sections]
-            for title, minimum in [("How-to Guides", 12)]:
-                section = next(item for item in sections if item["title"] == title)
-                assert title not in section["items"], section
-                assert len(section["items"]) >= minimum, section
+            howto = next(item for item in sections if item["title"] == "How-to Guides")
+            assert howto["items"] == [
+                "Fit a first model",
+                "Fit and diagnose a GAM",
+                "Read the fit",
+                "Calibrate predictions",
+                "Change the predictor",
+                "Model location and spread",
+                "Fit survival models",
+                "Add a neural estimator",
+                "Save and reload a model",
+            ], howto
             reference = next(item for item in sections if item["title"] == "Reference")
             assert reference["items"] == [
                 "Statistical models", "Neural models", "Predictions and explanations",
-                "Plotting", "Extension APIs", "Research references",
-                "Compatibility and limitations",
+                "Probability laws", "Plotting", "Calibration", "Extension APIs",
+                "Bibliography",
             ], reference
-            page.get_by_role("link", name="Research references", exact=True).click()
+            page.get_by_role("link", name="Bibliography", exact=True).click()
             page.wait_for_url(f"{origin}/references.html")
-            assert page.locator("h1").inner_text().startswith("Research references")
+            assert page.locator("h1").inner_text().startswith("Bibliography")
             assert page.locator(
                 ".wy-menu-vertical li.current > a.current"
             ).evaluate_all("links => links.map(a => new URL(a.href).pathname)") == [
@@ -172,52 +176,68 @@ def main():
             page.goto(f"{origin}/api/gam_formula.html", wait_until="domcontentloaded")
             assert page.locator(".wy-menu-vertical li.current > a.current").count() == 1
             page.goto(f"{origin}/tutorials/index.html", wait_until="domcontentloaded")
-            expected_tutorials = [
-                "notebooks/01_getting_started.html",
-                "notebooks/05_real_data_classification.html",
-                "tutorials/first_gam.html",
-                "notebooks/smoothness_selection.html",
-                "notebooks/gam_diagnostics.html",
-                "notebooks/derivatives_contrasts.html",
-                "notebooks/tensor_interactions.html",
-                "notebooks/group_smooths.html",
-                "notebooks/02_statistical_gams.html",
-                "notebooks/overdispersed_counts.html",
-                "notebooks/gamma_response.html",
-                "notebooks/beta_response.html",
-                "notebooks/tweedie_response.html",
-                "notebooks/ordered_response.html",
-                "notebooks/gamma_location_scale.html",
-                "in_depth/quantile_calibration.html",
-                "notebooks/quantile_uncertainty.html",
-                "notebooks/04_distributional_models.html",
-                "notebooks/survival_censoring.html",
-                "tutorials/gam_nam.html",
-                "notebooks/03_neural_models.html",
-                "tutorials/interaction_selection.html",
-                "in_depth/tree_effects.html",
-                "notebooks/semistructured_remainder.html",
-                "notebooks/regional_smoothing.html",
-                "notebooks/correlated_errors.html",
-                "notebooks/neighborhood_cv.html",
-                "notebooks/adaptive_smoothing.html",
-                "notebooks/spherical_smoothing.html",
-                "notebooks/functional_inputs.html",
-                "notebooks/curvature_constraints.html",
-            ]
-            card_targets = page.locator(".sd-card a.sd-stretched-link").evaluate_all(
+            track_targets = page.locator(".sd-card a.sd-stretched-link").evaluate_all(
                 "links => links.map(a => new URL(a.href).pathname.slice(1))"
             )
-            assert card_targets == expected_tutorials, card_targets
-            downloads = page.locator(".sd-card a.reference.download")
-            assert downloads.count() == len(expected_tutorials)
-            for download in downloads.all():
-                # Reset the document between clicks to avoid Chromium's
-                # bulk-download limiter.
-                page.reload(wait_until="domcontentloaded")
-                with page.expect_download() as event:
-                    download.click()
-                assert event.value.suggested_filename.endswith(".ipynb")
+            assert track_targets == [
+                "tutorials/track_new.html",
+                "tutorials/track_statistical.html",
+                "tutorials/track_neural.html",
+            ], track_targets
+            expected_tracks = {
+                "tutorials/track_new.html": [
+                    "notebooks/01_getting_started.html",
+                    "tutorials/first_gam.html",
+                    "notebooks/gam_diagnostics.html",
+                    "notebooks/05_real_data_classification.html",
+                ],
+                "tutorials/track_statistical.html": [
+                    "notebooks/smoothness_selection.html",
+                    "notebooks/neighborhood_cv.html",
+                    "notebooks/adaptive_smoothing.html",
+                    "notebooks/02_statistical_gams.html",
+                    "notebooks/overdispersed_counts.html",
+                    "notebooks/gamma_response.html",
+                    "notebooks/beta_response.html",
+                    "notebooks/tweedie_response.html",
+                    "notebooks/ordered_response.html",
+                    "notebooks/derivatives_contrasts.html",
+                    "notebooks/quantile_uncertainty.html",
+                    "notebooks/gamma_location_scale.html",
+                    "notebooks/survival_censoring.html",
+                    "notebooks/tensor_interactions.html",
+                    "notebooks/group_smooths.html",
+                    "notebooks/curvature_constraints.html",
+                    "notebooks/correlated_errors.html",
+                    "notebooks/regional_smoothing.html",
+                    "notebooks/spherical_smoothing.html",
+                    "notebooks/functional_inputs.html",
+                ],
+                "tutorials/track_neural.html": [
+                    "tutorials/gam_nam.html",
+                    "notebooks/03_neural_models.html",
+                    "tutorials/interaction_selection.html",
+                    "in_depth/tree_effects.html",
+                    "notebooks/04_distributional_models.html",
+                    "in_depth/quantile_calibration.html",
+                    "notebooks/semistructured_remainder.html",
+                ],
+            }
+            for path, expected in expected_tracks.items():
+                page.goto(f"{origin}/{path}", wait_until="domcontentloaded")
+                card_targets = page.locator(".sd-card a.sd-stretched-link").evaluate_all(
+                    "links => links.map(a => new URL(a.href).pathname.slice(1))"
+                )
+                assert card_targets == expected, (path, card_targets)
+                downloads = page.locator(".sd-card a.reference.download")
+                assert downloads.count() == len(expected)
+                for download in downloads.all():
+                    # Reset the document between clicks to avoid Chromium's
+                    # bulk-download limiter.
+                    page.reload(wait_until="domcontentloaded")
+                    with page.expect_download() as event:
+                        download.click()
+                    assert event.value.suggested_filename.endswith(".ipynb")
             page.goto(f"{origin}/in_depth/index.html", wait_until="domcontentloaded")
             page.wait_for_url(f"{origin}/tutorials/index.html")
             # Search must retrieve model names and modeling concepts locally.

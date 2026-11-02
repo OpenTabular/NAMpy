@@ -151,7 +151,7 @@ Available interfaces
 * :class:`nampy.models.GAMClassifier`
 * :class:`nampy.models.GAMLSS`
 
-See :doc:`../user_guide/statistical_gams` for a runnable analysis workflow and
+See :ref:`howto-user-guide-statistical-gams` for a runnable analysis workflow and
 :doc:`../architecture` for the seven stages that implement it.
 
 References

@@ -30,6 +30,15 @@ predictions. Explanation functions operate on that shared representation.
    FisherInformationResult
    FisherGroupSummary
    FisherSnapshot
+   quantile_residuals
+   QuantileResiduals
+   prepare_worm_plot
+   WormPlotData
+   WormPanel
+   prepare_centiles
+   CentileCurves
+   centile_calibration
+   CentileCalibration
 
 
 Term metadata
@@ -56,9 +65,9 @@ a fitting backend.
 its row-aligned inputs. It supplies CDF, quantile, sampling and moment methods
 with explicit output axes, and rejects unavailable operations. The current
 estimator adapters and their available operations are listed in the
-registry-generated family table in :doc:`../user_guide/api_and_families`.
-See :doc:`../user_guide/gamlss` for usage and
-:doc:`../user_guide/distributional_probabilities` for selected parameter mappings.
+registry-generated family table in :ref:`howto-user-guide-api-and-families`.
+See :ref:`howto-user-guide-gamlss` for usage and
+:ref:`howto-user-guide-distributional-probabilities` for selected parameter mappings.
 
 The shared ``quantile_residuals``, ``prepare_worm_plot``, ``prepare_centiles``
 and ``centile_calibration`` functions live in ``nampy.diagnostics``. They
@@ -93,7 +102,7 @@ fit/prediction arguments and optional external status readers. Results retain
 failed candidates, warnings, timing, row counts and optional unweighted centile
 calibration. ``DistributionComparison.to_frame()`` returns the ranking table;
 its ``models`` property exposes independently fitted clones. No AIC or EDF is
-computed across backends. See :doc:`../user_guide/distributional_comparison` for
+computed across backends. See :ref:`howto-user-guide-distributional-comparison` for
 eligibility, weights, reference measures and validation-split restrictions.
 
 ``nampy.distributions.BCCGLaw`` is a backend-neutral probability law for
@@ -105,7 +114,7 @@ and automatic joint REML with Newton, BFGS and EFS, reusing the generic covarian
 adapters. Neural LSS also fits ``bccg`` through its normalized likelihood.
 Its ``mu`` is not generally the response mean or exact median; it is distinct
 from mgcv's existing censored ``bcg`` likelihood. See
-:doc:`../user_guide/distributional_boxcox` for parameterization and numerical limits.
+:ref:`howto-user-guide-distributional-boxcox` for parameterization and numerical limits.
 
 ``nampy.distributions.BCTLaw`` and ``BCPELaw`` supply positive scalar
 probabilities through the same ``DistributionPrediction`` interface. Both use
@@ -122,7 +131,7 @@ autograd derivatives remain unsupported.
 
 BCT uses Student-t scale and degrees of freedom; BCPE uses a variance-one
 power-exponential latent law. At zero power these are log-t/log-PE laws,
-respectively. See :doc:`../user_guide/distributional_boxcox` for normalization,
+respectively. See :ref:`howto-user-guide-distributional-boxcox` for normalization,
 existence conditions, upstream discrepancies and floating-point limitations.
 
 Predictor coordinates

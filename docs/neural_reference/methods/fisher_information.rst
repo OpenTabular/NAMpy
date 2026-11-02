@@ -58,7 +58,7 @@ Returns
      - scalar record; optional diagonal (p,)
      - Mean model likelihood information in trainable-parameter coordinates, with disjoint group traces and sampling-error diagnostics. Penalties are excluded; unsupported likelihoods and estimator combinations fail explicitly.
 
-Supply the complete input population and aligned known offsets; the method evaluates every supplied row. ``config.n_inputs`` limits fit-time probes only. Raw regression requires an explicit conditional scale in ``FisherDiagnostics``. Information conditions on fitted parameters and excludes regularization; it is not a confidence interval. See :doc:`/user_guide/fisher_diagnostics`.
+Supply the complete input population and aligned known offsets; the method evaluates every supplied row. ``config.n_inputs`` limits fit-time probes only. Raw regression requires an explicit conditional scale in ``FisherDiagnostics``. Information conditions on fitted parameters and excludes regularization; it is not a confidence interval. See :ref:`howto-user-guide-fisher-diagnostics`.
 
 
 

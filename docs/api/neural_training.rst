@@ -4,7 +4,7 @@ Neural Training Contract
 This is the shared training surface used by gradient-trained estimators.
 Architecture-specific native solvers use their documented stage/linear controls.
 All controls belong to constructor configuration records; ``fit`` accepts data,
-validation rows, offsets and observation weights. See :doc:`/user_guide/training`.
+validation rows, offsets and observation weights. See :ref:`howto-user-guide-training`.
 
 The distributional objective follows the NAMLSS framework of Thielmann et al.
 (2024), with registered families defining parameter transforms and loss.
@@ -26,6 +26,8 @@ Configuration records
 
 .. autoclass:: nampy.neural.configuration.ObjectiveConfig
 
+.. autoclass:: nampy.neural.configuration.SurvivalObjectiveConfig
+
 .. autoclass:: nampy.neural.configuration.PreprocessingConfig
 
 .. autoclass:: nampy.neural.configuration.GradientTrainingConfig
@@ -38,4 +40,4 @@ Configuration records
 
 .. autoclass:: nampy.neural.configuration.SemiStructuredTrainingConfig
 
-See :doc:`/user_guide/semistructured` for joint full-cohort projection semantics.
+See :ref:`howto-user-guide-semistructured` for joint full-cohort projection semantics.

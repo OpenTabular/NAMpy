@@ -7,18 +7,12 @@ NAMpy: Interpretable Additive Models
    :align: center
    :width: 100%
 
-NAMpy brings serious statistical additive modeling (`mgcv <https://cran.r-project.org/package=mgcv>`_,
-`scam <https://cran.r-project.org/package=scam>`_,
-`gamlss <https://www.gamlss.com/>`_,
-`qgam <https://mfasiolo.github.io/qgam/>`_) and deep learning interpretability
-(`NAM <https://neural-additive-models.github.io/>`_,
-`NBM <https://arxiv.org/abs/2205.14120>`_,
-`NodeGAM <https://arxiv.org/abs/2106.01613>`_ etc) into a unified
-scikit-learn workflow. Fit complex
+NAMpy brings serious statistical additive modeling and deep learning
+interpretability into a unified scikit-learn workflow. Fit complex
 non-linear curves, model full response distributions, and run rigorous GAM
 diagnostics, all in Python.
 
-:doc:`Coming from R’s mgcv or scam? See compatibility and interface differences. <compatibility>`
+:doc:`Coming from R's mgcv? <from_mgcv>`
 
 Quick installation
 ------------------
@@ -29,7 +23,46 @@ Quick installation
 
 For Python compatibility, installation checks, and GPU setup, see the :doc:`FAQ <faq>`.
 
-For offline reading, :doc:`download the PDF or EPUB manual <downloads>`.
+.. _download-the-manual:
+
+`Download the PDF manual <https://github.com/OpenTabular/NAMpy/releases/download/docs-latest/NAMpy.pdf>`__
+or
+`the EPUB manual <https://github.com/OpenTabular/NAMpy/releases/download/docs-latest/NAMpy.epub>`__.
+
+Tutorials
+---------
+
+The tutorials are grouped into three tracks. Each track starts with a question and a fitted result, then moves into the tools that question needs.
+
+.. grid:: 1 1 3 3
+   :gutter: 2
+
+   .. grid-item-card:: New to additive models
+      :link: tutorials/track_new
+      :link-type: doc
+      :img-top: _static/track_intro.png
+      :img-alt: Points from a sine-shaped mean, the least-squares line through those points, and the mean itself
+      :class-img-top: track-card-figure
+
+      Fit a first model, read the feature curves, diagnose a poor fit, and check predictions on unseen rows.
+
+   .. grid-item-card:: Statistical modeling with GAMs
+      :link: tutorials/track_statistical
+      :link-type: doc
+      :img-top: _static/track_statistical.png
+      :img-alt: Equirectangular map of a latitude-longitude surface, the display used for a spherical smooth
+      :class-img-top: track-card-figure
+
+      Spline bases, penalties, REML, families, uncertainty, shape constraints, and distributional regression.
+
+   .. grid-item-card:: Interpretable deep learning
+      :link: tutorials/track_neural
+      :link-type: doc
+      :img-top: _static/track_neural.png
+      :img-alt: Interaction heatmap of two features, with three slices of that surface at fixed values of the second feature
+      :class-img-top: track-card-figure
+
+      Compare NAM, NBM, trees, interaction selection, distributional neural regression, and custom architectures.
 
 Additive models
 ---------------
@@ -117,8 +150,8 @@ observed follow-up.
 Explore the documentation
 -------------------------
 
-If you are new to NAMpy, start with
-:doc:`your first additive models <notebooks/01_getting_started>`.
+If you are new to additive models, start with
+:doc:`Discover nonlinear effects and check whether you can trust them <notebooks/01_getting_started>`.
 Use the guides below to choose a model, develop your analysis, or
 look up a specific method.
 
@@ -126,11 +159,11 @@ look up a specific method.
    :gutter: 2
    :class-container: documentation-navigation
 
-   .. grid-item-card:: Work through an example
+   .. grid-item-card:: Browse the tutorials
       :link: tutorials/index
       :link-type: doc
 
-      Follow a complete analysis, from preparing data to interpreting predictions.
+      Choose the track that matches your background, then work through its tutorials in order.
 
    .. grid-item-card:: Choose a model
       :link: models/index
@@ -164,39 +197,28 @@ look up a specific method.
 
 .. toctree::
    :caption: Getting Started
-   :maxdepth: 2
+   :maxdepth: 3
    :hidden:
 
    Tutorials <tutorials/index>
    Model guide <models/index>
    faq
-   Download documentation <downloads>
+   Coming from R <from_mgcv>
 
 .. toctree::
    :caption: How-to Guides
    :maxdepth: 2
    :hidden:
 
-   Fit, predict and diagnose <user_guide/model_workflow>
-   Prepare feature data <user_guide/preprocessing>
-   Train and tune neural models <user_guide/training>
-   Build a GAM formula <user_guide/formula_visual_reference>
-   Specify and diagnose a statistical GAM <user_guide/statistical_gams>
-   Choose an API and response family <user_guide/api_and_families>
-   Model location and spread <user_guide/gamlss>
-   Fit survival models <user_guide/survival>
-   Calibrate prediction intervals <user_guide/calibration>
-   Calibrate quantile-function inference <user_guide/quantile_inference>
-   Compose spline and neural effects <user_guide/semistructured>
-   Add an interaction <howto/interactions>
-   Constrain the shape of an effect <user_guide/shape_constrained_gams>
-   Predict with an offset <howto/offsets>
-   Interpret and plot effects <user_guide/interpretability>
-   Inspect Fisher information <user_guide/fisher_diagnostics>
-   Choose a prediction output <howto/prediction_outputs>
-   Fit a regression, classification, or distributional model <examples/fit_models>
+   Fit a first model <howto/fit_first_model>
+   Fit and diagnose a GAM <howto/fit_and_diagnose>
+   Read the fit <howto/read_the_fit>
+   Calibrate predictions <howto/calibrate>
+   Change the predictor <howto/change_predictor>
+   Model location and spread <howto/location_and_spread>
+   Fit survival models <howto/survival>
+   Add a neural estimator <howto/neural>
    Save and reload a model <howto/persistence>
-   Build a custom neural model <user_guide/custom_models>
 
 .. toctree::
    :caption: Reference
@@ -206,10 +228,11 @@ look up a specific method.
    statistical_reference/index
    neural_reference/index
    Predictions and explanations <api/contracts>
+   Probability laws <api/distributions>
    Plotting <api/plotting>
+   Calibration <api/calibration>
    Extension APIs <extension_reference/index>
-   Research references <references>
-   Compatibility and limitations <compatibility>
+   Bibliography <references>
 
 .. toctree::
    :caption: Development
@@ -218,6 +241,5 @@ look up a specific method.
 
    contributing
    architecture
-   Validation reports <development/index>
    Browse source code <development/source_code>
    license

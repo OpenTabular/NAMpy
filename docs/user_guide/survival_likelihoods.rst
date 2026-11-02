@@ -1,7 +1,7 @@
 Choose a piecewise or parametric survival likelihood
 ====================================================
 
-The common workflow is in :doc:`survival`. Use these details to choose a
+The common workflow is in :ref:`howto-user-guide-survival`. Use these details to choose a
 baseline representation, event-time law and backend training route.
 
 Smooth piecewise baseline

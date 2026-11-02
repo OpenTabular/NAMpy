@@ -1,7 +1,7 @@
 Survival prediction, evaluation and uncertainty API
 ===================================================
 
-See :doc:`/user_guide/survival` for the task workflow.
+See :ref:`howto-user-guide-survival` for the task workflow.
 
 .. autoclass:: nampy.survival.SurvivalTarget
    :members: from_frame, take

@@ -278,6 +278,19 @@ html.writer-html5 .rst-content dl.field-list {
   display: none;
 }
 
+.sd-card-img-top.track-card-figure {
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  display: block;
+  height: auto;
+  width: 100%;
+}
+
+html.dark .sd-card-img-top.track-card-figure {
+  background: #fff;
+  border-bottom-color: #30363d;
+}
+
 /* Text-only navigation cards on the homepage. */
 .documentation-navigation .sd-card {
   height: 100%;

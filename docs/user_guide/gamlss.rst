@@ -4,7 +4,8 @@ Distributional GAMs and GAMLSS
 GAMLSS extends additive regression beyond the mean (Rigby and Stasinopoulos, 2005).
 
 This guide covers ``GAMLSS`` formulas, parameter ordering, predictions, and
-scoring. For fitted statistical examples, see :doc:`../notebooks/02_statistical_gams`
+scoring. ``examples/example_gamlss.py`` fits the normal and gamma families.
+For fitted statistical examples, see :doc:`../notebooks/02_statistical_gams`
 and :doc:`../notebooks/gamma_location_scale`. For a separate comparison of neural
 distributional, quantile, and ensemble models, see
 :doc:`../notebooks/04_distributional_models`.
@@ -50,7 +51,7 @@ Public parameter contract
 ``GAMLSS.predict`` returns the family-defined point prediction.
 ``predict_parameters`` returns natural distribution parameters with columns
 in ``parameter_names_`` order. ``predict_link`` returns additive predictors
-with columns in ``predictor_names_`` order. See :doc:`model_workflow`.
+with columns in ``predictor_names_`` order. See :ref:`howto-user-guide-model-workflow`.
 
 .. list-table:: Built-in families
    :header-rows: 1
@@ -73,7 +74,7 @@ when a specific summary is required and supported.
 ``score`` returns weighted mean log likelihood (higher is better), while the
 default ``evaluate`` result reports its negative. For censoring targets, both
 use the supplied observation bounds rather than evaluating the target as an
-exact response; see :doc:`distributional_observations`.
+exact response; see :ref:`howto-user-guide-distributional-observations`.
 
 Formula and array modes
 -----------------------
@@ -119,7 +120,7 @@ zero-padded matrices, so every term has the same
 ``(n_samples, n_parameters)`` shape as the link prediction.
 
 For neural LSS effect plots, centering references, and uncertainty envelopes,
-see :doc:`interpretability`.
+see :ref:`howto-user-guide-interpretability`.
 
 Statistical smoothness selection
 --------------------------------
@@ -167,7 +168,7 @@ read-only. Samples condition on fitted parameters; they do not include
 coefficient uncertainty, bootstrap variation or an ensemble predictive mixture.
 Scoring weights remain the estimator's responsibility.
 
-See :doc:`distributional_probabilities` for the adapter parameter table, moment
+See :ref:`howto-user-guide-distributional-probabilities` for the adapter parameter table, moment
 existence rules, numerical boundaries and custom probability-law contracts.
 
 

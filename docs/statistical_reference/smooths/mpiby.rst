@@ -28,13 +28,13 @@ on the additive predictor scale, holding other terms fixed.
 
 For a numeric multiplier v the model contribution is v*f(x). A negative v reverses the direction of its derivative with respect to x; the constraint is on the underlying smooth, not every multiplied contribution.
 
-The coefficient transformation and penalty coordinates must be evaluated together; the shape fitting route retains their derivatives. See :doc:`/user_guide/shape_constrained_gams` for centering, inference and fitting restrictions.
+The coefficient transformation and penalty coordinates must be evaluated together; the shape fitting route retains their derivatives. See :ref:`howto-user-guide-shape-constrained-gams` for centering, inference and fitting restrictions.
 
 For coefficient coordinates, centering, null spaces and EDF, see
 :doc:`/statistical_reference/smooths/theory`. The formula and runtime
 contracts below specify which mathematical options NAMpy exposes.
 
-This is a SCAM-style shape-constrained basis. See :doc:`/user_guide/shape_constrained_gams` for its inequalities and supported fitting routes.
+This is a SCAM-style shape-constrained basis. See :ref:`howto-user-guide-shape-constrained-gams` for its inequalities and supported fitting routes.
 
 Formula interface
 -----------------

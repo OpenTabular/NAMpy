@@ -29,6 +29,7 @@ use the [API reference](../docs/api/index.rst).
 | `example_ziplss_gam.py` | hurdle counts with independent intensity and presence predictors |
 | `example_multinom_gam.py` | two log-odds predictors and three category probabilities |
 | `example_gevlss_gam.py` | generalized extreme value location, log scale, and shape |
+| `example_gamlss.py` | normal location-scale and gamma mean/CV with additive reconstruction and conditional intervals |
 | `example_shash_gamlss.py` | sinh-arcsinh location, scale, skewness, tail shape, and additive components |
 | `example_twlss_gamlss.py` | Tweedie mean, power, and dispersion with EFS selection |
 | `example_distribution_diagnostics.py OUTPUT_DIR` | held-out NB2 quantile residuals, grouped worm plots, conditional centiles and attainable-probability calibration |

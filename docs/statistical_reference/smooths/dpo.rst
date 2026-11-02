@@ -26,13 +26,13 @@ A shape constraint is a modeling assumption, not a conclusion
 from a significance test. Derivative statements concern this term
 on the additive predictor scale, holding other terms fixed.
 
-The coefficient transformation and penalty coordinates must be evaluated together; the shape fitting route retains their derivatives. See :doc:`/user_guide/shape_constrained_gams` for centering, inference and fitting restrictions.
+The coefficient transformation and penalty coordinates must be evaluated together; the shape fitting route retains their derivatives. See :ref:`howto-user-guide-shape-constrained-gams` for centering, inference and fitting restrictions.
 
 For coefficient coordinates, centering, null spaces and EDF, see
 :doc:`/statistical_reference/smooths/theory`. The formula and runtime
 contracts below specify which mathematical options NAMpy exposes.
 
-This is a SCAM-style shape-constrained basis. See :doc:`/user_guide/shape_constrained_gams` for its inequalities and supported fitting routes.
+This is a SCAM-style shape-constrained basis. See :ref:`howto-user-guide-shape-constrained-gams` for its inequalities and supported fitting routes.
 
 Formula interface
 -----------------

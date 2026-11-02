@@ -1,5 +1,5 @@
-Compare GAM and NAM feature effects
-===================================
+Do a GAM and a NAM recover the same effects?
+============================================
 
 Similar prediction scores do not guarantee similar fitted relationships. Here we compare a GAM and a NAM against four known effects, including saturation, curvature, and diminishing returns.
 

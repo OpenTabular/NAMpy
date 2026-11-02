@@ -160,14 +160,14 @@ covariance and ignores ``se_with_mean``.
 also supported. These displays return numerical data with Matplotlib figures.
 SCAM check panels do not run the GAM k-index test. NumPy seeds are reproducible
 but do not reproduce R's random-number stream. See
-:doc:`statistical_gams` for plotting-free preparation helpers and controls.
+:ref:`howto-user-guide-statistical-gams` for plotting-free preparation helpers and controls.
 
 For correlated Gaussian errors, see :doc:`../notebooks/correlated_errors`.
 
 Current boundaries
 ------------------
 
-For transformed shape-constrained models, use fixed smoothing or a supported GCV/UBRE route. Automatic ML, REML, and LAML selection is not available for these models. The compatibility reference lists restrictions for multi-parameter models and other combinations.
+For transformed shape-constrained models, use fixed smoothing or a supported GCV/UBRE route. Automatic ML, REML, and LAML selection is not available for these models. Multi-parameter restrictions are listed with the other fitting routes.
 
 See :doc:`../api/gam_advanced` for fitting compatibility and coefficient-space details.
 

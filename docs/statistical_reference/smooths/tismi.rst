@@ -27,13 +27,13 @@ statements about how changing an input affects an outcome.
 
 This is the interaction parameterization with its own identifiability construction. It does not assert a sign for the mixed partial derivative; inspect the accompanying marginal effects when interpreting a full model.
 
-The coefficient transformation and penalty coordinates must be evaluated together; the shape fitting route retains their derivatives. See :doc:`/user_guide/shape_constrained_gams` for centering, inference and fitting restrictions.
+The coefficient transformation and penalty coordinates must be evaluated together; the shape fitting route retains their derivatives. See :ref:`howto-user-guide-shape-constrained-gams` for centering, inference and fitting restrictions.
 
 For coefficient coordinates, centering, null spaces and EDF, see
 :doc:`/statistical_reference/smooths/theory`. The formula and runtime
 contracts below specify which mathematical options NAMpy exposes.
 
-This is a SCAM-style shape-constrained basis. See :doc:`/user_guide/shape_constrained_gams` for its inequalities and supported fitting routes.
+This is a SCAM-style shape-constrained basis. See :ref:`howto-user-guide-shape-constrained-gams` for its inequalities and supported fitting routes.
 
 Formula interface
 -----------------

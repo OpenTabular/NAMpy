@@ -33,6 +33,7 @@ version = nampy.__version__
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 sys.path.insert(0, str(Path(__file__).parent / "_ext"))
+from howto_groups import FOLDED_DOCNAMES
 
 extensions = [
     "family_support",
@@ -51,6 +52,7 @@ extensions = [
     "tutorial_downloads",
     "nbsphinx",  # Render checked-in notebook sources (via nbconvert/Pandoc)
     "sphinx_design",
+    "howto_groups",
 ]
 
 nbsphinx_execute = "never"
@@ -102,6 +104,7 @@ exclude_patterns = [
     "README.md",
     "Thumbs.db",
     ".DS_Store",
+    *[f"{name}.rst" for name in FOLDED_DOCNAMES],
 ]
 
 # Source file suffixes
@@ -138,18 +141,19 @@ html_theme_options = {
 
 # Add any paths that contain custom static files (such as style sheets)
 html_static_path = ["_static"]
-html_css_files = ["sidebar.css"]
+html_css_files = ["sidebar.css", "architecture.css"]
 html_js_files = [
     "page-navigation.js",
     ("contributors.js", {"defer": "defer"}),
     ("site-navigation.js", {"defer": "defer"}),
+    ("architecture.js", {"defer": "defer"}),
 ]
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
 html_logo = "_static/logo-sidebar-refined.svg"
 html_title = "NAMpy"
-html_last_updated_fmt = "%Y-%m-%d"
+html_last_updated_fmt = None
 
 # The name of an image file (within the static path) to use as favicon
 html_favicon = "_static/logo-sidebar-refined.svg"

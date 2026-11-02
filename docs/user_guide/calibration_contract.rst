@@ -2,7 +2,7 @@ Conformal numerical and snapshot contract
 =========================================
 
 This reference records the finite-sample order statistic and fitted-snapshot
-lifecycle used by :doc:`calibration`.
+lifecycle used by :ref:`howto-user-guide-calibration`.
 
 Numerical contract
 ------------------

@@ -13,7 +13,7 @@ beta_lss
 
 Alternative shape parameters are :math:`a=\mu\phi,\ b=(1-\mu)\phi`. For gamlss.dist BE, use :math:`\sigma_{\mathrm{BE}}=1/\sqrt{\phi+1}`; this is not NAMpy precision. Raw predictors are :math:`(\operatorname{logit}\mu,\log\phi)`.
 
-Distribution reference: `gamlss.dist::BE <https://github.com/cran/gamlss.dist/blob/master/man/BE.Rd>`_. Fitting uses NAMpy's joint penalized engine, not gamlss RS backfitting. See :doc:`/development/neighbor_parity` for the tested mapping and numerical comparisons.
+Distribution reference: `gamlss.dist::BE <https://github.com/cran/gamlss.dist/blob/master/man/BE.Rd>`_. Fitting uses NAMpy's joint penalized engine, not gamlss RS backfitting.
 
 Beta regression models a continuous proportion strictly between
 zero and one. Replacing shape parameters a,b by mean mu and precision

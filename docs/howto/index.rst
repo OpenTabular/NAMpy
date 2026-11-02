@@ -3,127 +3,114 @@
 How-to Guides
 =============
 
-Use these guides to complete a specific task with NAMpy. For a worked analysis with data, fitted results, and interpretation, see the :doc:`tutorials <../tutorials/index>`.
+The guides follow the fitting workflow. Each page gathers related tasks in an open-close menu, and the text inside each menu is the full guide. Stop when the task in front of you is the one you came to complete. Worked analyses with data and figures are the :doc:`tutorials <../tutorials/index>`.
 
-Prepare and fit
----------------
+Fit a first model
+-----------------
 
-.. grid:: 1 1 2 2
+.. grid:: 1
    :gutter: 2
 
-   .. grid-item-card:: Prepare feature data
-      :link: /user_guide/preprocessing
+   .. grid-item-card:: Fit a first model
+      :link: fit_first_model
       :link-type: doc
 
-      Configure numerical and categorical transformations and keep training and prediction inputs consistent.
+      Fit a regression, classification, or distributional model; prepare feature data; build a formula; and choose an API and response family.
 
-   .. grid-item-card:: Train and tune neural models
-      :link: /user_guide/training
-      :link-type: doc
+Fit and diagnose a GAM
+----------------------
 
-      Choose fitting controls, validation strategy, and hyperparameters.
+.. grid:: 1
+   :gutter: 2
 
    .. grid-item-card:: Fit and diagnose a GAM
-      :link: /user_guide/statistical_gams
+      :link: fit_and_diagnose
       :link-type: doc
 
-      Choose bases and smoothing penalties, then inspect residuals, inference, and diagnostics.
+      Fit a mean, quantile, or expectile model, then specify bases, penalties, and diagnostics.
 
-   .. grid-item-card:: Estimate a mean, quantile or expectile
-      :link: choose-response-summary
-      :link-type: ref
+Read the fit
+------------
 
-      Choose a response summary and distinguish asymmetric losses from full-distribution fitting.
+.. grid:: 1
+   :gutter: 2
 
-   .. grid-item-card:: Model a conditional distribution
-      :link: /user_guide/gamlss
+   .. grid-item-card:: Read the fit
+      :link: read_the_fit
       :link-type: doc
 
-      Choose distribution parameters, their links, formulas, and prediction scales.
+      Read effects, choose a prediction method, and inspect Fisher information.
 
-   .. grid-item-card:: Fit a survival model
-      :link: /user_guide/survival
+Calibrate predictions
+---------------------
+
+.. grid:: 1
+   :gutter: 2
+
+   .. grid-item-card:: Calibrate predictions
+      :link: calibrate
       :link-type: doc
 
-      Represent censored follow-up, choose a survival model, and predict survival curves.
+      Calibrate a prediction interval, a quantile function, or a calibration sample that is shifted, grouped, censored, or checked against its contract.
 
-Control the model structure
----------------------------
+Change the predictor
+--------------------
+
+.. grid:: 1
+   :gutter: 2
+
+   .. grid-item-card:: Change the predictor
+      :link: change_predictor
+      :link-type: doc
+
+      Add an offset, constrain the shape of an effect, or let one covariate's effect depend on another.
+
+Model location and spread
+-------------------------
+
+.. grid:: 1
+   :gutter: 2
+
+   .. grid-item-card:: Model location and spread
+      :link: location_and_spread
+      :link-type: doc
+
+      Give each distribution parameter its own additive predictor, then choose a family, observation type, comparison, or probability calculation.
+
+Fit survival models
+-------------------
+
+.. grid:: 1
+   :gutter: 2
+
+   .. grid-item-card:: Fit survival models
+      :link: survival
+      :link-type: doc
+
+      Represent censored follow-up, then choose a likelihood, a Cox model, evaluation, uncertainty, or calibration.
+
+Add a neural estimator
+----------------------
+
+.. grid:: 1
+   :gutter: 2
+
+   .. grid-item-card:: Add a neural estimator
+      :link: neural
+      :link-type: doc
+
+      Train a neural estimator, compose spline and neural effects, or register a custom architecture.
+
+Keep the fit
+------------
 
 .. grid:: 1 1 2 2
    :gutter: 2
-
-   .. grid-item-card:: Add an interaction
-      :link: interactions
-      :link-type: doc
-
-      Choose a joint smooth or an explicit neural interaction.
-
-   .. grid-item-card:: Constrain the shape of an effect
-      :link: /user_guide/shape_constrained_gams
-      :link-type: doc
-
-      Impose justified monotonicity, curvature, or positivity and inspect the fitted constraint.
-
-   .. grid-item-card:: Predict with an offset
-      :link: offsets
-      :link-type: doc
-
-      Include a known predictor contribution during fitting and prediction.
-
-   .. grid-item-card:: Combine structured and neural effects
-      :link: /user_guide/semistructured
-      :link-type: doc
-
-      Fit spline and neural contributions jointly and inspect their identified decomposition.
-
-Inspect predictions and reuse a fit
------------------------------------
-
-.. grid:: 1 1 2 2
-   :gutter: 2
-
-   .. grid-item-card:: Calibrate prediction intervals
-      :link: /user_guide/calibration
-      :link-type: doc
-
-      Use a separate calibration sample to construct intervals for future responses and assess their coverage.
-
-   .. grid-item-card:: Quantify uncertainty in a conditional quantile
-      :link: /user_guide/quantile_inference
-      :link-type: doc
-
-      Estimate confidence intervals for a fitted quantile function and understand their assumptions.
-
-   .. grid-item-card:: Interpret and plot effects
-      :link: /user_guide/interpretability
-      :link-type: doc
-
-      Understand decomposition, centering, term dependence, and the meaning of effect displays.
-
-   .. grid-item-card:: Choose a prediction output
-      :link: prediction_outputs
-      :link-type: doc
-
-      Match labels, probabilities, parameters, quantiles, and contribution arrays to the right display.
 
    .. grid-item-card:: Save and reload a model
       :link: persistence
       :link-type: doc
 
-      Preserve the estimator and external preprocessing for new prediction rows.
+      Store the fitted estimator and confirm that reloaded predictions agree.
 
-Quick fit recipes
------------------
-
-:doc:`Fit a regression, classification, or distributional model </examples/fit_models>`.
-
-Extend NAMpy
-------------
-
-* :doc:`Build a custom neural model </user_guide/custom_models>`
-
-Architecture-specific features, including sparse selection, quantile models,
-and tree ensembles, are described with their assumptions and examples in
-:doc:`../models/index`. For held-out quantile coverage and between-fit
-uncertainty, see :doc:`../notebooks/04_distributional_models`.
+Architecture-specific features, including sparse selection, quantile models, and tree ensembles, are described with their assumptions in :doc:`../models/index`.

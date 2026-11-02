@@ -2,7 +2,7 @@ Calibrate under covariate shift
 ===============================
 
 Use supplied density ratios only when the covariate-shift assumptions are
-appropriate. Start with :doc:`calibration` for the independent data roles.
+appropriate. Start with :ref:`howto-user-guide-calibration` for the independent data roles.
 
 Covariate-shift weighting
 -------------------------

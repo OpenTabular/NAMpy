@@ -13,7 +13,7 @@ weibull_lss
 
 Natural columns are ``scale, shape``, both log-linked. The WEI mapping is mu=scale, sigma=shape; this is not WEI2 or WEI3. The response mean is scale*Gamma(1+1/shape).
 
-Distribution reference: `gamlss.dist::WEI <https://github.com/cran/gamlss.dist/blob/master/man/WEI.Rd>`_. Fitting uses NAMpy's joint penalized engine, not gamlss RS backfitting. See :doc:`/development/neighbor_parity` for the tested mapping and numerical comparisons.
+Distribution reference: `gamlss.dist::WEI <https://github.com/cran/gamlss.dist/blob/master/man/WEI.Rd>`_. Fitting uses NAMpy's joint penalized engine, not gamlss RS backfitting.
 
 Fixed smoothing and automatic general-family REML with outer_newton, bfgs and efs are validated. Method labels retain mgcv general-family coercion to REML; this is not separate ML/GCV/UBRE/NCV support. The optim route is unavailable because the extension has no family-defined null deviance for its objective scaling; magic and nlm.fd are also unsupported. Native deviance residuals and null deviance are unavailable; shared distribution quantile residuals are available. Censoring, truncation and alternate links are unsupported. Existing transformed-coefficient/observation and general-NCV guards remain in force.
 

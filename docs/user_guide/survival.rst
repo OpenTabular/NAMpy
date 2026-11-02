@@ -10,7 +10,7 @@ Piecewise models additionally accept complete changing-covariate histories
 through ``LongitudinalSurvivalTarget``. A separate statistical ``CoxGAM``
 supports static partial likelihood with fixed penalties or eligible automatic
 REML smoothing. Neural LinReg/NAM Cox training is also available; see
-:doc:`survival_cox`.
+:ref:`howto-user-guide-survival-cox`.
 Conditionally independent censoring and entry are assumed.
 
 
@@ -24,7 +24,7 @@ Choose a route
 * Use ``LinRegSurvival`` or ``NAMSurvival`` for gradient-trained piecewise,
   parametric or static unstratified Cox predictors.
 * Use complete subject histories only with the piecewise route; choose the
-  :doc:`survival_longitudinal` workflow before splitting those records.
+  :ref:`howto-user-guide-survival-longitudinal` workflow before splitting those records.
 
 Observations and fitting
 ------------------------
@@ -55,20 +55,7 @@ new subjects. ``gam_`` exposes the unchanged statistical fit.
 ``score`` returns weighted observed-event log likelihood divided by total subject
 weight, with larger values better. It is not concordance or prediction accuracy.
 
-Follow-up and fitted profiles
------------------------------
-
-.. figure:: /_static/features/survival_profiles.png
-   :alt: Observed follow-up with event circles and censoring crosses, beside fitted Weibull survival for three covariate profiles.
-   :width: 100%
-
-   Follow-up uses arbitrary time units. The separate test cohort contains
-   33% right-censored records; a cross
-   records surviving to the end of follow-up, not an event at that time.
-   At time 2, the fitted survival probabilities for x=-0.8, 0 and 0.8 are
-   approximately 0.65, 0.31 and 0.04. See the complete
-   :doc:`censoring tutorial </notebooks/survival_censoring>` for subject splits
-   and training-only censoring estimation.
+The :doc:`censoring tutorial </notebooks/survival_censoring>` shows the held-out follow-up records and the fitted survival profiles.
 
 Curve semantics
 ---------------
@@ -131,7 +118,7 @@ Brier error measures probability prediction error; smaller values are better.
 It assumes marginal independent censoring and positive training censoring
 survival on the requested support. Choose times within model, training and test
 follow-up; do not extrapolate the censoring distribution. See
-:doc:`survival_evaluation` for the full contract, descriptive curves, residuals
+:ref:`howto-user-guide-survival-evaluation` for the full contract, descriptive curves, residuals
 and concordance.
 
 

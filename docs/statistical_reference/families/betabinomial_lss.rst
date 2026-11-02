@@ -13,7 +13,7 @@ betabinomial_lss
 
 Natural columns are ``mu, kappa``, with logit/log links. Supply ``context={'trials': trials}`` at fit and for every explicit prediction dataset. Omitted X reuses fitted trials. The response is integer successes, not proportions or success/failure pairs; the mean count is trials*mu. R BB uses sigma=1/kappa and bd=trials. Fixed smoothing and automatic joint REML with Newton, BFGS and EFS are validated; neural fitting uses its normalized likelihood.
 
-Distribution reference: `gamlss.dist::BB <https://github.com/cran/gamlss.dist/blob/master/man/BB.Rd>`_. Fitting uses NAMpy's joint penalized engine, not gamlss RS backfitting. See :doc:`/development/neighbor_parity` for the tested mapping and numerical comparisons.
+Distribution reference: `gamlss.dist::BB <https://github.com/cran/gamlss.dist/blob/master/man/BB.Rd>`_. Fitting uses NAMpy's joint penalized engine, not gamlss RS backfitting.
 
 Fixed smoothing and automatic general-family REML with outer_newton, bfgs and efs are validated. Method labels retain mgcv general-family coercion to REML; this is not separate ML/GCV/UBRE/NCV support. The optim route is unavailable because the extension has no family-defined null deviance for its objective scaling; magic and nlm.fd are also unsupported. Native deviance residuals and null deviance are unavailable; shared distribution quantile residuals are available. Censoring, truncation and alternate links are unsupported. Existing transformed-coefficient/observation and general-NCV guards remain in force.
 

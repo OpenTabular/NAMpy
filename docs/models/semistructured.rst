@@ -13,7 +13,7 @@ Model structure
 The predictor is B beta + (H - B A) gamma. B comes from the existing statistical
 formula compiler, H is learned, and A is the weighted training projection.
 Each step trains the structured and neural parameters jointly. New-data
-predictions reuse A. Read :doc:`/user_guide/semistructured` for the mathematical
+predictions reuse A. Read :ref:`howto-user-guide-semistructured` for the mathematical
 contract, complete example and unsupported routes.
 
 Fit and inspect

@@ -10,6 +10,17 @@ import pandas as pd
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
+NOTEBOOK = (
+    Path.home()
+    / "nampy-notes"
+    / "validation_reports"
+    / "notebooks"
+    / "04_distributional_models.ipynb"
+)
+pytestmark = pytest.mark.skipif(
+    not NOTEBOOK.is_file(),
+    reason="The distributional validation notebook is kept in local notes.",
+)
 
 
 def report_functions():
@@ -18,7 +29,7 @@ def report_functions():
     from nampy.neural.registry import architectures
 
     notebook = nbformat.read(
-        ROOT / "docs/development/notebooks/04_distributional_models.ipynb", 4
+        NOTEBOOK, 4
     )
     namespace = {
         "np": np,
@@ -63,7 +74,7 @@ def test_validation_report_architecture_options_cover_live_registry():
     from nampy.neural.registry import architectures
 
     notebook = nbformat.read(
-        ROOT / "docs/development/notebooks/04_distributional_models.ipynb", 4
+        NOTEBOOK, 4
     )
     for cell in notebook.cells:
         if cell.cell_type != "code":
@@ -111,7 +122,7 @@ def test_validation_report_targets_and_domains_cover_live_family_registry():
     from nampy.neural.families.registry import FAMILY_REGISTRY
 
     notebook = nbformat.read(
-        ROOT / "docs/development/notebooks/04_distributional_models.ipynb", 4
+        NOTEBOOK, 4
     )
     cell = next(
         c

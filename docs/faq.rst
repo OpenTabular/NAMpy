@@ -87,7 +87,7 @@ they should not be treated as continuous measurements.
 
    X["region"] = X["region"].astype("category")
 
-See :doc:`user_guide/preprocessing` for the available transformations and
+See :ref:`howto-user-guide-preprocessing` for the available transformations and
 feature-type controls.
 
 What is the difference between a GAM and a neural additive model?
@@ -143,7 +143,7 @@ Use the fitted estimator's component and plotting methods:
 feature-effect plots and ``plot_interactions()`` for interaction displays.
 Available plots depend on the estimator and contribution type.
 
-For centering and interpretation, see :doc:`user_guide/interpretability`.
+For centering and interpretation, see :ref:`howto-user-guide-interpretability`.
 
 What does an LSS model predict?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -151,7 +151,7 @@ What does an LSS model predict?
 An ``*LSS`` estimator predicts the natural parameters of its selected
 distribution. Their number, order, constraints, and links depend on the family.
 Use ``predict_point`` when you need the family-specific point prediction and
-consult :doc:`user_guide/gamlss` for parameter semantics.
+consult :ref:`howto-user-guide-gamlss` for parameter semantics.
 
 Does NAMpy support interactions?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -189,7 +189,7 @@ same GPU memory.
 Can I add an architecture?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Yes. See :doc:`user_guide/custom_models` for the architecture, configuration,
+Yes. See :ref:`howto-user-guide-custom-models` for the architecture, configuration,
 registry, and estimator contracts.
 
 Troubleshooting and support
@@ -229,7 +229,7 @@ Reuse training-time imputers and transforms, and supply the original column
 names in the fitted order (``feature_names_in_``). Do not silently sort or drop
 columns to make an error disappear. New category handling depends on the fitted
 PreTab encoder; test its documented policy before deployment and keep category
-construction fixed. See :doc:`user_guide/preprocessing`.
+construction fixed. See :ref:`howto-user-guide-preprocessing`.
 
 Missing values in the real-data tutorial are imputed using saved training
 medians. Targets must also satisfy their family's support: positive continuous

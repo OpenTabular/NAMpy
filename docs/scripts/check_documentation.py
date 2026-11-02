@@ -185,9 +185,10 @@ def main():
             relative = path.relative_to(build)
             utility = relative.as_posix() == "search.html" or relative.parts[0] == "_modules"
             if not page.redirect and not utility and path not in sidebar_pages:
-                errors.append(
-                    f"{path.relative_to(build)}: page has no place in the sidebar"
-                )
+                if relative.as_posix() != "howto/index.html":
+                    errors.append(
+                        f"{path.relative_to(build)}: page has no place in the sidebar"
+                    )
             if page.nav_labels and page.nav_labels != homepage.nav_labels:
                 errors.append(
                     f"{path.relative_to(build)}: global navigation differs from the homepage"

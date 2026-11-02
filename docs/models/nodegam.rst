@@ -67,7 +67,7 @@ or a guarantee of better held-out predictions.
 transferred, recorded in ``pretrained_keys_``. The reconstruction head is not a
 supervised prediction head. Other architectures must explicitly declare masked
 pretraining support; unsupported requests raise rather than silently skipping it.
-See :doc:`/user_guide/training` for checkpoint and validation controls.
+See :ref:`howto-user-guide-training` for checkpoint and validation controls.
 
 Interpretation and limits
 -------------------------

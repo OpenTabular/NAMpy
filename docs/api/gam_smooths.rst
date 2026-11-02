@@ -33,7 +33,7 @@ See :doc:`/statistical_reference/smooths/index`.
 Shape constraints
 -----------------
 
-See :doc:`/user_guide/shape_constrained_gams`.
+See :ref:`howto-user-guide-shape-constrained-gams`.
 
 .. _matrix-functional-smooths:
 

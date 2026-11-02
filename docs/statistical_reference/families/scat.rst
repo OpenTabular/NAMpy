@@ -245,4 +245,4 @@ Scaled Student t extended family, ported from mgcv/R/efam.r::scat.
    :members: distribution_parameters_from_eta, distribution_parameter_jacobian
    :no-inherited-members:
 
-:doc:`Family overview and boundaries </api/gam_families>` · :doc:`Distributional modeling </user_guide/gamlss>`
+:doc:`Family overview and boundaries </api/gam_families>` · :ref:`Distributional modeling <howto-user-guide-gamlss>`

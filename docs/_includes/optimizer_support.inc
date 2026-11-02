@@ -13,6 +13,5 @@ remain restricted.
 For ordinary Gaussian identity models with unknown scale, AR(1)
 ML/REML/LAML uses the bam determinant correction. This does not extend the
 SCAM transformed-coefficient likelihood route or non-Gaussian correlated
-likelihoods. See :doc:`Compatibility </compatibility>` for guarded
-criterion/optimizer combinations. Regression coverage lives in
+likelihoods. Regression coverage lives in
 ``tests/optimization/test_mgcv_remaining_routes.py``.

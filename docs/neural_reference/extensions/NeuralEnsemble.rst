@@ -51,7 +51,7 @@ Returns and fitted outputs
 
 Construction returns an unfitted ensemble; ``fit`` accepts data, explicit validation rows, offsets and weights, returns self and exposes ``estimators_``. Regression predict returns the mean member response, shaped like a member's predictions. Classification predict_proba averages probabilities in ``classes_`` order, and predict returns the most probable class. score returns R² or accuracy, respectively. ``predict_components`` returns ``AdditivePrediction`` containing the mean link-scale contributions. ``predict_component_uncertainty`` returns ``EnsembleAdditivePrediction`` containing mean components and between-member variation; missing selected terms contribute zero for that member. Variation across members measures training/selection variability and is not automatically a calibrated confidence interval.
 
-:doc:`Custom architecture contract </user_guide/custom_models>` · :doc:`All training arguments </api/neural_training>` · :doc:`Neural distributions <../families/index>`
+:ref:`Custom architecture contract <howto-user-guide-custom-models>` · :doc:`All training arguments </api/neural_training>` · :doc:`Neural distributions <../families/index>`
 
 
 Runnable example

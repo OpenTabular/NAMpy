@@ -5,7 +5,7 @@ SemiStructured API
 
 :doc:`Model structure, interpretation and restrictions </models/semistructured>`.
 
-Joint fixed-penalty structured effects and a learned global neural representation, residualized against all structured columns on training rows. New-data predictions use the saved training projection. See :doc:`/user_guide/semistructured` for the scalar-response, categorical-input and classification scope.
+Joint fixed-penalty structured effects and a learned global neural representation, residualized against all structured columns on training rows. New-data predictions use the saved training projection. See :ref:`howto-user-guide-semistructured` for the scalar-response, categorical-input and classification scope.
 
 Constructor defaults and parameter descriptions below are resolved from the installed estimator and its architecture configuration. Each supported task has its own reference page.
 

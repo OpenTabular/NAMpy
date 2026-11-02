@@ -15,7 +15,7 @@ nb_lss
 
 The gamlss.dist NBI mapping is :math:`\mu_{\mathrm{NBI}}=\mu,\ \sigma_{\mathrm{NBI}}=\alpha`. In the shape/probability form use :math:`r=1/\alpha` and success probability :math:`r/(r+\mu)`. Raw predictors are :math:`(\log\mu,\log\alpha)`.
 
-Distribution reference: `gamlss.dist::NBI <https://github.com/cran/gamlss.dist/blob/master/man/NBI.Rd>`_. Fitting uses NAMpy's joint penalized engine, not gamlss RS backfitting. See :doc:`/development/neighbor_parity` for the tested mapping and numerical comparisons.
+Distribution reference: `gamlss.dist::NBI <https://github.com/cran/gamlss.dist/blob/master/man/NBI.Rd>`_. Fitting uses NAMpy's joint penalized engine, not gamlss RS backfitting.
 
 The negative binomial can be viewed as a Poisson law with a
 Gamma-distributed latent rate. Integrating out that rate gives

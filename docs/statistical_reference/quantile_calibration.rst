@@ -1,7 +1,7 @@
 Calibrated quantile calculations and validation
 ===============================================
 
-Start with :doc:`/user_guide/quantile_inference` to choose the fitting mode and
+Start with :ref:`howto-user-guide-quantile-inference` to choose the fitting mode and
 interpret the interval target. This reference describes the numerical owner
 and the scope of the evidence independently of declared implementation support.
 
@@ -49,8 +49,7 @@ basis and a larger basis exercising score-covariance shrinkage are covered.
 A separate prespecified 100-replicate linear-median simulation checks nominal
 90% pointwise coverage with an exact binomial test. It validates that regime,
 not universal calibration. R is needed only to regenerate the fixtures, not
-to fit models in Python. Adaptive bandwidth and REML evidence is recorded in
-:doc:`/development/neighbor_parity`.
+to fit models in Python.
 
 .. autoclass:: nampy.gam.inference.quantile.QuantileFunctionInterval
    :no-members:

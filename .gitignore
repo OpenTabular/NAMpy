@@ -194,8 +194,6 @@ model_checkpoints/
 /*review*.md
 /plan_claude.md
 /nampy_notes/
-/benchmarks/
-/tests/benchmarks/
 
 # Local development probes and maintenance tooling
 /debug/
@@ -204,3 +202,70 @@ model_checkpoints/
 # Upstream reference sources are local-only development inputs. Static parity
 # fixtures are committed under tests/reference_fixtures instead.
 /upstreams/
+# Benchmark source, protocols, tests, and paper figures are version controlled.
+# Large acquired data, fitted artifacts, and raw result snapshots are deposited
+# separately with the replication archive.
+/benchmarks/checkpoints/
+/benchmarks/data/
+/benchmarks/logs/
+/benchmarks/python_deps/
+/benchmarks/r_libs/
+/benchmarks/plots/*
+!/benchmarks/plots/07_gam_true_vs_recovered.pdf
+!/benchmarks/plots/07_gam_true_vs_recovered.png
+!/benchmarks/plots/10_explanation_stability.pdf
+!/benchmarks/plots/10_explanation_stability.png
+!/benchmarks/plots/11_shape_constraint_results.pdf
+!/benchmarks/plots/11_shape_constraint_results.png
+!/benchmarks/plots/12_inference_calibration.pdf
+!/benchmarks/plots/12_inference_calibration.png
+!/benchmarks/plots/13_distributional_calibration.pdf
+!/benchmarks/plots/13_distributional_calibration.png
+!/benchmarks/plots/17_accuracy_interpretability_runtime_pareto.pdf
+!/benchmarks/plots/17_accuracy_interpretability_runtime_pareto.png
+!/benchmarks/plots/18_credit_g_nam_case_study.pdf
+!/benchmarks/plots/18_credit_g_nam_case_study.png
+!/benchmarks/plots/19_software_architecture.pdf
+!/benchmarks/plots/19_software_architecture.png
+/benchmarks/real_data/*
+!/benchmarks/real_data/openml/
+/benchmarks/real_data/openml/*
+!/benchmarks/real_data/openml/tasks/
+/benchmarks/real_data/openml/tasks/*
+!/benchmarks/real_data/openml/tasks/31/
+!/benchmarks/real_data/openml/tasks/31/**
+/benchmarks/results/*
+!/benchmarks/results/b01_mgcv_parity_summary.csv
+!/benchmarks/results/b01_scam_parity_summary.csv
+!/benchmarks/results/b01_gamlss_parity_summary.csv
+!/benchmarks/results/b01_neural_reference_fidelity.csv
+!/benchmarks/results/b02_architecture_recovery.csv
+!/benchmarks/results/b02_architecture_effects.csv.gz
+!/benchmarks/results/b02_architecture_predictions.csv.gz
+!/benchmarks/results/b03_real_nampy.csv
+!/benchmarks/results/b04_distributional_synthetic.csv
+!/benchmarks/results/b04_distributional_family_comparison.csv
+!/benchmarks/results/b04_distributional_competitors.csv
+!/benchmarks/results/b04_distributional_gamlss.csv
+!/benchmarks/results/b05_inference_calibration.csv
+!/benchmarks/results/b05_inference_extended.csv
+!/benchmarks/results/b06_shape_constraints.csv
+!/benchmarks/results/b06_shape_constraints_scam.csv
+!/benchmarks/results/b10_ablations.csv
+!/benchmarks/results/gam_generator_a_effects.csv.gz
+!/benchmarks/results/gam_generator_a_metrics.json
+!/benchmarks/results/real_baselines.csv
+!/benchmarks/results/real_competitors.csv
+
+# Paper build products and downloaded upstream templates.
+/paper/__pycache__/
+/paper/jss-article-rnw/
+/paper/jss-article-rnw.zip
+/paper/jss-style.zip
+/paper/jss-style/*.aux
+/paper/jss-style/*.bbl
+/paper/jss-style/*.blg
+/paper/jss-style/*.log
+/paper/jss-style/*.out
+/paper/jss-style/jss.pdf
+/paper/jss-style/*:Zone.Identifier

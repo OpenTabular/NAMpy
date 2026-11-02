@@ -1,4 +1,4 @@
-How does energy demand change with outdoor temperature and time of day? We will fit a GAM to synthetic demand data, inspect its effects, and check whether the chosen smooths capture the main patterns.
+Outdoor temperature and time of day both move this synthetic demand series, and a straight line in either variable misses the shape. We will fit a GAM, inspect its effects, and check whether the chosen smooths capture the main patterns.
 
 Create the data
 ---------------

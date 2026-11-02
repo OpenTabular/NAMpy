@@ -2,7 +2,7 @@ Discrete, mixed and positive outcomes
 =====================================
 
 Choose a response law from its observation support and parameter meanings. Start
-with :doc:`gamlss` for the shared fitting and prediction workflow.
+with :ref:`howto-user-guide-gamlss` for the shared fitting and prediction workflow.
 
 Beta-binomial counts with explicit trials
 -----------------------------------------

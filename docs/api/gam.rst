@@ -5,7 +5,7 @@ Statistical GAM API
 
 NAMpy's statistical backend implements formula, smooth-construction, fitting,
 prediction, and inference conventions familiar from R's ``mgcv``. The
-:doc:`../user_guide/statistical_gams` page works through formula specification, fitting, prediction and diagnosis
+:ref:`howto-user-guide-statistical-gams` page works through formula specification, fitting, prediction and diagnosis
 with reproducible data.
 
 The detailed :doc:`statistical reference </statistical_reference/index>` follows
@@ -59,7 +59,7 @@ Shape-constrained smooths
 The same ``GAM`` class accepts SCOP-spline basis codes defined by R's ``scam``
 package. For example, ``bs="mpi"`` is monotone increasing and
 ``bs="tecxcv"`` is a bivariate convex/concave surface.  See
-:doc:`../user_guide/shape_constrained_gams` for the complete basis list,
+:ref:`howto-user-guide-shape-constrained-gams` for the complete basis list,
 automatic smoothing, derivatives, linear functionals, and AR(1) support.
 
 Scikit-learn adapters

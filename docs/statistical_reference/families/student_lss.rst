@@ -15,7 +15,7 @@ student_lss
 
 The gamlss.dist TF mapping uses the same location, t scale and degrees of freedom. Shared tail and likelihood theory is on :doc:`/statistical_reference/families/theory`.
 
-Distribution reference: `gamlss.dist::TF <https://github.com/cran/gamlss.dist/blob/master/man/TF.Rd>`_. Fitting uses NAMpy's joint penalized engine, not gamlss RS backfitting. See :doc:`/development/neighbor_parity` for the tested mapping and numerical comparisons.
+Distribution reference: `gamlss.dist::TF <https://github.com/cran/gamlss.dist/blob/master/man/TF.Rd>`_. Fitting uses NAMpy's joint penalized engine, not gamlss RS backfitting.
 
 Target encoding, response/link column meanings and supported fitting criteria are specified in the tables and examples below. Scalar uncensored targets have shape ``(n,)``. Residual choices are family-specific; use :doc:`/statistical_reference/methods/residuals`. Log likelihood is higher-is-better; AIC/BIC are lower-is-better and require a normalized comparable likelihood.
 

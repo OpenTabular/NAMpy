@@ -32,17 +32,6 @@ NAMpy supports Python 3.11 and 3.12. Install it with:
 pip install nampy
 ```
 
-Split conformal prediction intervals are available across the statistical and
-neural backends through `nampy.calibration`. Use a separate calibration cohort;
-see [prediction calibration](docs/user_guide/calibration.rst) for absolute-residual
-and quantile methods, fitted snapshots, and explicit coverage assumptions.
-
-Piecewise survival models accept complete start/stop covariate histories through
-`LongitudinalSurvivalTarget`, with explicit future-path prediction shared across
-both backends. `CoxGAM` adds static fixed/eligible automatic-smoothing partial likelihood; its
-unsupported smoothing and inference routes are documented in the
-[survival guide](docs/user_guide/survival.rst).
-
 ## Interpreting predictions
 
 An additive model represents its predictor as a baseline plus contributions from its terms:
@@ -223,6 +212,14 @@ selection, predictions and uncertainty. Their log likelihood, AIC and BIC are
 `NaN` because they do not specify a response distribution. For complete fits,
 see [the quasi example](examples/example_quasi_gam.py) and
 [family options](docs/user_guide/statistical_gams.rst).
+
+Statistical GAMs also expose `model.qq()` simulation envelopes and
+`model.plot_check()` diagnostic panels, with automatic SCAM display semantics
+for shape-constrained fits. `para_pen` supports penalties on parametric formula
+terms; `constraints` and `smooth_con` expose homogeneous constraints and
+raw/absorbed construction for `cr/cs/cc/ps/cp`. See the
+[statistical GAM guide](docs/user_guide/statistical_gams.rst) for matrix ordering,
+supported compositions, and upstream validation limits.
 
 #### Neural Additive Model (NAM)
 
@@ -459,24 +456,8 @@ path = model.save_model("model.pkl")
 restored = type(model).load_model(path)
 ```
 
-These artifacts use Python pickle. Load them only from trusted sources.
+These artifacts use Python pickle. 
 
 ## License
 
 NAMpy is distributed under the [MIT License](LICENSE).
-
-Statistical GAMs also expose `model.qq()` simulation envelopes and
-`model.plot_check()` diagnostic panels, with automatic SCAM display semantics
-for shape-constrained fits. `para_pen` supports penalties on parametric formula
-terms; `constraints` and `smooth_con` expose homogeneous constraints and
-raw/absorbed construction for `cr/cs/cc/ps/cp`. See the
-[statistical GAM guide](docs/user_guide/statistical_gams.rst) for matrix ordering,
-supported compositions, and upstream validation limits.
-
-Recent modeling routes include subject-record longitudinal piecewise-exponential
-models across both engines, static fixed/eligible automatic-smoothing `CoxGAM`, calibrated quantile inference
-with supplied or adaptive bandwidth and fixed or selected smoothing, and joint
-`SemiStructuredRegressor`/`SemiStructuredLSS` spline–neural composition.
-Adaptive qgam bandwidth is available with `bandwidth=None`. Stratified Newton
-Cox smoothing and joint spline–neural REML/inference remain unsupported.
-See the survival, quantile-inference and semistructured user guides.

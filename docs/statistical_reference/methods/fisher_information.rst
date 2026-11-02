@@ -68,7 +68,7 @@ FisherInformationResult with optional per-coefficient diagonals, disjoint group 
      - scalar record; optional diagonal (p,)
      - Mean likelihood information in coefficient coordinates, disjoint group traces and sampling-error diagnostics. Penalties are excluded; this is not a coefficient covariance estimate.
 
-Separate fit-time offsets must be supplied again, aligned with the evaluated rows. Formula and smooth offsets follow the existing prediction contract. ``X=None`` evaluates the fitted training rows. See :doc:`/user_guide/fisher_diagnostics` for estimator, nuisance-parameter and sampling assumptions.
+Separate fit-time offsets must be supplied again, aligned with the evaluated rows. Formula and smooth offsets follow the existing prediction contract. ``X=None`` evaluates the fitted training rows. See :ref:`howto-user-guide-fisher-diagnostics` for estimator, nuisance-parameter and sampling assumptions.
 
 
 
@@ -94,4 +94,4 @@ Example result
 .. automethod:: nampy.gam.GAM.fisher_information
    :no-index:
 
-:doc:`Statistical modeling guide </user_guide/statistical_gams>` · :doc:`Prediction output guide </howto/prediction_outputs>`
+:ref:`Statistical modeling guide <howto-user-guide-statistical-gams>` · :ref:`Prediction output guide <howto-howto-prediction-outputs>`

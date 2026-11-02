@@ -1,0 +1,455 @@
+/* Interactive architecture atlas. Scoped so the rest of the docs are unchanged. */
+
+.arch-atlas {
+  --arch-ink: #142033;
+  --arch-muted: #5c6b7e;
+  --arch-line: #e4ebf3;
+  --arch-blue: #1d4ed8;
+  --arch-blue-soft: #e8f0ff;
+  --arch-paper: #ffffff;
+  container-type: inline-size;
+  margin: 0.4rem 0 2rem;
+  overflow: hidden;
+  border: 1px solid var(--arch-line);
+  border-radius: 20px;
+  background: #f6f8fb;
+  box-shadow: 0 16px 40px rgba(20, 32, 51, 0.06);
+  color: var(--arch-ink);
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.arch-toolbar {
+  position: relative;
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.9rem 1rem;
+  background: var(--arch-paper);
+  border-bottom: 1px solid var(--arch-line);
+}
+
+.arch-search-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.rst-content .arch-atlas input.arch-search {
+  flex: 1;
+  width: auto;
+  margin: 0;
+  padding: 0.62rem 0.95rem;
+  border: 1px solid #d5deea;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: var(--arch-ink);
+  font: 500 0.95rem/1.3 Inter, system-ui, sans-serif;
+  box-shadow: none;
+}
+
+.rst-content .arch-atlas input.arch-search:focus {
+  border-color: #93b4f5;
+  background: #fff;
+  outline: 3px solid rgba(37, 99, 235, 0.18);
+}
+
+.rst-content .arch-atlas button.arch-clear {
+  margin: 0;
+  padding: 0.45rem 0.8rem;
+  border: 0;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: var(--arch-muted);
+  font: 600 0.82rem/1 Inter, system-ui, sans-serif;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.arch-body {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  min-height: 560px;
+}
+
+.arch-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.7rem;
+  background: rgba(255, 255, 255, 0.55);
+  border-right: 1px solid var(--arch-line);
+  scrollbar-width: thin;
+  scrollbar-color: #d5deea transparent;
+}
+
+.rst-content .arch-atlas .arch-nav button {
+  display: grid;
+  grid-template-columns: 1.7rem minmax(0, 1fr);
+  gap: 0.6rem;
+  align-items: center;
+  width: 100%;
+  margin: 0;
+  padding: 0.48rem 0.5rem;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--arch-ink);
+  text-align: left;
+  font: 600 0.86rem/1.25 Inter, system-ui, sans-serif;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.rst-content .arch-atlas .arch-nav button small {
+  display: block;
+  color: var(--arch-muted);
+  font-weight: 500;
+  font-size: 0.72rem;
+}
+
+.rst-content .arch-atlas .arch-nav button.is-active {
+  background: #fff;
+  box-shadow: 0 0 0 1px #d6e4ff, 0 6px 16px rgba(29, 78, 216, 0.08);
+}
+
+.rst-content .arch-atlas .arch-nav button.is-muted {
+  opacity: 0.38;
+}
+
+.arch-num {
+  display: grid;
+  width: 1.7rem;
+  height: 1.7rem;
+  place-items: center;
+  border-radius: 8px;
+  background: #e7eef8;
+  color: var(--arch-blue);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.rst-content .arch-atlas .arch-nav button.is-active .arch-num {
+  background: var(--arch-blue);
+  color: #fff;
+}
+
+.rst-content .arch-atlas .arch-nav button[data-stage="neural"].is-active .arch-num {
+  background: #0f766e;
+}
+
+.arch-panel {
+  display: none;
+  padding: 1.2rem 1.3rem 1.35rem;
+}
+
+.arch-panel.is-active {
+  display: block;
+}
+
+.arch-kicker {
+  margin: 0;
+  color: var(--arch-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rst-content .arch-atlas h3 {
+  margin: 0.15rem 0 0.55rem;
+  color: var(--arch-ink);
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.arch-lead {
+  margin: 0 0 0.85rem;
+  color: #334155;
+  font-size: 0.98rem;
+  line-height: 1.55;
+}
+
+.arch-eq {
+  margin: 0.7rem 0 0.9rem;
+  padding: 0.7rem 0.9rem;
+  border-left: 3px solid var(--arch-blue);
+  border-radius: 0 12px 12px 0;
+  background: #fff;
+  color: var(--arch-ink);
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.95rem;
+}
+
+.arch-fns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 0.9rem;
+}
+
+.arch-fn {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: baseline;
+  padding: 0.28rem 0.65rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 0.8rem;
+}
+
+.rst-content .arch-atlas code {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #57606a;
+  font-family: "JetBrains Mono", "Fira Code", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.78rem;
+  font-style: normal;
+  font-weight: 500;
+  white-space: normal;
+}
+
+.rst-content .arch-atlas .tok-fn {
+  color: #6639ba;
+  font-weight: 600;
+}
+
+.rst-content .arch-atlas .tok-cls {
+  color: #0550ae;
+  font-weight: 650;
+}
+
+.rst-content .arch-atlas .tok-var {
+  color: #4f46e5;
+  font-weight: 500;
+}
+
+.rst-content .arch-atlas .tok-mod {
+  color: #116329;
+  font-weight: 500;
+}
+
+.arch-fn span,
+.arch-note {
+  color: var(--arch-muted);
+}
+
+.arch-note {
+  margin: 0 0 0.8rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.arch-group {
+  margin: 0.5rem 0;
+  overflow: hidden;
+  border: 1px solid var(--arch-line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.rst-content .arch-atlas summary {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.72rem 0.9rem;
+  color: var(--arch-ink);
+  font-weight: 650;
+  cursor: pointer;
+  list-style: none;
+}
+
+.rst-content .arch-atlas summary::-webkit-details-marker {
+  display: none;
+}
+
+.rst-content .arch-atlas summary::after {
+  content: "";
+  flex: none;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 2px solid #94a3b8;
+  border-bottom: 2px solid #94a3b8;
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+}
+
+.rst-content .arch-atlas details[open] summary::after {
+  transform: rotate(225deg) translate(-2px, -2px);
+}
+
+.arch-count {
+  margin-left: auto;
+  color: var(--arch-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.arch-row,
+.arch-step {
+  display: grid;
+  grid-template-columns: minmax(8.5rem, 0.9fr) 1.5fr;
+  gap: 0.75rem;
+  align-items: start;
+  padding: 0.58rem 0.9rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.arch-step {
+  grid-template-columns: 1.4rem 1fr;
+}
+
+.arch-step b {
+  color: var(--arch-blue);
+  font-size: 0.78rem;
+}
+
+.arch-row p,
+.arch-step p {
+  margin: 0;
+  color: #334155;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.arch-row.is-dim,
+.arch-fn.is-dim,
+.arch-step.is-dim {
+  display: none;
+}
+
+.rst-content .arch-atlas button.arch-jump {
+  margin: 0.8rem 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--arch-blue);
+  font: 650 0.9rem/1.3 Inter, system-ui, sans-serif;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.arch-empty {
+  margin: 0;
+  padding: 2rem 1.2rem;
+  color: var(--arch-muted);
+}
+
+@container (max-width: 720px) {
+  .arch-body {
+    grid-template-columns: 1fr;
+  }
+
+  .arch-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--arch-line);
+    scrollbar-width: none;
+  }
+
+  .arch-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .rst-content .arch-atlas .arch-nav button {
+    min-width: 11.5rem;
+  }
+
+  .arch-row,
+  .arch-step {
+    grid-template-columns: 1fr;
+    gap: 0.15rem;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .arch-atlas.is-ready .arch-panel.is-active {
+    animation: arch-in 0.18s ease;
+  }
+}
+
+@keyframes arch-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+html.dark .arch-atlas {
+  --arch-ink: #e6edf3;
+  --arch-muted: #8b949e;
+  --arch-line: #30363d;
+  --arch-blue: #79c0ff;
+  --arch-paper: #0d1117;
+  background: #0d1117;
+  color: #e6edf3;
+}
+
+html.dark .arch-nav,
+html.dark .arch-fn,
+html.dark .arch-group,
+html.dark .arch-eq {
+  background: #161b22;
+  border-color: #30363d;
+}
+
+html.dark .rst-content .arch-atlas .arch-nav button.is-active {
+  background: #0d1117;
+  box-shadow: 0 0 0 1px #30363d;
+}
+
+html.dark .arch-num {
+  background: #21262d;
+}
+
+html.dark .arch-lead,
+html.dark .arch-row p,
+html.dark .arch-step p {
+  color: #d1d5db;
+}
+
+html.dark .arch-row,
+html.dark .arch-step {
+  border-top-color: #21262d;
+}
+
+html.dark .rst-content .arch-atlas input.arch-search {
+  background: #0d1117;
+  border-color: #30363d;
+  color: #e6edf3;
+}
+
+html.dark .rst-content .arch-atlas button.arch-clear {
+  background: #21262d;
+  color: #8b949e;
+}
+
+html.dark .rst-content .arch-atlas code,
+html.dark .rst-content .arch-atlas .tok-mod {
+  color: #8b949e;
+}
+
+html.dark .rst-content .arch-atlas .tok-fn {
+  color: #d2a8ff;
+}
+
+html.dark .rst-content .arch-atlas .tok-cls {
+  color: #79c0ff;
+}
+
+html.dark .rst-content .arch-atlas .tok-var {
+  color: #a5b4fc;
+}

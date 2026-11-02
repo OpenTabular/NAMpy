@@ -1,5 +1,5 @@
-Research references
-===================
+Bibliography
+============
 
 These papers and methodological books describe the scientific foundations of
 NAMpy's implemented models, losses, diagnostics and uncertainty procedures.

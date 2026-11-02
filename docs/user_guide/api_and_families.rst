@@ -32,7 +32,7 @@ Understand model predictions
 labels, or the family point summary for GAMLSS/LSS. For distributional
 models, ``predict_parameters`` returns natural parameter columns and
 ``predict_link`` returns additive predictors. ``predict_point`` explicitly
-requests the documented family-specific point summary. See :doc:`model_workflow`.
+requests the documented family-specific point summary. See :ref:`howto-user-guide-model-workflow`.
 ``predict_distribution`` returns a shared ``DistributionPrediction`` with explicit
 probability operations. ``predict_components`` describes additive raw/link
 predictors, intercepts and offsets, separately from natural parameters.
@@ -68,7 +68,7 @@ statistical context but fixed neural family configuration.
 The table below is generated from the existing backend family registries and
 shared probability-law metadata. It describes distributional training adapters
 and available post-fit queries, not a guarantee of every smoothing or inference
-combination. See :doc:`gamlss`, :doc:`training` and :doc:`survival` for restrictions.
+combination. See :ref:`howto-user-guide-gamlss`, :ref:`howto-user-guide-training` and :ref:`howto-user-guide-survival` for restrictions.
 Ordinary single-predictor GAM families have their separate source-aligned API.
 
 .. include:: ../_generated/family_support.inc

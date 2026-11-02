@@ -308,7 +308,7 @@ def return_description(module, name):
     if name in {"CapabilityStatus", "DistributionFitStatus"}:
         return f"``{name}`` immutable record. Support and fit eligibility are separate: a supported prediction operation does not imply convergence or calibrated uncertainty."
     if name in {"FisherDiagnostics", "FisherInformationResult", "FisherGroupSummary", "FisherSnapshot"}:
-        return f"``{name}`` immutable shared record. Information uses mean-per-input normalization and excludes penalties. Sampling uncertainty describes numerical information estimation, not fitted-parameter confidence intervals. See :doc:`/user_guide/fisher_diagnostics`."
+        return f"``{name}`` immutable shared record. Information uses mean-per-input normalization and excludes penalties. Sampling uncertainty describes numerical information estimation, not fitted-parameter confidence intervals. See :ref:`howto-user-guide-fisher-diagnostics`."
     if name in {
         "FeatureSchema",
         "AdditiveTermMetadata",

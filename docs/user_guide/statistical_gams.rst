@@ -60,7 +60,7 @@ identifiability rules. Interpret contributions on the additive predictor scale.
 
 Use ``te(x,z)`` for a full joint surface, or separate main smooths and
 ``ti(x,z)`` for an interaction decomposition. The
-:doc:`formula visual reference <formula_visual_reference>` shows the resulting
+:ref:`formula visual reference <howto-user-guide-formula-visual-reference>` shows the resulting
 curves and surfaces. The :doc:`formula API </api/gam_formula>` documents syntax,
 transformations, grouped responses and offsets; the
 :doc:`smooth inventory </statistical_reference/smooths/index>` compares bases.
@@ -80,7 +80,7 @@ for this real-valued example. Counts, proportions and positive measurements
 need the corresponding response models; start with the
 :doc:`family inventory </statistical_reference/families/index>`.
 
-For changing spread or shape, use :doc:`distributional regression <gamlss>`.
+For changing spread or shape, use :ref:`distributional regression <howto-user-guide-gamlss>`.
 Its parameter predictors have separate formulas and can have different natural
 and low-level response outputs. Each family page defines those column meanings,
 links, target encoding and supported adapters.
@@ -149,11 +149,11 @@ blindly as a smoothing vector. See the :doc:`smoothness tutorial
 The predictions and standard errors each have shape ``(n_test,)`` here.
 The SE describes uncertainty about the fitted mean, not the spread of a future
 observation. Under nonlinear links, link and response predictions differ.
-:doc:`Prediction choices </howto/prediction_outputs>` and the
+:ref:`Prediction choices <howto-howto-prediction-outputs>` and the
 :doc:`predict contract </statistical_reference/methods/predict>` define those
 outputs. New rows must supply fitted source features and formula-offset columns.
 Separate fit-only offsets must be supplied again when predicting; see
-:doc:`/howto/offsets`.
+:ref:`howto-howto-offsets`.
 
 6. Diagnose and interpret
 -------------------------
@@ -191,8 +191,7 @@ Use :doc:`/statistical_reference/inference` to interpret covariance, pointwise
 versus simultaneous intervals, EDF and information criteria together. The
 :doc:`diagnostic method index </statistical_reference/methods/index>` documents
 summary, ANOVA, residuals, concurvity and basis checks. Numerical restrictions
-and validation conventions belong to their method and family pages and
-:doc:`/compatibility`.
+and validation conventions belong to their method and family pages.
 
 For partially pooled group effects, :doc:`GAM.gam_vcomp
 </statistical_reference/methods/gam_vcomp>` reports supported variance-component

@@ -13,7 +13,7 @@ zaga_lss
 
 Natural columns are ``mu, sigma, pi0`` with log/log/logit links. Mu is the positive Gamma mean, sigma its coefficient of variation, and pi0 the exact zero probability (gamlss.dist ZAGA calls it nu). The whole-response mean is (1-pi0)*mu. Log probability reports mass at zero and density elsewhere. Finite-logit fitting requires both components and distinct positive observations; exact zero/one atom probabilities are available only for probability queries. Neural ZAGA fitting uses its normalized likelihood.
 
-Distribution reference: `gamlss.dist::ZAGA <https://github.com/cran/gamlss.dist/blob/master/man/ZAGA.Rd>`_. Fitting uses NAMpy's joint penalized engine, not gamlss RS backfitting. See :doc:`/development/neighbor_parity` for the tested mapping and numerical comparisons.
+Distribution reference: `gamlss.dist::ZAGA <https://github.com/cran/gamlss.dist/blob/master/man/ZAGA.Rd>`_. Fitting uses NAMpy's joint penalized engine, not gamlss RS backfitting.
 
 Fixed smoothing and automatic general-family REML with outer_newton, bfgs and efs are validated. Method labels retain mgcv general-family coercion to REML; this is not separate ML/GCV/UBRE/NCV support. The optim route is unavailable because the extension has no family-defined null deviance for its objective scaling; magic and nlm.fd are also unsupported. Native deviance residuals and null deviance are unavailable; shared distribution quantile residuals are available. Censoring, truncation and alternate links are unsupported. Existing transformed-coefficient/observation and general-NCV guards remain in force.
 

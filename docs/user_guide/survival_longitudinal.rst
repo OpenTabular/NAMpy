@@ -43,7 +43,7 @@ cell. It returns the existing ``SurvivalPrediction``; row order follows
 ``trajectory.subject_ids``. Missing future histories are not forecast, filled
 or extrapolated. Supplied paths describe conditional scenarios; uncertainty in
 future covariates is not modeled. Path-specific effect preparation and bootstrap
-contrasts/bands are supported in :doc:`survival_uncertainty`. Single-fit path coefficient intervals and
+contrasts/bands are supported in :ref:`howto-user-guide-survival-uncertainty`. Single-fit path coefficient intervals and
 longitudinal conformal calibration remain unavailable.
 
 Ordinary ``predict_link``/``predict_distribution`` retain their existing

@@ -92,4 +92,4 @@ Example result
 .. automethod:: nampy.gam.GAM.plot_derivative
    :no-index:
 
-:doc:`Statistical modeling guide </user_guide/statistical_gams>` · :doc:`Prediction output guide </howto/prediction_outputs>`
+:ref:`Statistical modeling guide <howto-user-guide-statistical-gams>` · :ref:`Prediction output guide <howto-howto-prediction-outputs>`

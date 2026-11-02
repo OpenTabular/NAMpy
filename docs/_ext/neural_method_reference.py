@@ -179,7 +179,7 @@ def generate(root):
         if name == "local_term_importance":
             text += "Each inner dictionary contains ``term`` (source-feature tuple), ``order`` (integer interaction degree), and ``contribution`` (float for the selected output). Terms are ranked by absolute contribution within each observation; these are local polynomial terms, not global feature-importance scores.\n\n"
         if name == "fisher_information":
-            text += "Supply the complete input population and aligned known offsets; the method evaluates every supplied row. ``config.n_inputs`` limits fit-time probes only. Raw regression requires an explicit conditional scale in ``FisherDiagnostics``. Information conditions on fitted parameters and excludes regularization; it is not a confidence interval. See :doc:`/user_guide/fisher_diagnostics`.\n\n"
+            text += "Supply the complete input population and aligned known offsets; the method evaluates every supplied row. ``config.n_inputs`` limits fit-time probes only. Raw regression requires an explicit conditional scale in ``FisherDiagnostics``. Information conditions on fitted parameters and excludes regularization; it is not a confidence interval. See :ref:`howto-user-guide-fisher-diagnostics`.\n\n"
         code = neural_estimator_example(cls)
         if name == "fisher_information":
             code += "from nampy import FisherDiagnostics\n"

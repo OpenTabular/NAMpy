@@ -190,7 +190,7 @@ result to ``render_distributional_effects``. The renderer then adds a
 between-fit quantile ribbon, which describes variation across fitted models
 rather than conditional predictive spread.
 
-For prediction shapes and parameter scales, see :doc:`../howto/prediction_outputs`.
+For prediction shapes and parameter scales, see :ref:`howto-howto-prediction-outputs`.
 
 For worked examples, compare :doc:`GAM and NAM feature effects <../tutorials/gam_nam>`,
 or examine :doc:`distributions, quantiles, and ensemble spread <../notebooks/04_distributional_models>`.

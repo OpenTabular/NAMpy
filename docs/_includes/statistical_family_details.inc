@@ -93,7 +93,7 @@ Base classes and constructors
    * - ``clone_gam_family``
      - Copy a family so fitted state is not shared between models.
 
-See :doc:`../user_guide/statistical_gams` for accepted family names and short
+See :ref:`howto-user-guide-statistical-gams` for accepted family names and short
 examples.
 
 

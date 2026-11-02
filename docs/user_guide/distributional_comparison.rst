@@ -145,4 +145,6 @@ Runnable held-out comparison
 
 .. include:: /_generated/reference/comparison.inc
 
+``examples/example_distribution_comparison.py`` runs this comparison from the command line. ``--neural`` adds a short neural fit and leaves the holdout out of training and early stopping.
+
 For methodological citations and paper links, see :doc:`/references`.

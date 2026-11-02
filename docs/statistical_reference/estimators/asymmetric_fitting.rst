@@ -22,6 +22,6 @@ Both estimators compile an identified design and minimize a sum of weighted obse
      - Smooth ELF: (level-1)*r + bandwidth*log(1+exp(r/bandwidth)), learning rate fixed at one.
      - Gradient-based smooth optimization; inspect the optimizer convergence flag and gradient diagnostic. Validation score remains exact pinball loss.
 
-Separate levels can cross. Smoothing is fixed or chosen through validation. These APIs do not implement qgam learning-rate calibration or calibrated uncertainty. Upstream comparison scope is documented in :doc:`/development/neighbor_parity`.
+Separate levels can cross. Smoothing is fixed or chosen through validation. These APIs do not implement qgam learning-rate calibration or calibrated uncertainty.
 
 :doc:`ExpectileGAM` · :doc:`QuantileGAM`

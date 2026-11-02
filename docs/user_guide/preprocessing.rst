@@ -72,7 +72,7 @@ inspect feature information:
    num_info, cat_info, emb_info = preprocessor.get_feature_info(verbose=False)
 
 For full PreTab options and API, see the `PreTab project <https://pypi.org/project/pretab/>`_.
-NAMpy's supported contract and the model-specific consequences of grouped
-feature blocks are documented in :doc:`pretab_compatibility`.
+NAMpy uses the published PreTab 0.0.3 block contract. Each neural architecture
+interprets the resulting feature blocks.
 
-Custom preprocessing interfaces are described in :doc:`custom_models`.
+Custom preprocessing interfaces are described in :ref:`howto-user-guide-custom-models`.

@@ -464,5 +464,5 @@ def shape_theory(name):
         )
         if name in {"tismi", "tismd"}:
             text += "This is the interaction parameterization with its own identifiability construction. It does not assert a sign for the mixed partial derivative; inspect the accompanying marginal effects when interpreting a full model.\n\n"
-    text += "The coefficient transformation and penalty coordinates must be evaluated together; the shape fitting route retains their derivatives. See :doc:`/user_guide/shape_constrained_gams` for centering, inference and fitting restrictions.\n\n"
+    text += "The coefficient transformation and penalty coordinates must be evaluated together; the shape fitting route retains their derivatives. See :ref:`howto-user-guide-shape-constrained-gams` for centering, inference and fitting restrictions.\n\n"
     return text

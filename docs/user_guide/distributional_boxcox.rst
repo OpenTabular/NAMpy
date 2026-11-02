@@ -133,7 +133,7 @@ force. Method labels do not unlock another smoothing criterion.
 This law is distinct from the
 existing mgcv censored ``bcg`` family, whose fitting behavior is unchanged.
 BCT/BCPE fitting and existence-checked moments, are described in this guide; continuous truncation and observation fitting
-are covered in :doc:`distributional_observations`.
+are covered in :ref:`howto-user-guide-distributional-observations`.
 
 Ordinary values are checked against saved ``gamlss.dist`` 6.1.1 ``d/p/qBCCG``
 results. Recorded upstream out-of-support log-density and log-CDF quirks are

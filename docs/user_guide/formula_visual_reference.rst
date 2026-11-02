@@ -170,4 +170,4 @@ Related tutorials
 * :doc:`Derivative and prediction contrasts <../notebooks/derivatives_contrasts>`
 
 For complete formula options and fitting controls, see
-:doc:`statistical_gams` and the :ref:`smooth-basis reference <gam-smooth-bases>`.
+:ref:`howto-user-guide-statistical-gams` and the :ref:`smooth-basis reference <gam-smooth-bases>`.

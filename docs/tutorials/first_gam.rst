@@ -1,5 +1,5 @@
-Fit and diagnose a GAM
-======================
+How does demand change with temperature and time of day?
+========================================================
 
 .. include:: ../_includes/first_gam_walkthrough.inc
 

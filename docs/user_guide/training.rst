@@ -109,6 +109,28 @@ weights are loaded, including when training fails. Set ``checkpoint_path`` to
 retain a separate checkpoint directory for each fit. ``best_model_path_`` is
 ``None`` when temporary checkpoints have been removed.
 
+The figure below is that retained checkpoint on one seeded fit. Training and
+validation losses are the logged squared error. The dashed line marks the
+epoch whose validation loss was kept.
+
+.. literalinclude:: ../scripts/generate_howto_assets.py
+   :language: python
+   :start-after: # TRAINING START
+   :end-before: # TRAINING PLOTTING
+   :dedent: 4
+
+.. dropdown:: Plotting code
+
+   .. literalinclude:: ../scripts/generate_howto_assets.py
+      :language: python
+      :start-after: # TRAINING PLOTTING
+      :end-before: # TRAINING END
+      :dedent: 4
+
+.. image:: /_static/howto_training.png
+   :alt: Training and validation squared-error loss, with the retained checkpoint marked
+   :class: scientific-figure
+
 ``feature_dropout`` drops complete term contributions independently per row,
 with one mask shared across the term's output columns. Returned training terms
 include that mask and reconstruct the prediction together with the intercept.
@@ -175,4 +197,4 @@ Joint structured/neural training
 ``SemiStructuredTrainingConfig`` uses full-cohort CPU optimization with a
 training-fitted weighted projection, fixed structured smoothing parameters and
 validation early stopping. It has no Lightning optimizer/callback controls.
-See :doc:`semistructured` for its supported objectives and interpretation.
+See :ref:`howto-user-guide-semistructured` for its supported objectives and interpretation.

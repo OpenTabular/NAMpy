@@ -125,6 +125,6 @@ term was selected. Residual evidence and discovery used validation rows;
 the performance table uses final test rows. This split does not establish
 selection stability or a unique separation between overlapping effects.
 
-The :doc:`interpretability guide <../user_guide/interpretability>` explains
+The :ref:`interpretability guide <howto-user-guide-interpretability>` explains
 centering and overlapping term contributions. The :doc:`SIAN model guide
 <../models/sian>` describes the selection controls and optional residual network.

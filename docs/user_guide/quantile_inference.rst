@@ -5,7 +5,7 @@ Choose the target before choosing an interval. ``QuantileGAM`` estimates one
 conditional quantile with pinball or smooth ELF loss. The separate
 ``CalibratedQuantileGAM`` calibrates approximate uncertainty in that fitted
 quantile function using qgam 2.0.1's ``calFast`` route. Future-response intervals
-are supplied by :doc:`calibration`; they include response variation and answer
+are supplied by :ref:`howto-user-guide-calibration`; they include response variation and answer
 a different question.
 
 Quantile level and confidence level
@@ -20,19 +20,7 @@ contain 95% of future responses.
 .. literalinclude:: /../examples/example_calibrated_quantile.py
    :language: python
 
-Compare function uncertainty with response variation
-----------------------------------------------------
-
-.. figure:: /_static/features/quantile_targets.png
-   :alt: Narrow 95% confidence band for an estimated median beside a wider 90% conformal future-response interval.
-   :width: 100%
-
-   In the :doc:`quantile tutorial </notebooks/quantile_uncertainty>`, mean
-   width is about 0.30 for the 95% pointwise confidence interval for the
-   median function and 2.08 for the 90% future-response interval. They cover different targets:
-   noisy future responses need not fall inside a confidence band for
-   their conditional median. Future-response calibration uses a separate
-   cohort.
+The :doc:`quantile tutorial </notebooks/quantile_uncertainty>` shows the narrow interval for the median function beside the wider interval for a future response.
 
 Choose bandwidth and smoothing together
 ---------------------------------------
@@ -119,11 +107,6 @@ selected.
 See :doc:`/statistical_reference/estimators/CalibratedQuantileGAM` for the
 constructor and :doc:`/statistical_reference/quantile_calibration` for the
 calibration calculations and independent validation evidence.
-
-.. toctree::
-   :maxdepth: 1
-
-   /statistical_reference/quantile_calibration
 
 References
 ----------

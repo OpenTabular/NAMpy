@@ -182,5 +182,5 @@ def shared_solver_page(root):
             ),
         ],
     )
-    text += "Separate levels can cross. Smoothing is fixed or chosen through validation. These APIs do not implement qgam learning-rate calibration or calibrated uncertainty. Upstream comparison scope is documented in :doc:`/development/neighbor_parity`.\n\n:doc:`ExpectileGAM` · :doc:`QuantileGAM`\n"
+    text += "Separate levels can cross. Smoothing is fixed or chosen through validation. These APIs do not implement qgam learning-rate calibration or calibrated uncertainty.\n\n:doc:`ExpectileGAM` · :doc:`QuantileGAM`\n"
     write(root, "statistical_reference/estimators/asymmetric_fitting.rst", text)

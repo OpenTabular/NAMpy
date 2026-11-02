@@ -18,7 +18,7 @@ expectile using asymmetric squared error; level ``0.5`` targets the mean.
 Expectile fitting supports observation weights and fixed smoothing strengths;
 choose those strengths using held-out loss. These loss estimators do not imply
 a complete response distribution. See :ref:`choose-response-summary` for the
-choice and :doc:`/user_guide/quantile_inference` for calibrated quantile-function
+choice and :ref:`howto-user-guide-quantile-inference` for calibrated quantile-function
 uncertainty.
 
 Where to begin

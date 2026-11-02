@@ -3,7 +3,7 @@
 Statistical models
 ==================
 
-Choose an estimator, specify its formula, smooth terms and response family, then configure fitting and inspect predictions, inference and diagnostics. Extension APIs come last. Implemented scope and unsupported combinations are documented in :doc:`/compatibility`.
+Choose an estimator, specify its formula, smooth terms and response family, then configure fitting and inspect predictions, inference and diagnostics. Extension APIs come last.
 
 .. toctree::
    :maxdepth: 1
@@ -20,4 +20,5 @@ Choose an estimator, specify its formula, smooth terms and response family, then
    Fitted result objects </api/gam_results>
    Statistical extensions <extensions/index>
    Inference conventions <inference>
+   Calibrated quantile calculations <quantile_calibration>
    Survival API </api/survival>

@@ -376,7 +376,7 @@ def generate(root):
                     "DesignTerm",
                 }
             ],
-            "Asymmetric objectives, joint uncertainty and EDF, then structured survival and exposure-history models. See :doc:`/development/neighbor_parity` for upstream checks and the exact supported scope.",
+            "Asymmetric objectives, joint uncertainty and EDF, then structured survival and exposure-history models.",
             related_links=False,
         ),
     )

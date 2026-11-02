@@ -1,0 +1,297 @@
+<div class="arch-atlas" id="architecture-functions">
+  <div class="arch-toolbar">
+    <label class="arch-search-label" for="arch-search">Search functions and variables</label>
+    <input class="arch-search" id="arch-search" type="search" placeholder="Search functions and variables" autocomplete="off">
+    <button class="arch-clear" type="button" hidden>Clear</button>
+  </div>
+  <div class="arch-body">
+    <nav class="arch-nav" role="tablist" aria-label="Architecture stages">
+      <button type="button" role="tab" id="arch-tab-lifecycle" data-stage="lifecycle" aria-controls="arch-panel-lifecycle" aria-selected="true"><span class="arch-num">1</span><span>Fit lifecycle<small>GAM and session</small></span></button>
+      <button type="button" role="tab" id="arch-tab-formula" data-stage="formula" aria-controls="arch-panel-formula" aria-selected="false"><span class="arch-num">2</span><span>Formula<small>Parsed terms</small></span></button>
+      <button type="button" role="tab" id="arch-tab-basis" data-stage="basis" aria-controls="arch-panel-basis" aria-selected="false"><span class="arch-num">3</span><span>Basis<small>Penalties and maps</small></span></button>
+      <button type="button" role="tab" id="arch-tab-compile" data-stage="compile" aria-controls="arch-panel-compile" aria-selected="false"><span class="arch-num">4</span><span>Compilation<small>Design records</small></span></button>
+      <button type="button" role="tab" id="arch-tab-fit" data-stage="fit" aria-controls="arch-panel-fit" aria-selected="false"><span class="arch-num">5</span><span>Fitting<small>Solve and select</small></span></button>
+      <button type="button" role="tab" id="arch-tab-results" data-stage="results" aria-controls="arch-panel-results" aria-selected="false"><span class="arch-num">6</span><span>Results<small>Coefficients and EDF</small></span></button>
+      <button type="button" role="tab" id="arch-tab-predict" data-stage="predict" aria-controls="arch-panel-predict" aria-selected="false"><span class="arch-num">7</span><span>Prediction<small>Methods and contracts</small></span></button>
+      <button type="button" role="tab" id="arch-tab-neural" data-stage="neural" aria-controls="arch-panel-neural" aria-selected="false"><span class="arch-num">N</span><span>Neural<small>Train, then predict</small></span></button>
+    </nav>
+    <div class="arch-stage">
+      <article class="arch-panel is-active" id="arch-panel-lifecycle" data-stage="lifecycle" role="tabpanel" aria-labelledby="arch-tab-lifecycle" tabindex="-1">
+        <p class="arch-kicker">Stage 1</p>
+        <h3>Public interface and fit lifecycle</h3>
+        <p class="arch-lead">Statistical estimators build one GAM and delegate to it. The core defaults to fixed smoothing; the adapters request REML where it is supported. FitSession.begin clones the family and clears fitted state. commit_to publishes that copy only after the fit returns, so a failed refit leaves the previous result in place.</p>
+        <div class="arch-fns">
+          <span class="arch-fn"><code>GAM.fit</code><span>opens the session</span></span>
+          <span class="arch-fn"><code>FitSession.begin</code><span>private working copy</span></span>
+          <span class="arch-fn"><code>FitSession.commit_to</code><span>publish on success</span></span>
+          <span class="arch-fn"><code>fit_model_core</code><span>the only fit entry</span></span>
+        </div>
+        <details class="arch-group" open>
+          <summary>Constructor inputs <span class="arch-count">12</span></summary>
+          <div class="arch-row"><code>hparams</code><p>Every accepted constructor argument.</p></div>
+          <div class="arch-row"><code>formula, k, basis, knots, xt</code><p>Default smooth specification when a term does not set its own.</p></div>
+          <div class="arch-row"><code>family, _family_template</code><p>Working family, and the clone restored at the start of each fit.</p></div>
+          <div class="arch-row"><code>fit_intercept, drop_intercept</code><p>Whether an intercept column is built, and which predictor drops it.</p></div>
+          <div class="arch-row"><code>optimize_smoothing, smoothing_method, smoothing_params</code><p>Whether an outer criterion runs, which criterion, and any supplied log smoothing parameters.</p></div>
+          <div class="arch-row"><code>smoothing_optimizer, coefficient_optimizer</code><p>Outer search, usually outer_newton, and the inner search, newton or bfgs.</p></div>
+          <div class="arch-row"><code>control, max_irls_iter, irls_tol, max_step_halving</code><p>PIRLS iteration limit, convergence tolerance, and step-halving limit.</p></div>
+          <div class="arch-row"><code>scale, score_gamma, covariance, select, min_sp</code><p>Known dispersion, GCV inflation, covariance type, extra null-space penalty, and smoothing floor.</p></div>
+          <div class="arch-row"><code>sp_log_bounds, nei</code><p>Bounds on log smoothing parameters, and the neighbor structure for an MRF.</p></div>
+          <div class="arch-row"><code>ar1_rho, ar_start</code><p>Residual correlation, and the index that starts each independent series.</p></div>
+          <div class="arch-row"><code>positive_transform, softplus_beta, softplus_threshold</code><p>Map from an unconstrained coefficient to a positive coefficient.</p></div>
+          <div class="arch-row"><code>start, fisher_diagnostics, optim_method</code><p>Coefficient start, optional Fisher diagnostics, and the recorded optimizer name.</p></div>
+        </details>
+        <details class="arch-group">
+          <summary>Fitted attributes, cleared every fit <span class="arch-count">10</span></summary>
+          <div class="arch-row"><code>formula_, formula_mode_, formula_response_name_, formula_preprocess_state_</code><p>Parsed model, whether a formula was used, the left-hand side, and the preprocessing retained for new rows.</p></div>
+          <div class="arch-row"><code>feature_names, X_, y_, response_, n_samples_</code><p>Coerced training data. response_ keeps the family response; y_ is the numeric working vector.</p></div>
+          <div class="arch-row"><code>prior_weights_, offset_train_, offset_predict_default_</code><p>Prior weights and the training offset. The prediction default comes from formula offset() terms.</p></div>
+          <div class="arch-row"><code>smoothing_fixed_mask_, smoothing_override_values_, smoothing_override_modes_, min_sp_</code><p>Which smoothing parameters stay fixed, and the values or modes supplied for them.</p></div>
+          <div class="arch-row"><code>reparam_state_, sl_blocks_, predictor_specs</code><p>Reparameterization, smooth-block layout, and the specifications sent to the compiler.</p></div>
+          <div class="arch-row"><code>gam_result_</code><p>The GAMResult for this fit.</p></div>
+          <div class="arch-row"><code>_fitted</code><p>Set only after the session commits.</p></div>
+          <div class="arch-row"><code>_optim_method, _optim_result, _optim_trace, _optim_used_gradient, _optim_used_hessian, smoothing_score_</code><p>Outer optimizer record and the smoothing criterion at the selected parameters.</p></div>
+          <div class="arch-row"><code>ar_start_, ar1_standardized_residuals_, vis_training_data_</code><p>Correlation segmentation, AR(1) residuals, and the frame retained for vis.</p></div>
+          <div class="arch-row"><code>_magic_nobs</code><p>Observation count used by the smoothing criterion when weights change the effective sample size.</p></div>
+        </details>
+        <details class="arch-group">
+          <summary>Removed when the next fit does not produce them <span class="arch-count">1</span></summary>
+          <div class="arch-row"><code>coefficient_transform, observation_transform, positive_coefficient_mask, _null_deviance_, _summary_R_, _gamma_reml_phi_opt_, _gaussian_reml_last_scale_est_, _gaussian_reml_sigma2_opt_, _general_family_outer_derivative_info, _general_family_outer_use_joint_hessian_</code><p>Dynamic attributes. FitSession drops them instead of resetting them, because a later fit may not create them. _ws is replaced with an empty FitWorkspace.</p></div>
+        </details>
+        <button class="arch-jump" type="button" data-goto="formula">Continue to formula records</button>
+      </article>
+
+      <article class="arch-panel" id="arch-panel-formula" data-stage="formula" role="tabpanel" aria-labelledby="arch-tab-formula" tabindex="-1">
+        <p class="arch-kicker">Stage 2</p>
+        <h3>Formula and canonical specifications</h3>
+        <p class="arch-lead">parse_gam_formula turns one formula string into a ParsedGAMFormula. extract_formula_terms turns that parse into the objects the compiler consumes. In y ~ s(x, bs='cr', k=8) + z, s(...) is declarative syntax: one smooth of x and one linear effect of z. No coefficient has been estimated yet. A distributional formula carries one component per linear predictor.</p>
+        <div class="arch-fns">
+          <span class="arch-fn"><code>parse_gam_formula</code><span>string to records</span></span>
+          <span class="arch-fn"><code>extract_formula_terms</code><span>records to compiler input</span></span>
+        </div>
+        <details class="arch-group" open>
+          <summary>ParsedGAMFormula <span class="arch-count">7</span></summary>
+          <div class="arch-row"><code>response_name</code><p>Left-hand side.</p></div>
+          <div class="arch-row"><code>predictors</code><p>One ParsedPredictorFormula per linear predictor.</p></div>
+          <div class="arch-row"><code>components</code><p>Formula pieces before they are assigned to predictors.</p></div>
+          <div class="arch-row"><code>nlp</code><p>Number of linear predictors.</p></div>
+          <div class="arch-row"><code>fake_formula, pred_formula</code><p>Parametric skeleton used while the smooths are held aside.</p></div>
+          <div class="arch-row"><code>raw</code><p>Original formula text.</p></div>
+        </details>
+        <details class="arch-group">
+          <summary>Predictor, smooth, and parametric terms <span class="arch-count">4</span></summary>
+          <div class="arch-row"><code>ParsedPredictorFormula</code><p>response_name, intercept, terms, offset_names, raw_formula, source_component_indices.</p></div>
+          <div class="arch-row"><code>lpi</code><p>On a component, the predictors that receive that component.</p></div>
+          <div class="arch-row"><code>ParsedSmoothTerm</code><p>kind is s, te, ti, or t2. Also features, kwargs, raw_label, label, and by_variable.</p></div>
+          <div class="arch-row"><code>ParsedParametricTerm</code><p>variables, raw_label, and factor_labels.</p></div>
+        </details>
+        <button class="arch-jump" type="button" data-goto="basis">Continue to basis construction</button>
+      </article>
+
+      <article class="arch-panel" id="arch-panel-basis" data-stage="basis" role="tabpanel" aria-labelledby="arch-tab-basis" tabindex="-1">
+        <p class="arch-kicker">Stage 3</p>
+        <h3>Basis, penalty, and constraint construction</h3>
+        <p class="arch-lead">smooths owns the runtime term. splines builds the basis matrix. penalties, constraints, and coefficients supply the roughness penalty, the side condition, and any positive-coefficient map. Knots, factor levels, and those maps become fitted term state and are reused at prediction. A cubic smooth evaluates its columns, builds an integrated-curvature penalty, and centers the basis so it is not confounded with the intercept. Shape constraints identify which coefficient directions must stay positive. That choice is part of the term, before the optimizer runs.</p>
+        <div class="arch-fns">
+          <span class="arch-fn"><code>smooths/</code><span>runtime term</span></span>
+          <span class="arch-fn"><code>splines/</code><span>basis matrix</span></span>
+          <span class="arch-fn"><code>penalties/</code><span>roughness</span></span>
+          <span class="arch-fn"><code>constraints/</code><span>side condition</span></span>
+          <span class="arch-fn"><code>coefficients/</code><span>positive map</span></span>
+        </div>
+        <p class="arch-note">The constructed objects are stored on CompiledTerm. Compilation, in the next stage, places those columns into the model-wide coefficient vector.</p>
+        <button class="arch-jump" type="button" data-goto="compile">Continue to compilation</button>
+      </article>
+
+      <article class="arch-panel" id="arch-panel-compile" data-stage="compile" role="tabpanel" aria-labelledby="arch-tab-compile" tabindex="-1">
+        <p class="arch-kicker">Stage 4</p>
+        <h3>Compilation into a numerical model</h3>
+        <p class="arch-lead">compile_designs builds one predictor specification per linear predictor and calls compile_model. The compiled model is stored on gam_result_ before smoothing selection or the coefficient solve. compile_design is the fit-free path: it returns a CompiledDesign and does not estimate coefficients. A location-scale model has several predictor designs.</p>
+        <div class="arch-fns">
+          <span class="arch-fn"><code>compile_designs</code><span>one spec per predictor</span></span>
+          <span class="arch-fn"><code>compile_model</code><span>columns, slices, penalties</span></span>
+          <span class="arch-fn"><code>compile_design</code><span>design without a fit</span></span>
+        </div>
+        <details class="arch-group" open>
+          <summary>CompiledPenalty <span class="arch-count">4</span></summary>
+          <div class="arch-row"><code>label, term_index, kind</code><p>Owning term, its position, and smooth or another penalty kind.</p></div>
+          <div class="arch-row"><code>coef_slice, matrix, rank, null_space_dim</code><p>Columns the penalty multiplies, the penalty matrix, its rank, and the unpenalized dimension.</p></div>
+          <div class="arch-row"><code>smoothing_index, smoothing_id</code><p>Position in the model-wide smoothing-parameter vector, and the stable penalty identity.</p></div>
+          <div class="arch-row"><code>is_null_space_penalty, sp_mode, sp_value</code><p>Whether this is the extra selection penalty, and any fixed mode or value.</p></div>
+        </details>
+        <details class="arch-group">
+          <summary>CompiledTerm <span class="arch-count">8</span></summary>
+          <div class="arch-row"><code>label, term_id, term_type, basis_name</code><p>Display label, stable identity, smooth or parametric, and the basis code such as tp or cr. The same label may appear in more than one predictor, so identity is term_id together with predictor_index.</p></div>
+          <div class="arch-row"><code>predictor_index, predictor_name, predictor_indices</code><p>Where this term sits in a distributional model.</p></div>
+          <div class="arch-row"><code>basis_train, coef_slice, full_coef_indices</code><p>Training basis and the columns it owns in the full coefficient vector.</p></div>
+          <div class="arch-row"><code>kept_columns, deleted_columns, basis_transform</code><p>Columns retained after identifiability constraints, columns removed, and the reparameterization.</p></div>
+          <div class="arch-row"><code>n_penalties, smoothing_indices, smoothing_ids, smoothing_group_id, penalty_specs</code><p>Penalties owned by the term and the smoothing parameters that multiply them.</p></div>
+          <div class="arch-row"><code>predict_fn, derivative_fn, offset_fn, offset_train</code><p>Callbacks that rebuild the basis, the derivative, and the offset on new data.</p></div>
+          <div class="arch-row"><code>coefficient_maps, predict_coefficient_map, coefficient_transform, positive_coefficient_mask</code><p>Maps between fit coordinates and prediction coordinates, including the positive-coefficient map.</p></div>
+          <div class="arch-row"><code>feature_info, by_variable_info, side_condition_policy</code><p>Source columns, a by variable, and the side condition applied to the basis.</p></div>
+        </details>
+        <details class="arch-group">
+          <summary>CompiledPredictor and CompiledModel <span class="arch-count">5</span></summary>
+          <div class="arch-row"><code>CompiledPredictor</code><p>name, design_matrix, compiled_terms, compiled_penalties, smoothing_parameter_map, term_index_map, n_coef, n_smoothing_params, has_intercept, side_condition_Q, smoothing overrides, positive_coefficient_mask, coefficient_transform.</p></div>
+          <div class="arch-row"><code>predictors, compiled_terms, compiled_penalties, design_matrix, n_coef, n_smoothing_params</code><p>Predictor blocks, the flat term and penalty tuples, and the combined training design.</p></div>
+          <div class="arch-row"><code>predictor_full_slices, predictor_full_indices, coef_reduced_to_full_idx</code><p>Where each predictor's coefficients sit, and how reduced columns map back to full columns.</p></div>
+          <div class="arch-row"><code>fit_to_prediction_parameterization_map, positive_coefficient_mask, coefficient_transform, observation_transform</code><p>Map from solver coordinates to prediction coordinates. observation_transform is the row transform for residual correlation; it is the identity when ar1_rho is zero.</p></div>
+          <div class="arch-row"><code>smoothing_override_modes, smoothing_override_values, side_condition_reports</code><p>Fixed smoothing instructions and the record of constraints that were applied.</p></div>
+        </details>
+        <details class="arch-group">
+          <summary>CompiledDesign, the fit-free design <span class="arch-count">3</span></summary>
+          <div class="arch-row"><code>matrix, penalty, training_offset, sample_weight, response, smoothing_params</code><p>Arrays a caller can pass to another solver. No likelihood is fitted.</p></div>
+          <div class="arch-row"><code>terms, intercept_indices</code><p>Each DesignTerm stores label, term_id, coefficient_indices, and features. intercept_indices marks intercept columns.</p></div>
+          <div class="arch-row"><code>evaluate</code><p>Rebuilds the design on new rows and returns a DesignEvaluation with matrix and offset.</p></div>
+        </details>
+        <button class="arch-jump" type="button" data-goto="fit">Continue to fitting</button>
+      </article>
+
+      <article class="arch-panel" id="arch-panel-fit" data-stage="fit" role="tabpanel" aria-labelledby="arch-tab-fit" tabindex="-1">
+        <p class="arch-kicker">Stage 5</p>
+        <h3>Coefficient fitting and smoothness selection</h3>
+        <p class="arch-lead">fit_model_core is the only function the model classes call. With smoothing held fixed, the inner target is the penalized likelihood. Automatic smoothing searches the log smoothing parameters and solves the coefficients again at each candidate. An efs_solution already returned by that search is kept.</p>
+        <p class="arch-eq">−ℓ(θ) + ½ θᵀ S<sub>λ</sub> θ</p>
+        <div class="arch-fns">
+          <span class="arch-fn"><code>fit_model_core</code><span>compile, select, solve, store</span></span>
+          <span class="arch-fn"><code>resolve_smoothing_method</code><span>criterion name</span></span>
+          <span class="arch-fn"><code>optimize_smoothing_params</code><span>outer search</span></span>
+          <span class="arch-fn"><code>solve_fit</code><span>one fixed-smoothing solve</span></span>
+          <span class="arch-fn"><code>resolve_fit_backend</code><span>which solver</span></span>
+        </div>
+        <details class="arch-group" open>
+          <summary>Order inside fit_model_core <span class="arch-count">5</span></summary>
+          <div class="arch-step"><b>1</b><p>Coerce X and y. Store X_, y_, response_, offset_train_, n_samples_, and prior_weights_. Arguments are the model, X, feature_names, y, fit_offset, optimize_smoothing, smoothing_method, and sample_weight.</p></div>
+          <div class="arch-step"><b>2</b><p>compile_designs.</p></div>
+          <div class="arch-step"><b>3</b><p>resolve_smoothing_method. When smoothing is optimized, optimize_smoothing_params searches the log smoothing parameters.</p></div>
+          <div class="arch-step"><b>4</b><p>solve_fit, unless the outer search already returned an efs_solution.</p></div>
+          <div class="arch-step"><b>5</b><p>assign_fit_solution, then build_gam_result.</p></div>
+        </details>
+        <details class="arch-group">
+          <summary>Solver chosen by the family <span class="arch-count">4</span></summary>
+          <div class="arch-row"><code>transformed_coefficients</code><p>solve_transformed_coefficient_fit. The map from free parameters to spline coefficients is nonlinear, so the likelihood and penalty derivatives follow that map.</p></div>
+          <div class="arch-row"><code>gaussian_exact, stacked_qr</code><p>solve_gaussian_fit.</p></div>
+          <div class="arch-row"><code>general_family</code><p>solve_general_family_fit.</p></div>
+          <div class="arch-row"><code>pirls</code><p>solve_pirls_fit.</p></div>
+        </details>
+        <details class="arch-group">
+          <summary>FitState, the workspace discarded after the solve <span class="arch-count">6</span></summary>
+          <div class="arch-row"><code>X, A, A_inv, XtWX</code><p>Working design and the penalized system. A is that system.</p></div>
+          <div class="arch-row"><code>working_penalty, penalty_matrix</code><p>working_penalty is the penalty in the working coordinates. penalty_matrix is the penalty retained for the criterion and for inference. For a positive-coefficient model they are different matrices.</p></div>
+          <div class="arch-row"><code>working_weights, fisher_weights, working_response</code><p>Weights and working response for the current iteration.</p></div>
+          <div class="arch-row"><code>gdi1_eta, gdi1_mu, criterion_response</code><p>Predictor, mean, and response used while the criterion is evaluated.</p></div>
+          <div class="arch-row"><code>criterion_deviance, criterion_rss, offset</code><p>Criterion scalars and the offset in the working system.</p></div>
+          <div class="arch-row"><code>log_det_XtWX_plus_penalty, penalized_system_rank, dropped_column_indices</code><p>Log determinant, numerical rank, and columns dropped from the system.</p></div>
+        </details>
+        <button class="arch-jump" type="button" data-goto="results">Continue to fitted results</button>
+      </article>
+
+      <article class="arch-panel" id="arch-panel-results" data-stage="results" role="tabpanel" aria-labelledby="arch-tab-results" tabindex="-1">
+        <p class="arch-kicker">Stage 6</p>
+        <h3>Fitted results and inference artifacts</h3>
+        <p class="arch-lead">solve_fit returns a FitCoreSolution: FitState is the workspace, FitResult is the numerical output that later methods read. assign_fit_solution computes edf_by_term, applies the unconditional covariance, exports coefficients to prediction coordinates, and stores the solution on gam_result_. GAMResult then holds the compiled model, the core solution, and the summary.</p>
+        <div class="arch-fns">
+          <span class="arch-fn"><code>assign_fit_solution</code><span>export and store</span></span>
+          <span class="arch-fn"><code>compute_edf_by_term</code><span>per-term EDF</span></span>
+          <span class="arch-fn"><code>build_gam_result</code><span>summary record</span></span>
+        </div>
+        <details class="arch-group" open>
+          <summary>FitResult <span class="arch-count">9</span></summary>
+          <div class="arch-row"><code>coef_full, intercept, beta</code><p>Full coefficient vector, its intercept entry, and the non-intercept coefficients.</p></div>
+          <div class="arch-row"><code>eta, mu</code><p>Linear predictor and mean on the response scale.</p></div>
+          <div class="arch-row"><code>deviance, rss, loglik</code><p>Deviance, residual sum of squares when the family defines it, and log-likelihood.</p></div>
+          <div class="arch-row"><code>edf, edf2, edf_by_term, trace_H, H_coef</code><p>Effective degrees of freedom, the alternative EDF trace, per-term EDF, and the influence matrix used to compute them.</p></div>
+          <div class="arch-row"><code>scale, penalty_quadratic</code><p>Dispersion and the penalty quadratic form at the fitted coefficients.</p></div>
+          <div class="arch-row"><code>cov_bayes, cov_freq, cov_unconditional</code><p>Bayesian, frequentist, and unconditional coefficient covariances.</p></div>
+          <div class="arch-row"><code>coef_space, cov_bayes_space, cov_freq_space, cov_unconditional_space</code><p>fit or prediction, naming the coordinates of the corresponding array.</p></div>
+          <div class="arch-row"><code>coef_optimization, cov_bayes_optimization, cov_freq_optimization, positive_coefficient_mask</code><p>Coefficients and covariances before the export to prediction coordinates, and which coefficients used the positive map.</p></div>
+          <div class="arch-row"><code>converged, iter, failed_step, failure_reason, inner_trace</code><p>Inner iteration outcome.</p></div>
+        </details>
+        <details class="arch-group">
+          <summary>GAMResult, GAMFitResult, TermFitResult <span class="arch-count">3</span></summary>
+          <div class="arch-row"><code>GAMResult</code><p>compiled_model, fit_core_solution, and fit_summary.</p></div>
+          <div class="arch-row"><code>GAMFitResult</code><p>family_name, link_name, criterion_name, criterion_value, core, smoothing_params, side_condition_reports, term_results, metadata. core is the FitResult.</p></div>
+          <div class="arch-row"><code>TermFitResult</code><p>label, term_type, basis_name, coef_slice, n_coef, edf, smoothing_indices, smoothing_ids, smoothing_values, deleted_columns, kept_columns, metadata.</p></div>
+        </details>
+        <button class="arch-jump" type="button" data-goto="predict">Continue to prediction</button>
+      </article>
+
+      <article class="arch-panel" id="arch-panel-predict" data-stage="predict" role="tabpanel" aria-labelledby="arch-tab-predict" tabindex="-1">
+        <p class="arch-kicker">Stage 7</p>
+        <h3>Prediction, inference, and diagnosis</h3>
+        <p class="arch-lead">These methods read gam_result_ and the compiled callbacks. They do not build a second basis, and they do not rerun smoothing selection. On the link scale a new row is the fitted basis times the exported coefficients, plus the offset evaluated for that row.</p>
+        <p class="arch-eq">η<sub>new</sub> = B<sub>new</sub> θ̂ + o<sub>new</sub></p>
+        <details class="arch-group" open>
+          <summary>GAM methods <span class="arch-count">11</span></summary>
+          <div class="arch-row"><code>fit</code><p>Opens the session, runs fit_model_core, and commits gam_result_.</p></div>
+          <div class="arch-row"><code>fit_result, parity_snapshot</code><p>The GAMFitResult, and a JSON-ready copy of the same numbers.</p></div>
+          <div class="arch-row"><code>predict, predict_terms, lpmatrix</code><p>Response, link, or terms from predict_fn. The linear-predictor design comes from the prediction parameterization.</p></div>
+          <div class="arch-row"><code>summary, anova, one_se_rule</code><p>Term table, Wald tests, and the one-standard-error smoothing rule.</p></div>
+          <div class="arch-row"><code>loglik, aic, bic, edf1, gam_vcomp</code><p>Likelihood, information criteria, EDF, and variance components.</p></div>
+          <div class="arch-row"><code>vcov, sp_vcov, fisher_information</code><p>Coefficient covariance, smoothing-parameter covariance, and the observed or expected information.</p></div>
+          <div class="arch-row"><code>residuals, ar1_standardized_residuals</code><p>Working, deviance, Pearson, or response residuals, and the AR(1) residual series.</p></div>
+          <div class="arch-row"><code>derivative, plot_derivative</code><p>Analytic derivatives from derivative_fn for bases that define one.</p></div>
+          <div class="arch-row"><code>concurvity, k_check, gam_check</code><p>Dependence among smooths, basis-dimension checks, and the residual diagnostic.</p></div>
+          <div class="arch-row"><code>plot, plot_check, qq, vis</code><p>Smooth plots, diagnostic plots, a QQ plot, and the interactive view.</p></div>
+          <div class="arch-row"><code>save_model, load_model</code><p>Persist and restore the fitted instance.</p></div>
+        </details>
+        <details class="arch-group">
+          <summary>Estimator adapter <span class="arch-count">1</span></summary>
+          <div class="arch-row"><code>predict_link, predict_components, explain_terms, term_importance, interaction_importance, standard_errors, plot_terms</code><p>Call the same compiled model. predict_components returns the shared AdditivePrediction.</p></div>
+        </details>
+        <details class="arch-group">
+          <summary>AdditivePrediction and the shared contracts <span class="arch-count">6</span></summary>
+          <div class="arch-row"><code>link</code><p>Shape (n_samples, n_predictors). The constructor checks that intercept + terms + offset rebuilds link.</p></div>
+          <div class="arch-row"><code>terms, intercept, offset, predictor_names</code><p>One term array per label, a scalar or predictor-wise intercept, a row-wise offset, and the predictor names.</p></div>
+          <div class="arch-row"><code>term_metadata, backend</code><p>AdditiveTermMetadata stores features, parameter, and kind: main, interaction, global, or contextual. backend is gam or neural.</p></div>
+          <div class="arch-row"><code>EnsembleAdditivePrediction</code><p>link_std, term_std, intercept_std, and n_estimators around the mean prediction.</p></div>
+          <div class="arch-row"><code>FeatureSchema</code><p>feature_names and dtypes. A later matrix with different columns is rejected.</p></div>
+          <div class="arch-row"><code>DistributionFitStatus, CapabilityStatus</code><p>DistributionFitStatus stores backend, state (converged, completed, nonconverged, failed, or unknown), and message. eligible is true for converged and completed. CapabilityStatus stores state (supported, conditional, or unsupported), reason, and conditions for model.capabilities().</p></div>
+        </details>
+        <button class="arch-jump" type="button" data-goto="neural">Open the neural path</button>
+      </article>
+
+      <article class="arch-panel" id="arch-panel-neural" data-stage="neural" role="tabpanel" aria-labelledby="arch-tab-neural" tabindex="-1">
+        <p class="arch-kicker">Neural backend</p>
+        <h3>Train, then keep the prediction module</h3>
+        <p class="arch-lead">estimator_family builds one estimator class per task from the architecture registry. fit_estimator is the transactional fit. After it returns, the estimator keeps a NeuralPredictionModule and drops the data module, the preprocessor, and the training batches. A saved model does not need the trainer.</p>
+        <div class="arch-fns">
+          <span class="arch-fn"><code>estimator_family</code><span>one class per task</span></span>
+          <span class="arch-fn"><code>fit_estimator</code><span>publish after success</span></span>
+          <span class="arch-fn"><code>resolve_training</code><span>pick the route</span></span>
+          <span class="arch-fn"><code>run_training</code><span>data, then dispatch</span></span>
+        </div>
+        <details class="arch-group" open>
+          <summary>Estimator state <span class="arch-count">3</span></summary>
+          <div class="arch-row"><code>architecture_name</code><p>Class attribute. It selects the registry entry.</p></div>
+          <div class="arch-row"><code>architecture_config, objective, training, preprocessing, preprocessor</code><p>Instance configuration before the fit.</p></div>
+          <div class="arch-row"><code>training_config_, fitted_config_, fitted_preprocessing_, training_rows_, validation_rows_, model</code><p>Written by the fit. model is replaced with a NeuralPredictionModule. data_module and preprocessor are then deleted.</p></div>
+        </details>
+        <details class="arch-group">
+          <summary>NeuralArchitecture <span class="arch-count">4</span></summary>
+          <div class="arch-row"><code>register_architecture, get_architecture, architectures</code><p>Add one record, fetch it by name, or return the mapping.</p></div>
+          <div class="arch-row"><code>name, estimator_prefix, module_path, config_path</code><p>Identity and where the torch class and its configuration class are loaded. module and config load them.</p></div>
+          <div class="arch-row"><code>capabilities</code><p>A subset of regression, classification, distributional, survival, additive_components, interactions, masked_pretraining, fixed_linear_design, native_training, interaction_selection, and local_term_importance.</p></div>
+          <div class="arch-row"><code>default_family, fixed_family, distributional_defaults, objective_defaults, preprocessor_defaults, input_requirements</code><p>Defaults the generated estimators inherit. An architecture subclasses BaseModel. forward(num_features, cat_features) returns the predictor outputs. An additive architecture also fills AdditivePrediction. Hidden-layer widths stay on that architecture's own configuration.</p></div>
+        </details>
+        <details class="arch-group">
+          <summary>Training configurations <span class="arch-count">6</span></summary>
+          <div class="arch-row"><code>TrainingConfig</code><p>random_state, val_size, batch_size, shuffle, dataloader_kwargs. Every route inherits these.</p></div>
+          <div class="arch-row"><code>GradientTrainingConfig</code><p>max_epochs, max_steps, patience, monitor, mode, lr, lr_schedule, weight_decay, optimizer, warm_start, average_checkpoints, pretrain_epochs, pretraining_ratio, pretraining_noise.</p></div>
+          <div class="arch-row"><code>FixedDesignTrainingConfig</code><p>ridge, cg_rtol, cg_max_iter.</p></div>
+          <div class="arch-row"><code>IGANNTrainingConfig</code><p>boost_rate, init_reg, elm_alpha, early_stopping, sparse, clip_predictions.</p></div>
+          <div class="arch-row"><code>SemiStructuredTrainingConfig</code><p>epochs, lr, patience, neural_weight_decay, smoothing_params.</p></div>
+          <div class="arch-row"><code>ObjectiveConfig, PreprocessingConfig</code><p>ObjectiveConfig stores family, distributional_kwargs, loss_fct, class_weight, and sampling_strategy. A survival objective adds cuts and likelihood. PreprocessingConfig stores the preprocessor constructor parameters. The fitted schema is fitted_preprocessing_.</p></div>
+        </details>
+        <details class="arch-group">
+          <summary>What run_training dispatches <span class="arch-count">4</span></summary>
+          <div class="arch-row"><code>setup_data</code><p>Called with X, y, the validation arrays, offset, and sample_weight. fitted_config_ is written before the route runs.</p></div>
+          <div class="arch-row"><code>pretrain, fit_gradient</code><p>Gradient training builds a TaskModule as estimator.model. pretrain runs first when pretrain_epochs is positive and the architecture declares masked_pretraining. fit_gradient then fits that module.</p></div>
+          <div class="arch-row"><code>fit_native</code><p>A model-owned algorithm, such as IGANN boosting or the semi-structured alternating fit. The architecture is wrapped in NeuralPredictionModule before that call.</p></div>
+          <div class="arch-row"><code>fit_fixed_design</code><p>Conjugate gradients on a fixed linear design, using the same prediction module. NeuralPredictionModule stores the architecture on model and the objective on objective. forward evaluates that pair.</p></div>
+        </details>
+      </article>
+      <p class="arch-empty" hidden>No function or variable matches that search.</p>
+    </div>
+  </div>
+</div>

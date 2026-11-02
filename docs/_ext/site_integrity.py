@@ -7,37 +7,60 @@ from pathlib import Path
 
 REDIRECTS = {
     "statistical_reference/vb_corr": "statistical_reference/internals/covariance_correction",
-    "development/mgcv_optimizer_boundaries": "compatibility#guarded-boundaries",
+    "development/mgcv_optimizer_boundaries": "architecture",
+    "compatibility": "architecture",
+    "development/index": "architecture",
+    "development/optimizer_matrix": "architecture",
+    "development/neighbor_parity": "architecture",
+    "development/mgcv_coverage_audit": "architecture",
+    "development/notebooks/02_statistical_gams": "architecture",
+    "development/notebooks/03_neural_models": "architecture",
+    "development/notebooks/04_distributional_models": "architecture",
+    "capabilities": "architecture",
+    "user_guide/pretab_compatibility": "architecture",
     "development/validation_reports": "architecture#detailed-evidence",
     "development/documentation_validation": "contributing#improve-documentation",
-    "examples/basic_regression": "examples/fit_models#predict-a-continuous-response",
-    "examples/basic_classification": "examples/fit_models#predict-class-probabilities",
-    "examples/distributional_regression": "examples/fit_models#predict-a-response-distribution",
-    "howto/monotonicity": "user_guide/shape_constrained_gams",
+    "examples/basic_regression": "howto/fit_first_model#predict-a-continuous-response",
+    "examples/basic_classification": "howto/fit_first_model#predict-class-probabilities",
+    "examples/distributional_regression": "howto/fit_first_model#predict-a-response-distribution",
+    "howto/monotonicity": "howto/change_predictor#compare-an-unconstrained-and-monotone-fit",
     "tutorials/modeling_workflows": "index#quick-start-fitting-a-model",
     "howto/interaction_selection": "tutorials/interaction_selection",
     "tutorials/changing_variability": "notebooks/04_distributional_models",
     "in_depth/index": "tutorials/index",
     "concepts/index": "howto/index",
-    "concepts/additive_predictors": "user_guide/interpretability#additive-predictor-interpretation",
-    "concepts/smoothness": "user_guide/statistical_gams#smoothness-and-basis-dimension",
-    "concepts/distributional_regression": "user_guide/gamlss#distributional-model-concepts",
+    "concepts/additive_predictors": "howto/read_the_fit#additive-predictor-interpretation",
+    "concepts/smoothness": "howto/fit_and_diagnose#smoothness-and-basis-dimension",
+    "concepts/distributional_regression": "howto/location_and_spread#distributional-model-concepts",
     "quickstart": "notebooks/01_getting_started",
     "overview": "index#additive-models",
     "installation": "faq#installation-and-setup",
     "examples/index": "howto/index",
     "user_guide": "howto/index",
     "notebook_tutorials": "tutorials/index",
-    "tutorials/monotone_effect": "user_guide/shape_constrained_gams#compare-an-unconstrained-and-monotone-fit",
-    "tutorials/interaction_surface": "user_guide/formula_visual_reference#add-a-joint-spatial-effect",
+    "tutorials/monotone_effect": "howto/change_predictor#compare-an-unconstrained-and-monotone-fit",
+    "tutorials/interaction_surface": "howto/fit_first_model#add-a-joint-spatial-effect",
     "tutorials/periodic_effect": "tutorials/first_gam#interpret-the-effects",
     "tutorials/nam_nbm": "notebooks/03_neural_models#Fit-NAM-and-NBM",
+    "downloads": "index#download-the-manual",
+    "gallery/index": "tutorials/index",
+    "gallery/smooths": "tutorials/index",
+    "gallery/families": "tutorials/index",
+    "gallery/shape": "tutorials/index",
+    "gallery/distributional": "tutorials/index",
+    "gallery/survival": "tutorials/index",
+    "gallery/calibration": "tutorials/index",
+    "gallery/neural": "tutorials/index",
+    "gallery/figures": "tutorials/index",
 }
 REDIRECTS.update(
     json.loads(
         (Path(__file__).parents[1] / "_data/legacy_documentation.json").read_text()
     )
 )
+from howto_groups import page_redirects
+
+REDIRECTS.update(page_redirects())
 
 
 def pages(app):

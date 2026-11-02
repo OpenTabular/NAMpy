@@ -120,9 +120,9 @@ The final run uses committed fixtures without refresh flags. Review the source
 revision, manifest, fixture diff, and assertions together. R is needed only
 when generating R-reference results; neural fixture regeneration requires the
 relevant reference checkout. The [fixture manifest](https://github.com/OpenTabular/NAMpy/blob/main/tests/reference_fixtures/manifest.json)
-records source versions, namespaces, and the declared mgcv source difference. The
-[compatibility page](https://nampy.readthedocs.io/en/latest/compatibility.html)
-records supported behavior and intentional restrictions.
+records source versions, namespaces, and the declared mgcv source difference.
+The [architecture page](https://nampy.readthedocs.io/en/latest/architecture.html)
+records where the numerical comparisons live.
 
 ## Improve documentation
 
@@ -133,6 +133,13 @@ checks.
 
 When changing an executable example, rerun it and update its saved outputs and
 numerical discussion together.
+
+A new public modeling capability needs one script in `examples/`. The script
+draws a seeded sample, compares the new capability with the simpler method
+already in the package when that comparison is meaningful, and prints the
+quantity the comparison is about. Link it from the user-guide section that
+introduces the capability. Tutorials remain the longer analyses. Application
+pages remain the domain questions. The script stays a single file.
 
 Install the documentation dependencies and build the site:
 
@@ -157,8 +164,7 @@ python docs/scripts/check_sidebar_navigation.py
 ```
 
 Replace the notebook path with the affected example. With no paths, the
-execution script reruns the teaching collection. Development reports can be
-rerun explicitly with `docs/development/notebooks/*.ipynb`. Keep assertions
+execution script reruns the teaching collection. Keep assertions
 that verify scientific identities or prediction contracts, and inspect the
 actual saved outputs; execution alone does not establish that an explanation
 or metric label is correct.
@@ -169,7 +175,6 @@ Regenerate the relevant figures and reports from their displayed code:
 python docs/scripts/generate_howto_assets.py
 python docs/scripts/generate_detailed_assets.py
 python docs/scripts/generate_practical_assets.py
-python docs/scripts/generate_optimizer_matrix.py
 ```
 
 Run only the relevant generator. The detailed-assets generator executes its

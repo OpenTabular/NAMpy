@@ -66,7 +66,7 @@ def table(headers, rows):
 
 
 DEPENDENCE = {
-    "semistructured": "Joint fixed-penalty structured effects and a learned global neural representation, residualized against all structured columns on training rows. New-data predictions use the saved training projection. See :doc:`/user_guide/semistructured` for the scalar-response, categorical-input and classification scope.",
+    "semistructured": "Joint fixed-penalty structured effects and a learned global neural representation, residualized against all structured columns on training rows. New-data predictions use the saved training projection. See :ref:`howto-user-guide-semistructured` for the scalar-response, categorical-input and classification scope.",
     "namformer": "Feature-specific marginal heads plus named interactions and an all-feature global_transformer term.",
     "natt": "Numerical terms are feature-specific; categorical attention readouts can depend on other categorical inputs.",
     "spam": "Low-rank polynomial blocks; interpret their configured feature subsets, not independent unary networks.",
@@ -487,7 +487,7 @@ def survival_estimator_text(cls, *, neural):
     for name, parameter in inspect.signature(cls).parameters.items():
         default = "required" if parameter.default is inspect.Parameter.empty else literal(parameter.default)
         rows.append((f"``{name}``", f"``{default}``", meanings.get(name, GAM_PARAMETERS.get(name, name))))
-    text = ":doc:`Survival workflow and limitations </user_guide/survival>`.\n\n"
+    text = ":ref:`Survival workflow and limitations <howto-user-guide-survival>`.\n\n"
     text += "Constructor parameters\n~~~~~~~~~~~~~~~~~~~~~~\n\n" + table(["Parameter", "Default", "Meaning"], rows)
     text += "Full shared fit contract\n~~~~~~~~~~~~~~~~~~~~~~~~\n\n"
     text += "``fit(X, SurvivalTarget, sample_weight=..., offset=...)`` keeps event status separate from weights. Piecewise offsets are known scalar log-rate offsets per subject; parametric offsets have shape (n_subjects,2), one per parameter predictor. New prediction subjects need explicit offsets if the fit used them. Targets contain time, event (0/1), optional entry and unique subject IDs. Entry conditions the likelihood. Piecewise models also accept LongitudinalSurvivalTarget with contiguous start/stop records, one terminal event, and constant per-subject case weights across records. score divides by total subject weight. Shared predict_trajectory evaluates explicitly supplied future covariate paths; ordinary predict_distribution keeps its constant-covariate interpretation.\n\n"
@@ -533,7 +533,7 @@ def cox_estimator_text(cls):
     }
     rows = [(f"``{name}``", f"``{literal(value)}``", meanings[name])
             for name, value in cls().get_params(deep=False).items()]
-    return (":doc:`Cox scope and survival workflow </user_guide/survival>`.\n\n"
+    return (":ref:`Cox scope and survival workflow <howto-user-guide-survival>`.\n\n"
         + "Constructor parameters\n~~~~~~~~~~~~~~~~~~~~~~\n\n"
         + table(["Parameter", "Default", "Meaning"], rows)
         + "fit(X, SurvivalTarget, strata=..., offset=...) supports static right-censored records with fixed spline penalties. Risk sets include all tied event/censor records before the event contribution, following upstream mgcv coxlpl/coxpp conventions. predict_distribution returns shared step-cumulative-hazard predictions on common requested-stratum follow-up support; predict(..., times=...) returns survival. RMST integrates those steps exactly. predict_components describes log relative hazard, not survival. score is per-subject partial likelihood, not normalized event-time density; do not rank it against full survival likelihoods.\n\n"
@@ -557,7 +557,7 @@ def calibrated_quantile_text(cls):
     }
     rows = [(f"``{name}``", f"``{literal(parameter.default)}``", meanings[name])
             for name, parameter in inspect.signature(cls).parameters.items()]
-    return (":doc:`Calibrated quantile inference </user_guide/quantile_inference>`.\n\n"
+    return (":ref:`Calibrated quantile inference <howto-user-guide-quantile-inference>`.\n\n"
         + table(["Parameter", "Default", "Meaning"], rows)
         + "Unweighted independent rows, identity link, supplied or adaptive ELF bandwidth and spline penalties. The qgam 2.0.1 calFast criterion selects a scalar loss scale by matching posterior and shrinkage-sandwich quantile-function variances. predict_interval returns approximate pointwise conditional-quantile intervals, distinct from future-response conformal intervals. predict_components reconstructs the conditional quantile. score is negative mean pinball loss.\n\n"
         + "Fitted state includes ``loss_scale_``, ``posterior_covariance_``, ``sandwich_covariance_``, ``calibration_loss_`` and the scalar ``calibration_profile_``. Failed refits preserve the successful fitted model; set_params invalidates it. Trusted save/load preserves supported predictions and intervals.\n\n"
@@ -581,7 +581,7 @@ def statistical_text(cls):
         )
         for parameter, value in cls().get_params(deep=False).items()
     ]
-    text = ":doc:`Statistical GAM workflow </tutorials/first_gam>` and :doc:`Compatibility </compatibility>`.\n\n"
+    text = ":doc:`Statistical GAM workflow </tutorials/first_gam>`.\n\n"
     text += "Constructor parameters\n~~~~~~~~~~~~~~~~~~~~~~\n\n" + table(
         ["Parameter", "Default", "Meaning", "Type / input shape"], rows
     )

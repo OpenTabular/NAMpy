@@ -121,18 +121,7 @@ Choose a focused task
    calibration_survival
    calibration_contract
 
-Measure the width cost of calibration
--------------------------------------
-
-.. figure:: /_static/features/conformal_intervals.png
-   :alt: Before and after response interval calibration with held-out coverage and mean width shown on separate axes.
-   :width: 100%
-
-   An uncalibrated plus/minus 0.5 response band covers about 55% of 150
-   independent test responses; the 90% conformal interval covers 88% in
-   this sample. Mean width increases from 1.0 to about 2.08, making its
-   coverage and width cost explicit. The initial band has no coverage
-   claim, and this finite test result is not coverage at every x.
+The :doc:`quantile tutorial </notebooks/quantile_uncertainty>` shows one simulated sample's coverage and interval width.
 
 References
 ----------

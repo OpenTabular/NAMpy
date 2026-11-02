@@ -61,7 +61,7 @@ Choose the display by contribution type
 ---------------------------------------
 
 * A single-column numerical main effect can use neural ``plot_terms``.
-  Supply named DataFrame columns. See :doc:`../user_guide/interpretability`
+  Supply named DataFrame columns. See :ref:`howto-user-guide-interpretability`
   for centering and reference data.
 * Multiple output columns require an explicit per-output plot, as in
   :doc:`../models/qnam`. The single-column renderer skips them.
@@ -76,12 +76,12 @@ A confidence band concerns an estimated function; a conditional standard
 deviation concerns outcomes; an ensemble-member standard deviation concerns
 between-fit disagreement. Name the actual quantity in each caption.
 
-Pass new-row predictor offsets explicitly to prediction and components; see :doc:`offsets`.
+Pass new-row predictor offsets explicitly to prediction and components; see :ref:`howto-howto-offsets`.
 
 Calibrated future-observation intervals
 ---------------------------------------
 
-Use :doc:`../user_guide/calibration` for split-conformal intervals based on a
+Use :ref:`howto-user-guide-calibration` for split-conformal intervals based on a
 separate calibration cohort. These carry future-observation uncertainty rather
 than coefficient uncertainty or intervals for an estimated conditional quantile.
 Calibration does not change the fitting algorithm or probability law.
