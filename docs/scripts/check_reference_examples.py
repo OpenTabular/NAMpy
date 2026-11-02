@@ -23,18 +23,31 @@ ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES = ROOT / "docs/_examples/reference"
 
 
+def _runtime_requirements(path: Path) -> bytes:
+    """Hash the installed library requirements, not documentation extras."""
+    import tomllib
+
+    project = tomllib.loads(path.read_text()).get("project", {})
+    payload = {
+        "requires-python": project.get("requires-python"),
+        "dependencies": project.get("dependencies", []),
+    }
+    return json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
+
+
 def implementation_fingerprint(root=ROOT):
     """Invalidate execution evidence when library or checker semantics change."""
     digest = hashlib.sha256()
     paths = sorted((root / "nampy").rglob("*.py"))
-    paths.extend([
-        root / "pyproject.toml",
-        root / "docs/scripts/check_reference_examples.py",
-    ])
+    paths.append(root / "docs/scripts/check_reference_examples.py")
     for path in paths:
         if path.is_file():
             digest.update(path.relative_to(root).as_posix().encode() + b"\0")
             digest.update(path.read_bytes() + b"\0")
+    project = root / "pyproject.toml"
+    if project.is_file():
+        digest.update(b"project.dependencies\0")
+        digest.update(_runtime_requirements(project))
     return digest.hexdigest()
 
 

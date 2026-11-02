@@ -27,6 +27,26 @@ def test_example_execution_evidence_tracks_library_changes(tmp_path):
     assert fingerprint(tmp_path) == before
     source.write_text("value = 2\n")
     assert fingerprint(tmp_path) != before
+    project = tmp_path / "pyproject.toml"
+    project.write_text(
+        '[project]\nrequires-python = ">=3.11"\n'
+        'dependencies = ["numpy"]\n'
+        "[project.optional-dependencies]\ndev = [\"sphinx\"]\n"
+    )
+    source.write_text("value = 1\n")
+    with_docs_extra = fingerprint(tmp_path)
+    project.write_text(
+        '[project]\nrequires-python = ">=3.11"\n'
+        'dependencies = ["numpy"]\n'
+        "[project.optional-dependencies]\ndev = [\"sphinx\", \"nbsphinx\"]\n"
+    )
+    assert fingerprint(tmp_path) == with_docs_extra
+    project.write_text(
+        '[project]\nrequires-python = ">=3.11"\n'
+        'dependencies = ["numpy", "pandas"]\n'
+        "[project.optional-dependencies]\ndev = [\"sphinx\"]\n"
+    )
+    assert fingerprint(tmp_path) != with_docs_extra
 
 
 def test_inventory_dimensions_match_smooth_purpose():
