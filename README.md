@@ -1,5 +1,11 @@
 # NAMpy — Statistical and Neural Additive Models in Python
 
+For the public API, start with estimators in `nampy.models`, probability queries in
+`nampy.distributions`, diagnostics in `nampy.diagnostics`, effects and importance
+in `nampy.inspection`, and rendering in `nampy.plotting`. See
+[API and family selection](docs/user_guide/api_and_families.rst) for the generated
+backend support table and prediction semantics.
+
 ![NAMpy — Statistical and Neural Additive Models in Python](docs/_static/logo.png)
 
 ![Python 3.11 | 3.12](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)
