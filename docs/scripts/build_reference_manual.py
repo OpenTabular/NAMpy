@@ -225,6 +225,8 @@ def parse_blocks(text: str, source: Path, stack: tuple[Path, ...]) -> list:
             elif name == "math":
                 formula = argument if argument and not body else "\n".join(body)
                 blocks.append(Math(formula))
+            elif name == "rubric":
+                blocks.append(Heading(4, argument))
             elif name == "list-table":
                 blocks.append(_parse_table(body))
             elif name == "literalinclude":
