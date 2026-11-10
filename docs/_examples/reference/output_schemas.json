@@ -985,17 +985,17 @@
   "api/generated/nampy.diagnostics.explain_additive_prediction": [
     [
       "result",
-      "pandas.DataFrame",
+      "pandas.core.frame.DataFrame",
       "(6, 7)"
     ],
     [
       "result['term']",
-      "str",
+      "object",
       "(6,)"
     ],
     [
       "result['term_type']",
-      "str",
+      "object",
       "(6,)"
     ],
     [
@@ -1350,17 +1350,17 @@
   "api/generated/nampy.diagnostics.term_importance_table": [
     [
       "result",
-      "pandas.DataFrame",
+      "pandas.core.frame.DataFrame",
       "(1, 4)"
     ],
     [
       "result['term']",
-      "str",
+      "object",
       "(1,)"
     ],
     [
       "result['term_type']",
-      "str",
+      "object",
       "(1,)"
     ],
     [
@@ -11816,17 +11816,17 @@
   "neural_reference/methods/explain_terms": [
     [
       "result",
-      "pandas.DataFrame",
+      "pandas.core.frame.DataFrame",
       "(16, 7)"
     ],
     [
       "result['term']",
-      "str",
+      "object",
       "(16,)"
     ],
     [
       "result['term_type']",
-      "str",
+      "object",
       "(16,)"
     ],
     [
@@ -12629,17 +12629,17 @@
   "neural_reference/methods/interaction_importance": [
     [
       "result",
-      "pandas.DataFrame",
+      "pandas.core.frame.DataFrame",
       "(1, 4)"
     ],
     [
       "result['term']",
-      "str",
+      "object",
       "(1,)"
     ],
     [
       "result['term_type']",
-      "str",
+      "object",
       "(1,)"
     ],
     [
@@ -12927,17 +12927,17 @@
   "neural_reference/methods/term_importance": [
     [
       "result",
-      "pandas.DataFrame",
+      "pandas.core.frame.DataFrame",
       "(2, 4)"
     ],
     [
       "result['term']",
-      "str",
+      "object",
       "(2,)"
     ],
     [
       "result['term_type']",
-      "str",
+      "object",
       "(2,)"
     ],
     [
@@ -17623,7 +17623,7 @@
     ],
     [
       "result['expanded']",
-      "pandas.DataFrame",
+      "pandas.core.frame.DataFrame",
       "(215, 10)"
     ],
     [
@@ -17705,7 +17705,7 @@
     ],
     [
       "result['expanded']",
-      "pandas.DataFrame",
+      "pandas.core.frame.DataFrame",
       "(215, 10)"
     ],
     [
@@ -19818,7 +19818,7 @@
     ],
     [
       "result.parametric_table",
-      "pandas.DataFrame",
+      "pandas.core.frame.DataFrame",
       "(0, 7)"
     ],
     [
@@ -19858,12 +19858,12 @@
     ],
     [
       "result.smooth_table",
-      "pandas.DataFrame",
+      "pandas.core.frame.DataFrame",
       "(2, 10)"
     ],
     [
       "result.smooth_table['label']",
-      "str",
+      "object",
       "(2,)"
     ],
     [
@@ -19888,22 +19888,22 @@
     ],
     [
       "result.smooth_table['test']",
-      "str",
+      "object",
       "(2,)"
     ],
     [
       "result.smooth_table['term_type']",
-      "str",
+      "object",
       "(2,)"
     ],
     [
       "result.smooth_table['basis_name']",
-      "str",
+      "object",
       "(2,)"
     ],
     [
       "result.smooth_table['covariance']",
-      "str",
+      "object",
       "(2,)"
     ],
     [
@@ -20766,7 +20766,7 @@
     ],
     [
       "result['mgcv_comparable']['k_check']",
-      "pandas.DataFrame",
+      "pandas.core.frame.DataFrame",
       "(2, 4)"
     ],
     [
@@ -20902,7 +20902,7 @@
   "statistical_reference/methods/k_check": [
     [
       "result",
-      "pandas.DataFrame",
+      "pandas.core.frame.DataFrame",
       "(2, 4)"
     ],
     [
@@ -22146,12 +22146,12 @@
       "(96,)"
     ],
     [
-      "result['c98ba98a06b6']",
+      "result['19a9708db6e4']",
       "numpy.ndarray[float64]",
       "(96,)"
     ],
     [
-      "result['196264d2c01d']",
+      "result['21f584024d66']",
       "numpy.ndarray[float64]",
       "(96,)"
     ],
@@ -22392,7 +22392,7 @@
     ],
     [
       "result.p_table",
-      "pandas.DataFrame",
+      "pandas.core.frame.DataFrame",
       "(1, 4)"
     ],
     [
@@ -22417,7 +22417,7 @@
     ],
     [
       "result.pterms_table",
-      "pandas.DataFrame",
+      "pandas.core.frame.DataFrame",
       "(0, 7)"
     ],
     [
@@ -22457,12 +22457,12 @@
     ],
     [
       "result.s_table",
-      "pandas.DataFrame",
+      "pandas.core.frame.DataFrame",
       "(2, 10)"
     ],
     [
       "result.s_table['label']",
-      "str",
+      "object",
       "(2,)"
     ],
     [
@@ -22487,22 +22487,22 @@
     ],
     [
       "result.s_table['test']",
-      "str",
+      "object",
       "(2,)"
     ],
     [
       "result.s_table['term_type']",
-      "str",
+      "object",
       "(2,)"
     ],
     [
       "result.s_table['basis_name']",
-      "str",
+      "object",
       "(2,)"
     ],
     [
       "result.s_table['covariance']",
-      "str",
+      "object",
       "(2,)"
     ],
     [
@@ -22656,7 +22656,7 @@
     ],
     [
       "result['newdata']",
-      "pandas.DataFrame",
+      "pandas.core.frame.DataFrame",
       "(64, 2)"
     ],
     [
