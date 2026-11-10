@@ -6,13 +6,19 @@ import numpy as np
 import pandas as pd
 import pytest
 from numpy.testing import assert_allclose
+from scipy.optimize import brentq
 from scipy.optimize._numdiff import approx_derivative
 
 from nampy import CoxGAM
+from nampy.gam.families.cox import CoxPartialLikelihood
 from nampy.gam.fit.selection.criteria import (
     criterion_gradient,
     criterion_hessian,
     criterion_value,
+)
+from nampy.gam.fit.solvers.general_family.newton import (
+    GeneralNewtonControl,
+    solve_general_newton_fit,
 )
 from nampy.gam.losses.cox import cox_higher_derivatives
 from nampy.survival import SurvivalTarget
@@ -86,6 +92,48 @@ def test_native_cox_automatic_smoothing_and_exact_outer_derivatives():
     assert np.isfinite(
         model.predict_distribution(X.iloc[:2]).survival([0, 0.1, 0.3])
     ).all()
+
+
+def test_cox_newton_recovers_step_below_objective_resolution(monkeypatch):
+    X = np.array([[1.0], [-1.0]])
+    time = np.array([1.0, 2.0])
+    family = CoxPartialLikelihood([True, False], [0, 0])
+    penalty = np.eye(1)
+
+    def penalized_score(beta):
+        return 2.0 / (1.0 + np.exp(2.0 * beta)) - beta
+
+    optimum = brentq(penalized_score, 0.0, 1.0)
+    start = np.array([optimum - 1e-8])
+    likelihood = family.ll
+
+    def rounded_likelihood(*args, **kwargs):
+        fit = likelihood(*args, **kwargs)
+        beta = args[3][0]
+        # Round the penalized value to simulate the same plateau on each BLAS.
+        quadratic = 0.5 * beta**2
+        fit["l"] = round(fit["l"] - quadratic, 12) + quadratic
+        return fit
+
+    monkeypatch.setattr(family, "ll", rounded_likelihood)
+    fit = solve_general_newton_fit(
+        X,
+        time,
+        [np.array([0])],
+        np.zeros(1),
+        penalty,
+        [penalty],
+        ldetS=0.0,
+        ldetS1=None,
+        ldetS2=None,
+        family=family,
+        weights=np.ones(2),
+        deriv=0,
+        control=GeneralNewtonControl(epsilon=1e-10),
+        start=start,
+    )
+    assert fit["warn"] == []
+    assert_allclose(penalized_score(fit["coef"]), 0, atol=1e-10)
 
 
 @pytest.mark.parametrize(

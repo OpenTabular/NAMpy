@@ -24,6 +24,7 @@ from typing import Any
 import numpy as np
 from scipy.linalg import cholesky, qr, solve_triangular
 
+from ....families.cox import CoxPartialLikelihood
 from ....linalg.cholesky import (
     chol_solve_pivoted,
     compute_preconditioned_inverse,
@@ -213,6 +214,7 @@ def solve_general_newton_fit(
     coef = np.asarray(start, dtype=np.float64).copy()
 
     llf = family.ll
+    is_cox = isinstance(family, CoxPartialLikelihood)
 
     ll = llf(y, X, jj, coef, weights, offset=offset, deriv=1)
     ll0 = float(ll["l"]) - 0.5 * float(coef @ St @ coef)
@@ -291,6 +293,7 @@ def solve_general_newton_fit(
         coef1[:rank] += step
         ll_try = llf(y, X, jj, coef1, weights, offset=offset, deriv=1)
         ll1 = float(ll_try["l"]) - 0.5 * float(coef1 @ St @ coef1)
+        newton_coef = coef1
         ll_old = ll_try
         khalf = 0
         fac = 2.0
@@ -337,6 +340,19 @@ def solve_general_newton_fit(
         step_ok = (
             np.isfinite(ll1) and ll1 >= ll0 and (khalf < 25 or indefinite)
         ) or iter_ == control.maxit
+
+        # A tiny Cox step can reach stationarity even when the gain is lost
+        # in the rounded objective. Check the original trial and its gain.
+        if (
+            not step_ok
+            and is_cox
+            and not indefinite
+            and np.isfinite(ll_old["l"])
+            and np.max(np.abs(ll_old["lb"] - St @ newton_coef))
+            < control.epsilon * max(abs(ll0), 1e-300)
+            and family._penalized_step_improves(y, X, coef, newton_coef, St, offset)
+        ):
+            coef1, ll_try, step_ok = newton_coef, ll_old, True
 
         if step_ok:
             coef = coef1.copy()
@@ -390,7 +406,8 @@ def solve_general_newton_fit(
             else:
                 ll0 = ll1
         else:
-            ll = ll_old
+            if not is_cox:
+                ll = ll_old
             if drop is None:
                 bdrop = np.zeros(q, dtype=bool)
             if iconv and iter_ == 1:

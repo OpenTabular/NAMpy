@@ -4,6 +4,8 @@ No independent-observation density is supplied and no public ordinary-GAM
 family alias is registered. Context binds event/stratum labels, not weights.
 """
 
+from math import fsum
+
 import numpy as np
 
 from ..linalg.cholesky import chol_solve_pivoted
@@ -41,6 +43,53 @@ class CoxPartialLikelihood(GamlssFamily):
 
     def _reported_deviance(self, y, fitted, *, loglik, weights=None):
         return -2 * loglik
+
+    def _penalized_step_improves(self, y, X, coef, trial, penalty, offset):
+        """Compare a small step without subtracting whole log likelihoods."""
+        step = trial - coef
+        change = X @ step
+        max_change = np.max(np.abs(change))
+        if not np.isfinite(max_change) or max_change > 1e-3:
+            return False
+
+        if isinstance(offset, (list, tuple)):
+            offset = offset[0]
+        eta = X @ coef
+        if offset is not None:
+            eta += offset
+
+        # For each risk set, the ratio of new to old risk sums is
+        # 1 + the risk-weighted mean of expm1(change).
+        exp_change = np.expm1(change)
+        gains = change[self.event].tolist()
+        for label in np.unique(self.strata):
+            rows = np.flatnonzero(self.strata == label)
+            rows = rows[np.argsort(-y[rows], kind="stable")]
+            reference = eta[rows[0]]
+            total = total_change = 0.0
+            deaths = 0
+            for i, row in enumerate(rows):
+                if eta[row] > reference:
+                    scale = np.exp(reference - eta[row])
+                    total *= scale
+                    total_change *= scale
+                    reference = eta[row]
+                weight = np.exp(eta[row] - reference)
+                total += weight
+                total_change += weight * exp_change[row]
+                deaths += int(self.event[row])
+                if deaths and (i + 1 == len(rows) or y[row] != y[rows[i + 1]]):
+                    gains.append(-deaths * np.log1p(total_change / total))
+                    deaths = 0
+
+        penalty_gains = -(penalty @ coef + 0.5 * (penalty @ step)) * step
+        if not np.isfinite(penalty_gains).all():
+            return False
+        # Require a gain above the roundoff scale of the accumulated changes.
+        magnitude = 2 * len(gains) * max_change + fsum(abs(penalty_gains))
+        roundoff = max(8, len(y)) * np.finfo(float).eps * magnitude
+        gains.extend(penalty_gains)
+        return fsum(gains) > roundoff
 
     def ll(
         self,
