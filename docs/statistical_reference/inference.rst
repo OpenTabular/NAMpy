@@ -41,20 +41,31 @@ including variation of coefficients as estimated log smoothing parameters
 change. The supported correction is a local approximation, not exact
 integration over every smoothing value.
 
-``vcov(freq=False, unconditional=False)`` returns Bayesian penalized covariance
-conditional on the selected smoothing parameters. ``freq=True`` requests the
-frequentist sampling covariance of the penalized estimate, where supported.
-These matrices answer different questions even when based on the same fit.
-``unconditional=True`` requests a smoothing-adjusted Bayesian matrix. It is not
-an observation-noise adjustment, and does not change the fitted coefficients.
+Covariance requests
+~~~~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Operation
+     - Result
+   * - ``vcov()``
+     - Bayesian penalized covariance conditional on the fitted smoothing parameters.
+   * - ``vcov(freq=True)``
+     - Frequentist sampling covariance of the penalized estimate, where supported.
+   * - ``vcov(unconditional=True)``
+     - Bayesian covariance adjusted for smoothing-parameter uncertainty where available. The estimate and observation variance use their original fit.
+   * - ``sp_vcov()``
+     - Covariance of the free log smoothing parameters, or ``None`` when fitted curvature is unavailable.
 
 ``vcov(unconditional=True)`` falls back to conditional Bayesian covariance when
 the corrected matrix is absent. Prediction emits ``UserWarning`` ("Smoothness uncertainty corrected covariance
 not available") and falls back to conditional Bayesian covariance when the
-correction is absent; do not infer that a requested adjustment was available
-merely because fitting succeeded. ``sp_vcov()`` returns covariance of free log
-smoothing parameters, or ``None`` when fitted curvature is unavailable. Family,
-criterion and derivative support determine availability; see :doc:`/api/gam_advanced`.
+correction is absent. Family, criterion and derivative support determine
+availability. See :doc:`/api/gam_advanced`.
+
+Pointwise and joint uncertainty
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Prediction SE is obtained from the coefficient covariance and the prediction
 Jacobian. A prediction plus/minus 1.96 SE is an approximate pointwise interval;

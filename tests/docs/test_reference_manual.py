@@ -124,6 +124,27 @@ def test_argument_rows_keep_type_and_default_on_their_own_line():
     assert "default: " not in rendered
 
 
+def test_dense_reference_topics_render_as_tables_and_subsections():
+    manual = load_manual()
+    topics = []
+    for page in manual.build_manual():
+        _topics(page, topics)
+    survival = next(page for page in topics if page.path.name == "SurvivalGAM.rst")
+    rendered = manual.render_page(survival, 2, "Statistical estimators")
+    operations = rendered.split(r"\Rdsection{Predictions and supported operations}", 1)[1]
+    assert r"\begin{longtable}" in operations
+    assert r"\textbf{Operation} & \textbf{Result}" in operations
+    assert r"\Rdsubsection{Diagnostics and evaluation}" in operations
+    assert r"\Rdsubsection{Effects and uncertainty}" in operations
+    assert r"\Rdext{https://nampy.readthedocs.io/en/latest/howto/survival.html}{survival}" in operations
+    for name in ("CoxGAM.rst", "NeuralEnsemble.rst", "penalties.rst", "gam_smooths.rst"):
+        topic = next(page for page in topics if page.path.name == name)
+        assert r"\begin{longtable}" in manual.render_page(topic, 2)
+    optimizer = next(page for page in topics if page.path.name == "optimizer_endpoint_diagnostics.rst")
+    rendered = manual.render_page(optimizer, 2)
+    assert r"\Rdarg{" in rendered.split(r"\Rdsection{Outputs}", 1)[1]
+
+
 def test_bare_doc_path_becomes_a_phrase_link():
     manual = load_manual()
     manual.DOC_PAGES["statistical_reference/methods/vcov"] = (
@@ -146,6 +167,8 @@ def test_manual_opens_with_a_short_contents():
     assert "margin=2.8cm" in tex
     assert r"\setcounter{tocdepth}{1}" in tex
     assert r"\hrule height 0.35pt" not in tex
+    assert "breaklines=true" in tex
+    assert "breaksymbolleft={},breaksymbolright={}" in tex
     body = tex.split(r"\begin{document}", 1)[1]
     assert r"\Rdmeta{Author}" in body
     assert "Ananyapam De" in body

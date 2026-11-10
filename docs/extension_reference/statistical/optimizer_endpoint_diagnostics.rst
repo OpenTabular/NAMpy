@@ -25,68 +25,88 @@ Signature
 Parameters
 ----------
 
-``model`` — Type: fitted core ``nampy.gam.GAM``
-   Default: ``required``. Use a fitted core model, or ``estimator.gam_`` from a wrapper. Required compiled/fitted state is read from this object; passing a wrapper directly is not supported.
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
 
-``conv_tol`` — Type: float > 0
-   Default: ``1e-6``. Projected-gradient stationarity tolerance, scaled by 1 + abs(criterion score). Supply a positive finite value; this helper does not implement a general input validator.
-
-``fd_step`` — Type: float > 0
-   Default: ``1e-3``. Candidate central-difference step along a common log-smoothing shift. Bound distances can reduce it; no feasible positive step gives None finite-difference diagnostics.
+   * - Field
+     - Type
+     - Default
+     - Meaning
+   * - ``model``
+     - fitted core ``nampy.gam.GAM``
+     - ``required``
+     - Use a fitted core model, or ``estimator.gam_`` from a wrapper. Required compiled/fitted state is read from this object; passing a wrapper directly is not supported.
+   * - ``conv_tol``
+     - float > 0
+     - ``1e-6``
+     - Projected-gradient stationarity tolerance, scaled by 1 + abs(criterion score). Supply a positive finite value; this helper does not implement a general input validator.
+   * - ``fd_step``
+     - float > 0
+     - ``1e-3``
+     - Candidate central-difference step along a common log-smoothing shift. Bound distances can reduce it; no feasible positive step gives None finite-difference diagnostics.
 
 Outputs
 -------
 
-``return value`` — Type: dict[str, object] | None
-   None for a fixed/no-selected criterion, no penalties, or no free smoothing coordinates. An unfitted core model raises an error. Otherwise the fields below describe the current endpoint, not a newly fitted model.
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
 
-``criterion_name; criterion_backend`` — Type: str; str | None
-   Resolved fitted criterion and its available ML/REML backend. A None backend for a non-likelihood criterion does not itself indicate fit failure.
-
-``optimizer_success; optimizer_message`` — Type: bool | None; str | None
-   Recorded optimizer result, or None when no result record exists. Recorded success and stationarity diagnostics answer different questions.
-
-``n_free_smoothing_params`` — Type: int s
-   Number of free log smoothing coordinates.
-
-``log_smoothing_params; gradient; projected_gradient`` — Type: list[float], each length s
-   Current free log penalties, raw criterion gradient, and bound-projected gradient in the same coordinate order.
-
-``bounds`` — Type: list[list[float]], shape (s,2)
-   min_sp-derived lower log bounds and unbounded upper ends. Infinite entries are possible. This is not a complete echo of every numerical optimizer's sp_log_bounds.
-
-``gradient_inf_norm; projected_gradient_inf_norm`` — Type: float
-   Largest absolute raw/projected gradient coordinate.
-
-``stationary_by_raw_gradient; stationary_by_projected_gradient; boundary_limited`` — Type: bool
-   Tolerance decisions. boundary_limited indicates a projected stationary endpoint whose raw gradient still exceeds tolerance at a reported bound.
-
-``at_lower_bound; at_upper_bound`` — Type: list[bool], each length s
-   Whether coordinates meet the reported bound tests.
-
-``hessian; hessian_eigenvalues; min_abs_hessian_eigenvalue`` — Type: list[list[float]] (s,s) | None; list[float] (s,) | None; float | None
-   Criterion curvature, its symmetric eigenvalues and the smallest eigenvalue magnitude. None means unavailable curvature, not zero curvature.
-
-``shared_shift_directional_derivative; shared_shift_curvature`` — Type: float; float | None
-   Gradient and analytic curvature along the normalized all-ones direction in free log-penalty coordinates.
-
-``shared_shift_fd_step; shared_shift_fd_slope; shared_shift_fd_curvature`` — Type: float | None
-   Feasible central-difference step and slope/curvature checks. These can be absent at a bound.
-
-``flat_ridge_suspected`` — Type: bool
-   Heuristic combining small projected gradient and weak Hessian/shared-direction curvature. It is not a proof of model nonidentifiability.
-
-``factor_smooth_shared_ridge_stabilized; factor_smooth_shared_ridge_shift`` — Type: bool; float | None
-   Factor-smooth stabilization flag and optional shift, where supplied by the route.
-
-``joint_gaussian_reml_outer; joint_negbin_reml_outer; joint_negbin_efs_outer; joint_negbin_postprocessed; joint_negbin_flat_ridge_stabilized`` — Type: bool
-   Route-specific flags for joint scale/negative-binomial nuisance fitting and postprocessing.
-
-``joint_log_theta; joint_negbin_initial_log_theta; family_theta`` — Type: float | None
-   Optional current/initial log nuisance dispersion and natural scalar family theta.
-
-``joint_negbin_optimizer_message; joint_negbin_optimizer_fun; joint_negbin_optimizer_nfev; joint_negbin_optimizer_njev`` — Type: str | None; float | None; int | None; int | None
-   Optional joint negative-binomial optimizer message, objective and evaluation counts.
+   * - Field
+     - Type
+     - Meaning
+   * - ``return value``
+     - dict[str, object] | None
+     - None for a fixed/no-selected criterion, no penalties, or no free smoothing coordinates. An unfitted core model raises an error. Otherwise the fields below describe the current endpoint, not a newly fitted model.
+   * - ``criterion_name; criterion_backend``
+     - str; str | None
+     - Resolved fitted criterion and its available ML/REML backend. A None backend for a non-likelihood criterion does not itself indicate fit failure.
+   * - ``optimizer_success; optimizer_message``
+     - bool | None; str | None
+     - Recorded optimizer result, or None when no result record exists. Recorded success and stationarity diagnostics answer different questions.
+   * - ``n_free_smoothing_params``
+     - int s
+     - Number of free log smoothing coordinates.
+   * - ``log_smoothing_params; gradient; projected_gradient``
+     - list[float], each length s
+     - Current free log penalties, raw criterion gradient, and bound-projected gradient in the same coordinate order.
+   * - ``bounds``
+     - list[list[float]], shape (s,2)
+     - min_sp-derived lower log bounds and unbounded upper ends. Infinite entries are possible. This is not a complete echo of every numerical optimizer's sp_log_bounds.
+   * - ``gradient_inf_norm; projected_gradient_inf_norm``
+     - float
+     - Largest absolute raw/projected gradient coordinate.
+   * - ``stationary_by_raw_gradient; stationary_by_projected_gradient; boundary_limited``
+     - bool
+     - Tolerance decisions. boundary_limited indicates a projected stationary endpoint whose raw gradient still exceeds tolerance at a reported bound.
+   * - ``at_lower_bound; at_upper_bound``
+     - list[bool], each length s
+     - Whether coordinates meet the reported bound tests.
+   * - ``hessian; hessian_eigenvalues; min_abs_hessian_eigenvalue``
+     - list[list[float]] (s,s) | None; list[float] (s,) | None; float | None
+     - Criterion curvature, its symmetric eigenvalues and the smallest eigenvalue magnitude. None means unavailable curvature, not zero curvature.
+   * - ``shared_shift_directional_derivative; shared_shift_curvature``
+     - float; float | None
+     - Gradient and analytic curvature along the normalized all-ones direction in free log-penalty coordinates.
+   * - ``shared_shift_fd_step; shared_shift_fd_slope; shared_shift_fd_curvature``
+     - float | None
+     - Feasible central-difference step and slope/curvature checks. These can be absent at a bound.
+   * - ``flat_ridge_suspected``
+     - bool
+     - Heuristic combining small projected gradient and weak Hessian/shared-direction curvature. It is not a proof of model nonidentifiability.
+   * - ``factor_smooth_shared_ridge_stabilized; factor_smooth_shared_ridge_shift``
+     - bool; float | None
+     - Factor-smooth stabilization flag and optional shift, where supplied by the route.
+   * - ``joint_gaussian_reml_outer; joint_negbin_reml_outer; joint_negbin_efs_outer; joint_negbin_postprocessed; joint_negbin_flat_ridge_stabilized``
+     - bool
+     - Route-specific flags for joint scale/negative-binomial nuisance fitting and postprocessing.
+   * - ``joint_log_theta; joint_negbin_initial_log_theta; family_theta``
+     - float | None
+     - Optional current/initial log nuisance dispersion and natural scalar family theta.
+   * - ``joint_negbin_optimizer_message; joint_negbin_optimizer_fun; joint_negbin_optimizer_nfev; joint_negbin_optimizer_njev``
+     - str | None; float | None; int | None; int | None
+     - Optional joint negative-binomial optimizer message, objective and evaluation counts.
 
 
 

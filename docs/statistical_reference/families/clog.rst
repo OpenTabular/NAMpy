@@ -164,24 +164,28 @@ uncensored logistic standard deviation is ``scale * pi / sqrt(3)``.
 The family describes a continuous logistic response, with one additive
 location predictor. Supported links are identity, log and square root.
 
-Responses use the same explicit paired encoding as ``cnorm`` above:
+**Censoring input.** Responses use the same explicit paired encoding as ``cnorm`` above:
 equal values are exact observations, distinct finite values define an
 interval in either order, and infinite second bounds define one-sided
 censoring. Predictions return the latent logistic location and need no
-censor bounds. Observation weights are precision, giving each row a scale
+censor bounds.
+
+**Scale and weights.** Observation weights are precision, giving each row a scale
 ``exp(theta_working) / sqrt(weight)``. A positive constructor ``theta`` fixes
 scale; zero or ``None`` estimates it from working value zero; negative
 ``theta`` starts estimation at ``log(abs(theta))``. This last convention
 differs from the source ``cnorm`` constructor.
 
-Static R references cover all returned deviance derivative fields through
+**Validated fits.** Static R references cover all returned deviance derivative fields through
 fourth order, saturation derivatives, tails, precision weights, mixed
 censoring, fixed/estimated scale, fixed smoothing and ML/REML selection,
 offsets, two smooths, parametric-only fits, covariance, EDF, likelihood
 criteria, predictions, residuals, persistence and additive reconstruction.
 Fixed- and estimated-scale optimizers have targeted references, including
 weighted ancillary estimation, successful estimated-scale nlm fits, and
-nonidentity REML/BFGS and ML/optim fits. EFS estimates scale inside each PIRLS
+nonidentity REML/BFGS and ML/optim fits.
+
+**EFS.** EFS estimates scale inside each PIRLS
 iteration using the source ``estimate.theta`` update, and retains the
 accepted EFS fit rather than estimating theta again in a final solve.
 EFS references cover exact and mixed-censored responses, all three links,
@@ -189,7 +193,7 @@ positive precision weights and positive external dispersion. EFS supplies
 no smoothing-parameter covariance or unconditional uncertainty correction.
 The example is ``examples/example_clog_gam.py``.
 
-In captured fixed-scale nlm/optim cases the smooth reaches its linear null
+**Optimizer endpoints.** In captured fixed-scale nlm/optim cases the smooth reaches its linear null
 space. Large raw smoothing parameters are not compared across endpoints;
 fitted effects, covariance, criterion, and the limiting EDF retain their
 original tolerances. Other accepted cases compare smoothing parameters
@@ -218,7 +222,7 @@ Remaining restrictions have distinct causes:
   retain the documented extended-family restrictions. These do not imply
   that every upstream composition or dataset is rejected.
 
-The port retains source arithmetic and formulas, including interval
+**Likelihood reporting.** The port retains source arithmetic and formulas, including interval
 derivative expressions and the unusual ``aic`` hook, which is independent
 of fitted location. Consequently reported source-compatible AIC and derived
 log likelihood are not substitutes for an independently normalized logistic

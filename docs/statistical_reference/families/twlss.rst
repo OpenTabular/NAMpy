@@ -171,22 +171,25 @@ identity. Source response values are ``(mu, theta, rho)``;
 source logistic power map confines ``p`` to the supplied bounds.
 ``predict_point`` returns mean ``mu``.
 
-Source ``available.derivs=0`` supplies the analytic likelihood gradient and
+**Smoothing selection.** Source ``available.derivs=0`` supplies the analytic likelihood gradient and
 Hessian; third/fourth likelihood arrays and a numerical outer-derivative
 fallback are unavailable. Smoothing selection automatically uses EFS,
 including when another optimizer was requested. Fixed-SP and selected-EFS
 fits have direct references for covariance, criterion/EDF, AIC/logLik,
-predictions/SE, all three residual types and summary tables. The source null
+predictions/SE, all three residual types and summary tables.
+
+**Null deviance.** The source null
 fit retains its independent bounds ``a=1.001, b=1.999``; null postprocessing
 uses each observation's fitted dispersion. Prior weights enter deviance
 residuals and null deviance, although the fitting likelihood ignores them.
 
-The source formula-list setup rejects an external fixed-SP vector when a
+**Fixed smoothing in formula lists.** The source formula-list setup rejects an external fixed-SP vector when a
 parametric-only middle predictor precedes another smooth. Equivalent source
 captures fix the parameters inside their ``s(..., sp=...)`` terms. All three
 predictor offsets, zero/positive responses, custom power bounds and both source
 initialization branches have kernel references.
-Selected-EFS parity uses the same explicit initial smoothing parameters in
+
+**EFS initialization.** Selected-EFS parity uses the same explicit initial smoothing parameters in
 both implementations. As for ``shash``, source ``initial.spg`` depends on
 arbitrary initial penalty eigenvector signs; its uncontrolled finite EFS
 endpoint need not agree across platforms. Common-start references compare

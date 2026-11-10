@@ -40,26 +40,45 @@ Evaluation signatures and inputs
    family.d3link(mu)
    family.d4link(mu)
 
-``mu`` — Type: array-like of floats, shape ``S`` (scalar ``()`` permitted)
-   Default: ``required``. Response means/probabilities in the displayed link domain. Convert input to a numeric array; the forward link does not generally repair invalid domains.
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
 
-``eta`` — Type: array-like of floats, shape ``S`` (scalar ``()`` permitted)
-   Default: ``required``. Additive predictors in the inverse-link domain. ``inverse_link`` and ``mu_eta`` consume eta, not response means.
+   * - Field
+     - Type
+     - Default
+     - Meaning
+   * - ``mu``
+     - array-like of floats, shape ``S`` (scalar ``()`` permitted)
+     - ``required``
+     - Response means/probabilities in the displayed link domain. Convert input to a numeric array; the forward link does not generally repair invalid domains.
+   * - ``eta``
+     - array-like of floats, shape ``S`` (scalar ``()`` permitted)
+     - ``required``
+     - Additive predictors in the inverse-link domain. ``inverse_link`` and ``mu_eta`` consume eta, not response means.
 
 Outputs
 -------
 
-``family.link(mu)`` — Type: floating NumPy array/scalar-shaped numerical result, shape ``S``
-   Forward predictor values. An existing float64 input can be returned without copying for identity.
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
 
-``family.inverse_link(eta)`` — Type: floating NumPy array/scalar-shaped numerical result, shape ``S``
-   Response mean/probability after the numerical safeguards described above; no response noise is added.
-
-``family.mu_eta(eta)`` — Type: floating numerical result, shape ``S``
-   Derivative of the inverse link, d mu / d eta. It can be negative for decreasing links.
-
-``family.d2link(mu), d3link(mu), d4link(mu)`` — Type: floating numerical results, shape ``S``
-   Second, third and fourth derivatives of the forward link with respect to mu, used by fitting derivatives. These are not derivatives of predictions with respect to a source feature.
+   * - Field
+     - Type
+     - Meaning
+   * - ``family.link(mu)``
+     - floating NumPy array/scalar-shaped numerical result, shape ``S``
+     - Forward predictor values. An existing float64 input can be returned without copying for identity.
+   * - ``family.inverse_link(eta)``
+     - floating NumPy array/scalar-shaped numerical result, shape ``S``
+     - Response mean/probability after the numerical safeguards described above; no response noise is added.
+   * - ``family.mu_eta(eta)``
+     - floating numerical result, shape ``S``
+     - Derivative of the inverse link, d mu / d eta. It can be negative for decreasing links.
+   * - ``family.d2link(mu), d3link(mu), d4link(mu)``
+     - floating numerical results, shape ``S``
+     - Second, third and fourth derivatives of the forward link with respect to mu, used by fitting derivatives. These are not derivatives of predictions with respect to a source feature.
 
 Ordinary Python lists are accepted through NumPy conversion. Scalar inputs retain shape ``()``; concrete scalar container types can differ between link operations. These elementwise methods preserve broadcasting shape and do not check model convergence.
 

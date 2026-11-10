@@ -372,7 +372,12 @@ def estimator_text(cls, spec, objective):
     elif objective == "classification":
         shape = "``predict`` returns class labels; ``predict_proba`` returns ``(n_samples, n_classes)`` probabilities in ``classes_`` order. Component extraction describes all actual logits; probabilities are queried separately. ``score`` returns mean classification accuracy (higher is better), with optional sample weights."
     else:
-        shape = "``predict`` returns the family-defined point prediction; ``predict_parameters`` returns natural distribution parameters and ``predict_link`` returns additive predictors. Quantile-loss families instead return the explicitly fitted quantile vector and do not provide a full probability law or natural parameter matrix. For fixed scalar families, natural columns follow ``parameter_names_``. Categorical and ordinal outputs instead have one probability per class; multivariate families depend on configured dimension, and quantiles have one column per requested level. Raw width follows ``family_.param_count``. ``predict_point`` returns the family-defined point prediction. ``score`` returns negative mean family loss (higher is better); evaluation loss is lower-is-better."
+        shape = (
+            "* **Output columns.** Natural parameters follow ``parameter_names_``. Categorical and ordinal responses have one probability per class. "
+            "Multivariate response width follows the configured dimension. Raw predictor width is ``family_.param_count``.\n"
+            "* **Quantile loss.** ``predict`` returns one column per fitted quantile level. Probability-law and natural-parameter methods require a distributional family.\n"
+            "* **Scoring.** ``score`` is negative mean family loss, so higher is better. Lower evaluation loss is better.\n"
+        )
     if spec.name == "nodegam":
         lines.append(
             "NODE-GAM contributions require an interpretable selector state. The short runnable example explicitly completes annealing (anneal_steps=1) in a single-layer unary model. Validate additive reconstruction before interpreting contributions from partially trained or more complex selector configurations.\n"
@@ -490,7 +495,11 @@ def survival_estimator_text(cls, *, neural):
     text = ":ref:`Survival workflow and limitations <howto-user-guide-survival>`.\n\n"
     text += "Constructor parameters\n~~~~~~~~~~~~~~~~~~~~~~\n\n" + table(["Parameter", "Default", "Meaning"], rows)
     text += "Full shared fit contract\n~~~~~~~~~~~~~~~~~~~~~~~~\n\n"
-    text += "``fit(X, SurvivalTarget, sample_weight=..., offset=...)`` keeps event status separate from weights. Piecewise offsets are known scalar log-rate offsets per subject; parametric offsets have shape (n_subjects,2), one per parameter predictor. New prediction subjects need explicit offsets if the fit used them. Targets contain time, event (0/1), optional entry and unique subject IDs. Entry conditions the likelihood. Piecewise models also accept LongitudinalSurvivalTarget with contiguous start/stop records, one terminal event, and constant per-subject case weights across records. score divides by total subject weight. Shared predict_trajectory evaluates explicitly supplied future covariate paths; ordinary predict_distribution keeps its constant-covariate interpretation.\n\n"
+    text += (
+        "* **Targets and weights.** ``fit(X, SurvivalTarget, sample_weight=..., offset=...)`` takes time, event (0/1), optional entry, and unique subject IDs. Entry conditions the likelihood. ``score`` normalizes by total subject weight.\n"
+        "* **Offsets.** Supply one log-rate offset per subject for piecewise fits or an ``(n_subjects, 2)`` array for parametric fits. Supply new offsets at prediction if the fit used them.\n"
+        "* **Longitudinal records.** Piecewise fits accept contiguous start/stop histories with one terminal event and constant weight within a subject. Use ``predict_trajectory`` for explicit future paths and ``predict_distribution`` for constant covariates.\n\n"
+    )
     if neural:
         text += "Static fits can split subjects automatically; longitudinal fits require explicit disjoint whole-subject X_val/y_val. No automatic record split or longitudinal warm start is supported. Preprocessing fits only training records; likelihood normalization uses independent subjects, not record counts. Piecewise predictor/component arrays are (n_subjects,n_intervals); Weibull/lognormal arrays are (n_subjects,2). Weibull links are log scale/log shape; lognormal links are location/log SD. Native/fixed routes, custom samplers, distributed training, and supervised preprocessing are unsupported.\n\n"
     else:
@@ -505,16 +514,50 @@ def survival_estimator_text(cls, *, neural):
             (family.name, ", ".join(sorted(family.supported_smoothing_optimizers)))
             for family in (CensoredWeibull, CensoredLogNormal)
         ])
+        text += (
+            "**Smooth baseline.** ``baseline='smooth'`` fits a right-endpoint time spline with piecewise-constant integration. "
+            "Use at least ``k`` distinct endpoints and positive exposure in each interval. Coupled smooth intervals can have zero events if the fit converges. "
+            "Use ``temporal_formula`` for identified ``ti(survival_time, covariate, ...)`` interactions.\n\n"
+        )
     text += "Predictions and supported operations\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n"
-    text += "``predict`` and ``predict_survival`` require explicit times and return (n_subjects,n_times). ``predict_link`` returns interval log hazards or latent-parameter predictors; ``predict_hazard`` returns rates, never exposure-adjusted Poisson means. ``predict_distribution`` returns SurvivalPrediction supporting log survival, cumulative hazard, quantiles, median and RMST. Piecewise RMST is exact; Weibull/lognormal RMST uses controlled adaptive quadrature. RMST supports scalar or subject-specific conditioning landmarks. Pre-landmark curve cells are NaN. Unreached piecewise quantiles are NaN; piecewise tails beyond cuts are unavailable. Parametric tails are model-based extrapolation.\n\n"
-    if not neural:
-        text += "baseline='smooth' uses the existing penalized Poisson GAM with a right-endpoint time spline. Integration remains piecewise constant. At least k distinct interval endpoints and positive exposure in every interval are required; unlike independent interval intercepts, coupled smooth baselines can have zero events in an interval. Fitted endpoints must still converge. Neural models retain their existing interval-specific heads; matched spline-baseline smoothing is not supplied. temporal_formula accepts identified ti(survival_time, covariate, ...) terms with a smooth statistical baseline; exposure integration and neural interval-head semantics are unchanged.\n\n"
-    text += "Shared survival_residuals preserves entry conditioning and Cox-Snell censoring flags. survival_curve computes entry-aware KM/NA descriptive estimates. concordance_index requires an explicit risk direction. brier_score requires an explicit training CensoringDistribution; its result provides finite-grid integrated Brier errors. Longitudinal targets reduce outcomes and case weights to one per subject; predictions and risk values must follow subject_ids order and use explicitly supplied complete paths. IPCW and concordance currently reject delayed entry. These functions consume the shared predictions from either backend and do not alter estimator score semantics.\n\n"
-    text += "prepare_survival_effects evaluates reference predictors plus selected centered terms before survival transformation, retaining offsets, interval baselines, categorical/interaction coordinates and conditioning metadata. These contrasts do not form an additive decomposition of probabilities. prepare_survival_curve_interval supports statistical pointwise or finite-grid simultaneous joint coefficient inference with Bayesian or available smoothing-corrected covariance. Simultaneous curve coverage is joint across all valid subjects/times, on the log cumulative-hazard scale. prepare_survival_effect_interval uses paired reference-plus-term draws; simultaneous coverage includes all selected terms/subjects/times jointly on the survival-difference scale. Critical values use R type-8 quantiles of maximum standardized deviations. Single neural fits reject coefficient/effect intervals. combine_survival_predictions averages response-level survival and labels empirical between-fit ranges separately. No function infers replication or subject alignment.\n\n"
-    text += "prepare_survival_hazard_interval and prepare_survival_rmst_interval reuse joint draws for statistical pointwise or finite-grid simultaneous intervals. Hazard bands calibrate log hazard jointly across valid subjects/times; parametric time-zero limits remain unavailable. RMST integrates each draw from fixed landmarks to explicit restriction horizons, with exact piecewise or controlled parametric integration. Bounds respect remaining-lifetime support; simultaneous scope is all valid subjects/horizons, in time units. Earlier cells are NaN. Separate functional calls do not claim joint coverage across different quantities. Single neural fits reject hazard/RMST coefficient intervals.\n\n"
-    text += "bootstrap_survival performs ordinary uniform whole-subject pairs refits with fresh estimators/preprocessing on both engines. Its pointwise percentile intervals reuse shared survival/hazard/RMST operations and carry subject_bootstrap source metadata. Neural routes require fixed external validation data with disjoint explicit source IDs, reject warm starts/execution objects, and distinguish fixed-seed sampling uncertainty from combined independent-seed training/sampling variation. Failures are recorded or raised without replacement; intervals refuse failed attempts. Predictions remain on a fixed cohort; the source estimator is not refitted. For longitudinal targets resampling selects complete histories, with fresh occurrence IDs and retained source-subject maps. prediction_trajectory supplies fixed future paths; effects can prepare path-specific contrasts with fixed reference trajectories. Bootstrap, coefficient and between-fit sources are never relabeled as one another. Finite-grid simultaneous bootstrap bands reuse shared survival/hazard/RMST inference calculations. Paired effect contrasts are declared before refitting through effects, use a fixed reference cohort, and support pointwise percentiles or joint calibration over all selected terms/subjects/times. Coverage and uncertainty sources remain explicit; missing term layouts and degenerate draws disagreeing with the fitted estimate reject inference. BCa/nested-studentized/basic, continuous-time coverage and reference-population resampling remain unsupported.\n\n"
-    text += "Post-fit conformal lower event-time bounds are available through nampy.calibration on both backends. Conservative observed-time and administrative-cutoff/known-selection routes have different assumptions and labels; these do not calibrate entire survival curves. See /user_guide/calibration.\n\n"
-    text += "Unsupported routes\n~~~~~~~~~~~~~~~~~~\n\nCensored EFS/optim/magic/nlm.fd, separate censored ML/LAML/GCV/UBRE/NCV criteria, neural/longitudinal Cox (the separate CoxGAM supports static fixed and eligible automatic smoothing), parametric time-varying covariates, recurrent events, competing risks, left/interval censoring, zero-event saturated interval-factor boundary fits, delayed-entry IPCW/concordance, conditional censoring models, dynamic AUC, Uno concordance, randomized censor-aware PIT, continuous-time bands, single-fit neural coefficient/effect/hazard/RMST intervals and simultaneous inference from replicated fits remain unavailable. Survival coefficient simulation also rejects transformed coefficients and nonidentity/wider prediction-coordinate maps. Censored EFS has not passed the independent REML-profile endpoint gate. Parametric fitting requires two distinct positive-weight exact events. Neural survival retains gradient training only. Save/load uses the current trusted fitted-state artifact without migration shims.\n"
+    text += table(["Operation", "Result"], [
+        ("``predict`` / ``predict_survival``", "Survival probabilities at explicit times, shaped ``(n_subjects, n_times)``."),
+        ("``predict_link``", "Interval log hazards or latent distribution parameter predictors."),
+        ("``predict_hazard``", "Event rates per unit time, before exposure adjustment."),
+        ("``predict_distribution``", "A ``SurvivalPrediction`` with log survival, cumulative hazard, quantiles, median and restricted mean survival time (RMST)."),
+        ("``predict_trajectory``", "Predictions along explicitly supplied future covariate paths for piecewise models."),
+    ])
+    text += (
+        "* **RMST and conditioning.** Piecewise integration is exact. Weibull and lognormal integration uses adaptive quadrature. "
+        "RMST accepts a common or subject-specific landmark. Pre-landmark curve cells are ``NaN``.\n"
+        "* **Tail behavior.** Piecewise predictions stop at the final cut and unreached quantiles are ``NaN``. "
+        "Weibull and lognormal tails extrapolate from the fitted distribution.\n\n"
+        "Diagnostics and evaluation\n^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n"
+        "* ``survival_residuals`` returns entry-conditioned Cox–Snell residuals with censoring flags.\n"
+        "* ``survival_curve`` estimates entry-aware Kaplan–Meier survival and Nelson–Aalen cumulative hazard.\n"
+        "* ``concordance_index`` requires an explicit risk direction. ``brier_score`` takes a censoring distribution fitted on training data "
+        "and can integrate errors over a finite grid. Both reject delayed entry.\n"
+        "* For longitudinal evaluation, use one outcome and case weight per subject and align predictions to ``subject_ids`` using complete paths.\n\n"
+        "Effects and uncertainty\n^^^^^^^^^^^^^^^^^^^^^^^\n\n"
+        "* **Effects.** ``prepare_survival_effects`` adds selected centered terms to the reference predictor before transforming to survival. "
+        "Interpret the result as a probability contrast.\n"
+        "* **Statistical coefficient intervals.** Use ``prepare_survival_curve_interval``, ``prepare_survival_effect_interval``, "
+        "``prepare_survival_hazard_interval`` or ``prepare_survival_rmst_interval`` for pointwise intervals or simultaneous bands on a declared grid. "
+        "Joint coverage is scoped to the requested quantity. Single-fit neural models use the bootstrap route for uncertainty.\n"
+        "* **Subject bootstrap.** ``bootstrap_survival`` refits on resampled subjects or complete histories and evaluates a fixed cohort. "
+        "It supports pointwise percentiles and finite-grid simultaneous bands. Neural refits require fixed, disjoint external validation subjects.\n"
+        "* **Replicated fits.** ``combine_survival_predictions`` averages survival on an aligned cohort and reports empirical between-fit ranges.\n"
+        "* **Calibration.** Conformal calibration provides lower event-time bounds under route-specific assumptions.\n\n"
+        "See the :doc:`/howto/survival` guide for inference scales, bootstrap requirements and integration details.\n\n"
+        "Unsupported routes\n~~~~~~~~~~~~~~~~~~\n\n"
+        "* **Event and censoring models.** Recurrent events, competing risks, left or interval censoring, parametric time-varying covariates, "
+        "and neural or longitudinal Cox. Use ``CoxGAM`` for static Cox regression.\n"
+        "* **Fitting.** Censored EFS, optim, magic and nlm.fd, separate censored ML, LAML, GCV, UBRE and NCV, "
+        "and zero-event saturated interval-factor fits. Parametric fits require two distinct positive-weight exact events.\n"
+        "* **Evaluation and inference.** Delayed-entry IPCW or concordance, conditional censoring models, dynamic AUC, Uno concordance, "
+        "randomized censor-aware PIT, continuous-time bands and simultaneous inference from replicated fits. Coefficient simulation requires "
+        "untransformed coefficients and an identity prediction-coordinate map.\n"
+    )
     return text
 
 
@@ -536,8 +579,22 @@ def cox_estimator_text(cls):
     return (":ref:`Cox scope and survival workflow <howto-user-guide-survival>`.\n\n"
         + "Constructor parameters\n~~~~~~~~~~~~~~~~~~~~~~\n\n"
         + table(["Parameter", "Default", "Meaning"], rows)
-        + "fit(X, SurvivalTarget, strata=..., offset=...) supports static right-censored records with fixed spline penalties. Risk sets include all tied event/censor records before the event contribution, following upstream mgcv coxlpl/coxpp conventions. predict_distribution returns shared step-cumulative-hazard predictions on common requested-stratum follow-up support; predict(..., times=...) returns survival. RMST integrates those steps exactly. predict_components describes log relative hazard, not survival. score is per-subject partial likelihood, not normalized event-time density; do not rank it against full survival likelihoods.\n\n"
-        + "Automatic REML reuses the existing general-family solver with exact risk-set derivatives through fourth order. Newton/BFGS are supported for one stratum; stratified automatic fitting requires BFGS because strict Newton coefficient convergence has not passed its endpoint gate. predict_standard_error follows mgcv coxpp/coxpred, including baseline and coefficient terms. predict_interval returns approximate pointwise Wald survival limits. diagnostics returns source Schoenfeld and unscaled drift-corrected cumulative-score data, plus baseline-consistent martingale/deviance residuals. bootstrap_survival re-estimates coefficients, baseline and eligible smoothing; stratified calls require aligned fit_context and prediction_context strata. RMST and finite-grid simultaneous uncertainty are available through bootstrap. Delayed entry, longitudinal/neural Cox, case weights, alternate ties, continuous hazard density, analytic simultaneous/conditional curve intervals and coefficient-only substitutions remain unsupported. Version-4 trusted fitted-state save/load preserves supported predictions/inference.\n")
+        + "Fitting and risk sets\n~~~~~~~~~~~~~~~~~~~~~\n\n"
+        + "* ``fit(X, SurvivalTarget, strata=..., offset=...)`` accepts static right-censored records. Risk sets include tied event and censor records before the event contribution, following mgcv.\n"
+        + "* Fixed spline penalties are supported. Automatic REML uses exact risk-set derivatives through order four. Use Newton or BFGS for one stratum and BFGS for stratified automatic fits.\n\n"
+        + "Predictions and diagnostics\n~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n"
+        + table(["Operation", "Result"], [
+            ("``predict_distribution``", "Step cumulative-hazard predictions on common follow-up support across requested strata. RMST integrates the steps exactly."),
+            ("``predict(..., times=...)``", "Survival probabilities on the supplied grid."),
+            ("``predict_components``", "Additive contributions to log relative hazard."),
+            ("``score``", "Per-subject partial likelihood. Compare Cox fits on the same risk sets and keep full event-time likelihoods separate."),
+            ("``predict_standard_error`` / ``predict_interval``", "Baseline and coefficient uncertainty following mgcv coxpp/coxpred, with approximate pointwise Wald survival limits."),
+            ("``diagnostics``", "Schoenfeld and unscaled drift-corrected cumulative-score data, plus baseline-consistent martingale and deviance residuals."),
+        ])
+        + "Uncertainty and limits\n~~~~~~~~~~~~~~~~~~~~~~\n\n"
+        + "* ``bootstrap_survival`` refits coefficients, baseline and eligible smoothing. Use it for RMST and finite-grid simultaneous uncertainty. Stratified calls require aligned ``fit_context`` and ``prediction_context`` strata.\n"
+        + "* The fitted scope excludes delayed entry, longitudinal and neural Cox, case weights, alternate tie methods, and continuous hazard density. Analytic simultaneous or conditional curve intervals and coefficient-only substitutions are unavailable.\n"
+        + "* Trusted fitted-state save/load preserves predictions and supported inference.\n")
 
 
 def calibrated_quantile_text(cls):
@@ -559,7 +616,9 @@ def calibrated_quantile_text(cls):
             for name, parameter in inspect.signature(cls).parameters.items()]
     return (":ref:`Calibrated quantile inference <howto-user-guide-quantile-inference>`.\n\n"
         + table(["Parameter", "Default", "Meaning"], rows)
-        + "Unweighted independent rows, identity link, supplied or adaptive ELF bandwidth and spline penalties. The qgam 2.0.1 calFast criterion selects a scalar loss scale by matching posterior and shrinkage-sandwich quantile-function variances. predict_interval returns approximate pointwise conditional-quantile intervals, distinct from future-response conformal intervals. predict_components reconstructs the conditional quantile. score is negative mean pinball loss.\n\n"
+        + "Fitting and prediction\n~~~~~~~~~~~~~~~~~~~~~~\n\n"
+        + "* **Fit.** Use unweighted independent rows, an identity link, spline penalties and a supplied or adaptive ELF bandwidth. qgam's calFast selects a scalar loss scale by matching posterior and shrinkage-sandwich quantile-function variances.\n"
+        + "* **Predict.** ``predict_interval`` gives approximate pointwise intervals for the conditional quantile. Use conformal intervals for future-response coverage. ``predict_components`` reconstructs the conditional quantile. ``score`` is negative mean pinball loss.\n\n"
         + "Fitted state includes ``loss_scale_``, ``posterior_covariance_``, ``sandwich_covariance_``, ``calibration_loss_`` and the scalar ``calibration_profile_``. Failed refits preserve the successful fitted model; set_params invalidates it. Trusted save/load preserves supported predictions and intervals.\n\n"
         + "fit_levels shares Gaussian/SHASH preparation across independently calibrated levels; quantiles can cross and their inference is not joint. Covariate-dependent loss scales, weighted/bootstrap calibration, simultaneous bands, noncrossing multiple quantiles and likelihood/AIC inference are unsupported. The existing QuantileGAM fitting route is unchanged.\n")
 

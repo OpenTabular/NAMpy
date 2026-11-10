@@ -162,7 +162,7 @@ Parameterization and interpretation
 single-predictor ``mgcv::scat`` family. Import it from
 ``nampy.gam.families`` or use ``family="scat"`` in ``GAM``.
 
-``theta`` contains the degrees of freedom and scale, in that order. Two
+**Ancillary parameters.** ``theta`` contains the degrees of freedom and scale, in that order. Two
 positive values fix both parameters. Any negative entry requests estimation
 of both parameters, using their absolute values as constructor initial values.
 ``None`` or a zero entry selects the upstream default working parameters.
@@ -176,7 +176,7 @@ these constructor values with working parameters
 degrees of freedom is at or below ``min_df``, the constructor warns and resets
 ``min_df`` to ``0.9 * abs(theta[0])``, following upstream.
 
-The location predictor supports ``identity``, ``log`` and ``inverse`` links.
+**Links and variance.** The location predictor supports ``identity``, ``log`` and ``inverse`` links.
 With degrees of freedom ``nu`` and scale ``sigma``, the conditional variance
 is ``sigma**2 * nu / (nu - 2)`` when ``nu > 2``. The scale in ``theta`` is a
 distribution parameter, distinct from the optional GAM dispersion argument.
@@ -184,11 +184,14 @@ distribution parameter, distinct from the optional GAM dispersion argument.
 The implementation follows mgcv 1.9-4 ``R/efam.r::scat``, including its
 observed and Fisher derivatives. See the
 `upstream scat documentation <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/scat.html>`_.
-Fixed smoothing and ``ML``/``REML`` selection support fixed or estimated
+
+**Smoothing selection.** Fixed smoothing and ``ML``/``REML`` selection support fixed or estimated
 ancillary parameters. With ``optimize_smoothing=False``, an explicitly
 selected ``ML`` or ``REML`` criterion still governs ancillary estimation;
 ``smoothing_method="fixed"`` uses REML. ``LAML`` is a REML alias. ``GCV.Cp``, ``P-ML`` and ``P-REML`` use the
-upstream extended-family REML route. Unsupported criteria such as NCV
+upstream extended-family REML route.
+
+**Fit restrictions.** Unsupported criteria such as NCV
 raise an explicit error, including with fixed smoothing parameters. Joint
 estimation with the ``efs`` optimizer is unsupported and raises an explicit
 error. ``ML`` with zero observation weights is also explicitly guarded:
@@ -199,14 +202,14 @@ estimated ancillary parameters. The fixed-penalty offset parameterization
 has not been ported for joint fitting and smoothing-uncertainty corrections;
 zero ``min_sp`` retains the ordinary supported path.
 
-Rank-deficient designs that drop coefficients are rejected when fitting
+**Rank and covariance.** Rank-deficient designs that drop coefficients are rejected when fitting
 requires outer-parameter uncertainty corrections. The upstream correction
 attempts Cholesky factorization of the full singular coefficient Hessian;
 rounding can change whether that correction is included, affecting AIC and
 unconditional covariance across platforms. Conditional fitting with both
 ancillary parameters and smoothing fixed remains available.
 
-The default external dispersion is one. A positive ``GAM(scale=...)``
+**External dispersion.** The default external dispersion is one. A positive ``GAM(scale=...)``
 override follows the upstream criterion and covariance scaling. For fixed
 ancillary parameters and fixed smoothing, ``scale=2`` doubles the conditional
 coefficient covariance without changing coefficients or distribution
@@ -214,7 +217,7 @@ parameters. When smoothing or ancillary parameters are estimated, the
 external dispersion can change their optimum; it is not merely a multiplier
 on the reported standard errors.
 
-Outer ``bfgs``, ``optim`` and ``nlm`` routes have endpoint references for
+**Alternative optimizers.** Outer ``bfgs``, ``optim`` and ``nlm`` routes have endpoint references for
 identity-link, positive-weight models with one cubic smooth and fixed or
 estimated ancillary parameters. ``optim`` comparisons use matching
 ``control={"epsilon": 1e-10, "optim": {"factr": 10}}`` to resolve a flat
@@ -222,7 +225,7 @@ ancillary-parameter optimum. BFGS retains its path-dependent approximate
 Hessian; the final derivative-free ``nlm`` and ``optim`` fits do not supply
 a smoothing-parameter uncertainty correction.
 
-Conditional and unconditional coefficient covariance, effective degrees of
+**Inference and residuals.** Conditional and unconditional coefficient covariance, effective degrees of
 freedom, prediction standard errors, likelihood, AIC and BIC are available.
 Unconditional corrections require an outer-parameter Hessian: they are
 absent when both ancillary parameters and all smoothing parameters are

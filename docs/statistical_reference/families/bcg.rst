@@ -170,13 +170,13 @@ transforms the second entry to SD. The default estimates both parameters,
 starting at working values ``[1, 0]``. Positive precision weights replace
 log SD by ``logSD - log(weight)/2``.
 
-Censoring uses explicit paired response data. Nonpositive second-column
+**Censoring input.** Censoring uses explicit paired response data. Nonpositive second-column
 values denote left censoring, positive unequal finite endpoints denote an
 interval, and ``+Inf`` denotes right censoring. Source initialization uses the
 input response scale. Predictions describe the transformed Gaussian location;
 they do not apply an inverse Box-Cox mean correction.
 
-The source fixed constructor has a specific failure: positive
+**Fixed parameters.** The source fixed constructor has a specific failure: positive
 ``theta=[lambda, sd]`` stores three working entries,
 ``[lambda, log(lambda), log(sd)]``. Its fitted source call fails with an
 ``ls$lsth2`` indexing error. NAMpy rejects this malformed fitted state with
@@ -196,11 +196,12 @@ constructor repair is performed. A nonpositive second constructor entry starts
 estimation and retains that entry as the initial working log SD, following
 source initialization order.
 
-References cover the near-zero-lambda expansions, all censor blocks, fourth
+**Fitting support.** References cover the near-zero-lambda expansions, all censor blocks, fourth
 location and second ancillary derivatives, exact and mixed responses,
 precision weights, offsets, fixed/estimated ancillary parameters, and
 fixed/ML/REML smoothing. Estimated-parameter vector fits cover all three links.
-EFS uses the two-parameter source ``estimate.theta`` update inside PIRLS;
+
+**EFS.** EFS uses the two-parameter source ``estimate.theta`` update inside PIRLS;
 fixed/estimated ancillary vector and mixed-response endpoints have direct
 references. Theta-update references also cover external dispersion one/two;
 the captured scale-two source updates warn about step failure and retain their
@@ -209,7 +210,7 @@ smoothing parameter: the all-fixed-SP source call errors. Positive ``min_sp``
 and rank-deficient outer-uncertainty combinations retain the extended-family
 guards described above.
 
-Source AIC omits scale/Box-Cox Jacobians and is not an independently normalized
+**Likelihood reporting.** Source AIC omits scale/Box-Cox Jacobians and is not an independently normalized
 Box-Cox density. Source saturated-likelihood derivative arrays are zero despite
 the value's ancillary dependence. Exactly transformed censor endpoints can
 produce source NaNs in signed density differences; those NaNs remain visible.

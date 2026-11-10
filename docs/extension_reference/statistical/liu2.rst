@@ -27,23 +27,44 @@ Signature
 Parameters
 ----------
 
-``x`` — Type: float | one-dimensional array-like[float], shape () or (n,)
-   Default: ``required``. Threshold(s) at which the tail probability is evaluated. Use scalar or 1D input; arbitrary multi-axis input is not supported by the Davies wrapper.
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
 
-``lb`` — Type: array-like[float], flattened shape (r,)
-   Default: ``required``. Weights of independent chi-square variables. Davies supports signed weights; at least one nonzero weight is required. For the intended Liu approximation use nonnegative weights with at least one positive entry.
-
-``df`` — Type: array-like[float] | None, scalar/length 1 or (r,)
-   Default: ``None``. Degrees of freedom, default ones. A single value is repeated. psum_chisq rounds with NumPy rint and requires positive integer results; liu2 uses supplied real values directly and only checks matching lengths. Supply positive degrees of freedom.
-
-``lower_tail`` — Type: bool
-   Default: ``False``. False requests the upper-tail moment approximation; True requests its CDF for positive thresholds. Nonpositive-threshold behavior is noted below.
+   * - Field
+     - Type
+     - Default
+     - Meaning
+   * - ``x``
+     - float | one-dimensional array-like[float], shape () or (n,)
+     - ``required``
+     - Threshold(s) at which the tail probability is evaluated. Use scalar or 1D input; arbitrary multi-axis input is not supported by the Davies wrapper.
+   * - ``lb``
+     - array-like[float], flattened shape (r,)
+     - ``required``
+     - Weights of independent chi-square variables. Davies supports signed weights; at least one nonzero weight is required. For the intended Liu approximation use nonnegative weights with at least one positive entry.
+   * - ``df``
+     - array-like[float] | None, scalar/length 1 or (r,)
+     - ``None``
+     - Degrees of freedom, default ones. A single value is repeated. psum_chisq rounds with NumPy rint and requires positive integer results; liu2 uses supplied real values directly and only checks matching lengths. Supply positive degrees of freedom.
+   * - ``lower_tail``
+     - bool
+     - ``False``
+     - False requests the upper-tail moment approximation; True requests its CDF for positive thresholds. Nonpositive-threshold behavior is noted below.
 
 Outputs
 -------
 
-``return value`` — Type: float for scalar input; numpy.ndarray[float64] of shape (n,) for vector input
-   Tail probability/approximation in input threshold order. The wrapper can return NaN when numerical evaluation fails. No trace attributes are attached; use DaviesAlgorithm.davies for raw integration diagnostics. See the numerical/fallback behavior below before interpreting a returned value.
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Field
+     - Type
+     - Meaning
+   * - ``return value``
+     - float for scalar input; numpy.ndarray[float64] of shape (n,) for vector input
+     - Tail probability/approximation in input threshold order. The wrapper can return NaN when numerical evaluation fails. No trace attributes are attached; use DaviesAlgorithm.davies for raw integration diagnostics. See the numerical/fallback behavior below before interpreting a returned value.
 
 
 

@@ -163,7 +163,7 @@ Parameterization and interpretation
 ``("cnorm", {"theta": 1})`` also resolve the family. It is a regression
 family; the response's second column is a censor bound, not a class label.
 
-The reference scope covers fixed or estimated response SD, fixed smoothing
+**Fitting support.** The reference scope covers fixed or estimated response SD, fixed smoothing
 or ML/REML smoothing selection, including joint objective gradients and
 Hessians. Identity, log and square-root links have family-kernel references;
 fixed-SD, fixed-smoothing fits also cover positive precision weights and
@@ -172,14 +172,14 @@ no-intercept and parametric-only fits, conditional rank-deficient fits,
 BFGS/optim/nlm endpoints, and fixed-SD EFS. These targeted checks do not
 establish cross-platform CI acceptance.
 
-For conditional fits with exactly aliased columns, the retained coefficient
+**Aliased designs.** For conditional fits with exactly aliased columns, the retained coefficient
 can differ across numerical factorizations. Their parity checks compare
 estimable coefficient effects and covariance kernels, including predictions
 that preserve the training alias relation. Raw covariance coordinates and
 predictions outside that relation are not uniquely identified; no parity
 claim is made for such nonestimable newdata.
 
-A vector response represents exact observations. A two-column response,
+**Censoring input.** A vector response represents exact observations. A two-column response,
 provided as ``cbind(value, bound)`` in a formula or an explicit ``(n, 2)``
 array, encodes each observation as follows:
 
@@ -209,19 +209,21 @@ For a negative supplied value, mgcv 1.9-4 actually retains that value as the
 initial *log standard deviation*, despite the manual's negative-SD wording.
 ``getTheta()`` returns working log SD and ``getTheta(trans=True)`` returns SD.
 
-The source uses observation weights as precision: each row's SD is
+**Precision weights.** The source uses observation weights as precision: each row's SD is
 ``exp(theta_working) / sqrt(weight)``. They are not frequency weights.
 Zero weights are rejected during fitting: upstream mixed-censor interval
 observations can produce undefined derivatives and an error, even though
 some uncensored zero-weight fits converge. They are not automatically
-omitted rows. Positive ``min_sp`` is also unsupported, and estimated SD with
+omitted rows.
+
+**Selection limits.** Positive ``min_sp`` is also unsupported, and estimated SD with
 the ``efs`` optimizer is guarded. Estimated SD with nonunit external
 dispersion is also guarded: a captured upstream failed outer fit returns
 coefficients from a different parameter state. Fixed-SD fits accept positive
 external dispersion. Rank-deficient outer uncertainty retains the shared
 extended-family guard. The executable example uses unit weights.
 
-The implementation preserves two mgcv 1.9-4 AIC quirks: its exact-observation
+**Likelihood reporting.** The implementation preserves two mgcv 1.9-4 AIC quirks: its exact-observation
 branch omits the log-SD Jacobian after standardizing, and its later
 ``bound <= 0`` branch also replaces contributions from nonpositive exact
 or finite interval bounds. Consequently source-compatible AIC and derived

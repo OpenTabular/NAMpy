@@ -39,14 +39,32 @@ Signature
 Parameters
 ~~~~~~~~~~
 
-``family`` — Type: str | mapping[str, object] | BaseFamily | None
-   Default: ``required (None selects Gaussian identity)``. A name uses that family's default link. A mapping selects name and supported options such as link. An existing family is independently cloned. Unsupported names/options or links raise errors according to the chosen factory; custom R closures are not accepted.
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Field
+     - Type
+     - Default
+     - Meaning
+   * - ``family``
+     - str | mapping[str, object] | BaseFamily | None
+     - ``required (None selects Gaussian identity)``
+     - A name uses that family's default link. A mapping selects name and supported options such as link. An existing family is independently cloned. Unsupported names/options or links raise errors according to the chosen factory; custom R closures are not accepted.
 
 Outputs
 ~~~~~~~
 
-``return value`` — Type: BaseFamily subclass instance, scalar object
-   Unfitted, independent response-family state. It supplies link, inverse_link, mu_eta and forward-link derivatives where applicable; it does not contain fitted regression predictions.
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Field
+     - Type
+     - Meaning
+   * - ``return value``
+     - BaseFamily subclass instance, scalar object
+     - Unfitted, independent response-family state. It supplies link, inverse_link, mu_eta and forward-link derivatives where applicable; it does not contain fitted regression predictions.
 
 Default links
 -------------

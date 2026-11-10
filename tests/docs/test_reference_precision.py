@@ -176,7 +176,7 @@ def test_extension_family_leads_with_supported_parameterization(name, reference)
         assert "automatic general-family REML" in text
     elif name == "beinf_lss":
         assert "coupled category log ratios" in text
-        assert "all five natural errors" in text
+        assert "five natural-parameter standard errors" in text
         assert "variance hook" in text
     else:
         assert "coercion to REML" in text

@@ -23,17 +23,36 @@ Signature
 Parameters
 ----------
 
-``model`` — Type: fitted core ``nampy.gam.GAM``
-   Default: ``required``. Use a fitted core model, or ``estimator.gam_`` from a wrapper. Required compiled/fitted state is read from this object; passing a wrapper directly is not supported.
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
 
-``method`` — Type: str | None
-   Default: ``required (None is allowed)``. None or 'auto' selects a supported default. Strings are lowercased; GCV.Cp/GACV.Cp and likelihood spellings follow criterion normalization. Unsupported names raise ValueError.
+   * - Field
+     - Type
+     - Default
+     - Meaning
+   * - ``model``
+     - fitted core ``nampy.gam.GAM``
+     - ``required``
+     - Use a fitted core model, or ``estimator.gam_`` from a wrapper. Required compiled/fitted state is read from this object; passing a wrapper directly is not supported.
+   * - ``method``
+     - str | None
+     - ``required (None is allowed)``
+     - None or 'auto' selects a supported default. Strings are lowercased; GCV.Cp/GACV.Cp and likelihood spellings follow criterion normalization. Unsupported names raise ValueError.
 
 Outputs
 -------
 
-``return value`` — Type: str, scalar
-   Resolved method name. auto prefers available REML, then known-scale ubreaic, then GCV, then fixed. Extended-family predictive criterion spellings can normalize to reml; the result is a criterion name, not an optimizer or a completed fit.
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Field
+     - Type
+     - Meaning
+   * - ``return value``
+     - str, scalar
+     - Resolved method name. auto prefers available REML, then known-scale ubreaic, then GCV, then fixed. Extended-family predictive criterion spellings can normalize to reml; the result is a criterion name, not an optimizer or a completed fit.
 
 
 

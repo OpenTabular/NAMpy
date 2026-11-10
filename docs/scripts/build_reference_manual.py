@@ -377,25 +377,12 @@ def _remember(page: Page) -> Page:
 
 
 def ensure_generated_fragments() -> None:
-    """Write the reference fragments Sphinx creates when a builder starts.
-
-    Those fragments are not checked in. The manual test runs before the docs
-    build, so a clean checkout does not have them yet.
-    """
+    """Refresh the generated reference fragments before reading them."""
     directory = DOCS / "_generated" / "reference"
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "_ext"))
-    statistical = (
-        "SurvivalGAM.inc",
-        "CoxGAM.inc",
-        "CalibratedQuantileGAM.inc",
-        "GAMRegressor.inc",
-        "GAMClassifier.inc",
-        "GAMLSS.inc",
-    )
-    if any(not (directory / name).is_file() for name in statistical):
-        from public_reference import generate
+    from public_reference import generate
 
-        generate(DOCS.parent)
+    generate(DOCS.parent)
     if any(
         not (directory / name).is_file()
         for name in ("GAM_core_parameters.inc", "neural_fit_contract.inc")
@@ -655,6 +642,23 @@ def _is_argument_table(headers: list[str]) -> bool:
 
 
 def _render_table(table: Table) -> str:
+    if table.headers == ["Operation", "Result"]:
+        header = r"\textbf{Operation} & \textbf{Result} \\ \hline"
+        rows = [rf"{latex_inline(name)} & {latex_inline(result)} \\" for name, result in table.rows]
+        return "\n".join([
+            r"\begingroup\small",
+            r"\setlength{\LTpre}{0.4em}\setlength{\LTpost}{0.4em}",
+            r"\renewcommand{\arraystretch}{1.3}",
+            r"\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.32\linewidth}"
+            r">{\raggedright\arraybackslash}p{\dimexpr0.68\linewidth-2\tabcolsep\relax}@{}}",
+            header,
+            r"\endfirsthead",
+            header,
+            r"\endhead",
+            *rows,
+            r"\end{longtable}",
+            r"\endgroup",
+        ])
     argument_names = _is_argument_table(table.headers)
     lines = []
     for row in table.rows:
@@ -791,7 +795,8 @@ def render_blocks(blocks: list, *, topic: bool) -> list[str]:
             rendered.append(rf"{latex_inline(block.text)}\par")
         elif isinstance(block, Heading):
             title = SECTION_TITLES.get(block.text, block.text)
-            rendered.append(rf"\Rdsection{{{latex_inline(title)}}}")
+            command = "Rdsubsection" if block.level > 3 else "Rdsection"
+            rendered.append(rf"\{command}{{{latex_inline(title)}}}")
         elif isinstance(block, Bullets):
             lines = [r"\begin{itemize}[leftmargin=1.35em,itemsep=0.22em,topsep=0.4em,parsep=0.05em]"]
             lines.extend(rf"\item {latex_inline(item)}" for item in block.items)
@@ -984,6 +989,7 @@ def render_manual(pages: list[Page], version: str, built_on: str) -> str:
 \\setmathfont{{latinmodern-math.otf}}
 \\usepackage[margin=2.8cm,top=2.35cm,bottom=2.4cm,headheight=16.5pt,headsep=9pt]{{geometry}}
 \\usepackage{{graphicx}}
+\\usepackage{{array,longtable}}
 \\usepackage{{enumitem}}
 \\providecommand{{\\UseTaggingSocket}}[1]{{}}
 \\providecommand{{\\SuspendTagging}}[1]{{}}
@@ -1006,7 +1012,7 @@ def render_manual(pages: list[Page], version: str, built_on: str) -> str:
 \\definecolor{{coderule}}{{HTML}}{{2C5F73}}
 \\hypersetup{{colorlinks=true,linkcolor=ink,urlcolor=accent,pdftitle={{NAMpy Reference Manual}}}}
 {pygments_preamble()}
-\\fvset{{fontsize=\\small,breaklines=true,breakindent=1.7em,breaksymbol=\\textcolor{{mist}}{{\\scriptsize\\ensuremath{{\\hookrightarrow}}}}}}
+\\fvset{{fontsize=\\small,breaklines=true,breakindent=1.7em,breaksymbolleft={{}},breaksymbolright={{}}}}
 \\newenvironment{{Rdcode}}
   {{\\VerbatimEnvironment
     \\begin{{snugshade}}
@@ -1043,7 +1049,8 @@ def render_manual(pages: list[Page], version: str, built_on: str) -> str:
 \\newcommand{{\\Rdlink}}[2]{{\\hyperlink{{#1}}{{\\textcolor{{accent}}{{#2}}}}}}
 \\newcommand{{\\Rdext}}[2]{{\\href{{#1}}{{\\textcolor{{accent}}{{#2}}}}}}
 \\newcommand{{\\Rdcaption}}[1]{{\\par\\vspace{{0.45em}}\\noindent{{\\color{{mist}}\\footnotesize #1}}\\par\\nopagebreak\\vspace{{0.18em}}}}
-\\newcommand{{\\Rdsection}}[1]{{\\par\\vspace{{1.05em}}\\noindent{{\\color{{accent}}\\bfseries #1}}\\par\\nopagebreak\\vspace{{0.28em}}}}
+\\newcommand{{\\Rdsection}}[1]{{\\par\\Needspace{{4\\baselineskip}}\\vspace{{1.05em}}\\noindent{{\\color{{accent}}\\bfseries #1}}\\par\\nopagebreak\\vspace{{0.28em}}}}
+\\newcommand{{\\Rdsubsection}}[1]{{\\par\\Needspace{{3\\baselineskip}}\\vspace{{0.64em}}\\noindent{{\\color{{slate}}\\bfseries #1}}\\par\\nopagebreak\\vspace{{0.14em}}}}
 \\setcounter{{tocdepth}}{{1}}
 \\begin{{document}}
 \\thispagestyle{{empty}}

@@ -11,11 +11,16 @@ beinf_lss
 * **Conditional mean:** :math:`m=\mathbb E[Y\mid x]=\pi_1+\pi_I\mu`
 * **Conditional variance:** :math:`\operatorname{Var}(Y\mid x)=\pi_I\left[\frac{\mu(1-\mu)}{1+\phi}+(\mu-m)^2\right]+\pi_0m^2+\pi_1(1-m)^2`
 
-Four formula keys are ``mu, phi, pi0, pi1``. Natural columns are ``mu, phi, pi0, pi1, pi_interior``; raw columns are logit(mu), log(phi), log(pi0/pi_interior), log(pi1/pi_interior). The last two are coupled category log ratios, not independent probability logits. Components contain exactly four predictors; the interior probability depends on both atom predictors and has no separate term. Full covariance is retained for all five natural errors. R BEINF uses sigma=1/sqrt(1+phi), nu=pi0/pi_interior, tau=pi1/pi_interior. All components and distinct interior observations are required for fitting; neural fitting uses its normalized likelihood. The saved gamlss.dist 6.1.1 variance hook adds rather than subtracts squared mean; NAMpy uses the normalized mixture variance and records this discrepancy.
+* **Predictors.** Formula keys ``mu, phi, pi0, pi1`` map to ``logit(mu)``, ``log(phi)``, ``log(pi0/pi_interior)`` and ``log(pi1/pi_interior)``. The atom predictors are coupled category log ratios.
+* **Natural output.** All five natural-parameter standard errors use the full covariance. The columns are ``mu, phi, pi0, pi1, pi_interior``. The fifth column depends on both atom predictors and has no separate additive term.
+* **Fitting.** All components and distinct interior observations are required. Neural fitting uses its normalized likelihood.
+* **R mapping.** R BEINF uses ``sigma=1/sqrt(1+phi)``, ``nu=pi0/pi_interior`` and ``tau=pi1/pi_interior``. NAMpy uses the normalized mixture variance. The saved gamlss.dist 6.1.1 variance hook adds the squared mean where that variance subtracts it.
 
 Distribution reference: `gamlss.dist::BEINF <https://github.com/cran/gamlss.dist/blob/master/man/BEINF.Rd>`_. Fitting uses NAMpy's joint penalized engine, not gamlss RS backfitting.
 
-Fixed smoothing and automatic general-family REML with outer_newton, bfgs and efs are validated. Method labels retain mgcv general-family coercion to REML; this is not separate ML/GCV/UBRE/NCV support. The optim route is unavailable because the extension has no family-defined null deviance for its objective scaling; magic and nlm.fd are also unsupported. Native deviance residuals and null deviance are unavailable; shared distribution quantile residuals are available. Censoring, truncation and alternate links are unsupported. Existing transformed-coefficient/observation and general-NCV guards remain in force.
+* **Fit.** Use fixed smoothing or automatic general-family REML with ``outer_newton``, ``bfgs`` or ``efs``. Method labels follow mgcv's coercion to REML. The optim route is unavailable because it requires null-deviance scaling. ``magic`` and ``nlm.fd`` are also unsupported.
+* **Diagnostics.** Use shared distribution quantile residuals. Native deviance residuals and null deviance are unavailable.
+* **Scope.** The fitting route excludes censoring, truncation, alternate links, and guarded transformed-coefficient, transformed-observation and general NCV configurations.
 
 Inflated beta regression models exact zeros and ones separately
 from continuous proportions inside the unit interval. Mu and phi
