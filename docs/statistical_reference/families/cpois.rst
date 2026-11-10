@@ -165,7 +165,7 @@ unequal pair denotes the discrete event ``min(value,bound) < Y <= max(value,boun
 For example, ``[2, 4]`` includes counts three and four. Predictions return the
 underlying mean, with standard errors for that mean.
 
-The source likelihood, deviance, saturated likelihood and derivative hooks
+**Weights and numerical evaluation.** The source likelihood, deviance, saturated likelihood and derivative hooks
 ignore observation weights. They are not frequency-weighted Poisson hooks;
 nonunit-weight reference fits retain this source convention. Density and tail
 probabilities follow the scalar R Mathlib ``dpois``/``ppois`` branches, including
@@ -173,7 +173,7 @@ extreme-tail and degenerate-mean cases. Location derivatives through fourth
 order, the discrete saturated-likelihood correction, residuals and null
 calculations use those source probabilities.
 
-Actual-mgcv fixtures cover exact/mixed responses, all three links, fixed
+**Fitting support.** Actual-mgcv fixtures cover exact/mixed responses, all three links, fixed
 smoothing, ML/REML selection, positive external dispersion and observation weights,
 coefficients, covariance, EDF, likelihood criteria, residuals and predictions/SE.
 The alternative ``bfgs``, ``optim``, ``nlm`` and ``efs`` routes have direct

@@ -104,7 +104,7 @@ Scaled Student t family
 single-predictor ``mgcv::scat`` family. Import it from
 ``nampy.gam.families`` or use ``family="scat"`` in ``GAM``.
 
-``theta`` contains the degrees of freedom and scale, in that order. Two
+**Ancillary parameters.** ``theta`` contains the degrees of freedom and scale, in that order. Two
 positive values fix both parameters. Any negative entry requests estimation
 of both parameters, using their absolute values as constructor initial values.
 ``None`` or a zero entry selects the upstream default working parameters.
@@ -118,7 +118,7 @@ these constructor values with working parameters
 degrees of freedom is at or below ``min_df``, the constructor warns and resets
 ``min_df`` to ``0.9 * abs(theta[0])``, following upstream.
 
-The location predictor supports ``identity``, ``log`` and ``inverse`` links.
+**Links and variance.** The location predictor supports ``identity``, ``log`` and ``inverse`` links.
 With degrees of freedom ``nu`` and scale ``sigma``, the conditional variance
 is ``sigma**2 * nu / (nu - 2)`` when ``nu > 2``. The scale in ``theta`` is a
 distribution parameter, distinct from the optional GAM dispersion argument.
@@ -126,11 +126,14 @@ distribution parameter, distinct from the optional GAM dispersion argument.
 The implementation follows mgcv 1.9-4 ``R/efam.r::scat``, including its
 observed and Fisher derivatives. See the
 `upstream scat documentation <https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/scat.html>`_.
-Fixed smoothing and ``ML``/``REML`` selection support fixed or estimated
+
+**Smoothing selection.** Fixed smoothing and ``ML``/``REML`` selection support fixed or estimated
 ancillary parameters. With ``optimize_smoothing=False``, an explicitly
 selected ``ML`` or ``REML`` criterion still governs ancillary estimation;
 ``smoothing_method="fixed"`` uses REML. ``LAML`` is a REML alias. ``GCV.Cp``, ``P-ML`` and ``P-REML`` use the
-upstream extended-family REML route. Unsupported criteria such as NCV
+upstream extended-family REML route.
+
+**Fit restrictions.** Unsupported criteria such as NCV
 raise an explicit error, including with fixed smoothing parameters. Joint
 estimation with the ``efs`` optimizer is unsupported and raises an explicit
 error. ``ML`` with zero observation weights is also explicitly guarded:
@@ -141,14 +144,14 @@ estimated ancillary parameters. The fixed-penalty offset parameterization
 has not been ported for joint fitting and smoothing-uncertainty corrections;
 zero ``min_sp`` retains the ordinary supported path.
 
-Rank-deficient designs that drop coefficients are rejected when fitting
+**Rank and covariance.** Rank-deficient designs that drop coefficients are rejected when fitting
 requires outer-parameter uncertainty corrections. The upstream correction
 attempts Cholesky factorization of the full singular coefficient Hessian;
 rounding can change whether that correction is included, affecting AIC and
 unconditional covariance across platforms. Conditional fitting with both
 ancillary parameters and smoothing fixed remains available.
 
-The default external dispersion is one. A positive ``GAM(scale=...)``
+**External dispersion.** The default external dispersion is one. A positive ``GAM(scale=...)``
 override follows the upstream criterion and covariance scaling. For fixed
 ancillary parameters and fixed smoothing, ``scale=2`` doubles the conditional
 coefficient covariance without changing coefficients or distribution
@@ -156,7 +159,7 @@ parameters. When smoothing or ancillary parameters are estimated, the
 external dispersion can change their optimum; it is not merely a multiplier
 on the reported standard errors.
 
-Outer ``bfgs``, ``optim`` and ``nlm`` routes have endpoint references for
+**Alternative optimizers.** Outer ``bfgs``, ``optim`` and ``nlm`` routes have endpoint references for
 identity-link, positive-weight models with one cubic smooth and fixed or
 estimated ancillary parameters. ``optim`` comparisons use matching
 ``control={"epsilon": 1e-10, "optim": {"factr": 10}}`` to resolve a flat
@@ -164,7 +167,7 @@ ancillary-parameter optimum. BFGS retains its path-dependent approximate
 Hessian; the final derivative-free ``nlm`` and ``optim`` fits do not supply
 a smoothing-parameter uncertainty correction.
 
-Conditional and unconditional coefficient covariance, effective degrees of
+**Inference and residuals.** Conditional and unconditional coefficient covariance, effective degrees of
 freedom, prediction standard errors, likelihood, AIC and BIC are available.
 Unconditional corrections require an outer-parameter Hessian: they are
 absent when both ancillary parameters and all smoothing parameters are
@@ -182,7 +185,7 @@ Hurdle Poisson family
 mgcv's single-predictor ``ziP`` family. Public names ``"ziP"`` and ``"zip"``
 resolve to the same family. Only the identity link is supported.
 
-The fitted latent value ``gamma`` is the logarithm of a Poisson intensity
+**Predictor and response scales.** The fitted latent value ``gamma`` is the logarithm of a Poisson intensity
 ``lambda = exp(gamma)``. The probability of a positive count is
 ``p = 1 - exp(-exp(theta[0] + (b + exp(theta[1])) * gamma))``.
 Conditional on presence, counts have a zero-truncated Poisson distribution.
@@ -191,7 +194,7 @@ Conditional on presence, counts have a zero-truncated Poisson distribution.
 fitted values remain on the latent log-intensity scale. Response standard
 errors describe the expected count, not an interval for a new observation.
 
-A supplied ``theta`` pair fixes both working parameters, even when entries
+**Ancillary parameters.** A supplied ``theta`` pair fixes both working parameters, even when entries
 are zero or negative. Omitting ``theta`` estimates both, starting from
 ``[0, 0]``. ``getTheta()`` returns the working intercept and log slope;
 ``getTheta(trans=True)`` returns the intercept and ``b + exp(theta[1])``.
@@ -199,17 +202,19 @@ are zero or negative. Omitting ``theta`` estimates both, starting from
 following mgcv. Larger ``b`` enforces stronger dependence between intensity
 and the probability of presence.
 
-The response must contain nonnegative integer counts; binary data containing
+**Counts and diagnostics.** The response must contain nonnegative integer counts; binary data containing
 both zero and one are rejected. The public model is a count regressor.
 Deviance, working, and response residuals are supported. Pearson and quantile
 residuals are explicitly unavailable. Reported deviance includes the
 family-specific saturated-likelihood correction; adjusted R-squared is not
 reported for this family.
 
-The reference scope covers fixed and estimated ancillary parameters, fixed
+**Fitting support.** The reference scope covers fixed and estimated ancillary parameters, fixed
 smoothing, ML/REML (including the LAML alias), offsets, multiple smooths,
 no-intercept and parametric-only formulas, and unit observation weights.
-Positive external dispersion overrides are covered, including scale two. Nonunit or zero
+Positive external dispersion overrides are covered, including scale two.
+
+**Weights and rank.** Nonunit or zero
 prior weights are explicitly guarded: mgcv's ``ziP`` deviance ignores weights
 while its derivatives and AIC use them, so the ordinary weighted-GLM contract
 does not apply. Positive ``min_sp`` and joint estimation with ``efs`` are
@@ -242,7 +247,7 @@ Censored normal family
 ``("cnorm", {"theta": 1})`` also resolve the family. It is a regression
 family; the response's second column is a censor bound, not a class label.
 
-The reference scope covers fixed or estimated response SD, fixed smoothing
+**Fitting support.** The reference scope covers fixed or estimated response SD, fixed smoothing
 or ML/REML smoothing selection, including joint objective gradients and
 Hessians. Identity, log and square-root links have family-kernel references;
 fixed-SD, fixed-smoothing fits also cover positive precision weights and
@@ -251,14 +256,14 @@ no-intercept and parametric-only fits, conditional rank-deficient fits,
 BFGS/optim/nlm endpoints, and fixed-SD EFS. These targeted checks do not
 establish cross-platform CI acceptance.
 
-For conditional fits with exactly aliased columns, the retained coefficient
+**Aliased designs.** For conditional fits with exactly aliased columns, the retained coefficient
 can differ across numerical factorizations. Their parity checks compare
 estimable coefficient effects and covariance kernels, including predictions
 that preserve the training alias relation. Raw covariance coordinates and
 predictions outside that relation are not uniquely identified; no parity
 claim is made for such nonestimable newdata.
 
-A vector response represents exact observations. A two-column response,
+**Censoring input.** A vector response represents exact observations. A two-column response,
 provided as ``cbind(value, bound)`` in a formula or an explicit ``(n, 2)``
 array, encodes each observation as follows:
 
@@ -288,19 +293,21 @@ For a negative supplied value, mgcv 1.9-4 actually retains that value as the
 initial *log standard deviation*, despite the manual's negative-SD wording.
 ``getTheta()`` returns working log SD and ``getTheta(trans=True)`` returns SD.
 
-The source uses observation weights as precision: each row's SD is
+**Precision weights.** The source uses observation weights as precision: each row's SD is
 ``exp(theta_working) / sqrt(weight)``. They are not frequency weights.
 Zero weights are rejected during fitting: upstream mixed-censor interval
 observations can produce undefined derivatives and an error, even though
 some uncensored zero-weight fits converge. They are not automatically
-omitted rows. Positive ``min_sp`` is also unsupported, and estimated SD with
+omitted rows.
+
+**Selection limits.** Positive ``min_sp`` is also unsupported, and estimated SD with
 the ``efs`` optimizer is guarded. Estimated SD with nonunit external
 dispersion is also guarded: a captured upstream failed outer fit returns
 coefficients from a different parameter state. Fixed-SD fits accept positive
 external dispersion. Rank-deficient outer uncertainty retains the shared
 extended-family guard. The executable example uses unit weights.
 
-The implementation preserves two mgcv 1.9-4 AIC quirks: its exact-observation
+**Likelihood reporting.** The implementation preserves two mgcv 1.9-4 AIC quirks: its exact-observation
 branch omits the log-SD Jacobian after standardizing, and its later
 ``bound <= 0`` branch also replaces contributions from nonpositive exact
 or finite interval bounds. Consequently source-compatible AIC and derived
@@ -327,24 +334,28 @@ uncensored logistic standard deviation is ``scale * pi / sqrt(3)``.
 The family describes a continuous logistic response, with one additive
 location predictor. Supported links are identity, log and square root.
 
-Responses use the same explicit paired encoding as ``cnorm`` above:
+**Censoring input.** Responses use the same explicit paired encoding as ``cnorm`` above:
 equal values are exact observations, distinct finite values define an
 interval in either order, and infinite second bounds define one-sided
 censoring. Predictions return the latent logistic location and need no
-censor bounds. Observation weights are precision, giving each row a scale
+censor bounds.
+
+**Scale and weights.** Observation weights are precision, giving each row a scale
 ``exp(theta_working) / sqrt(weight)``. A positive constructor ``theta`` fixes
 scale; zero or ``None`` estimates it from working value zero; negative
 ``theta`` starts estimation at ``log(abs(theta))``. This last convention
 differs from the source ``cnorm`` constructor.
 
-Static R references cover all returned deviance derivative fields through
+**Validated fits.** Static R references cover all returned deviance derivative fields through
 fourth order, saturation derivatives, tails, precision weights, mixed
 censoring, fixed/estimated scale, fixed smoothing and ML/REML selection,
 offsets, two smooths, parametric-only fits, covariance, EDF, likelihood
 criteria, predictions, residuals, persistence and additive reconstruction.
 Fixed- and estimated-scale optimizers have targeted references, including
 weighted ancillary estimation, successful estimated-scale nlm fits, and
-nonidentity REML/BFGS and ML/optim fits. EFS estimates scale inside each PIRLS
+nonidentity REML/BFGS and ML/optim fits.
+
+**EFS.** EFS estimates scale inside each PIRLS
 iteration using the source ``estimate.theta`` update, and retains the
 accepted EFS fit rather than estimating theta again in a final solve.
 EFS references cover exact and mixed-censored responses, all three links,
@@ -352,7 +363,7 @@ positive precision weights and positive external dispersion. EFS supplies
 no smoothing-parameter covariance or unconditional uncertainty correction.
 The example is ``examples/example_clog_gam.py``.
 
-In captured fixed-scale nlm/optim cases the smooth reaches its linear null
+**Optimizer endpoints.** In captured fixed-scale nlm/optim cases the smooth reaches its linear null
 space. Large raw smoothing parameters are not compared across endpoints;
 fitted effects, covariance, criterion, and the limiting EDF retain their
 original tolerances. Other accepted cases compare smoothing parameters
@@ -381,7 +392,7 @@ Remaining restrictions have distinct causes:
   retain the documented extended-family restrictions. These do not imply
   that every upstream composition or dataset is rejected.
 
-The port retains source arithmetic and formulas, including interval
+**Likelihood reporting.** The port retains source arithmetic and formulas, including interval
 derivative expressions and the unusual ``aic`` hook, which is independent
 of fitted location. Consequently reported source-compatible AIC and derived
 log likelihood are not substitutes for an independently normalized logistic
@@ -404,7 +415,7 @@ unequal pair denotes the discrete event ``min(value,bound) < Y <= max(value,boun
 For example, ``[2, 4]`` includes counts three and four. Predictions return the
 underlying mean, with standard errors for that mean.
 
-The source likelihood, deviance, saturated likelihood and derivative hooks
+**Weights and numerical evaluation.** The source likelihood, deviance, saturated likelihood and derivative hooks
 ignore observation weights. They are not frequency-weighted Poisson hooks;
 nonunit-weight reference fits retain this source convention. Density and tail
 probabilities follow the scalar R Mathlib ``dpois``/``ppois`` branches, including
@@ -412,7 +423,7 @@ extreme-tail and degenerate-mean cases. Location derivatives through fourth
 order, the discrete saturated-likelihood correction, residuals and null
 calculations use those source probabilities.
 
-Actual-mgcv fixtures cover exact/mixed responses, all three links, fixed
+**Fitting support.** Actual-mgcv fixtures cover exact/mixed responses, all three links, fixed
 smoothing, ML/REML selection, positive external dispersion and observation weights,
 coefficients, covariance, EDF, likelihood criteria, residuals and predictions/SE.
 The alternative ``bfgs``, ``optim``, ``nlm`` and ``efs`` routes have direct
@@ -434,13 +445,13 @@ transforms the second entry to SD. The default estimates both parameters,
 starting at working values ``[1, 0]``. Positive precision weights replace
 log SD by ``logSD - log(weight)/2``.
 
-Censoring uses explicit paired response data. Nonpositive second-column
+**Censoring input.** Censoring uses explicit paired response data. Nonpositive second-column
 values denote left censoring, positive unequal finite endpoints denote an
 interval, and ``+Inf`` denotes right censoring. Source initialization uses the
 input response scale. Predictions describe the transformed Gaussian location;
 they do not apply an inverse Box-Cox mean correction.
 
-The source fixed constructor has a specific failure: positive
+**Fixed parameters.** The source fixed constructor has a specific failure: positive
 ``theta=[lambda, sd]`` stores three working entries,
 ``[lambda, log(lambda), log(sd)]``. Its fitted source call fails with an
 ``ls$lsth2`` indexing error. NAMpy rejects this malformed fitted state with
@@ -460,11 +471,12 @@ constructor repair is performed. A nonpositive second constructor entry starts
 estimation and retains that entry as the initial working log SD, following
 source initialization order.
 
-References cover the near-zero-lambda expansions, all censor blocks, fourth
+**Fitting support.** References cover the near-zero-lambda expansions, all censor blocks, fourth
 location and second ancillary derivatives, exact and mixed responses,
 precision weights, offsets, fixed/estimated ancillary parameters, and
 fixed/ML/REML smoothing. Estimated-parameter vector fits cover all three links.
-EFS uses the two-parameter source ``estimate.theta`` update inside PIRLS;
+
+**EFS.** EFS uses the two-parameter source ``estimate.theta`` update inside PIRLS;
 fixed/estimated ancillary vector and mixed-response endpoints have direct
 references. Theta-update references also cover external dispersion one/two;
 the captured scale-two source updates warn about step failure and retain their
@@ -473,7 +485,7 @@ smoothing parameter: the all-fixed-SP source call errors. Positive ``min_sp``
 and rank-deficient outer-uncertainty combinations retain the extended-family
 guards described above.
 
-Source AIC omits scale/Box-Cox Jacobians and is not an independently normalized
+**Likelihood reporting.** Source AIC omits scale/Box-Cox Jacobians and is not an independently normalized
 Box-Cox density. Source saturated-likelihood derivative arrays are zero despite
 the value's ancillary dependence. Exactly transformed censor endpoints can
 produce source NaNs in signed density differences; those NaNs remain visible.
@@ -604,21 +616,21 @@ positive ``b``. ``GAMLSS.predict`` returns ``(mu, sigma, epsilon, delta)``;
 CDF/log-CDF and inverse-transform simulation hooks are present.
 Source GAM response prediction returns ``(mu, log_sigma, epsilon, log_delta)``.
 
-The fitting likelihood includes the source ridge
+**Fitting criterion.** The fitting likelihood includes the source ridge
 ``-phi_pen * log(delta)**2`` (``phiPen`` is an accepted alias). Public normalized
 density scoring omits that estimation ridge. All analytic derivatives through
 fourth order are supplied. Fixed SP, Newton-selected REML and EFS references
 cover initialization, covariance, criterion/EDF, AIC/logLik, predictions/SE,
 residuals and summary tables.
 
-The EFS parity captures provide the same explicit initial smoothing parameters
+**EFS initialization.** The EFS parity captures provide the same explicit initial smoothing parameters
 to both implementations. Source ``initial.spg`` uses the initially
 reparameterized design with the original penalty coordinates: an arbitrary
 eigenvector sign can change its starting parameters and the finite EFS
 endpoint. Static source sign-transport checks record this dependence and
 verify common-start prediction, covariance, penalty and EDF invariants.
 
-Nonzero offsets are rejected. The source fitting likelihood's bin lookup
+**Prediction and residual limits.** Nonzero offsets are rejected. The source fitting likelihood's bin lookup
 excludes a lower ``-Inf`` endpoint: an exactly zero standardized residual
 therefore produces positive-infinite source likelihood. The normalized density
 and residual expression stay finite there. Residual centering retains the
@@ -637,22 +649,25 @@ identity. Source response values are ``(mu, theta, rho)``;
 source logistic power map confines ``p`` to the supplied bounds.
 ``predict_point`` returns mean ``mu``.
 
-Source ``available.derivs=0`` supplies the analytic likelihood gradient and
+**Smoothing selection.** Source ``available.derivs=0`` supplies the analytic likelihood gradient and
 Hessian; third/fourth likelihood arrays and a numerical outer-derivative
 fallback are unavailable. Smoothing selection automatically uses EFS,
 including when another optimizer was requested. Fixed-SP and selected-EFS
 fits have direct references for covariance, criterion/EDF, AIC/logLik,
-predictions/SE, all three residual types and summary tables. The source null
+predictions/SE, all three residual types and summary tables.
+
+**Null deviance.** The source null
 fit retains its independent bounds ``a=1.001, b=1.999``; null postprocessing
 uses each observation's fitted dispersion. Prior weights enter deviance
 residuals and null deviance, although the fitting likelihood ignores them.
 
-The source formula-list setup rejects an external fixed-SP vector when a
+**Fixed smoothing in formula lists.** The source formula-list setup rejects an external fixed-SP vector when a
 parametric-only middle predictor precedes another smooth. Equivalent source
 captures fix the parameters inside their ``s(..., sp=...)`` terms. All three
 predictor offsets, zero/positive responses, custom power bounds and both source
 initialization branches have kernel references.
-Selected-EFS parity uses the same explicit initial smoothing parameters in
+
+**EFS initialization.** Selected-EFS parity uses the same explicit initial smoothing parameters in
 both implementations. As for ``shash``, source ``initial.spg`` depends on
 arbitrary initial penalty eigenvector signs; its uncontrolled finite EFS
 endpoint need not agree across platforms. Common-start references compare

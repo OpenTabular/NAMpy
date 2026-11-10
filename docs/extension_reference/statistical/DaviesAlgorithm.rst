@@ -30,8 +30,16 @@ The constructor takes no arguments.
 Outputs
 -------
 
-``constructor`` — Type: DaviesAlgorithm instance
-   Creates a numerical integration object; no probabilities are computed until davies is called.
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Field
+     - Type
+     - Meaning
+   * - ``constructor``
+     - DaviesAlgorithm instance
+     - Creates a numerical integration object; no probabilities are computed until davies is called.
 
 Integration method
 ------------------
@@ -46,41 +54,66 @@ Signature
 Parameters
 ~~~~~~~~~~
 
-``lb`` — Type: array-like[float], length r
-   Default: ``required``. Weights of the chi-square terms; signed weights are permitted.
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
 
-``nc`` — Type: array-like[float], length r
-   Default: ``required``. Finite nonnegative noncentralities, with no implicit scalar repetition at this low level.
-
-``n`` — Type: array-like[int], length r
-   Default: ``required``. Nonnegative integer degrees of freedom. The method casts to integer dtype; supply integers rather than relying on truncation.
-
-``r`` — Type: int > 0
-   Default: ``required``. Number of chi-square components, matching all three array lengths.
-
-``sigma`` — Type: float >= 0
-   Default: ``required``. Standard-normal multiplier, not its variance.
-
-``c_val`` — Type: float
-   Default: ``required``. One threshold q; call separately for several thresholds.
-
-``lim`` — Type: int > 0
-   Default: ``required``. Integration-term budget, corresponding to nlim on the wrapper.
-
-``acc`` — Type: float > 0
-   Default: ``required``. Requested numerical probability accuracy, corresponding to tol on the wrapper.
+   * - Field
+     - Type
+     - Default
+     - Meaning
+   * - ``lb``
+     - array-like[float], length r
+     - ``required``
+     - Weights of the chi-square terms; signed weights are permitted.
+   * - ``nc``
+     - array-like[float], length r
+     - ``required``
+     - Finite nonnegative noncentralities, with no implicit scalar repetition at this low level.
+   * - ``n``
+     - array-like[int], length r
+     - ``required``
+     - Nonnegative integer degrees of freedom. The method casts to integer dtype; supply integers rather than relying on truncation.
+   * - ``r``
+     - int > 0
+     - ``required``
+     - Number of chi-square components, matching all three array lengths.
+   * - ``sigma``
+     - float >= 0
+     - ``required``
+     - Standard-normal multiplier, not its variance.
+   * - ``c_val``
+     - float
+     - ``required``
+     - One threshold q; call separately for several thresholds.
+   * - ``lim``
+     - int > 0
+     - ``required``
+     - Integration-term budget, corresponding to nlim on the wrapper.
+   * - ``acc``
+     - float > 0
+     - ``required``
+     - Requested numerical probability accuracy, corresponding to tol on the wrapper.
 
 Outputs
 ~~~~~~~
 
-``probability`` — Type: float, shape ()
-   Lower-tail probability on a successful evaluation; negative sentinels are possible on failed paths.
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
 
-``trace`` — Type: list[float], length 7
-   Zero-based entries: [0] absolute-value sum/error diagnostic; [1] total integration terms; [2] number of integrations; [3] main integration interval; [4] initial truncation point; [5] convergence-factor SD; [6] parameter-search cycle count. Failed paths can contain partial/zero entries.
-
-``ifault`` — Type: int, shape ()
-   Local return codes: 0 nominal completion, 1 insufficient integration budget/accuracy, 2 possible round-off error, 3 invalid component parameters. Also check probability range as explained above. These values are numerical diagnostics, not hypothesis-test outcomes.
+   * - Field
+     - Type
+     - Meaning
+   * - ``probability``
+     - float, shape ()
+     - Lower-tail probability on a successful evaluation; negative sentinels are possible on failed paths.
+   * - ``trace``
+     - list[float], length 7
+     - Zero-based entries: [0] absolute-value sum/error diagnostic; [1] total integration terms; [2] number of integrations; [3] main integration interval; [4] initial truncation point; [5] convergence-factor SD; [6] parameter-search cycle count. Failed paths can contain partial/zero entries.
+   * - ``ifault``
+     - int, shape ()
+     - Local return codes: 0 nominal completion, 1 insufficient integration budget/accuracy, 2 possible round-off error, 3 invalid component parameters. Also check probability range as explained above. These values are numerical diagnostics, not hypothesis-test outcomes.
 
 
 

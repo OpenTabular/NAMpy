@@ -13,14 +13,14 @@ scalar loss scale by comparing posterior and shrinkage-sandwich variances over
 the training design. It reuses the existing statistical compiler, constraints
 and spline penalties. Ordinary ``QuantileGAM`` fitting behavior is unchanged.
 
-``bandwidth`` is a supplied positive ELF bandwidth in response units (upstream
-``co``), or ``None`` for the Gaussian-residual SHASH estimate. For fixed
-penalties, the coefficient solver uses exact score/Hessian calculations and
-certifies the final Newton score step; ``max_iter`` limits score evaluations
-per loss scale. Automatic smoothing selects REML penalties at every scalar
-loss scale using the extended-family PIRLS engine and exact outer derivatives.
-There is no alternate-solver retry or change to the native fitting engine's
-stopping rules.
+* **Bandwidth.** Supply a positive ``bandwidth`` in response units (upstream
+  ``co``), or use ``None`` for the Gaussian-residual SHASH estimate.
+* **Fixed penalties.** The coefficient solver uses exact score and Hessian
+  calculations and certifies the final Newton score step. ``max_iter`` limits
+  score evaluations per loss scale.
+* **Automatic smoothing.** The extended-family PIRLS engine selects REML
+  penalties at each loss scale using exact outer derivatives and its native
+  stopping rules. Fitting makes one attempt with the selected solver.
 
 Covariance construction uses qgam's prescribed diagonal-scaled spectral inverse
 and relative eigenvalue cutoff of ``1e-6``. This source-specific rank rule is

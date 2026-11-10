@@ -166,7 +166,7 @@ Parameterization and interpretation
 mgcv's single-predictor ``ziP`` family. Public names ``"ziP"`` and ``"zip"``
 resolve to the same family. Only the identity link is supported.
 
-The fitted latent value ``gamma`` is the logarithm of a Poisson intensity
+**Predictor and response scales.** The fitted latent value ``gamma`` is the logarithm of a Poisson intensity
 ``lambda = exp(gamma)``. The probability of a positive count is
 ``p = 1 - exp(-exp(theta[0] + (b + exp(theta[1])) * gamma))``.
 Conditional on presence, counts have a zero-truncated Poisson distribution.
@@ -175,7 +175,7 @@ Conditional on presence, counts have a zero-truncated Poisson distribution.
 fitted values remain on the latent log-intensity scale. Response standard
 errors describe the expected count, not an interval for a new observation.
 
-A supplied ``theta`` pair fixes both working parameters, even when entries
+**Ancillary parameters.** A supplied ``theta`` pair fixes both working parameters, even when entries
 are zero or negative. Omitting ``theta`` estimates both, starting from
 ``[0, 0]``. ``getTheta()`` returns the working intercept and log slope;
 ``getTheta(trans=True)`` returns the intercept and ``b + exp(theta[1])``.
@@ -183,17 +183,19 @@ are zero or negative. Omitting ``theta`` estimates both, starting from
 following mgcv. Larger ``b`` enforces stronger dependence between intensity
 and the probability of presence.
 
-The response must contain nonnegative integer counts; binary data containing
+**Counts and diagnostics.** The response must contain nonnegative integer counts; binary data containing
 both zero and one are rejected. The public model is a count regressor.
 Deviance, working, and response residuals are supported. Pearson and quantile
 residuals are explicitly unavailable. Reported deviance includes the
 family-specific saturated-likelihood correction; adjusted R-squared is not
 reported for this family.
 
-The reference scope covers fixed and estimated ancillary parameters, fixed
+**Fitting support.** The reference scope covers fixed and estimated ancillary parameters, fixed
 smoothing, ML/REML (including the LAML alias), offsets, multiple smooths,
 no-intercept and parametric-only formulas, and unit observation weights.
-Positive external dispersion overrides are covered, including scale two. Nonunit or zero
+Positive external dispersion overrides are covered, including scale two.
+
+**Weights and rank.** Nonunit or zero
 prior weights are explicitly guarded: mgcv's ``ziP`` deviance ignores weights
 while its derivatives and AIC use them, so the ordinary weighted-GLM contract
 does not apply. Positive ``min_sp`` and joint estimation with ``efs`` are

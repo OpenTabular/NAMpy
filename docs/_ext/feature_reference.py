@@ -387,7 +387,12 @@ def generate_smooths(root):
         )
         text += (
             heading("Outputs", "-")
-            + "The formula adds a term to the fitted model's additive predictor. Its coefficient block has p_term columns after constraints; this dimension differs from EDF. ``predict(type='terms')`` returns a floating array with n rows and one column per retained term for a scalar predictor. ``lpmatrix`` returns the full floating model design, shape (n, p), including the other terms. The scalar Gaussian examples below produce response predictions of shape (n,). Runtime matrix and penalty contracts are documented separately.\n\n"
+            + table(["Operation", "Result"], [
+                ("Formula term", "Adds a term to the link predictor. Its coefficient block has ``p_term`` columns after constraints. EDF is a separate fit statistic."),
+                ("``predict(type='terms')``", "Floating array with ``n`` rows and one column per retained term for a scalar predictor."),
+                ("``lpmatrix``", "Full floating model design of shape ``(n, p)``, including the other terms."),
+            ])
+            + "The scalar Gaussian examples produce response predictions of shape ``(n,)``.\n\n"
         )
         if name in {"te", "ti", "t2"}:
             text += "Before identifiability constraints, the tensor has the product of the marginal basis dimensions, not a single k columns. Marginal/term constraints and retained t2 blocks determine the final coefficient count.\n\n"
@@ -396,7 +401,12 @@ def generate_smooths(root):
         )
         runtime += (
             heading("Outputs", "-")
-            + "``fit(X, feature_names)`` accepts a numeric/categorical design with n rows and its d column names, initializes the term, and returns the same term instance. ``transform_new(X_new)`` returns a floating NumPy array of shape (n_new, p_term) in the fitted constraint coordinates. ``penalties`` is a list of floating square arrays, each (p_term, p_term). Multiplying the design by its coefficient vector gives the link contribution of shape (n_new,). Invalid feature names, dimensions and basis-specific domains raise ValueError; unsupported compositions raise NotImplementedError.\n\n"
+            + table(["Operation", "Result"], [
+                ("``fit(X, feature_names)``", "Initializes the term from ``n`` design rows and their ``d`` column names. Returns the fitted term."),
+                ("``transform_new(X_new)``", "Floating NumPy design of shape ``(n_new, p_term)`` in fitted constraint coordinates. Multiply by the term coefficients for its link contribution."),
+                ("``penalties``", "List of floating penalty matrices, each of shape ``(p_term, p_term)``."),
+            ])
+            + "Invalid inputs raise ``ValueError``. Unsupported compositions raise ``NotImplementedError``.\n\n"
             + module_notes(cls)
         )
         default_basis = inspect.signature(cls).parameters.get("basis")
@@ -1592,7 +1602,15 @@ def generate_neural_extensions(root):
         )
         text += heading("Returns and fitted outputs", "-")
         if name == "NeuralEnsemble":
-            text += "Construction returns an unfitted ensemble; ``fit`` accepts data, explicit validation rows, offsets and weights, returns self and exposes ``estimators_``. Regression predict returns the mean member response, shaped like a member's predictions. Classification predict_proba averages probabilities in ``classes_`` order, and predict returns the most probable class. score returns R² or accuracy, respectively. ``predict_components`` returns ``AdditivePrediction`` containing the mean link-scale contributions. ``predict_component_uncertainty`` returns ``EnsembleAdditivePrediction`` containing mean components and between-member variation; missing selected terms contribute zero for that member. Variation across members measures training/selection variability and is not automatically a calibrated confidence interval.\n\n"
+            text += table(["Operation", "Result"], [
+                ("``fit``", "Fits the members and exposes them in ``estimators_``. Accepts explicit validation data, offsets and weights, and returns the ensemble."),
+                ("``predict``", "Mean member response for regression or most probable class for classification."),
+                ("``predict_proba``", "Mean member probabilities in ``classes_`` order."),
+                ("``predict_components``", "Mean link-scale contributions as ``AdditivePrediction``."),
+                ("``predict_component_uncertainty``", "Mean contributions and between-member variation as ``EnsembleAdditivePrediction``. Missing selected terms contribute zero for that member."),
+                ("``score``", "R² for regression and accuracy for classification."),
+            ])
+            text += "Between-member variation describes training or selection variability. Calibrated confidence intervals require a separate inference method.\n\n"
         elif name in {"NeuralEstimatorFamily", "estimator_family"}:
             text += "Returns a NeuralEstimatorFamily record containing task-specific estimator classes or None for unavailable tasks. This record contains no fitted predictions. Instantiate one of its available classes and call fit to obtain a model.\n\n"
         else:

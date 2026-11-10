@@ -25,20 +25,40 @@ Signature
 Parameters
 ----------
 
-``g1; g2`` — Type: array-like[float], each flattened to (n_grid,)
-   Default: ``required``. Paired grid coordinates. Lengths must agree; each grid axis must have finite nonzero range for the normalization to be defined.
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
 
-``d1; d2`` — Type: array-like[float], each flattened to (n_data,)
-   Default: ``required``. Paired observed coordinates; equal lengths and at least one finite observed point. They are normalized using grid bounds, not their own bounds.
-
-``dist`` — Type: float >= 0
-   Default: ``required``. Euclidean exclusion radius after scaling the grid axes to [0,1]. It is dimensionless, not a raw distance in either input unit.
+   * - Field
+     - Type
+     - Default
+     - Meaning
+   * - ``g1; g2``
+     - array-like[float], each flattened to (n_grid,)
+     - ``required``
+     - Paired grid coordinates. Lengths must agree; each grid axis must have finite nonzero range for the normalization to be defined.
+   * - ``d1; d2``
+     - array-like[float], each flattened to (n_data,)
+     - ``required``
+     - Paired observed coordinates; equal lengths and at least one finite observed point. They are normalized using grid bounds, not their own bounds.
+   * - ``dist``
+     - float >= 0
+     - ``required``
+     - Euclidean exclusion radius after scaling the grid axes to [0,1]. It is dimensionless, not a raw distance in either input unit.
 
 Outputs
 -------
 
-``return value`` — Type: numpy.ndarray[bool], shape (n_grid,)
-   True marks a grid point whose nearest observed point is strictly farther than dist. False retains it. Reshape explicitly to a mesh shape if needed. Inputs are copied; unequal paired lengths or negative dist raise ValueError. Degenerate/empty/nonfinite grids are not comprehensively validated by the implementation.
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Field
+     - Type
+     - Meaning
+   * - ``return value``
+     - numpy.ndarray[bool], shape (n_grid,)
+     - True marks a grid point whose nearest observed point is strictly farther than dist. False retains it. Reshape explicitly to a mesh shape if needed. Inputs are copied; unequal paired lengths or negative dist raise ValueError. Degenerate/empty/nonfinite grids are not comprehensively validated by the implementation.
 
 
 

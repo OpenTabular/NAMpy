@@ -23,17 +23,36 @@ Signature
 Parameters
 ----------
 
-``model`` — Type: fitted core ``nampy.gam.GAM``
-   Default: ``required``. Use a fitted core model, or ``estimator.gam_`` from a wrapper. Required compiled/fitted state is read from this object; passing a wrapper directly is not supported.
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
 
-``method`` — Type: str
-   Default: ``required``. Canonical lower-case method: fixed, gcv, gacv, ubre, aic, ubreaic, ml, reml, p-ml, p-reml, laml, ncv or qncv. This helper does not lowercase or resolve aliases; unknown values raise ValueError.
+   * - Field
+     - Type
+     - Default
+     - Meaning
+   * - ``model``
+     - fitted core ``nampy.gam.GAM``
+     - ``required``
+     - Use a fitted core model, or ``estimator.gam_`` from a wrapper. Required compiled/fitted state is read from this object; passing a wrapper directly is not supported.
+   * - ``method``
+     - str
+     - ``required``
+     - Canonical lower-case method: fixed, gcv, gacv, ubre, aic, ubreaic, ml, reml, p-ml, p-reml, laml, ncv or qncv. This helper does not lowercase or resolve aliases; unknown values raise ValueError.
 
 Outputs
 -------
 
-``return value`` — Type: bool, shape ()
-   Reports this model/family criterion capability, including scale, transformed-coefficient/observation and derivative guards. It does not certify every optimizer, formula composition or convergence condition; fitting performs further validation.
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Field
+     - Type
+     - Meaning
+   * - ``return value``
+     - bool, shape ()
+     - Reports this model/family criterion capability, including scale, transformed-coefficient/observation and derivative guards. It does not certify every optimizer, formula composition or convergence condition; fitting performs further validation.
 
 
 

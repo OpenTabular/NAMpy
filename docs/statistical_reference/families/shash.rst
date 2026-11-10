@@ -179,21 +179,21 @@ positive ``b``. ``GAMLSS.predict`` returns ``(mu, sigma, epsilon, delta)``;
 CDF/log-CDF and inverse-transform simulation hooks are present.
 Source GAM response prediction returns ``(mu, log_sigma, epsilon, log_delta)``.
 
-The fitting likelihood includes the source ridge
+**Fitting criterion.** The fitting likelihood includes the source ridge
 ``-phi_pen * log(delta)**2`` (``phiPen`` is an accepted alias). Public normalized
 density scoring omits that estimation ridge. All analytic derivatives through
 fourth order are supplied. Fixed SP, Newton-selected REML and EFS references
 cover initialization, covariance, criterion/EDF, AIC/logLik, predictions/SE,
 residuals and summary tables.
 
-The EFS parity captures provide the same explicit initial smoothing parameters
+**EFS initialization.** The EFS parity captures provide the same explicit initial smoothing parameters
 to both implementations. Source ``initial.spg`` uses the initially
 reparameterized design with the original penalty coordinates: an arbitrary
 eigenvector sign can change its starting parameters and the finite EFS
 endpoint. Static source sign-transport checks record this dependence and
 verify common-start prediction, covariance, penalty and EDF invariants.
 
-Nonzero offsets are rejected. The source fitting likelihood's bin lookup
+**Prediction and residual limits.** Nonzero offsets are rejected. The source fitting likelihood's bin lookup
 excludes a lower ``-Inf`` endpoint: an exactly zero standardized residual
 therefore produces positive-infinite source likelihood. The normalized density
 and residual expression stay finite there. Residual centering retains the

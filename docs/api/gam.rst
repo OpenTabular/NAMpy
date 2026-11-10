@@ -41,17 +41,16 @@ Spherical smooths
 -----------------
 
 Use ``s(latitude, longitude, bs="sos")`` for an isotropic smooth on a
-sphere.  Coordinates are supplied in degrees, latitude first and longitude
-second.  The default ``m=0`` is the second-order Wendelberger spline; integer
-orders from ``-2`` through ``4`` select the upstream Duchon or Wahba kernel
-branches.  SOS margins in ``te`` and ``ti`` must be grouped with ``d=2``.
-The array API cannot express this joint two-coordinate term, so SOS models use
-the formula interface.  The ``m=-1`` null space is four-dimensional; combining
-that order with an ``fs`` factor smooth is rejected because the corresponding
-upstream penalty split is LAPACK-orientation dependent.  Upstream SOS smooths
-also do not define derivative matrices. ``model.plot(scheme=0)`` and
-``scheme=1`` provide rotated hemisphere displays; ``theta`` and ``phi``
-control the view, with numerical grids checked against mgcv.
+sphere. Supply latitude first and longitude second, both in degrees.
+
+* **Basis.** ``m=0`` selects the second-order Wendelberger spline. Integer
+  orders from ``-2`` through ``4`` select the upstream Duchon or Wahba branches.
+* **Composition.** Use the formula interface and group ``sos`` tensor margins
+  in ``te`` or ``ti`` with ``d=2``. The four-dimensional ``m=-1`` null space
+  makes its ``fs`` penalty split LAPACK-dependent, so that fit is guarded.
+* **Prediction and display.** Upstream supplies no derivative matrices.
+  ``model.plot(scheme=0)`` and ``scheme=1`` show rotated hemispheres. Set
+  ``theta`` and ``phi`` to change the view.
 
 Shape-constrained smooths
 -------------------------

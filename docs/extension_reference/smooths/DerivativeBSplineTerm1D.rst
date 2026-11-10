@@ -89,7 +89,20 @@ Dimensions: ``n`` rows, ``d`` input columns, ``p`` fitted coefficients, ``q`` re
 Outputs
 -------
 
-``fit(X, feature_names)`` accepts a numeric/categorical design with n rows and its d column names, initializes the term, and returns the same term instance. ``transform_new(X_new)`` returns a floating NumPy array of shape (n_new, p_term) in the fitted constraint coordinates. ``penalties`` is a list of floating square arrays, each (p_term, p_term). Multiplying the design by its coefficient vector gives the link contribution of shape (n_new,). Invalid feature names, dimensions and basis-specific domains raise ValueError; unsupported compositions raise NotImplementedError.
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Operation
+     - Result
+   * - ``fit(X, feature_names)``
+     - Initializes the term from ``n`` design rows and their ``d`` column names. Returns the fitted term.
+   * - ``transform_new(X_new)``
+     - Floating NumPy design of shape ``(n_new, p_term)`` in fitted constraint coordinates. Multiply by the term coefficients for its link contribution.
+   * - ``penalties``
+     - List of floating penalty matrices, each of shape ``(p_term, p_term)``.
+
+Invalid inputs raise ``ValueError``. Unsupported compositions raise ``NotImplementedError``.
 
 Implementation notes
 --------------------

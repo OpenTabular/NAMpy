@@ -23,14 +23,32 @@ Signature
 Parameters
 ----------
 
-``model`` — Type: fitted core ``nampy.gam.GAM``
-   Default: ``required``. Use a fitted core model, or ``estimator.gam_`` from a wrapper. Required compiled/fitted state is read from this object; passing a wrapper directly is not supported.
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Field
+     - Type
+     - Default
+     - Meaning
+   * - ``model``
+     - fitted core ``nampy.gam.GAM``
+     - ``required``
+     - Use a fitted core model, or ``estimator.gam_`` from a wrapper. Required compiled/fitted state is read from this object; passing a wrapper directly is not supported.
 
 Outputs
 -------
 
-``return value`` — Type: int >= 0, shape ()
-   Count of entries not marked fixed in ``smoothing_fixed_mask_``; with no mask, count of model smoothing coordinates. A fixed-SP solve can still have entries marked free: ``optimize_smoothing=False`` does not change this bookkeeping count into zero.
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Field
+     - Type
+     - Meaning
+   * - ``return value``
+     - int >= 0, shape ()
+     - Count of entries not marked fixed in ``smoothing_fixed_mask_``; with no mask, count of model smoothing coordinates. A fixed-SP solve can still have entries marked free: ``optimize_smoothing=False`` does not change this bookkeeping count into zero.
 
 
 

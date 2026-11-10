@@ -7,8 +7,10 @@ The quasi model specifies a link and a mean-variance relation separately:
 
    g(\mu)=\eta,\qquad\operatorname{Var}(Y\mid x)=\phi V(\mu).
 
-``variance`` selects exactly one of the following forms; whitespace is removed
-from the option string before matching:
+Variance functions
+~~~~~~~~~~~~~~~~~~
+
+``variance`` selects one of these forms. Whitespace is removed before matching.
 
 * ``'constant'``: :math:`V(\mu)=1`; real means are permitted.
 * ``'mu'``: :math:`V(\mu)=\mu`; require :math:`\mu>0`.
@@ -16,8 +18,10 @@ from the option string before matching:
 * ``'mu^2'``: :math:`V(\mu)=\mu^2`; require :math:`\mu>0`.
 * ``'mu^3'``: :math:`V(\mu)=\mu^3`; require :math:`\mu>0`.
 
-``power`` selects a **link exponent**, not a variance exponent. Its actual
-constructor dispatch is
+Link exponent
+~~~~~~~~~~~~~
+
+``power`` controls the link exponent independently of ``variance``.
 
 .. math::
 
@@ -46,14 +50,16 @@ The separate ``quasipoisson`` and ``quasibinomial`` factory mappings accept
 only ``link`` and retain their named variance functions; custom variance/power
 options belong to general ``quasi``.
 
-For direct ``QuasiFamily(...)`` construction, ``**kwargs`` accepts the inherited
-``eps`` float, default ``1e-9``. It is a numerical safeguard, not dispersion or
-response noise, and not every link uses it instead of machine epsilon. The
-options-mapping factory accepts only ``name``, ``link``, ``variance`` and
-``power`` for this family; it rejects an ``eps`` key. The named quasi classes
-also forward inherited ``eps`` and numeric ``power`` in direct construction,
-subject to the same link/power compatibility rules; their factory mappings
-remain restricted to ``name`` and ``link``.
+Constructor and factory options
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* **Direct construction.** ``QuasiFamily(...)`` accepts inherited ``eps`` via
+  ``**kwargs``, default ``1e-9``. It safeguards link calculations where used.
+  The named quasi classes also forward ``eps`` and numeric ``power`` subject
+  to the link compatibility rules.
+* **Factory mappings.** General ``quasi`` accepts ``name``, ``link``,
+  ``variance`` and ``power``. ``quasipoisson`` and ``quasibinomial`` accept
+  ``name`` and ``link``.
 
 The quasi objective supplies estimating equations rather than a normalized
 response law. Its scale and supported extended-quasi smoothing criteria are

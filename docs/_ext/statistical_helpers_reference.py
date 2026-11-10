@@ -86,15 +86,18 @@ LINKS = {
 }
 
 
-def field_list(entries):
-    """Definition lists keep parameters/outputs detailed without output tables."""
-    text = ""
-    for name, kind, default, meaning in entries:
-        text += f"``{name}`` — Type: {kind}\n   "
-        if default is not None:
-            text += f"Default: ``{default}``. "
-        text += meaning + "\n\n"
-    return text
+def field_table(entries):
+    """Give each helper field a label, description, and separate metadata."""
+    from public_reference import table
+
+    if any(default is not None for _, _, default, _ in entries):
+        return table(["Field", "Type", "Default", "Meaning"], [
+            (f"``{name}``", kind, f"``{default}``" if default is not None else "—", meaning)
+            for name, kind, default, meaning in entries
+        ])
+    return table(["Field", "Type", "Meaning"], [
+        (f"``{name}``", kind, meaning) for name, kind, _, meaning in entries
+    ])
 
 
 def contract(obj, parameters, outputs, *, spelling=None, level="-"):
@@ -106,12 +109,12 @@ def contract(obj, parameters, outputs, *, spelling=None, level="-"):
         + f".. code-block:: python\n\n   {name}{inspect.signature(obj)}\n\n"
         + heading("Parameters", level)
         + (
-            field_list(parameters)
+            field_table(parameters)
             if parameters
             else "The constructor takes no arguments.\n\n"
         )
         + heading("Outputs", level)
-        + field_list(outputs)
+        + field_table(outputs)
     )
 
 
@@ -227,7 +230,7 @@ def generate_links(root):
         text += f"   family.link{inspect.signature(demo.link.__call__)}\n"
         for name in ["inverse_link", "mu_eta", "d2link", "d3link", "d4link"]:
             text += f"   family.{name}{inspect.signature(getattr(demo, name))}\n"
-        text += "\n" + field_list(
+        text += "\n" + field_table(
             [
                 (
                     "mu",
@@ -243,7 +246,7 @@ def generate_links(root):
                 ),
             ]
         )
-        text += heading("Outputs", "-") + field_list(
+        text += heading("Outputs", "-") + field_table(
             [
                 (
                     "family.link(mu)",

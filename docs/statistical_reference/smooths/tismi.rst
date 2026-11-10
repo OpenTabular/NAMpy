@@ -118,7 +118,20 @@ Capabilities
 Outputs
 -------
 
-The formula adds a term to the fitted model's additive predictor. Its coefficient block has p_term columns after constraints; this dimension differs from EDF. ``predict(type='terms')`` returns a floating array with n rows and one column per retained term for a scalar predictor. ``lpmatrix`` returns the full floating model design, shape (n, p), including the other terms. The scalar Gaussian examples below produce response predictions of shape (n,). Runtime matrix and penalty contracts are documented separately.
+.. list-table::
+   :header-rows: 1
+   :class: api-reference-table
+
+   * - Operation
+     - Result
+   * - Formula term
+     - Adds a term to the link predictor. Its coefficient block has ``p_term`` columns after constraints. EDF is a separate fit statistic.
+   * - ``predict(type='terms')``
+     - Floating array with ``n`` rows and one column per retained term for a scalar predictor.
+   * - ``lpmatrix``
+     - Full floating model design of shape ``(n, p)``, including the other terms.
+
+The scalar Gaussian examples produce response predictions of shape ``(n,)``.
 
 
 

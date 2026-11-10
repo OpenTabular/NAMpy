@@ -72,14 +72,16 @@ would have a nonzero fixed boundary contribution. In contrast, ``fs`` or
 ``sz`` with no factor delegates to the ordinary soap constructor and retains
 its offsets and explicit term smoothing parameters.
 
-Matrix-valued paired coordinates and summation weights are supported for
+**Matrix-valued coordinates.** Paired coordinates and summation weights are supported for
 ``fs(sf)``, ``sz(sf)``, ``sz(sw)`` and fully known ``sz(so)`` with scalar
 categorical factors. For example, use ``s(X,Y,group,bs='fs',by=L,
 xt={'bs':'sf','bnd':boundary})`` with array-valued ``X``, ``Y`` and ``L``
 cells and a categorical ``group`` column. Boundary and knot names must match
-the coordinate names. A group that varies across quadrature columns can instead
-use explicit categorical rows, as described below. Classless character arrays
-are not silently converted to factors. Analytic soap derivatives remain unavailable.
+the coordinate names.
+
+**Factors within a row.** When groups vary across quadrature columns, supply
+explicit categorical rows. Use declared factor levels in place of plain
+character arrays. Analytic soap derivatives are unavailable.
 See ``examples/example_soap_compositions.py`` for runnable recipes.
 The static reference tests cover basis and penalty matrices, domains with
 holes, known boundaries, fitting, prediction uncertainty, and persistence.

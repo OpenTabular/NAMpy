@@ -48,60 +48,68 @@ Omitting ``by`` uses unit weights. For a surface,
 ``sum_j L[i,j] * f(X[i,j], Z[i,j])``; all coordinate and weight matrices must
 have matching shapes.
 
+Basis and weight conventions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 The same weighted or unit-weight summation is supported by ``cr``,
 ``cc``, ``ps``, ``cp``, ``bs``, ``ds``, ``gp`` and ``sos``. Duchon and GP
 terms accept paired multivariate locations; spherical terms use paired
-latitude/longitude matrices. Penalties are scaled on the underlying pointwise
-basis before summation. Constant row sums retain the upstream centering
-constraint even when the individual quadrature weights vary.
-Repeated coordinates follow mgcv's setup packing rule: coordinates are pooled
-in column-major order and packed to their first occurrences when fewer than
-90% of the point tuples are unique. Penalty scaling and centering use that
-setup basis; prediction expands the pointwise basis before summation. All ``cs``
-matrix fits are rejected, including distinct locations: unequal null-space
-shrinkage penalties have an unresolved portable eigenvector-orientation parity
-issue. Scalar ``cs`` terms remain supported.
+latitude and longitude matrices.
 
-Adaptive ``ad`` terms support weighted or unit-weight one-dimensional
-matrices and unit-weight paired two-dimensional matrices. Weighted 2D
-adaptive matrix fits are rejected: mgcv 1.9-4 loses the ``by`` variable in
-prediction for this construction, so its fitted and predicted values differ.
+* **Penalty and centering.** Penalties are scaled on the pointwise basis before
+  summation. Constant row sums retain the upstream centering constraint even
+  when individual weights vary.
+* **Repeated locations.** The setup pools coordinates in column-major order.
+  When fewer than 90% of point tuples are unique, it packs them to their first
+  occurrences. Prediction expands the pointwise basis before summation.
+* **Shrinkage cubics.** Matrix ``cs`` fits, including distinct locations, are
+  guarded because unequal null-space shrinkage depends on eigenvector
+  orientation. Scalar ``cs`` remains supported.
 
-Soap ``so``/``sf``/``sw`` terms also support paired location matrices and
-weighted sums. Known-boundary ``so``/``sf`` matrix fitting is rejected because
-upstream ``smoothCon`` cannot aggregate the constructor's boundary offset.
-``sw`` has no boundary offset and supports this case.
+Adaptive and bounded surfaces
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Random-effect ``re`` and full/reduced-rank ``mrf`` terms accept array-valued
-categorical cells as well. Their factor levels are pooled across all cells;
-string labels such as ``"01"`` and ``"1"`` remain distinct.
-Numeric and categorical random-effect interactions retain pointwise products
-before summation. For example, ``s(region, by=L, bs='re')`` accepts a
-``region`` column whose cells are lists of labels, while ``s(X, region,
-by=L, bs='re')`` sums numeric-by-factor random effects at paired locations.
-MRF terms retain their required adjacency or penalty specification and reject
-unknown regions; random effects give unseen levels zero contribution.
+.. list-table::
+   :header-rows: 1
 
-``fs`` terms with ``xt={'bs': 'cr'}`` or ``xt={'bs': 'ps'}`` accept matrix
-metric locations and a scalar factor per observation. They support weighted,
-unit and constant-row-sum functionals, including repeated paired locations.
-Matrix ``fs`` with its default ``tp`` base remains rejected because its
-multiple independently penalized null directions have unresolved parity.
-Univariate ``tp`` with ``m=1`` has a single null direction and is supported,
-for example ``s(X, group, bs='fs', k=6, m=1, by=L)``. The requested ``m``
-is passed to thin-plate bases inside both ``fs`` and ``sz``.
-Alternatively specify an accepted base explicitly, for example
-``s(X, group, bs='fs', k=7, xt={'bs': 'cr'}, by=L)``.
+   * - Operation
+     - Result
+   * - Adaptive ``ad``
+     - Supports weighted or unit-weight 1D matrices and unit-weight paired 2D matrices. Weighted 2D prediction loses the ``by`` variable in mgcv 1.9-4 and is guarded.
+   * - Soap ``so`` / ``sf`` / ``sw``
+     - Supports paired location matrices and weighted sums. For known boundaries, use ``sw``. Upstream ``smoothCon`` cannot aggregate the boundary offsets of ``so`` or ``sf``.
 
-``sz`` matrix functionals support ``tp`` (one or two metric coordinates),
-``cr`` and ``ps`` bases, with one or more scalar factor columns per observation.
-Unit, varying and constant-row-sum weights follow upstream constraint handling;
-repeated-location ``cr``/``ps`` cases are also validated. Paired matrix soap
-coordinates with scalar factors support ``fs(sf)``, ``sz(sf/sw)`` and fully
-known-boundary ``sz(so)``; their source offset conventions are described above.
+Random effects and grouped smooths
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* **Random effects and MRF.** ``re`` and full- or reduced-rank ``mrf`` accept
+  array-valued categorical cells. Factor levels are pooled across cells, and
+  labels such as ``"01"`` and ``"1"`` stay distinct. MRF requires an adjacency
+  or penalty specification and rejects unknown regions. Random effects give
+  unseen levels zero contribution.
+* **Numeric-by-factor random effects.** ``s(region, by=L, bs='re')`` accepts
+  lists of region labels. ``s(X, region, by=L, bs='re')`` multiplies the
+  numeric and categorical effects at each paired location before summing.
+* **Factor smooths.** For ``fs``, use ``xt={'bs': 'cr'}`` or ``xt={'bs': 'ps'}``
+  with matrix locations and a scalar factor per observation. Both bases support
+  varying, unit and constant-row-sum weights, including repeated locations.
+  For ``tp``, use one metric coordinate and ``m=1``, as in
+  ``s(X, group, bs='fs', k=6, m=1, by=L)``. Matrix ``fs`` rejects the default
+  ``tp`` because parity is unresolved for its independent null penalties.
+* **Sum-to-zero factor smooths.** For ``sz``, matrix functionals support ``tp``
+  with one or two metric coordinates, ``cr`` and ``ps``, with one or more
+  scalar factors per observation. Unit, varying and constant-row-sum weights
+  follow upstream constraints. Repeated ``cr`` and ``ps`` locations are also
+  validated. Both ``fs`` and ``sz`` pass ``m`` to their ``tp`` bases.
+* **Soap bases.** With paired matrix coordinates and scalar factors, use
+  ``fs(sf)``, ``sz(sf/sw)`` or ``sz(so)`` with a fully known boundary. See the
+  source offset conventions above.
+
+Matrix-valued factors
+~~~~~~~~~~~~~~~~~~~~~
 
 To supply a matrix-valued factor, store each row as a ``pandas.Categorical``
-with the same declared categories and ordered flag. For example:
+with the same declared categories and ordered flag.
 
 .. code-block:: python
 
@@ -113,40 +121,43 @@ with the same declared categories and ordered flag. For example:
 ``groups`` has the same row count and quadrature width as the metric matrices.
 Each location may have its own factor level. The categorical rows carry the
 equivalent of R's factor-plus-dim metadata; plain arrays of labels do not.
-With matrix-valued factors, ``fs`` supports single-penalty ``sf``, ``tp`` with
-``m=1`` in one dimension, and ``ps`` with ``m=[2,1]``. Multiple independent null
-penalties remain guarded: matching the function space alone does not preserve
-the independently weighted null-space penalty operator across representations.
-``sz`` supports the documented ``cr/ps/tp`` and soap bases.
-With multiple matrix-valued factors, every joint training group must be
-observed; empty joint groups remain guarded pending matching rank and side
-conditions. Both this restriction and the multi-null ``fs`` restriction are
-NAMpy parity limitations, rather than upstream input rejections.
-Use at least two columns: upstream converts a one-column factor matrix to a
-numeric vector. Prediction may change the quadrature width while preserving
-the factor levels and pairing with the metric coordinates and weights.
+
+* **Factor smooths.** For ``fs``, use single-penalty ``sf``, one-dimensional ``tp`` with
+  ``m=1``, or ``ps`` with ``m=[2,1]``. Multiple independent null penalties
+  require parity of the penalty operator as well as the function space.
+* **Sum-to-zero factor smooths.** For ``sz``, use ``cr``, ``ps``, ``tp`` or soap bases.
+* **Multiple factors.** Every joint training group must be observed. Empty
+  joint groups and multi-null ``fs`` are guarded by NAMpy's parity checks.
+* **Width.** Use at least two columns because upstream converts a one-column
+  factor matrix to a numeric vector. At prediction, width may change if
+  factor levels and pairing with metric locations and weights are preserved.
+
 See ``examples/example_matrix_factor.py`` for a complete soap fit.
 
-``te``, ``ti`` and ``t2`` support paired matrix coordinates with tested
-``cr``, ``ps``, ``tp``, ``ds``, ``gp``, ``sf`` and ``sw`` margins.
-``te`` and ``ti`` additionally support ``bs`` margins.
-Matrix ``t2`` also supports ``bs`` margins when each B-spline null space has
-at most one dimension, such as ``m=[[3, 1], [3, 1]]``, or when only the
-highest range-space order is retained, such as ``ord=[2]`` for two margins.
-These cases avoid the ambiguous null-space metric. Mixed range/null terms
-with multidimensional ``bs`` null spaces remain rejected because portable
-null-space normalization parity is unresolved. ``te``/``ti`` with ``bs``
-and ordinary scalar-input ``t2`` remain supported; matrix ``t2`` with tested
-``cr``, ``ds``, ``gp``, ``tp`` and ``ps`` margins remains supported.
-They sum pointwise tensor products, rather than multiplying separately summed
-margins. Numeric, factor and mixed ``re`` margins also support these tensor
-constructors with ordinary or matrix inputs. Their default identity precision
-or a single supplied precision is supported; multiple precision matrices are
-rejected as tensor margins, following upstream. For example,
-``te(X, region, bs=['cr', 're'], k=[7, 6], by=L)`` sums paired smooth and random
-effect products. Linked matrix-valued tensor ``id`` groups remain unsupported.
+Tensor-product functionals
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Tensor functionals sum pointwise tensor products across paired locations.
+
+* **Tested margins.** ``te``, ``ti`` and ``t2`` support ``cr``, ``ps``, ``tp``,
+  ``ds``, ``gp``, ``sf`` and ``sw``. ``te`` and ``ti`` also support ``bs``.
+* **B-spline tensors.** Matrix inputs to ``t2`` support ``bs`` when each null space has at
+  most one dimension (for example ``m=[[3, 1], [3, 1]]``), or when only the
+  highest range-space order is retained (``ord=[2]`` for two margins). Mixed
+  range/null blocks with multidimensional ``bs`` null spaces remain guarded
+  pending portable normalization. Ordinary scalar-input ``t2`` is supported.
+* **Random-effect margins.** Numeric, factor and mixed ``re`` support ordinary
+  or matrix inputs with identity or a single supplied precision matrix.
+  Upstream excludes multiple precisions as tensor margins.
+  ``te(X, region, bs=['cr', 're'], k=[7, 6], by=L)`` sums paired smooth and
+  random-effect products.
+* **Linked IDs.** Linked matrix-valued tensor ``id`` groups are unsupported.
+
 The runnable ``examples/example_matrix_functionals.py`` demonstrates a
 thin-plate surface and a tensor functional with prediction standard errors.
+
+Fitting and prediction
+~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
@@ -163,15 +174,14 @@ thin-plate surface and a tensor functional with prediction standard errors.
        smoothing_method='reml', optimize_smoothing=True,
    ).fit(data=data)
 
-The quadrature weights define the functional predictor; ``sample_weight``
-continues to weight observations. Zero quadrature rows contribute no smooth
-value. Identifiability depends on whether the sums of the quadrature weights
-are constant across observations, following mgcv. Prediction reuses the fitted
-basis and accepts new location matrices, including a different number of
-quadrature points, or individual scalar locations. Prediction standard errors,
-formula offsets and model persistence use the same interfaces as scalar
-smooths. Linked matrix-valued ``tp``/``ts`` terms are tested; linked pooling
-remains restricted for some other bases.
+* **Weights.** Quadrature weights define the functional predictor and
+  ``sample_weight`` weights observations. Zero quadrature rows contribute zero.
+  Identifiability follows mgcv's constant-row-sum rule.
+* **New locations.** Prediction reuses the fitted basis and accepts matrices
+  with a different number of quadrature points or individual scalar locations.
+* **Shared interfaces.** Prediction standard errors, offsets and persistence
+  use the scalar-smooth interfaces. Linked matrix ``tp`` and ``ts`` are tested.
+  Pooling remains restricted for some other bases.
 
 See :doc:`../notebooks/functional_inputs` for a functional-regression example.
 
