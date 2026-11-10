@@ -493,8 +493,8 @@ def survival_estimator_text(cls, *, neural):
         default = "required" if parameter.default is inspect.Parameter.empty else literal(parameter.default)
         rows.append((f"``{name}``", f"``{default}``", meanings.get(name, GAM_PARAMETERS.get(name, name))))
     text = ":ref:`Survival workflow and limitations <howto-user-guide-survival>`.\n\n"
-    text += "Constructor parameters\n~~~~~~~~~~~~~~~~~~~~~~\n\n" + table(["Parameter", "Default", "Meaning"], rows)
-    text += "Full shared fit contract\n~~~~~~~~~~~~~~~~~~~~~~~~\n\n"
+    text += "Constructor parameters\n----------------------\n\n" + table(["Parameter", "Default", "Meaning"], rows)
+    text += "Full shared fit contract\n------------------------\n\n"
     text += (
         "* **Targets and weights.** ``fit(X, SurvivalTarget, sample_weight=..., offset=...)`` takes time, event (0/1), optional entry, and unique subject IDs. Entry conditions the likelihood. ``score`` normalizes by total subject weight.\n"
         "* **Offsets.** Supply one log-rate offset per subject for piecewise fits or an ``(n_subjects, 2)`` array for parametric fits. Supply new offsets at prediction if the fit used them.\n"
@@ -519,7 +519,7 @@ def survival_estimator_text(cls, *, neural):
             "Use at least ``k`` distinct endpoints and positive exposure in each interval. Coupled smooth intervals can have zero events if the fit converges. "
             "Use ``temporal_formula`` for identified ``ti(survival_time, covariate, ...)`` interactions.\n\n"
         )
-    text += "Predictions and supported operations\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n"
+    text += "Predictions and supported operations\n------------------------------------\n\n"
     text += table(["Operation", "Result"], [
         ("``predict`` / ``predict_survival``", "Survival probabilities at explicit times, shaped ``(n_subjects, n_times)``."),
         ("``predict_link``", "Interval log hazards or latent distribution parameter predictors."),
@@ -532,13 +532,13 @@ def survival_estimator_text(cls, *, neural):
         "RMST accepts a common or subject-specific landmark. Pre-landmark curve cells are ``NaN``.\n"
         "* **Tail behavior.** Piecewise predictions stop at the final cut and unreached quantiles are ``NaN``. "
         "Weibull and lognormal tails extrapolate from the fitted distribution.\n\n"
-        "Diagnostics and evaluation\n^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n"
+        ".. rubric:: Diagnostics and evaluation\n   :class: reference-subsection\n\n"
         "* ``survival_residuals`` returns entry-conditioned Cox–Snell residuals with censoring flags.\n"
         "* ``survival_curve`` estimates entry-aware Kaplan–Meier survival and Nelson–Aalen cumulative hazard.\n"
         "* ``concordance_index`` requires an explicit risk direction. ``brier_score`` takes a censoring distribution fitted on training data "
         "and can integrate errors over a finite grid. Both reject delayed entry.\n"
         "* For longitudinal evaluation, use one outcome and case weight per subject and align predictions to ``subject_ids`` using complete paths.\n\n"
-        "Effects and uncertainty\n^^^^^^^^^^^^^^^^^^^^^^^\n\n"
+        ".. rubric:: Effects and uncertainty\n   :class: reference-subsection\n\n"
         "* **Effects.** ``prepare_survival_effects`` adds selected centered terms to the reference predictor before transforming to survival. "
         "Interpret the result as a probability contrast.\n"
         "* **Statistical coefficient intervals.** Use ``prepare_survival_curve_interval``, ``prepare_survival_effect_interval``, "
@@ -549,7 +549,7 @@ def survival_estimator_text(cls, *, neural):
         "* **Replicated fits.** ``combine_survival_predictions`` averages survival on an aligned cohort and reports empirical between-fit ranges.\n"
         "* **Calibration.** Conformal calibration provides lower event-time bounds under route-specific assumptions.\n\n"
         "See the :doc:`/howto/survival` guide for inference scales, bootstrap requirements and integration details.\n\n"
-        "Unsupported routes\n~~~~~~~~~~~~~~~~~~\n\n"
+        "Unsupported routes\n------------------\n\n"
         "* **Event and censoring models.** Recurrent events, competing risks, left or interval censoring, parametric time-varying covariates, "
         "and neural or longitudinal Cox. Use ``CoxGAM`` for static Cox regression.\n"
         "* **Fitting.** Censored EFS, optim, magic and nlm.fd, separate censored ML, LAML, GCV, UBRE and NCV, "

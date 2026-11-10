@@ -212,7 +212,7 @@ def parse_blocks(text: str, source: Path, stack: tuple[Path, ...]) -> list:
             index, directive = _read_directive(lines, index)
             if directive is None:
                 continue
-            name, argument, _options, body = directive
+            name, argument, options, body = directive
             if name == "include":
                 included = resolve_source(source, argument)
                 if included in stack:
@@ -225,6 +225,8 @@ def parse_blocks(text: str, source: Path, stack: tuple[Path, ...]) -> list:
             elif name == "math":
                 formula = argument if argument and not body else "\n".join(body)
                 blocks.append(Math(formula))
+            elif name == "rubric" and options.get("class") == "reference-subsection":
+                blocks.append(Heading(UNDERLINE["^"], argument))
             elif name == "list-table":
                 blocks.append(_parse_table(body))
             elif name == "literalinclude":
